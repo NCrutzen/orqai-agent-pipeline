@@ -63,11 +63,11 @@ Plans:
   1. User can provide a brief use case description (1-3 sentences) and receive a complete agent swarm specification in the correct directory structure
   2. User can provide a detailed multi-paragraph brief and receive a complete agent swarm specification without unnecessary research stages running
   3. Pipeline adapts its depth based on input detail level -- skipping research subagents when the user provides sufficient context
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — Orchestrator command with input handling, classification, and architect stage (Steps 1-5)
+- [ ] 03-02-PLAN.md — Generation pipeline waves, output assembly, metadata, and SKILL.md update (Steps 6-7)
 
 ### Phase 4: Distribution
 **Goal**: Package everything as an installable Claude Code plugin that non-technical colleagues can set up and update
