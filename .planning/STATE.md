@@ -93,6 +93,7 @@ None yet.
 ### Roadmap Evolution
 
 - Phase 4.1 inserted after Phase 4: Introducing a Discussion phase on start if needed (URGENT)
+- Phase 4.2 inserted after Phase 4: Tool Selection and MCP Servers (URGENT)
 
 ### Blockers/Concerns
 
