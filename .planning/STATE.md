@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-24)
 ## Current Position
 
 Phase: 2 of 4 (Core Generation Pipeline)
-Plan: 4 of 5 in current phase
-Status: In Progress
-Last activity: 2026-02-24 -- Completed 02-04-PLAN.md
+Plan: 5 of 5 in current phase
+Status: Phase Complete
+Last activity: 2026-02-24 -- Completed 02-05-PLAN.md
 
-Progress: [██████░░░░] 55%
+Progress: [███████░░░] 65%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: 2min
 - Total execution time: 0.25 hours
 
@@ -39,6 +39,7 @@ Progress: [██████░░░░] 55%
 | 02-03 orchestration-generator | 2min | 1 tasks | 1 files |
 | Phase 02 P04 | 3min | 1 tasks | 1 files |
 | Phase 02 P02 | 3min | 1 tasks | 1 files |
+| Phase 02 P05 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -59,6 +60,9 @@ Recent decisions affecting current work:
 - 01-03: Three few-shot examples (simple/moderate/complex) as primary calibration mechanism for architect
 - 01-03: Anti-patterns section in architect prompt to prevent over-engineering at decision time
 - 01-03: SKILL.md as lightweight index (84 lines) with Phase 2 subagent placeholders
+- [Phase 02-05]: Technical-but-clear tone for READMEs -- assumes Orq.ai Studio basics, no LLM jargon in business sections
+- [Phase 02-05]: Complete few-shot example uses 2-agent customer support swarm (consistent with architect examples)
+- [Phase 02-05]: Tool Schema Generator confirmed removed from SKILL.md (merged into spec generator)
 - 02-03: Mermaid diagram rules embedded directly in subagent prompt for reliable rendering
 - 02-03: Error handling categorized by agent role criticality (critical/support/classification/generation)
 - 02-03: HITL identification via 6 trigger categories (high-value, sensitive data, scope-exceeding, low-confidence, external writes, irreversible)
@@ -85,5 +89,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 02-04-PLAN.md (Dataset generator subagent)
+Stopped at: Completed 02-05-PLAN.md (README generator and SKILL.md update -- Phase 2 complete)
 Resume file: None
