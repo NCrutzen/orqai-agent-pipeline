@@ -46,12 +46,14 @@ Plans:
   3. Orchestration generator produces an `ORCHESTRATION.md` documenting agent-as-tool assignments, data flow, error handling, and human-in-the-loop decision points
   4. Tool schema generator produces valid JSON Schema definitions for function tools, recommends built-in tools, and identifies HTTP/Python/MCP tool needs
   5. Dataset generator produces test inputs, eval pairs, and multi-model comparison matrices with at least 30% adversarial/messy cases
-**Plans**: TBD
+**Plans**: 5 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
-- [ ] 02-03: TBD
+- [ ] 02-01-PLAN.md — Domain researcher subagent with web search and structured research briefs
+- [ ] 02-02-PLAN.md — Spec generator subagent with all Orq.ai fields, tool schemas, and self-validation
+- [ ] 02-03-PLAN.md — Orchestration generator subagent with Mermaid diagrams and error handling
+- [ ] 02-04-PLAN.md — Dataset generator subagent with dual datasets and adversarial taxonomy
+- [ ] 02-05-PLAN.md — README generator subagent and SKILL.md update
 
 ### Phase 3: Orchestrator and Adaptive Pipeline
 **Goal**: Wire all subagents into a single orchestrator workflow that handles any input from brief to detailed and adapts pipeline depth accordingly
