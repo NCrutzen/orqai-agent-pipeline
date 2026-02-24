@@ -96,6 +96,33 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 2. Core Generation Pipeline | 0/3 | Not started | - |
 | 3. Orchestrator and Adaptive Pipeline | 2/2 | Complete   | 2026-02-24 |
 | 4. Distribution | 0/1 | Complete    | 2026-02-24 |
+| 04.4 KB-Aware Discussion & Researcher | 0/? | Not started | - |
+| 04.5 Automated KB Setup (Supabase MCP) | 0/? | Not started | - |
+
+### Phase 04.4: KB-Aware Discussion & Researcher (INSERTED)
+
+**Goal:** Make the pipeline knowledge-base-aware end-to-end — the Discussion step surfaces KB source questions (format, freshness, volume, access control), the Researcher produces actionable KB design guidance (chunking strategy, embedding model, metadata schema), and the Spec Generator includes KB setup instructions in its output
+**Depends on:** Phase 04.1, Phase 04.2
+**Requirements:** ADV-03 (partial — design guidance, not full scaffolding)
+**Success Criteria** (what must be TRUE):
+  1. Discussion step generates KB-specific gray areas whenever the use case involves documents, policies, FAQs, or data retrieval — covering data sources, freshness requirements, volume, and access control
+  2. Researcher subagent output includes a "Knowledge Base Design" section with chunking strategy, embedding model recommendation, metadata fields, and document preparation guidance
+  3. Spec Generator includes actionable KB setup instructions (not just placeholder IDs) in the agent spec and README output
+  4. Pipeline correctly skips KB questions when the use case has no knowledge base needs
+**Plans:** TBD (to be created during /gsd:plan-phase)
+
+### Phase 04.5: Automated KB Setup via Supabase MCP (INSERTED)
+
+**Goal:** Add a KB Setup subagent that uses the Supabase MCP server to automatically create vector tables with pgvector, configure embeddings, generate ingestion pipelines, and populate knowledge bases — turning "connect your KB" into a fully automated setup process
+**Depends on:** Phase 04.4
+**Requirements:** ADV-03 (full — automated KB provisioning and data ingestion)
+**Success Criteria** (what must be TRUE):
+  1. KB Setup subagent produces a `KB-SETUP.md` per knowledge base referenced in the swarm with table schema, embedding config, and ingestion pipeline
+  2. When Supabase MCP is available, the subagent automatically creates pgvector tables, configures embedding dimensions, and sets up RLS policies via MCP tool calls
+  3. Ingestion pipeline scaffold handles common document formats (PDF, markdown, HTML, CSV) with configurable chunking parameters
+  4. Generated ingestion scripts are runnable and include upsert logic for keeping KBs updated as source documents change
+  5. The full KB setup process (table creation → embedding config → initial data load) can run end-to-end without manual Supabase console interaction
+**Plans:** TBD (to be created during /gsd:plan-phase)
 
 ### Phase 04.3: Beste Prompt Strategy (INSERTED)
 
@@ -109,7 +136,7 @@ Plans:
 - [ ] 04.3-02-PLAN.md — Orchestration generator, researcher, and orchestration template: delegation frameworks, effort scaling, tool overlap detection, context management recommendations
 - [ ] 04.3-03-PLAN.md — Orchestrator prompt and secondary subagents (architect, dataset-gen, readme-gen): XML tags, heuristic guidelines, consistent patterns
 
-### Phase 04.2: Tool Selection and MCP Servers (INSERTED)
+### Phase 04.2: Tool Selection and MCP Servers (INSERTED) — Complete (2026-02-24)
 
 **Goal:** Build a tool resolver pipeline stage and unified tool catalog so generated Orq.ai agent specs include accurate, verified tool recommendations with copy-paste-ready configuration
 **Depends on:** Phase 4
@@ -117,8 +144,8 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 04.2-01-PLAN.md — Unified tool catalog reference, TOOLS.md template, and tool resolver subagent prompt
-- [ ] 04.2-02-PLAN.md — Wire tool resolver into orchestrator pipeline, update downstream subagents and SKILL.md
+- [x] 04.2-01-PLAN.md — Unified tool catalog reference, TOOLS.md template, and tool resolver subagent prompt
+- [x] 04.2-02-PLAN.md — Wire tool resolver into orchestrator pipeline, update downstream subagents and SKILL.md
 
 ### Phase 04.1: Introducing a Discussion phase on start if needed (INSERTED)
 
