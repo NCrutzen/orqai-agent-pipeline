@@ -1,0 +1,14 @@
+{
+  "name": "orq-agent-marketplace",
+  "owner": {
+    "name": "Moyne Roberts"
+  },
+  "plugins": [
+    {
+      "name": "orq-agent",
+      "source": ".",
+      "description": "Generate complete Orq.ai Agent specifications from use case descriptions",
+      "version": "1.0.0"
+    }
+  ]
+}

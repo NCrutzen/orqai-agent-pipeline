@@ -1,0 +1,11 @@
+{
+  "name": "orq-agent",
+  "description": "Generate complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic from use case descriptions",
+  "version": "1.0.0",
+  "author": {
+    "name": "Moyne Roberts"
+  },
+  "homepage": "https://github.com/MoyneRoberts/orq-agent-designer",
+  "repository": "https://github.com/MoyneRoberts/orq-agent-designer",
+  "license": "MIT"
+}
