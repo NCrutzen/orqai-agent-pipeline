@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-24)
 ## Current Position
 
 Phase: 4.2 (Tool Selection and MCP Servers)
-Plan: 1 of 2 in current phase
-Status: In Progress
-Last activity: 2026-02-24 -- Completed 04.2-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase Complete
+Last activity: 2026-02-24 -- Completed 04.2-02-PLAN.md
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ Progress: [█████░░░░░] 50%
 | Phase 04 P03 | 2min | 1 tasks | 1 files |
 | Phase 04.1 P01 | 3min | 2 tasks | 2 files |
 | Phase 04.2 P01 | 3min | 2 tasks | 3 files |
+| Phase 04.2 P02 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,9 @@ Recent decisions affecting current work:
 - [Phase 04.2-01]: Tool catalog at 1001 words with 21 MCP servers organized by 9 categories -- fits within 500-1000 word budget
 - [Phase 04.2-01]: Tool resolver prompt at 152 lines -- compact but complete with two-phase resolution, web search protocol, and self-validation checklist
 - [Phase 04.2-01]: TOOLS.md template includes Rationale column in Swarm Tool Landscape table for transparency
+- [Phase 04.2-02]: Step 5.5 numbering to avoid disrupting existing step references
+- [Phase 04.2-02]: Tool resolver always runs even when researcher is skipped
+- [Phase 04.2-02]: TOOLS.md is authoritative -- spec generator and researcher defer but add domain-specific detail
 
 ### Pending Todos
 
@@ -124,5 +128,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 04.2-01-PLAN.md
-Resume file: .planning/phases/04.2-tool-selection-and-mcp-servers/04.2-01-SUMMARY.md
+Stopped at: Completed 04.2-02-PLAN.md
+Resume file: .planning/phases/04.2-tool-selection-and-mcp-servers/04.2-02-SUMMARY.md
