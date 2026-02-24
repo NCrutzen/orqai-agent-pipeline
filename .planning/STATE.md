@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-24)
 ## Current Position
 
 Phase: 4 of 4 (Distribution)
-Plan: 1 of 1 in current phase
-Status: Not Started
-Last activity: 2026-02-24 -- Completed 03-02-PLAN.md
+Plan: 1 of 2 in current phase
+Status: In Progress
+Last activity: 2026-02-24 -- Completed 04-01-PLAN.md
 
-Progress: [█████████░] 90%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Progress: [█████████░] 90%
 | Phase 02 P05 | 2min | 2 tasks | 2 files |
 | Phase 03 P01 | 2min | 2 tasks | 1 files |
 | Phase 03 P02 | 3min | 3 tasks | 2 files |
+| Phase 04 P01 | 2min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ Recent decisions affecting current work:
 - [Phase 03-02]: Researcher scaling: 1-3 agents single invocation, 4+ agents parallel instances
 - [Phase 03-02]: Lean orchestrator passes file paths to subagents, never loads outputs into context
 - [Phase 03-02]: Graceful degradation: failed subagent marked incomplete, pipeline continues, failures reported at end
+- [Phase 04-01]: Skills directory install path (~/.claude/skills/orq-agent) over commands directory per research
+- [Phase 04-01]: Placeholder GitHub URLs (OWNER/REPO) to be replaced when repo is created
+- [Phase 04-01]: Version comparison before download to skip if already up to date
 
 ### Pending Todos
 
@@ -94,6 +98,7 @@ None yet.
 
 - Phase 4.1 inserted after Phase 4: Introducing a Discussion phase on start if needed (URGENT)
 - Phase 4.2 inserted after Phase 4: Tool Selection and MCP Servers (URGENT)
+- Phase 4.3 inserted after Phase 4: Beste Prompt Strategy (URGENT)
 
 ### Blockers/Concerns
 
@@ -104,5 +109,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Phase 4.2 context gathered
-Resume file: .planning/phases/04.2-tool-selection-and-mcp-servers/04.2-CONTEXT.md
+Stopped at: Completed 04-01-PLAN.md
+Resume file: .planning/phases/04-distribution/04-01-SUMMARY.md

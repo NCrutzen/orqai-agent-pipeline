@@ -96,6 +96,15 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 3. Orchestrator and Adaptive Pipeline | 2/2 | Complete   | 2026-02-24 |
 | 4. Distribution | 0/1 | Not started | - |
 
+### Phase 04.3: Beste Prompt Strategy (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Depends on:** Phase 4
+**Plans:** 1/2 plans executed
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 04.3 to break down)
+
 ### Phase 04.2: Tool Selection and MCP Servers (INSERTED)
 
 **Goal:** [Urgent work - to be planned]
