@@ -15,10 +15,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Agent Architecture
 
-- [ ] **ARCH-01**: Architect subagent analyzes use case and determines how many agents are needed (with complexity gate defaulting to single-agent when sufficient)
-- [ ] **ARCH-02**: Architect subagent defines each agent's role, responsibilities, and relationship to other agents
-- [ ] **ARCH-03**: Architect subagent determines orchestration pattern: single agent, sequential pipeline, or parallel fan-out with orchestrator
-- [ ] **ARCH-04**: Architect subagent identifies which agents should be assigned as tools to an orchestrator agent (Orq.ai's native orchestration mechanism)
+- [x] **ARCH-01**: Architect subagent analyzes use case and determines how many agents are needed (with complexity gate defaulting to single-agent when sufficient)
+- [x] **ARCH-02**: Architect subagent defines each agent's role, responsibilities, and relationship to other agents
+- [x] **ARCH-03**: Architect subagent determines orchestration pattern: single agent, sequential pipeline, or parallel fan-out with orchestrator
+- [x] **ARCH-04**: Architect subagent identifies which agents should be assigned as tools to an orchestrator agent (Orq.ai's native orchestration mechanism)
 
 ### Domain Research
 
@@ -113,10 +113,10 @@ Deferred to future release. Tracked but not in current roadmap.
 | INPT-01 | Phase 3 | Pending |
 | INPT-02 | Phase 3 | Pending |
 | INPT-03 | Phase 3 | Pending |
-| ARCH-01 | Phase 1 | Pending |
-| ARCH-02 | Phase 1 | Pending |
-| ARCH-03 | Phase 1 | Pending |
-| ARCH-04 | Phase 1 | Pending |
+| ARCH-01 | Phase 1 | Complete |
+| ARCH-02 | Phase 1 | Complete |
+| ARCH-03 | Phase 1 | Complete |
+| ARCH-04 | Phase 1 | Complete |
 | RSRCH-01 | Phase 2 | Pending |
 | RSRCH-02 | Phase 2 | Pending |
 | RSRCH-03 | Phase 2 | Pending |
