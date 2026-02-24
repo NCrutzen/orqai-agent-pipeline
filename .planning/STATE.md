@@ -104,5 +104,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Phase 4.1 context gathered
-Resume file: .planning/phases/04.1-introducing-a-discussion-phase-on-start-if-needed/04.1-CONTEXT.md
+Stopped at: Phase 4.2 context gathered
+Resume file: .planning/phases/04.2-tool-selection-and-mcp-servers/04.2-CONTEXT.md
