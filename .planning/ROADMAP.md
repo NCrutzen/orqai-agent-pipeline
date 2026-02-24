@@ -78,10 +78,11 @@ Plans:
   2. User can run `/orq-agent:update` to pull the latest version from GitHub
   3. Skill works standalone (`/orq-agent`) and is callable from within a GSD phase
   4. Total skill size stays within Claude Code character budget limits
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
+- [ ] 04-01-PLAN.md — Plugin packaging, install script with prerequisite checks, version tracking, and rollback
+- [ ] 04-02-PLAN.md — Update command, help command, GSD integration flags, and SKILL.md update
 
 ## Progress
 
