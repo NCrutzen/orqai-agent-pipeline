@@ -117,22 +117,107 @@ Wait for user response:
 
 ## Step 4: Run Architect
 
-<!-- TODO: Plan 02 will implement this step -->
-<!-- Spawn architect subagent with use case description -->
-<!-- Reference: @orq-agent/agents/architect.md -->
-<!-- Display GSD banner: ORQ ► ARCHITECT -->
-<!-- Store blueprint output path for downstream stages -->
+Display the architect banner:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► ARCHITECT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ Spawning architect...
+```
+
+Spawn the architect subagent using the Task tool:
+
+- **Agent file:** `@orq-agent/agents/architect.md`
+- **Input:** Pass the user's use case description as the primary input
+- **Files to read:** Include the architect's reference files via `<files_to_read>`:
+  - `orq-agent/references/orchestration-patterns.md`
+  - `orq-agent/references/orqai-model-catalog.md`
+  - `orq-agent/references/naming-conventions.md`
+
+The architect will produce a structured blueprint containing:
+- Swarm name
+- Agent count and roles
+- Orchestration pattern (single, sequential, or parallel-with-orchestrator)
+- Agent-as-tool assignments (for multi-agent patterns)
+- Per-agent model recommendations and tool needs
+
+After the architect completes, display the result:
+
+```
+✓ Architect complete: [N] agent(s), [pattern] pattern
+```
+
+Store the full blueprint output for use by downstream stages in Steps 5-7.
+
+**Do NOT load the full blueprint into orchestrator context for downstream stages.** Instead, write the blueprint to a temporary file (e.g., `blueprint.md` in the output directory) and pass the file path to downstream subagents. Keep the orchestrator lean.
 
 ---
 
 ## Step 5: Blueprint Review
 
-<!-- TODO: Plan 02 will implement this step -->
-<!-- Display architect blueprint to user -->
-<!-- Checkpoint: user approves or requests changes -->
-<!-- If changes requested: re-run architect with original input + feedback -->
-<!-- After approval: update orchestration generator classification based on pattern -->
-<!-- Set up output directory with auto-versioning -->
+Display the architect's blueprint to the user in full. Then present the review checkpoint:
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║  CHECKPOINT: Blueprint Review                                ║
+╚══════════════════════════════════════════════════════════════╝
+
+This is the main quality gate. After approval, generation runs autonomously.
+
+Review the blueprint above:
+- Agent count and roles
+- Orchestration pattern
+- Model selections
+- Tool assignments
+
+──────────────────────────────────────────────────────────────
+→ Type "approved" to continue to generation
+→ Describe changes to revise the blueprint
+──────────────────────────────────────────────────────────────
+```
+
+Wait for user response:
+
+- **If "approved"** (or equivalent confirmation): proceed to post-blueprint updates below
+- **If user describes changes:** Re-run the architect subagent with the ORIGINAL use case description PLUS the user's feedback appended. Display the revised blueprint and present this checkpoint again. Repeat until the user approves.
+
+### Post-Blueprint Updates
+
+After the blueprint is approved:
+
+**1. Update orchestration generator classification:**
+- Parse the blueprint for the selected pattern
+- If architect selected **single-agent** pattern: set Orchestration Generator = **N/A** (will not run)
+- If architect selected **multi-agent** pattern (sequential or parallel-with-orchestrator): confirm Orchestration Generator = **RUN**
+
+**2. Set up output directory:**
+- Extract the swarm name from the architect blueprint (e.g., `customer-support-swarm` becomes `customer-support`)
+- Target directory: `./Agents/[swarm-name]/`
+
+**Auto-versioning logic:**
+- Use Bash to check if `./Agents/[swarm-name]/` already exists
+- If it does NOT exist: create `./Agents/[swarm-name]/`
+- If it DOES exist: scan `./Agents/` for directories matching `[swarm-name]-v*`, find the highest version number N, and create `./Agents/[swarm-name]-v[N+1]/`. If no versioned directories exist, create `./Agents/[swarm-name]-v2/`
+
+**3. Create subdirectories:**
+```bash
+mkdir -p ./Agents/[swarm-name]/agents
+mkdir -p ./Agents/[swarm-name]/datasets
+```
+
+**4. Write the blueprint to the output directory:**
+- Save the approved blueprint to `./Agents/[swarm-name]/blueprint.md` for downstream subagents to read
+
+Display the output directory confirmation:
+
+```
+✓ Output directory: ./Agents/[swarm-name]/
+  ├── agents/
+  ├── datasets/
+  └── blueprint.md
+```
 
 ---
 
