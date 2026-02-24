@@ -67,7 +67,7 @@ Each agent `.md` must include ALL Orq.ai Agent fields:
 
 ### Output Structure
 
-- [ ] **OUT-01**: Output follows directory structure: `Agents/[swarm-name]/ORCHESTRATION.md`, `agents/[agent-name].md`, `datasets/`, `README.md`
+- [x] **OUT-01**: Output follows directory structure: `Agents/[swarm-name]/ORCHESTRATION.md`, `agents/[agent-name].md`, `datasets/`, `README.md`
 - [x] **OUT-02**: Naming convention enforced: `[domain]-[role]-agent` kebab-case for agent keys, swarm directory matches domain
 - [ ] **OUT-03**: Per-swarm README with numbered step-by-step setup instructions for non-technical users to configure agents in Orq.ai Studio
 - [x] **OUT-04**: Output is machine-parseable — structured consistently so future Orq.ai MCP can consume it programmatically
@@ -145,7 +145,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | DATA-02 | Phase 2 | Pending |
 | DATA-03 | Phase 2 | Pending |
 | DATA-04 | Phase 2 | Pending |
-| OUT-01 | Phase 1 | Pending |
+| OUT-01 | Phase 1 | Complete |
 | OUT-02 | Phase 1 | Complete |
 | OUT-03 | Phase 2 | Pending |
 | OUT-04 | Phase 1 | Complete |
