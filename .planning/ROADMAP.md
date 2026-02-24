@@ -29,12 +29,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Architect subagent identifies which agents should be tools of an orchestrator agent when multi-agent patterns are needed
   4. Reference files exist for all Orq.ai agent fields, model catalog, orchestration patterns, and naming conventions
   5. Output templates exist for agent spec, orchestration doc, dataset, and README file types following the directory structure convention
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md — Orq.ai reference files (agent fields, model catalog, orchestration patterns, naming conventions)
+- [ ] 01-02-PLAN.md — Output templates (agent spec, orchestration, dataset, README)
+- [ ] 01-03-PLAN.md — Architect subagent with complexity gate and blueprint output
 
 ### Phase 2: Core Generation Pipeline
 **Goal**: Build all generation subagents so the pipeline can produce complete, quality-gated Orq.ai agent specs, orchestration docs, tool schemas, and datasets
