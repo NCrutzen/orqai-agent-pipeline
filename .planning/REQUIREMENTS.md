@@ -60,10 +60,10 @@ Each agent `.md` must include ALL Orq.ai Agent fields:
 
 ### Dataset Generation
 
-- [ ] **DATA-01**: Generate test input sets per agent — realistic user messages and variable values covering happy path and edge cases
-- [ ] **DATA-02**: Generate eval pairs per agent — input + expected output for systematic evaluation
-- [ ] **DATA-03**: Generate multi-model comparison matrices — same test inputs formatted for testing across different providers (OpenAI, Anthropic, Google, etc.)
-- [ ] **DATA-04**: Include adversarial/messy test cases (minimum 30% of dataset) — not just clean synthetic data
+- [x] **DATA-01**: Generate test input sets per agent — realistic user messages and variable values covering happy path and edge cases
+- [x] **DATA-02**: Generate eval pairs per agent — input + expected output for systematic evaluation
+- [x] **DATA-03**: Generate multi-model comparison matrices — same test inputs formatted for testing across different providers (OpenAI, Anthropic, Google, etc.)
+- [x] **DATA-04**: Include adversarial/messy test cases (minimum 30% of dataset) — not just clean synthetic data
 
 ### Output Structure
 
@@ -141,10 +141,10 @@ Deferred to future release. Tracked but not in current roadmap.
 | TOOL-02 | Phase 2 | Pending |
 | TOOL-03 | Phase 2 | Pending |
 | TOOL-04 | Phase 2 | Pending |
-| DATA-01 | Phase 2 | Pending |
-| DATA-02 | Phase 2 | Pending |
-| DATA-03 | Phase 2 | Pending |
-| DATA-04 | Phase 2 | Pending |
+| DATA-01 | Phase 2 | Complete |
+| DATA-02 | Phase 2 | Complete |
+| DATA-03 | Phase 2 | Complete |
+| DATA-04 | Phase 2 | Complete |
 | OUT-01 | Phase 1 | Complete |
 | OUT-02 | Phase 1 | Complete |
 | OUT-03 | Phase 2 | Pending |
