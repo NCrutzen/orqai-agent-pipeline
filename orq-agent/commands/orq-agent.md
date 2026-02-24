@@ -297,10 +297,10 @@ Extract the list of agent keys from the architect blueprint.
 
   Use the Task tool to spawn a single researcher:
   - **Agent file:** `@orq-agent/agents/researcher.md`
-  - **Input:** Pass the blueprint file path (`./Agents/[swarm-name]/blueprint.md`) and the original user input
+  - **Input:** Pass the blueprint file path (`{OUTPUT_DIR}/[swarm-name]/blueprint.md`) and the original user input
   - The researcher reads its own reference files via `<files_to_read>` -- do NOT load them in the orchestrator
 
-  On completion, the researcher writes a research brief file. Store the research brief path for Wave 2 (e.g., `./Agents/[swarm-name]/research-brief.md`).
+  On completion, the researcher writes a research brief file. Store the research brief path for Wave 2 (e.g., `{OUTPUT_DIR}/[swarm-name]/research-brief.md`).
 
 - **4+ agents:** Invoke MULTIPLE researcher instances in parallel, each handling a subset of agents (e.g., 3 agents per researcher). The researcher prompt supports this naturally since each agent gets its own section.
 
@@ -314,7 +314,7 @@ Extract the list of agent keys from the architect blueprint.
 
 **Error handling for Wave 1:**
 If a researcher invocation fails or times out:
-- Write a marker file: `./Agents/[swarm-name]/research-brief.incomplete` with error details
+- Write a marker file: `{OUTPUT_DIR}/[swarm-name]/research-brief.incomplete` with error details
 - Log the failure: add to `failures` list with stage, agent keys affected, and error message
 - Continue to Wave 2 -- spec generators for affected agents will still run but with a note that research was unavailable
 
@@ -345,16 +345,16 @@ Spawn ONE spec generator per agent, all in parallel using the Task tool.
 For each agent, invoke a spec generator:
 - **Agent file:** `@orq-agent/agents/spec-generator.md`
 - **Input:** Pass three file paths:
-  1. Architect blueprint: `./Agents/[swarm-name]/blueprint.md`
-  2. Research brief: `./Agents/[swarm-name]/research-brief.md` (or note "Research was skipped -- generate specs from blueprint and user input only" if Wave 1 was skipped; or note "Research unavailable for this agent due to researcher failure" if that agent's researcher failed)
+  1. Architect blueprint: `{OUTPUT_DIR}/[swarm-name]/blueprint.md`
+  2. Research brief: `{OUTPUT_DIR}/[swarm-name]/research-brief.md` (or note "Research was skipped -- generate specs from blueprint and user input only" if Wave 1 was skipped; or note "Research unavailable for this agent due to researcher failure" if that agent's researcher failed)
   3. The specific agent key to generate
 - The spec generator reads its own reference files and templates via `<files_to_read>` -- do NOT load them in the orchestrator
 
-Each spec generator writes its output to: `./Agents/[swarm-name]/agents/[agent-key].md`
+Each spec generator writes its output to: `{OUTPUT_DIR}/[swarm-name]/agents/[agent-key].md`
 
 **Error handling for Wave 2:**
 If a spec generator fails for a specific agent:
-- Write a marker file: `./Agents/[swarm-name]/agents/[agent-key].md.incomplete` with error details
+- Write a marker file: `{OUTPUT_DIR}/[swarm-name]/agents/[agent-key].md.incomplete` with error details
 - Log the failure: add to `failures` list
 - Mark that agent's `agents_generated` entry as `"incomplete"`
 - Continue with remaining generators -- do NOT abort other agents
@@ -392,25 +392,25 @@ Count the generators to spawn:
 **Orchestration Generator** (multi-agent swarms only -- skip if single-agent or if classification set it to N/A):
 - **Agent file:** `@orq-agent/agents/orchestration-generator.md`
 - **Input:** Pass the blueprint path and all successfully generated agent spec file paths
-- Output: `./Agents/[swarm-name]/ORCHESTRATION.md`
+- Output: `{OUTPUT_DIR}/[swarm-name]/ORCHESTRATION.md`
 
 **Dataset Generator** (one invocation per agent that has a successfully generated spec):
 - **Agent file:** `@orq-agent/agents/dataset-generator.md`
 - **Input:** Pass three file paths per agent:
-  1. Blueprint: `./Agents/[swarm-name]/blueprint.md`
-  2. Research brief: `./Agents/[swarm-name]/research-brief.md` (or note if skipped/failed)
-  3. Agent spec: `./Agents/[swarm-name]/agents/[agent-key].md`
-- Output per agent: `./Agents/[swarm-name]/datasets/[agent-key]-dataset.md` and `./Agents/[swarm-name]/datasets/[agent-key]-edge-dataset.md`
+  1. Blueprint: `{OUTPUT_DIR}/[swarm-name]/blueprint.md`
+  2. Research brief: `{OUTPUT_DIR}/[swarm-name]/research-brief.md` (or note if skipped/failed)
+  3. Agent spec: `{OUTPUT_DIR}/[swarm-name]/agents/[agent-key].md`
+- Output per agent: `{OUTPUT_DIR}/[swarm-name]/datasets/[agent-key]-dataset.md` and `{OUTPUT_DIR}/[swarm-name]/datasets/[agent-key]-edge-dataset.md`
 - Skip dataset generation for any agent whose spec generation failed in Wave 2
 
 **README Generator:**
 - **Agent file:** `@orq-agent/agents/readme-generator.md`
 - **Input:** Pass all generated file paths:
-  1. Blueprint: `./Agents/[swarm-name]/blueprint.md`
-  2. All agent spec paths: `./Agents/[swarm-name]/agents/*.md`
-  3. Orchestration doc path: `./Agents/[swarm-name]/ORCHESTRATION.md` (if multi-agent)
-  4. Dataset file list: all files in `./Agents/[swarm-name]/datasets/`
-- Output: `./Agents/[swarm-name]/README.md`
+  1. Blueprint: `{OUTPUT_DIR}/[swarm-name]/blueprint.md`
+  2. All agent spec paths: `{OUTPUT_DIR}/[swarm-name]/agents/*.md`
+  3. Orchestration doc path: `{OUTPUT_DIR}/[swarm-name]/ORCHESTRATION.md` (if multi-agent)
+  4. Dataset file list: all files in `{OUTPUT_DIR}/[swarm-name]/datasets/`
+- Output: `{OUTPUT_DIR}/[swarm-name]/README.md`
 
 **Error handling for Wave 3:**
 If any Wave 3 subagent fails:
@@ -443,7 +443,7 @@ Record `pipeline_completed_at` as current UTC timestamp. Calculate `duration_sec
 Display the output directory tree using Bash `find` or construct an ASCII tree:
 
 ```
-./Agents/[swarm-name]/
+{OUTPUT_DIR}/[swarm-name]/
   ├── blueprint.md
   ├── research-brief.md (if research ran)
   ├── ORCHESTRATION.md (if multi-agent)
@@ -506,14 +506,14 @@ If no failures, display:
 ║  Next Steps                                                   ║
 ╚══════════════════════════════════════════════════════════════╝
 
-1. Review agent specs in ./Agents/[swarm-name]/agents/
+1. Review agent specs in {OUTPUT_DIR}/[swarm-name]/agents/
    Priority: check system prompts and tool configurations
 
 2. Review ORCHESTRATION.md for agent wiring (if multi-agent)
    Priority: verify agent-as-tool assignments match your intent
 
 3. Run test datasets against your agents in Orq.ai Studio
-   Location: ./Agents/[swarm-name]/datasets/
+   Location: {OUTPUT_DIR}/[swarm-name]/datasets/
 
 4. Deploy to Orq.ai Studio:
    - Create each agent using the spec files
@@ -530,7 +530,7 @@ Write `pipeline-run.json` to the output directory root using the Write tool:
 {
   "pipeline_version": "1.0",
   "swarm_name": "[from architect blueprint]",
-  "output_directory": "./Agents/[swarm-name]/",
+  "output_directory": "{OUTPUT_DIR}/[swarm-name]/",
   "started_at": "[pipeline_started_at ISO timestamp]",
   "completed_at": "[pipeline_completed_at ISO timestamp]",
   "duration_seconds": [calculated duration],
