@@ -93,6 +93,8 @@ Deferred to future release. Tracked but not in current roadmap.
 - **ADV-01**: Iterative refinement — re-run on existing swarm output to modify or extend agents
 - **ADV-02**: Prompt optimization loop — use eval results to suggest prompt improvements
 - **ADV-03**: Knowledge base content scaffolding — generate starter content for referenced knowledge bases
+- **ADV-04**: KB-aware pipeline — Discussion surfaces KB source questions, Researcher produces KB design guidance (chunking, embeddings, metadata)
+- **ADV-05**: Automated KB setup via Supabase MCP — create pgvector tables, configure embeddings, generate and run ingestion pipelines
 
 ## Out of Scope
 
@@ -101,7 +103,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | Visual/GUI agent builder | Orq.ai Studio already is the visual builder — we generate specs for it, not replace it |
 | Direct Orq.ai API deployment | Orq.ai MCP doesn't exist yet — building custom API integration is fragile and removes human review |
 | Real-time agent monitoring | Orq.ai handles observability natively |
-| Knowledge base content creation | Massive scope expansion into data engineering — specs reference KBs but don't populate them |
+| Knowledge base content creation | ~~Massive scope expansion into data engineering~~ — Partially addressed by ADV-04/ADV-05 (phases 04.4 and 04.5) |
 | Auto-update on launch | Surprise changes break trust for non-technical users |
 | Multi-platform support | Dilutes Orq.ai-native quality — stay focused on one platform done well |
 | Prompt fine-tuning loop | Requires runtime infrastructure beyond spec generation scope |
