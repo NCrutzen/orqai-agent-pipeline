@@ -70,15 +70,100 @@ Wait for the user's response. Once received, store the input and proceed to Step
 
 ---
 
-## Step 2: Classify Input Depth
+## Step 2: Discussion
 
-Evaluate the user's input against each pipeline stage's requirements. This classification determines which stages run and which are skipped.
+Analyze the user's use case to surface implementation decisions before the pipeline proceeds. This discussion ensures the architect receives enriched context regardless of how brief or detailed the original input was.
 
-**IMPORTANT:** Only the Researcher stage is ever skippable. All other stages always run. Do not over-engineer this classification.
+### 2.1: Analyze Use Case
 
-### Classification Dimensions
+Read the user's input and determine:
 
-For the **Researcher** stage, evaluate whether the user's input explicitly provides ALL of the following for EVERY agent that will be in the swarm:
+1. **Domain:** What kind of system is being built? (customer support, content generation, data processing, workflow automation, etc.)
+2. **Gray areas:** 3-4 domain-specific implementation decisions that would change the result. These are decisions the USER cares about -- not technical decisions.
+
+**Gray area generation rules:**
+- Each area must be specific to the use case domain (not generic like "UI" or "Error handling")
+- Each area represents a decision that could go multiple ways
+- Each area should have 1-2 example questions it covers
+- Areas should NOT ask about technical implementation (models, tools, prompts -- those are Claude's job)
+
+**Examples by domain:**
+- FAQ bot: "Knowledge sources", "Tone & personality", "Escalation behavior", "Scope boundaries"
+- Customer support triage: "Routing criteria", "Priority detection", "Handoff protocol", "Response style"
+- Content generation pipeline: "Output format & style", "Quality guardrails", "Source handling", "Personalization depth"
+- Data processing workflow: "Input validation rules", "Error recovery strategy", "Output structure", "Notification triggers"
+
+### 2.2: Present Gray Areas
+
+Display the discussion banner and gray areas as a multi-select:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► DISCUSSION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Domain: [identified domain]
+
+Which areas should we discuss before building?
+(This ensures the agents match your expectations.)
+
+☐ 1. [Area 1] — [1-2 example questions]
+☐ 2. [Area 2] — [1-2 example questions]
+☐ 3. [Area 3] — [1-2 example questions]
+☐ 4. [Area 4] — [1-2 example questions]
+
+──────────────────────────────────────────────────────
+→ Select areas to discuss (comma-separated numbers, or "all")
+→ Type "skip" to proceed directly to architect
+──────────────────────────────────────────────────────
+```
+
+Wait for user selection. If user types "skip": proceed to Step 2.5 with no discussion decisions.
+
+### 2.3: Discuss Selected Areas
+
+For each selected area:
+
+1. **Announce the area:** "Let's discuss [Area]."
+2. **Ask 4 questions, one at a time:**
+   - Each question offers 2-3 concrete options plus a "You decide" option where reasonable
+   - Each answer should inform the next question
+3. **After 4 questions, ask:** "More questions about [area], or move to next?"
+   - "More" --> ask up to 4 more questions, then force move to next area
+   - "Next" --> proceed to next selected area
+
+### 2.4: Compile Discussion Summary
+
+After all selected areas are discussed, compile a structured summary:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► DISCUSSION SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+### Use Case
+[Original user input -- verbatim]
+
+### Decisions Made
+- **[Area 1]:** [Decision summary]
+- **[Area 2]:** [Decision summary]
+
+### Additional Context
+- [Key details surfaced during discussion]
+
+### Open Areas (Claude's Discretion)
+- [Areas not discussed or where user said "you decide"]
+```
+
+Keep the summary to 100-300 words. Include the original user input verbatim.
+
+### 2.5: Internal Classification (Not User-Facing)
+
+Silently evaluate the enriched input (original + discussion decisions) against the researcher skip criteria. This is an internal decision -- do NOT display to the user.
+
+**Classification Dimensions**
+
+For the **Researcher** stage, evaluate whether the enriched input explicitly provides ALL of the following for EVERY agent that will be in the swarm:
 
 1. **Model selection with rationale** -- specific provider/model-name choices with reasoning
 2. **Tool requirements** -- specific Orq.ai tool types (not vague "needs search" but actual tool type names)
@@ -93,59 +178,24 @@ For the **Researcher** stage, evaluate whether the user's input explicitly provi
 
 **Common trap:** A long, detailed business description that does NOT mention specific models, tools, or guardrails is NOT sufficient to skip research. Length does not equal completeness for agent configuration.
 
-### Stage Decisions
+**Stage Decisions**
 
 | Stage | Decision | Rule |
 |-------|----------|------|
 | Architect | RUN | Always runs -- determines swarm topology regardless of input detail |
-| Researcher | RUN or SKIP | SKIP only when user explicitly provides agent configuration details (all 5 dimensions above for every agent) |
+| Researcher | RUN or SKIP | SKIP only when enriched input explicitly provides agent configuration details (all 5 dimensions above for every agent) |
 | Spec Generator | RUN | Always runs -- transforms blueprint + research into complete specs |
 | Orchestration Generator | TBD | RUN if multi-agent pattern (determined after architect), N/A if single-agent |
 | Dataset Generator | RUN | Always runs -- generates test data and adversarial cases |
 | README Generator | RUN | Always runs -- produces setup guide |
 
-Produce your classification as a table with reasoning per stage.
+Store the researcher decision (RUN or SKIP) for use in Step 5 (generation pipeline). Do NOT display this classification to the user.
+
+Proceed to Step 3.
 
 ---
 
-## Step 3: Confirm with User
-
-Display the classification result to the user using the following format:
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- ORQ ► CLASSIFYING INPUT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-| Stage                    | Decision | Reasoning                                    |
-|--------------------------|----------|----------------------------------------------|
-| Architect                | RUN      | [your reasoning]                             |
-| Researcher               | RUN/SKIP | [your reasoning]                             |
-| Spec Generator           | RUN      | [your reasoning]                             |
-| Orchestration Generator  | TBD      | Determined after architect selects pattern    |
-| Dataset Generator        | RUN      | [your reasoning]                             |
-| README Generator         | RUN      | [your reasoning]                             |
-
-╔══════════════════════════════════════════════════════════════╗
-║  CHECKPOINT: Pipeline Configuration                          ║
-╚══════════════════════════════════════════════════════════════╝
-
-Review the pipeline stages above.
-
-──────────────────────────────────────────────────────────────
-→ Type "proceed" to start the pipeline
-→ Type "change: researcher=skip" or "change: researcher=run" to override
-──────────────────────────────────────────────────────────────
-```
-
-Wait for user response:
-- If user says "proceed" (or equivalent confirmation): continue to Step 4
-- If user provides an override (e.g., "change: researcher=skip"): update the classification accordingly and re-display the updated table, then wait for confirmation again
-- If user asks questions: answer them, then re-present the checkpoint
-
----
-
-## Step 4: Run Architect
+## Step 3: Run Architect
 
 Display the architect banner:
 
@@ -160,7 +210,7 @@ Display the architect banner:
 Spawn the architect subagent using the Task tool:
 
 - **Agent file:** `@orq-agent/agents/architect.md`
-- **Input:** Pass the user's use case description as the primary input
+- **Input:** Pass the DISCUSSION SUMMARY from Step 2 as the primary input. If discussion was skipped, pass the original user input.
 - **Files to read:** Include the architect's reference files via `<files_to_read>`:
   - `orq-agent/references/orchestration-patterns.md`
   - `orq-agent/references/orqai-model-catalog.md`
@@ -179,13 +229,13 @@ After the architect completes, display the result:
 ✓ Architect complete: [N] agent(s), [pattern] pattern
 ```
 
-Store the full blueprint output for use by downstream stages in Steps 5-7.
+Store the full blueprint output for use by downstream stages in Steps 4-6.
 
 **Do NOT load the full blueprint into orchestrator context for downstream stages.** Instead, write the blueprint to a temporary file (e.g., `blueprint.md` in the output directory) and pass the file path to downstream subagents. Keep the orchestrator lean.
 
 ---
 
-## Step 5: Blueprint Review
+## Step 4: Blueprint Review
 
 Display the architect's blueprint to the user in full. Then present the review checkpoint:
 
@@ -252,9 +302,9 @@ Display the output directory confirmation:
 
 ---
 
-## Step 6: Execute Generation Pipeline
+## Step 5: Execute Generation Pipeline
 
-Execute the generation pipeline in three waves. Track timing for each wave and each subagent invocation. Collect all failures for reporting in Step 7.
+Execute the generation pipeline in three waves. Track timing for each wave and each subagent invocation. Collect all failures for reporting in Step 6.
 
 Initialize a pipeline tracker:
 - `pipeline_started_at`: current UTC timestamp
@@ -270,18 +320,18 @@ Initialize a pipeline tracker:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**If researcher was classified as SKIP:**
+**If researcher was classified as SKIP in Step 2.5 internal classification:**
 
 Display:
 ```
-Skipped — user provided sufficient domain context
+Skipped — enriched input provided sufficient domain context
 ```
 
 Record in `stages_completed`: `{ stage: "researcher", duration_seconds: 0, agents: 0, status: "skipped" }`
 
 Proceed directly to Wave 2.
 
-**If researcher was classified as RUN:**
+**If researcher was classified as RUN in Step 2.5 internal classification:**
 
 Extract the list of agent keys from the architect blueprint.
 
@@ -417,7 +467,7 @@ If any Wave 3 subagent fails:
 - Write a marker file: `[output-path].incomplete` with error details
 - Log the failure in `failures` list
 - Continue with remaining subagents -- do NOT abort
-- Report all failures in Step 7
+- Report all failures in Step 6
 
 Display completion:
 ```
@@ -428,7 +478,7 @@ Record each in `stages_completed` with stage name, duration, and status.
 
 ---
 
-## Step 7: Final Summary
+## Step 6: Final Summary
 
 Record `pipeline_completed_at` as current UTC timestamp. Calculate `duration_seconds` from `pipeline_started_at`.
 
@@ -438,7 +488,7 @@ Record `pipeline_completed_at` as current UTC timestamp. Calculate `duration_sec
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### 7.1 Directory Tree
+### 6.1 Directory Tree
 
 Display the output directory tree using Bash `find` or construct an ASCII tree:
 
@@ -459,7 +509,7 @@ Display the output directory tree using Bash `find` or construct an ASCII tree:
   └── pipeline-run.json
 ```
 
-### 7.2 Stats
+### 6.2 Stats
 
 Display a summary table:
 
@@ -473,7 +523,7 @@ Per-agent summary:
   → [agent-key-2]: [one-liner role description from blueprint]
 ```
 
-### 7.3 Failures (if any)
+### 6.3 Failures (if any)
 
 If `failures` list is non-empty, display each failure:
 
@@ -499,7 +549,7 @@ If no failures, display:
 ✓ All stages completed successfully — no failures
 ```
 
-### 7.4 Next Steps
+### 6.4 Next Steps
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
@@ -522,7 +572,7 @@ If no failures, display:
    - See README.md for step-by-step setup guide
 ```
 
-### 7.5 Write Pipeline Metadata
+### 6.5 Write Pipeline Metadata
 
 Write `pipeline-run.json` to the output directory root using the Write tool:
 
@@ -533,31 +583,36 @@ Write `pipeline-run.json` to the output directory root using the Write tool:
   "output_directory": "{OUTPUT_DIR}/[swarm-name]/",
   "started_at": "[pipeline_started_at ISO timestamp]",
   "completed_at": "[pipeline_completed_at ISO timestamp]",
-  "duration_seconds": [calculated duration],
+  "duration_seconds": "[calculated duration]",
   "input_classification": {
-    "input_length_words": [word count of user input],
+    "input_length_words": "[word count of user input]",
     "detail_level": "[brief | moderate | detailed]",
-    "stages": {
-      "architect": { "decision": "run", "reason": "[from Step 2 classification]" },
-      "researcher": { "decision": "[run | skip]", "reason": "[from Step 2 classification]" },
-      "spec_generator": { "decision": "run", "reason": "[from Step 2 classification]" },
-      "orchestration_generator": { "decision": "[run | skip | n/a]", "reason": "[from Step 2 or Step 5 update]" },
-      "dataset_generator": { "decision": "run", "reason": "[from Step 2 classification]" },
-      "readme_generator": { "decision": "run", "reason": "[from Step 2 classification]" }
+    "discussion": {
+      "gray_areas_presented": ["list of areas presented in Step 2.2"],
+      "gray_areas_selected": ["list of areas user selected"],
+      "questions_asked": "[total questions asked across all areas]",
+      "skipped": "[true if user typed skip, false otherwise]"
     },
-    "user_overrides": ["[any overrides from Step 3, or empty array]"]
+    "stages": {
+      "architect": { "decision": "run", "reason": "Always runs" },
+      "researcher": { "decision": "[run | skip]", "reason": "[from Step 2.5 internal classification]" },
+      "spec_generator": { "decision": "run", "reason": "Always runs" },
+      "orchestration_generator": { "decision": "[run | skip | n/a]", "reason": "[from Step 4 post-blueprint update]" },
+      "dataset_generator": { "decision": "run", "reason": "Always runs" },
+      "readme_generator": { "decision": "run", "reason": "Always runs" }
+    }
   },
   "agents_generated": [
     { "key": "[agent-key-1]", "status": "[complete | incomplete]" },
     { "key": "[agent-key-2]", "status": "[complete | incomplete]" }
   ],
   "stages_completed": [
-    { "stage": "architect", "duration_seconds": [elapsed], "status": "success" },
-    { "stage": "researcher", "duration_seconds": [elapsed], "agents": [count], "status": "[success | partial | skipped]" },
-    { "stage": "spec_generator", "duration_seconds": [elapsed], "agents": [count], "status": "[success | partial]" },
-    { "stage": "orchestration_generator", "duration_seconds": [elapsed], "status": "[success | skipped | n/a]" },
-    { "stage": "dataset_generator", "duration_seconds": [elapsed], "agents": [count], "status": "[success | partial]" },
-    { "stage": "readme_generator", "duration_seconds": [elapsed], "status": "[success | failed]" }
+    { "stage": "architect", "duration_seconds": "[elapsed]", "status": "success" },
+    { "stage": "researcher", "duration_seconds": "[elapsed]", "agents": "[count]", "status": "[success | partial | skipped]" },
+    { "stage": "spec_generator", "duration_seconds": "[elapsed]", "agents": "[count]", "status": "[success | partial]" },
+    { "stage": "orchestration_generator", "duration_seconds": "[elapsed]", "status": "[success | skipped | n/a]" },
+    { "stage": "dataset_generator", "duration_seconds": "[elapsed]", "agents": "[count]", "status": "[success | partial]" },
+    { "stage": "readme_generator", "duration_seconds": "[elapsed]", "status": "[success | failed]" }
   ],
   "failures": [
     {
