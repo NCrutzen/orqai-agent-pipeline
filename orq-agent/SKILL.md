@@ -48,15 +48,19 @@ Agents/[swarm-name]/
 
 ## Commands
 
-### Phase 3 (Orchestrator)
+### Orchestrator
 
 | Command | File | Purpose |
 |---------|------|---------|
 | `/orq-agent` | `commands/orq-agent.md` | Main orchestrator -- accepts use case descriptions, classifies input depth, runs adaptive pipeline, produces complete swarm specs |
+| `/orq-agent:update` | `commands/update.md` | Check for and install updates from GitHub |
+| `/orq-agent:help` | `commands/help.md` | Show available commands, usage examples, and version |
 
 **Invocation modes:**
 - Inline: `/orq-agent "Build a customer support triage system"`
 - Interactive: `/orq-agent` (prompts for input)
+- GSD mode: `/orq-agent --gsd "Build invoice processing agents"`
+- Custom output: `/orq-agent --output ./my-agents "Build a chatbot"`
 
 ## Subagents
 
@@ -94,6 +98,14 @@ Agents/[swarm-name]/
 | `dataset.md` | Template for test datasets requiring 30% adversarial cases minimum |
 | `readme.md` | Template for swarm READMEs with non-technical setup instructions |
 
+## Distribution
+
+- **Install:** `curl -sfL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | bash`
+- **Update:** `/orq-agent:update` (version-aware, shows changelog, auto-rollback)
+- **Location:** Installed to `~/.claude/skills/orq-agent/`
+- **GSD integration:** Use `--gsd` flag when invoking from a GSD phase
+- **Custom output:** Use `--output <path>` to override default `./Agents/` directory
+
 ## Key Design Decisions
 
 - **Complexity gate:** Architect defaults to single-agent design; each additional agent requires explicit justification
@@ -105,3 +117,6 @@ Agents/[swarm-name]/
 - **Only researcher is skippable:** All other stages always run regardless of input detail level
 - **Wave-based parallelism:** Researchers parallel, then spec generators parallel, then post-generation parallel
 - **Lean orchestrator:** Passes file paths to subagents rather than loading outputs into orchestrator context
+- **`--gsd` flag is a hint, not a dependency:** Skill works standalone without GSD installed
+- **Install to skills directory:** `~/.claude/skills/orq-agent/` for multi-file support without plugin namespace overhead
+- **Clean install every time:** No preservation of user customizations; always overwrite from GitHub

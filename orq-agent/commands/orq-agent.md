@@ -16,11 +16,41 @@ Follow each step in order. Do NOT skip steps. Do NOT proceed past a checkpoint u
 
 ---
 
+## Step 0: Parse Arguments
+
+Before processing the use case, parse `$ARGUMENTS` for flags. This step extracts configuration flags and separates them from the use case description.
+
+**Flag definitions:**
+- `--gsd`: Boolean flag. When present, sets `GSD_MODE=true`. This signals the invocation is part of a GSD workflow (for metadata and logging purposes). Does NOT change the output directory -- output goes to `./Agents/` regardless.
+- `--output <path>`: String flag. Overrides the default output directory. The next token after `--output` is consumed as the path value. If not provided, defaults to `./Agents/`.
+
+**Parsing rules:**
+1. Scan `$ARGUMENTS` for `--gsd` and `--output <path>` flags
+2. Flags can appear anywhere in the arguments string (beginning, middle, or end)
+3. `--output` consumes the next whitespace-delimited token as the path value
+4. Everything that is NOT a flag or flag value becomes the use case description
+5. If `--gsd` is present but no `--output`, output directory remains `./Agents/`
+
+**Store the parsed values:**
+- `USE_CASE_DESCRIPTION`: The remaining text after flag extraction
+- `OUTPUT_DIR`: The path from `--output` flag, or `./Agents/` if not provided
+- `GSD_MODE`: `true` if `--gsd` was present, `false` otherwise
+
+**Examples:**
+- `--gsd "Build invoice processing agents"` --> GSD_MODE=true, OUTPUT_DIR=./Agents/, USE_CASE_DESCRIPTION="Build invoice processing agents"
+- `--output ./my-agents "Build a chatbot"` --> GSD_MODE=false, OUTPUT_DIR=./my-agents, USE_CASE_DESCRIPTION="Build a chatbot"
+- `"Build a customer support system"` --> GSD_MODE=false, OUTPUT_DIR=./Agents/, USE_CASE_DESCRIPTION="Build a customer support system"
+- `--gsd --output ./custom "Multi-agent pipeline"` --> GSD_MODE=true, OUTPUT_DIR=./custom, USE_CASE_DESCRIPTION="Multi-agent pipeline"
+
+Proceed to Step 1 with the parsed values.
+
+---
+
 ## Step 1: Capture Input
 
-If `$ARGUMENTS` is provided (non-empty), use it as the use case description. Store it for all subsequent steps.
+If `$ARGUMENTS` was provided and Step 0 produced a non-empty `USE_CASE_DESCRIPTION`, use it as the use case description. Also store `OUTPUT_DIR` and `GSD_MODE` from Step 0 for use in later steps.
 
-If `$ARGUMENTS` is empty, prompt the user:
+If `$ARGUMENTS` is empty (and therefore Step 0 produced no values), set `OUTPUT_DIR=./Agents/` and `GSD_MODE=false`, then prompt the user:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -194,26 +224,27 @@ After the blueprint is approved:
 
 **2. Set up output directory:**
 - Extract the swarm name from the architect blueprint (e.g., `customer-support-swarm` becomes `customer-support`)
-- Target directory: `./Agents/[swarm-name]/`
+- Use `OUTPUT_DIR` from Step 0 as the base directory (defaults to `./Agents/` if no `--output` flag was provided)
+- Target directory: `{OUTPUT_DIR}/[swarm-name]/`
 
 **Auto-versioning logic:**
-- Use Bash to check if `./Agents/[swarm-name]/` already exists
-- If it does NOT exist: create `./Agents/[swarm-name]/`
-- If it DOES exist: scan `./Agents/` for directories matching `[swarm-name]-v*`, find the highest version number N, and create `./Agents/[swarm-name]-v[N+1]/`. If no versioned directories exist, create `./Agents/[swarm-name]-v2/`
+- Use Bash to check if `{OUTPUT_DIR}/[swarm-name]/` already exists
+- If it does NOT exist: create `{OUTPUT_DIR}/[swarm-name]/`
+- If it DOES exist: scan `{OUTPUT_DIR}/` for directories matching `[swarm-name]-v*`, find the highest version number N, and create `{OUTPUT_DIR}/[swarm-name]-v[N+1]/`. If no versioned directories exist, create `{OUTPUT_DIR}/[swarm-name]-v2/`
 
 **3. Create subdirectories:**
 ```bash
-mkdir -p ./Agents/[swarm-name]/agents
-mkdir -p ./Agents/[swarm-name]/datasets
+mkdir -p {OUTPUT_DIR}/[swarm-name]/agents
+mkdir -p {OUTPUT_DIR}/[swarm-name]/datasets
 ```
 
 **4. Write the blueprint to the output directory:**
-- Save the approved blueprint to `./Agents/[swarm-name]/blueprint.md` for downstream subagents to read
+- Save the approved blueprint to `{OUTPUT_DIR}/[swarm-name]/blueprint.md` for downstream subagents to read
 
 Display the output directory confirmation:
 
 ```
-✓ Output directory: ./Agents/[swarm-name]/
+✓ Output directory: {OUTPUT_DIR}/[swarm-name]/
   ├── agents/
   ├── datasets/
   └── blueprint.md
