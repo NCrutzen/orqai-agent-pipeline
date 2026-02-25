@@ -119,7 +119,7 @@ Which areas should we discuss before building?
 ──────────────────────────────────────────────────────
 ```
 
-Wait for user selection. If user types "skip": proceed to Step 2.5 with no discussion decisions.
+Wait for user selection. If user types "skip": proceed to Step 2.5 (Compile Discussion Summary) with no discussion decisions.
 
 ### 2.3: Discuss Selected Areas
 
@@ -133,9 +133,55 @@ For each selected area:
    - "More" --> ask up to 4 more questions, then force move to next area
    - "Next" --> proceed to next selected area
 
-### 2.4: Compile Discussion Summary
+### 2.4: Knowledge Base Discussion (Conditional)
 
-After all selected areas are discussed, compile a structured summary:
+After completing gray area discussions (or after the user selects areas in Step 2.2), determine whether the use case involves knowledge retrieval signals. This detection uses heuristic reasoning about the use case -- NOT keyword matching.
+
+**KB signal detection:** Reason about whether the use case involves agents that need to look up information from a corpus. Signals include: the use case mentions documents, policies, FAQs, data retrieval, knowledge lookup, reference materials, manuals, guides, databases of information to search, or any scenario where agents need to consult stored information to answer questions. Do NOT trigger on generic data processing, computation, code generation, content creation from scratch, or orchestration tasks.
+
+**If KB signals are detected**, present the KB section:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► KNOWLEDGE BASE SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your use case involves knowledge retrieval. Let's clarify the data sources:
+
+1. **Source type & format:**
+   What types of documents will agents need access to?
+   a) PDFs (manuals, reports, policies)
+   b) Web pages / HTML content
+   c) Database records / structured data
+   d) API responses / live data feeds
+   e) Mixed sources
+
+2. **Data freshness:**
+   How often does this content change?
+   a) Rarely (policies, reference docs -- updated quarterly or less)
+   b) Weekly (reports, summaries)
+   c) Daily (news, inventory, pricing)
+   d) Real-time (live feeds, current status)
+
+3. **Access control:**
+   Who should be able to query this knowledge?
+   a) Public (anyone)
+   b) Internal-only (authenticated employees)
+   c) Per-user rules (different access levels)
+
+──────────────────────────────────────────────────────
+→ Answer each question (e.g., "1a, 2a, 3b")
+→ Type "skip" to use defaults
+──────────────────────────────────────────────────────
+```
+
+Wait for the user's response. Store their KB answers for inclusion in the discussion summary.
+
+**If NO KB signals are detected**, skip this section entirely. Do not mention knowledge bases. Proceed directly to Step 2.5 (Compile Discussion Summary).
+
+### 2.5: Compile Discussion Summary
+
+After all selected areas are discussed (and KB section if shown), compile a structured summary:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -152,15 +198,24 @@ After all selected areas are discussed, compile a structured summary:
 ### Additional Context
 - [Key details surfaced during discussion]
 
+### Knowledge Base Context (include ONLY if KB section was shown in Step 2.4)
+- **Source type:** [user's answer to question 1]
+- **Data freshness:** [user's answer to question 2]
+- **Access control:** [user's answer to question 3]
+
 ### Open Areas (Claude's Discretion)
 - [Areas not discussed or where user said "you decide"]
 ```
 
 Keep the summary to 100-300 words. Include the original user input verbatim.
 
+**When KB section was shown:** Include the "Knowledge Base Context" sub-section with the user's source type, freshness, and access control answers. If the user typed "skip" for KB questions, include: "Knowledge Base Context: User skipped -- use defaults."
+
+**When KB section was NOT shown (no KB signals):** Omit the "Knowledge Base Context" sub-section entirely. Do not mention knowledge bases in the summary.
+
 <classification>
 
-### 2.5: Internal Classification (Not User-Facing)
+### 2.6: Internal Classification (Not User-Facing)
 
 Silently evaluate the enriched input (original + discussion decisions) against the researcher skip criteria. This is an internal decision -- do not display to the user.
 
@@ -358,7 +413,7 @@ Initialize a pipeline tracker:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**If researcher was classified as SKIP in Step 2.5 internal classification:**
+**If researcher was classified as SKIP in Step 2.6 internal classification:**
 
 Display:
 ```
@@ -369,7 +424,7 @@ Record in `stages_completed`: `{ stage: "researcher", duration_seconds: 0, agent
 
 Proceed directly to Wave 2.
 
-**If researcher was classified as RUN in Step 2.5 internal classification:**
+**If researcher was classified as RUN in Step 2.6 internal classification:**
 
 Extract the list of agent keys from the architect blueprint.
 
@@ -645,7 +700,7 @@ Write `pipeline-run.json` to the output directory root using the Write tool:
     "stages": {
       "architect": { "decision": "run", "reason": "Always runs" },
       "tool_resolver": { "decision": "run", "reason": "Always runs to resolve tool needs" },
-      "researcher": { "decision": "[run | skip]", "reason": "[from Step 2.5 internal classification]" },
+      "researcher": { "decision": "[run | skip]", "reason": "[from Step 2.6 internal classification]" },
       "spec_generator": { "decision": "run", "reason": "Always runs" },
       "orchestration_generator": { "decision": "[run | skip | n/a]", "reason": "[from Step 4 post-blueprint update]" },
       "dataset_generator": { "decision": "run", "reason": "Always runs" },
