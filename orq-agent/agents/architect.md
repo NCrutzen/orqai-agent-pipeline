@@ -75,6 +75,8 @@ Produce your output in exactly this format. Downstream subagents parse this stru
 - **Responsibility:** [what this agent does]
 - **Model recommendation:** [provider/model-name]
 - **Tools needed:** [list of Orq.ai tool types]
+- **Knowledge base:** [none | documents | faq | product-data | policy | mixed]
+- **KB description:** [what the KB should contain, or "N/A" if Knowledge base is "none"]
 - **Receives from:** [upstream agent or "user input"]
 - **Passes to:** [downstream agent or "final output"]
 
@@ -129,6 +131,8 @@ These examples demonstrate the complete blueprint output for different complexit
 - **Responsibility:** Answers employee questions about HR policies by querying the company knowledge base and providing clear, accurate responses
 - **Model recommendation:** `anthropic/claude-sonnet-4-5`
 - **Tools needed:** `retrieve_knowledge_bases`, `query_knowledge_base`
+- **Knowledge base:** faq
+- **KB description:** Company HR policies, benefits information, and frequently asked questions
 - **Receives from:** user input
 - **Passes to:** final output
 
@@ -155,6 +159,8 @@ These examples demonstrate the complete blueprint output for different complexit
 - **Responsibility:** Classifies incoming tickets by urgency (low/medium/high/critical), handles routing decisions, delegates answerable questions to the resolver agent, and flags complex issues for human escalation
 - **Model recommendation:** `openai/gpt-4o-mini`
 - **Tools needed:** `retrieve_agents`, `call_sub_agent`, `current_date`
+- **Knowledge base:** none
+- **KB description:** N/A
 - **Receives from:** user input
 - **Passes to:** customer-support-resolver-agent (for answerable questions) or final output (for escalations)
 
@@ -163,6 +169,8 @@ These examples demonstrate the complete blueprint output for different complexit
 - **Responsibility:** Answers customer questions using the company knowledge base, provides detailed and empathetic responses, and indicates confidence level in each answer
 - **Model recommendation:** `anthropic/claude-sonnet-4-5`
 - **Tools needed:** `retrieve_knowledge_bases`, `query_knowledge_base`
+- **Knowledge base:** faq
+- **KB description:** Company support knowledge base with product FAQs, troubleshooting guides, and common issue resolutions
 - **Receives from:** customer-support-triage-agent
 - **Passes to:** customer-support-triage-agent (returns resolved answer)
 
@@ -196,6 +204,8 @@ These examples demonstrate the complete blueprint output for different complexit
 - **Responsibility:** Receives product description, delegates research and content creation to sub-agents in parallel, assembles final marketing package from all outputs
 - **Model recommendation:** `anthropic/claude-sonnet-4-5`
 - **Tools needed:** `retrieve_agents`, `call_sub_agent`
+- **Knowledge base:** none
+- **KB description:** N/A
 - **Receives from:** user input
 - **Passes to:** final output (assembled marketing package)
 
@@ -204,6 +214,8 @@ These examples demonstrate the complete blueprint output for different complexit
 - **Responsibility:** Researches competitor pricing, positioning, and marketing strategies for the given product category using web search
 - **Model recommendation:** `openai/gpt-4o`
 - **Tools needed:** `google_search`, `web_scraper`
+- **Knowledge base:** none
+- **KB description:** N/A
 - **Receives from:** marketing-orchestrator-agent
 - **Passes to:** marketing-orchestrator-agent (returns research findings)
 
@@ -212,6 +224,8 @@ These examples demonstrate the complete blueprint output for different complexit
 - **Responsibility:** Generates compelling marketing copy including taglines, product descriptions, and value propositions based on the product description and research findings
 - **Model recommendation:** `anthropic/claude-sonnet-4-5`
 - **Tools needed:** (none -- pure generation task)
+- **Knowledge base:** none
+- **KB description:** N/A
 - **Receives from:** marketing-orchestrator-agent
 - **Passes to:** marketing-orchestrator-agent (returns marketing copy)
 
@@ -220,6 +234,8 @@ These examples demonstrate the complete blueprint output for different complexit
 - **Responsibility:** Creates platform-specific social media posts (Twitter/X, LinkedIn, Instagram, Facebook) with appropriate tone, length, and hashtags for each platform
 - **Model recommendation:** `openai/gpt-4o`
 - **Tools needed:** (none -- pure generation task)
+- **Knowledge base:** none
+- **KB description:** N/A
 - **Receives from:** marketing-orchestrator-agent
 - **Passes to:** marketing-orchestrator-agent (returns social media posts)
 
@@ -246,5 +262,6 @@ These boundaries exist to keep blueprints actionable and avoid common pitfalls:
 - **Agent cap:** Maximum 5 agents per swarm. If the use case genuinely needs more, recommend decomposing into sub-swarms with their own orchestrators.
 - **Single-agent default:** The complexity gate exists because over-engineered multi-agent designs are harder to maintain and debug than a well-configured single agent. Always justify additional agents.
 - **No reformatting agents:** If an agent only takes output from another agent and reformats it, that formatting logic belongs in the producing agent's instructions.
+- **KB classification uses LLM reasoning:** Determine each agent's Knowledge base need by reasoning about the use case -- NOT by keyword matching. Agents that need to look up documents, answer questions from a corpus, reference policies, retrieve product data, or consult FAQs should have `Knowledge base` set to the appropriate type (`documents`, `faq`, `product-data`, `policy`, or `mixed`). Agents that perform computation, transformation, generation without retrieval, or orchestration should have `Knowledge base: none`. Different agents in the same swarm can reference different knowledge bases.
 
 </constraints>
