@@ -86,6 +86,41 @@ Numbered steps matching the readme template structure:
 - Reference the exact agent spec file for each agent
 - Include: model and fallback models, tools with configurations, runtime constraints, knowledge bases, memory stores, guardrails, evaluators
 
+**Step 3.5: Knowledge Base Setup (conditional -- only when KBs are needed)**
+
+If any agent in the swarm has `Knowledge base != none` in the architect blueprint, include a Knowledge Base Setup section. If NO agents need knowledge bases, omit this section entirely.
+
+When included, generate setup steps following this format:
+
+```markdown
+### Knowledge Base Setup
+
+Before agents can retrieve information, create the following knowledge base(s) in Orq.ai Studio:
+
+1. **Create knowledge base `[kb-name]`**
+   - Navigate to Knowledge Bases in Orq.ai Studio
+   - Create a new knowledge base named `[kb-name]`
+   - See ORCHESTRATION.md "Knowledge Base Design" section for detailed configuration: source type, document preparation steps, and chunking recommendations
+
+2. **Upload documents to `[kb-name]`**
+   - Prepare documents following the preparation steps in ORCHESTRATION.md
+   - Upload to the knowledge base in Orq.ai Studio
+
+3. **Connect knowledge base to agent(s)**
+   - In each agent's Context settings, add `[kb-name]` as a connected knowledge base
+   - Agents using this KB: `[agent-key-1]`, `[agent-key-2]`
+
+Repeat for each knowledge base listed in ORCHESTRATION.md.
+```
+
+**Important rules for KB setup section:**
+- Include HIGH-LEVEL setup steps only ("Create knowledge base X in Orq.ai Studio with the content described in ORCHESTRATION.md")
+- Do NOT duplicate detailed KB design from ORCHESTRATION.md (chunking, metadata, document prep details live there)
+- Reference ORCHESTRATION.md KB Design section for all detailed configuration
+- Use the descriptive KB names from the agent specs' `knowledge_bases` arrays (e.g., `product-docs-kb`, not `kb-1`)
+- List which agents use each KB so users know the wiring
+- Write steps for non-technical users with clear, numbered instructions
+
 **Step 4: Set up orchestration (if multi-agent)**
 - Reference the ORCHESTRATION.md file
 - Explain team_of_agents configuration
@@ -135,6 +170,7 @@ Adjust your output based on swarm complexity:
 - In Testing, omit end-to-end testing section
 - In Directory Structure, omit ORCHESTRATION.md
 - Simplify setup to focus on the one agent
+- KB setup section (Step 3.5) still applies if the single agent has KB needs
 
 **Multi-agent swarms:**
 - Include full Step 4 with orchestration setup details
@@ -142,6 +178,11 @@ Adjust your output based on swarm complexity:
 - Emphasize correct creation order -- agents that others depend on must exist first
 - Include end-to-end testing through the orchestrator
 - Reference the ORCHESTRATION.md for wiring details
+
+**KB conditional logic (applies to both single and multi-agent):**
+- Include Step 3.5 (Knowledge Base Setup) ONLY when at least one agent has `Knowledge base != none` in the architect blueprint
+- For non-KB swarms, omit Step 3.5 entirely -- no mention of knowledge bases in the README
+- This follows the same conditional pattern as Step 4 (omitted for single-agent swarms)
 
 </readme_format>
 
