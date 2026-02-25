@@ -413,10 +413,22 @@ If this agent is NOT an orchestrator, mark as "Not applicable for this agent."
 Derive from the research brief's "Context Needs" section. Include:
 
 **Knowledge bases:** List knowledge base IDs and what content they should contain.
+
+**KB-aware context generation rules:**
+- Read the architect blueprint's `Knowledge base` and `KB description` fields for this agent
+- Read the researcher's KB Design section (if available in the research brief) for KB naming conventions
+- **Use descriptive `knowledge_id` values** matching the researcher's KB names (e.g., `product-docs-kb`, `hr-policy-kb`, `company-faq-kb`). Do NOT use generic names like `kb-1`, `knowledge-base`, or `data-store`.
+- **Always include an ORCHESTRATION.md reference** in the KB description so users know where to find detailed setup instructions
+- **For agents with `Knowledge base: none` in the blueprint:** Leave the `knowledge_bases` array empty. Do NOT add KB references for non-KB agents.
+- **Multiple KBs per agent:** If the architect blueprint or researcher brief indicates an agent references multiple knowledge bases, list all of them with descriptive names.
+
 ```json
 {
   "knowledge_bases": [
-    { "knowledge_id": "company-faq-kb", "description": "Company FAQ and policy documents" }
+    {
+      "knowledge_id": "product-docs-kb",
+      "description": "Product documentation and user guides. See ORCHESTRATION.md KB Design section for setup details including source type, document preparation, and chunking recommendations."
+    }
   ]
 }
 ```
@@ -512,6 +524,7 @@ Before producing your final output, verify ALL of the following. Do NOT skip thi
 - [ ] No `{{PLACEHOLDER}}` text remains in output
 - [ ] Description is 1-2 sentences, not a paragraph
 - [ ] Runtime constraints are specified with specific numeric values (not ranges)
+- [ ] If agent has `Knowledge base != none` in blueprint, `knowledge_bases` array is non-empty with descriptive names (not generic like `kb-1`) and descriptions referencing ORCHESTRATION.md KB Design section for setup details
 
 If any check fails, fix it before producing output.
 
@@ -690,12 +703,17 @@ Not applicable for this agent.
 ```json
 {
   "knowledge_bases": [
-    { "knowledge_id": "company-faq-kb" },
-    { "knowledge_id": "return-policy-kb" }
+    {
+      "knowledge_id": "company-faq-kb",
+      "description": "Company FAQ and general policy documents. See ORCHESTRATION.md KB Design section for setup details including document preparation and chunking recommendations."
+    },
+    {
+      "knowledge_id": "return-policy-kb",
+      "description": "Return and refund policy documents. See ORCHESTRATION.md KB Design section for setup details including document preparation and chunking recommendations."
+    }
   ]
 }
 ```
-Ensure the company FAQ and return/refund policy documents are uploaded to these knowledge bases in Orq.ai Studio.
 
 **Memory:**
 ```json
