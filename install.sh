@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # Orq Agent Designer Installer
-# Usage: curl -sL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | bash
+# Usage: curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
 # Or: chmod +x install.sh && ./install.sh
 set -euo pipefail
 
-# TODO: Replace OWNER/REPO with actual GitHub repository path
-GITHUB_OWNER="MoyneRoberts"
-GITHUB_REPO="orq-agent-designer"
+GITHUB_OWNER="NCrutzen"
+GITHUB_REPO="orqai-agent-pipeline"
 GITHUB_BRANCH="main"
 
 # Color definitions
@@ -51,7 +50,6 @@ echo -e "${GREEN}Prerequisites OK${NC} (Node.js, Claude Code)"
 INSTALL_DIR="$HOME/.claude/skills/orq-agent"
 
 # --- Version comparison ---
-# TODO: Replace OWNER/REPO with actual GitHub repository path
 VERSION_URL="https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/VERSION"
 REMOTE_VERSION=$(curl -sL "$VERSION_URL" 2>/dev/null | tr -d '[:space:]') || REMOTE_VERSION=""
 
@@ -86,7 +84,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# TODO: Replace OWNER/REPO with actual GitHub repository path
 ARCHIVE_URL="https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/archive/${GITHUB_BRANCH}.tar.gz"
 echo "Downloading from GitHub..."
 if ! curl -sL "$ARCHIVE_URL" | tar xz -C "$TEMP_DIR"; then
