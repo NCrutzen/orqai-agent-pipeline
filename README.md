@@ -42,13 +42,24 @@ Inside Claude Code, type:
 
 The pipeline will guide you through a short discussion to clarify your needs, then generate the full agent swarm specification.
 
-### Other commands
+### All commands
 
 | Command | What it does |
 |---------|-------------|
-| `/orq-agent "your use case"` | Generate a new agent swarm |
+| `/orq-agent "your use case"` | Full pipeline — generates complete agent swarm (specs, orchestration, datasets, README) |
+| `/orq-agent:prompt "agent description"` | Quick single agent — generates one agent spec without the full pipeline |
+| `/orq-agent:architect "your use case"` | Blueprint only — design swarm architecture (agent count, roles, orchestration pattern) |
+| `/orq-agent:tools "your use case"` | Tool resolution only — produces TOOLS.md with verified MCP/API/function tool configs |
+| `/orq-agent:research "agent role"` | Research only — investigates domain best practices (model, prompt strategy, guardrails) |
+| `/orq-agent:datasets ./path/to/spec.md` | Datasets only — generates test datasets with adversarial edge cases from an existing spec |
 | `/orq-agent:help` | Show available commands and options |
 | `/orq-agent:update` | Update to the latest version |
+
+**When to use which:**
+- Need a complete swarm? Use `/orq-agent`
+- Just need one agent's prompt? Use `/orq-agent:prompt`
+- Want to explore architecture before committing? Use `/orq-agent:architect`
+- Need to figure out tool integrations? Use `/orq-agent:tools`
 
 ## Update
 
