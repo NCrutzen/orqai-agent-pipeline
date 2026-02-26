@@ -56,6 +56,7 @@ Recent decisions affecting current work:
 - [V1.1]: Orq.ai MCP agent deployment prioritized over KB automation (V1.2) as more natural next step
 - [V1.2]: Automated KB Setup (formerly Phase 04.5) — Supabase MCP provisioning
 - Phases renumbered: old Phase 5 → Phase 5 under V1.1, old Phase 04.5 → Phase 6 under V1.2, old Phase 5 → Phase 7 under V2.0, old Phase 6 → Phase 8 under V3.0
+- [Quick-1]: Added /orq-agent:prompt fast-path command reusing spec-generator directly, inline blueprint construction
 
 ### Pending Todos
 
@@ -78,5 +79,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: V1.0 complete, roadmap restructured into version milestones
+Stopped at: Completed quick-1-01 (/orq-agent:prompt command)
 Resume with: /gsd:plan-phase 5 (for V1.1) or start V1.0 rollout
