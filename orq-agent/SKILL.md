@@ -58,6 +58,7 @@ Agents/[swarm-name]/
 |---------|------|---------|
 | `/orq-agent` | `commands/orq-agent.md` | Main orchestrator -- accepts use case descriptions, runs structured discussion, enriches input, runs adaptive pipeline (Architect -> Tool Resolver -> Researcher -> Spec Generator -> Post-Generation), produces complete swarm specs |
 | `/orq-agent:update` | `commands/update.md` | Check for and install updates from GitHub |
+| `/orq-agent:prompt` | `commands/prompt.md` | Quick single-agent spec generator -- skips full pipeline, asks 2-3 questions inline, spawns spec-generator directly |
 | `/orq-agent:help` | `commands/help.md` | Show available commands, usage examples, and version |
 
 **Invocation modes:**
@@ -65,6 +66,7 @@ Agents/[swarm-name]/
 - Interactive: `/orq-agent` (prompts for input)
 - GSD mode: `/orq-agent --gsd "Build invoice processing agents"`
 - Custom output: `/orq-agent --output ./my-agents "Build a chatbot"`
+- Single agent: `/orq-agent:prompt "Build a customer FAQ bot"` (fast path, single spec only)
 
 ## Subagents
 
