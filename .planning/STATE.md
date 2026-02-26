@@ -13,7 +13,7 @@ See: .planning/PROJECT.md (updated 2026-02-24)
 Version: V1.0 — COMPLETE (all 8 phases done)
 Next: V1.1 Phase 5 (Orq.ai MCP Agent Deployment)
 Status: Ready to ship V1.0; V1.1 needs /gsd:plan-phase 5
-Last activity: 2026-02-26 - Completed quick task 1: Add single-prompt generation command to orq-agent skill
+Last activity: 2026-02-26 - Completed quick task 2: Add standalone commands (architect, tools, research, datasets)
 
 ## Version Progress
 
@@ -57,6 +57,7 @@ Recent decisions affecting current work:
 - [V1.2]: Automated KB Setup (formerly Phase 04.5) — Supabase MCP provisioning
 - Phases renumbered: old Phase 5 → Phase 5 under V1.1, old Phase 04.5 → Phase 6 under V1.2, old Phase 5 → Phase 7 under V2.0, old Phase 6 → Phase 8 under V3.0
 - [Quick-1]: Added /orq-agent:prompt fast-path command reusing spec-generator directly, inline blueprint construction
+- [Quick-2]: Added 4 standalone commands (architect, tools, research, datasets) wrapping individual subagents
 
 ### Pending Todos
 
@@ -75,6 +76,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 1 | Add single-prompt generation command to orq-agent skill | 2026-02-26 | ae3f22d | [1-add-single-prompt-generation-command-to-](./quick/1-add-single-prompt-generation-command-to-/) |
+| 2 | Add standalone commands (architect, tools, research, datasets) | 2026-02-26 | c46c073 | [2-add-orq-agent-architect-standalone-comma](./quick/2-add-orq-agent-architect-standalone-comma/) |
 
 ### Blockers/Concerns
 
@@ -85,5 +87,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed quick-1-01 (/orq-agent:prompt command)
+Stopped at: Completed quick-2-01 (standalone commands: architect, tools, research, datasets)
 Resume with: /gsd:plan-phase 5 (for V1.1) or start V1.0 rollout
