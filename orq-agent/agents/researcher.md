@@ -9,6 +9,7 @@ model: inherit
 - orq-agent/references/orqai-agent-fields.md
 - orq-agent/references/orqai-model-catalog.md
 - orq-agent/references/orchestration-patterns.md
+- orq-agent/references/tool-catalog.md
 </files_to_read>
 
 # Orq.ai Domain Researcher

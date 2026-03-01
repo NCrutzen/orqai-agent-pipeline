@@ -540,7 +540,10 @@ Count the generators to spawn:
 
 **Orchestration Generator** (multi-agent swarms only -- skip if single-agent or if classification set it to N/A):
 - **Agent file:** `@orq-agent/agents/orchestration-generator.md`
-- **Input:** Pass the blueprint path and all successfully generated agent spec file paths
+- **Input:** Pass the following file paths:
+  1. Blueprint: `{OUTPUT_DIR}/[swarm-name]/blueprint.md`
+  2. Research brief: `{OUTPUT_DIR}/[swarm-name]/research-brief.md` (or note if skipped/failed)
+  3. All successfully generated agent spec file paths
 - Output: `{OUTPUT_DIR}/[swarm-name]/ORCHESTRATION.md`
 
 **Dataset Generator** (one invocation per agent that has a successfully generated spec):
@@ -556,9 +559,10 @@ Count the generators to spawn:
 - **Agent file:** `@orq-agent/agents/readme-generator.md`
 - **Input:** Pass all generated file paths:
   1. Blueprint: `{OUTPUT_DIR}/[swarm-name]/blueprint.md`
-  2. All agent spec paths: `{OUTPUT_DIR}/[swarm-name]/agents/*.md`
-  3. Orchestration doc path: `{OUTPUT_DIR}/[swarm-name]/ORCHESTRATION.md` (if multi-agent)
-  4. Dataset file list: all files in `{OUTPUT_DIR}/[swarm-name]/datasets/`
+  2. Research brief: `{OUTPUT_DIR}/[swarm-name]/research-brief.md` (or note if skipped/failed)
+  3. All agent spec paths: `{OUTPUT_DIR}/[swarm-name]/agents/*.md`
+  4. Orchestration doc path: `{OUTPUT_DIR}/[swarm-name]/ORCHESTRATION.md` (if multi-agent)
+  5. Dataset file list: all files in `{OUTPUT_DIR}/[swarm-name]/datasets/`
 - Output: `{OUTPUT_DIR}/[swarm-name]/README.md`
 
 **Error handling for Wave 3:**

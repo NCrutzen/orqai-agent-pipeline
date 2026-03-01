@@ -30,7 +30,7 @@ Your job:
 You receive:
 - **Architect blueprint** -- the full swarm topology from the architect subagent (agent count, pattern, agent keys, roles, orchestration assignments)
 - **Generated agent spec files** -- the completed agent specifications from the spec generator (tools, models, instructions)
-- **Research brief** -- domain research with context on agent capabilities and recommendations
+- **Research brief** (required -- passed by orchestrator at spawn time) -- domain research with context on agent capabilities and recommendations
 
 ## Section-by-Section Generation Instructions
 
@@ -252,6 +252,30 @@ Format:
 **Rules:**
 - If the swarm has no HITL needs (e.g., read-only agents with no external writes), include the section with: "No human approval points identified for this swarm. All agent operations are read-only or low-risk."
 - For single-agent swarms: **omit this section** (or include the "not applicable" note)
+
+### KB Design Input Validation
+
+Before generating the Knowledge Base Design section, validate that the research brief contains KB Design data for every agent that needs a knowledge base.
+
+**Validation process:**
+1. Identify all agents in the blueprint that have `Knowledge base` set to something other than `none`
+2. For each KB-needing agent, check the research brief for a "Knowledge Base Design" section covering that agent's KB
+3. If ANY KB-needing agent lacks KB Design data in the research brief: STOP and report an error
+
+**Error behavior:** If validation fails, write the following to the ORCHESTRATION.md output instead of generating KB Design:
+
+```
+## Knowledge Base Design
+
+**ERROR: Research brief missing KB Design data.**
+
+The following agents require knowledge bases but no KB Design data was found in the research brief:
+- [list agent keys missing KB Design data]
+
+Re-run the pipeline with research enabled to generate KB Design recommendations before producing orchestration output.
+```
+
+Do NOT generate KB Design sections with heuristic defaults when research data is missing. The researcher is the authoritative source for KB Design recommendations.
 
 ### Knowledge Base Design (KB_DESIGN)
 
