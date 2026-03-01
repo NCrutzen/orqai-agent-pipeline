@@ -74,35 +74,35 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEPLOY-01 | — | Pending |
-| DEPLOY-02 | — | Pending |
-| DEPLOY-03 | — | Pending |
-| DEPLOY-04 | — | Pending |
-| DEPLOY-05 | — | Pending |
-| DEPLOY-06 | — | Pending |
-| DEPLOY-07 | — | Pending |
-| DEPLOY-08 | — | Pending |
-| TEST-01 | — | Pending |
-| TEST-02 | — | Pending |
-| TEST-03 | — | Pending |
-| TEST-04 | — | Pending |
-| TEST-05 | — | Pending |
-| ITER-01 | — | Pending |
-| ITER-02 | — | Pending |
-| ITER-03 | — | Pending |
-| ITER-04 | — | Pending |
-| ITER-05 | — | Pending |
-| ITER-06 | — | Pending |
-| ITER-07 | — | Pending |
-| GUARD-01 | — | Pending |
-| GUARD-02 | — | Pending |
-| GUARD-03 | — | Pending |
+| DEPLOY-01 | Phase 6 | Pending |
+| DEPLOY-02 | Phase 6 | Pending |
+| DEPLOY-03 | Phase 6 | Pending |
+| DEPLOY-04 | Phase 6 | Pending |
+| DEPLOY-05 | Phase 6 | Pending |
+| DEPLOY-06 | Phase 6 | Pending |
+| DEPLOY-07 | Phase 6 | Pending |
+| DEPLOY-08 | Phase 6 | Pending |
+| TEST-01 | Phase 7 | Pending |
+| TEST-02 | Phase 7 | Pending |
+| TEST-03 | Phase 7 | Pending |
+| TEST-04 | Phase 7 | Pending |
+| TEST-05 | Phase 7 | Pending |
+| ITER-01 | Phase 8 | Pending |
+| ITER-02 | Phase 8 | Pending |
+| ITER-03 | Phase 8 | Pending |
+| ITER-04 | Phase 8 | Pending |
+| ITER-05 | Phase 8 | Pending |
+| ITER-06 | Phase 8 | Pending |
+| ITER-07 | Phase 8 | Pending |
+| GUARD-01 | Phase 9 | Pending |
+| GUARD-02 | Phase 9 | Pending |
+| GUARD-03 | Phase 9 | Pending |
 
 **Coverage:**
 - V2.0 requirements: 23 total
-- Mapped to phases: 0
-- Unmapped: 23
+- Mapped to phases: 23
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after milestone V2.0 initialization*
+*Last updated: 2026-03-01 after roadmap creation*

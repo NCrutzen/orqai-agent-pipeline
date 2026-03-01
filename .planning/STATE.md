@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: V2.0
 milestone_name: Autonomous Orq.ai Pipeline
 status: planning
-last_updated: "2026-03-01T14:00:00.000Z"
+last_updated: "2026-03-01T15:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,40 +18,50 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Given any use case description, produce correct, complete Orq.ai Agent specifications and autonomously deploy, test, iterate, and harden them via the Orq.ai MCP server and API.
-**Current focus:** V2.0 — Autonomous Orq.ai Pipeline
+**Current focus:** Phase 6 — Orq.ai Deployment
 **Previous milestone:** v0.3 shipped 2026-03-01 — 11 phases, 28 plans, 50/50 requirements
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 6 of 9 (Orq.ai Deployment) — first of 4 V2.0 phases
 Plan: —
-Status: Defining requirements
-Last activity: 2026-03-01 — Milestone V2.0 started
+Status: Ready to plan
+Last activity: 2026-03-01 — Roadmap created for V2.0 (23 requirements mapped to 4 phases)
 
-## Version Progress
+Progress: [░░░░░░░░░░] 0%
 
-| Version | Milestone | Status |
-|---------|-----------|--------|
-| **v0.3** | Core Pipeline + V2.0 Foundation | **Shipped** (2026-03-01) |
-| **V2.0** | Autonomous Orq.ai Pipeline | **Next** — Phases 6-9 need requirements + planning |
-| V2.1 | Automated KB Setup | Planned |
-| V3.0 | Browser Automation | Planned |
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 0 (V2.0)
+- Average duration: —
+- Total execution time: —
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 6. Orq.ai Deployment | 0/? | — | — |
+| 7. Automated Testing | 0/? | — | — |
+| 8. Prompt Iteration Loop | 0/? | — | — |
+| 9. Guardrails and Hardening | 0/? | — | — |
 
 ## Accumulated Context
 
 ### Key Decisions (carried forward)
 
 - MCP-first integration, API fallback for tools/prompts/memory stores
+- Pin `@orq-ai/node@^3.14.45` — v4 dropped MCP server binary
 - Local `.md` specs remain source of truth with full audit trail
-- User approval required before applying prompt changes
+- User approval required before applying prompt changes (HITL)
 - Modular install — user selects capabilities (core/deploy/test/full)
-- REST API is primary path; MCP CRUD capabilities not fully verified — validate during Phase 6
+- Build order strictly: Deploy > Test > Iterate > Guardrails
 
-### Blockers/Concerns (carried forward)
+### Blockers/Concerns
 
-- Orq.ai MCP server CRUD capabilities not fully verified — validate during Phase 6
-- Evaluatorq SDK behavior needs hands-on validation during Phase 7
-- Evaluator-as-guardrail attachment API surface needs verification during Phase 9
+- Guardrails API surface unconfirmed on Agents API — validate during Phase 6 to unblock Phase 9 design
+- Exact MCP tool names need runtime validation (`claude mcp list-tools orq`) at Phase 6 start
+- Experiment API schema (`POST /v2/experiments`) needs hands-on validation at Phase 7 start
 
 ### Tech Debt (from v0.3 audit)
 
@@ -62,5 +72,5 @@ Last activity: 2026-03-01 — Milestone V2.0 started
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Milestone v0.3 shipped
-Resume with: /gsd:new-milestone (define V2.0 requirements and plan Phase 6)
+Stopped at: V2.0 roadmap created — 23 requirements mapped to Phases 6-9
+Resume with: /gsd:plan-phase 6
