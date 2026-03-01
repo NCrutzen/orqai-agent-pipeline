@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 5 of 9 (References, Install, and Capability Infrastructure)
-Plan: —
-Status: Ready to plan
-Last activity: 2026-03-01 — V2.0 roadmap created (5 phases, 31 requirements mapped)
+Plan: 3 of 4 (Phase 5)
+Status: Executing
+Last activity: 2026-03-01 — Completed 05-03 install infrastructure plan
 
-Progress: [##########..........] 50% (V1.0 complete, V2.0 starting)
+Progress: [############........] 58% (V2.0 Phase 5: 3/4 plans complete)
 
 ## Version Progress
 
 | Version | Milestone | Status |
 |---------|-----------|--------|
 | **V1.0** | Core Pipeline | **Complete** (2026-02-26) |
-| **V2.0** | Autonomous Orq.ai Pipeline | **Active** — Phase 5 ready to plan |
+| **V2.0** | Autonomous Orq.ai Pipeline | **Active** — Phase 5 executing (3/4 plans) |
 | V2.1 | Automated KB Setup | Planned |
 | V3.0 | Browser Automation | Planned |
 
@@ -34,9 +34,14 @@ Progress: [##########..........] 50% (V1.0 complete, V2.0 starting)
 - Total execution time: ~1 hour
 
 **V2.0 Velocity:**
-- Total plans completed: 0
+- Total plans completed: 2
 - Phases: 5 (Phases 5-9)
 - Requirements: 31
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 05 | 02 | 2min | 2 | 5 |
+| 05 | 03 | 2min | 1 | 1 |
 
 ## Accumulated Context
 
@@ -48,6 +53,8 @@ Progress: [##########..........] 50% (V1.0 complete, V2.0 starting)
 - [V2.0 Design]: User approval required before applying prompt changes
 - [V2.0 Design]: Modular install — user selects capabilities (core/deploy/test/full)
 - [V2.0 Research]: REST API is primary path; MCP CRUD capabilities not fully verified — validate during Phase 6
+- [05-02]: API endpoints reference uses method/path/description only -- no request/response bodies to stay under 1000 words
+- [05-02]: Evaluator reference groups 41 evaluators into 3 built-in categories plus 4 custom types with selection guidance
 
 ### Pending Todos
 
@@ -62,5 +69,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: V2.0 roadmap created — 5 phases (5-9), 31 requirements mapped
-Resume with: /gsd:plan-phase 5
+Stopped at: Completed 05-02-PLAN.md
+Resume with: /gsd:execute-phase 05 (plan 03 or 04 next)
