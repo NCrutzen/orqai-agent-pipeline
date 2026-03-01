@@ -34,7 +34,7 @@ Progress: [############........] 58% (V2.0 Phase 5: 3/4 plans complete)
 - Total execution time: ~1 hour
 
 **V2.0 Velocity:**
-- Total plans completed: 2
+- Total plans completed: 3
 - Phases: 5 (Phases 5-9)
 - Requirements: 31
 
@@ -55,6 +55,9 @@ Progress: [############........] 58% (V2.0 Phase 5: 3/4 plans complete)
 - [V2.0 Research]: REST API is primary path; MCP CRUD capabilities not fully verified — validate during Phase 6
 - [05-02]: API endpoints reference uses method/path/description only -- no request/response bodies to stay under 1000 words
 - [05-02]: Evaluator reference groups 41 evaluators into 3 built-in categories plus 4 custom types with selection guidance
+- [05-03]: Config stored at $INSTALL_DIR/.orq-agent/config.json (install-relative, global settings)
+- [05-03]: MCP URL configurable via ORQAI_MCP_URL env var (default https://mcp.orq.ai)
+- [05-03]: Node.js used for JSON operations in installer (already a prerequisite)
 
 ### Pending Todos
 
@@ -69,5 +72,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 05-02-PLAN.md
-Resume with: /gsd:execute-phase 05 (plan 03 or 04 next)
+Stopped at: Completed 05-03-PLAN.md
+Resume with: /gsd:execute-phase 05 (plan 04 next)
