@@ -78,7 +78,9 @@ Build a Claude Code skill that transforms natural language use case descriptions
   3. Every deployed resource is read back from Orq.ai and compared to intended spec — discrepancies are surfaced to the user, never silently ignored
   4. Local `.md` spec files are annotated with deployment metadata (agent ID, version, timestamp) and `deploy-log.md` shows a status table with created/updated/failed per resource
   5. When MCP server is unavailable, deployment completes via REST API fallback without user intervention
-**Plans**: TBD
+**Plans:** 2 plans
+- [ ] 06-01-PLAN.md — Deploy pipeline core: deployer subagent + deploy command with ordered deployment, idempotent create-or-update, MCP/REST fallback
+- [ ] 06-02-PLAN.md — Verification, logging, and metadata: read-back verification, deploy-log.md, YAML frontmatter annotation
 
 ### Phase 7: Automated Testing
 **Goal**: Users can run automated evaluations against deployed agents and receive statistically robust, interpretable results that identify exactly where agents succeed and fail
@@ -135,7 +137,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 | Version | Phase | Plans Complete | Status | Completed |
 |---------|-------|----------------|--------|-----------|
 | v0.3 | 1-05.2 (11 phases) | 28/28 | **Shipped** | 2026-03-01 |
-| V2.0 | 6. Orq.ai Deployment | 0/? | Not started | - |
+| V2.0 | 6. Orq.ai Deployment | 0/2 | Planned | - |
 | V2.0 | 7. Automated Testing | 0/? | Not started | - |
 | V2.0 | 8. Prompt Iteration Loop | 0/? | Not started | - |
 | V2.0 | 9. Guardrails and Hardening | 0/? | Not started | - |
