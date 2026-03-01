@@ -76,7 +76,13 @@ Do NOT stop. Deployment works via REST API when MCP is unavailable (DEPLOY-08). 
 
 **If MCP_AVAILABLE:** Set `mcp_available = true`. Proceed to Step 3.
 
-## Step 3: Locate Swarm Output
+## Step 3: Locate Swarm Output and Parse Agent Scope
+
+**Command format:** `/orq-agent:deploy [--agent agent-key]` where `--agent` is optional.
+
+Parse the command arguments:
+- If `--agent agent-key` is provided: scope deployment to that single agent + its tool dependencies
+- If no `--agent` flag: show an interactive picker (see below)
 
 Find the most recent swarm output directory. A valid swarm directory contains an `ORCHESTRATION.md` file.
 
@@ -114,6 +120,42 @@ Expected: Agents/<swarm-name>/ORCHESTRATION.md
    - Runtime Constraints: max_iterations, max_execution_time
    - YAML frontmatter (if present): existing `orqai_id` from previous deploy
 
+### 3.1: Agent Scope Resolution
+
+**If `--agent agent-key` was provided:**
+
+Verify the agent exists in the swarm:
+- If found: scope deployment to that single agent. Display: `Deploying: {agent-key} + {N} tool dependencies`
+- If not found: display error listing available agents and STOP
+
+**If NO `--agent` flag was provided:**
+
+Display an interactive picker for the user to select which agent(s) to deploy:
+
+```
+Which agent(s) to deploy?
+
+  1. [all] Deploy all agents
+  2. agent-key-1
+  3. agent-key-2
+  4. orchestrator-key
+
+Select (comma-separated for multiple, or "all"):
+```
+
+- If user selects "all" or "1": deploy all agents (default full-swarm behavior)
+- If user selects specific agents (e.g., "2,3"): scope deployment to those agents + their tool dependencies
+
+### 3.2: Tool Dependency Resolution
+
+When deploying a scoped set of agents (via `--agent` or picker selection):
+- For each selected agent, read its `settings.tools` from the spec file
+- Collect all tool keys referenced by the selected agent(s)
+- Only these tools will be deployed in Phase 1 (other tools are skipped)
+- Auto-deploy tool dependencies: when deploying a single agent, its tools are always deployed too (same dependency resolution, scoped)
+
+### 3.3: Display Swarm Summary
+
 Display the swarm summary:
 
 ```
@@ -126,7 +168,10 @@ Agents: [N] ([list agent keys])
 Tools: [M] ([list tool keys])
 Orchestrator: [orchestrator-key]
 Channel: [MCP + REST | REST only]
+Scope: [all | agent-key + N tool dependencies]
 ```
+
+> **Note:** The orchestrator can be deployed independently via `--agent orchestrator-key` once all sub-agents exist in Orq.ai. This allows incremental wiring after individual agents are deployed and tested.
 
 Proceed to Step 4.
 
@@ -186,25 +231,38 @@ Invoke the deployer with the following context:
 - Swarm directory path (from Step 3)
 - `mcp_available` flag (from Steps 2/4)
 - Parsed swarm manifest: ORCHESTRATION.md content, TOOLS.md content, agent spec file contents
+- **Agent scope** (from Step 3): which agents and tools are in scope for this deploy run
 
-The deployer executes its 6-phase pipeline:
+### 5.1: Scoped Deployment Behavior
+
+When `--agent` is active (or specific agents selected via picker), tell the deployer subagent to scope its pipeline:
+
+- **Phase 1 (Deploy Tools):** Only deploy tools that the selected agent(s) reference in their `settings.tools`. Skip all other tools.
+- **Phase 2 (Deploy Sub-Agents):** Only deploy the selected agent(s). Skip all other sub-agents.
+- **Phase 3 (Deploy Orchestrator):** Skip UNLESS the orchestrator is explicitly selected (via `--agent orchestrator-key` or picker selection) or all agents were selected.
+
+Display scoped summary before deploying: `Deploying: {agent-key} + {N} tool dependencies`
+
+### 5.2: Deployer Pipeline Execution
+
+The deployer executes its 6-phase pipeline (scoped to selected resources):
 
 1. **Phase 0: Pre-flight** -- The deployer performs its own pre-flight (API key validation, swarm parsing). Since we already validated in Step 4, the deployer will confirm and proceed quickly.
 
-2. **Phase 1: Deploy Tools** -- Creates/updates all tools from TOOLS.md. Display progress:
+2. **Phase 1: Deploy Tools** -- Creates/updates tools in scope. Display progress:
    ```
    Deploying tools... (1/3)
    Deploying tools... (2/3)
    Deploying tools... (3/3) done
    ```
 
-3. **Phase 2: Deploy Sub-Agents** -- Creates/updates all non-orchestrator agents. Display progress:
+3. **Phase 2: Deploy Sub-Agents** -- Creates/updates sub-agents in scope. Display progress:
    ```
    Deploying sub-agents... (1/2)
    Deploying sub-agents... (2/2) done
    ```
 
-4. **Phase 3: Deploy Orchestrator** -- Creates/updates the orchestrator with `team_of_agents` wiring. Display progress:
+4. **Phase 3: Deploy Orchestrator** -- Creates/updates the orchestrator with `team_of_agents` wiring (only if in scope). Display progress:
    ```
    Deploying orchestrator... (1/1) done
    ```

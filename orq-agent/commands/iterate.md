@@ -117,10 +117,14 @@ STOP after displaying fallback instructions.
 
 Parse the command argument and locate the swarm output directory.
 
-**Command format:** `/orq-agent:iterate [agent-key]` where `agent-key` is optional.
+**Command format:** `/orq-agent:iterate [--agent agent-key] [--all]`
 
-- If `agent-key` is provided: filter iteration to that single agent
-- If no `agent-key`: iterate on all failing agents in the swarm
+- If `--agent agent-key` is provided: filter iteration to that single agent
+- If positional `agent-key` is provided (backward compatible): same as `--agent agent-key`
+- If `--all` is provided: explicitly iterate on all failing agents in the swarm (full swarm validation)
+- If no flags and no positional argument: iterate on all failing agents (default behavior, same as `--all`)
+
+> **Note:** Per-agent test/iterate by default with `--agent`, `--all` flag for explicit full swarm validation. Both forms (positional and `--agent` flag) are supported for backward compatibility.
 
 Find the most recent swarm output directory (same logic as deploy and test commands):
 
