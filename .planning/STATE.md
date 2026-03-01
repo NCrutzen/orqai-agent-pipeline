@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T13:14:53.193Z"
+last_updated: "2026-03-01T15:22:21.000Z"
 progress:
-  total_phases: 1
+  total_phases: 2
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
 ---
 
 # Project State
@@ -18,31 +18,31 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Given any use case description, produce correct, complete Orq.ai Agent specifications and autonomously deploy, test, iterate, and harden them via the Orq.ai MCP server and API.
-**Current focus:** Phase 6 — Orq.ai Deployment
+**Current focus:** Phase 7 — Automated Testing
 **Previous milestone:** v0.3 shipped 2026-03-01 — 11 phases, 28 plans, 50/50 requirements
 
 ## Current Position
 
-Phase: 6 of 9 (Orq.ai Deployment) — first of 4 V2.0 phases
-Plan: 2 of 2 complete
-Status: Phase 6 Complete
-Last activity: 2026-03-01 — Completed 06-02 (Verification, Logging, Metadata)
+Phase: 7 of 9 (Automated Testing) — second of 4 V2.0 phases
+Plan: 1 of 2 complete
+Status: In Progress
+Last activity: 2026-03-01 — Completed 07-01 (Tester Subagent with Dataset Pipeline and Evaluator Selection)
 
-Progress: [██████████] 100% (2/2 plans in Phase 6)
+Progress: [█████-----] 50% (1/2 plans in Phase 7)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2 (V2.0)
-- Average duration: 3.5min
-- Total execution time: 7min
+- Total plans completed: 3 (V2.0)
+- Average duration: 3.3min
+- Total execution time: 10min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 6. Orq.ai Deployment | 2/2 | 7min | 3.5min |
-| 7. Automated Testing | 0/? | — | — |
+| 7. Automated Testing | 1/2 | 3min | 3min |
 | 8. Prompt Iteration Loop | 0/? | — | — |
 | 9. Guardrails and Hardening | 0/? | — | — |
 
@@ -64,6 +64,9 @@ Progress: [██████████] 100% (2/2 plans in Phase 6)
 - Frontmatter merge-safe: preserve existing fields when annotating spec files
 - Tool IDs stored in TOOLS.md frontmatter as tool_ids mapping
 - Studio link inferred as https://cloud.orq.ai/toolkit/agents/{orqai_id}
+- Dataset operations use REST-only via @orq-ai/node SDK (MCP dataset tools may not be exposed)
+- Hybrid role defaults when both structural and conversational signals present (union of evaluators)
+- Three separate platform datasets per agent per split (train/test/holdout) for clean isolation
 
 ### Blockers/Concerns
 
@@ -80,5 +83,5 @@ Progress: [██████████] 100% (2/2 plans in Phase 6)
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 06-02-PLAN.md (Verification, Logging, Metadata) — Phase 6 fully complete
-Resume with: /gsd:plan-phase 07 (Automated Testing)
+Stopped at: Completed 07-01-PLAN.md (Tester Subagent with Dataset Pipeline and Evaluator Selection)
+Resume with: /gsd:execute-phase 07 (continue with 07-02)
