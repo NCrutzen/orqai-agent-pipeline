@@ -17,6 +17,7 @@ orq-agent/
     deploy.md                    # Phase 5: Deploy to Orq.ai (requires deploy+ tier)
     test.md                      # Phase 5: Automated testing (requires test+ tier)
     iterate.md                   # Phase 5: Prompt iteration (requires full tier)
+    harden.md                    # Phase 9: Guardrails and quality gates (requires full tier)
     set-profile.md               # Phase 5: Model profile management
   agents/
     architect.md                 # Phase 1: Architect subagent
@@ -26,6 +27,7 @@ orq-agent/
     orchestration-generator.md   # Phase 2: Orchestration generator subagent
     dataset-generator.md         # Phase 2: Dataset generator subagent
     readme-generator.md          # Phase 2: README generator subagent
+    hardener.md                  # Phase 9: Guardrails promotion and quality gates
   templates/
     agent-spec.md                # Template: individual agent specification
     orchestration.md             # Template: swarm orchestration document
@@ -34,6 +36,7 @@ orq-agent/
     tools.md                     # Template: tool landscape and per-agent assignments
     test-results.json            # Phase 5: V2.0 test results template (JSON)
     iteration-log.json           # Phase 5: V2.0 iteration audit template (JSON)
+    quality-report.json          # Phase 9: Quality gate results template (JSON)
   references/
     orqai-agent-fields.md        # Orq.ai v2 API field reference (18 fields, 15 tool types)
     orqai-model-catalog.md       # Model catalog by use case (14 providers, 12 models)
@@ -87,9 +90,19 @@ Agents/[swarm-name]/
 | `/orq-agent:deploy` | `commands/deploy.md` | deploy+ | Deploy agent specs to Orq.ai via MCP (V1.0 fallback: copy-paste steps) |
 | `/orq-agent:test` | `commands/test.md` | test+ | Run automated tests against deployed agents (V1.0 fallback: manual steps) |
 | `/orq-agent:iterate` | `commands/iterate.md` | full | Iterate on prompts using evaluator feedback (V1.0 fallback: manual steps) |
+| `/orq-agent:harden` | `commands/harden.md` | full | Set up guardrails and quality gates from test results |
 | `/orq-agent:set-profile` | `commands/set-profile.md` | any | View or change model profile (quality/balanced/budget) |
 
 **Invocation:** `/orq-agent "description"` | `/orq-agent` (interactive) | `--gsd` flag | `--output <path>`
+
+## Command Flags
+
+| Flag | Commands | Purpose |
+|------|----------|---------|
+| `--agent {key}` | deploy, test, iterate, harden | Scope operation to a single agent (+ tool dependencies for deploy) |
+| `--all` | test, iterate, harden | Explicitly run on all agents in swarm |
+| `--gsd` | orq-agent | Run in GSD mode |
+| `--output <path>` | orq-agent | Override default output directory |
 
 ## Subagents
 
@@ -121,6 +134,12 @@ Agents/[swarm-name]/
 |-------|------|---------|
 | Iterator | `agents/iterator.md` | Analyzes test failures, proposes targeted prompt changes with diff-style views, collects per-agent approval, orchestrates re-deploy/re-test cycle with holdout validation |
 
+### Phase 9 (Guardrails)
+
+| Agent | File | Purpose |
+|-------|------|---------|
+| Hardener | `agents/hardener.md` | Analyzes test results, suggests guardrails for promotion, collects approval, attaches to deployed agents, generates quality gate reports |
+
 ## References
 
 | File | Purpose |
@@ -143,7 +162,7 @@ Installed via `install.sh`. Config stored at `.orq-agent/config.json`.
 | core | Spec generation | `/orq-agent` |
 | deploy | + Deployment | `/orq-agent:deploy` |
 | test | + Automated testing | `/orq-agent:test` |
-| full | + Prompt iteration | `/orq-agent:iterate` |
+| full | + Prompt iteration + Hardening | `/orq-agent:iterate`, `/orq-agent:harden` |
 
 - Default profile: **quality** (best output out-of-the-box)
 - Change profile: `/orq-agent:set-profile [quality|balanced|budget]`
@@ -172,6 +191,7 @@ Packages required by V2.0 subagents at runtime. Not installed by `install.sh` (w
 | `tools.md` | Template for TOOLS.md output with capability-first organization and per-agent config JSON |
 | `test-results.json` | V2.0 test results template (JSON) |
 | `iteration-log.json` | V2.0 iteration audit log template (JSON) |
+| `quality-report.json` | V2.0 quality gate results template (JSON) |
 
 ## Distribution
 

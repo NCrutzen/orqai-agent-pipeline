@@ -90,6 +90,22 @@ Use these heuristics to map evaluator failures to the most likely prompt section
 
 For each failing agent:
 
+> **Step 2.2a: Check Guardrail Violations**
+>
+> Before diagnosing evaluator failures, check if the agent has a `## Guardrails` section in its spec file.
+>
+> If guardrails exist:
+> - For each guardrail, check if the corresponding evaluator in `test-results.json` has `pass: false`
+> - If a guardrail evaluator is failing: add it to the diagnosis as a **guardrail violation** with higher priority than regular evaluator failures
+> - Format in diagnosis:
+>   ```
+>   **Guardrail violation:** {evaluator} is configured as a {severity} guardrail but scored {score} (threshold: {threshold})
+>   This must be fixed before the agent is production-ready.
+>   ```
+> - Guardrail violations are surfaced prominently and diagnosed first, before regular evaluator failures. This creates a tighter feedback loop: guardrail violations feed back into iterator analysis for targeted remediation.
+>
+> If no guardrails section exists or no guardrail evaluators are failing, proceed with standard diagnosis below.
+
 1. **Read the agent spec `.md` file** to get the current instructions content
 2. **Parse the XML-tagged sections:** Find content between `<section>` and `</section>` tags within the `## Instructions` code block
 3. **For each failing evaluator:**
