@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T15:57:24Z"
+last_updated: "2026-03-01T16:02:41Z"
 progress:
   total_phases: 2
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 5
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -23,19 +23,19 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 ## Current Position
 
-Phase: 8 of 9 (Prompt Iteration Loop) — third of 4 V2.0 phases
-Plan: 1 of 2 complete
-Status: In Progress
-Last activity: 2026-03-01 — Completed 08-01 (Iterator Subagent with Diagnosis, Proposals, Approval, Loop Control, and Logging)
+Phase: 8 of 9 (Prompt Iteration Loop) — third of 4 V2.0 phases (COMPLETE)
+Plan: 2 of 2 complete
+Status: Phase Complete
+Last activity: 2026-03-01 — Completed 08-02 (Re-deploy/Re-test Pipeline and Iterate Command)
 
-Progress: [█████░░░░░] 50% (1/2 plans in Phase 8)
+Progress: [██████████] 100% (2/2 plans in Phase 8)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5 (V2.0)
+- Total plans completed: 6 (V2.0)
 - Average duration: 3.2min
-- Total execution time: 16min
+- Total execution time: 19min
 
 **By Phase:**
 
@@ -43,7 +43,7 @@ Progress: [█████░░░░░] 50% (1/2 plans in Phase 8)
 |-------|-------|-------|----------|
 | 6. Orq.ai Deployment | 2/2 | 7min | 3.5min |
 | 7. Automated Testing | 2/2 | 6min | 3min |
-| 8. Prompt Iteration Loop | 1/2 | 3min | 3min |
+| 8. Prompt Iteration Loop | 2/2 | 6min | 3min |
 | 9. Guardrails and Hardening | 0/? | — | — |
 
 ## Accumulated Context
@@ -73,6 +73,9 @@ Progress: [█████░░░░░] 50% (1/2 plans in Phase 8)
 - Iterator is a subagent (.md file) -- LLM reasoning does diagnosis and proposal generation, no custom code
 - Four iteration stop conditions: max 3 iterations, <5% improvement, user_declined, 10min wall-clock timeout
 - Logs written BEFORE applying changes to preserve audit trail even on apply/test failure
+- Deployer subagent unmodified for re-deploy -- existing idempotent create-or-update logic handles selective updates
+- Holdout dataset IDs passed directly from test-results.json to tester for re-test (no new upload)
+- Step 2 MCP unavailable + API key set continues via REST for iterate command (matches deploy/test pattern)
 
 ### Blockers/Concerns
 
@@ -89,5 +92,5 @@ Progress: [█████░░░░░] 50% (1/2 plans in Phase 8)
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 08-01-PLAN.md (Iterator Subagent with Diagnosis, Proposals, Approval, Loop Control, and Logging)
-Resume with: /gsd:execute-phase 08 (continue Phase 8: plan 08-02)
+Stopped at: Completed 08-02-PLAN.md (Re-deploy/Re-test Pipeline and Iterate Command) -- Phase 8 complete
+Resume with: /gsd:execute-phase 09 (start Phase 9: Guardrails and Hardening)

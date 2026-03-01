@@ -31,8 +31,8 @@ Requirements for V2.0 Autonomous Orq.ai Pipeline. Each maps to roadmap phases.
 - [x] **ITER-01**: User sees analysis of failing agents with patterns tied to specific prompt sections
 - [x] **ITER-02**: Proposed prompt changes show diff-style view with reasoning linked to test failures
 - [x] **ITER-03**: User must approve each proposed change per-agent before it is applied
-- [ ] **ITER-04**: Approved changes update both local spec files and re-deploy the agent to Orq.ai
-- [ ] **ITER-05**: After iteration, changed agents are re-tested with score comparison (before vs after)
+- [x] **ITER-04**: Approved changes update both local spec files and re-deploy the agent to Orq.ai
+- [x] **ITER-05**: After iteration, changed agents are re-tested with score comparison (before vs after)
 - [x] **ITER-06**: Iteration loop stops on: all pass, max 3 iterations, <5% improvement, user declines, or 10min timeout
 - [x] **ITER-07**: All iterations are logged locally (iteration-log.md per cycle, audit-trail.md append-only)
 
@@ -90,8 +90,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ITER-01 | Phase 8 | Complete |
 | ITER-02 | Phase 8 | Complete |
 | ITER-03 | Phase 8 | Complete |
-| ITER-04 | Phase 8 | Pending |
-| ITER-05 | Phase 8 | Pending |
+| ITER-04 | Phase 8 | Complete |
+| ITER-05 | Phase 8 | Complete |
 | ITER-06 | Phase 8 | Complete |
 | ITER-07 | Phase 8 | Complete |
 | GUARD-01 | Phase 9 | Pending |
