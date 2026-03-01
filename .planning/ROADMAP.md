@@ -197,7 +197,7 @@ Plans:
 ### Phases
 
 - [x] **Phase 5: References, Install, and Capability Infrastructure** — Updated agentic framework references, new API/evaluator references, V2.0 output templates, modular install with capability tiers and API key onboarding
-- [ ] **Phase 05.1: Fix Distribution Placeholders** — Replace OWNER/REPO literals in command files with correct GitHub repo path (gap closure)
+- [x] **Phase 05.1: Fix Distribution Placeholders** — Replace OWNER/REPO literals in command files with correct GitHub repo path (gap closure) (completed 2026-03-01)
 - [ ] **Phase 05.2: Fix Tool Catalog & Pipeline Wiring** — Correct memory tool identifiers and wire research brief to orchestration generator (gap closure)
 - [ ] **Phase 6: Orq.ai Deployment** — Deployer subagent, API adapter layer, idempotent agent/tool creation, orchestration wiring, verify-after-deploy, deployment status reporting
 - [ ] **Phase 7: Automated Testing** — Tester subagent, dataset transformation and upload, evaluator creation, experiment execution with statistical rigor, structured results presentation
@@ -309,7 +309,7 @@ Plans:
   4. Generated ingestion scripts are runnable and include upsert logic for keeping KBs updated as source documents change
   5. The full KB setup process (store creation → embedding config → initial data load) can run end-to-end without manual console interaction
   6. User can select their preferred RAG database during install (Supabase pgvector, or alternatives)
-**Plans:** TBD (run /gsd:new-milestone to initialize)
+**Plans:** 1/1 plans complete
 
 ---
 
@@ -338,7 +338,7 @@ Plans:
 | V1.0 | 04.4 KB-Aware Pipeline | 3/3 | Complete | 2026-02-26 |
 | **V1.0** | **All phases** | **22/22** | **Complete** | **2026-02-26** |
 | V2.0 | 5. References, Install, and Capability Infrastructure | 4/4 | Complete | 2026-03-01 |
-| V2.0 | 05.1 Fix Distribution Placeholders | 0/1 | Gap closure | - |
+| V2.0 | 05.1 Fix Distribution Placeholders | 1/1 | Complete   | 2026-03-01 |
 | V2.0 | 05.2 Fix Tool Catalog & Pipeline Wiring | 0/1 | Gap closure | - |
 | V2.0 | 6. Orq.ai Deployment | 0/? | Not started | - |
 | V2.0 | 7. Automated Testing | 0/? | Not started | - |
