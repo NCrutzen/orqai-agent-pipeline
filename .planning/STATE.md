@@ -6,9 +6,9 @@ status: unknown
 last_updated: "2026-03-01T15:22:21.000Z"
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -24,25 +24,25 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 7 of 9 (Automated Testing) — second of 4 V2.0 phases
-Plan: 1 of 2 complete
-Status: In Progress
-Last activity: 2026-03-01 — Completed 07-01 (Tester Subagent with Dataset Pipeline and Evaluator Selection)
+Plan: 2 of 2 complete
+Status: Phase Complete
+Last activity: 2026-03-01 — Completed 07-02 (Experiment Execution, Results Aggregation, and Test Command Pipeline)
 
-Progress: [█████-----] 50% (1/2 plans in Phase 7)
+Progress: [██████████] 100% (2/2 plans in Phase 7)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (V2.0)
+- Total plans completed: 4 (V2.0)
 - Average duration: 3.3min
-- Total execution time: 10min
+- Total execution time: 13min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 6. Orq.ai Deployment | 2/2 | 7min | 3.5min |
-| 7. Automated Testing | 1/2 | 3min | 3min |
+| 7. Automated Testing | 2/2 | 6min | 3min |
 | 8. Prompt Iteration Loop | 0/? | — | — |
 | 9. Guardrails and Hardening | 0/? | — | — |
 
@@ -67,6 +67,9 @@ Progress: [█████-----] 50% (1/2 plans in Phase 7)
 - Dataset operations use REST-only via @orq-ai/node SDK (MCP dataset tools may not be exposed)
 - Hybrid role defaults when both structural and conversational signals present (union of evaluators)
 - Three separate platform datasets per agent per split (train/test/holdout) for clean isolation
+- LLM evaluators run platform-side (Orq.ai scores), function evaluators use local evaluatorq scorers with platform fallback
+- Bottleneck score (lowest evaluator median) as single per-agent summary metric in terminal output
+- Step 2 MCP unavailable + API key set continues via REST for test command (matches deploy pattern)
 
 ### Blockers/Concerns
 
@@ -83,5 +86,5 @@ Progress: [█████-----] 50% (1/2 plans in Phase 7)
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 07-01-PLAN.md (Tester Subagent with Dataset Pipeline and Evaluator Selection)
-Resume with: /gsd:execute-phase 07 (continue with 07-02)
+Stopped at: Completed 07-02-PLAN.md (Experiment Execution, Results Aggregation, and Test Command Pipeline)
+Resume with: /gsd:execute-phase 08 (Phase 8: Prompt Iteration Loop)

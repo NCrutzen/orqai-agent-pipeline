@@ -22,9 +22,9 @@ Requirements for V2.0 Autonomous Orq.ai Pipeline. Each maps to roadmap phases.
 
 - [x] **TEST-01**: User can upload V1.0-generated datasets to Orq.ai in platform format
 - [x] **TEST-02**: Evaluators are auto-selected based on agent role (structural agents get schema validation, conversational agents get relevance + coherence)
-- [ ] **TEST-03**: User can run experiments against deployed agents via evaluatorq SDK
-- [ ] **TEST-04**: Test results are presented as readable markdown with per-agent scores and worst-performing cases
-- [ ] **TEST-05**: Experiments run 3 times with median scores to handle non-deterministic outputs
+- [x] **TEST-03**: User can run experiments against deployed agents via evaluatorq SDK
+- [x] **TEST-04**: Test results are presented as readable markdown with per-agent scores and worst-performing cases
+- [x] **TEST-05**: Experiments run 3 times with median scores to handle non-deterministic outputs
 
 ### Iteration
 
@@ -84,9 +84,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEPLOY-08 | Phase 6 | Complete |
 | TEST-01 | Phase 7 | Complete |
 | TEST-02 | Phase 7 | Complete |
-| TEST-03 | Phase 7 | Pending |
-| TEST-04 | Phase 7 | Pending |
-| TEST-05 | Phase 7 | Pending |
+| TEST-03 | Phase 7 | Complete |
+| TEST-04 | Phase 7 | Complete |
+| TEST-05 | Phase 7 | Complete |
 | ITER-01 | Phase 8 | Pending |
 | ITER-02 | Phase 8 | Pending |
 | ITER-03 | Phase 8 | Pending |
