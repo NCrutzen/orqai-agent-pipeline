@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: V2.0
-milestone_name: Autonomous Orq.ai Pipeline
-status: executing
-last_updated: "2026-03-01T13:10:10Z"
+milestone: v0.3
+milestone_name: milestone
+status: unknown
+last_updated: "2026-03-01T13:14:53.193Z"
 progress:
-  total_phases: 4
+  total_phases: 1
   completed_phases: 1
   total_plans: 2
   completed_plans: 2
