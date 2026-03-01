@@ -25,7 +25,7 @@ Given any use case description (brief or detailed), produce correct, complete Or
 
 ### Validated
 
-Shipped in V1.0 (2026-02-26) — all 40 requirements complete:
+Shipped in V1.0 (2026-02-26) — 40 requirements:
 
 - Adaptive input handling (brief → detailed, pipeline depth adapts)
 - Architect subagent with complexity gate (single-agent default)
@@ -42,10 +42,18 @@ Shipped in V1.0 (2026-02-26) — all 40 requirements complete:
 - Prompt strategy (XML-tagged, heuristic-first, context-engineered)
 - KB-aware pipeline (discussion → researcher → spec generator)
 
+Shipped in v0.3 Foundation (2026-03-01) — 10 requirements:
+
+- ✓ Latest agentic framework references (Anthropic, OpenAI, Google A2A) — v0.3
+- ✓ Orq.ai API endpoints and evaluator types references — v0.3
+- ✓ V2.0 output templates (deploy-log, test-results, iteration-log) — v0.3
+- ✓ Modular install with capability tier selection (core/deploy/test/full) — v0.3
+- ✓ API key validation and MCP server auto-registration — v0.3
+- ✓ Capability-gated commands with upgrade messaging — v0.3
+- ✓ V1.0 fallback when MCP unavailable — v0.3
+
 ### Active
 
-- [ ] Latest agentic framework research incorporated into references and prompts
-- [ ] Modular install with capability selection and Orq.ai API key onboarding
 - [ ] Autonomous agent deployment to Orq.ai via MCP/API
 - [ ] Automated testing pipeline (datasets, evaluators, experiments)
 - [ ] Prompt iteration loop with user approval
@@ -54,7 +62,6 @@ Shipped in V1.0 (2026-02-26) — all 40 requirements complete:
 
 ### Out of Scope
 
-- ~~Direct Orq.ai API integration~~ — Now in scope for V2.0 (MCP available)
 - Orq.ai Deployments — output targets Agents API (`/v2/agents`), not the simpler Deployments pattern
 - Real-time agent monitoring/observability — Orq.ai handles this natively
 - Knowledge base automated provisioning — Deferred to V2.1 (user-chosen RAG DB)
@@ -81,12 +88,15 @@ Shipped in V1.0 (2026-02-26) — all 40 requirements complete:
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Target Orq.ai Agents, not Deployments | Agents support orchestration, persistent state, tool execution loops, and A2A Protocol — Deployments are single-call only | — Pending |
-| Kebab-case naming convention (`[domain]-[role]-agent`) | Matches Orq.ai's own deployment key patterns, readable, consistent | — Pending |
-| Directory-per-swarm output structure | Groups related agents with their orchestration logic and datasets — mirrors how GSD organizes workflows + agents | — Pending |
-| Claude Code skill distribution via GitHub | Balances easy install for non-technical users with version management for maintainers | — Pending |
-| Manual updates only (`/orq-agent:update`) | Simpler than auto-update, avoids surprise changes mid-workflow | — Pending |
-| Smart subagent spawning based on input detail | Avoids unnecessary research when user provides detailed brief — reduces token cost and time | — Pending |
+| Target Orq.ai Agents, not Deployments | Agents support orchestration, persistent state, tool execution loops, and A2A Protocol — Deployments are single-call only | ✓ Good — pipeline generates full agent specs |
+| Kebab-case naming convention (`[domain]-[role]-agent`) | Matches Orq.ai's own deployment key patterns, readable, consistent | ✓ Good — consistent across all output |
+| Directory-per-swarm output structure | Groups related agents with their orchestration logic and datasets — mirrors how GSD organizes workflows + agents | ✓ Good — clean, navigable output |
+| Claude Code skill distribution via GitHub | Balances easy install for non-technical users with version management for maintainers | ✓ Good — install + update working |
+| Manual updates only (`/orq-agent:update`) | Simpler than auto-update, avoids surprise changes mid-workflow | ✓ Good |
+| Smart subagent spawning based on input detail | Avoids unnecessary research when user provides detailed brief — reduces token cost and time | ✓ Good — 5-dimension classification |
+| MCP-first with API fallback for V2.0 | Orq.ai MCP server covers agents/datasets/evaluators; REST API covers tools/prompts/memory | — Pending (Phase 6 validation) |
+| Modular capability tiers | Users control what automation is enabled; core tier preserves V1.0 behavior | ✓ Good — clean upgrade path |
+| XML-tagged prompt strategy | Anthropic context engineering patterns produce more consistent, grounded output | ✓ Good — all 7 subagents upgraded |
 
 ---
-*Last updated: 2026-03-01 after V2.0 milestone initialization*
+*Last updated: 2026-03-01 after v0.3 milestone completion*
