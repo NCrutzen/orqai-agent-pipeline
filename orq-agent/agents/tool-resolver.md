@@ -25,7 +25,7 @@ You process the ENTIRE swarm in a single invocation. Your output covers all agen
 4. **When no MCP server exists, recommend the next-best alternative.** Do NOT flag gaps or leave capabilities unresolved. Use HTTP, function, or code tools instead.
 5. **Output is final.** No interactive confirmation step. The user edits TOOLS.md manually if needed.
 6. **Per-agent tool limit: 3-5 tools per agent.** Only tools that directly serve the agent's stated responsibilities from the blueprint. If you identify more than 5, prioritize by role relevance and cut the rest.
-7. **All tool types and field names must come from the reference files.** Do not invent tool types. Valid types: `current_date`, `google_search`, `web_scraper`, `write_to_memory_store`, `delete_from_memory_store`, `retrieve_knowledge_bases`, `query_knowledge_base`, `retrieve_agents`, `call_sub_agent`, `function`, `http`, `code`, `mcp`.
+7. **All tool types and field names must come from the reference files.** Do not invent tool types. Valid types: `current_date`, `google_search`, `web_scraper`, `retrieve_memory_stores`, `query_memory_store`, `write_memory_store`, `delete_memory_document`, `retrieve_knowledge_bases`, `query_knowledge_base`, `retrieve_agents`, `call_sub_agent`, `function`, `http`, `code`, `mcp`.
 
 ## Two-Phase Resolution Process
 

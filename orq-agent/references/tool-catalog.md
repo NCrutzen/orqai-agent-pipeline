@@ -6,13 +6,17 @@ Curated catalog of Orq.ai tool types including built-in tools, MCP servers, and 
 
 ## Built-in Tools
 
+> **Source of truth:** All built-in tool identifiers below must match `orqai-agent-fields.md`. When in doubt, defer to that reference.
+
 | Tool Name | Type Key | Capabilities | Use Case Triggers |
 |-----------|----------|-------------|-------------------|
 | Web Search | `google_search` | Search the web for information | "search online", "find information", "look up" |
 | Current Date | `current_date` | Get today's date | "today's date", time-sensitive tasks |
 | Web Scraper | `web_scraper` | Extract content from a URL | "read URL", "scrape page", "extract web content" |
-| Write Memory | `write_to_memory_store` | Store information persistently | "remember", "save for later", persistent context |
-| Delete Memory | `delete_from_memory_store` | Remove stored information | "forget", "remove memory", cleanup tasks |
+| Memory Discovery | `retrieve_memory_stores` | Discover available memory stores | "what memory stores exist", "list stores", memory store discovery |
+| Memory Query | `query_memory_store` | Search stored information | "recall", "what did we discuss", memory retrieval |
+| Write Memory | `write_memory_store` | Store information persistently | "remember", "save for later", persistent context |
+| Delete Memory | `delete_memory_document` | Remove stored information | "forget", "remove memory", cleanup tasks |
 | KB Discovery | `retrieve_knowledge_bases` | List available knowledge bases | "find knowledge", "which KBs exist" |
 | KB Query | `query_knowledge_base` | Search a specific knowledge base | "look up in KB", "company policies", RAG tasks |
 | Agent Discovery | `retrieve_agents` | List sub-agents in a team | Multi-agent orchestrator routing |
