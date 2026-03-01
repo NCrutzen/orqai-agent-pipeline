@@ -54,7 +54,7 @@ Each agent `.md` must include ALL Orq.ai Agent fields:
 ### Tool & Function Schemas
 
 - [x] **TOOL-01**: Generate valid JSON Schema definitions for Function Tools each agent needs
-- [ ] **TOOL-02**: Recommend appropriate Built-in Tools per agent (Web search, Current date, Write/Delete memory store)
+- [x] **TOOL-02**: Recommend appropriate Built-in Tools per agent (Web search, Current date, Write/Delete memory store)
 - [x] **TOOL-03**: Identify when HTTP Tools or Python Tools are needed and provide configuration guidance
 - [x] **TOOL-04**: Identify when MCP Server connections are relevant and recommend them
 
@@ -199,7 +199,7 @@ Deferred to future releases. Tracked but not in current roadmap.
 | ORCH-04 | Phase 2 | Complete |
 | ORCH-05 | Phase 2 | Complete |
 | TOOL-01 | Phase 2 | Complete |
-| TOOL-02 | Phase 05.2 | Pending |
+| TOOL-02 | Phase 05.2 | Complete |
 | TOOL-03 | Phase 2 | Complete |
 | TOOL-04 | Phase 2 | Complete |
 | DATA-01 | Phase 2 | Complete |

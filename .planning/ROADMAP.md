@@ -198,7 +198,7 @@ Plans:
 
 - [x] **Phase 5: References, Install, and Capability Infrastructure** — Updated agentic framework references, new API/evaluator references, V2.0 output templates, modular install with capability tiers and API key onboarding
 - [x] **Phase 05.1: Fix Distribution Placeholders** — Replace OWNER/REPO literals in command files with correct GitHub repo path (gap closure) (completed 2026-03-01)
-- [ ] **Phase 05.2: Fix Tool Catalog & Pipeline Wiring** — Correct memory tool identifiers and wire research brief to orchestration generator (gap closure)
+- [x] **Phase 05.2: Fix Tool Catalog & Pipeline Wiring** — Correct memory tool identifiers and wire research brief to orchestration generator (gap closure) (completed 2026-03-01)
 - [ ] **Phase 6: Orq.ai Deployment** — Deployer subagent, API adapter layer, idempotent agent/tool creation, orchestration wiring, verify-after-deploy, deployment status reporting
 - [ ] **Phase 7: Automated Testing** — Tester subagent, dataset transformation and upload, evaluator creation, experiment execution with statistical rigor, structured results presentation
 - [ ] **Phase 8: Prompt Iteration Loop** — Iterator subagent, results analysis with plain-language diagnosis, diff-based prompt proposals, per-iteration user approval, hard stopping conditions, audit trail
@@ -339,7 +339,7 @@ Plans:
 | **V1.0** | **All phases** | **22/22** | **Complete** | **2026-02-26** |
 | V2.0 | 5. References, Install, and Capability Infrastructure | 4/4 | Complete | 2026-03-01 |
 | V2.0 | 05.1 Fix Distribution Placeholders | 1/1 | Complete    | 2026-03-01 |
-| V2.0 | 05.2 Fix Tool Catalog & Pipeline Wiring | 0/1 | Gap closure | - |
+| V2.0 | 05.2 Fix Tool Catalog & Pipeline Wiring | 1/1 | Complete   | 2026-03-01 |
 | V2.0 | 6. Orq.ai Deployment | 0/? | Not started | - |
 | V2.0 | 7. Automated Testing | 0/? | Not started | - |
 | V2.0 | 8. Prompt Iteration Loop | 0/? | Not started | - |

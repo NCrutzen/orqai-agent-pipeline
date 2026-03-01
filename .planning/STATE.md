@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T10:54:22.243Z"
+last_updated: "2026-03-01T11:37:25.768Z"
 progress:
   total_phases: 11
-  completed_phases: 10
-  total_plans: 27
-  completed_plans: 27
+  completed_phases: 11
+  total_plans: 28
+  completed_plans: 28
 ---
 
 # Project State
@@ -23,19 +23,19 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 ## Current Position
 
-Phase: 5.1 (Fix Distribution Placeholders) -- COMPLETE
-Plan: 1 of 1 (Phase 5.1)
-Status: Phase 5.1 Complete
-Last activity: 2026-03-01 — Completed 05.1-01 fix distribution placeholders plan
+Phase: 5.2 (Fix Tool Catalog and Pipeline Wiring) -- COMPLETE
+Plan: 1 of 1 (Phase 5.2)
+Status: Phase 5.2 Complete
+Last activity: 2026-03-01 — Completed 05.2-01 fix tool catalog and pipeline wiring plan
 
-Progress: [################....] 80% (V2.0 Phase 5.1: 1/1 plans complete)
+Progress: [#################...] 85% (V2.0 Phase 5.2: 1/1 plans complete)
 
 ## Version Progress
 
 | Version | Milestone | Status |
 |---------|-----------|--------|
 | **V1.0** | Core Pipeline | **Complete** (2026-02-26) |
-| **V2.0** | Autonomous Orq.ai Pipeline | **Active** — Phase 5.1 complete (1/1 plans), Phase 6 next |
+| **V2.0** | Autonomous Orq.ai Pipeline | **Active** — Phase 5.2 complete (1/1 plans), Phase 6 next |
 | V2.1 | Automated KB Setup | Planned |
 | V3.0 | Browser Automation | Planned |
 
@@ -47,8 +47,8 @@ Progress: [################....] 80% (V2.0 Phase 5.1: 1/1 plans complete)
 - Total execution time: ~1 hour
 
 **V2.0 Velocity:**
-- Total plans completed: 5
-- Phases: 5 (Phases 5-9)
+- Total plans completed: 6
+- Phases: 6 (Phases 5-9)
 - Requirements: 31
 
 | Phase | Plan | Duration | Tasks | Files |
@@ -58,6 +58,7 @@ Progress: [################....] 80% (V2.0 Phase 5.1: 1/1 plans complete)
 | 05 | 03 | 2min | 1 | 1 |
 | 05 | 04 | 3min | 2 | 5 |
 | 05.1 | 01 | 1min | 2 | 6 |
+| 05.2 | 01 | 2min | 2 | 5 |
 
 ## Accumulated Context
 
@@ -81,6 +82,8 @@ Progress: [################....] 80% (V2.0 Phase 5.1: 1/1 plans complete)
 - [05-04]: MCP fallback produces domain-specific V1.0 copy-paste steps per command type
 - [05-04]: set-profile has no tier gate (model profiles apply at all tiers including core)
 - [05-04]: SKILL.md consolidated to 180 lines with all Phase 5 additions
+- [Phase 05.2]: Memory tools grouped together in tool-catalog.md and tool-resolver.md for readability
+- [Phase 05.2]: KB Design validation gate placed as dedicated section before KB Design generation, not in pre-output checklist
 
 ### Pending Todos
 
@@ -95,5 +98,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 05.1-01-PLAN.md (fix distribution placeholders) -- Phase 5.1 complete
+Stopped at: Completed 05.2-01-PLAN.md (fix tool catalog and pipeline wiring) -- Phase 5.2 complete
 Resume with: /gsd:execute-phase 06 (Phase 6: Autonomous Deployment)
