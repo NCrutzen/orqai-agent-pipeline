@@ -63,6 +63,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 
 - [ ] **Phase 6: Orq.ai Deployment** — Deployer subagent, MCP/REST adapter, idempotent agent/tool creation, orchestration wiring, deploy-verify-record pattern
 - [ ] **Phase 7: Automated Testing** — Tester subagent, dataset transformation, role-based evaluator selection, 3x median experiment execution, structured results
+- [ ] **Phase 7.1: Test Pipeline Tech Debt** — SDK-to-REST mapping, undeclared package declaration, deploy-log template cleanup
 - [ ] **Phase 8: Prompt Iteration Loop** — Iterator subagent, failure analysis, diff-based proposals, per-iteration HITL approval, 4 hard stopping conditions, audit trail
 - [ ] **Phase 9: Guardrails and Hardening** — Evaluator promotion to runtime guardrails, threshold-based quality gates, incremental per-agent deployment
 
@@ -93,6 +94,17 @@ Build a Claude Code skill that transforms natural language use case descriptions
 **Plans:** 2 plans
 - [ ] 07-01-PLAN.md — Tester subagent with dataset transformation pipeline (parse, augment, merge, split, upload) and evaluator auto-selection by agent role
 - [ ] 07-02-PLAN.md — Experiment execution (3x via evaluatorq, median aggregation) + test command wiring + results reporting (JSON, markdown, terminal)
+
+### Phase 7.1: Test Pipeline Tech Debt
+**Goal**: Resolve integration issues and tech debt from Phases 6-7 before iteration loop depends on them
+**Depends on**: Phase 7
+**Requirements**: None (tech debt — addresses integration gaps from V2.0 audit)
+**Gap Closure**: Closes 2 integration gaps + 1 tech debt item from V2.0 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. `orqai-api-endpoints.md` documents the SDK-to-REST mapping for `agents.responses.create()` → `POST /v2/agents/{id}/execute`, and tester.md REST fallback path covers agent invocation
+  2. `@orq-ai/evaluators` package is declared with version pin in install surface (install script, SKILL.md, or test.md) alongside existing `@orq-ai/node` and `@orq-ai/evaluatorq` pins
+  3. `deploy-log.json` template is either removed (orphaned) or updated to match live `deploy-log.md` markdown format with `unchanged` status support
+**Plans**: TBD
 
 ### Phase 8: Prompt Iteration Loop
 **Goal**: Users can improve underperforming agents through a guided analyze-propose-approve-retest cycle that explains every change in plain language and never acts without permission
@@ -139,9 +151,10 @@ Build a Claude Code skill that transforms natural language use case descriptions
 | Version | Phase | Plans Complete | Status | Completed |
 |---------|-------|----------------|--------|-----------|
 | v0.3 | 1-05.2 (11 phases) | 28/28 | **Shipped** | 2026-03-01 |
-| V2.0 | 6. Orq.ai Deployment | 0/2 | Planned | - |
-| V2.0 | 7. Automated Testing | 0/? | Not started | - |
-| V2.0 | 8. Prompt Iteration Loop | 0/? | Not started | - |
+| V2.0 | 6. Orq.ai Deployment | 2/2 | Verified | 2026-03-01 |
+| V2.0 | 7. Automated Testing | 2/2 | Verified | 2026-03-01 |
+| V2.0 | 7.1. Test Pipeline Tech Debt | 0/? | Not started | - |
+| V2.0 | 8. Prompt Iteration Loop | 2/2 | Verified | 2026-03-01 |
 | V2.0 | 9. Guardrails and Hardening | 0/? | Not started | - |
 | V2.1 | Automated KB Setup | - | Not started | - |
 | V3.0 | Browser Automation | - | Not started | - |
