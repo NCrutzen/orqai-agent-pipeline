@@ -116,6 +116,12 @@ Agents/[swarm-name]/
 |-------|------|---------|
 | Tool Resolver | `agents/tool-resolver.md` | Resolves tool needs per agent by consulting curated catalog and web search, produces TOOLS.md with verified Orq.ai-native configs |
 
+### Phase 8 (Prompt Iteration)
+
+| Agent | File | Purpose |
+|-------|------|---------|
+| Iterator | `agents/iterator.md` | Analyzes test failures, proposes targeted prompt changes with diff-style views, collects per-agent approval, orchestrates re-deploy/re-test cycle with holdout validation |
+
 ## References
 
 | File | Purpose |
