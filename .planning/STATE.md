@@ -41,6 +41,7 @@ Progress: [############........] 58% (V2.0 Phase 5: 3/4 plans complete)
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 05 | 02 | 2min | 2 | 5 |
+| 05 | 01 | 3min | 2 | 2 |
 | 05 | 03 | 2min | 1 | 1 |
 
 ## Accumulated Context
@@ -58,6 +59,9 @@ Progress: [############........] 58% (V2.0 Phase 5: 3/4 plans complete)
 - [05-03]: Config stored at $INSTALL_DIR/.orq-agent/config.json (install-relative, global settings)
 - [05-03]: MCP URL configurable via ORQAI_MCP_URL env var (default https://mcp.orq.ai)
 - [05-03]: Node.js used for JSON operations in installer (already a prerequisite)
+- [05-01]: Evaluator-optimizer mapped to Phase 8 iteration loop rather than standalone Orq.ai pattern
+- [05-01]: OpenAI Agent-as-Tool is direct 1:1 equivalent to Orq.ai team_of_agents -- no adaptation needed
+- [05-01]: A2A v0.3 states used as error handling design checklist, not direct implementation target
 
 ### Pending Todos
 
@@ -72,5 +76,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 05-03-PLAN.md
+Stopped at: Completed 05-01-PLAN.md (agentic framework references)
 Resume with: /gsd:execute-phase 05 (plan 04 next)

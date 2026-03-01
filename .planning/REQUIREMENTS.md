@@ -85,8 +85,8 @@ Requirements for V2.0 milestone — Autonomous Orq.ai Pipeline. Each maps to roa
 
 ### References & Templates
 
-- [ ] **REF-01**: Reference files updated with latest Anthropic evaluator-optimizer pattern, context engineering guidelines, and agent composability patterns
-- [ ] **REF-02**: Reference files updated with OpenAI agent-as-tool patterns and Google A2A Protocol v0.3 task lifecycle states
+- [x] **REF-01**: Reference files updated with latest Anthropic evaluator-optimizer pattern, context engineering guidelines, and agent composability patterns
+- [x] **REF-02**: Reference files updated with OpenAI agent-as-tool patterns and Google A2A Protocol v0.3 task lifecycle states
 - [x] **REF-03**: New Orq.ai API endpoints reference (`references/orqai-api-endpoints.md`) covering agents, tools, datasets, evaluators, and experiments endpoints
 - [x] **REF-04**: New Orq.ai evaluator types reference (`references/orqai-evaluator-types.md`) covering 19 built-in function evaluators and 4 custom evaluator categories
 - [x] **REF-05**: New V2.0 output templates for deploy-log, test-results, and iteration-log following existing template patterns
@@ -219,8 +219,8 @@ Deferred to future releases. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REF-01 | Phase 5 | Pending |
-| REF-02 | Phase 5 | Pending |
+| REF-01 | Phase 5 | Complete |
+| REF-02 | Phase 5 | Complete |
 | REF-03 | Phase 5 | Complete |
 | REF-04 | Phase 5 | Complete |
 | REF-05 | Phase 5 | Complete |
