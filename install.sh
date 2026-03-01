@@ -163,18 +163,178 @@ fi
 # --- Clean up backup on success ---
 rm -rf "${INSTALL_DIR}.backup"
 
+# --- V2.0 Capability Setup ---
+
+# Config file location
+CONFIG_DIR="$INSTALL_DIR/.orq-agent"
+CONFIG_FILE="$CONFIG_DIR/config.json"
+
+# Detect existing config for re-install/upgrade handling
+EXISTING_TIER=""
+EXISTING_OVERRIDES="{}"
+if [ -f "$CONFIG_FILE" ]; then
+  EXISTING_TIER=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$CONFIG_FILE','utf8')).tier)}catch(e){}" 2>/dev/null || echo "")
+  EXISTING_OVERRIDES=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$CONFIG_FILE','utf8'));console.log(JSON.stringify(c.model_overrides||{}))}catch(e){console.log('{}')}" 2>/dev/null || echo "{}")
+fi
+
+# --- Tier Selection (INST-01) ---
+echo ""
+echo -e "${BOLD}Select your capability tier:${NC}"
+echo ""
+echo "  ┌──────────┬─────────────────────────────────────────┐"
+echo "  │ Tier     │ What You Get                            │"
+echo "  ├──────────┼─────────────────────────────────────────┤"
+echo "  │ core     │ /orq-agent (spec generation only)       │"
+echo "  │ deploy   │ + /orq-agent:deploy (push to Orq.ai)    │"
+echo "  │ test     │ + /orq-agent:test (automated testing)   │"
+echo "  │ full     │ + /orq-agent:iterate (prompt iteration)  │"
+echo "  └──────────┴─────────────────────────────────────────┘"
+echo ""
+echo "  Each tier includes all capabilities of lower tiers."
+echo ""
+
+if [ -n "$EXISTING_TIER" ]; then
+  echo -e "  Current tier: ${BOLD}${EXISTING_TIER}${NC}"
+  read -p "  Select tier [core/deploy/test/full] (enter to keep $EXISTING_TIER): " SELECTED_TIER
+  if [ -z "$SELECTED_TIER" ]; then
+    SELECTED_TIER="$EXISTING_TIER"
+  fi
+else
+  read -p "  Select tier [core/deploy/test/full]: " SELECTED_TIER
+fi
+
+# Validate and normalize
+case "$SELECTED_TIER" in
+  core|deploy|test|full) ;;
+  *) echo -e "  ${YELLOW}Invalid tier. Defaulting to core.${NC}"; SELECTED_TIER="core" ;;
+esac
+
+echo -e "  ${GREEN}Tier selected: ${SELECTED_TIER}${NC}"
+
+# --- API Key Validation (INST-02) ---
+MCP_REGISTERED=false
+
+if [ "$SELECTED_TIER" != "core" ]; then
+  echo ""
+
+  # Check if API key already exists in environment
+  if [ -n "${ORQ_API_KEY:-}" ]; then
+    echo -e "  Existing Orq.ai API key detected."
+    read -p "  Keep existing key? [Y/n]: " KEEP_KEY
+    if [ "$KEEP_KEY" = "n" ] || [ "$KEEP_KEY" = "N" ]; then
+      read -sp "  Enter your Orq.ai API key: " ORQ_API_KEY
+      echo ""
+    fi
+  else
+    read -sp "  Enter your Orq.ai API key: " ORQ_API_KEY
+    echo ""
+  fi
+
+  # Validate against list models endpoint
+  HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer $ORQ_API_KEY" \
+    "https://api.orq.ai/v2/models" 2>/dev/null) || HTTP_CODE="000"
+
+  if [ "$HTTP_CODE" != "200" ]; then
+    echo -e "  ${RED}API key validation failed (HTTP $HTTP_CODE).${NC}"
+    echo -e "  Check your key and try again."
+    exit 1
+  fi
+  echo -e "  ${GREEN}API key validated successfully.${NC}"
+
+  # Write to shell profile (idempotent)
+  SHELL_PROFILE="$HOME/.zshrc"
+  if [ ! -f "$SHELL_PROFILE" ]; then
+    SHELL_PROFILE="$HOME/.bashrc"
+  fi
+
+  if grep -q "export ORQ_API_KEY=" "$SHELL_PROFILE" 2>/dev/null; then
+    # Update existing entry in-place
+    sed -i.bak "s|export ORQ_API_KEY=.*|export ORQ_API_KEY=\"$ORQ_API_KEY\"|" "$SHELL_PROFILE"
+    rm -f "${SHELL_PROFILE}.bak"
+    echo -e "  ${GREEN}API key updated in ${SHELL_PROFILE}${NC}"
+  else
+    # Append new entry
+    echo "" >> "$SHELL_PROFILE"
+    echo "# Orq.ai API Key (added by orq-agent installer)" >> "$SHELL_PROFILE"
+    echo "export ORQ_API_KEY=\"$ORQ_API_KEY\"" >> "$SHELL_PROFILE"
+    echo -e "  ${GREEN}API key added to ${SHELL_PROFILE}${NC}"
+  fi
+
+  # Export for current session
+  export ORQ_API_KEY
+
+  # --- MCP Server Registration (INST-03) ---
+  ORQAI_MCP_URL="${ORQAI_MCP_URL:-https://mcp.orq.ai}"
+
+  echo ""
+  echo "  Registering Orq.ai MCP server..."
+  if claude mcp add --transport http --scope user orqai-mcp \
+    "$ORQAI_MCP_URL" \
+    --env ORQ_API_KEY="$ORQ_API_KEY" 2>/dev/null; then
+    echo -e "  ${GREEN}Orq.ai MCP server registered.${NC}"
+    MCP_REGISTERED=true
+  else
+    echo -e "  ${YELLOW}WARNING: MCP registration failed. Deploy commands will use API fallback.${NC}"
+    MCP_REGISTERED=false
+  fi
+fi
+
+# --- Config File Creation ---
+mkdir -p "$CONFIG_DIR"
+
+if [ -f "$CONFIG_FILE" ] && [ "$EXISTING_OVERRIDES" != "{}" ]; then
+  # Re-install: preserve user's model_overrides
+  MODEL_OVERRIDES="$EXISTING_OVERRIDES"
+else
+  MODEL_OVERRIDES="{}"
+fi
+
+node -e "
+const config = {
+  tier: '$SELECTED_TIER',
+  model_profile: 'quality',
+  model_overrides: $MODEL_OVERRIDES,
+  installed_at: new Date().toISOString(),
+  orqai_mcp_registered: $MCP_REGISTERED
+};
+require('fs').writeFileSync('$CONFIG_FILE', JSON.stringify(config, null, 2) + '\n');
+"
+
+echo ""
+echo -e "  ${GREEN}Config saved to ${CONFIG_FILE}${NC}"
+
 # --- Success + Quick-start guide ---
 INSTALLED_VERSION=$(tr -d '[:space:]' < "$INSTALL_DIR/VERSION")
 
 echo ""
 echo -e "${GREEN}===========================================${NC}"
 echo -e "${GREEN}  Orq Agent Designer v${INSTALLED_VERSION} installed!${NC}"
+echo -e "${GREEN}  Tier: ${SELECTED_TIER}${NC}"
 echo -e "${GREEN}===========================================${NC}"
 echo ""
 echo -e "  ${BOLD}Quick start:${NC}"
 echo -e "    ${BOLD}/orq-agent${NC} \"Build a customer support triage system\""
+
+if [ "$SELECTED_TIER" = "deploy" ] || [ "$SELECTED_TIER" = "test" ] || [ "$SELECTED_TIER" = "full" ]; then
+  echo -e "    ${BOLD}/orq-agent:deploy${NC} (push specs to Orq.ai)"
+fi
+if [ "$SELECTED_TIER" = "test" ] || [ "$SELECTED_TIER" = "full" ]; then
+  echo -e "    ${BOLD}/orq-agent:test${NC} (automated testing)"
+fi
+if [ "$SELECTED_TIER" = "full" ]; then
+  echo -e "    ${BOLD}/orq-agent:iterate${NC} (prompt iteration)"
+fi
+
 echo -e "    ${BOLD}/orq-agent:help${NC}"
 echo -e "    ${BOLD}/orq-agent:update${NC}"
 echo ""
+
+if [ "$SELECTED_TIER" != "core" ]; then
+  echo -e "  API key stored in shell profile. MCP server: ${MCP_REGISTERED}"
+  echo -e "  ${YELLOW}Restart your terminal or run: source ${SHELL_PROFILE}${NC}"
+  echo ""
+fi
+
 echo -e "  Run these commands inside ${BOLD}Claude Code${NC} to get started."
 echo ""
