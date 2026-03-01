@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T17:20:11Z"
+last_updated: "2026-03-01T17:22:52.799Z"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -24,11 +24,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 9 of 9 (Guardrails and Hardening)
-Plan: 2 of 2 complete
+Plan: 1 of 2 complete
 Status: In Progress
-Last activity: 2026-03-01 — Completed 09-02 (Per-Agent Flags and SKILL.md Updates)
+Last activity: 2026-03-01 — Completed 09-01 (Guardrails and Quality Gates)
 
-Progress: [██████████] 100% (2/2 plans in Phase 9)
+Progress: [█████-----] 50% (1/2 plans in Phase 9)
 
 ## Performance Metrics
 
@@ -45,7 +45,8 @@ Progress: [██████████] 100% (2/2 plans in Phase 9)
 | 7. Automated Testing | 2/2 | 6min | 3min |
 | 8. Prompt Iteration Loop | 2/2 | 6min | 3min |
 | 7.1 Test Pipeline Tech Debt | 1/1 | 1min | 1min |
-| 9. Guardrails and Hardening | 1/2 | 3min | 3min |
+| 9. Guardrails and Hardening | 1/2 | 4min | 4min |
+| Phase 09 P01 | 4min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,9 @@ Progress: [██████████] 100% (2/2 plans in Phase 9)
 - Test/iterate support both positional arg and --agent flag for backward compatibility
 - Auto-deploy tool dependencies when deploying single agent via --agent
 - Guardrail violations surfaced with higher priority in iterator diagnosis for tighter feedback loop
+- Guardrail config stored in ## Guardrails markdown section in agent spec files (not YAML frontmatter)
+- Severity and threshold are application-layer fields only -- NOT sent to Orq.ai API (API accepts only id, execute_on, sample_rate)
+- Pre-built guardrails (orq_pii_detection, orq_harmful_moderation, orq_sexual_moderation) always suggested for conversational/hybrid agents
 
 ### Blockers/Concerns
 
@@ -98,5 +102,5 @@ Progress: [██████████] 100% (2/2 plans in Phase 9)
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 09-02-PLAN.md (Per-Agent Flags and SKILL.md Updates)
-Resume with: Phase 9 complete -- all plans executed
+Stopped at: Completed 09-01-PLAN.md (Guardrails and Quality Gates)
+Resume with: /gsd:execute-phase 09 (continue with 09-02-PLAN.md)

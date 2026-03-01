@@ -38,8 +38,8 @@ Requirements for V2.0 Autonomous Orq.ai Pipeline. Each maps to roadmap phases.
 
 ### Guardrails
 
-- [ ] **GUARD-01**: Test evaluators can be promoted to runtime guardrails on deployed agents
-- [ ] **GUARD-02**: User can set minimum score thresholds per evaluator as quality gates
+- [x] **GUARD-01**: Test evaluators can be promoted to runtime guardrails on deployed agents
+- [x] **GUARD-02**: User can set minimum score thresholds per evaluator as quality gates
 - [x] **GUARD-03**: User can deploy, test, and iterate agents individually before wiring orchestration
 
 ## Future Requirements (V2.1+)
@@ -94,8 +94,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ITER-05 | Phase 8 | Complete |
 | ITER-06 | Phase 8 | Complete |
 | ITER-07 | Phase 8 | Complete |
-| GUARD-01 | Phase 9 | Pending |
-| GUARD-02 | Phase 9 | Pending |
+| GUARD-01 | Phase 9 | Complete |
+| GUARD-02 | Phase 9 | Complete |
 | GUARD-03 | Phase 9 | Complete |
 
 **Coverage:**
