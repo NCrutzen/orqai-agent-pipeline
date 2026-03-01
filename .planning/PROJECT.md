@@ -6,35 +6,58 @@ A Claude Code skill (`/orq-agent`) that takes a use case description from a Moyn
 
 ## Core Value
 
-Given any use case description (brief or detailed), produce correct, complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic that a non-technical colleague can set up in Orq.ai Studio.
+Given any use case description (brief or detailed), produce correct, complete Orq.ai Agent specifications and autonomously deploy, test, iterate, and harden them via the Orq.ai MCP server and API — while keeping non-technical colleagues able to review and approve every change.
+
+## Current Milestone: V2.0 Autonomous Orq.ai Pipeline
+
+**Goal:** Transform the spec generation skill into a fully autonomous pipeline that deploys agent swarms to Orq.ai, runs automated tests, iterates prompts based on results (with user approval), and configures guardrails — all via MCP-first integration with API fallback.
+
+**Target features:**
+- Update skill references and prompts with latest agentic framework research (Anthropic, OpenAI, etc.)
+- Modular install with capability selection (core/deploy/test/full) and Orq.ai API key onboarding
+- Autonomous agent deployment to Orq.ai via MCP (tools via API), with idempotent updates
+- Automated testing: dataset upload, evaluator creation, experiment execution, results presentation
+- Prompt iteration loop: analyze results → propose changes → user approves → update → re-test
+- Guardrails and hardening via evaluator-based quality gates
+- Full audit trail: all iterations and reasoning logged to local `.md` files
 
 ## Requirements
 
 ### Validated
 
-(None yet — ship to validate)
+Shipped in V1.0 (2026-02-26) — all 40 requirements complete:
+
+- Adaptive input handling (brief → detailed, pipeline depth adapts)
+- Architect subagent with complexity gate (single-agent default)
+- Domain research subagents (smart skip when input is detailed)
+- Agent spec generation (all 18 Orq.ai fields, copy-paste ready)
+- Orchestration spec (agent-as-tool, data flow, error handling, HITL)
+- Dataset generation (test inputs, eval pairs, adversarial cases 30%+)
+- Naming convention (`[domain]-[role]-agent` kebab-case)
+- Directory output structure (`Agents/[swarm-name]/`)
+- Claude Code skill distribution (install script, update command)
+- GSD integration (standalone + within GSD phases)
+- Discussion step (surfaces gray areas before architect)
+- Tool resolver (unified tool catalog, MCP-first)
+- Prompt strategy (XML-tagged, heuristic-first, context-engineered)
+- KB-aware pipeline (discussion → researcher → spec generator)
 
 ### Active
 
-- [ ] Adaptive input handling — accepts brief descriptions ("I need an agent that checks invoices") through detailed briefs, and adjusts pipeline depth accordingly
-- [ ] Architect subagent — analyzes use case, determines agent count, defines orchestration pattern (single, sequential pipeline, parallel), specifies A2A Protocol handoffs
-- [ ] Domain research subagents — investigate best practices per agent role: model selection, prompt patterns, tool needs, knowledge base relevance. Skipped when user provides sufficient detail
-- [ ] Agent spec generation — one `.md` per agent with all Orq.ai Agent fields: key, role, description, model, instructions (system prompt), settings (max_iterations, max_execution_time), tools (with JSON schema), and input/output message templates with `{{variables}}`
-- [ ] Orchestration spec — `ORCHESTRATION.md` per swarm documenting the full A2A pipeline: agent sequence, Task ID strategy, `input-required` handling, error/fallback logic, human-in-the-loop decision points
-- [ ] Dataset generation — test inputs, eval pairs (input + expected output), and multi-model comparison matrices for experimentation across providers (OpenAI, Anthropic, Google, etc.)
-- [ ] Naming convention — establish and enforce `[domain]-[role]-agent` kebab-case convention for agent keys, with swarm directory names matching the domain
-- [ ] Directory output structure — `Agents/[swarm-name]/` containing `ORCHESTRATION.md`, `agents/[agent-name].md`, `datasets/`, and `README.md`
-- [ ] Claude Code skill distribution — installable as `/orq-agent` slash command via GitHub repo with simple install script for non-technical users
-- [ ] Manual update mechanism — `/orq-agent:update` command to pull latest version from GitHub
-- [ ] GSD integration — works standalone (`/orq-agent`) and callable from within a GSD phase when a coding project needs LLM agents designed
-- [ ] Future-proofed for Orq.ai MCP — output structure should be machine-parseable so when the Orq.ai MCP arrives, a future upgrade can configure agents directly
+- [ ] Latest agentic framework research incorporated into references and prompts
+- [ ] Modular install with capability selection and Orq.ai API key onboarding
+- [ ] Autonomous agent deployment to Orq.ai via MCP/API
+- [ ] Automated testing pipeline (datasets, evaluators, experiments)
+- [ ] Prompt iteration loop with user approval
+- [ ] Guardrails and hardening via evaluator-based quality gates
+- [ ] Full audit trail in local `.md` files
 
 ### Out of Scope
 
-- Direct Orq.ai API integration — no automated deployment to Orq.ai (MCP not yet available)
+- ~~Direct Orq.ai API integration~~ — Now in scope for V2.0 (MCP available)
 - Orq.ai Deployments — output targets Agents API (`/v2/agents`), not the simpler Deployments pattern
 - Real-time agent monitoring/observability — Orq.ai handles this natively
-- Knowledge base content creation — specs reference knowledge bases but don't create the data
+- Knowledge base automated provisioning — Deferred to V2.1 (user-chosen RAG DB)
 - Auto-update on launch — updates are manual via `/orq-agent:update`
 
 ## Context
@@ -66,4 +89,4 @@ Given any use case description (brief or detailed), produce correct, complete, c
 | Smart subagent spawning based on input detail | Avoids unnecessary research when user provides detailed brief — reduces token cost and time | — Pending |
 
 ---
-*Last updated: 2026-02-24 after initialization*
+*Last updated: 2026-03-01 after V2.0 milestone initialization*

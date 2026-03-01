@@ -2,90 +2,65 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-24)
+See: .planning/PROJECT.md (updated 2026-03-01)
 
-**Core value:** Given any use case description, produce correct, complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic that a non-technical colleague can set up in Orq.ai Studio.
-**Current version:** V1.0 complete — ready for rollout
-**Next milestone:** V1.1 (Orq.ai MCP Agent Deployment)
+**Core value:** Given any use case description, produce correct, complete Orq.ai Agent specifications and autonomously deploy, test, iterate, and harden them via the Orq.ai MCP server and API.
+**Current version:** V2.0 — Autonomous Orq.ai Pipeline
+**Previous version:** V1.0 complete (2026-02-26) — 40/40 requirements, 22 plans executed
 
 ## Current Position
 
-Version: V1.0 — COMPLETE (all 8 phases done)
-Next: V1.1 Phase 5 (Orq.ai MCP Agent Deployment)
-Status: Ready to ship V1.0; V1.1 needs /gsd:plan-phase 5
-Last activity: 2026-02-26 - Completed quick task 2: Add standalone commands (architect, tools, research, datasets)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-01 — Milestone V2.0 started
 
 ## Version Progress
 
 | Version | Milestone | Status |
 |---------|-----------|--------|
 | **V1.0** | Core Pipeline | **Complete** (2026-02-26) |
-| V1.1 | Orq.ai MCP Deployment | Not started |
-| V1.2 | Automated KB Setup | Not started |
-| V2.0 | Experiment & Iterate | Not started |
-| V3.0 | Browser Automation | Not started |
+| **V2.0** | Autonomous Orq.ai Pipeline | **Active** |
+| V2.1 | Automated KB Setup | Planned |
+| V3.0 | Browser Automation | Planned |
 
 ## Performance Metrics
 
-**Velocity:**
-- Total plans completed: 20 (across V1.0)
+**V1.0 Velocity:**
+- Total plans completed: 22 (across 8 phases)
 - Average duration: 2-3min per plan
 - Total execution time: ~1 hour
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 01-foundation | 3 | 8min | 3min |
-| 02-core-generation | 5 | 12min | 2min |
-| 03-orchestrator | 2 | 5min | 3min |
-| 04-distribution | 3 | 7min | 2min |
-| 04.1-discussion | 1 | 3min | 3min |
-| 04.2-tool-selection | 2 | 6min | 3min |
-| 04.3-prompt-strategy | 3 | 14min | 5min |
-| 04.4-kb-aware | 3 | 6min | 2min |
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- [V1.0 Roadmap restructure]: Project organized into V1.0-V3.0 milestones; V1.0 ships all core pipeline phases
-- [V1.1]: Orq.ai MCP agent deployment prioritized over KB automation (V1.2) as more natural next step
-- [V1.2]: Automated KB Setup (formerly Phase 04.5) — Supabase MCP provisioning
-- Phases renumbered: old Phase 5 → Phase 5 under V1.1, old Phase 04.5 → Phase 6 under V1.2, old Phase 5 → Phase 7 under V2.0, old Phase 6 → Phase 8 under V3.0
-- [Quick-1]: Added /orq-agent:prompt fast-path command reusing spec-generator directly, inline blueprint construction
-- [Quick-2]: Added 4 standalone commands (architect, tools, research, datasets) wrapping individual subagents
+- [V1.0 → V2.0]: V1.1 (Orq.ai MCP Deployment) absorbed into V2.0 — deployment is part of the full autonomous pipeline, not a standalone milestone
+- [V1.2 → V2.1]: KB Setup stays separate — will support user-chosen RAG DB (not just Supabase)
+- [V2.0 Design]: MCP-first integration, API fallback for tools/prompts/memory stores
+- [V2.0 Design]: Local `.md` specs remain source of truth with full audit trail
+- [V2.0 Design]: User approval required before applying prompt changes
+- [V2.0 Design]: Modular install — user selects capabilities (core/deploy/test/full)
+- [V2.0 Phase 1]: Update references and prompts with latest agentic framework research before building automation
+- [Orq.ai MCP coverage]: Researched 2026-03-01 — MCP covers agents, datasets, experiments, evaluators, traces, models, search, analytics. API needed for tools, prompts, memory stores, annotations.
 
 ### Pending Todos
 
-None yet.
+None.
 
-### Roadmap Evolution
+### Quick Tasks Completed (V1.0)
 
-- V1.0: Phases 1-4 + 04.1-04.4 — all complete
-- V1.1 added: Orq.ai MCP Agent Deployment (new Phase 5)
-- V1.2: Automated KB Setup via Supabase MCP (Phase 6, formerly 04.5)
-- V2.0: Automated Experiment & Iterate (Phase 7, formerly Phase 5)
-- V3.0: Browser Automation (Phase 8, formerly Phase 6)
-
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 1 | Add single-prompt generation command to orq-agent skill | 2026-02-26 | ae3f22d | [1-add-single-prompt-generation-command-to-](./quick/1-add-single-prompt-generation-command-to-/) |
-| 2 | Add standalone commands (architect, tools, research, datasets) | 2026-02-26 | c46c073 | [2-add-orq-agent-architect-standalone-comma](./quick/2-add-orq-agent-architect-standalone-comma/) |
+| # | Description | Date | Commit |
+|---|-------------|------|--------|
+| 1 | Add single-prompt generation command | 2026-02-26 | ae3f22d |
+| 2 | Add standalone commands (architect, tools, research, datasets) | 2026-02-26 | c46c073 |
 
 ### Blockers/Concerns
 
-- V1.0 rollout: needs testing on non-developer machines before broad release
-- V1.1: requires Orq.ai MCP server availability and API exploration
-- V1.2: requires Supabase MCP setup and pgvector configuration
+- Orq.ai MCP capabilities need deeper exploration during Phase 5 research (exact tool signatures, error handling, rate limits)
 
 ## Session Continuity
 
-Last session: 2026-02-26
-Stopped at: Completed quick-2-01 (standalone commands: architect, tools, research, datasets)
-Resume with: /gsd:plan-phase 5 (for V1.1) or start V1.0 rollout
+Last session: 2026-03-01
+Stopped at: Milestone V2.0 initialization — defining requirements
+Resume with: Continue /gsd:new-milestone workflow (research → requirements → roadmap)

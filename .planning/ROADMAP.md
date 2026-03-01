@@ -2,16 +2,15 @@
 
 ## Overview
 
-Build a Claude Code skill that transforms natural language use case descriptions into complete, copy-paste-ready Orq.ai agent swarm specifications. The build progresses from foundational knowledge through core generation to orchestration, distribution, and finally automated deployment and experimentation.
+Build a Claude Code skill that transforms natural language use case descriptions into complete Orq.ai agent swarm specifications, then autonomously deploys, tests, iterates, and hardens them via the Orq.ai MCP server and API. The build progresses from foundational knowledge through core generation, orchestration, distribution, and finally a fully autonomous deployment-to-iteration pipeline.
 
 ## Version Milestones
 
 | Version | Milestone | Status |
 |---------|-----------|--------|
 | **V1.0** | Core Pipeline — generate complete agent swarm specs from natural language | **Complete** |
-| **V1.1** | Orq.ai MCP Agent Deployment — deploy generated specs directly to Orq.ai via MCP | Planned |
-| **V1.2** | Automated KB Setup — provision vector stores and ingestion pipelines via Supabase MCP | Planned |
-| **V2.0** | Experiment & Iterate — automated feedback loops using Orq.ai API for prompt iteration | Planned |
+| **V2.0** | Autonomous Orq.ai Pipeline — deploy, test, iterate, and harden agent swarms via MCP/API | Planned |
+| **V2.1** | Automated KB Setup — provision vector stores and ingestion pipelines (Supabase or user-chosen RAG DB) | Planned |
 | **V3.0** | Browser Automation — Playwright scripts or natural language browser instructions | Planned |
 
 ---
@@ -168,54 +167,63 @@ Plans:
 
 ---
 
-## V1.1 — Orq.ai MCP Agent Deployment (PLANNED)
+## V2.0 — Autonomous Orq.ai Pipeline (PLANNED)
 
-**Value:** After generating specs, automatically deploy agents to Orq.ai Studio via the Orq.ai MCP server — turning "copy-paste into Studio" into "one-click deploy."
+**Value:** Go from natural language use case to fully deployed, tested, and iterated agent swarm in Orq.ai — autonomously. MCP-first integration with API fallback. Modular install lets users control which automation capabilities are enabled. Local `.md` specs remain the source of truth with full audit trail of all iterations and reasoning.
 
-### Phase 5: Orq.ai MCP Agent Deployment
+**Key design decisions:**
+- MCP-first (Orq.ai MCP server), REST API as fallback where MCP doesn't cover (tools, prompts, memory stores)
+- Local `.md` files updated throughout the process with all iterations and reasoning for audit and human review
+- User approval required before applying any prompt changes — present test results, conclusions, and proposed changes first
+- Modular install — user selects which capabilities to enable (core, deploy, test, full)
+- Orq.ai API key onboarding during install
 
-**Goal:** Add a deployment stage to the pipeline that uses the Orq.ai MCP server to create/update agents, configure tools, set model parameters, and wire orchestration — so generated swarm specs can be deployed directly without manual Studio setup
-**Depends on:** V1.0
-**Requirements:** TBD (run /gsd:discuss-phase or /gsd:plan-phase to break down)
-**Success Criteria** (what must be TRUE):
-  1. Generated agent specs can be deployed to Orq.ai Studio via MCP with a single confirmation step
-  2. Deployment handles agent creation, model configuration, tool setup, and instruction population
-  3. Orchestration wiring (agent-as-tool relationships) is configured automatically
-  4. Deployment is idempotent — re-running updates existing agents rather than creating duplicates
-  5. Pipeline gracefully falls back to copy-paste instructions when Orq.ai MCP is unavailable
-**Plans:** TBD (run /gsd:plan-phase 5 to break down)
+**Orq.ai integration coverage (researched 2026-03-01):**
+
+| Capability | MCP | REST API | Pipeline stage |
+|---|---|---|---|
+| Agent creation/config | Yes | - | Deploy |
+| Tool creation (5 types) | - | Yes | Deploy |
+| Dataset management | Yes | Yes | Test |
+| Experiments | Yes | SDK (evaluatorq) | Test |
+| Evaluators (4 types) | Yes | Yes | Test |
+| Prompt creation/versioning | - | Yes | Iterate |
+| Memory Stores | - | Yes | Deploy (if KB) |
+| Traces/Observability | Yes | - | Iterate |
+| Annotations | - | Yes | Iterate |
+| Models listing | Yes | Yes | Deploy |
+| Search/Analytics | Yes | - | Monitor |
+
+### Phases (TBD — to be broken down during `/gsd:new-milestone`)
+
+High-level pipeline stages to be decomposed into phases:
+
+1. **Modular Install & API Key Onboarding** — Rework install script with capability selection (core/deploy/test/full), Orq.ai API key prompt, MCP server registration
+2. **Orq.ai Deployment** (absorbs former V1.1) — Create project/workspace, deploy agents via MCP, create tools via API, wire orchestration (agent-as-tool), idempotent updates, fallback to copy-paste when MCP unavailable
+3. **Automated Testing** — Upload test datasets, create evaluators (LLM-as-judge + custom), run experiments against deployed agents, collect and present results
+4. **Prompt Iteration Loop** — Analyze test results, propose prompt changes with reasoning, user approves, update agents, re-run experiments to validate, log all iterations to local `.md` audit trail
+5. **Guardrails & Hardening** — Configure evaluator-based guardrails on agents, threshold-based quality gates
+
+**Requirements:** TBD
+**Plans:** TBD (run /gsd:new-milestone to initialize)
 
 ---
 
-## V1.2 — Automated KB Setup (PLANNED)
+## V2.1 — Automated KB Setup (PLANNED)
 
-**Value:** Provision vector stores, configure embeddings, and generate ingestion pipelines via Supabase MCP — turning KB design guidance into fully automated setup.
+**Value:** Provision vector stores, configure embeddings, and generate ingestion pipelines — turning KB design guidance into fully automated setup. User chooses their RAG database (Supabase, or alternatives).
 
-### Phase 6: Automated KB Setup via Supabase MCP
-
-**Goal:** Add a KB Setup subagent that uses the Supabase MCP server to automatically create vector tables with pgvector, configure embeddings, generate ingestion pipelines, and populate knowledge bases
-**Depends on:** V1.1, Phase 04.4
+**Goal:** Add a KB Setup subagent that automatically creates vector stores, configures embeddings, generates ingestion pipelines, and populates knowledge bases
+**Depends on:** V2.0, Phase 04.4
 **Requirements:** ADV-03 (full — automated KB provisioning and data ingestion)
 **Success Criteria** (what must be TRUE):
   1. KB Setup subagent produces a `KB-SETUP.md` per knowledge base referenced in the swarm with table schema, embedding config, and ingestion pipeline
-  2. When Supabase MCP is available, the subagent automatically creates pgvector tables, configures embedding dimensions, and sets up RLS policies via MCP tool calls
+  2. When a supported RAG DB MCP is available, the subagent automatically provisions vector storage, configures embedding dimensions, and sets up access policies
   3. Ingestion pipeline scaffold handles common document formats (PDF, markdown, HTML, CSV) with configurable chunking parameters
   4. Generated ingestion scripts are runnable and include upsert logic for keeping KBs updated as source documents change
-  5. The full KB setup process (table creation → embedding config → initial data load) can run end-to-end without manual Supabase console interaction
-**Plans:** TBD (run /gsd:plan-phase 6 to break down)
-
----
-
-## V2.0 — Experiment & Iterate (PLANNED)
-
-**Value:** Close the feedback loop — deploy specs, run experiments across models, measure results, and iterate prompts automatically using the Orq.ai API.
-
-### Phase 7: Automated Experiment, Feedback and Prompt Iteration
-
-**Goal:** Build an experimentation pipeline that uses the Orq.ai API/MCP to run A/B tests across models, collect evaluation metrics, and automatically suggest prompt improvements based on results
-**Depends on:** V1.1
-**Requirements:** TBD
-**Plans:** TBD (run /gsd:plan-phase 7 to break down)
+  5. The full KB setup process (store creation → embedding config → initial data load) can run end-to-end without manual console interaction
+  6. User can select their preferred RAG database during install (Supabase pgvector, or alternatives)
+**Plans:** TBD (run /gsd:new-milestone to initialize)
 
 ---
 
@@ -223,12 +231,10 @@ Plans:
 
 **Value:** Generate Playwright automation scripts or natural language browser instructions for agents that need web interaction capabilities.
 
-### Phase 8: Browser Automation Scripts
-
 **Goal:** Automated process for Playwright automation scripts development or explicit LLM instructions for natural language browser use
 **Depends on:** V2.0
 **Requirements:** TBD
-**Plans:** TBD (run /gsd:plan-phase 8 to break down)
+**Plans:** TBD
 
 ---
 
@@ -245,7 +251,6 @@ Plans:
 | V1.0 | 04.3 Prompt Strategy | Complete | 2026-02-24 |
 | V1.0 | 04.4 KB-Aware Pipeline | Complete | 2026-02-26 |
 | **V1.0** | **All phases** | **Complete** | **2026-02-26** |
-| V1.1 | 5. Orq.ai MCP Deployment | Not started | - |
-| V1.2 | 6. Automated KB Setup | Not started | - |
-| V2.0 | 7. Experiment & Iterate | Not started | - |
-| V3.0 | 8. Browser Automation | Not started | - |
+| V2.0 | Autonomous Orq.ai Pipeline | Not started | - |
+| V2.1 | Automated KB Setup | Not started | - |
+| V3.0 | Browser Automation | Not started | - |
