@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.2 (2026-03-02)
+
+### Fixed
+- MCP server URL corrected to `https://my.orq.ai/v2/mcp`
+- MCP auth uses Bearer header instead of env var
+- API key stored in config.json and loaded at runtime (no longer relies on shell profile)
+- MCP detection matches all Orq.ai server name variants
+
 ## 2.0.1 (2026-03-02)
 
 ### Fixed
