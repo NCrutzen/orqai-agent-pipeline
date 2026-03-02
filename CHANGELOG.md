@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.1 (2026-03-02)
+
+### Fixed
+- Commands now registered in `~/.claude/commands/orq-agent/` for slash command discovery
+- Interactive prompts (tier selection, API key) now work with `curl | bash`
+- Added `--reconfigure` flag to change tier/API key after install
+- Added restart reminder after install
+
 ## 2.0.0 (2026-03-02)
 
 Autonomous Orq.ai Pipeline - deploy, test, iterate, and harden agents directly from Claude Code.
