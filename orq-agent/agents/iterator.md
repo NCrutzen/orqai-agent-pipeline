@@ -308,15 +308,17 @@ Invoke the tester subagent (`agents/tester.md`) with:
 
 1. **Swarm directory path** -- same as original test run
 2. **Agent-key filter** -- list of changed agent keys only (not the full swarm). Only agents that were approved, applied, and successfully re-deployed need re-testing.
-3. **Dataset split override: "holdout"** -- direct the tester to use holdout dataset IDs from `test-results.json` at `dataset.per_agent.{agent_key}.holdout_dataset_id` instead of the test split IDs
+3. **Dataset split override: "holdout"** -- direct the tester to use holdout dataset IDs from `test-results.json` by finding the matching entry in `dataset.per_agent_datasets[]` (where `agent_key` matches the target agent) and reading its `holdout_dataset_id` field, instead of using the test split IDs
 
 ### Step 7.2: Holdout Split Parameter Mechanism
 
 The tester subagent (from Phase 7 automated testing) normally uses the test split by default. For Phase 8 re-testing, the iterator directs the tester to use the holdout split:
 
 - Pass the holdout dataset IDs directly to the tester when invoking it
-- The holdout dataset IDs are stored in `test-results.json` at `dataset.per_agent.{agent_key}.holdout_dataset_id`
+- The holdout dataset IDs are stored in `test-results.json` in the `dataset.per_agent_datasets[]` array -- find the entry where `agent_key` matches the target agent and read its `holdout_dataset_id` field
 - The tester accepts these IDs and uses them for experiment execution instead of the test split IDs
+
+**Backward compatibility:** If the matched `per_agent_datasets[]` entry does not have a `holdout_dataset_id` field (old test-results.json format), warn the user: "Holdout dataset IDs not found in test-results.json. Re-run /orq-agent:test to generate updated results with per-split dataset IDs." Do not silently fail or skip the re-test.
 
 **Tester phases to execute for re-test:**
 - Skip Phases 1-5 of tester (dataset already uploaded in Phase 7 original run)
@@ -432,7 +434,7 @@ WHILE true:
 
 Two log outputs, written BEFORE applying changes to ensure diagnosis/proposals are recorded even if apply/test fails.
 
-### Step 7.1: iteration-log.md (Per Cycle)
+### Step 9.1: iteration-log.md (Per Cycle)
 
 Written to the swarm directory after each iteration cycle completes.
 
@@ -469,7 +471,7 @@ Written to the swarm directory after each iteration cycle completes.
 **Improvement:** {percent}% on bottleneck evaluator. {Continuing/Stopping}.
 ```
 
-### Step 7.2: audit-trail.md (Append-Only)
+### Step 9.2: audit-trail.md (Append-Only)
 
 Appended to in the swarm directory after each iteration cycle. Never overwritten -- always append.
 
@@ -486,7 +488,7 @@ Appended to in the swarm directory after each iteration cycle. Never overwritten
 - **Stop condition:** None (continuing) / {reason}
 ```
 
-### Step 7.3: Log Write Safety
+### Step 9.3: Log Write Safety
 
 Write logs BEFORE applying changes. If log write fails, display log content in terminal as warning but do not block the iteration. Treat log write failure as a warning, not a blocker.
 
