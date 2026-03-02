@@ -90,7 +90,7 @@ Produce your output in exactly this format. Downstream subagents parse this stru
 
 **Blueprint rules:**
 - Every agent key must follow naming conventions: `[domain]-[role]-agent`, lowercase kebab-case, ending with `-agent`
-- Every model recommendation must use `provider/model-name` format from the model catalog
+- Every model recommendation must use `provider/model-name` format. When MCP is available, validate model IDs against the live model list (`models-list` tool). Otherwise, use the model catalog as a reference guide (models may be outdated)
 - Every tool must be a valid Orq.ai tool type -- check the tool types reference if unsure
 - Include the Orchestration section only for multi-agent patterns; omit for single-agent
 

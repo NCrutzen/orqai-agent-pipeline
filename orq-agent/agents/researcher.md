@@ -2,6 +2,7 @@
 name: orq-researcher
 description: Investigates domain best practices per agent role and produces structured research briefs with model, prompt, tool, guardrail, and context recommendations.
 tools: Read, Glob, Grep, WebSearch, WebFetch
+mcp_tools_note: Use MCP `models-list` tool when available to validate model IDs against live workspace models
 model: inherit
 ---
 
@@ -207,7 +208,7 @@ Produce your output in EXACTLY this format. Downstream subagents parse this stru
 
 ### Rules for the Research Brief
 
-- **Model IDs MUST use `provider/model-name` format** from the model catalog reference. Do not invent model IDs. If you are unsure whether a model exists, check the catalog.
+- **Model IDs MUST use `provider/model-name` format.** Before producing recommendations, fetch the live model list via `models-list` MCP tool (or REST `GET /v2/models` as fallback) to confirm model availability in the workspace. If the live list cannot be fetched, validate against `orqai-model-catalog.md` as fallback and note the confidence as MEDIUM (live validation unavailable). Do not invent model IDs.
 - **Tool recommendations MUST reference valid Orq.ai tool types** from the agent fields reference. The valid types are: `current_date`, `google_search`, `web_scraper`, `function`, `code`, `http`, `mcp`, `retrieve_knowledge_bases`, `query_knowledge_base`, `retrieve_memory_stores`, `query_memory_store`, `write_memory_store`, `delete_memory_document`, `retrieve_agents`, `call_sub_agent`.
 - **Every recommendation must include a rationale.** No generic advice like "use a good model" or "add error handling."
 - **Minimum 3 alternatives per agent** for model recommendation. Alternatives serve double duty as experimentation options AND fallback model configuration.
