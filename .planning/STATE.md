@@ -81,7 +81,7 @@ Progress: [██████████] 100% (1/1 plans in Phase 10)
 - Step 2 MCP unavailable + API key set continues via REST for iterate command (matches deploy/test pattern)
 - REST fallback is documentation-only -- no parallel code path created (SDK handles REST internally)
 - Deploy shows interactive picker when no --agent flag (per-agent incremental workflow)
-- Test/iterate support both positional arg and --agent flag for backward compatibility
+- All commands use `--agent` flag exclusively for per-agent workflows (no positional args)
 - Auto-deploy tool dependencies when deploying single agent via --agent
 - Guardrail violations surfaced with higher priority in iterator diagnosis for tighter feedback loop
 - Guardrail config stored in ## Guardrails markdown section in agent spec files (not YAML frontmatter)
@@ -97,9 +97,9 @@ Progress: [██████████] 100% (1/1 plans in Phase 10)
 
 ### Tech Debt (from v0.3 audit)
 
-- TOOLS.md not passed to Wave 3 dataset-gen/readme-gen (medium)
-- agentic-patterns.md not in orchestration-generator files_to_read (low)
-- Step 5.5/5 numbering inversion in orchestrator (low, cosmetic)
+- ~~TOOLS.md not passed to Wave 3 dataset-gen/readme-gen~~ (resolved in Phase 11)
+- ~~agentic-patterns.md not in orchestration-generator files_to_read~~ (resolved in Phase 11)
+- ~~Step 5.5/5 numbering inversion in orchestrator~~ (resolved in Phase 11)
 
 ## Session Continuity
 
