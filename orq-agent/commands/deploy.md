@@ -251,10 +251,31 @@ Parse the ORCHESTRATION.md `## Knowledge Base Design` section (if present). Extr
 
 ### 3.5.2: Embedding Model Picker
 
-Show the embedding model picker **once per deploy** (NOT per KB). The selected model applies to all KBs in this deploy run:
+Show the embedding model picker **once per deploy** (NOT per KB). The selected model applies to all KBs in this deploy run.
+
+**Fetch embedding models before presenting the picker:**
+
+1. **Try MCP:** Call `models-list` tool
+2. **If MCP fails:** REST fallback: `GET https://api.orq.ai/v2/models` with `Authorization: Bearer $ORQ_API_KEY`
+3. Filter the response for embedding-capable models (type contains "embedding" or category is "embedding")
+4. **If fetch fails:** Fall back to the static list below with a note "(could not fetch live models -- showing cached recommendations)"
+
+**Present the filtered embedding models as numbered options:**
 
 ```
 Select embedding model for knowledge bases:
+
+  [Numbered list of embedding models from API, up to 5]
+  N+1. Custom (enter model identifier)
+
+Select [1]:
+```
+
+**If the live fetch failed, show the static fallback list instead:**
+
+```
+Select embedding model for knowledge bases:
+(could not fetch live models -- showing cached recommendations)
 
   1. cohere/embed-english-v3.0 (recommended)
   2. openai/text-embedding-3-small

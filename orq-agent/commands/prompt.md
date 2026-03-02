@@ -69,16 +69,27 @@ Wait for the user's response. Once received, store the input and proceed to Step
 
 Present 3 focused questions in a single prompt block. Do NOT spawn any subagents for this step -- handle it inline.
 
+### 2.0: Fetch Available Models
+
+Before presenting the model question, fetch the live model list from the Orq.ai API:
+
+1. **Try MCP:** Call the `models-list` MCP tool
+2. **If MCP fails:** REST fallback: Read the API key from config using `node -e "try{const c=JSON.parse(require('fs').readFileSync('$HOME/.claude/skills/orq-agent/.orq-agent/config.json','utf8'));console.log(c.orq_api_key||'')}catch(e){console.log('')}"` then call `GET https://api.orq.ai/v2/models` with `Authorization: Bearer $ORQ_API_KEY`
+3. **If both fail:** Fall back to showing the static recommendations from `orq-agent/references/orqai-model-catalog.md` with a note "(could not fetch live models -- showing cached recommendations)"
+
+From the response, extract models suitable for agent primary use (filter: chat/completion capable models, exclude embedding-only models). Store the filtered list as `AVAILABLE_MODELS`.
+
+### 2.1: Present Questions
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  ORQ ► QUICK SETUP
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 1. Model preference?
-   a) Claude (anthropic/claude-sonnet-4-5) -- balanced quality and cost
-   b) GPT-4o (openai/gpt-4o) -- fast, strong instruction following
-   c) Gemini (google-ai/gemini-2.5-pro) -- large context window
-   d) You decide
+   [List top 5 chat-capable models from AVAILABLE_MODELS, numbered]
+   Or type a model identifier (provider/model-name)
+   Default: [first model in list, or anthropic/claude-sonnet-4-5 if fetch failed]
 
 2. Does this agent need tools?
    a) Knowledge base lookup (FAQs, docs, policies)
@@ -91,7 +102,7 @@ Present 3 focused questions in a single prompt block. Do NOT spawn any subagents
    (e.g., "read-only access", "no PII in responses", or "none")
 
 ──────────────────────────────────────────────────────
-→ Answer each (e.g., "1a, 2a, 3: no PII")
+→ Answer each (e.g., "1: 2, 2a, 3: no PII" or "1: anthropic/claude-sonnet-4-5, 2a, 3: none")
 → Type "skip" to let Claude decide everything
 ──────────────────────────────────────────────────────
 ```
@@ -119,18 +130,16 @@ Construct the blueprint as follows:
 - **Key:** [derived from description using naming-conventions.md pattern: domain-role-agent]
 - **Role:** [derived from description]
 - **Responsibility:** [1-2 sentences from user description]
-- **Model:** [from user's answer to Q1, or anthropic/claude-sonnet-4-5 if "you decide"]
+- **Model:** [from user's answer to Q1, resolved against AVAILABLE_MODELS]
 - **Tools needed:** [from user's answer to Q2, mapped to Orq.ai tool types]
 - **Knowledge base:** [if Q2 included KB, note "yes"; otherwise "none"]
 - **Guardrails:** [from user's answer to Q3]
 ```
 
 **Model mapping:**
-- Answer "a" or "Claude" --> `anthropic/claude-sonnet-4-5`
-- Answer "b" or "GPT-4o" --> `openai/gpt-4o`
-- Answer "c" or "Gemini" --> `google-ai/gemini-2.5-pro`
-- Answer "d" or "you decide" --> `anthropic/claude-sonnet-4-5` (default)
-- If user typed "skip" in Step 2 --> `anthropic/claude-sonnet-4-5` (default)
+- If user selected a numbered option from the dynamic list --> use the corresponding model from `AVAILABLE_MODELS`
+- If user typed a model identifier (e.g., `anthropic/claude-sonnet-4-5`) --> use that identifier directly (validate it exists in `AVAILABLE_MODELS` if the list was fetched; warn if not found but allow it)
+- Answer "you decide" or "skip" --> use the first recommended model from `AVAILABLE_MODELS`, or `anthropic/claude-sonnet-4-5` as ultimate fallback if API was unreachable
 
 **Tool mapping (from Q2 answer to Orq.ai tool types):**
 - "a" (Knowledge base) --> `retrieve_knowledge_bases`, `query_knowledge_base`
