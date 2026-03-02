@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 Milestone: V2.0 Autonomous Orq.ai Pipeline — SHIPPED
 Status: Complete — all 7 phases, 11 plans, 23 requirements satisfied
-Last activity: 2026-03-02 - Completed quick task 4: Add KB generator agent and /orq-agent:kb command
+Last activity: 2026-03-02 - Completed quick task 5: Audit LLM model selection, ensure models sourced from live API
 
 ### Quick Tasks Completed
 
@@ -33,9 +33,10 @@ Last activity: 2026-03-02 - Completed quick task 4: Add KB generator agent and /
 |---|-------------|------|--------|-----------|
 | 3 | Add KB provisioning to deploy flow | 2026-03-02 | 524dad6 | [3-add-kb-provisioning-to-deploy-flow](./quick/3-add-kb-provisioning-to-deploy-flow/) |
 | 4 | Add KB generator agent and /orq-agent:kb command | 2026-03-02 | 70533ba | [4-add-orq-agent-kb-command-and-kb-generato](./quick/4-add-orq-agent-kb-command-and-kb-generato/) |
+| 5 | Audit LLM model selection -- use live API models | 2026-03-02 | 68e611b | [5-audit-llm-model-selection-ensure-models-](./quick/5-audit-llm-model-selection-ensure-models-/) |
 
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed quick task 4: Add KB generator agent and /orq-agent:kb command
+Stopped at: Completed quick task 5: Audit LLM model selection, ensure models sourced from live API
 Resume with: /gsd:new-milestone
