@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.0.0 (2026-03-02)
+
+Autonomous Orq.ai Pipeline - deploy, test, iterate, and harden agents directly from Claude Code.
+
+**Upgrading from 1.0.0:** Re-run the install command:
+```bash
+curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
+```
+Future updates can then use `/orq-agent:update`.
+
+### Added
+- `/orq-agent:deploy` — MCP-first deployment to Orq.ai with REST fallback
+- `/orq-agent:test` — Automated evaluation with 3x median experiment execution
+- `/orq-agent:iterate` — Evaluator-driven prompt iteration with HITL approval
+- `/orq-agent:harden` — Guardrail promotion and quality gates
+- `/orq-agent:set-profile` — Model profile management (quality/balanced/budget)
+- Capability tier system (core/deploy/test/full)
+- Idempotent create-or-update deployment with dependency ordering
+- Holdout dataset support for clean re-testing
+
 ## 1.0.0 (2026-02-24)
 
 Initial release of Orq Agent Designer.

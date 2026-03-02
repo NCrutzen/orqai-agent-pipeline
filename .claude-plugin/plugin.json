@@ -1,7 +1,7 @@
 {
   "name": "orq-agent",
   "description": "Generate complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic from use case descriptions",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "author": {
     "name": "Moyne Roberts"
   },
