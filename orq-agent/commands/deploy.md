@@ -89,7 +89,7 @@ No Orq.ai API key found. Re-run the installer to configure:
 Attempt a lightweight MCP operation to verify MCP server availability:
 
 ```bash
-claude mcp list 2>/dev/null | grep -q "orqai" && echo "MCP_AVAILABLE" || echo "MCP_UNAVAILABLE"
+claude mcp list 2>/dev/null | grep -qi "orq" && echo "MCP_AVAILABLE" || echo "MCP_UNAVAILABLE"
 ```
 
 **If MCP_UNAVAILABLE:** Set `mcp_available = false`. Display a note and continue to Step 3:

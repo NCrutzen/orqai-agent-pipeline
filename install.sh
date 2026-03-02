@@ -280,13 +280,13 @@ if [ "$SELECTED_TIER" != "core" ]; then
   export ORQ_API_KEY
 
   # --- MCP Server Registration (INST-03) ---
-  ORQAI_MCP_URL="${ORQAI_MCP_URL:-https://mcp.orq.ai}"
+  ORQAI_MCP_URL="${ORQAI_MCP_URL:-https://my.orq.ai/v2/mcp}"
 
   echo ""
   echo "  Registering Orq.ai MCP server..."
   if claude mcp add --transport http --scope user orqai-mcp \
     "$ORQAI_MCP_URL" \
-    --env ORQ_API_KEY="$ORQ_API_KEY" 2>/dev/null; then
+    --header "Authorization: Bearer $ORQ_API_KEY" 2>/dev/null; then
     echo -e "  ${GREEN}Orq.ai MCP server registered.${NC}"
     MCP_REGISTERED=true
   else
