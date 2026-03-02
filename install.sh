@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Orq Agent Designer Installer
 # Usage: curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
-# Or: chmod +x install.sh && ./install.sh
+#        curl -sL ... | bash -s -- --reconfigure   (change tier/API key/MCP)
+# Or: chmod +x install.sh && ./install.sh [--reconfigure]
 set -euo pipefail
 
 GITHUB_OWNER="NCrutzen"
 GITHUB_REPO="orqai-agent-pipeline"
 GITHUB_BRANCH="main"
+RECONFIGURE=false
+if [[ "${1:-}" == "--reconfigure" ]]; then RECONFIGURE=true; fi
 
 # Color definitions
 RED='\033[0;31m'
@@ -58,9 +61,13 @@ if [ -z "$REMOTE_VERSION" ]; then
 else
   if [ -f "$INSTALL_DIR/VERSION" ]; then
     LOCAL_VERSION=$(tr -d '[:space:]' < "$INSTALL_DIR/VERSION")
-    if [ "$LOCAL_VERSION" = "$REMOTE_VERSION" ]; then
+    if [ "$LOCAL_VERSION" = "$REMOTE_VERSION" ] && [ "$RECONFIGURE" = false ]; then
       echo -e "${GREEN}Already up to date (v${LOCAL_VERSION})${NC}"
+      echo -e "  To change tier or API key, run with ${BOLD}--reconfigure${NC}"
       exit 0
+    fi
+    if [ "$RECONFIGURE" = true ]; then
+      echo -e "Reconfiguring v${LOCAL_VERSION}..."
     fi
     echo -e "Updating: v${LOCAL_VERSION} -> v${REMOTE_VERSION}"
   else

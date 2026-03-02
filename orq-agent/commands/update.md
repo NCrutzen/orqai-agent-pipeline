@@ -70,6 +70,9 @@ If `LOCAL_VERSION` equals `REMOTE_VERSION`, display the following and STOP:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Already up to date (vLOCAL_VERSION)
+
+To change tier or reconfigure API key/MCP:
+  curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash -s -- --reconfigure
 ```
 
 If versions differ, proceed to Step 5.

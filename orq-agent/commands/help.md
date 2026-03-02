@@ -28,6 +28,16 @@ Display the following help output, replacing `vX.Y.Z` with the actual version fr
 
 Commands:
   /orq-agent "description"     Generate agent specs from a use case
+  /orq-agent:prompt "desc"     Quick single-agent generator
+  /orq-agent:architect "desc"  Standalone architecture design
+  /orq-agent:tools             Unified tool resolver
+  /orq-agent:research          Domain best practices research
+  /orq-agent:datasets          Test dataset generation
+  /orq-agent:deploy            Deploy specs to Orq.ai (deploy+ tier)
+  /orq-agent:test              Automated evaluation (test+ tier)
+  /orq-agent:iterate           Prompt iteration with HITL (full tier)
+  /orq-agent:harden            Guardrails & quality gates (full tier)
+  /orq-agent:set-profile       Switch model profile
   /orq-agent:update            Check for and install updates
   /orq-agent:help              Show this help
 
@@ -40,6 +50,9 @@ Usage examples:
 Flags:
   --gsd              Enable GSD integration mode
   --output <path>    Override default output directory (default: ./Agents/)
+
+Reconfigure (change tier, API key, or MCP setup):
+  curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash -s -- --reconfigure
 
 Output: ./Agents/[swarm-name]/
   ├── agents/           Per-agent specifications
