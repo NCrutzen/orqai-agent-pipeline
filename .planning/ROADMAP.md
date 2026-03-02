@@ -67,7 +67,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 - [ ] **Phase 8: Prompt Iteration Loop** — Iterator subagent, failure analysis, diff-based proposals, per-iteration HITL approval, 4 hard stopping conditions, audit trail
 - [ ] **Phase 9: Guardrails and Hardening** — Evaluator promotion to runtime guardrails, threshold-based quality gates, incremental per-agent deployment
 - [x] **Phase 10: Fix Holdout Dataset Path** — Resolve holdout dataset ID path mismatch in test-results.json template and iterator, fix stale step labels (completed 2026-03-02)
-- [ ] **Phase 11: Flag Conventions + Tech Debt Cleanup** — Align harden.md flag syntax, pass TOOLS.md to Wave 3, fix orchestrator references
+- [x] **Phase 11: Flag Conventions + Tech Debt Cleanup** — Align harden.md flag syntax, pass TOOLS.md to Wave 3, fix orchestrator references (completed 2026-03-02)
 
 ## Phase Details
 
@@ -153,7 +153,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
   2. TOOLS.md is included in Wave 3 `files_to_read` for dataset-gen and readme-gen subagents
   3. `agentic-patterns.md` is included in orchestration-generator `files_to_read`
   4. Step 5.5/5 numbering inversion in orchestrator is corrected
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 - [ ] 11-01-PLAN.md — Flag convention alignment, step renumbering, files_to_read completeness, and consistency sweep
 
 ---
@@ -185,6 +185,6 @@ Build a Claude Code skill that transforms natural language use case descriptions
 | V2.0 | 8. Prompt Iteration Loop | 2/2 | Verified | 2026-03-01 |
 | V2.0 | 9. Guardrails and Hardening | 0/? | Not started | - |
 | V2.0 | 10. Fix Holdout Dataset Path | 1/1 | Complete    | 2026-03-02 |
-| V2.0 | 11. Flag Conventions + Tech Debt | 0/1 | Planned | - |
+| V2.0 | 11. Flag Conventions + Tech Debt | 1/1 | Complete   | 2026-03-02 |
 | V2.1 | Automated KB Setup | - | Not started | - |
 | V3.0 | Browser Automation | - | Not started | - |
