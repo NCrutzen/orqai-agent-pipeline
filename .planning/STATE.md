@@ -25,7 +25,13 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 Milestone: V2.0 Autonomous Orq.ai Pipeline — SHIPPED
 Status: Complete — all 7 phases, 11 plans, 23 requirements satisfied
-Last activity: 2026-03-02 — Milestone completion and archival
+Last activity: 2026-03-02 - Completed quick task 3: Add KB provisioning to deploy flow
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 3 | Add KB provisioning to deploy flow | 2026-03-02 | 524dad6 | [3-add-kb-provisioning-to-deploy-flow](./quick/3-add-kb-provisioning-to-deploy-flow/) |
 
 ## Session Continuity
 
