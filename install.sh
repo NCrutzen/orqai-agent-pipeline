@@ -195,12 +195,12 @@ echo ""
 
 if [ -n "$EXISTING_TIER" ]; then
   echo -e "  Current tier: ${BOLD}${EXISTING_TIER}${NC}"
-  read -p "  Select tier [core/deploy/test/full] (enter to keep $EXISTING_TIER): " SELECTED_TIER
+  read -p "  Select tier [core/deploy/test/full] (enter to keep $EXISTING_TIER): " SELECTED_TIER </dev/tty
   if [ -z "$SELECTED_TIER" ]; then
     SELECTED_TIER="$EXISTING_TIER"
   fi
 else
-  read -p "  Select tier [core/deploy/test/full]: " SELECTED_TIER
+  read -p "  Select tier [core/deploy/test/full]: " SELECTED_TIER </dev/tty
 fi
 
 # Validate and normalize
@@ -220,13 +220,13 @@ if [ "$SELECTED_TIER" != "core" ]; then
   # Check if API key already exists in environment
   if [ -n "${ORQ_API_KEY:-}" ]; then
     echo -e "  Existing Orq.ai API key detected."
-    read -p "  Keep existing key? [Y/n]: " KEEP_KEY
+    read -p "  Keep existing key? [Y/n]: " KEEP_KEY </dev/tty
     if [ "$KEEP_KEY" = "n" ] || [ "$KEEP_KEY" = "N" ]; then
-      read -sp "  Enter your Orq.ai API key: " ORQ_API_KEY
+      read -sp "  Enter your Orq.ai API key: " ORQ_API_KEY </dev/tty
       echo ""
     fi
   else
-    read -sp "  Enter your Orq.ai API key: " ORQ_API_KEY
+    read -sp "  Enter your Orq.ai API key: " ORQ_API_KEY </dev/tty
     echo ""
   fi
 
