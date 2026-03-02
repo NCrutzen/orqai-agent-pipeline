@@ -8,6 +8,7 @@ model: inherit
 <files_to_read>
 - orq-agent/references/orchestration-patterns.md
 - orq-agent/references/orqai-agent-fields.md
+- orq-agent/references/agentic-patterns.md
 - orq-agent/templates/orchestration.md
 </files_to_read>
 

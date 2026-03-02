@@ -112,10 +112,11 @@ STOP after displaying fallback instructions.
 
 Parse the command argument and locate the swarm output directory.
 
-**Command format:** `/orq-agent:harden [agent-key]` where `agent-key` is optional.
+**Command format:** `/orq-agent:harden [--agent agent-key] [--all]`
 
-- If `agent-key` is provided: filter hardening to that single agent
-- If no `agent-key`: harden all agents in the swarm
+- If `--agent agent-key` is provided: filter hardening to that single agent
+- If `--all` is provided: explicitly harden all agents in the swarm
+- If no flags: harden all agents in the swarm (default behavior, same as `--all`)
 
 Find the most recent swarm output directory (same logic as deploy, test, and iterate commands):
 
@@ -152,7 +153,7 @@ Which swarm would you like to harden? [1/2]
 
 **If single ORCHESTRATION.md found:** Use that swarm directory. Read ORCHESTRATION.md to get the agent list.
 
-If `agent-key` was provided, verify the agent exists in the swarm:
+If `--agent agent-key` was provided, verify the agent exists in the swarm:
 - If found: filter to that single agent
 - If not found: display error listing available agents and STOP
 

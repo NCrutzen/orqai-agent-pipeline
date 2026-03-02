@@ -243,7 +243,7 @@ For the **Researcher** stage, evaluate whether the enriched input explicitly pro
 | Dataset Generator | RUN | Always runs -- generates test data and adversarial cases |
 | README Generator | RUN | Always runs -- produces setup guide |
 
-Store the researcher decision (RUN or SKIP) for use in Step 5 (generation pipeline). Do not display this classification to the user.
+Store the researcher decision (RUN or SKIP) for use in Step 6 (generation pipeline). Do not display this classification to the user.
 
 </classification>
 
@@ -362,7 +362,7 @@ Display the output directory confirmation:
 
 ---
 
-## Step 5.5: Run Tool Resolver
+## Step 5: Run Tool Resolver
 
 Display the tool resolver banner:
 
@@ -395,14 +395,14 @@ Store the TOOLS.md path for use in Wave 1 (researcher) and Wave 2 (spec generato
 
 ---
 
-## Step 5: Execute Generation Pipeline
+## Step 6: Execute Generation Pipeline
 
-Execute the generation pipeline in three waves. Track timing for each wave and each subagent invocation. Collect all failures for reporting in Step 6.
+Execute the generation pipeline in three waves. Track timing for each wave and each subagent invocation. Collect all failures for reporting in Step 7.
 
 Initialize a pipeline tracker:
 - `pipeline_started_at`: current UTC timestamp
 - `failures`: empty list
-- `stages_completed`: empty list (include `tool_resolver` from Step 5.5 if it ran)
+- `stages_completed`: empty list (include `tool_resolver` from Step 5 if it ran)
 - `agents_generated`: empty list (one entry per agent with key + status)
 
 ### Wave 1: Research (if not skipped)
@@ -443,7 +443,7 @@ Extract the list of agent keys from the architect blueprint.
   - **Input:** Pass the following:
     1. Blueprint: `{OUTPUT_DIR}/[swarm-name]/blueprint.md`
     2. Original user input
-    3. TOOLS.md: `{OUTPUT_DIR}/[swarm-name]/TOOLS.md` (or note "Tool resolution unavailable" if Step 5.5 failed)
+    3. TOOLS.md: `{OUTPUT_DIR}/[swarm-name]/TOOLS.md` (or note "Tool resolution unavailable" if Step 5 failed)
   - The researcher reads its own reference files via `<files_to_read>` -- no need to load them in the orchestrator
 
   On completion, the researcher writes a research brief file. Store the research brief path for Wave 2 (e.g., `{OUTPUT_DIR}/[swarm-name]/research-brief.md`).
@@ -456,7 +456,7 @@ Extract the list of agent keys from the architect blueprint.
     → [agent-key-4], [agent-key-5], [agent-key-6]
   ```
 
-  Use the Task tool to spawn multiple researchers in parallel. Each receives the blueprint path, TOOLS.md path (or note "Tool resolution unavailable" if Step 5.5 failed), and a subset of agent keys to research. Each produces a research brief file (e.g., `research-brief-1.md`, `research-brief-2.md`).
+  Use the Task tool to spawn multiple researchers in parallel. Each receives the blueprint path, TOOLS.md path (or note "Tool resolution unavailable" if Step 5 failed), and a subset of agent keys to research. Each produces a research brief file (e.g., `research-brief-1.md`, `research-brief-2.md`).
 
 <error_handling>
 
@@ -495,7 +495,7 @@ For each agent, invoke a spec generator:
 - **Input:** Pass four file paths:
   1. Architect blueprint: `{OUTPUT_DIR}/[swarm-name]/blueprint.md`
   2. Research brief: `{OUTPUT_DIR}/[swarm-name]/research-brief.md` (or note "Research was skipped -- generate specs from blueprint and user input only" if Wave 1 was skipped; or note "Research unavailable for this agent due to researcher failure" if that agent's researcher failed)
-  3. TOOLS.md: `{OUTPUT_DIR}/[swarm-name]/TOOLS.md` (or note "Tool resolution unavailable" if Step 5.5 failed)
+  3. TOOLS.md: `{OUTPUT_DIR}/[swarm-name]/TOOLS.md` (or note "Tool resolution unavailable" if Step 5 failed)
   4. The specific agent key to generate
 - The spec generator reads its own reference files and templates via `<files_to_read>` -- no need to load them in the orchestrator
 
@@ -548,10 +548,11 @@ Count the generators to spawn:
 
 **Dataset Generator** (one invocation per agent that has a successfully generated spec):
 - **Agent file:** `@orq-agent/agents/dataset-generator.md`
-- **Input:** Pass three file paths per agent:
+- **Input:** Pass four file paths per agent:
   1. Blueprint: `{OUTPUT_DIR}/[swarm-name]/blueprint.md`
   2. Research brief: `{OUTPUT_DIR}/[swarm-name]/research-brief.md` (or note if skipped/failed)
   3. Agent spec: `{OUTPUT_DIR}/[swarm-name]/agents/[agent-key].md`
+  4. TOOLS.md: `{OUTPUT_DIR}/[swarm-name]/TOOLS.md` (or note "Tool resolution unavailable" if Step 5 failed)
 - Output per agent: `{OUTPUT_DIR}/[swarm-name]/datasets/[agent-key]-dataset.md` and `{OUTPUT_DIR}/[swarm-name]/datasets/[agent-key]-edge-dataset.md`
 - Skip dataset generation for any agent whose spec generation failed in Wave 2
 
@@ -563,6 +564,7 @@ Count the generators to spawn:
   3. All agent spec paths: `{OUTPUT_DIR}/[swarm-name]/agents/*.md`
   4. Orchestration doc path: `{OUTPUT_DIR}/[swarm-name]/ORCHESTRATION.md` (if multi-agent)
   5. Dataset file list: all files in `{OUTPUT_DIR}/[swarm-name]/datasets/`
+  6. TOOLS.md: `{OUTPUT_DIR}/[swarm-name]/TOOLS.md` (or note "Tool resolution unavailable" if Step 5 failed)
 - Output: `{OUTPUT_DIR}/[swarm-name]/README.md`
 
 **Error handling for Wave 3:**
@@ -570,7 +572,7 @@ If any Wave 3 subagent fails:
 - Write a marker file: `[output-path].incomplete` with error details
 - Log the failure in `failures` list
 - Continue with remaining subagents -- do not abort
-- Report all failures in Step 6
+- Report all failures in Step 7
 
 </error_handling>
 
@@ -585,7 +587,7 @@ Record each in `stages_completed` with stage name, duration, and status.
 
 ---
 
-## Step 6: Final Summary
+## Step 7: Final Summary
 
 Record `pipeline_completed_at` as current UTC timestamp. Calculate `duration_seconds` from `pipeline_started_at`.
 
