@@ -84,7 +84,31 @@ No Orq.ai API key found. Re-run the installer to configure:
 
 **If API key found:** Export it for use in subsequent bash commands: `export ORQ_API_KEY="<value>"`
 
-### 2.2: MCP Availability Check
+### 2.2: Select Orq.ai Project
+
+List available projects using the API:
+
+```bash
+curl -s -H "Authorization: Bearer $ORQ_API_KEY" https://api.orq.ai/v2/projects
+```
+
+Parse the response to extract project names and IDs. Display a picker:
+
+```
+Which Orq.ai project should I deploy to?
+
+  1. Project Name A
+  2. Project Name B
+  3. Project Name C
+
+Select project number:
+```
+
+Store the selected project ID as `ORQ_PROJECT_ID`. If only one project exists, auto-select it and display: `Project: [name]`.
+
+If the API does not support a projects endpoint or returns an error, skip this step (the API key may be scoped to a single project already).
+
+### 2.3: MCP Availability Check
 
 Attempt a lightweight MCP operation to verify MCP server availability:
 
