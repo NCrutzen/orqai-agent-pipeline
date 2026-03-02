@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.1.0 (2026-03-02)
+
+### Added
+- `/orq-agent:kb` — Standalone Knowledge Base management (generate content, provision, upload, full setup)
+- KB content generation agent — auto-generates KB documents (FAQs, policies, knowledge articles) from pipeline context when user has no docs
+- KB provisioning in `/orq-agent:deploy` — creates KBs in Orq.ai or configures external providers (Supabase, Pinecone, Weaviate) during deployment
+- Embedding model picker and chunking strategy mapping from ORCHESTRATION.md specs
+- File upload and auto-chunking during deploy for users with local documents
+- "Generate KB content for me" option in deploy flow for hands-free KB setup
+- Knowledge Bases API endpoints added to reference documentation
+
 ## 2.0.2 (2026-03-02)
 
 ### Fixed
