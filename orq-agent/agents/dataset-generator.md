@@ -134,7 +134,7 @@ Compare agent performance across all major providers. Include this in the clean 
 1. Use the agent's primary model and fallback models from its spec
 2. Add coverage for any providers not already represented
 3. Select 3-5 representative test inputs from the clean dataset (mix of easy happy-path and harder boundary cases)
-4. Only use model IDs from the model catalog reference
+4. Only use model IDs confirmed available via the MCP models-list tool. If MCP is unavailable, use the agent's primary and fallback models from its spec (already validated upstream)
 
 **Format:**
 
@@ -248,7 +248,7 @@ Before finalizing output, verify ALL of the following. If any check fails, fix t
    - [ ] PII exposure attempts
    - [ ] System prompt extraction
 
-6. **Model ID validity:** All model IDs in the comparison matrix exist in `orqai-model-catalog.md`.
+6. **Model ID validity:** All model IDs in the comparison matrix are confirmed available via MCP models-list (or sourced from the agent's validated spec).
 
 7. **Dual dataset output:** Two separate files produced, not one combined file.
 
@@ -371,7 +371,7 @@ These boundaries ensure dataset quality and completeness:
 - **Eval pair completeness:** Every eval pair requires both a full reference response and a pass/fail criteria list. Never produce one without the other.
 - **Minimum test cases:** At least 15 total test cases per agent. If you have fewer, add more variation and boundary cases to the clean dataset.
 - **Dual dataset output:** Always produce two separate files (clean and edge case), never a single combined file.
-- **Model ID validity:** Only use model IDs from `orqai-model-catalog.md` in the comparison matrix.
+- **Model ID validity:** Only use model IDs confirmed available via MCP models-list (or from the agent's validated spec) in the comparison matrix.
 - **Domain specificity:** Every test input must be specific to the agent's domain, role, and instructions -- no generic inputs that could apply to any agent.
 - **Constraint consistency:** Reference responses must respect the agent's constraints. If the spec says "must not process refunds directly," the reference response must not process refunds directly.
 

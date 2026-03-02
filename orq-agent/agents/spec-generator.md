@@ -274,7 +274,7 @@ This is only 35 words. It has no XML structure, no heuristic task handling, no c
 
 ### Model
 
-Use `provider/model-name` format from the model catalog. Use the research brief's primary model recommendation. Validate that the model ID exists by checking the live model list. Before generating specs, call `models-list` MCP tool (or REST `GET /v2/models` as fallback) to get the current list of enabled models in the workspace. If the recommended model is not in the live list, flag it as a warning and suggest the closest available alternative from the live list. If the live list cannot be fetched, fall back to validating against `orqai-model-catalog.md` with a note that live validation was unavailable.
+Use `provider/model-name` format. Use the research brief's primary model recommendation. Validate that the model ID exists by calling the `models-list` MCP tool to get the current list of enabled models in the workspace. If the recommended model is not in the live list, flag it as a warning and suggest the closest available alternative from the live list. If MCP is unavailable, flag the model validation as SKIPPED and note "MCP required for model validation" — do not fall back to the static catalog.
 
 Examples of valid format: `anthropic/claude-sonnet-4-5`, `openai/gpt-4o`, `google-ai/gemini-2.5-pro`
 
@@ -507,7 +507,7 @@ Variables must be meaningful and derived from the agent's actual role. Do not us
 Before producing your final output, verify ALL of the following. Do NOT skip this step. Go through each item and confirm it passes.
 
 - [ ] Agent key follows `[domain]-[role]-agent` kebab-case pattern
-- [ ] Model uses `provider/model-name` format and is confirmed available via live model list (or validated against catalog as fallback)
+- [ ] Model uses `provider/model-name` format and is confirmed available via MCP models-list (or flagged as SKIPPED if MCP unavailable)
 - [ ] Fallback models are from different providers than primary
 - [ ] Fallback models list has at least 2 entries
 - [ ] All tool types are valid Orq.ai types from the reference (15 types only)
@@ -808,7 +808,7 @@ End of example. Match this level of completeness for every agent you generate.
 - Only use the 15 valid Orq.ai tool types from the agent fields reference. Use `function` with JSON Schema or `http` for API calls when no built-in type fits.
 - Every field must be filled or explicitly marked "Not applicable for this agent." No `{{PLACEHOLDER}}` text may remain.
 - One agent per invocation. Focus on depth, not breadth.
-- Validate every model ID against `orqai-model-catalog.md`. Choose the closest alternative if a recommended model is not in the catalog.
+- Validate every model ID against the live model list from the MCP models-list tool. If MCP is unavailable, flag model validation as SKIPPED.
 - Every function tool parameter schema must have root `type:object`, `properties`, and `required` array.
 - Recommend evaluator/guardrail types and criteria, then note "Configure in Orq.ai Studio" for the actual setup.
 - Only orchestrator agents (those with `team_of_agents`) should have `retrieve_agents` and `call_sub_agent` tools.

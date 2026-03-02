@@ -71,7 +71,7 @@ When TOOLS.md is available (provided as an input file path by the orchestrator),
 
 For each agent in the blueprint, work through these areas in order:
 
-1. **Model selection** -- Match agent complexity and task type to the right model tier from the model catalog. Consider latency requirements, cost sensitivity, and multimodal needs.
+1. **Model selection** -- Match agent complexity and task type to the right model tier. Use the MCP `models-list` tool to confirm availability. Consider latency requirements, cost sensitivity, and multimodal needs.
 
 2. **Prompt strategy** -- Research how domain experts approach this role. What constraints matter? What output formats work? What edge cases are common?
 
@@ -208,7 +208,7 @@ Produce your output in EXACTLY this format. Downstream subagents parse this stru
 
 ### Rules for the Research Brief
 
-- **Model IDs MUST use `provider/model-name` format.** Before producing recommendations, fetch the live model list via `models-list` MCP tool (or REST `GET /v2/models` as fallback) to confirm model availability in the workspace. If the live list cannot be fetched, validate against `orqai-model-catalog.md` as fallback and note the confidence as MEDIUM (live validation unavailable). Do not invent model IDs.
+- **Model IDs MUST use `provider/model-name` format.** Before producing recommendations, fetch the live model list via the `models-list` MCP tool to confirm model availability in the workspace. If MCP is unavailable, note the confidence as MEDIUM (model validation skipped — MCP required). Do not invent model IDs.
 - **Tool recommendations MUST reference valid Orq.ai tool types** from the agent fields reference. The valid types are: `current_date`, `google_search`, `web_scraper`, `function`, `code`, `http`, `mcp`, `retrieve_knowledge_bases`, `query_knowledge_base`, `retrieve_memory_stores`, `query_memory_store`, `write_memory_store`, `delete_memory_document`, `retrieve_agents`, `call_sub_agent`.
 - **Every recommendation must include a rationale.** No generic advice like "use a good model" or "add error handling."
 - **Minimum 3 alternatives per agent** for model recommendation. Alternatives serve double duty as experimentation options AND fallback model configuration.
@@ -378,6 +378,6 @@ This example demonstrates the complete output format for a customer support swar
 
 - **Do NOT produce a research brief without per-agent sections.** Even single-agent swarms get one complete research brief section. The downstream generators expect per-agent sections and will fail if the format is wrong.
 
-- **Do NOT hallucinate model IDs.** Only use models from the model catalog reference (`orqai-model-catalog.md`). Valid providers include: `openai/`, `anthropic/`, `google-ai/`, `aws/`, `azure/`, `groq/`, `deepseek/`, `mistral/`, `cohere/`, `cerebras/`, `perplexity/`, `togetherai/`, `alibaba/`, `minimax/`. If you are unsure whether a specific model exists, use a model you know is in the catalog.
+- **Do NOT hallucinate model IDs.** Only use models confirmed available via the MCP models-list tool. If MCP is unavailable, use well-known model IDs with the provider/model-name format and flag confidence as MEDIUM. Valid providers include: `openai/`, `anthropic/`, `google-ai/`, `aws/`, `azure/`, `groq/`, `deepseek/`, `mistral/`, `cohere/`, `cerebras/`, `perplexity/`, `togetherai/`, `alibaba/`, `minimax/`.
 
 - **Do NOT provide recommendations without tying them to Orq.ai fields.** Every model recommendation maps to `model` and `fallback_models`. Every tool maps to `settings.tools`. Every context need maps to `knowledge_bases`, `variables`, or `memory_stores`. Untied recommendations are not actionable for downstream generators.

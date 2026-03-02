@@ -2,9 +2,9 @@
 
 Model recommendations for Orq.ai agents. Categorized by use case, not exhaustive listing. Orq.ai supports 300+ models across 17+ providers.
 
-> **IMPORTANT: This catalog is a curated recommendation guide, not the source of truth for available models.** Always validate model IDs against the live model list from the Orq.ai API (`models-list` MCP tool or `GET /v2/models` endpoint) before using them in agent specs. The API returns the actual models enabled in your workspace. This catalog may contain models that are not enabled in your workspace, or miss newly added models.
+> **NOTE: This file is a FORMAT REFERENCE ONLY — it shows provider/model-name patterns and use-case categories.** It is NOT used for model selection or validation. All model selection and validation MUST go through the MCP `models-list` tool, which returns the actual models enabled in your workspace. Do not use this file to pick or validate model IDs.
 
-**Last verified:** 2026-02-24. Model landscape changes monthly -- verify availability in Orq.ai Studio before finalizing specs. Use `models-list` MCP tool or `GET /v2/models` for live availability.
+**Format reference only.** For live model availability, use the MCP `models-list` tool.
 
 ## Provider Format
 

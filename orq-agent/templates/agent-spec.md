@@ -11,8 +11,8 @@ Output template for individual Orq.ai agent specifications. The spec generator f
 | `{{AGENT_KEY}}` | `key` | references/naming-conventions.md |
 | `{{ROLE}}` | `role` | references/orqai-agent-fields.md |
 | `{{DESCRIPTION}}` | `description` | references/orqai-agent-fields.md |
-| `{{MODEL}}` | `model` | references/orqai-model-catalog.md |
-| `{{FALLBACK_MODELS}}` | `fallback_models` | references/orqai-model-catalog.md |
+| `{{MODEL}}` | `model` | MCP models-list tool |
+| `{{FALLBACK_MODELS}}` | `fallback_models` | MCP models-list tool |
 | `{{INSTRUCTIONS}}` | `instructions` | references/orqai-agent-fields.md |
 | `{{AGENT_ROLE_AND_PURPOSE}}` | Role definition within instructions | Derived from architect blueprint |
 | `{{HEURISTIC_TASK_APPROACH}}` | Heuristic approach to core task (how a skilled human would approach it) | Derived from research brief |
@@ -53,7 +53,7 @@ Output template for individual Orq.ai agent specifications. The spec generator f
 
 {{FALLBACK_MODELS}}
 
-> Pick fallback models from the same tier but different providers. See `references/orqai-model-catalog.md` for recommendations.
+> Use the MCP models-list tool to confirm model availability. Pick fallback models from the same tier but different providers.
 
 ## Instructions
 
