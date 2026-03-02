@@ -255,10 +255,9 @@ Show the embedding model picker **once per deploy** (NOT per KB). The selected m
 
 **Fetch embedding models before presenting the picker:**
 
-1. **Try MCP:** Call `models-list` tool
-2. **If MCP fails:** REST fallback: `GET https://api.orq.ai/v2/models` with `Authorization: Bearer $ORQ_API_KEY`
-3. Filter the response for embedding-capable models (type contains "embedding" or category is "embedding")
-4. **If fetch fails:** Fall back to the static list below with a note "(could not fetch live models -- showing cached recommendations)"
+1. Call the `models-list` MCP tool to fetch available models.
+2. Filter the response for embedding-capable models (type contains "embedding" or category is "embedding").
+3. **If MCP fails:** Display "MCP server is required for embedding model selection. Please ensure the Orq.ai MCP server is running and try again." and STOP — do not proceed with KB provisioning.
 
 **Present the filtered embedding models as numbered options:**
 
@@ -267,20 +266,6 @@ Select embedding model for knowledge bases:
 
   [Numbered list of embedding models from API, up to 5]
   N+1. Custom (enter model identifier)
-
-Select [1]:
-```
-
-**If the live fetch failed, show the static fallback list instead:**
-
-```
-Select embedding model for knowledge bases:
-(could not fetch live models -- showing cached recommendations)
-
-  1. cohere/embed-english-v3.0 (recommended)
-  2. openai/text-embedding-3-small
-  3. openai/text-embedding-3-large
-  4. Custom (enter model identifier)
 
 Select [1]:
 ```

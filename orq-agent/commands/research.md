@@ -51,9 +51,8 @@ Proceed to Step 1.
 
 Before proceeding to user interaction, fetch the live model list from the Orq.ai API. This cached result will be used in Step 3 for default model selection.
 
-1. **Try MCP:** Call the `models-list` MCP tool
-2. **If MCP fails:** REST fallback: Read the API key from config using `node -e "try{const c=JSON.parse(require('fs').readFileSync('$HOME/.claude/skills/orq-agent/.orq-agent/config.json','utf8'));console.log(c.orq_api_key||'')}catch(e){console.log('')}"` then call `GET https://api.orq.ai/v2/models` with `Authorization: Bearer $ORQ_API_KEY`
-3. **If both fail:** Set `LIVE_MODELS_AVAILABLE = false`. The static catalog from `orq-agent/references/orqai-model-catalog.md` will be used as fallback.
+1. Call the `models-list` MCP tool to fetch available models.
+2. **If MCP fails:** Display "MCP server is required for model selection. Please ensure the Orq.ai MCP server is running and try again." and STOP.
 
 From the response, extract models suitable for reasoning/chat tasks (exclude embedding-only models). Store as `AVAILABLE_MODELS`. Identify the first recommended reasoning model as `DEFAULT_MODEL`.
 
@@ -128,7 +127,7 @@ Construct the blueprint as follows:
 - **Key:** [derived from description using naming-conventions.md pattern: domain-role-agent]
 - **Role:** [derived from description]
 - **Responsibility:** [1-2 sentences from user description]
-- **Model:** [from Q3 constraint if specified; otherwise use `DEFAULT_MODEL` from the live model list fetched in Step 0.5, or `anthropic/claude-sonnet-4-5` as ultimate fallback if API was unreachable]
+- **Model:** [from Q3 constraint if specified; otherwise use `DEFAULT_MODEL` from the live model list fetched in Step 0.5]
 - **Tools needed:** [from user hints, or "to be determined by research"]
 - **Knowledge base:** none
 - **Guardrails:** [from Q3 constraints, or "to be determined by research"]

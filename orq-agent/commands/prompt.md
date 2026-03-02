@@ -73,9 +73,12 @@ Present 3 focused questions in a single prompt block. Do NOT spawn any subagents
 
 Before presenting the model question, fetch the live model list from the Orq.ai API:
 
-1. **Try MCP:** Call the `models-list` MCP tool
-2. **If MCP fails:** REST fallback: Read the API key from config using `node -e "try{const c=JSON.parse(require('fs').readFileSync('$HOME/.claude/skills/orq-agent/.orq-agent/config.json','utf8'));console.log(c.orq_api_key||'')}catch(e){console.log('')}"` then call `GET https://api.orq.ai/v2/models` with `Authorization: Bearer $ORQ_API_KEY`
-3. **If both fail:** Fall back to showing the static recommendations from `orq-agent/references/orqai-model-catalog.md` with a note "(could not fetch live models -- showing cached recommendations)"
+1. Call the `models-list` MCP tool to fetch available models.
+2. **If MCP fails:** Display the following and STOP — do not proceed with model selection:
+
+   "MCP server is required for model selection. Please ensure the Orq.ai MCP server is running and try again."
+
+   Do NOT fall back to the REST API or static catalog. MCP is the single source of truth for available models.
 
 From the response, extract models suitable for agent primary use (filter: chat/completion capable models, exclude embedding-only models). Store the filtered list as `AVAILABLE_MODELS`.
 
@@ -89,7 +92,7 @@ From the response, extract models suitable for agent primary use (filter: chat/c
 1. Model preference?
    [List top 5 chat-capable models from AVAILABLE_MODELS, numbered]
    Or type a model identifier (provider/model-name)
-   Default: [first model in list, or anthropic/claude-sonnet-4-5 if fetch failed]
+   Default: [first model in list]
 
 2. Does this agent need tools?
    a) Knowledge base lookup (FAQs, docs, policies)
@@ -139,7 +142,7 @@ Construct the blueprint as follows:
 **Model mapping:**
 - If user selected a numbered option from the dynamic list --> use the corresponding model from `AVAILABLE_MODELS`
 - If user typed a model identifier (e.g., `anthropic/claude-sonnet-4-5`) --> use that identifier directly (validate it exists in `AVAILABLE_MODELS` if the list was fetched; warn if not found but allow it)
-- Answer "you decide" or "skip" --> use the first recommended model from `AVAILABLE_MODELS`, or `anthropic/claude-sonnet-4-5` as ultimate fallback if API was unreachable
+- Answer "you decide" or "skip" --> use the first recommended model from `AVAILABLE_MODELS`
 
 **Tool mapping (from Q2 answer to Orq.ai tool types):**
 - "a" (Knowledge base) --> `retrieve_knowledge_bases`, `query_knowledge_base`
