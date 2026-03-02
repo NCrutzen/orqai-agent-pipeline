@@ -7,14 +7,12 @@ allowed-tools: Bash, Read
 
 You are running the `/orq-agent:update` command. Check for updates and install the latest version from GitHub.
 
-Follow these steps in order. Stop at any step that indicates a terminal condition.
+Follow these steps **exactly** in order. Do NOT skip steps, improvise, or add extra logic. Stop at any step that indicates a terminal condition.
 
 ## Step 1: Determine Install Location
 
-Check if the install directory exists:
-
 ```bash
-[ -d "$HOME/.claude/skills/orq-agent" ] && echo "FOUND: $HOME/.claude/skills/orq-agent" || echo "NOT_FOUND"
+[ -d "$HOME/.claude/skills/orq-agent" ] && echo "FOUND" || echo "NOT_FOUND"
 ```
 
 - If `FOUND`: set `INSTALL_DIR="$HOME/.claude/skills/orq-agent"` and proceed.
@@ -28,18 +26,16 @@ Check if the install directory exists:
 Orq Agent Designer is not installed.
 
 Install with:
-  curl -sfL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
+  curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
 ```
 
 ## Step 2: Read Local VERSION
 
-Read the VERSION file from the install directory:
-
 ```bash
-cat "$INSTALL_DIR/VERSION"
+cat "$HOME/.claude/skills/orq-agent/VERSION" 2>/dev/null || echo "unknown"
 ```
 
-Store the result as `LOCAL_VERSION`. If the file does not exist, set `LOCAL_VERSION="unknown"`.
+Store the result as `LOCAL_VERSION`.
 
 ## Step 3: Fetch Remote VERSION
 
@@ -79,8 +75,6 @@ If versions differ, proceed to Step 5.
 
 ## Step 5: Show Changelog
 
-Fetch the remote CHANGELOG.md:
-
 ```bash
 curl -sf https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/CHANGELOG.md
 ```
@@ -104,20 +98,52 @@ Changes:
 Updating...
 ```
 
-## Step 6: Run Install Script
+## Step 6: Download and Install
 
-Execute the install script which handles backup, download, and rollback on failure:
+**IMPORTANT:** Do NOT run the install.sh script. It requires interactive terminal input that does not work inside Claude Code. Instead, perform the update directly:
 
 ```bash
-curl -sfL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
+TEMP_DIR=$(mktemp -d) && \
+curl -sL "https://github.com/NCrutzen/orqai-agent-pipeline/archive/main.tar.gz" | tar xz -C "$TEMP_DIR" && \
+echo "DOWNLOAD_OK" || echo "DOWNLOAD_FAILED"
+```
+
+If `DOWNLOAD_FAILED`, display an error and STOP.
+
+If `DOWNLOAD_OK`, copy the files (preserving existing config):
+
+```bash
+INSTALL_DIR="$HOME/.claude/skills/orq-agent"
+TEMP_DIR=$(ls -d /tmp/tmp.* 2>/dev/null | tail -1)
+EXTRACTED="$TEMP_DIR/orqai-agent-pipeline-main"
+
+# Backup existing config
+cp "$INSTALL_DIR/.orq-agent/config.json" /tmp/orq-agent-config-backup.json 2>/dev/null
+
+# Copy skill files
+cp -r "$EXTRACTED/orq-agent/"* "$INSTALL_DIR/"
+
+# Copy version tracking
+cp "$EXTRACTED/VERSION" "$INSTALL_DIR/VERSION"
+cp "$EXTRACTED/CHANGELOG.md" "$INSTALL_DIR/CHANGELOG.md"
+
+# Copy commands for slash command discovery
+mkdir -p "$HOME/.claude/commands/orq-agent"
+cp "$EXTRACTED/orq-agent/commands/"*.md "$HOME/.claude/commands/orq-agent/"
+
+# Restore config (preserves tier, API key, model profile)
+cp /tmp/orq-agent-config-backup.json "$INSTALL_DIR/.orq-agent/config.json" 2>/dev/null
+
+# Cleanup
+rm -rf "$TEMP_DIR" /tmp/orq-agent-config-backup.json
+
+echo "INSTALL_OK"
 ```
 
 ## Step 7: Verify Update
 
-Read the new VERSION file to confirm the update succeeded:
-
 ```bash
-cat "$INSTALL_DIR/VERSION"
+cat "$HOME/.claude/skills/orq-agent/VERSION" 2>/dev/null
 ```
 
 If the new version matches `REMOTE_VERSION`, display:
@@ -128,6 +154,8 @@ If the new version matches `REMOTE_VERSION`, display:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Updated to vREMOTE_VERSION
+
+Restart Claude Code to activate the new version.
 ```
 
 If the version did not change, display:
@@ -138,8 +166,7 @@ If the version did not change, display:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Update may have failed -- version is still vLOCAL_VERSION.
-The install script should have restored your previous installation.
 
-Try again or reinstall manually:
-  curl -sfL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
+Try updating manually from your terminal:
+  curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
 ```
