@@ -1,104 +1,84 @@
-# Requirements: Orq Agent Designer V3.0
+# Requirements: Orq Agent Designer V4.0
 
 **Defined:** 2026-03-03
-**Core Value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals.
+**Core Value:** Agent swarms don't operate in silos — overlaps are surfaced, missing coordination is identified, and fixes are proposed or auto-applied across the entire swarm ecosystem.
 
 ## v1 Requirements
 
-Requirements for V3.0 release. Each maps to roadmap phases.
+Requirements for V4.0 release. Each maps to roadmap phases.
 
-### Authentication & Infrastructure
+### Ecosystem Mapping
 
-- [ ] **AUTH-01**: User can sign in with M365 SSO (Azure AD) -- no separate registration
-- [ ] **AUTH-02**: Only Moyne Roberts tenant users can access the application
-- [ ] **INFRA-01**: Pipeline prompts auto-deploy from GitHub repo via Vercel
-- [ ] **INFRA-02**: Pipeline state persists in Supabase DB with row-level security
-- [ ] **INFRA-03**: Pipeline execution runs as durable async steps (Inngest) with retry and resumption
-- [ ] **INFRA-04**: Supabase Realtime pushes live updates to connected dashboard clients
+- [ ] **ECO-01**: User can see a unified inventory of all agent swarms from local specs and live Orq.ai state
+- [ ] **ECO-02**: User can see per-agent sync status (in-sync, drifted, spec-only, deployed-only)
+- [ ] **ECO-03**: User can see orphan agents (deployed on Orq.ai without local spec) and ghost specs (local spec with no deployment)
+- [ ] **ECO-04**: User can see a tool registry showing which tools are used across which swarms
+- [ ] **ECO-05**: User can see a KB registry showing knowledge base usage across swarms
+- [ ] **ECO-06**: User can read a human-readable ecosystem report summarizing the entire swarm landscape
 
-### Self-Service Pipeline UI
+### Drift Detection
 
-- [ ] **PIPE-01**: User can enter a use case description with guidance (placeholders, examples)
-- [ ] **PIPE-02**: User can see pipeline step indicator showing current position (discuss -> architect -> research -> specs -> orchestrate -> tools -> datasets)
-- [ ] **PIPE-03**: User receives live status messages per step while pipeline runs
-- [ ] **PIPE-04**: User can view generated agent specs and orchestration output in formatted cards
-- [ ] **PIPE-05**: User sees plain-language error messages with recovery options (retry, go back, start over) on failure
-- [ ] **PIPE-06**: User's pipeline session persists across browser close/reopen
-- [ ] **PIPE-07**: User can one-click deploy generated agents to Orq.ai from the browser
-- [ ] **PIPE-08**: User can select from use case templates for common patterns
-- [ ] **PIPE-09**: User can see complexity preview (estimated agent count, pipeline time) before starting
-- [ ] **PIPE-10**: User can link a GitHub repo to a pipeline run when agents are part of a specific project
+- [ ] **DRIFT-01**: User can see field-by-field comparison between local spec and deployed Orq.ai state per agent
+- [ ] **DRIFT-02**: User can see drift findings classified by severity (CRITICAL/WARNING/INFO)
+- [ ] **DRIFT-03**: User can see a swarm-level drift summary showing how many agents are drifted per swarm
+- [ ] **DRIFT-04**: User can see a reconciliation direction recommendation (update spec or re-deploy) per drift finding
 
-### Pipeline Progress Dashboard
+### Overlap & Gap Analysis
 
-- [ ] **DASH-01**: User can see list of all pipeline runs with status (active, completed, failed)
-- [ ] **DASH-02**: User can see step-by-step progress for an active run with real-time updates
-- [ ] **DASH-03**: User can see duration per step and total elapsed time
-- [ ] **DASH-04**: User can see success/failure summary with agent count for completed runs
-- [ ] **DASH-05**: User can expand a live log stream showing detailed pipeline output
-- [ ] **DASH-06**: User can see pipeline stage timing breakdown across runs
-- [ ] **DASH-07**: User can cancel a running pipeline mid-execution
+- [ ] **OVLP-01**: User can see semantic role overlap detection across swarms (REDUNDANT/COMPLEMENTARY/CONFLICTING)
+- [ ] **OVLP-02**: User can see tool duplication report showing shared tools across swarms
+- [ ] **OVLP-03**: User can see blind spot identification highlighting missing handoffs between swarms
+- [ ] **OVLP-04**: User can see a coordination gap report with specific recommendations
+- [ ] **OVLP-05**: User can dismiss overlap findings as accepted (persisted so they don't resurface)
 
-### Agent Swarm Node Graph
+### Fix Proposals
 
-- [ ] **GRAPH-01**: User can see agents as nodes in a directed graph showing swarm architecture
-- [ ] **GRAPH-02**: User can see directed edges showing data flow between agents
-- [ ] **GRAPH-03**: User can click an agent node to see its full specification in a detail panel
-- [ ] **GRAPH-04**: User can visually distinguish orchestrator nodes from sub-agent nodes
-- [ ] **GRAPH-05**: User can watch nodes light up during pipeline execution (execution overlay)
-- [ ] **GRAPH-06**: User can see status badges on nodes (spec only, deployed, tests passing/failing)
-- [ ] **GRAPH-07**: User can zoom, pan, and fit-to-view the graph
-- [ ] **GRAPH-08**: User can export the graph as an image (PNG/SVG)
+- [ ] **FIX-01**: User can see structured fix proposals with before/after diff preview per finding
+- [ ] **FIX-02**: User can see risk classification (LOW/MEDIUM/HIGH) per proposal
+- [ ] **FIX-03**: User can approve or reject each fix proposal via HITL flow
+- [ ] **FIX-04**: User can see shared context injection proposals (adding cross-swarm awareness to agent instructions)
+- [ ] **FIX-05**: User can see data contract proposals for inter-swarm communication
+- [ ] **FIX-06**: User can see fix provenance tracking (trigger, diff, approver, outcome)
 
-### Agent Performance (Read-Only)
+### Command & Integration
 
-- [ ] **PERF-01**: User can see per-agent quality score from latest test run
-- [ ] **PERF-02**: User can see per-evaluator score breakdown per agent
-- [ ] **PERF-03**: User can see swarm-level aggregate health summary
-
-### HITL Approval Flow
-
-- [ ] **HITL-01**: User can approve, reject, or request changes on pipeline decisions via in-app UI
-- [ ] **HITL-02**: User can see all pending approval items in a queue with timestamps
-- [ ] **HITL-03**: Pipeline pauses on approval request and resumes when user decides
-- [ ] **HITL-04**: User can see approval history with who approved what and when
-- [ ] **HITL-05**: User receives email notification when an approval is pending (via Microsoft Graph)
-- [ ] **HITL-06**: User can add inline comments when approving or rejecting
+- [ ] **CMD-01**: User can run `/orq-agent:audit` to trigger a full cross-swarm analysis
+- [ ] **CMD-02**: User can see a structured ecosystem report (ECOSYSTEM-REPORT.md) after audit completes
+- [ ] **CMD-03**: Pipeline auto-triggers a lightweight cross-swarm check after each new swarm design
+- [ ] **CMD-04**: Auto-trigger runs in lightweight mode (map + overlap check only) to avoid blocking the pipeline
 
 ## v2 Requirements
 
-Deferred to V3.1+. Tracked but not in current roadmap.
+Deferred to V4.1+. Tracked but not in current roadmap.
 
-### Pipeline Extensions
+### Auto-Apply
 
-- **PIPE-11**: User can trigger test/iterate/harden from the web UI
-- **PIPE-12**: User can compare results across different pipeline runs
+- **FIX-07**: Low-risk fixes (shared context additions) auto-applied to spec files with audit trail
+- **FIX-08**: Auto-apply requires evaluator re-run before confirming application
 
-### Performance Extensions
+### Advanced Analysis
 
-- **PERF-04**: User can see score trend across iterations as line chart
-- **PERF-05**: User can see worst-performing test cases per agent
-- **PERF-06**: User can see prompt change diffs with score impact per iteration
-- **PERF-07**: User can see guardrail status indicators per agent
+- **OVLP-06**: Cross-swarm data flow diagram visualization
+- **OVLP-07**: Semantic coverage analysis (requires business domain context)
+- **OVLP-08**: Instruction semantic diff (high token cost, marginal improvement over field-level)
 
-### Notification Extensions
+### Maturity & Reporting
 
-- **HITL-07**: User receives Teams notification with inline approve/reject (Adaptive Cards)
-- **HITL-08**: User can delegate approvals when out of office
+- **ECO-07**: Swarm maturity scorecard (spec completeness, deploy status, test coverage)
+- **FIX-09**: Batch proposal review (select and apply multiple proposals in one session)
+- **ECO-08**: Incremental analysis (only re-analyze changed swarms)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Visual pipeline builder (drag-and-drop agent wiring) | Non-technical users cannot meaningfully wire agent architectures -- the AI pipeline does this for them |
-| Editable spec fields in UI | Exposing 18 Orq.ai fields creates confusion; describe changes in natural language instead |
-| Real-time production metrics (latency, throughput) | Orq.ai handles production observability natively |
-| 3D graph visualization | Adds cognitive load without insight for 3-8 node swarms |
-| Multi-user collaboration on same pipeline run | 5-15 users, solo runs -- collaboration adds complexity for no real benefit |
-| Slack notifications | Moyne Roberts uses Teams, not Slack |
-| Approve-all batch action | Undermines HITL purpose -- approvals must be deliberate |
-| Custom evaluator creation from dashboard | Requires deep understanding of scoring criteria -- not self-service |
-| SMS notifications | Over-engineering for 5-15 internal users |
+| Real-time agent performance monitoring | Orq.ai handles production observability natively |
+| Automatic agent merging across swarms | Architectural decision requiring human judgment — cannot be automated |
+| Self-healing detect-fix-deploy loop | Unsupervised production changes are unacceptable for enterprise users |
+| Cross-swarm deployment orchestration | Deploy one swarm at a time via existing V2.0 pipeline |
+| Event trigger proposals | Depends on Orq.ai A2A Protocol maturity — unconfirmed; defer until platform support is clear |
+| Scheduled/periodic audits | Requires persistent infrastructure; better suited for V3.0 web UI |
+| 3D graph visualization | Adds cognitive load without insight for current swarm sizes |
 
 ## Traceability
 
@@ -106,52 +86,37 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 12 | Pending |
-| AUTH-02 | Phase 12 | Pending |
-| INFRA-01 | Phase 12 | Pending |
-| INFRA-02 | Phase 12 | Pending |
-| INFRA-03 | Phase 12 | Pending |
-| INFRA-04 | Phase 12 | Pending |
-| PIPE-01 | Phase 13 | Pending |
-| PIPE-02 | Phase 13 | Pending |
-| PIPE-03 | Phase 13 | Pending |
-| PIPE-04 | Phase 13 | Pending |
-| PIPE-05 | Phase 13 | Pending |
-| PIPE-06 | Phase 13 | Pending |
-| PIPE-07 | Phase 13 | Pending |
-| PIPE-08 | Phase 13 | Pending |
-| PIPE-09 | Phase 13 | Pending |
-| PIPE-10 | Phase 13 | Pending |
-| DASH-01 | Phase 14 | Pending |
-| DASH-02 | Phase 14 | Pending |
-| DASH-03 | Phase 14 | Pending |
-| DASH-04 | Phase 14 | Pending |
-| DASH-05 | Phase 14 | Pending |
-| DASH-06 | Phase 14 | Pending |
-| DASH-07 | Phase 14 | Pending |
-| PERF-01 | Phase 14 | Pending |
-| PERF-02 | Phase 14 | Pending |
-| PERF-03 | Phase 14 | Pending |
-| GRAPH-01 | Phase 15 | Pending |
-| GRAPH-02 | Phase 15 | Pending |
-| GRAPH-03 | Phase 15 | Pending |
-| GRAPH-04 | Phase 15 | Pending |
-| GRAPH-05 | Phase 15 | Pending |
-| GRAPH-06 | Phase 15 | Pending |
-| GRAPH-07 | Phase 15 | Pending |
-| GRAPH-08 | Phase 15 | Pending |
-| HITL-01 | Phase 16 | Pending |
-| HITL-02 | Phase 16 | Pending |
-| HITL-03 | Phase 16 | Pending |
-| HITL-04 | Phase 16 | Pending |
-| HITL-05 | Phase 16 | Pending |
-| HITL-06 | Phase 16 | Pending |
+| ECO-01 | TBD | Pending |
+| ECO-02 | TBD | Pending |
+| ECO-03 | TBD | Pending |
+| ECO-04 | TBD | Pending |
+| ECO-05 | TBD | Pending |
+| ECO-06 | TBD | Pending |
+| DRIFT-01 | TBD | Pending |
+| DRIFT-02 | TBD | Pending |
+| DRIFT-03 | TBD | Pending |
+| DRIFT-04 | TBD | Pending |
+| OVLP-01 | TBD | Pending |
+| OVLP-02 | TBD | Pending |
+| OVLP-03 | TBD | Pending |
+| OVLP-04 | TBD | Pending |
+| OVLP-05 | TBD | Pending |
+| FIX-01 | TBD | Pending |
+| FIX-02 | TBD | Pending |
+| FIX-03 | TBD | Pending |
+| FIX-04 | TBD | Pending |
+| FIX-05 | TBD | Pending |
+| FIX-06 | TBD | Pending |
+| CMD-01 | TBD | Pending |
+| CMD-02 | TBD | Pending |
+| CMD-03 | TBD | Pending |
+| CMD-04 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 34 total
-- Mapped to phases: 34
-- Unmapped: 0
+- v1 requirements: 24 total
+- Mapped to phases: 0
+- Unmapped: 24 ⚠️
 
 ---
 *Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 after roadmap creation*
+*Last updated: 2026-03-03 after initial definition*
