@@ -1,7 +1,7 @@
 # Requirements: Orq Agent Designer V4.0
 
 **Defined:** 2026-03-03
-**Core Value:** Agent swarms don't operate in silos — overlaps are surfaced, missing coordination is identified, and fixes are proposed or auto-applied across the entire swarm ecosystem.
+**Core Value:** Agent swarms don't operate in silos -- overlaps are surfaced, missing coordination is identified, and fixes are proposed or auto-applied across the entire swarm ecosystem.
 
 ## v1 Requirements
 
@@ -73,10 +73,10 @@ Deferred to V4.1+. Tracked but not in current roadmap.
 | Feature | Reason |
 |---------|--------|
 | Real-time agent performance monitoring | Orq.ai handles production observability natively |
-| Automatic agent merging across swarms | Architectural decision requiring human judgment — cannot be automated |
+| Automatic agent merging across swarms | Architectural decision requiring human judgment -- cannot be automated |
 | Self-healing detect-fix-deploy loop | Unsupervised production changes are unacceptable for enterprise users |
 | Cross-swarm deployment orchestration | Deploy one swarm at a time via existing V2.0 pipeline |
-| Event trigger proposals | Depends on Orq.ai A2A Protocol maturity — unconfirmed; defer until platform support is clear |
+| Event trigger proposals | Depends on Orq.ai A2A Protocol maturity -- unconfirmed; defer until platform support is clear |
 | Scheduled/periodic audits | Requires persistent infrastructure; better suited for V3.0 web UI |
 | 3D graph visualization | Adds cognitive load without insight for current swarm sizes |
 
@@ -86,37 +86,37 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ECO-01 | TBD | Pending |
-| ECO-02 | TBD | Pending |
-| ECO-03 | TBD | Pending |
-| ECO-04 | TBD | Pending |
-| ECO-05 | TBD | Pending |
-| ECO-06 | TBD | Pending |
-| DRIFT-01 | TBD | Pending |
-| DRIFT-02 | TBD | Pending |
-| DRIFT-03 | TBD | Pending |
-| DRIFT-04 | TBD | Pending |
-| OVLP-01 | TBD | Pending |
-| OVLP-02 | TBD | Pending |
-| OVLP-03 | TBD | Pending |
-| OVLP-04 | TBD | Pending |
-| OVLP-05 | TBD | Pending |
-| FIX-01 | TBD | Pending |
-| FIX-02 | TBD | Pending |
-| FIX-03 | TBD | Pending |
-| FIX-04 | TBD | Pending |
-| FIX-05 | TBD | Pending |
-| FIX-06 | TBD | Pending |
-| CMD-01 | TBD | Pending |
-| CMD-02 | TBD | Pending |
-| CMD-03 | TBD | Pending |
-| CMD-04 | TBD | Pending |
+| ECO-01 | Phase 17 | Pending |
+| ECO-02 | Phase 17 | Pending |
+| ECO-03 | Phase 17 | Pending |
+| ECO-04 | Phase 17 | Pending |
+| ECO-05 | Phase 17 | Pending |
+| ECO-06 | Phase 17 | Pending |
+| DRIFT-01 | Phase 18 | Pending |
+| DRIFT-02 | Phase 18 | Pending |
+| DRIFT-03 | Phase 18 | Pending |
+| DRIFT-04 | Phase 18 | Pending |
+| OVLP-01 | Phase 19 | Pending |
+| OVLP-02 | Phase 19 | Pending |
+| OVLP-03 | Phase 19 | Pending |
+| OVLP-04 | Phase 19 | Pending |
+| OVLP-05 | Phase 19 | Pending |
+| FIX-01 | Phase 20 | Pending |
+| FIX-02 | Phase 20 | Pending |
+| FIX-03 | Phase 20 | Pending |
+| FIX-04 | Phase 20 | Pending |
+| FIX-05 | Phase 20 | Pending |
+| FIX-06 | Phase 20 | Pending |
+| CMD-01 | Phase 21 | Pending |
+| CMD-02 | Phase 21 | Pending |
+| CMD-03 | Phase 21 | Pending |
+| CMD-04 | Phase 21 | Pending |
 
 **Coverage:**
-- v1 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24 ⚠️
+- v1 requirements: 25 total
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 after initial definition*
+*Last updated: 2026-03-03 after roadmap creation*

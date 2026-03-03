@@ -2,7 +2,7 @@
 
 ## Overview
 
-Build a Claude Code skill that transforms natural language use case descriptions into complete Orq.ai agent swarm specifications, then autonomously deploys, tests, iterates, and hardens them via the Orq.ai MCP server and API. V3.0 adds a browser-based interface with real-time dashboard, node graph visualization, and HITL approval workflows for non-technical colleagues.
+Build a Claude Code skill that transforms natural language use case descriptions into complete Orq.ai agent swarm specifications, then autonomously deploys, tests, iterates, and hardens them via the Orq.ai MCP server and API. V3.0 adds a browser-based interface with real-time dashboard, node graph visualization, and HITL approval workflows for non-technical colleagues. V4.0 adds cross-swarm intelligence so that agent swarms don't operate in silos -- overlaps are surfaced, missing coordination is identified, and fixes are proposed across the entire ecosystem.
 
 ## Milestones
 
@@ -10,7 +10,8 @@ Build a Claude Code skill that transforms natural language use case descriptions
 |---------|-----------|--------|
 | **v0.3** | Core Pipeline + V2.0 Foundation -- V1.0 spec generation + V2.0 install infrastructure | **Shipped 2026-03-01** |
 | **V2.0** | Autonomous Orq.ai Pipeline -- deploy, test, iterate, and harden agent swarms via MCP/API | **Shipped 2026-03-02** |
-| **V3.0** | Web UI & Dashboard -- browser-based pipeline with real-time visibility, node graph, HITL approvals | **In Progress** |
+| **V3.0** | Web UI & Dashboard -- browser-based pipeline with real-time visibility, node graph, HITL approvals | **Defined** |
+| **V4.0** | Cross-Swarm Intelligence -- ecosystem mapping, drift detection, overlap analysis, and fix proposals | **In Progress** |
 
 ---
 
@@ -50,119 +51,126 @@ Build a Claude Code skill that transforms natural language use case descriptions
 
 </details>
 
+<details>
+<summary>V3.0 Web UI & Dashboard (Phases 12-16) -- DEFINED</summary>
+
+**5 phases, 34 requirements defined**
+
+- [ ] Phase 12: Foundation & Auth -- Next.js + Supabase project with M365 SSO, DB schema, Inngest pipeline skeleton, and prompt adapter
+- [ ] Phase 13: Self-Service Pipeline -- Use case input to deployed agents via browser with live status and error recovery
+- [ ] Phase 14: Pipeline Dashboard -- Run list, step-by-step progress, duration tracking, log stream, and agent performance scores
+- [ ] Phase 15: Node Graph -- Interactive agent swarm visualization with execution overlay, status badges, and export
+- [ ] Phase 16: HITL Approval Flow -- In-app approve/reject with queue, history, email notifications, and pipeline pause/resume
+
+</details>
+
 ---
 
-## V3.0 -- Web UI & Dashboard (IN PROGRESS)
+## V4.0 -- Cross-Swarm Intelligence (IN PROGRESS)
 
-**Goal:** Give non-technical colleagues a browser-based interface to the full agent design pipeline, with real-time visibility into what's happening and how agents perform.
+**Goal:** Give the agent design pipeline cross-swarm awareness so that swarms don't operate in silos -- overlaps are surfaced, missing coordination is identified, and fixes are proposed or auto-applied.
 
 ## Phases
 
 **Phase Numbering:**
-- Integer phases (12, 13, 14, 15, 16): Planned milestone work
-- Decimal phases (e.g., 13.1): Urgent insertions (marked with INSERTED)
+- Integer phases (17, 18, 19, 20, 21): Planned milestone work
+- Decimal phases (e.g., 18.1): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 12: Foundation & Auth** - Next.js + Supabase project with M365 SSO, DB schema, Inngest pipeline skeleton, and prompt adapter
-- [ ] **Phase 13: Self-Service Pipeline** - Use case input to deployed agents via browser with live status and error recovery
-- [ ] **Phase 14: Pipeline Dashboard** - Run list, step-by-step progress, duration tracking, log stream, and agent performance scores
-- [ ] **Phase 15: Node Graph** - Interactive agent swarm visualization with execution overlay, status badges, and export
-- [ ] **Phase 16: HITL Approval Flow** - In-app approve/reject with queue, history, email notifications, and pipeline pause/resume
+- [ ] **Phase 17: Ecosystem Foundation** - Unified inventory of all swarms from local specs and live Orq.ai state with tool/KB registries and human-readable report
+- [ ] **Phase 18: Drift Detection** - Field-by-field comparison between spec and deployed state with severity classification and reconciliation recommendations
+- [ ] **Phase 19: Overlap & Gap Analysis** - Semantic role overlap, tool duplication, blind spot identification, and coordination gap reporting across swarms
+- [ ] **Phase 20: Fix Proposals** - Structured fix proposals with diff previews, risk classification, HITL approval, and provenance tracking
+- [ ] **Phase 21: Command Integration & Auto-Trigger** - On-demand audit command and lightweight auto-trigger after new swarm designs
 
 ## Phase Details
 
-### Phase 12: Foundation & Auth
-**Goal**: Colleagues can sign in with their M365 account and the application infrastructure is ready to execute pipelines
-**Depends on**: V2.0 (existing pipeline prompts in repo)
-**Requirements**: AUTH-01, AUTH-02, INFRA-01, INFRA-02, INFRA-03, INFRA-04
+### Phase 17: Ecosystem Foundation
+**Goal**: Users can see a complete, accurate picture of their entire agent swarm ecosystem from both local specs and live Orq.ai state
+**Depends on**: V2.0 (deployer's MCP/REST patterns, field comparison logic)
+**Requirements**: ECO-01, ECO-02, ECO-03, ECO-04, ECO-05, ECO-06
 **Success Criteria** (what must be TRUE):
-  1. User can sign in with their Moyne Roberts M365 account and see an authenticated landing page
-  2. A non-Moyne Roberts Microsoft account is rejected at login with a clear error message
-  3. Pushing to the GitHub repo triggers a Vercel deployment that reflects the changes within minutes
-  4. A test Inngest function can execute multiple durable steps, write results to Supabase, and resume after failure
-  5. A connected browser client receives a Supabase Realtime update within seconds of a database row change
+  1. User can see a unified list of all agent swarms showing agents from both local spec files and live Orq.ai, with per-agent sync status (in-sync, drifted, spec-only, deployed-only)
+  2. User can identify orphan agents (deployed on Orq.ai without a local spec) and ghost specs (local spec with no deployment) at a glance
+  3. User can see which tools and knowledge bases are used across which swarms via dedicated registries
+  4. User can read a human-readable ecosystem report summarizing the entire swarm landscape in one document
 **Plans**: TBD
 
 Plans:
-- [ ] 12-01: TBD
-- [ ] 12-02: TBD
+- [ ] 17-01: TBD
+- [ ] 17-02: TBD
 
-### Phase 13: Self-Service Pipeline
-**Goal**: A non-technical colleague can describe a use case in the browser and receive deployed agents on Orq.ai without touching a terminal
-**Depends on**: Phase 12
-**Requirements**: PIPE-01, PIPE-02, PIPE-03, PIPE-04, PIPE-05, PIPE-06, PIPE-07, PIPE-08, PIPE-09, PIPE-10
+### Phase 18: Drift Detection
+**Goal**: Users can see exactly what has changed between their local spec files and what is actually deployed on Orq.ai, with clear severity and direction guidance
+**Depends on**: Phase 17 (ecosystem map provides the dual-source data model)
+**Requirements**: DRIFT-01, DRIFT-02, DRIFT-03, DRIFT-04
 **Success Criteria** (what must be TRUE):
-  1. User can type a use case description (with guidance from placeholders and examples) and start the pipeline
-  2. User can see which pipeline step is active and receive live status messages as each step progresses
-  3. User can view generated agent specs and orchestration output in formatted, readable cards after pipeline completes
-  4. User can one-click deploy the generated agents to Orq.ai directly from the browser
-  5. User can recover from pipeline failures via plain-language error messages with retry, go back, or start over options
+  1. User can see a field-by-field comparison for each agent showing differences between local spec and deployed Orq.ai state
+  2. User can see each drift finding classified as CRITICAL (model/instructions/tools), WARNING (settings), or INFO (description/role wording)
+  3. User can see a swarm-level drift summary showing how many agents are drifted per swarm
+  4. User can see a reconciliation direction recommendation (update spec to match deployed, or re-deploy to match spec) for each drift finding
 **Plans**: TBD
 
 Plans:
-- [ ] 13-01: TBD
-- [ ] 13-02: TBD
-- [ ] 13-03: TBD
+- [ ] 18-01: TBD
 
-### Phase 14: Pipeline Dashboard
-**Goal**: Users have full visibility into all pipeline runs -- past and present -- with real-time progress tracking and agent performance scores
-**Depends on**: Phase 13
-**Requirements**: DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, DASH-06, DASH-07, PERF-01, PERF-02, PERF-03
+### Phase 19: Overlap & Gap Analysis
+**Goal**: Users can see where their swarms duplicate work, conflict with each other, or fail to coordinate on shared business processes
+**Depends on**: Phase 17 (ecosystem model), Phase 18 (drift results feed into current-state model)
+**Requirements**: OVLP-01, OVLP-02, OVLP-03, OVLP-04, OVLP-05
 **Success Criteria** (what must be TRUE):
-  1. User can see a list of all pipeline runs with status badges (active, completed, failed) and navigate to any run
-  2. User can watch an active run's step-by-step progress update in real time with duration tracking per step
-  3. User can cancel a running pipeline and see it stop within seconds
-  4. User can see per-agent quality scores and per-evaluator breakdowns for completed runs
-  5. User can see a swarm-level health summary showing how many agents are passing all evaluators
+  1. User can see semantic role overlaps across swarms classified as REDUNDANT, COMPLEMENTARY, or CONFLICTING
+  2. User can see a tool duplication report showing which tools are shared across swarms and whether that sharing is intentional
+  3. User can see blind spots -- missing handoffs between swarms that should be coordinating on shared business processes
+  4. User can see a coordination gap report with specific, actionable recommendations for each gap
+  5. User can dismiss overlap findings as accepted so they do not resurface in future analyses
 **Plans**: TBD
 
 Plans:
-- [ ] 14-01: TBD
-- [ ] 14-02: TBD
+- [ ] 19-01: TBD
+- [ ] 19-02: TBD
 
-### Phase 15: Node Graph
-**Goal**: Users can visually understand their agent swarm architecture and watch it come alive during pipeline execution
-**Depends on**: Phase 13
-**Requirements**: GRAPH-01, GRAPH-02, GRAPH-03, GRAPH-04, GRAPH-05, GRAPH-06, GRAPH-07, GRAPH-08
+### Phase 20: Fix Proposals
+**Goal**: Users receive concrete, reviewable fix proposals for every drift finding, overlap, and coordination gap -- with clear risk levels and before/after previews
+**Depends on**: Phase 18 (drift findings), Phase 19 (overlap and gap findings)
+**Requirements**: FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, FIX-06
 **Success Criteria** (what must be TRUE):
-  1. User can see agents as nodes in a directed graph with edges showing data flow, where orchestrators are visually distinct from sub-agents
-  2. User can click any agent node and see its full specification in a detail panel
-  3. User can watch nodes light up in sequence during pipeline execution showing real-time progress
-  4. User can see status badges on nodes (spec only, deployed, tests passing/failing) reflecting current agent lifecycle state
-  5. User can zoom, pan, fit-to-view, and export the graph as an image
+  1. User can see structured fix proposals with before/after diff previews showing exact spec changes for each finding
+  2. User can see each proposal classified as LOW, MEDIUM, or HIGH risk
+  3. User can approve or reject each fix proposal individually via HITL flow, with approved fixes applied to local spec files
+  4. User can see shared context injection proposals (adding cross-swarm awareness to agent instructions) and data contract proposals (inter-swarm communication schemas)
+  5. User can see a provenance trail for every fix (what triggered it, what changed, who approved, what the outcome was)
 **Plans**: TBD
 
 Plans:
-- [ ] 15-01: TBD
-- [ ] 15-02: TBD
+- [ ] 20-01: TBD
+- [ ] 20-02: TBD
 
-### Phase 16: HITL Approval Flow
-**Goal**: Users can review and approve pipeline decisions from the browser, with email notifications ensuring nothing gets missed
-**Depends on**: Phase 12 (Inngest waitForEvent), Phase 13 (pipeline producing approval requests)
-**Requirements**: HITL-01, HITL-02, HITL-03, HITL-04, HITL-05, HITL-06
+### Phase 21: Command Integration & Auto-Trigger
+**Goal**: Users can trigger cross-swarm analysis on demand and get automatic overlap checks whenever they design a new swarm
+**Depends on**: Phase 17, 18, 19, 20 (all subagents must be stable before wiring them together)
+**Requirements**: CMD-01, CMD-02, CMD-03, CMD-04
 **Success Criteria** (what must be TRUE):
-  1. User can approve, reject, or request changes on a pipeline decision with inline comments via in-app UI
-  2. User can see all pending approvals in a queue with timestamps and respond from a single location
-  3. Pipeline pauses when an approval is requested and resumes automatically when the user decides
-  4. User can review approval history showing who approved what and when
-  5. User receives an email notification within minutes when a new approval is pending
+  1. User can run `/orq-agent:audit` and receive a full cross-swarm analysis (ecosystem map, drift, overlaps, fix proposals) in a single command
+  2. User can read a structured ECOSYSTEM-REPORT.md after audit completes, covering the full swarm landscape with all findings
+  3. After completing a new swarm design via `/orq-agent`, a lightweight cross-swarm check (map + overlap) runs automatically and surfaces findings
+  4. The auto-trigger runs in lightweight mode only (no full drift or fix proposal generation) so it does not block the primary design pipeline
 **Plans**: TBD
 
 Plans:
-- [ ] 16-01: TBD
-- [ ] 16-02: TBD
+- [ ] 21-01: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 12 -> 13 -> 14 -> 15 -> 16
+Phases execute in numeric order: 17 -> 18 -> 19 -> 20 -> 21
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 12. Foundation & Auth | 0/TBD | Not started | - |
-| 13. Self-Service Pipeline | 0/TBD | Not started | - |
-| 14. Pipeline Dashboard | 0/TBD | Not started | - |
-| 15. Node Graph | 0/TBD | Not started | - |
-| 16. HITL Approval Flow | 0/TBD | Not started | - |
+| 17. Ecosystem Foundation | 0/TBD | Not started | - |
+| 18. Drift Detection | 0/TBD | Not started | - |
+| 19. Overlap & Gap Analysis | 0/TBD | Not started | - |
+| 20. Fix Proposals | 0/TBD | Not started | - |
+| 21. Command Integration & Auto-Trigger | 0/TBD | Not started | - |
 
 ## Progress Summary
 
@@ -170,4 +178,5 @@ Phases execute in numeric order: 12 -> 13 -> 14 -> 15 -> 16
 |---------|-------|----------------|--------|-----------|
 | v0.3 | 1-05.2 (11 phases) | 28/28 | **Shipped** | 2026-03-01 |
 | V2.0 | 6-11 (7 phases) | 11/11 | **Shipped** | 2026-03-02 |
-| V3.0 | 12-16 (5 phases) | 0/TBD | **In Progress** | - |
+| V3.0 | 12-16 (5 phases) | 0/TBD | **Defined** | - |
+| V4.0 | 17-21 (5 phases) | 0/TBD | **In Progress** | - |
