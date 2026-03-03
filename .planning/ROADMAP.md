@@ -2,7 +2,7 @@
 
 ## Overview
 
-Build a Claude Code skill that transforms natural language use case descriptions into complete Orq.ai agent swarm specifications, then autonomously deploys, tests, iterates, and hardens them via the Orq.ai MCP server and API. V3.0 adds a browser-based interface with real-time dashboard, node graph visualization, and HITL approval workflows for non-technical colleagues. V4.0 adds cross-swarm intelligence so that agent swarms don't operate in silos -- overlaps are surfaced, missing coordination is identified, and fixes are proposed across the entire ecosystem.
+Build a Claude Code skill that transforms natural language use case descriptions into complete Orq.ai agent swarm specifications, then autonomously deploys, tests, iterates, and hardens them via the Orq.ai MCP server and API. V3.0 adds a browser-based interface with real-time dashboard, node graph visualization, and HITL approval workflows for non-technical colleagues. V4.0 adds cross-swarm intelligence so that agent swarms don't operate in silos -- overlaps are surfaced, missing coordination is identified, and fixes are proposed across the entire ecosystem. V5.0 extends the pipeline to detect browser automation needs, generate deterministic Playwright scripts, deploy them to a VPS-hosted MCP server, and wire agent specs with the right MCP tools.
 
 ## Milestones
 
@@ -11,7 +11,8 @@ Build a Claude Code skill that transforms natural language use case descriptions
 | **v0.3** | Core Pipeline + V2.0 Foundation -- V1.0 spec generation + V2.0 install infrastructure | **Shipped 2026-03-01** |
 | **V2.0** | Autonomous Orq.ai Pipeline -- deploy, test, iterate, and harden agent swarms via MCP/API | **Shipped 2026-03-02** |
 | **V3.0** | Web UI & Dashboard -- browser-based pipeline with real-time visibility, node graph, HITL approvals | **Defined** |
-| **V4.0** | Cross-Swarm Intelligence -- ecosystem mapping, drift detection, overlap analysis, and fix proposals | **In Progress** |
+| **V4.0** | Cross-Swarm Intelligence -- ecosystem mapping, drift detection, overlap analysis, and fix proposals | **Defined** |
+| **V5.0** | Browser Automation -- Playwright script generation, VPS MCP server, automated deployment, agent spec wiring | **In Progress** |
 
 ---
 
@@ -64,113 +65,109 @@ Build a Claude Code skill that transforms natural language use case descriptions
 
 </details>
 
+<details>
+<summary>V4.0 Cross-Swarm Intelligence (Phases 17-21) -- DEFINED</summary>
+
+**5 phases, 25 requirements defined**
+
+- [ ] Phase 17: Ecosystem Foundation -- Unified inventory of all swarms from local specs and live Orq.ai state with tool/KB registries and human-readable report
+- [ ] Phase 18: Drift Detection -- Field-by-field comparison between spec and deployed state with severity classification and reconciliation recommendations
+- [ ] Phase 19: Overlap & Gap Analysis -- Semantic role overlap, tool duplication, blind spot identification, and coordination gap reporting across swarms
+- [ ] Phase 20: Fix Proposals -- Structured fix proposals with diff previews, risk classification, HITL approval, and provenance tracking
+- [ ] Phase 21: Command Integration & Auto-Trigger -- On-demand audit command and lightweight auto-trigger after new swarm designs
+
+</details>
+
 ---
 
-## V4.0 -- Cross-Swarm Intelligence (IN PROGRESS)
+## V5.0 -- Browser Automation (IN PROGRESS)
 
-**Goal:** Give the agent design pipeline cross-swarm awareness so that swarms don't operate in silos -- overlaps are surfaced, missing coordination is identified, and fixes are proposed or auto-applied.
+**Goal:** Pipeline detects browser automation needs, generates deterministic Playwright scripts, deploys them to a VPS-hosted MCP server, and wires agent specs with the right MCP tools -- end-to-end for at least one real system (NXT).
 
 ## Phases
 
 **Phase Numbering:**
-- Integer phases (17, 18, 19, 20, 21): Planned milestone work
-- Decimal phases (e.g., 18.1): Urgent insertions (marked with INSERTED)
+- Integer phases (22, 23, 24, 25): Planned milestone work
+- Decimal phases (e.g., 23.1): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 17: Ecosystem Foundation** - Unified inventory of all swarms from local specs and live Orq.ai state with tool/KB registries and human-readable report
-- [ ] **Phase 18: Drift Detection** - Field-by-field comparison between spec and deployed state with severity classification and reconciliation recommendations
-- [ ] **Phase 19: Overlap & Gap Analysis** - Semantic role overlap, tool duplication, blind spot identification, and coordination gap reporting across swarms
-- [ ] **Phase 20: Fix Proposals** - Structured fix proposals with diff previews, risk classification, HITL approval, and provenance tracking
-- [ ] **Phase 21: Command Integration & Auto-Trigger** - On-demand audit command and lightweight auto-trigger after new swarm designs
+- [ ] **Phase 22: Capabilities Config & VPS Scaffold** - Application capabilities config file with NXT entry, VPS MCP server with Streamable HTTP transport, TLS, and bearer token auth
+- [ ] **Phase 23: Script Generation & Pipeline Integration** - Playwright script generator subagent, pipeline browser-use detection, tool resolver browser path, mixed swarm support
+- [ ] **Phase 24: Deployment, Wiring & NXT Validation** - Automated script deployment to VPS, agent spec wiring with MCP tool references, end-to-end NXT validation
+- [ ] **Phase 25: Hardening & Second System** - Script health monitoring, iController validation
 
 ## Phase Details
 
-### Phase 17: Ecosystem Foundation
-**Goal**: Users can see a complete, accurate picture of their entire agent swarm ecosystem from both local specs and live Orq.ai state
-**Depends on**: V2.0 (deployer's MCP/REST patterns, field comparison logic)
-**Requirements**: ECO-01, ECO-02, ECO-03, ECO-04, ECO-05, ECO-06
+### Phase 22: Capabilities Config & VPS Scaffold
+**Goal**: Pipeline has a reliable source of truth for per-system integration methods, and a secure VPS MCP server is running and reachable
+**Depends on**: V2.0 (deployer patterns, MCP/REST adapter)
+**Requirements**: CAP-01, CAP-02, CAP-03, VPS-01, VPS-02, VPS-03, VPS-04
 **Success Criteria** (what must be TRUE):
-  1. User can see a unified list of all agent swarms showing agents from both local spec files and live Orq.ai, with per-agent sync status (in-sync, drifted, spec-only, deployed-only)
-  2. User can identify orphan agents (deployed on Orq.ai without a local spec) and ghost specs (local spec with no deployment) at a glance
-  3. User can see which tools and knowledge bases are used across which swarms via dedicated registries
-  4. User can read a human-readable ecosystem report summarizing the entire swarm landscape in one document
+  1. User can define a system in the capabilities config file with its integration method (API / browser-only / headed browser), base URL, auth type, and available flows -- and the pipeline reads it
+  2. Pipeline correctly identifies which agents in a use case need browser automation by matching systems against the capabilities config
+  3. Discussion step asks about unknown systems' integration method and writes discovered capabilities back to the config file
+  4. VPS MCP server is running with Streamable HTTP transport, TLS encryption, and bearer token authentication -- and responds to a health-check tool call
+  5. VPS MCP server resolves credentials internally -- no credentials flow through agent tool parameters
 **Plans**: TBD
 
 Plans:
-- [ ] 17-01: TBD
-- [ ] 17-02: TBD
+- [ ] 22-01: TBD
+- [ ] 22-02: TBD
 
-### Phase 18: Drift Detection
-**Goal**: Users can see exactly what has changed between their local spec files and what is actually deployed on Orq.ai, with clear severity and direction guidance
-**Depends on**: Phase 17 (ecosystem map provides the dual-source data model)
-**Requirements**: DRIFT-01, DRIFT-02, DRIFT-03, DRIFT-04
+### Phase 23: Script Generation & Pipeline Integration
+**Goal**: Pipeline generates working Playwright scripts for browser-only systems and integrates browser automation into the existing design flow
+**Depends on**: Phase 22 (capabilities config provides system metadata and DOM context; VPS server provides the deployment target interface contract)
+**Requirements**: SCRIPT-01, SCRIPT-02, SCRIPT-03, SCRIPT-04, SCRIPT-05, CAP-04, WIRE-01
 **Success Criteria** (what must be TRUE):
-  1. User can see a field-by-field comparison for each agent showing differences between local spec and deployed Orq.ai state
-  2. User can see each drift finding classified as CRITICAL (model/instructions/tools), WARNING (settings), or INFO (description/role wording)
-  3. User can see a swarm-level drift summary showing how many agents are drifted per swarm
-  4. User can see a reconciliation direction recommendation (update spec to match deployed, or re-deploy to match spec) for each drift finding
+  1. Pipeline generates deterministic Playwright TypeScript scripts from flow descriptions that use typed interface contracts (async function with typed params and return values)
+  2. Generated scripts accept runtime parameters (customer ID, invoice number) via parameterized templates -- not hardcoded values
+  3. Pipeline tries LLM-only script generation first, then falls back to requesting a Playwright codegen recording if the self-test fails
+  4. Pipeline produces correct output for mixed swarms where some agents use APIs and others use browser automation -- both types coexist in the same swarm spec
+  5. Tool resolver includes a "browser" resolution path that maps browser automation needs to VPS MCP tool references
 **Plans**: TBD
 
 Plans:
-- [ ] 18-01: TBD
+- [ ] 23-01: TBD
+- [ ] 23-02: TBD
 
-### Phase 19: Overlap & Gap Analysis
-**Goal**: Users can see where their swarms duplicate work, conflict with each other, or fail to coordinate on shared business processes
-**Depends on**: Phase 17 (ecosystem model), Phase 18 (drift results feed into current-state model)
-**Requirements**: OVLP-01, OVLP-02, OVLP-03, OVLP-04, OVLP-05
+### Phase 24: Deployment, Wiring & NXT Validation
+**Goal**: Generated scripts deploy to the VPS automatically, agent specs wire up correctly, and the full pipeline works end-to-end for NXT
+**Depends on**: Phase 22 (VPS server running), Phase 23 (scripts generated, tool resolver extended)
+**Requirements**: DEPLOY-01, DEPLOY-02, DEPLOY-03, WIRE-02, VAL-01
 **Success Criteria** (what must be TRUE):
-  1. User can see semantic role overlaps across swarms classified as REDUNDANT, COMPLEMENTARY, or CONFLICTING
-  2. User can see a tool duplication report showing which tools are shared across swarms and whether that sharing is intentional
-  3. User can see blind spots -- missing handoffs between swarms that should be coordinating on shared business processes
-  4. User can see a coordination gap report with specific, actionable recommendations for each gap
-  5. User can dismiss overlap findings as accepted so they do not resurface in future analyses
+  1. Pipeline deploys generated scripts to VPS automatically without manual SSH/SCP -- user never touches a terminal for deployment
+  2. Deployed scripts are tracked by version with rollback capability
+  3. Generated scripts run against the target system and pass self-test before being deployed to VPS
+  4. Generated agent specs include correct MCP tool references pointing to the VPS server for browser automation flows
+  5. User describes a use case involving NXT, and the pipeline detects browser need, generates script, deploys to VPS, and wires agent spec -- end-to-end without manual intervention
 **Plans**: TBD
 
 Plans:
-- [ ] 19-01: TBD
-- [ ] 19-02: TBD
+- [ ] 24-01: TBD
+- [ ] 24-02: TBD
 
-### Phase 20: Fix Proposals
-**Goal**: Users receive concrete, reviewable fix proposals for every drift finding, overlap, and coordination gap -- with clear risk levels and before/after previews
-**Depends on**: Phase 18 (drift findings), Phase 19 (overlap and gap findings)
-**Requirements**: FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, FIX-06
+### Phase 25: Hardening & Second System
+**Goal**: Deployed scripts are monitored for health, and the pipeline generalizes beyond NXT to at least one additional system
+**Depends on**: Phase 24 (NXT end-to-end working)
+**Requirements**: HARD-01, HARD-02
 **Success Criteria** (what must be TRUE):
-  1. User can see structured fix proposals with before/after diff previews showing exact spec changes for each finding
-  2. User can see each proposal classified as LOW, MEDIUM, or HIGH risk
-  3. User can approve or reject each fix proposal individually via HITL flow, with approved fixes applied to local spec files
-  4. User can see shared context injection proposals (adding cross-swarm awareness to agent instructions) and data contract proposals (inter-swarm communication schemas)
-  5. User can see a provenance trail for every fix (what triggered it, what changed, who approved, what the outcome was)
+  1. MCP tool runs smoke tests on all deployed scripts and reports health status -- broken scripts are surfaced before agents try to use them
+  2. Pipeline works end-to-end for iController (not just NXT) -- capabilities config entry, script generation, deployment, and agent spec wiring all succeed for the second system
 **Plans**: TBD
 
 Plans:
-- [ ] 20-01: TBD
-- [ ] 20-02: TBD
-
-### Phase 21: Command Integration & Auto-Trigger
-**Goal**: Users can trigger cross-swarm analysis on demand and get automatic overlap checks whenever they design a new swarm
-**Depends on**: Phase 17, 18, 19, 20 (all subagents must be stable before wiring them together)
-**Requirements**: CMD-01, CMD-02, CMD-03, CMD-04
-**Success Criteria** (what must be TRUE):
-  1. User can run `/orq-agent:audit` and receive a full cross-swarm analysis (ecosystem map, drift, overlaps, fix proposals) in a single command
-  2. User can read a structured ECOSYSTEM-REPORT.md after audit completes, covering the full swarm landscape with all findings
-  3. After completing a new swarm design via `/orq-agent`, a lightweight cross-swarm check (map + overlap) runs automatically and surfaces findings
-  4. The auto-trigger runs in lightweight mode only (no full drift or fix proposal generation) so it does not block the primary design pipeline
-**Plans**: TBD
-
-Plans:
-- [ ] 21-01: TBD
+- [ ] 25-01: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 17 -> 18 -> 19 -> 20 -> 21
+Phases execute in numeric order: 22 -> 23 -> 24 -> 25
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 17. Ecosystem Foundation | 0/TBD | Not started | - |
-| 18. Drift Detection | 0/TBD | Not started | - |
-| 19. Overlap & Gap Analysis | 0/TBD | Not started | - |
-| 20. Fix Proposals | 0/TBD | Not started | - |
-| 21. Command Integration & Auto-Trigger | 0/TBD | Not started | - |
+| 22. Capabilities Config & VPS Scaffold | 0/TBD | Not started | - |
+| 23. Script Generation & Pipeline Integration | 0/TBD | Not started | - |
+| 24. Deployment, Wiring & NXT Validation | 0/TBD | Not started | - |
+| 25. Hardening & Second System | 0/TBD | Not started | - |
 
 ## Progress Summary
 
@@ -179,4 +176,5 @@ Phases execute in numeric order: 17 -> 18 -> 19 -> 20 -> 21
 | v0.3 | 1-05.2 (11 phases) | 28/28 | **Shipped** | 2026-03-01 |
 | V2.0 | 6-11 (7 phases) | 11/11 | **Shipped** | 2026-03-02 |
 | V3.0 | 12-16 (5 phases) | 0/TBD | **Defined** | - |
-| V4.0 | 17-21 (5 phases) | 0/TBD | **In Progress** | - |
+| V4.0 | 17-21 (5 phases) | 0/TBD | **Defined** | - |
+| V5.0 | 22-25 (4 phases) | 0/TBD | **In Progress** | - |

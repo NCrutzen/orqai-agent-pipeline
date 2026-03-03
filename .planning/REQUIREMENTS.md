@@ -80,33 +80,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CAP-01 | — | Pending |
-| CAP-02 | — | Pending |
-| CAP-03 | — | Pending |
-| CAP-04 | — | Pending |
-| SCRIPT-01 | — | Pending |
-| SCRIPT-02 | — | Pending |
-| SCRIPT-03 | — | Pending |
-| SCRIPT-04 | — | Pending |
-| SCRIPT-05 | — | Pending |
-| VPS-01 | — | Pending |
-| VPS-02 | — | Pending |
-| VPS-03 | — | Pending |
-| VPS-04 | — | Pending |
-| DEPLOY-01 | — | Pending |
-| DEPLOY-02 | — | Pending |
-| DEPLOY-03 | — | Pending |
-| WIRE-01 | — | Pending |
-| WIRE-02 | — | Pending |
-| HARD-01 | — | Pending |
-| HARD-02 | — | Pending |
-| VAL-01 | — | Pending |
+| CAP-01 | Phase 22 | Pending |
+| CAP-02 | Phase 22 | Pending |
+| CAP-03 | Phase 22 | Pending |
+| CAP-04 | Phase 23 | Pending |
+| SCRIPT-01 | Phase 23 | Pending |
+| SCRIPT-02 | Phase 23 | Pending |
+| SCRIPT-03 | Phase 23 | Pending |
+| SCRIPT-04 | Phase 23 | Pending |
+| SCRIPT-05 | Phase 23 | Pending |
+| VPS-01 | Phase 22 | Pending |
+| VPS-02 | Phase 22 | Pending |
+| VPS-03 | Phase 22 | Pending |
+| VPS-04 | Phase 22 | Pending |
+| DEPLOY-01 | Phase 24 | Pending |
+| DEPLOY-02 | Phase 24 | Pending |
+| DEPLOY-03 | Phase 24 | Pending |
+| WIRE-01 | Phase 23 | Pending |
+| WIRE-02 | Phase 24 | Pending |
+| HARD-01 | Phase 25 | Pending |
+| HARD-02 | Phase 25 | Pending |
+| VAL-01 | Phase 24 | Pending |
 
 **Coverage:**
 - V5.0 requirements: 21 total
-- Mapped to phases: 0
-- Unmapped: 21
+- Mapped to phases: 21
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 after initial definition*
+*Last updated: 2026-03-03 after roadmap creation*
