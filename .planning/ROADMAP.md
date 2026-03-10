@@ -122,10 +122,10 @@ Build a Claude Code skill that transforms natural language use case descriptions
   2. Dataset-preparer creates datasets and datapoints via MCP tools first, falling back to REST API if MCP is unavailable
   3. Dataset-preparer reads existing markdown eval pairs, augments to 30+ examples, and splits into 60/20/20 train/validation/holdout sets with stratified distribution
   4. Dataset-preparer writes a `dataset-prep.json` file containing per-agent dataset IDs, inferred agent role, and status fields that downstream subagents can read
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 26-01: TBD
+- [ ] 26-01-PLAN.md — Create dataset-preparer.md subagent with 8 internal phases (parse, augment, split, smoke test, upload, role inference, JSON contract)
 
 ### Phase 27: Experiment Runner
 **Goal**: Users get working experiment execution on Orq.ai using native MCP/REST tools instead of the broken evaluatorq SDK, with triple-run reliability and adaptive polling
