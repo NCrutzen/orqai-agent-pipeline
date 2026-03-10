@@ -10,9 +10,10 @@ Build a Claude Code skill that transforms natural language use case descriptions
 |---------|-----------|--------|
 | **v0.3** | Core Pipeline + V2.0 Foundation -- V1.0 spec generation + V2.0 install infrastructure | **Shipped 2026-03-01** |
 | **V2.0** | Autonomous Orq.ai Pipeline -- deploy, test, iterate, and harden agent swarms via MCP/API | **Shipped 2026-03-02** |
+| **V2.1** | Experiment Pipeline Restructure -- rewrite test/iterate with native MCP, smaller subagents | **In Progress** |
 | **V3.0** | Web UI & Dashboard -- browser-based pipeline with real-time visibility, node graph, HITL approvals | **Defined** |
 | **V4.0** | Cross-Swarm Intelligence -- ecosystem mapping, drift detection, overlap analysis, and fix proposals | **Defined** |
-| **V5.0** | Browser Automation -- Playwright script generation, VPS MCP server, automated deployment, agent spec wiring | **In Progress** |
+| **V5.0** | Browser Automation -- Playwright script generation, VPS MCP server, automated deployment, agent spec wiring | **Defined** |
 
 ---
 
@@ -78,96 +79,148 @@ Build a Claude Code skill that transforms natural language use case descriptions
 
 </details>
 
+<details>
+<summary>V5.0 Browser Automation (Phases 22-25) -- DEFINED</summary>
+
+**4 phases, 21 requirements defined**
+
+- [ ] Phase 22: Capabilities Config & VPS Scaffold -- Application capabilities config file with NXT entry, VPS MCP server with Streamable HTTP transport, TLS, and bearer token auth
+- [ ] Phase 23: Script Generation & Pipeline Integration -- Playwright script generator subagent, pipeline browser-use detection, tool resolver browser path, mixed swarm support
+- [ ] Phase 24: Deployment, Wiring & NXT Validation -- Automated script deployment to VPS, agent spec wiring with MCP tool references, end-to-end NXT validation
+- [ ] Phase 25: Hardening & Second System -- Script health monitoring, iController validation
+
+</details>
+
 ---
 
-## V5.0 -- Browser Automation (IN PROGRESS)
+## V2.1 -- Experiment Pipeline Restructure (IN PROGRESS)
 
-**Goal:** Pipeline detects browser automation needs, generates deterministic Playwright scripts, deploys them to a VPS-hosted MCP server, and wires agent specs with the right MCP tools -- end-to-end for at least one real system (NXT).
+**Goal:** Rewrite the test/iterate pipeline to use native Orq.ai MCP tools for experiments, break monolithic tester.md (771 lines) and iterator.md (544 lines) into 5 focused subagents, and reduce token/context load so experiments actually run successfully. Same features, better architecture, working experiments.
 
 ## Phases
 
 **Phase Numbering:**
-- Integer phases (22, 23, 24, 25): Planned milestone work
-- Decimal phases (e.g., 23.1): Urgent insertions (marked with INSERTED)
+- Integer phases (26-32): Planned milestone work
+- Decimal phases (e.g., 27.1): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 22: Capabilities Config & VPS Scaffold** - Application capabilities config file with NXT entry, VPS MCP server with Streamable HTTP transport, TLS, and bearer token auth
-- [ ] **Phase 23: Script Generation & Pipeline Integration** - Playwright script generator subagent, pipeline browser-use detection, tool resolver browser path, mixed swarm support
-- [ ] **Phase 24: Deployment, Wiring & NXT Validation** - Automated script deployment to VPS, agent spec wiring with MCP tool references, end-to-end NXT validation
-- [ ] **Phase 25: Hardening & Second System** - Script health monitoring, iController validation
+- [ ] **Phase 26: Dataset Preparer** - New subagent that parses markdown datasets, augments to 30+, splits stratified, and uploads with correct row format via MCP/REST
+- [ ] **Phase 27: Experiment Runner** - New subagent that creates and runs experiments via native MCP create_experiment with adaptive polling and triple-run execution
+- [ ] **Phase 28: Results Analyzer** - New subagent that aggregates triple-run scores, determines pass/fail, produces category-sliced analysis and backward-compatible output
+- [ ] **Phase 29: Test Command Rewrite** - Simplified test.md orchestrating dataset-preparer, experiment-runner, results-analyzer in sequence with intermediate failure checks
+- [ ] **Phase 30: Failure Diagnoser** - New subagent that maps evaluator failures to prompt sections, proposes diffs, and collects HITL approval
+- [ ] **Phase 31: Prompt Editor** - New subagent that applies approved changes, delegates re-deploy and holdout re-test, and computes before/after score comparison
+- [ ] **Phase 32: Iterate Command Rewrite** - Simplified iterate.md orchestrating failure-diagnoser and prompt-editor in loop with 5 stop conditions
 
 ## Phase Details
 
-### Phase 22: Capabilities Config & VPS Scaffold
-**Goal**: Pipeline has a reliable source of truth for per-system integration methods, and a secure VPS MCP server is running and reachable
-**Depends on**: V2.0 (deployer patterns, MCP/REST adapter)
-**Requirements**: CAP-01, CAP-02, CAP-03, VPS-01, VPS-02, VPS-03, VPS-04
+### Phase 26: Dataset Preparer
+**Goal**: Users get correctly formatted datasets uploaded to Orq.ai with the required `messages` field, stratified splits, and a JSON contract for downstream subagents
+**Depends on**: Nothing (first V2.1 phase; foundational -- all downstream phases need dataset IDs)
+**Requirements**: DATA-01, DATA-02, DATA-03, DATA-04, DATA-05
 **Success Criteria** (what must be TRUE):
-  1. User can define a system in the capabilities config file with its integration method (API / browser-only / headed browser), base URL, auth type, and available flows -- and the pipeline reads it
-  2. Pipeline correctly identifies which agents in a use case need browser automation by matching systems against the capabilities config
-  3. Discussion step asks about unknown systems' integration method and writes discovered capabilities back to the config file
-  4. VPS MCP server is running with Streamable HTTP transport, TLS encryption, and bearer token authentication -- and responds to a health-check tool call
-  5. VPS MCP server resolves credentials internally -- no credentials flow through agent tool parameters
+  1. Dataset-preparer uploads datapoints where each row contains a `messages` field with `[{role: "user", content: ...}]` -- and a test experiment on Orq.ai produces non-null evaluator scores
+  2. Dataset-preparer creates datasets and datapoints via MCP tools first, falling back to REST API if MCP is unavailable
+  3. Dataset-preparer reads existing markdown eval pairs, augments to 30+ examples, and splits into 60/20/20 train/validation/holdout sets with stratified distribution
+  4. Dataset-preparer writes a `dataset-prep.json` file containing per-agent dataset IDs, inferred agent role, and status fields that downstream subagents can read
 **Plans**: TBD
 
 Plans:
-- [ ] 22-01: TBD
-- [ ] 22-02: TBD
+- [ ] 26-01: TBD
 
-### Phase 23: Script Generation & Pipeline Integration
-**Goal**: Pipeline generates working Playwright scripts for browser-only systems and integrates browser automation into the existing design flow
-**Depends on**: Phase 22 (capabilities config provides system metadata and DOM context; VPS server provides the deployment target interface contract)
-**Requirements**: SCRIPT-01, SCRIPT-02, SCRIPT-03, SCRIPT-04, SCRIPT-05, CAP-04, WIRE-01
+### Phase 27: Experiment Runner
+**Goal**: Users get working experiment execution on Orq.ai using native MCP/REST tools instead of the broken evaluatorq SDK, with triple-run reliability and adaptive polling
+**Depends on**: Phase 26 (needs dataset IDs from dataset-prep.json)
+**Requirements**: EXPR-01, EXPR-02, EXPR-03, EXPR-04, EXPR-05, EXPR-06
 **Success Criteria** (what must be TRUE):
-  1. Pipeline generates deterministic Playwright TypeScript scripts from flow descriptions that use typed interface contracts (async function with typed params and return values)
-  2. Generated scripts accept runtime parameters (customer ID, invoice number) via parameterized templates -- not hardcoded values
-  3. Pipeline tries LLM-only script generation first, then falls back to requesting a Playwright codegen recording if the self-test fails
-  4. Pipeline produces correct output for mixed swarms where some agents use APIs and others use browser automation -- both types coexist in the same swarm spec
-  5. Tool resolver includes a "browser" resolution path that maps browser automation needs to VPS MCP tool references
+  1. Experiment-runner creates experiments via MCP `create_experiment` with `task.type: "agent"` and the agent's `key` identifier -- and experiments actually execute on Orq.ai without timing out
+  2. Experiment-runner resolves evaluator IDs by creating custom evaluators via MCP or referencing built-in evaluators by name -- experiments include working evaluators
+  3. Experiment-runner executes 3 runs per agent with an adaptive polling loop (10-30s interval) and writes raw per-run per-evaluator scores to `experiment-raw.json`
+  4. Experiment-runner accepts a `dataset_id` directly as input for holdout re-test mode -- skipping dataset-preparer entirely
 **Plans**: TBD
 
 Plans:
-- [ ] 23-01: TBD
-- [ ] 23-02: TBD
+- [ ] 27-01: TBD
 
-### Phase 24: Deployment, Wiring & NXT Validation
-**Goal**: Generated scripts deploy to the VPS automatically, agent specs wire up correctly, and the full pipeline works end-to-end for NXT
-**Depends on**: Phase 22 (VPS server running), Phase 23 (scripts generated, tool resolver extended)
-**Requirements**: DEPLOY-01, DEPLOY-02, DEPLOY-03, WIRE-02, VAL-01
+### Phase 28: Results Analyzer
+**Goal**: Users get clear, actionable test results with statistical rigor and backward-compatible output that hardener.md continues to consume without changes
+**Depends on**: Phase 27 (needs raw scores from experiment-raw.json)
+**Requirements**: ANLZ-01, ANLZ-02, ANLZ-03, ANLZ-04, ANLZ-05
 **Success Criteria** (what must be TRUE):
-  1. Pipeline deploys generated scripts to VPS automatically without manual SSH/SCP -- user never touches a terminal for deployment
-  2. Deployed scripts are tracked by version with rollback capability
-  3. Generated scripts run against the target system and pass self-test before being deployed to VPS
-  4. Generated agent specs include correct MCP tool references pointing to the VPS server for browser automation flows
-  5. User describes a use case involving NXT, and the pipeline detects browser need, generates script, deploys to VPS, and wires agent spec -- end-to-end without manual intervention
+  1. Results-analyzer computes triple-run aggregation (median, variance, 95% CI) and determines pass/fail per evaluator per agent against configured thresholds
+  2. Results-analyzer produces category-sliced scoring when `inputs.category` metadata is present in dataset rows
+  3. Results-analyzer writes `test-results.json` that preserves the exact schema hardener.md expects -- hardener continues working without modification
+  4. Results-analyzer produces a `test-results.md` human-readable report and a terminal summary table showing per-agent per-evaluator scores
 **Plans**: TBD
 
 Plans:
-- [ ] 24-01: TBD
-- [ ] 24-02: TBD
+- [ ] 28-01: TBD
 
-### Phase 25: Hardening & Second System
-**Goal**: Deployed scripts are monitored for health, and the pipeline generalizes beyond NXT to at least one additional system
-**Depends on**: Phase 24 (NXT end-to-end working)
-**Requirements**: HARD-01, HARD-02
+### Phase 29: Test Command Rewrite
+**Goal**: Users run `/orq-agent:test` and get the same end-to-end test pipeline behavior as before, but orchestrated through 3 focused subagents instead of one monolithic tester
+**Depends on**: Phase 26, Phase 27, Phase 28 (all 3 subagent interfaces must be locked)
+**Requirements**: TEST-01, TEST-02, TEST-03
 **Success Criteria** (what must be TRUE):
-  1. MCP tool runs smoke tests on all deployed scripts and reports health status -- broken scripts are surfaced before agents try to use them
-  2. Pipeline works end-to-end for iController (not just NXT) -- capabilities config entry, script generation, deployment, and agent spec wiring all succeed for the second system
+  1. Test command orchestrates dataset-preparer, experiment-runner, and results-analyzer in sequence -- completing the full pipeline from markdown datasets to scored results
+  2. Test command preserves the `--agent` flag for single-agent testing -- users can test one agent at a time
+  3. Test command checks intermediate JSON files (`dataset-prep.json`, `experiment-raw.json`) between subagent steps and aborts with a clear error message if an upstream step failed
 **Plans**: TBD
 
 Plans:
-- [ ] 25-01: TBD
+- [ ] 29-01: TBD
+
+### Phase 30: Failure Diagnoser
+**Goal**: Users get precise, section-level diagnosis of why their agents failed specific evaluators, with diff proposals they can approve before any changes are made
+**Depends on**: Phase 29 (needs confirmed test-results.json schema from the working test pipeline)
+**Requirements**: ITPIPE-01, ITPIPE-02, ITPIPE-03
+**Success Criteria** (what must be TRUE):
+  1. Failure-diagnoser reads test-results.json and identifies which evaluators failed for each agent, mapping failures to specific XML-tagged sections in the agent's prompt
+  2. Failure-diagnoser proposes section-level diffs with plain-language reasoning explaining why each change should improve the failing evaluator's score
+  3. Failure-diagnoser collects per-agent HITL approval from the user before any file modifications occur -- no changes without explicit consent
+**Plans**: TBD
+
+Plans:
+- [ ] 30-01: TBD
+
+### Phase 31: Prompt Editor
+**Goal**: Users get approved prompt changes applied safely, with automatic re-deploy and holdout re-test to verify improvements, and clear before/after score comparison
+**Depends on**: Phase 30 (needs iteration-proposals.json), Phase 27 (delegates holdout re-test to experiment-runner)
+**Requirements**: ITPIPE-04, ITPIPE-05, ITPIPE-06
+**Success Criteria** (what must be TRUE):
+  1. Prompt-editor applies approved section-level changes to agent spec files preserving YAML frontmatter and all non-instruction sections intact
+  2. Prompt-editor delegates re-deploy to deployer.md and holdout re-test to experiment-runner (not dataset-preparer) -- no duplicate dataset uploads during iteration
+  3. Prompt-editor computes before/after score comparison and flags any evaluator regressions -- user sees whether the iteration actually helped
+**Plans**: TBD
+
+Plans:
+- [ ] 31-01: TBD
+
+### Phase 32: Iterate Command Rewrite
+**Goal**: Users run `/orq-agent:iterate` and get automated iteration loops with clear stopping conditions, producing the same audit trail and iteration logs as before
+**Depends on**: Phase 30, Phase 31 (both iteration subagent interfaces must be locked)
+**Requirements**: LOOP-01, LOOP-02, LOOP-03
+**Success Criteria** (what must be TRUE):
+  1. Iterate command orchestrates failure-diagnoser and prompt-editor in a loop -- each cycle diagnoses failures, proposes changes, gets approval, applies changes, re-deploys, and re-tests
+  2. Iterate command enforces all 5 stop conditions (max_iterations reached, timeout exceeded, min_improvement not met, all evaluators pass, user declined changes) and stops the loop when any condition triggers
+  3. Iterate command preserves the `--agent` flag and produces iteration-log.md and audit-trail.md documenting every change across all cycles
+**Plans**: TBD
+
+Plans:
+- [ ] 32-01: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 22 -> 23 -> 24 -> 25
+Phases execute in numeric order: 26 -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 22. Capabilities Config & VPS Scaffold | 0/TBD | Not started | - |
-| 23. Script Generation & Pipeline Integration | 0/TBD | Not started | - |
-| 24. Deployment, Wiring & NXT Validation | 0/TBD | Not started | - |
-| 25. Hardening & Second System | 0/TBD | Not started | - |
+| 26. Dataset Preparer | 0/TBD | Not started | - |
+| 27. Experiment Runner | 0/TBD | Not started | - |
+| 28. Results Analyzer | 0/TBD | Not started | - |
+| 29. Test Command Rewrite | 0/TBD | Not started | - |
+| 30. Failure Diagnoser | 0/TBD | Not started | - |
+| 31. Prompt Editor | 0/TBD | Not started | - |
+| 32. Iterate Command Rewrite | 0/TBD | Not started | - |
 
 ## Progress Summary
 
@@ -175,6 +228,7 @@ Phases execute in numeric order: 22 -> 23 -> 24 -> 25
 |---------|-------|----------------|--------|-----------|
 | v0.3 | 1-05.2 (11 phases) | 28/28 | **Shipped** | 2026-03-01 |
 | V2.0 | 6-11 (7 phases) | 11/11 | **Shipped** | 2026-03-02 |
+| V2.1 | 26-32 (7 phases) | 0/TBD | **In Progress** | - |
 | V3.0 | 12-16 (5 phases) | 0/TBD | **Defined** | - |
 | V4.0 | 17-21 (5 phases) | 0/TBD | **Defined** | - |
-| V5.0 | 22-25 (4 phases) | 0/TBD | **In Progress** | - |
+| V5.0 | 22-25 (4 phases) | 0/TBD | **Defined** | - |

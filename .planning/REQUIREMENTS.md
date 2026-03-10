@@ -1,7 +1,7 @@
 # Requirements: Orq Agent Designer
 
 **Defined:** 2026-03-10
-**Core Value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai — without touching a terminal or needing technical knowledge.
+**Core Value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- without touching a terminal or needing technical knowledge.
 
 ## V2.1 Requirements
 
@@ -34,7 +34,7 @@ Requirements for V2.1 Experiment Pipeline Restructure. Each maps to roadmap phas
 
 ### Test Command
 
-- [ ] **TEST-01**: Rewritten test.md orchestrates dataset-preparer → experiment-runner → results-analyzer in sequence
+- [ ] **TEST-01**: Rewritten test.md orchestrates dataset-preparer -> experiment-runner -> results-analyzer in sequence
 - [ ] **TEST-02**: Test command preserves `--agent` flag for single-agent testing
 - [ ] **TEST-03**: Test command checks intermediate JSON files between subagent steps and aborts on upstream errors
 
@@ -49,7 +49,7 @@ Requirements for V2.1 Experiment Pipeline Restructure. Each maps to roadmap phas
 
 ### Iterate Command
 
-- [ ] **LOOP-01**: Rewritten iterate.md orchestrates failure-diagnoser → prompt-editor in loop with stop conditions
+- [ ] **LOOP-01**: Rewritten iterate.md orchestrates failure-diagnoser -> prompt-editor in loop with stop conditions
 - [ ] **LOOP-02**: Iterate command enforces 5 stop conditions (max_iterations, timeout, min_improvement, all_pass, user_declined)
 - [ ] **LOOP-03**: Iterate command preserves `--agent` flag and produces iteration-log.md + audit-trail.md
 
@@ -79,7 +79,7 @@ Requirements for V2.1 Experiment Pipeline Restructure. Each maps to roadmap phas
 
 | Feature | Reason |
 |---------|--------|
-| New pipeline capabilities | V2.1 is a restructure — same features, better architecture |
+| New pipeline capabilities | V2.1 is a restructure -- same features, better architecture |
 | evaluatorq SDK support | Root cause of timeouts; replaced entirely by native MCP/REST |
 | Dataset generation from scratch | Dataset-preparer reads existing markdown datasets; dataset-generator handles creation |
 | Parallel experiment runs | Adds complexity; sequential is sufficient for V2.1 |
@@ -92,40 +92,40 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
-| DATA-04 | — | Pending |
-| DATA-05 | — | Pending |
-| EXPR-01 | — | Pending |
-| EXPR-02 | — | Pending |
-| EXPR-03 | — | Pending |
-| EXPR-04 | — | Pending |
-| EXPR-05 | — | Pending |
-| EXPR-06 | — | Pending |
-| ANLZ-01 | — | Pending |
-| ANLZ-02 | — | Pending |
-| ANLZ-03 | — | Pending |
-| ANLZ-04 | — | Pending |
-| ANLZ-05 | — | Pending |
-| TEST-01 | — | Pending |
-| TEST-02 | — | Pending |
-| TEST-03 | — | Pending |
-| ITPIPE-01 | — | Pending |
-| ITPIPE-02 | — | Pending |
-| ITPIPE-03 | — | Pending |
-| ITPIPE-04 | — | Pending |
-| ITPIPE-05 | — | Pending |
-| ITPIPE-06 | — | Pending |
-| LOOP-01 | — | Pending |
-| LOOP-02 | — | Pending |
-| LOOP-03 | — | Pending |
+| DATA-01 | Phase 26 | Pending |
+| DATA-02 | Phase 26 | Pending |
+| DATA-03 | Phase 26 | Pending |
+| DATA-04 | Phase 26 | Pending |
+| DATA-05 | Phase 26 | Pending |
+| EXPR-01 | Phase 27 | Pending |
+| EXPR-02 | Phase 27 | Pending |
+| EXPR-03 | Phase 27 | Pending |
+| EXPR-04 | Phase 27 | Pending |
+| EXPR-05 | Phase 27 | Pending |
+| EXPR-06 | Phase 27 | Pending |
+| ANLZ-01 | Phase 28 | Pending |
+| ANLZ-02 | Phase 28 | Pending |
+| ANLZ-03 | Phase 28 | Pending |
+| ANLZ-04 | Phase 28 | Pending |
+| ANLZ-05 | Phase 28 | Pending |
+| TEST-01 | Phase 29 | Pending |
+| TEST-02 | Phase 29 | Pending |
+| TEST-03 | Phase 29 | Pending |
+| ITPIPE-01 | Phase 30 | Pending |
+| ITPIPE-02 | Phase 30 | Pending |
+| ITPIPE-03 | Phase 30 | Pending |
+| ITPIPE-04 | Phase 31 | Pending |
+| ITPIPE-05 | Phase 31 | Pending |
+| ITPIPE-06 | Phase 31 | Pending |
+| LOOP-01 | Phase 32 | Pending |
+| LOOP-02 | Phase 32 | Pending |
+| LOOP-03 | Phase 32 | Pending |
 
 **Coverage:**
 - V2.1 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24 ⚠️
+- Mapped to phases: 24
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-10*
-*Last updated: 2026-03-10 after initial definition*
+*Last updated: 2026-03-10 after roadmap creation*
