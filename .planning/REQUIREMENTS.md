@@ -1,78 +1,90 @@
-# Requirements: Orq Agent Designer V5.0 Browser Automation
+# Requirements: Orq Agent Designer
 
-**Defined:** 2026-03-03
-**Core Value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai — including agents that interact with browser-only systems via deterministic Playwright scripts.
+**Defined:** 2026-03-10
+**Core Value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai — without touching a terminal or needing technical knowledge.
 
-## V5.0 Requirements
+## V2.1 Requirements
 
-Requirements for browser automation milestone. Each maps to roadmap phases.
+Requirements for V2.1 Experiment Pipeline Restructure. Each maps to roadmap phases.
 
-### Capabilities & Detection
+### Dataset Preparation
 
-- [ ] **CAP-01**: User can define application capabilities in a config file (system name, integration method, base URL, auth type, available flows)
-- [ ] **CAP-02**: Pipeline detects browser automation needs by matching systems in use case against capabilities config
-- [ ] **CAP-03**: Discussion step asks about unknown systems' integration method and writes discovered capabilities back to config file
-- [ ] **CAP-04**: Pipeline supports mixed swarms where some agents use APIs and others use browser automation
+- [ ] **DATA-01**: Dataset-preparer uploads datapoints with required `messages` field (`[{role: "user", content: input}]`)
+- [ ] **DATA-02**: Dataset-preparer uses MCP `create_dataset`/`create_datapoints` with REST fallback
+- [ ] **DATA-03**: Dataset-preparer parses markdown eval pairs, augments to 30+, splits 60/20/20 stratified
+- [ ] **DATA-04**: Dataset-preparer infers agent role (structural/conversational/hybrid) from spec content
+- [ ] **DATA-05**: Dataset-preparer writes `dataset-prep.json` with per-agent dataset IDs and role
 
-### Script Generation
+### Experiment Execution
 
-- [ ] **SCRIPT-01**: Pipeline generates deterministic Playwright TypeScript scripts from flow descriptions
-- [ ] **SCRIPT-02**: Generated scripts use typed interface contract (async function with typed params and return values)
-- [ ] **SCRIPT-03**: Generated scripts accept runtime parameters (customer ID, invoice number) via parameterized templates
-- [ ] **SCRIPT-04**: Pipeline accepts Playwright codegen recordings as input to improve script accuracy when LLM-only generation fails
-- [ ] **SCRIPT-05**: Pipeline tries LLM-only generation first, falls back to requesting codegen recording if self-test fails
+- [ ] **EXPR-01**: Experiment-runner creates experiments via MCP `create_experiment` (task.type: "agent") with REST fallback
+- [ ] **EXPR-02**: Experiment-runner uses agent `key` (not `orqai_id`) for experiment task configuration
+- [ ] **EXPR-03**: Experiment-runner resolves evaluator IDs (create custom via MCP or use built-in by name)
+- [ ] **EXPR-04**: Experiment-runner executes 3 runs per agent with polling loop (adaptive 10-30s interval)
+- [ ] **EXPR-05**: Experiment-runner accepts `dataset_id` as direct input for holdout re-test mode
+- [ ] **EXPR-06**: Experiment-runner writes `experiment-raw.json` with per-run per-evaluator raw scores
 
-### VPS MCP Server
+### Results Analysis
 
-- [ ] **VPS-01**: MCP server on VPS exposes Playwright scripts as workflow-level MCP tools (one tool per business flow)
-- [ ] **VPS-02**: MCP server uses Streamable HTTP transport compatible with Orq.ai
-- [ ] **VPS-03**: MCP server resolves credentials internally — credentials never flow through agent tool parameters
-- [ ] **VPS-04**: MCP server secured with TLS and authentication (bearer token or equivalent)
+- [ ] **ANLZ-01**: Results-analyzer computes triple-run aggregation (median, variance, 95% CI)
+- [ ] **ANLZ-02**: Results-analyzer determines pass/fail per evaluator per agent against thresholds
+- [ ] **ANLZ-03**: Results-analyzer produces category-sliced scoring from `inputs.category` metadata
+- [ ] **ANLZ-04**: Results-analyzer writes `test-results.json` preserving schema compatibility with hardener.md
+- [ ] **ANLZ-05**: Results-analyzer produces `test-results.md` and terminal summary table
 
-### Deployment
+### Test Command
 
-- [ ] **DEPLOY-01**: Pipeline deploys generated scripts to VPS automatically (no manual SSH/SCP)
-- [ ] **DEPLOY-02**: Script versioning — deployed scripts tracked by version with rollback capability
-- [ ] **DEPLOY-03**: Self-test before deployment — generated scripts run against target system before being deployed
+- [ ] **TEST-01**: Rewritten test.md orchestrates dataset-preparer → experiment-runner → results-analyzer in sequence
+- [ ] **TEST-02**: Test command preserves `--agent` flag for single-agent testing
+- [ ] **TEST-03**: Test command checks intermediate JSON files between subagent steps and aborts on upstream errors
 
-### Agent Wiring
+### Iteration Pipeline
 
-- [ ] **WIRE-01**: Tool resolver extended with browser automation resolution path
-- [ ] **WIRE-02**: Generated agent specs include correct MCP tool references pointing to VPS server
+- [ ] **ITPIPE-01**: Failure-diagnoser reads test-results.json and maps evaluator failures to XML-tagged prompt sections
+- [ ] **ITPIPE-02**: Failure-diagnoser proposes section-level diffs with plain-language reasoning
+- [ ] **ITPIPE-03**: Failure-diagnoser collects per-agent HITL approval before any file modifications
+- [ ] **ITPIPE-04**: Prompt-editor applies approved section-level changes preserving YAML frontmatter and non-instruction sections
+- [ ] **ITPIPE-05**: Prompt-editor delegates re-deploy to deployer and holdout re-test to experiment-runner (skips dataset-preparer)
+- [ ] **ITPIPE-06**: Prompt-editor computes before/after score comparison and flags regressions
 
-### Hardening
+### Iterate Command
 
-- [ ] **HARD-01**: Script health monitoring — MCP tool runs smoke tests on all deployed scripts and reports status
-- [ ] **HARD-02**: Second system validation — pipeline works end-to-end for iController (not just NXT)
-
-### Validation
-
-- [ ] **VAL-01**: End-to-end NXT validation — user describes use case involving NXT, pipeline detects browser need, generates script, deploys, and wires agent spec
+- [ ] **LOOP-01**: Rewritten iterate.md orchestrates failure-diagnoser → prompt-editor in loop with stop conditions
+- [ ] **LOOP-02**: Iterate command enforces 5 stop conditions (max_iterations, timeout, min_improvement, all_pass, user_declined)
+- [ ] **LOOP-03**: Iterate command preserves `--agent` flag and produces iteration-log.md + audit-trail.md
 
 ## Future Requirements
 
-Deferred to future release. Tracked but not in current roadmap.
+### Cleanup
 
-### Advanced Recording
+- **CLEAN-01**: Remove `@orq-ai/evaluatorq` from install script after V2.1 audit confirms zero references
+- **CLEAN-02**: Fix `@orq-ai/node` version pin (^3.14.45 doesn't exist on npm)
 
-- **REC-01**: Video recording + vision LLM approach for non-technical users to capture workflows
-- **REC-02**: Automated codegen session launching from the pipeline (headless codegen)
+### Enhancements
 
-### Additional Systems
+- **ENH-01**: Parallel experiment execution across agents
+- **ENH-02**: Custom domain-specific evaluator creation for per-swarm evaluation criteria
 
-- **SYS-01**: Intelly browser automation (may require headed browser / Xvfb on VPS)
-- **SYS-02**: Auto-discovery of available workflows per system
+### V5.0 Browser Automation (Deferred)
+
+- **CAP-01 through CAP-04**: Application capabilities config and browser-use detection
+- **SCRIPT-01 through SCRIPT-05**: Playwright script generation
+- **VPS-01 through VPS-04**: VPS MCP server
+- **DEPLOY-01 through DEPLOY-03**: Automated script deployment
+- **WIRE-01, WIRE-02**: Agent spec wiring
+- **HARD-01, HARD-02**: Script health monitoring and multi-system validation
+- **VAL-01**: End-to-end NXT validation
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Dynamic/exploratory browser-use | Already handled by existing Orq.ai MCP tools |
-| Generic browser primitives (click, type, navigate) | Tool proliferation problem — V5.0 uses workflow-level tools |
-| Screenshot/vision-based interaction | Less reliable and more expensive than DOM/accessibility-based approach |
-| Self-healing scripts | Masks UI changes; health monitoring + LLM regeneration is safer |
-| Headed browser mode for agents | VPS runs headless; results returned as structured data |
-| Browser automation for all systems at once | Validate pipeline on NXT first, then expand incrementally |
+| New pipeline capabilities | V2.1 is a restructure — same features, better architecture |
+| evaluatorq SDK support | Root cause of timeouts; replaced entirely by native MCP/REST |
+| Dataset generation from scratch | Dataset-preparer reads existing markdown datasets; dataset-generator handles creation |
+| Parallel experiment runs | Adds complexity; sequential is sufficient for V2.1 |
+| Web UI integration | V3.0 milestone scope |
+| Browser automation | V5.0 milestone scope |
 
 ## Traceability
 
@@ -80,33 +92,40 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CAP-01 | Phase 22 | Pending |
-| CAP-02 | Phase 22 | Pending |
-| CAP-03 | Phase 22 | Pending |
-| CAP-04 | Phase 23 | Pending |
-| SCRIPT-01 | Phase 23 | Pending |
-| SCRIPT-02 | Phase 23 | Pending |
-| SCRIPT-03 | Phase 23 | Pending |
-| SCRIPT-04 | Phase 23 | Pending |
-| SCRIPT-05 | Phase 23 | Pending |
-| VPS-01 | Phase 22 | Pending |
-| VPS-02 | Phase 22 | Pending |
-| VPS-03 | Phase 22 | Pending |
-| VPS-04 | Phase 22 | Pending |
-| DEPLOY-01 | Phase 24 | Pending |
-| DEPLOY-02 | Phase 24 | Pending |
-| DEPLOY-03 | Phase 24 | Pending |
-| WIRE-01 | Phase 23 | Pending |
-| WIRE-02 | Phase 24 | Pending |
-| HARD-01 | Phase 25 | Pending |
-| HARD-02 | Phase 25 | Pending |
-| VAL-01 | Phase 24 | Pending |
+| DATA-01 | — | Pending |
+| DATA-02 | — | Pending |
+| DATA-03 | — | Pending |
+| DATA-04 | — | Pending |
+| DATA-05 | — | Pending |
+| EXPR-01 | — | Pending |
+| EXPR-02 | — | Pending |
+| EXPR-03 | — | Pending |
+| EXPR-04 | — | Pending |
+| EXPR-05 | — | Pending |
+| EXPR-06 | — | Pending |
+| ANLZ-01 | — | Pending |
+| ANLZ-02 | — | Pending |
+| ANLZ-03 | — | Pending |
+| ANLZ-04 | — | Pending |
+| ANLZ-05 | — | Pending |
+| TEST-01 | — | Pending |
+| TEST-02 | — | Pending |
+| TEST-03 | — | Pending |
+| ITPIPE-01 | — | Pending |
+| ITPIPE-02 | — | Pending |
+| ITPIPE-03 | — | Pending |
+| ITPIPE-04 | — | Pending |
+| ITPIPE-05 | — | Pending |
+| ITPIPE-06 | — | Pending |
+| LOOP-01 | — | Pending |
+| LOOP-02 | — | Pending |
+| LOOP-03 | — | Pending |
 
 **Coverage:**
-- V5.0 requirements: 21 total
-- Mapped to phases: 21
-- Unmapped: 0
+- V2.1 requirements: 24 total
+- Mapped to phases: 0
+- Unmapped: 24 ⚠️
 
 ---
-*Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 after roadmap creation*
+*Requirements defined: 2026-03-10*
+*Last updated: 2026-03-10 after initial definition*
