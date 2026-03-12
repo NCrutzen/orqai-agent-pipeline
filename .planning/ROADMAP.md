@@ -218,7 +218,7 @@ Phases execute in numeric order: 26 -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 | 27. Experiment Runner | 1/1 | Complete    | 2026-03-11 |
 | 28. Results Analyzer | 1/1 | Complete    | 2026-03-12 |
 | 29. Test Command Rewrite | 1/1 | Complete    | 2026-03-12 |
-| 30. Failure Diagnoser | 1/1 | Complete   | 2026-03-12 |
+| 30. Failure Diagnoser | 2/2 | Complete   | 2026-03-12 |
 | 31. Prompt Editor | 0/TBD | Not started | - |
 | 32. Iterate Command Rewrite | 0/TBD | Not started | - |
 
