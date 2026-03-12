@@ -34,9 +34,9 @@ Requirements for V2.1 Experiment Pipeline Restructure. Each maps to roadmap phas
 
 ### Test Command
 
-- [ ] **TEST-01**: Rewritten test.md orchestrates dataset-preparer -> experiment-runner -> results-analyzer in sequence
-- [ ] **TEST-02**: Test command preserves `--agent` flag for single-agent testing
-- [ ] **TEST-03**: Test command checks intermediate JSON files between subagent steps and aborts on upstream errors
+- [x] **TEST-01**: Rewritten test.md orchestrates dataset-preparer -> experiment-runner -> results-analyzer in sequence
+- [x] **TEST-02**: Test command preserves `--agent` flag for single-agent testing
+- [x] **TEST-03**: Test command checks intermediate JSON files between subagent steps and aborts on upstream errors
 
 ### Iteration Pipeline
 
@@ -108,9 +108,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ANLZ-03 | Phase 28 | Complete |
 | ANLZ-04 | Phase 28 | Complete |
 | ANLZ-05 | Phase 28 | Complete |
-| TEST-01 | Phase 29 | Pending |
-| TEST-02 | Phase 29 | Pending |
-| TEST-03 | Phase 29 | Pending |
+| TEST-01 | Phase 29 | Complete |
+| TEST-02 | Phase 29 | Complete |
+| TEST-03 | Phase 29 | Complete |
 | ITPIPE-01 | Phase 30 | Pending |
 | ITPIPE-02 | Phase 30 | Pending |
 | ITPIPE-03 | Phase 30 | Pending |

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-12T14:19:00.847Z"
+last_updated: "2026-03-12T17:30:46.727Z"
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State
@@ -18,24 +18,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- without touching a terminal or needing technical knowledge.
-**Current focus:** V2.1 Experiment Pipeline Restructure -- Phase 28 (Results Analyzer)
+**Current focus:** V2.1 Experiment Pipeline Restructure -- Phase 29 (Test Command Rewrite)
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V3.0-V5.0 defined
 
 ## Current Position
 
-Phase: 28 of 32 (Results Analyzer)
+Phase: 29 of 32 (Test Command Rewrite)
 Plan: 1 of 1 in current phase
-Status: Phase 28 complete
-Last activity: 2026-03-12 -- Completed 28-01-PLAN.md (results-analyzer.md subagent)
+Status: Phase 29 complete
+Last activity: 2026-03-12 -- Completed 29-01-PLAN.md (test.md rewrite with 3-subagent orchestration)
 
-Progress: [##########] 100% (Phase 28)
+Progress: [##########] 100% (Phase 29)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 2.7min
-- Total execution time: 8min
+- Total plans completed: 4
+- Average duration: 2.5min
+- Total execution time: 10min
 
 **By Phase:**
 
@@ -44,6 +44,7 @@ Progress: [##########] 100% (Phase 28)
 | 26 | 1 | 2min | 2min |
 | 27 | 1 | 3min | 3min |
 | 28 | 1 | 3min | 3min |
+| 29 | 1 | 2min | 2min |
 
 ## Accumulated Context
 
@@ -67,6 +68,9 @@ Progress: [##########] 100% (Phase 28)
 - [P28]: Category breakdown in test-results.md only, never in terminal output (LOCKED)
 - [P28]: Scale normalization for worst-case ranking only -- reported scores stay in original scale
 - [P28]: Field mapping: experiment-raw.json 'output' -> test-results.json 'actual_output'
+- [Phase 29]: Removed old Step 4 (Pre-check Deployment) -- dataset-preparer Phase 1 handles deployment verification
+- [Phase 29]: mcp_available forwarded to dataset-preparer only -- experiment-runner REST-only (LOCKED P27), results-analyzer no API calls
+- [Phase 29]: Stale file cleanup includes test-results.md alongside 3 JSON handoff files
 
 ### Blockers/Concerns
 
@@ -75,6 +79,6 @@ Progress: [##########] 100% (Phase 28)
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Completed 28-01-PLAN.md
-Resume with: `/gsd:execute-phase 29` (or next phase)
-Resume file: `.planning/phases/28-results-analyzer/28-01-SUMMARY.md`
+Stopped at: Completed 29-01-PLAN.md
+Resume with: `/gsd:execute-phase 30` (or next phase)
+Resume file: `.planning/phases/29-test-command-rewrite/29-01-SUMMARY.md`
