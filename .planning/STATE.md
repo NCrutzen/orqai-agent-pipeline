@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-12T18:42:46.700Z"
+last_updated: "2026-03-12T19:10:22.000Z"
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 6
-  completed_plans: 6
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 7
+  completed_plans: 7
 ---
 
 # Project State
@@ -18,24 +18,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- without touching a terminal or needing technical knowledge.
-**Current focus:** V2.1 Experiment Pipeline Restructure -- Phase 30 (Failure Diagnoser)
+**Current focus:** V2.1 Experiment Pipeline Restructure -- Phase 31 (Prompt Editor)
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V3.0-V5.0 defined
 
 ## Current Position
 
-Phase: 30 of 32 (Failure Diagnoser)
-Plan: 2 of 2 in current phase
-Status: Phase 30 complete (all plans including gap closure)
-Last activity: 2026-03-12 -- Completed 30-02-PLAN.md (spec file path resolution gap closure)
+Phase: 31 of 32 (Prompt Editor)
+Plan: 1 of 1 in current phase
+Status: Phase 31 complete
+Last activity: 2026-03-12 -- Completed 31-01-PLAN.md (prompt-editor subagent)
 
-Progress: [##########] 100% (Phase 30)
+Progress: [##########] 100% (Phase 31)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: 2.3min
-- Total execution time: 14min
+- Total execution time: 16min
 
 **By Phase:**
 
@@ -46,6 +46,7 @@ Progress: [##########] 100% (Phase 30)
 | 28 | 1 | 3min | 3min |
 | 29 | 1 | 2min | 2min |
 | 30 | 2 | 4min | 2min |
+| 31 | 1 | 2min | 2min |
 
 ## Accumulated Context
 
@@ -77,6 +78,9 @@ Progress: [##########] 100% (Phase 30)
 - [Phase 30]: Both approved and rejected agents included in iteration-proposals.json for complete audit trail
 - [Phase 30]: Agents without XML tags get structural improvement proposal (add XML tags around logical sections)
 - [Phase 30]: Spec file path convention: {swarm_dir}/agents/{agent_key}.md with Glob fallback for non-standard layouts
+- [Phase 31]: Evaluator IDs passed through from test-results.json to experiment-runner to skip re-resolution during holdout re-test
+- [Phase 31]: Before scores snapshotted in memory before test-results.json update, preserving original values in comparison display
+- [Phase 31]: Anti-pattern text reworded to avoid literal 'dataset-preparer' string for grep verification compatibility
 
 ### Blockers/Concerns
 
@@ -85,6 +89,6 @@ Progress: [##########] 100% (Phase 30)
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Completed 30-02-PLAN.md
-Resume with: `/gsd:execute-phase 31` (or next phase)
-Resume file: `.planning/phases/30-failure-diagnoser/30-02-SUMMARY.md`
+Stopped at: Completed 31-01-PLAN.md
+Resume with: `/gsd:execute-phase 32` (or next phase)
+Resume file: `.planning/phases/31-prompt-editor/31-01-SUMMARY.md`
