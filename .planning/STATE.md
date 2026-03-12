@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-12T17:34:53.259Z"
+last_updated: "2026-03-12T17:52:19Z"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 4
-  completed_plans: 4
+  total_phases: 5
+  completed_phases: 5
+  total_plans: 5
+  completed_plans: 5
 ---
 
 # Project State
@@ -18,24 +18,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- without touching a terminal or needing technical knowledge.
-**Current focus:** V2.1 Experiment Pipeline Restructure -- Phase 29 (Test Command Rewrite)
+**Current focus:** V2.1 Experiment Pipeline Restructure -- Phase 30 (Failure Diagnoser)
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V3.0-V5.0 defined
 
 ## Current Position
 
-Phase: 29 of 32 (Test Command Rewrite)
+Phase: 30 of 32 (Failure Diagnoser)
 Plan: 1 of 1 in current phase
-Status: Phase 29 complete
-Last activity: 2026-03-12 -- Completed 29-01-PLAN.md (test.md rewrite with 3-subagent orchestration)
+Status: Phase 30 complete
+Last activity: 2026-03-12 -- Completed 30-01-PLAN.md (failure-diagnoser subagent with 5-phase pipeline)
 
-Progress: [##########] 100% (Phase 29)
+Progress: [##########] 100% (Phase 30)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 2.5min
-- Total execution time: 10min
+- Total plans completed: 5
+- Average duration: 2.6min
+- Total execution time: 13min
 
 **By Phase:**
 
@@ -45,6 +45,7 @@ Progress: [##########] 100% (Phase 29)
 | 27 | 1 | 3min | 3min |
 | 28 | 1 | 3min | 3min |
 | 29 | 1 | 2min | 2min |
+| 30 | 1 | 3min | 3min |
 
 ## Accumulated Context
 
@@ -71,6 +72,10 @@ Progress: [##########] 100% (Phase 29)
 - [Phase 29]: Removed old Step 4 (Pre-check Deployment) -- dataset-preparer Phase 1 handles deployment verification
 - [Phase 29]: mcp_available forwarded to dataset-preparer only -- experiment-runner REST-only (LOCKED P27), results-analyzer no API calls
 - [Phase 29]: Stale file cleanup includes test-results.md alongside 3 JSON handoff files
+- [Phase 30]: Failure-diagnoser writes iteration-proposals.json but never modifies spec files (scope boundary with prompt-editor)
+- [Phase 30]: Guardrail violations diagnosed with higher priority before regular evaluator failures
+- [Phase 30]: Both approved and rejected agents included in iteration-proposals.json for complete audit trail
+- [Phase 30]: Agents without XML tags get structural improvement proposal (add XML tags around logical sections)
 
 ### Blockers/Concerns
 
@@ -79,6 +84,6 @@ Progress: [##########] 100% (Phase 29)
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Completed 29-01-PLAN.md
-Resume with: `/gsd:execute-phase 30` (or next phase)
-Resume file: `.planning/phases/29-test-command-rewrite/29-01-SUMMARY.md`
+Stopped at: Completed 30-01-PLAN.md
+Resume with: `/gsd:execute-phase 31` (or next phase)
+Resume file: `.planning/phases/30-failure-diagnoser/30-01-SUMMARY.md`

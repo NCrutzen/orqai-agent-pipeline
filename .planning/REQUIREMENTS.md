@@ -40,9 +40,9 @@ Requirements for V2.1 Experiment Pipeline Restructure. Each maps to roadmap phas
 
 ### Iteration Pipeline
 
-- [ ] **ITPIPE-01**: Failure-diagnoser reads test-results.json and maps evaluator failures to XML-tagged prompt sections
-- [ ] **ITPIPE-02**: Failure-diagnoser proposes section-level diffs with plain-language reasoning
-- [ ] **ITPIPE-03**: Failure-diagnoser collects per-agent HITL approval before any file modifications
+- [x] **ITPIPE-01**: Failure-diagnoser reads test-results.json and maps evaluator failures to XML-tagged prompt sections
+- [x] **ITPIPE-02**: Failure-diagnoser proposes section-level diffs with plain-language reasoning
+- [x] **ITPIPE-03**: Failure-diagnoser collects per-agent HITL approval before any file modifications
 - [ ] **ITPIPE-04**: Prompt-editor applies approved section-level changes preserving YAML frontmatter and non-instruction sections
 - [ ] **ITPIPE-05**: Prompt-editor delegates re-deploy to deployer and holdout re-test to experiment-runner (skips dataset-preparer)
 - [ ] **ITPIPE-06**: Prompt-editor computes before/after score comparison and flags regressions
@@ -111,9 +111,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TEST-01 | Phase 29 | Complete |
 | TEST-02 | Phase 29 | Complete |
 | TEST-03 | Phase 29 | Complete |
-| ITPIPE-01 | Phase 30 | Pending |
-| ITPIPE-02 | Phase 30 | Pending |
-| ITPIPE-03 | Phase 30 | Pending |
+| ITPIPE-01 | Phase 30 | Complete |
+| ITPIPE-02 | Phase 30 | Complete |
+| ITPIPE-03 | Phase 30 | Complete |
 | ITPIPE-04 | Phase 31 | Pending |
 | ITPIPE-05 | Phase 31 | Pending |
 | ITPIPE-06 | Phase 31 | Pending |
