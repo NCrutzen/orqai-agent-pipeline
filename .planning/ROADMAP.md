@@ -189,10 +189,10 @@ Plans:
   1. Prompt-editor applies approved section-level changes to agent spec files preserving YAML frontmatter and all non-instruction sections intact
   2. Prompt-editor delegates re-deploy to deployer.md and holdout re-test to experiment-runner (not dataset-preparer) -- no duplicate dataset uploads during iteration
   3. Prompt-editor computes before/after score comparison and flags any evaluator regressions -- user sees whether the iteration actually helped
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 31-01: TBD
+- [ ] 31-01-PLAN.md — Create prompt-editor.md subagent with 6 internal phases (read inputs, apply changes, re-deploy, holdout re-test, score comparison, logging)
 
 ### Phase 32: Iterate Command Rewrite
 **Goal**: Users run `/orq-agent:iterate` and get automated iteration loops with clear stopping conditions, producing the same audit trail and iteration logs as before
