@@ -176,69 +176,133 @@ Channel: [MCP + REST | REST only]
 
 Proceed to Step 4.
 
-## Step 4: Pre-check Deployment
+## Step 4: Clean Stale Pipeline Output
 
-For each agent to test, verify that `orqai_id` exists in the agent spec file's YAML frontmatter (set by the deployer during Phase 6).
+Before invoking any subagent, remove previous pipeline output files to prevent stale results from a prior run:
 
-**If any target agent lacks `orqai_id`:** Display a clear error listing undeployed agents and STOP:
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- ORQ ► TEST — Agents Not Deployed
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-The following agents are not deployed to Orq.ai:
-
-  - {agent-key-1}
-  - {agent-key-2}
-
-Run /orq-agent:deploy first to deploy all agents before testing.
+```bash
+rm -f {swarm_dir}/dataset-prep.json {swarm_dir}/experiment-raw.json {swarm_dir}/test-results.json {swarm_dir}/test-results.md
 ```
 
-**If all agents have `orqai_id`:** Display pre-check success and proceed:
-
-```
-Pre-check: All {N} agents verified as deployed.
-```
+Display: "Cleaning previous pipeline outputs..."
 
 Proceed to Step 5.
 
-## Step 5: Invoke Tester Subagent
+## Step 5: Three-Phase Test Pipeline
 
-Read the tester subagent instructions from `orq-agent/agents/tester.md`. Invoke the tester with:
+### Step 5.1: Invoke Dataset Preparer
 
-- **Swarm directory path** (from Step 3)
-- **Agent filter** (if single agent-key specified in the command)
-- **MCP availability flag** (from Step 2)
+Display: `Phase 1/3: Preparing datasets...`
 
-The tester handles the entire 8-phase pipeline:
-1. Pre-check deployment (Phase 1)
-2. Parse V1.0 datasets (Phase 2)
-3. Augment to minimum 30 examples (Phase 3)
-4. Merge and split 60/20/20 (Phase 4)
-5. Upload datasets to Orq.ai (Phase 5)
-6. Infer roles and select evaluators (Phase 6)
-7. Execute experiments 3x per agent (Phase 7)
-8. Aggregate results and produce output (Phase 8)
+Read the subagent instructions from `orq-agent/agents/dataset-preparer.md`. Invoke the dataset-preparer subagent with the following context:
 
-Display summary progress during execution (LOCKED: summary progress, not per-run verbose):
+- **swarm_dir:** The swarm output directory path (from Step 3)
+- **agent_key_filter:** The agent key to filter to, if `--agent` was specified (from Step 3)
+- **mcp_available:** Whether MCP is available (from Step 2)
+- **ORQ_API_KEY:** The API key (from Step 1.5)
+
+The dataset-preparer will parse datasets, augment, split, upload, and write `dataset-prep.json` to the swarm directory.
+
+### Step 5.2: Validate dataset-prep.json
+
+After dataset-preparer completes, validate its output before proceeding:
+
+1. **Check file exists:** Verify `{swarm_dir}/dataset-prep.json` exists on disk
+2. **Check valid JSON:** Run `jq . {swarm_dir}/dataset-prep.json > /dev/null 2>&1`
+3. **Check at least 1 ready agent:** Run `jq '[.agents | to_entries[] | select(.value.status == "ready")] | length' {swarm_dir}/dataset-prep.json` and verify the result is >= 1
+
+**If any check fails:** Display ABORT message and STOP:
 
 ```
-Testing {N} agents... [####----] {completed}/{total} complete
+ABORT: Dataset preparation failed.
+
+Expected: {swarm_dir}/dataset-prep.json
+{Specific reason: "File not found" | "Invalid JSON" | "No agents with status ready"}
+
+The test pipeline stopped before experiment execution.
+Fix the upstream issue and re-run /orq-agent:test.
 ```
 
-Update the progress bar as each agent completes its 3 experiment runs.
+**If all checks pass:** Proceed to Step 5.3.
 
-Wait for the tester to complete and return results. Proceed to Step 6.
+### Step 5.3: Invoke Experiment Runner
+
+Display: `Phase 2/3: Running experiments...`
+
+Read the subagent instructions from `orq-agent/agents/experiment-runner.md`. Invoke the experiment-runner subagent with the following context:
+
+- **swarm_dir:** The swarm output directory path (from Step 3)
+- **agent_key_filter:** The agent key to filter to, if `--agent` was specified (from Step 3)
+- **ORQ_API_KEY:** The API key (from Step 1.5)
+
+NOTE: Do NOT pass `mcp_available` to experiment-runner. It is REST-only for all experiment operations (LOCKED P27 decision).
+
+The experiment-runner will create experiments, execute triple runs, and write `experiment-raw.json` to the swarm directory.
+
+### Step 5.4: Validate experiment-raw.json
+
+After experiment-runner completes, validate its output before proceeding:
+
+1. **Check file exists:** Verify `{swarm_dir}/experiment-raw.json` exists on disk
+2. **Check valid JSON:** Run `jq . {swarm_dir}/experiment-raw.json > /dev/null 2>&1`
+3. **Check at least 1 complete/partial agent:** Run `jq '[.agents | to_entries[] | select(.value.status == "complete" or .value.status == "partial")] | length' {swarm_dir}/experiment-raw.json` and verify the result is >= 1
+
+**If any check fails:** Display ABORT message and STOP:
+
+```
+ABORT: Experiment execution failed.
+
+Expected: {swarm_dir}/experiment-raw.json
+{Specific reason: "File not found" | "Invalid JSON" | "No agents with status complete or partial"}
+
+The test pipeline stopped before results analysis.
+Fix the upstream issue and re-run /orq-agent:test.
+```
+
+**If all checks pass:** Proceed to Step 5.5.
+
+### Step 5.5: Invoke Results Analyzer
+
+Display: `Phase 3/3: Analyzing results...`
+
+Read the subagent instructions from `orq-agent/agents/results-analyzer.md`. Invoke the results-analyzer subagent with the following context:
+
+- **swarm_dir:** The swarm output directory path (from Step 3)
+
+NOTE: No agent-key filter is needed -- results-analyzer processes all agents present in experiment-raw.json (pre-filtered by upstream steps). Do NOT pass `mcp_available` -- results-analyzer makes no API calls.
+
+The results-analyzer will compute statistical aggregation, determine pass/fail, and write `test-results.json` and `test-results.md` to the swarm directory.
+
+### Step 5.6: Validate test-results.json
+
+After results-analyzer completes, validate its output before proceeding:
+
+1. **Check file exists:** Verify `{swarm_dir}/test-results.json` exists on disk
+2. **Check valid JSON:** Run `jq . {swarm_dir}/test-results.json > /dev/null 2>&1`
+3. **Check results.overall_pass exists:** Run `jq '.results.overall_pass' {swarm_dir}/test-results.json` and verify the result is not `null`
+
+**If any check fails:** Display ABORT message and STOP:
+
+```
+ABORT: Results analysis failed.
+
+Expected: {swarm_dir}/test-results.json
+{Specific reason: "File not found" | "Invalid JSON" | "Missing results.overall_pass field"}
+
+The test pipeline stopped before results display.
+Fix the upstream issue and re-run /orq-agent:test.
+```
+
+**If all checks pass:** Proceed to Step 6.
 
 ## Step 6: Display Results
 
-Read `test-results.json` produced by the tester in the swarm output directory.
+Read `test-results.json` produced by the results-analyzer in the swarm output directory.
 
-Display the terminal summary table (from the tester's Phase 8 output):
+Display the terminal summary table:
 
 ```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  ORQ ► TEST RESULTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
