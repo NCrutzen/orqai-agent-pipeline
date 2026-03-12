@@ -150,10 +150,10 @@ Plans:
   2. Results-analyzer produces category-sliced scoring when `inputs.category` metadata is present in dataset rows
   3. Results-analyzer writes `test-results.json` that preserves the exact schema hardener.md expects -- hardener continues working without modification
   4. Results-analyzer produces a `test-results.md` human-readable report and a terminal summary table showing per-agent per-evaluator scores
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 28-01: TBD
+- [ ] 28-01-PLAN.md — Create results-analyzer.md subagent with 8 internal phases (read inputs, aggregation, pass/fail, category slicing, worst cases, JSON output, markdown report, terminal summary)
 
 ### Phase 29: Test Command Rewrite
 **Goal**: Users run `/orq-agent:test` and get the same end-to-end test pipeline behavior as before, but orchestrated through 3 focused subagents instead of one monolithic tester
