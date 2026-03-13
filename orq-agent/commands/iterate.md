@@ -82,7 +82,7 @@ Attempt a lightweight MCP operation to verify MCP server availability:
 claude mcp list 2>/dev/null | grep -qi "orq" && echo "MCP_AVAILABLE" || echo "MCP_UNAVAILABLE"
 ```
 
-**If MCP_UNAVAILABLE:** Check if the REST API is reachable (the iterator delegates to deployer and tester which both support REST-only mode):
+**If MCP_UNAVAILABLE:** Check if the REST API is reachable (the subagents delegate to deployer and tester which both support REST-only mode):
 
 ```bash
 [ -n "$ORQ_API_KEY" ] && curl -s -o /dev/null -w "%{http_code}" \
@@ -213,7 +213,7 @@ Agents: {agent-key-1} ({score}), {agent-key-2} ({score}), ...
 Ready for production or run /orq-agent:test to re-validate.
 ```
 
-**If `false`:** Proceed to Step 5. Display the iteration target summary:
+**If `false`:** Display the iteration target summary and proceed to Step 5:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -225,75 +225,153 @@ Failing: {N} of {M} agents
 Channel: [MCP + REST | REST only]
 ```
 
-## Step 5: Invoke Iterator Subagent
+### Step 4.1: Snapshot Initial Bottleneck Scores
 
-Read the iterator subagent instructions from `orq-agent/agents/iterator.md`. Invoke the iterator with:
+Before any iteration begins, snapshot bottleneck scores from `test-results.json` for later comparison in Step 6.
 
-- **Swarm directory path** (from Step 3)
-- **Path to test-results.json** (from Step 4)
-- **Agent filter** (if single agent-key specified in the command)
-- **MCP availability flag** (from Step 2)
+For each agent in `results.per_agent[]`:
+- Compute the bottleneck score: the **lowest evaluator median** across all evaluators for that agent (i.e., `Math.min(...agent.scores.map(s => s.median))`)
+- Store as `initial_scores` map: `{agent_key: bottleneck_score}`
 
-The iterator handles the entire 9-phase pipeline:
-1. Read test results and identify failing agents (Phase 1)
-2. Diagnose failure patterns (Phase 2)
-3. Propose section-level prompt changes (Phase 3)
-4. Collect per-agent approval -- interactive (Phase 4)
-5. Apply approved changes to local spec files (Phase 5)
-6. Re-deploy changed agents via deployer subagent (Phase 6)
-7. Re-test changed agents on holdout split via tester subagent (Phase 7)
-8. Iteration loop control with stop conditions (Phase 8)
-9. Logging and audit trail (Phase 9)
+These are the "Before" values displayed in Step 6.
 
-Display progress at each phase:
+### Step 4.2: Clean Stale Artifacts
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- ORQ ► ITERATE — Iteration {N}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Remove stale handoff files from any previous iteration run:
 
-Analyzing {N} failing agents...
-[iterator presents diagnosis and proposals per agent]
-[user approves/rejects per agent]
-Applying changes...
-Re-deploying {N} agents...
-Re-testing on holdout split...
+```bash
+rm -f {swarm_dir}/iteration-proposals.json
 ```
 
-Wait for the iterator to complete (or stop on any condition). Proceed to Step 6.
+Do NOT clean `iteration-log.md` or `audit-trail.md` -- these are append-only cumulative files written by prompt-editor.
+
+## Step 5: Iteration Loop
+
+Initialize loop state:
+- `iteration = 0`
+- `start_time = current timestamp`
+- `previous_scores = initial_scores` (from Step 4.1 snapshot)
+- `stop_reason = null`
+
+### Step 5.1: Loop Start
+
+Increment iteration counter: `iteration += 1`
+
+**Stop check -- max_iterations:** If `iteration > 3`, set `stop_reason = "max_iterations"` and exit loop to Step 6.
+
+**Stop check -- timeout:** If elapsed time since `start_time` > 10 minutes, set `stop_reason = "timeout"` and exit loop to Step 6.
+
+Display:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ > ITERATE -- Iteration {iteration} of 3 (max)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### Step 5.2: Invoke Failure Diagnoser
+
+Read subagent instructions from `orq-agent/agents/failure-diagnoser.md`. Invoke with:
+- **swarm_dir** (from Step 3)
+- **iteration_number** (current iteration count)
+- **agent_key_filter** (if `--agent` was specified in Step 3)
+
+Let the failure-diagnoser's terminal output flow through. It will write `{swarm_dir}/iteration-proposals.json` when complete.
+
+### Step 5.3: Validate Iteration Proposals
+
+Check `{swarm_dir}/iteration-proposals.json`:
+
+1. **File exists:** Verify the file was created
+2. **Valid JSON:** `jq . {swarm_dir}/iteration-proposals.json > /dev/null 2>&1`
+3. **Has per_agent array:** `jq '.per_agent | length' {swarm_dir}/iteration-proposals.json`
+4. **Count approved agents:** `jq '[.per_agent[] | select(.approval == "approved")] | length' {swarm_dir}/iteration-proposals.json`
+
+**If any of checks 1-3 fail:** Display ABORT message and STOP (fatal error):
+```
+ABORT: Failure diagnosis failed.
+
+Expected: {swarm_dir}/iteration-proposals.json
+{Specific reason: "File not found" | "Invalid JSON" | "Missing per_agent array"}
+
+The iteration pipeline stopped. Fix the upstream issue and re-run /orq-agent:iterate.
+```
+
+**If check 4 returns zero approved agents:** Set `stop_reason = "user_declined"` and exit loop to Step 6. This is NOT a fatal error -- the user chose to reject all proposals.
+
+**Stop check -- timeout:** If elapsed time since `start_time` > 10 minutes, set `stop_reason = "timeout"` and exit loop to Step 6.
+
+### Step 5.4: Invoke Prompt Editor
+
+Snapshot current bottleneck scores from `{swarm_dir}/test-results.json` as `before_cycle_scores` (these will be compared against updated scores after this cycle for the min_improvement check).
+
+Read subagent instructions from `orq-agent/agents/prompt-editor.md`. Invoke with:
+- **swarm_dir** (from Step 3)
+- **iteration_number** (current iteration count)
+
+Let the prompt-editor's terminal output flow through. It will: apply approved changes to spec files, re-deploy via deployer, re-test on holdout split via experiment-runner, compute before/after comparison, update `test-results.json` with new scores, and append to `iteration-log.md` and `audit-trail.md`.
+
+### Step 5.5: Evaluate Post-Cycle Stop Conditions
+
+Read updated `{swarm_dir}/test-results.json`.
+
+**Stop check -- all_pass:** If `results.overall_pass == true`, set `stop_reason = "all_pass"` and exit loop to Step 6.
+
+**Stop check -- min_improvement:**
+For each agent that was approved in this cycle's `iteration-proposals.json`:
+  - Get new bottleneck score from updated `test-results.json`
+  - Get previous bottleneck score from `before_cycle_scores`
+  - Compute delta: `((new - previous) / previous) * 100`
+
+Compute average delta across all changed agents.
+If average delta < 5%: set `stop_reason = "min_improvement"` and exit loop to Step 6.
+
+Update `previous_scores` with current scores from updated `test-results.json`.
+
+### Step 5.6: Continue Loop
+
+Clean stale proposals before next cycle:
+```bash
+rm -f {swarm_dir}/iteration-proposals.json
+```
+
+Go to Step 5.1.
 
 ## Step 6: Display Iteration Results
 
-After the iterator completes, display a summary of all iterations:
+After the loop exits (any `stop_reason`), display:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- ORQ ► ITERATE — Complete
+ ORQ > ITERATE -- Complete
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Iterations: {N}
-Stopped: {reason}
+Iterations: {iteration}
+Stopped: {stop_reason_display}
 
 Agent              | Before | After  | Delta   | Status
 -------------------|--------|--------|---------|--------
-{agent-key}        | 0.60   | 0.78   | +30.0%  | improved
-{agent-key}        | 0.45   | 0.48   | +6.7%   | improved
-
-Files: iteration-log.md | audit-trail.md
+{agent-key}        | {initial_bottleneck} | {final_bottleneck} | {total_delta}%  | improved/unchanged/regressed
 ```
 
-**Stopping reason display (plain language):**
+**Before column:** From `initial_scores` (Step 4.1 snapshot -- the scores from BEFORE any iteration).
+
+**After column:** From final `test-results.json` after last completed cycle.
+
+**Delta column:** Total improvement across all iterations: `((after - before) / before) * 100`.
+
+**Status column:** `improved` if delta > 0, `unchanged` if delta == 0, `regressed` if delta < 0.
+
+**Stop reason display (plain language):**
 - `all_pass`: "All agents now passing evaluators."
 - `max_iterations`: "Maximum iterations (3) reached."
 - `min_improvement`: "Improvement below 5% threshold."
 - `user_declined`: "User declined proposed changes."
 - `timeout`: "10-minute timeout reached."
 
-**Before/After columns:** Show the bottleneck score (lowest evaluator median) for each agent. Before is from the initial `test-results.json`, After is from the final re-test on holdout split.
-
-**Delta column:** Percentage change in bottleneck score: `((after - before) / before) * 100`.
-
-**Status column:** `improved` if delta > 0, `unchanged` if delta == 0, `regressed` if delta < 0.
+Display log file paths:
+```
+Files: iteration-log.md | audit-trail.md
+```
 
 ## Step 7: Next Steps Guidance
 
