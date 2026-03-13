@@ -44,12 +44,12 @@ Requirements for V2.1 Experiment Pipeline Restructure. Each maps to roadmap phas
 - [x] **ITPIPE-02**: Failure-diagnoser proposes section-level diffs with plain-language reasoning
 - [x] **ITPIPE-03**: Failure-diagnoser collects per-agent HITL approval before any file modifications
 - [x] **ITPIPE-04**: Prompt-editor applies approved section-level changes preserving YAML frontmatter and non-instruction sections
-- [x] **ITPIPE-05**: Prompt-editor delegates re-deploy to deployer and holdout re-test to experiment-runner (skips dataset-preparer)
+- [ ] **ITPIPE-05**: Prompt-editor delegates re-deploy to deployer and holdout re-test to experiment-runner (skips dataset-preparer)
 - [x] **ITPIPE-06**: Prompt-editor computes before/after score comparison and flags regressions
 
 ### Iterate Command
 
-- [x] **LOOP-01**: Rewritten iterate.md orchestrates failure-diagnoser -> prompt-editor in loop with stop conditions
+- [ ] **LOOP-01**: Rewritten iterate.md orchestrates failure-diagnoser -> prompt-editor in loop with stop conditions
 - [x] **LOOP-02**: Iterate command enforces 5 stop conditions (max_iterations, timeout, min_improvement, all_pass, user_declined)
 - [x] **LOOP-03**: Iterate command preserves `--agent` flag and produces iteration-log.md + audit-trail.md
 
@@ -115,15 +115,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ITPIPE-02 | Phase 30 | Complete |
 | ITPIPE-03 | Phase 30 | Complete |
 | ITPIPE-04 | Phase 31 | Complete |
-| ITPIPE-05 | Phase 31 | Complete |
+| ITPIPE-05 | Phase 33 | Pending |
 | ITPIPE-06 | Phase 31 | Complete |
-| LOOP-01 | Phase 32 | Complete |
+| LOOP-01 | Phase 33 | Pending |
 | LOOP-02 | Phase 32 | Complete |
 | LOOP-03 | Phase 32 | Complete |
 
 **Coverage:**
 - V2.1 requirements: 24 total
-- Mapped to phases: 24
+- Satisfied: 22
+- Pending (gap closure): 2 (ITPIPE-05, LOOP-01 → Phase 33)
 - Unmapped: 0
 
 ---
