@@ -29,7 +29,7 @@ If NO approved agents exist: display `No approved changes. Skipping prompt editi
 
 ### Step 1.2: Read Dataset Prep for Holdout IDs
 
-Read `{swarm_dir}/dataset-prep.json`. For each approved agent, extract `holdout_dataset_id` from the matching entry in `per_agent_datasets[]` (where `agent_key` matches).
+Read `{swarm_dir}/dataset-prep.json`. For each approved agent, extract `holdout_dataset_id` from `agents.{agent_key}.holdout_dataset_id`.
 
 If `holdout_dataset_id` is missing for any approved agent: warn `Holdout dataset IDs not found. Re-run /orq-agent:test to generate updated results.` and STOP.
 
