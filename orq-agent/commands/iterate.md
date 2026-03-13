@@ -307,6 +307,7 @@ Snapshot current bottleneck scores from `{swarm_dir}/test-results.json` as `befo
 Read subagent instructions from `orq-agent/agents/prompt-editor.md`. Invoke with:
 - **swarm_dir** (from Step 3)
 - **iteration_number** (current iteration count)
+- **mcp_available** (from Step 2 -- forwarded to deployer via prompt-editor Phase 3)
 
 Let the prompt-editor's terminal output flow through. It will: apply approved changes to spec files, re-deploy via deployer, re-test on holdout split via experiment-runner, compute before/after comparison, update `test-results.json` with new scores, and append to `iteration-log.md` and `audit-trail.md`.
 
