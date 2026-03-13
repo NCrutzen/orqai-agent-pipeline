@@ -220,7 +220,7 @@ Phases execute in numeric order: 26 -> 27 -> 28 -> 29 -> 30 -> 31 -> 32
 | 29. Test Command Rewrite | 1/1 | Complete    | 2026-03-12 |
 | 30. Failure Diagnoser | 2/2 | Complete    | 2026-03-12 |
 | 31. Prompt Editor | 1/1 | Complete    | 2026-03-12 |
-| 32. Iterate Command Rewrite | 1/1 | Complete   | 2026-03-13 |
+| 32. Iterate Command Rewrite | 1/1 | Complete    | 2026-03-13 |
 
 ## Progress Summary
 
