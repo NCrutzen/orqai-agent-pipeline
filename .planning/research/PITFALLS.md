@@ -1,341 +1,296 @@
-# Domain Pitfalls
+# Pitfalls Research
 
-**Domain:** V2.1 Experiment Pipeline Restructure — Orq Agent Designer
-**Researched:** 2026-03-10
-**Confidence:** HIGH (based on direct codebase inspection of tester.md/iterator.md/test.md, Orq.ai official documentation, and Claude Code subagent behavior patterns)
-
-**Scope:** Pitfalls specific to the V2.1 restructure: switching from evaluatorq SDK to native MCP `create_experiment`, breaking monolithic tester.md (771 lines) and iterator.md (544 lines) into smaller subagents, fixing dataset formats, and maintaining backward compatibility with the existing deploy/harden pipeline. V1.0–V2.0 browser automation pitfalls (PITFALLS.md, 2026-03-03) remain valid and are not repeated here.
+**Domain:** V3.0 Web UI & Dashboard -- Adding browser-based UI with real-time dashboard, node graph visualization, and HITL approval workflows to an existing CLI-based AI agent pipeline
+**Researched:** 2026-03-13
+**Confidence:** MEDIUM-HIGH (verified against official Supabase, Inngest, and React Flow documentation; some integration-specific pitfalls based on community reports and architectural reasoning)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: `create_experiment` Requires Agent Key (Not Agent ID) and Orq.ai Silently Times Out
+### Pitfall 1: Supabase Realtime Postgres Changes Bottleneck Kills Dashboard Updates
 
 **What goes wrong:**
-The native `create_experiment` MCP tool configures an experiment task column targeting an agent. If the wrong identifier type is passed — `orqai_id` (a UUID like `agt_abc123`) instead of the agent's `key` field (e.g., `invoice-processor-agent`) — Orq.ai creates the experiment but the task column has no valid execution target. The experiment shows as "running" momentarily, then times out immediately with zero results. No explicit error identifies the wrong identifier type. This is the most likely cause of the "experiments timeout immediately on Orq.ai" symptom described in the milestone context.
+The natural first approach for real-time pipeline dashboard updates is Supabase Realtime Postgres Changes -- write pipeline state to a table, subscribe to changes, UI updates automatically. This works in development but breaks under load. Postgres Changes are processed on a single thread to maintain change order. Every change event must check RLS policies for each subscribed user. If 10 users watch the dashboard during a pipeline run that updates status every 2 seconds across 5 agents, that is 10 RLS checks per update x 5 agents x 30 updates/minute = 1,500 RLS checks per minute on a single thread. Updates lag, then time out.
 
 **Why it happens:**
-The deployer stores `orqai_id` (the platform UUID) in spec file YAML frontmatter. The current tester.md reads this `orqai_id` and passes it to SDK calls. The native `create_experiment` MCP tool and the experiments REST API distinguish between `agent_id` (internal UUID, used for execution) and `agent_key` (user-defined string, used for identification in experiment setup). Confusing the two produces a syntactically valid but semantically broken experiment configuration.
+Postgres Changes feels like the "correct" approach because the data is already in the database. Supabase's own docs now recommend Broadcast for most use cases, but most tutorials still show Postgres Changes because it requires less code.
 
-**Consequences:**
-Every experiment run produces zero results. The pipeline records 0/3 successful runs for every agent. Results aggregation produces empty outputs. The pipeline appears to work (no crash) but does nothing.
+**How to avoid:**
+Use Supabase Realtime Broadcast (not Postgres Changes) for pipeline progress updates. The pipeline orchestrator (Inngest function) writes state to the database for persistence AND sends a Broadcast message for real-time UI updates. The dashboard subscribes to Broadcast channels, not table changes. Reserve Postgres Changes only for data that genuinely needs RLS-filtered subscriptions (e.g., the run list showing only your own runs).
 
-**Prevention:**
-- When building the new experiment-runner subagent, always extract both `orqai_id` (for agent execution fallback calls) and `key` (for experiment task configuration) from the spec file YAML frontmatter
-- If the spec file's YAML frontmatter contains `agent_key` or the agent's kebab-case identifier separately from `orqai_id`, use the key for experiment setup
-- Verify after first experiment creation: immediately poll experiment status. If status is `failed` or `completed` within 5 seconds with zero rows processed, this is a configuration error, not a timing issue
-- In the new experiment-runner agent instructions, explicitly document: "Pass `agent_key` to the experiment task configuration, not `orqai_id`"
+Pattern:
+1. Inngest step completes -> writes to `pipeline_runs` table (persistence)
+2. Inngest step completes -> sends Supabase Broadcast to channel `pipeline:{run_id}` (real-time UI)
+3. Dashboard subscribes to Broadcast channel, not Postgres Changes
+4. If user refreshes page mid-run, load current state from DB, then subscribe to Broadcast for live updates
 
-**Detection:**
-- Experiment completes in under 10 seconds regardless of dataset size
-- Experiment result rows = 0
-- No evaluator scores produced
-- No per-row generation latency recorded
+**Warning signs:**
+- Dashboard updates lag behind actual pipeline progress by more than 5 seconds
+- Supabase Realtime reports show high "changes per second" but low "messages delivered per second"
+- `TIMED_OUT` errors in Realtime connection logs
 
 **Phase to address:**
-Experiment-runner subagent (Phase 1 of V2.1 restructure, before any decomposition of iterator.md)
+Pipeline Dashboard phase -- must choose Broadcast architecture before building any real-time features
 
 ---
 
-### Pitfall 2: Dataset Row Format Mismatch Silently Produces Empty Evaluator Results
+### Pitfall 2: Inngest step.waitForEvent Race Condition Drops Approval Events
 
 **What goes wrong:**
-The current tester.md (Phase 5) uploads dataset rows in a format that mixes the Orq.ai dataset API format with evaluatorq SDK internal format. The uploaded rows contain a top-level `inputs` object with custom fields (`category`, `source`, `eval_id`) alongside `messages` and `expected_output`. When `create_experiment` runs against these rows, the experiment engine may not recognize how to extract the user message for agent invocation — producing rows that execute but return no agent output, making every evaluator score null.
+The HITL approval workflow uses Inngest's `step.waitForEvent()` to pause a pipeline until a user approves or rejects. A documented bug (GitHub issue #1433) causes `step.waitForEvent` to miss events that arrive in quick succession. If the approval event fires before Inngest has fully registered the wait (a race window of milliseconds), the event is lost. The function waits indefinitely until timeout. The user clicked "Approve" but the pipeline stays stuck.
 
-The Orq.ai dataset row format for agent experiments requires:
-- `inputs`: key-value variables for template interpolation in prompts
-- `messages`: the conversation array (the actual user turn the agent responds to)
-- `expected_output`: the reference string for evaluators
-
-The current tester.md uploads rows where `messages` contains `[{ "role": "user", "content": "[input text]" }]` — this is correct for the `messages` field. But the extra fields in `inputs` (category, source, eval_id) may conflict with how the experiment engine renders the prompt template for agent tasks. If the agent's system prompt uses `{{inputs.text}}` as a template variable and the row's `inputs.text` is missing or named differently, the agent receives an empty or malformed prompt.
+Additionally, `step.waitForEvent` returns `null` on timeout -- not an error. If the timeout handler is missing or treats `null` as "approved" (a common shortcut), the pipeline silently continues without actual approval.
 
 **Why it happens:**
-The V2.0 tester was designed for the evaluatorq SDK, which has its own internal data model. The evaluatorq job function accesses `data.inputs.text` directly. When switching to native `create_experiment`, the experiment engine renders the dataset row into the agent's messages differently — potentially substituting `inputs` variables into prompt templates rather than using the `messages` array as the literal conversation.
+The race condition is an Inngest platform issue that exists when events are emitted immediately after a `waitForEvent` is registered. In HITL workflows, the approval UI button fires an event, but the Inngest function may not have fully persisted its wait state yet. The timeout-returns-null behavior is by design but catches developers who expect an exception.
 
-**Consequences:**
-Experiments run and complete (no crash), but every agent response is either empty, malformed, or an error message. Evaluator scores are all 0 or null. The dataset appears uploaded correctly (HTTP 200 responses), but the experiment produces no useful signal.
+**How to avoid:**
+- Add a small delay (500ms-1s) between entering the wait state and enabling the approval UI button. The Inngest function should emit an event like `pipeline/approval.requested` that the UI listens for before showing the Approve/Reject buttons.
+- Always handle `null` return from `waitForEvent` as an explicit timeout -- show "Approval timed out, please re-trigger" in the UI, never silently continue.
+- Set reasonable timeouts: 7 days max (`"7d"`) for approvals (Inngest free plan limits sleep to 7 days; paid allows up to 1 year).
+- Store approval state in the database as well: when user clicks Approve, write to `approvals` table AND send Inngest event. The Inngest function checks the DB as a fallback if the event was missed.
 
-**Prevention:**
-- Before the full restructure, test with a single manually uploaded row using the Orq.ai Studio UI to observe exactly how the experiment engine renders the row for an agent task
-- Keep the `messages` array as the literal conversation; keep `inputs` only for true template variables used in the agent's prompt
-- Move category/source/eval_id metadata to a separate local tracking object (not uploaded to the platform dataset) — these are pipeline-internal fields, not needed by Orq.ai evaluators
-- In the dataset-preparer subagent, document the exact row schema that was validated against Orq.ai's experiment engine
-- The correct minimal row schema for agent experiments is: `{ messages: [{ role: "user", content: "{input text}" }], expected_output: "{expected output}" }` — add `inputs` only if the agent's system prompt uses template variables
-
-**Detection:**
-- All experiment rows show "completed" but agent response column is empty
-- Evaluator scores are uniformly 0 or all null
-- No latency recorded per row (sign the agent was never actually invoked)
-- Dataset upload returns 200 but experiment results are empty
+**Warning signs:**
+- Users report clicking "Approve" but pipeline remains in "Waiting for approval" state
+- Approval events appear in Inngest event logs but function shows "waiting"
+- Pipeline proceeds without approval (null timeout treated as success)
 
 **Phase to address:**
-Dataset-preparer subagent (validate row schema before experiment-runner is built)
+HITL Approval Flow phase -- must implement the dual-write pattern (DB + event) from day one
 
 ---
 
-### Pitfall 3: Decomposed Subagents That Pass Too Much State Recreate the Token Problem They Were Meant to Solve
+### Pitfall 3: Azure AD Tenant URL Not Configured -- Any Microsoft Account Can Log In
 
 **What goes wrong:**
-The decomposition splits tester.md into dataset-preparer → experiment-runner → results-analyzer, and iterator.md into failure-diagnoser → prompt-editor. The orchestrating command file (test.md or iterate.md) must pass state between these subagents. If the command file passes the full tester output (all dataset rows, all experiment raw results, all per-agent scores) as a literal string in the subagent prompt, the downstream subagent receives a 50–100K token input before doing any actual work. This defeats the purpose of decomposition and may still hit context limits.
-
-The compaction death spiral is the extreme version: if the parent context (test.md execution) is already large from earlier phases, adding large subagent output summaries back into the parent context causes compaction, which itself consumes tokens, which triggers more compaction.
+Supabase Auth with Microsoft/Azure defaults to the `common` tenant endpoint (`https://login.microsoftonline.com/common`), which allows ANY Microsoft account to sign in -- personal Outlook accounts, other organizations' accounts, not just Moyne Roberts employees. The app appears to work perfectly in testing (developer uses their M365 account, it works), but in production any Microsoft user can access the system.
 
 **Why it happens:**
-Command file orchestration naturally wants to "pass everything forward" for the next phase. Without explicit output contracts between subagents, each subagent reads its full predecessor's output to find what it needs. With 5 agents each producing 3 experiment runs with per-example scores, the raw results payload can easily reach 20–50K tokens.
+The Supabase dashboard's Azure provider configuration accepts a Client ID and Secret. If the Azure Tenant URL field is left empty or set to `common`, Supabase uses the multi-tenant endpoint. The Azure App Registration in Entra ID may be set to "My organization only," but Supabase Auth does not enforce this -- it only checks the token is valid, not which tenant issued it, unless the tenant-specific URL is configured.
 
-**Consequences:**
-Subagents receive bloated inputs, slow down, and may produce degraded output due to reduced working context. In the worst case, the parent context hits 200K tokens mid-pipeline and terminates. The decomposition provides no token savings and the pipeline is harder to maintain.
+**How to avoid:**
+- In Supabase Auth provider settings, set Azure Tenant URL to `https://login.microsoftonline.com/{moyne-roberts-tenant-id}` -- not `common`, not blank.
+- In Azure Entra ID, configure the App Registration as "Accounts in this organizational directory only (Single tenant)."
+- Add a server-side middleware check: after Supabase session is established, verify `user.user_metadata.iss` contains the Moyne Roberts tenant ID. Reject sessions from other tenants.
+- Test with a personal Microsoft account during QA. If it can log in, tenant restriction is broken.
 
-**Prevention:**
-- Define strict output contracts for each subagent before writing any instructions: what is the minimum data the next subagent needs?
-- Results-analyzer only needs: agent_key, per-evaluator median scores, per-category scores, bottom 3 worst cases, pass/fail status. It does NOT need raw per-example scores for all 3 runs.
-- Failure-diagnoser only needs: failing agents sorted by bottleneck score, per-evaluator scores with threshold deltas, worst cases with inputs. It does NOT need dataset metadata or experiment IDs.
-- Write results to named files (`test-results.json`, `iteration-log.md`) and pass only the file path to downstream subagents — let them read what they need
-- In command file orchestration, never concatenate full subagent output into the next subagent's prompt — pass file paths and structured summaries only
-
-**Detection:**
-- Subagent prompts exceed 20K tokens (visible in `--verbose` output)
-- Parent context compaction triggered more than once during a pipeline run
-- Pipeline runs that work for a 2-agent swarm fail for a 5-agent swarm (scaling failure sign)
-- Subagent instructions contain "Based on the following results:" followed by large JSON blobs
+**Warning signs:**
+- Login works without being prompted for organization-specific MFA policies
+- `user.user_metadata` shows a different tenant ID than expected
+- No "admin consent" prompt appears during first login (should appear for single-tenant apps)
 
 **Phase to address:**
-Command file redesign (test.md, iterate.md) — define output contracts before writing any new subagent instructions
+Foundation & Auth phase -- must be the first thing verified, before any other features are built on top of auth
 
 ---
 
-### Pitfall 4: The Iterator's Re-Test Phase Breaks When the Tester Is Decomposed into Three Agents
+### Pitfall 4: Vercel Serverless 10-Second Timeout Kills AI Pipeline Steps
 
 **What goes wrong:**
-The current iterator.md (Phase 7) invokes the full tester subagent directly to re-test on the holdout split. After decomposition, there is no single "tester subagent" — there are three: dataset-preparer, experiment-runner, results-analyzer. The iterator's re-test invocation will break if it still references the old monolithic `agents/tester.md`.
-
-More subtly: the re-test for iteration only needs Phases 7–8 of the original tester (run experiments on holdout split + aggregate results). It explicitly skips Phases 1–6 (dataset upload already done). After decomposition, the iterator needs to invoke only experiment-runner and results-analyzer — not dataset-preparer. If the iterator is refactored to invoke all three subagents sequentially, it will re-upload the dataset on every iteration loop, creating duplicate dataset entries in Orq.ai on every improvement cycle.
+The existing CLI pipeline has steps that call Claude API and Orq.ai API, each taking 10-60+ seconds. Moving these to Next.js API routes on Vercel hits the serverless function timeout: 10 seconds on Hobby plan, 60 seconds on Pro (configurable up to 5 minutes). A single Claude API call for prompt generation can exceed 10 seconds. The API route times out, the response is lost, the UI shows an error, and the pipeline state is inconsistent (work was done but never recorded).
 
 **Why it happens:**
-The decomposition is driven by token reduction (tester.md at 771 lines is too large). But iterator.md depends on the tester's phases 7–8 specifically. Decomposing the tester without also updating the iterator's invocation logic creates a broken reference. The V2.1 milestone scope says "no new capabilities — same features, better architecture," but the internal invocation chain must be kept consistent.
+Developers build the web pipeline by wrapping CLI logic in API routes. It works locally (no timeout), fails on Vercel. The Vercel Pro plan's 60-second default helps but is still too short for Claude calls that generate full agent specs (often 30-90 seconds).
 
-**Consequences:**
-Iterator re-test invokes dataset-preparer unnecessarily → duplicate datasets accumulate on Orq.ai over multiple iteration cycles → Orq.ai dataset list becomes polluted with `test-{swarm}-{agent}-test-1`, `test-{swarm}-{agent}-test-2`, etc. → dataset IDs in `test-results.json` become stale → re-test uses wrong dataset → before/after score comparison is invalid.
+**How to avoid:**
+Never run AI pipeline steps in Next.js API routes directly. All pipeline work must go through Inngest:
 
-**Prevention:**
-- Document the iterator's dependency on specific tester phases before decomposing tester.md
-- Expose experiment-runner and results-analyzer as independently invocable subagents, not just as steps in a sequential chain
-- Update iterator.md's Phase 7 to invoke only experiment-runner + results-analyzer (with the holdout dataset IDs passed directly)
-- Add a guard in dataset-preparer: if dataset IDs for this swarm + agent already exist in `test-results.json`, skip upload and return existing IDs
-- Write the decomposition in order: dataset-preparer first, experiment-runner second, results-analyzer third — then update iterator.md, then update test.md
+1. API route receives request -> sends Inngest event -> returns 202 Accepted immediately (under 1 second)
+2. Inngest function runs the pipeline step (Inngest has its own 2-hour step timeout, independent of Vercel)
+3. Inngest step completes -> writes result to Supabase -> sends Broadcast for UI update
+4. Break each pipeline phase (architect, researcher, spec generator, deployer, tester, iterator) into separate Inngest steps. Each step must complete within Inngest's per-step timeout.
+5. For particularly long Claude API calls, use streaming where possible to keep the connection alive within a step.
 
-**Detection:**
-- `orq-ai:iterate` call succeeds but re-test scores are identical to initial test scores (sign it re-used stale datasets)
-- Orq.ai datasets list shows multiple copies of `test-{swarm}-{agent}-test-*` datasets after running iterate more than once
-- Iterator logs show "Phases 1–6 skipped" but the run still takes the same time as a full test (sign dataset-preparer ran anyway)
+**Warning signs:**
+- "504 Gateway Timeout" errors in production but not locally
+- Pipeline works for simple 1-agent swarms but fails for complex 5-agent swarms (longer generation time)
+- Intermittent failures that correlate with response length (longer specs = more tokens = longer generation)
 
 **Phase to address:**
-Iterator decomposition (failure-diagnoser + prompt-editor) — must update iterator.md's re-test invocation at the same time as tester.md is decomposed, not afterward
+Self-Service Pipeline phase -- pipeline orchestration architecture must use Inngest from the start, not API routes
 
 ---
 
-## Moderate Pitfalls
-
-### Pitfall 5: Spec File Write Safety in Prompt-Editor Is More Fragile Than It Looks
+### Pitfall 5: Pipeline State Machine Not Designed -- Partial Failures Leave Orphaned State
 
 **What goes wrong:**
-The current iterator.md Phase 5 writes modified instructions back to agent spec files. The rules are documented in detail ("find the `<section>` tag, replace only that content, preserve all YAML frontmatter"). When this logic moves to a dedicated `prompt-editor` subagent, the instructions must carry all of that safety context. A simplified prompt-editor that just "applies the diff" without the full safety rules will corrupt spec files — overwriting `orqai_id` from YAML frontmatter, removing `## Context` sections, or producing malformed XML that breaks subsequent deployer runs.
+The CLI pipeline is linear: architect -> researcher -> spec generator -> deployer -> tester -> iterator. If it fails, the user re-runs from the CLI. In a web app, the pipeline runs in the background (Inngest). Failures need recovery: retry from failed step, not from scratch. Without an explicit state machine, a failure mid-pipeline leaves the run in a state that is neither "failed" nor "succeeded." The dashboard shows "In Progress" forever. The user cannot retry or cancel. Deployed agents exist on Orq.ai but the pipeline never recorded their IDs.
 
-**Prevention:**
-- Copy the full "Spec file write safety rules" block from iterator.md Phase 5 verbatim into the prompt-editor subagent instructions — do not summarize or paraphrase
-- Add a verification step: after writing, re-read the file and confirm YAML frontmatter fields (`orqai_id`, `orqai_version`, `deployed_at`) are present and unchanged
-- If any frontmatter field is missing after write, treat as a write failure and restore from backup (create a `.bak` before writing)
-- Prompt-editor output contract: return the path of the modified file and the names of sections changed — not the full file contents
+The harder version: the deployer partially succeeds -- deploys 3 of 5 agents before failing on agent 4. The pipeline has no record of which agents were deployed. Re-running deploys duplicates of agents 1-3. Orq.ai now has 8 agents instead of 5.
+
+**Why it happens:**
+CLI tools can be re-run idempotently because the user manages state (they know what happened). Web pipelines run asynchronously -- the system must manage state. Most teams treat state management as a "later" concern and focus on the happy path first.
+
+**How to avoid:**
+Design the pipeline state machine before writing any pipeline code:
+
+- Define explicit states: `queued`, `running:{phase}`, `awaiting_approval`, `failed:{phase}`, `completed`, `cancelled`
+- Each Inngest step writes its state transition to the DB before doing work and after completing work
+- Record per-agent deployment status: `{ agent_key: "invoice-processor", deployed: true, orqai_id: "..." }`
+- Implement idempotency: deployer checks if agent already exists on Orq.ai (by key) before creating a new one
+- Implement cancellation: `step.waitForEvent("pipeline/cancel")` checked between each major phase
+- Failed runs show a "Retry from [failed step]" button, not just "Start Over"
+
+**Warning signs:**
+- Runs stuck in "In Progress" state with no recent log entries
+- Duplicate agents appearing on Orq.ai after pipeline retries
+- Users asking "what happened to my run?" with no way to investigate
 
 **Phase to address:**
-Prompt-editor subagent creation
+Self-Service Pipeline phase -- state machine design must precede pipeline implementation
 
 ---
 
-### Pitfall 6: Evaluator Name Collisions When Creating Custom Evaluators via MCP
+### Pitfall 6: CLI-to-Web Translation Loses the HITL Approval Context
 
 **What goes wrong:**
-The V2.1 scope includes `create_llm_eval` and `create_python_eval` MCP tools for evaluator creation. If a run creates an evaluator named `coherence` or `instruction_following` via these tools, it collides with Orq.ai's built-in evaluators of the same name. The built-in evaluators are referenced by name without an ID. A custom evaluator with the same name would require an evaluator ID, making the two indistinguishable by name in experiment configuration. Subsequent runs might attach the wrong evaluator (custom vs. built-in), producing score inconsistencies across runs.
+The existing CLI pipeline's HITL approval (V2.0/V2.1) works because the developer sees the full terminal context: the agent spec, the proposed prompt changes, the diff. They approve with full understanding. In the web app, the approval flow sends a notification ("Agent X needs approval"), the user opens the approval page, but sees only a summary or raw diff without context. Non-technical users cannot evaluate whether a prompt change is good. They either rubber-stamp everything (defeating HITL) or reject everything they do not understand (blocking the pipeline).
 
-**Prevention:**
-- Do NOT create custom evaluators for types that exist as Orq.ai built-ins (the full list is in `orq-agent/references/orqai-evaluator-types.md`)
-- `create_llm_eval` and `create_python_eval` are only for domain-specific evaluation logic not covered by built-ins
-- If a custom evaluator is needed, namespace its name: `{swarm-name}-{agent-key}-{evaluation-goal}` (e.g., `invoice-swarm-processor-json-schema-v1`) — never use the same name as a built-in
-- In the experiment-runner subagent, always reference built-in evaluators by name (string) and custom evaluators by ID (UUID)
+**Why it happens:**
+Engineers build the approval UI as a simple approve/reject form because the data model is straightforward. The hard part is not the button -- it is presenting the approval context in a way non-technical users can evaluate. The CLI's full-context view is taken for granted.
 
-**Phase to address:**
-Experiment-runner subagent + any subagent using create_llm_eval / create_python_eval
+**How to avoid:**
+- Design the approval view as a first-class feature, not an afterthought. Each approval type needs its own context display:
+  - Architecture approval: show the proposed agent graph with roles and data flow
+  - Prompt change approval: show before/after with highlighted changes AND a plain-English summary of what changed and why
+  - Deployment approval: show which agents will be created/updated on Orq.ai and what they do
+- Add an AI-generated summary for each approval: "This change improves the agent's handling of edge cases in invoice parsing by adding explicit instructions for multi-currency formats"
+- Include a "What happens if I reject?" explanation so users understand consequences
+- Track approval patterns: if a user approves everything within 2 seconds, surface a warning ("Are you sure? This changes how the agent handles X")
 
----
-
-### Pitfall 7: The `--agent` Flag Behavior Must Be Preserved Across All New Command Files
-
-**What goes wrong:**
-The `--agent {agent-key}` flag is a cross-cutting concern documented in SKILL.md and referenced across all 4 commands (deploy, test, iterate, harden). During command file simplification, if the new test.md or iterate.md drops the flag parsing logic or changes how it filters agents before passing to subagents, existing users running `/orq-agent:test --agent invoice-processor-agent` get unexpected behavior: either all agents are tested (filter not applied) or the command fails with no clear error.
-
-**Prevention:**
-- Keep flag parsing in command files, not in subagents — command files are the public interface; subagents receive already-filtered agent lists
-- Write a brief compatibility checklist before rewriting any command file: (1) `--agent` filter preserved, (2) `--all` flag preserved, (3) capability tier gate preserved, (4) MCP availability check preserved, (5) swarm discovery logic unchanged
-- Test the new command files with `--agent` flag before merging — do not rely on "it's the same logic" without verification
+**Warning signs:**
+- Approval response times under 5 seconds consistently (rubber-stamping)
+- Non-technical users asking developers "should I approve this?"
+- Rejection rates near 0% or near 100% (neither is healthy)
 
 **Phase to address:**
-Command file simplification (test.md, iterate.md)
+HITL Approval Flow phase -- approval context design must happen alongside the approval mechanism, not after
 
 ---
 
-### Pitfall 8: `max_execution_time` on the Orq.ai Agent Config Is Not the Same as Experiment Timeout
+## Technical Debt Patterns
 
-**What goes wrong:**
-Orq.ai agent settings include `max_execution_time` (typically ~300 seconds per the project context). This controls how long a single agent invocation runs. When running experiments with the native `create_experiment` tool, the experiment itself has its own timeout that is configured separately from the per-agent execution limit. If the experiment times out because the dataset is large and the per-row agent invocation is slow, the error surfaces as "experiment timeout" — which looks identical to the "wrong agent key" timeout described in Pitfall 1. Misdiagnosing this as a configuration error (and fixing the agent key) when the real issue is dataset size will waste a full investigation cycle.
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Using Postgres Changes instead of Broadcast for all real-time | Less code, automatic from DB writes | Single-thread bottleneck, RLS overhead, delayed updates | Never -- switch to Broadcast for pipeline updates from day one |
+| Storing pipeline state only in Inngest (not DB) | No DB schema needed for runs | Cannot query run history, no dashboard data, no retry from failed step | Never -- always dual-write to DB |
+| Polling API routes instead of WebSocket subscriptions | Simpler implementation, works everywhere | Unnecessary server load, delayed updates, poor UX | Only for initial prototype, replace within same phase |
+| Embedding pipeline logic in API routes | Quick to build, familiar pattern | Cannot retry individual steps, no observability, timeout issues | Never -- use Inngest from the start |
+| Single Inngest function for entire pipeline | Simpler orchestration, one function to debug | Cannot retry individual steps, state blob grows, hits 32MB state limit | Only for MVP if pipeline has fewer than 5 steps |
+| Hard-coding Moyne Roberts tenant ID in client code | Quick auth setup | Exposed in browser JS, harder to change tenants later | Never -- use environment variables server-side |
 
-**Prevention:**
-- During initial experiment testing, use a dataset of 3–5 rows maximum to rule out timeout-by-volume before investigating configuration issues
-- If a small dataset (3–5 rows) also times out immediately, the issue is configuration (Pitfall 1 or 2)
-- If a small dataset succeeds but a full 30-row dataset times out, the issue is execution time × volume — reduce parallelism or increase experiment timeout configuration
-- Document this diagnostic approach in the experiment-runner subagent's error handling section
+## Integration Gotchas
 
-**Phase to address:**
-Experiment-runner subagent + initial integration testing
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| Supabase Auth + Azure AD | Using `common` tenant endpoint, allowing any Microsoft account | Set tenant-specific URL: `https://login.microsoftonline.com/{tenant-id}` |
+| Supabase Auth + Azure AD | Not requesting `offline_access` scope | Include `offline_access` in scopes to get `provider_refresh_token` for long sessions |
+| Supabase Auth + Azure AD | Relying on Supabase session only, not checking tenant | Add server-side middleware to verify `user.user_metadata.iss` matches expected tenant |
+| Supabase Auth + Next.js | Using client-side auth check only (checking in browser) | Use Next.js middleware + server-side session validation; client can be spoofed |
+| Supabase Realtime | Subscribing to Postgres Changes with RLS on high-frequency tables | Use Broadcast for pipeline updates; Postgres Changes only for low-frequency, user-scoped data |
+| Supabase Realtime | Not handling reconnection after browser sleep/background tab | Implement reconnection logic: on visibility change, check subscription status, re-subscribe if dropped |
+| Inngest + Vercel | Not configuring `maxDuration` in `vercel.json` | Set `maxDuration: 300` (5 min) for the Inngest serve endpoint; individual steps still managed by Inngest |
+| Inngest + Supabase | Inngest function cannot access Supabase with user's auth context | Pass user ID in Inngest event payload; use Supabase service role key in Inngest functions with manual RLS bypass for that user |
+| Inngest `waitForEvent` | Sending approval event before wait is registered (race condition) | Emit `approval.requested` event first; UI waits for this event before showing Approve button |
+| Inngest `waitForEvent` | Treating `null` return (timeout) as approval | Always handle `null` as explicit timeout; show "Approval expired" in UI |
+| Orq.ai API + Inngest | Calling Orq.ai API directly from Next.js API route | Route through Inngest step; Orq.ai calls can take 30-300 seconds, exceeding Vercel timeouts |
+| React Flow | Storing node/edge state in React useState | Use Zustand store (React Flow's recommended approach) to avoid re-render cascades |
+| React Flow | Rendering all nodes with complex styles at once | Memoize custom node components with React.memo; simplify styles for nodes outside viewport |
 
----
+## Performance Traps
 
-### Pitfall 9: Decomposed Subagents That Read References Files Add Hidden Token Cost
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Postgres Changes with RLS for dashboard | Updates lag 5-10 seconds behind actual state | Use Broadcast for pipeline progress, Postgres Changes only for run list | More than 5 concurrent users watching dashboards |
+| Full pipeline log streaming to client | Browser tab memory grows, page becomes unresponsive | Send only last N log lines via Broadcast; full log available on-demand from DB | Pipeline with more than 500 log entries (typical for 5-agent swarm) |
+| React Flow re-renders on every pipeline status update | Node graph stutters or freezes during pipeline execution | Update only the specific node's `data` prop, not the entire nodes array; use `onNodesChange` selectively | Graphs with more than 20 nodes (unlikely for V3.0 scope but possible) |
+| Inngest function state growing with accumulated step outputs | Function slows, eventually hits 32MB state limit | Return only essential data from each step; store full results in Supabase | Pipeline with iteration loops (each iteration adds state) |
+| Supabase Realtime connections not cleaned up on page navigation | Connection pool exhaustion, "max connections" errors | Unsubscribe from channels in React useEffect cleanup; use a single channel manager | After 200 cumulative page navigations without cleanup (free plan limit: 200 connections) |
 
-**What goes wrong:**
-The current tester.md and iterator.md each have a `<files_to_read>` block that loads `orqai-evaluator-types.md`, `orqai-api-endpoints.md`, and template files at subagent startup. These files total approximately 8–12K tokens. After decomposition, if each of the 5 new subagents (dataset-preparer, experiment-runner, results-analyzer, failure-diagnoser, prompt-editor) also loads the full reference files, the cumulative token cost per pipeline run is 40–60K tokens in reference loading alone — before any actual work begins.
+## Security Mistakes
 
-**Prevention:**
-- Assign reference files surgically: only the subagent that actually uses a reference file should load it
-  - `orqai-evaluator-types.md` → experiment-runner only (evaluator selection happens there)
-  - `orqai-api-endpoints.md` → experiment-runner only (API calls happen there)
-  - `iteration-log.json` template → results-analyzer only
-  - `test-results.json` template → results-analyzer only
-- Failure-diagnoser and prompt-editor do not need API reference files — they work with already-parsed data from `test-results.json`
-- Dataset-preparer does not need evaluator types — it only transforms dataset format
-- In command file simplification, avoid re-loading reference files in the command file if a subagent already loads them
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Azure tenant URL set to `common` | Any Microsoft user worldwide can access the system and trigger pipeline runs | Set tenant-specific URL; verify in middleware; test with external Microsoft account |
+| API keys (Claude, Orq.ai) in client-side environment variables | Keys exposed in browser, anyone can use them | All API keys in server-side env vars only (no `NEXT_PUBLIC_` prefix); all API calls through Inngest or API routes |
+| Inngest event payload containing API keys or secrets | Inngest logs show event payloads; secrets visible in dashboard | Never include secrets in events; use env vars in Inngest functions; pass only IDs and references |
+| Supabase service role key used in client-side code | Full database access without RLS | Service role key only in server-side code (Inngest functions, API routes); client uses anon key with RLS |
+| No authorization check on pipeline actions (start, cancel, approve) | Any authenticated user can approve or cancel another user's pipeline run | Add ownership check: `pipeline_runs.user_id === session.user.id` on all mutation endpoints |
+| HITL approval endpoint without CSRF protection | Approval can be triggered by cross-site request | Use Supabase auth tokens (not cookies) for API auth; or add CSRF tokens to approval forms |
 
-**Phase to address:**
-All new subagent instruction files (at authoring time, not as a post-hoc fix)
+## UX Pitfalls
 
----
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| No progress indication during long AI generation steps (30-90 sec) | User thinks the app is frozen, refreshes page, starts duplicate run | Show step-level progress with estimated time; "Claude is generating agent specs... (usually takes 30-60 seconds)" |
+| Raw error messages from Claude/Orq.ai API shown to user | Non-technical user sees "Error: 429 Too Many Requests" and has no idea what to do | Map API errors to user-friendly messages with suggested actions: "The AI service is temporarily busy. Your pipeline will automatically retry in 30 seconds." |
+| Approval notification via email only | User misses email, pipeline waits for days, timeout expires | In-app notification badge + email; dashboard shows pending approvals prominently; consider browser push notifications |
+| Node graph shows technical identifiers (agent keys) | Non-technical user sees `invoice-matcher-agent` instead of understanding what it does | Show agent role/description as primary label; key as secondary/tooltip; color-code by function (research, processing, validation) |
+| Pipeline failure shows "Step 4 failed" | User has no context about what step 4 is or what to do | Show human-readable phase names: "Testing failed: The coherence evaluator scored below threshold. You can adjust the agent's instructions and retry." |
+| "Start Pipeline" with no preview of what will happen | User submits use case, pipeline runs for 10 minutes, result is not what they expected | Show a preview step after architecture: "We will create 3 agents: [descriptions]. Proceed?" before starting deployment |
 
-## Minor Pitfalls
+## "Looks Done But Isn't" Checklist
 
-### Pitfall 10: `test-results.json` Schema Must Not Drift Between Tester and Iterator
-
-**What goes wrong:**
-The iterator.md reads `test-results.json` produced by the tester. After decomposition, results-analyzer writes `test-results.json` and failure-diagnoser reads it. If the new results-analyzer produces a slightly different schema (different field names, missing `holdout_dataset_id`, changed nesting) — even for backward-compatibility reasons — failure-diagnoser silently reads `undefined` for missing fields and produces a diagnosis based on empty data.
-
-**Prevention:**
-- Define the `test-results.json` schema in one place (the existing template in `orq-agent/templates/test-results.json`) and reference it from both results-analyzer and failure-diagnoser
-- Never change field names — only add fields to the schema, never remove or rename
-- Add a schema validation step at the start of failure-diagnoser: check that required fields (`results.per_agent`, `dataset.per_agent_datasets`) exist before proceeding
-
-**Phase to address:**
-Results-analyzer and failure-diagnoser authoring
-
----
-
-### Pitfall 11: Harden Command Depends on `test-results.json` Structure — Must Not Break
-
-**What goes wrong:**
-The harden command reads `test-results.json` to identify guardrail evaluators and promote them. If V2.1 restructure changes the `test-results.json` schema (even adding fields), and the hardener reads a field that has moved or been renamed, the harden command silently skips guardrail promotion — with no error. The pipeline technically runs but hardening does not happen.
-
-**Prevention:**
-- Treat `test-results.json` as a public API: breaking changes require a version bump and migration step
-- Read `hardener.md` before finalizing the new `test-results.json` schema — verify all fields hardener.md reads are preserved at the same path
-- If new fields are added, ensure they are additive (old schema + new fields) so hardener.md continues to work unchanged
-
-**Phase to address:**
-Results-analyzer authoring (verify against hardener.md before writing)
-
----
-
-### Pitfall 12: Evaluatorq SDK Removal Must Not Break the Install Script
-
-**What goes wrong:**
-The install script installs `@orq-ai/evaluatorq` and `@orq-ai/evaluators` as dependencies (pinned at `^1.1.0` each in the project constraints). If V2.1 removes all evaluatorq SDK usage from tester.md but the install script still installs these packages, users get unused packages. Conversely, if the install script is updated to drop these packages before all evaluatorq usage is confirmed removed from the codebase, a forgotten reference in an old version of tester.md (or in the harden command, which may use evaluatorq for guardrail promotion) breaks silently.
-
-**Prevention:**
-- Audit all files in `orq-agent/` for any reference to `evaluatorq` or `@orq-ai/evaluators` before removing from install script: `grep -r "evaluatorq" orq-agent/`
-- Remove SDK references from install script only after confirming zero remaining references in agent/command files
-- Keep the SDK pinned in constraints comment (`@orq-ai/evaluatorq@^1.1.0`) even after removal, with a note "removed in V2.1 — do not re-add without testing compatibility"
-
-**Phase to address:**
-Final cleanup phase after all subagent rewrites are complete
-
----
-
-## Phase-Specific Warnings
-
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| Dataset-preparer subagent | Row format mismatch (Pitfall 2) | Validate row schema against single Orq.ai Studio experiment before full dataset upload |
-| Experiment-runner subagent | Agent key vs ID confusion (Pitfall 1) | Extract `key` from spec frontmatter separately from `orqai_id`; test with 3-row dataset first |
-| Experiment-runner subagent | Timeout misdiagnosis (Pitfall 8) | Always test with small dataset (3 rows) to isolate config errors from volume errors |
-| Results-analyzer subagent | Schema drift breaking iterator (Pitfall 10, 11) | Read test-results.json template and hardener.md before writing results-analyzer instructions |
-| Failure-diagnoser subagent | Receives bloated state from results-analyzer (Pitfall 3) | Define minimum input contract: agent_key + scores + worst_cases only; everything else stays in files |
-| Prompt-editor subagent | Corrupts YAML frontmatter (Pitfall 5) | Copy write-safety rules verbatim from iterator.md Phase 5; add post-write frontmatter verification |
-| Custom evaluator creation | Name collision with built-ins (Pitfall 6) | Only create custom evaluators for logic not covered by built-ins; namespace all custom names |
-| Command file simplification | `--agent` flag lost (Pitfall 7) | Use backward compat checklist before rewriting test.md or iterate.md |
-| Command file simplification | Re-test invocation breaks (Pitfall 4) | Update iterator.md's tester invocation at the same time as decomposing tester.md |
-| Reference file loading | Token cost multiplied across subagents (Pitfall 9) | Assign each reference file to exactly one subagent that needs it |
-| Install script update | Evaluatorq removal breaks existing installs (Pitfall 12) | Grep for all evaluatorq references before modifying install script |
-
----
-
-## Integration Gotchas (SDK → MCP Migration Specific)
-
-| Old SDK Pattern | MCP Equivalent | Migration Risk |
-|----------------|----------------|----------------|
-| `evaluatorq("name", { data: { datasetId }, jobs: [...], evaluators: [...] })` | `create_experiment` MCP tool with dataset_id + task config + evaluator config | Task configuration schema differs; evaluator attachment may require evaluator IDs, not just names |
-| `job("name", async (data) => { ... agents.responses.create(...) })` | Experiment task column pointing to agent | Agent must be specified by key; the job function is replaced by Orq.ai's built-in agent invocation |
-| `data.inputs.text` inside job function | `messages[0].content` from dataset row | Row format must match what experiment engine passes to agent; no custom transformation layer |
-| 2-second delay between runs to avoid rate limits | Orq.ai experiment engine handles parallelism internally | Remove manual delay logic from experiment-runner; it is not applicable to native experiments |
-| `@orq-ai/evaluators` built-in scorers (local execution) | Orq.ai platform evaluators (platform-side execution) | No code needed; evaluators run on Orq.ai infrastructure; only pass evaluator configuration to create_experiment |
-| `evaluatorq` managing experiment state and retries | Experiment ID-based polling via `GET /v2/experiments/{id}` | Must implement polling loop with timeout in experiment-runner to replace evaluatorq's built-in await behavior |
-
----
-
-## "Looks Done But Isn't" Checklist (V2.1 Specific)
-
-- [ ] **Experiment runs but produces zero results:** Check agent key (not agent ID) is passed to experiment task configuration
-- [ ] **Dataset uploaded successfully but evaluator scores are all null:** Check row format — move metadata fields out of `inputs` into local tracking; validate messages format matches what agent expects
-- [ ] **Token usage unchanged after decomposition:** Check that each subagent only loads the reference files it needs; check that command files pass file paths (not content) to subagents
-- [ ] **Iterator re-test produces identical scores to initial test:** Check that dataset-preparer is NOT re-running during iterate; check that holdout dataset IDs are correctly extracted from test-results.json
-- [ ] **Harden command stops working after V2.1:** Read hardener.md to confirm all fields it reads from test-results.json are present at the same path in the new schema
-- [ ] **`--agent` flag silently ignored:** Verify flag is parsed in command file before subagent invocation; verify filtered agent list is passed to subagents, not the full swarm
-- [ ] **Multiple duplicate datasets in Orq.ai after iterate runs:** Dataset-preparer is re-uploading on re-test; add existence check before upload
-- [ ] **Spec file corrupted after iterate (missing orqai_id):** Prompt-editor is not preserving YAML frontmatter; add post-write frontmatter verification step
-
----
+- [ ] **Auth:** Login works -- but test with a non-Moyne-Roberts Microsoft account. If they can log in, tenant restriction is missing.
+- [ ] **Auth:** Session persists -- but check what happens after 1 hour. Azure tokens expire; Supabase must refresh. Test idle session survival.
+- [ ] **Real-time updates:** Dashboard updates during pipeline run -- but close laptop lid for 2 minutes and reopen. Do updates resume, or is the connection dead?
+- [ ] **Real-time updates:** Progress shows in one browser tab -- but open a second tab. Both should show updates. If they do not, channel subscription is tab-specific.
+- [ ] **HITL approval:** Approve button works -- but what happens if two users both try to approve the same item? Race condition on approval state.
+- [ ] **HITL approval:** Approval email sent -- but check if the link in the email works when the user is not already logged in. Does it redirect to login then back to approval?
+- [ ] **Node graph:** Graph renders -- but resize the browser window. Does the layout adapt? Test on a 13" laptop screen, not just a 27" monitor.
+- [ ] **Node graph:** Execution overlay updates -- but does it update correctly when the pipeline retries a failed step? The node should flash red then return to "running."
+- [ ] **Pipeline state:** Run completes successfully -- but check the database. Are all per-agent deployment IDs recorded? Can the run be replayed from the dashboard?
+- [ ] **Pipeline retry:** "Retry from failed step" works -- but does it skip already-deployed agents? Check Orq.ai for duplicates after retry.
+- [ ] **Inngest:** Pipeline function runs -- but check Inngest dashboard for step output sizes. If any step returns more than 1MB, it will fail at scale.
+- [ ] **Backward compat:** Web pipeline works -- but does `/orq-agent` CLI skill still work? Shared pipeline logic must not break the CLI path.
 
 ## Recovery Strategies
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Wrong agent key in experiment config | LOW | Update experiment-runner to extract key field; re-run test command |
-| Dataset rows in wrong format | LOW | Update dataset-preparer row schema; delete existing datasets in Orq.ai; re-run test command |
-| Bloated state passing between subagents | MEDIUM | Refactor command files to pass file paths only; define output contracts per subagent; measure token reduction |
-| Iterator re-test using wrong datasets | MEDIUM | Add dataset existence check in dataset-preparer; manually delete duplicate Orq.ai datasets; re-run test to get fresh baseline |
-| Spec file corruption from prompt-editor | MEDIUM | Restore from git (`git checkout -- path/to/spec.md`); add write-safety rules and post-write verification to prompt-editor |
-| Schema drift breaking hardener | LOW | Add missing fields to results-analyzer output; verify against hardener.md; re-run test + harden |
-| Evaluatorq packages removed prematurely | LOW | Re-add packages to install script temporarily; audit remaining references; remove cleanly |
+| Postgres Changes bottleneck (Pitfall 1) | MEDIUM | Refactor subscriptions to Broadcast; add Broadcast emit to Inngest steps; update all dashboard components |
+| waitForEvent race condition (Pitfall 2) | LOW | Add approval-requested event gate; add DB fallback check; update UI to wait for gate event |
+| Azure tenant misconfiguration (Pitfall 3) | LOW | Update Supabase Auth settings with tenant URL; add middleware check; revoke any unauthorized sessions |
+| Vercel timeout (Pitfall 4) | HIGH | Must restructure all pipeline logic from API routes into Inngest functions; cannot be patched incrementally |
+| No state machine (Pitfall 5) | HIGH | Requires DB schema for run states, Inngest function refactoring for state transitions, dashboard updates; fundamental architecture change |
+| Poor approval context (Pitfall 6) | MEDIUM | Design and build context views for each approval type; add AI summary generation; UI-only changes but significant design work |
 
----
+## Pitfall-to-Phase Mapping
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| Realtime bottleneck (1) | Pipeline Dashboard | Load test with 5 concurrent dashboard viewers during pipeline run; verify Broadcast, not Postgres Changes, used for updates |
+| waitForEvent race (2) | HITL Approval Flow | Automated test: fire approval event within 100ms of waitForEvent registration; verify it is received |
+| Azure tenant auth (3) | Foundation & Auth | Test login with personal Microsoft account; must be rejected. Test with Moyne Roberts account; must succeed. |
+| Vercel timeout (4) | Self-Service Pipeline | No pipeline step runs in an API route; all pipeline logic in Inngest functions; verify with Vercel function logs |
+| Pipeline state machine (5) | Self-Service Pipeline | Simulate failure at each pipeline phase; verify dashboard shows correct state; verify "retry from failed step" works |
+| Approval context (6) | HITL Approval Flow | User test with non-technical colleague: can they understand and evaluate an approval request without developer help? |
+| React Flow re-renders (Integration) | Node Graph | Profile React renders during pipeline execution; verify only updating nodes re-render, not the entire graph |
+| Inngest state growth (Performance) | Self-Service Pipeline | Run pipeline for 5-agent swarm with 3 iteration loops; check Inngest function state size stays under 4MB |
+| Connection cleanup (Performance) | Pipeline Dashboard | Navigate between pages 50 times; verify Supabase Realtime connection count stays stable via Realtime reports |
+| API keys exposure (Security) | Foundation & Auth | Audit all `NEXT_PUBLIC_` env vars; none should contain API keys. Check browser network tab for leaked credentials. |
+| Pipeline ownership (Security) | Foundation & Auth | Attempt to approve/cancel another user's pipeline run; must be rejected with 403 |
 
 ## Sources
 
-- Codebase inspection: `orq-agent/agents/tester.md` (771 lines, Phase 7 evaluatorq SDK usage), `orq-agent/agents/iterator.md` (544 lines, Phase 7 tester re-invocation), `orq-agent/commands/test.md`, `orq-agent/commands/iterate.md` — HIGH confidence (direct read)
-- Codebase inspection: `orq-agent/references/orqai-api-endpoints.md`, `orq-agent/references/orqai-evaluator-types.md` — HIGH confidence (direct read)
-- [Orq.ai Experiments: Creating](https://docs.orq.ai/docs/experiments/creating.md) — Agent experiment requires agent selection via +Task; dataset format same as model experiments; "may take a few minutes to run" — MEDIUM confidence
-- [Orq.ai Datasets: API Usage](https://docs.orq.ai/docs/datasets/api-usage.md) — Row format: inputs (key-value), messages (array), expected_output (string); max 5,000 datapoints per request — HIGH confidence
-- [Orq.ai Claude Code MCP Integration](https://docs.orq.ai/docs/integrations/code-assistants/claude-code.md) — `create_experiment` confirmed available; 23 tools across agents/analytics/datasets/experiments/evaluators — MEDIUM confidence (tool parameters not fully documented)
-- [Context Management with Subagents in Claude Code](https://www.richsnapp.com/article/2025/10-05-context-management-with-subagents-in-claude-code) — Subagents start with clean context; pass file paths not content; looping through ~40 files hits 200K token limit — HIGH confidence
-- [Claude Code Subagents — Compaction Death Spiral](https://github.com/anthropics/claude-code/issues/24677) — System context consuming 86.5% of window; compaction triggered by large CLAUDE.md and MCP servers — MEDIUM confidence (GitHub issue, not official docs)
-- [Multi-agent Monolith to Modular: Interface Contracts](https://seanfalconer.medium.com/your-ai-agent-platform-is-a-monolith-heres-how-to-fix-it-784c9b5194af) — Shared state conflicts, coordination overhead grows with scale — MEDIUM confidence
+- [Supabase Realtime Benchmarks](https://supabase.com/docs/guides/realtime/benchmarks) -- single-thread processing for Postgres Changes, RLS overhead per subscriber (HIGH confidence, official docs)
+- [Supabase Realtime Limits](https://supabase.com/docs/guides/realtime/limits) -- 200 peak connections on free plan, 1MB message limit (HIGH confidence, official docs)
+- [Supabase Broadcast documentation](https://supabase.com/docs/guides/realtime/broadcast) -- recommended over Postgres Changes for scale (HIGH confidence, official docs)
+- [Supabase Auth Azure login](https://supabase.com/docs/guides/auth/social-login/auth-azure) -- tenant URL configuration, scope requirements (HIGH confidence, official docs)
+- [Supabase Auth PKCE Flow](https://supabase.com/docs/guides/auth/sessions/pkce-flow) -- code validity 5 minutes, one-time exchange (HIGH confidence, official docs)
+- [Azure AD single-tenant discussion](https://github.com/orgs/supabase/discussions/1071) -- confirms single-tenant requires tenant URL override (MEDIUM confidence, community)
+- [Inngest waitForEvent docs](https://www.inngest.com/docs/reference/functions/step-wait-for-event) -- timeout returns null, maximum sleep 7 days on free plan (HIGH confidence, official docs)
+- [Inngest waitForEvent race condition](https://github.com/inngest/inngest/issues/1433) -- events in quick succession not resolved (MEDIUM confidence, confirmed bug report)
+- [Inngest stuck function after waitForEvent](https://github.com/inngest/inngest/issues/1290) -- function stuck when step.run fails after waitForEvent (MEDIUM confidence, confirmed bug report)
+- [Inngest usage limits](https://www.inngest.com/docs/usage-limits/inngest) -- 2-hour max step duration, 32MB state limit, 1000 steps max, 4MB step output (HIGH confidence, official docs)
+- [Inngest long-running on Vercel](https://www.inngest.com/blog/vercel-long-running-background-functions) -- break into steps within timeout, each step is separate HTTP request (HIGH confidence, official blog)
+- [Vercel serverless timeout](https://vercel.com/kb/guide/what-can-i-do-about-vercel-serverless-functions-timing-out) -- 10s Hobby, 60s Pro default, 5 min max (HIGH confidence, official docs)
+- [React Flow Performance guide](https://reactflow.dev/learn/advanced-use/performance) -- avoid unnecessary re-renders, memoize custom nodes, use Zustand (HIGH confidence, official docs)
+- [React Flow large graph discussion](https://github.com/xyflow/xyflow/discussions/4975) -- state management pitfalls, CSS performance impact (MEDIUM confidence, community)
+- [Supabase Realtime troubleshooting](https://supabase.com/docs/guides/realtime/troubleshooting) -- TIMED_OUT errors, reconnection guidance (HIGH confidence, official docs)
+- [AI SDK Human-in-the-Loop cookbook](https://ai-sdk.dev/cookbook/next/human-in-the-loop) -- needsApproval pattern for tool execution gates (MEDIUM confidence, official cookbook)
 
 ---
-*Pitfalls research for: V2.1 Experiment Pipeline Restructure (Orq Agent Designer)*
-*Researched: 2026-03-10*
+*Pitfalls research for: V3.0 Web UI & Dashboard (Orq Agent Designer)*
+*Researched: 2026-03-13*

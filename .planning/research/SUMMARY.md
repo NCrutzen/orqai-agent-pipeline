@@ -1,194 +1,199 @@
 # Project Research Summary
 
-**Project:** V2.1 Experiment Pipeline Restructure — Orq Agent Designer
-**Domain:** Claude Code skill — markdown subagent orchestration for Orq.ai experiment pipelines
-**Researched:** 2026-03-10
-**Confidence:** MEDIUM (REST API patterns HIGH; MCP tool signatures LOW; architecture HIGH from direct codebase analysis)
+**Project:** Orq Agent Designer V3.0 -- Web UI & Dashboard
+**Domain:** Browser-based AI agent pipeline UI with real-time dashboard, node graph visualization, and HITL approval workflows
+**Researched:** 2026-03-13
+**Confidence:** MEDIUM-HIGH
 
 ## Executive Summary
 
-The V2.1 milestone is a targeted refactoring of a broken but architecturally sound experiment pipeline. Two root causes explain why experiments currently time out immediately: the dataset rows are missing the required `messages` field (confirmed against the official Orq.ai API schema), and the evaluatorq SDK is being used for agent testing — a purpose it was never designed for. The evaluatorq job model invokes `deployments.invoke()`, not `agents.responses.create()`, and times out immediately when pointed at an Orq.ai agent's async runtime. The fix is to switch to Orq.ai's native `create_experiment` MCP tool (with REST fallback), which runs agents server-side against dataset rows rather than requiring client-side job functions. These are format and invocation fixes, not architectural redesigns.
+V3.0 wraps an existing CLI-based AI agent design pipeline in a browser experience so non-technical Moyne Roberts colleagues (5-15 users) can run the full pipeline without developer help. The recommended approach uses Next.js 16 (App Router) on Vercel, Supabase for auth/database/realtime, Inngest for durable pipeline orchestration, and React Flow for agent swarm visualization. The core architectural challenge is the **prompt adapter** -- a novel bridge that reads existing markdown pipeline files and translates them into Claude API calls via Inngest step functions, preserving the CLI pipeline as single source of truth without duplicating logic in TypeScript.
 
-The second goal of V2.1 is decomposing two monolithic agents — tester.md (771 lines) and iterator.md (544 lines) — into 5 focused subagents of 200–300 lines each. Research from direct codebase analysis confirms this is both necessary and sufficient: the 771-line tester causes Claude to conflate phases or skip augmentation/holdout logic under context pressure. The decomposition follows patterns already established in this codebase (intermediate-JSON file handoffs, command-as-thin-orchestrator), and the worst-case context load drops from ~2,715 lines to ~730 lines — a 73% reduction.
+The stack is well-validated: every major technology (Next.js 16, Supabase, Inngest v3, React Flow v12, Resend) has official documentation, production stability, and free-tier capacity sufficient for this user count. Authentication uses Supabase's Microsoft OAuth with Azure AD tenant restriction -- simpler than SAML, free-tier compatible, and sufficient for 5-15 internal users. The dual-channel realtime architecture (Inngest Realtime for ephemeral pipeline progress, Supabase Broadcast for persistent state changes) avoids the documented Postgres Changes bottleneck that kills dashboard updates under load.
 
-The primary risks are silent failure modes and implementation-order dependencies. Several failure states look like success from the outside: experiments that "run" but produce zero results (wrong agent identifier), datasets that "upload" with HTTP 200 but produce null evaluator scores (missing messages field), iterators that complete but compare against stale holdout data. The recommended mitigation is to build and validate the dataset-preparer subagent first with a minimal 3-row experiment before writing any other subagent, and to define strict JSON handoff contracts between subagents before writing any instructions.
+The primary risks are: (1) the prompt adapter is novel engineering with no prior art -- it must be built and validated early before UI work begins; (2) Inngest's `waitForEvent` has a documented race condition where approval events can be lost if fired before the wait is fully registered; (3) Azure AD tenant misconfiguration silently allows any Microsoft account to log in; and (4) non-technical users need rich approval context (not raw diffs) to make meaningful HITL decisions. All four risks have concrete mitigation strategies documented in the research, but the prompt adapter risk is structural -- if it fails, the V3.0 architecture needs fundamental rethinking.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The V2.1 restructure does not introduce new technologies. The existing MCP-first / REST-fallback pattern — already validated for deployer operations — extends naturally to dataset, evaluator, and experiment operations. The `@orq-ai/node` SDK pinned in the project (`^3.14.45`) does not exist on npm; the actual latest is 4.4.9. This SDK is not used for any V2.1 operation: all experiment pipeline actions use native MCP tool invocations (as Claude Code MCP calls) with REST API fallback. Version 4.x dropped the bundled MCP server binary, so depending on the user's installed version, all operations may fall through to REST automatically.
+The stack splits cleanly into "already decided" (Next.js 16, Supabase, existing Orq.ai SDKs) and "new additions" (Inngest, React Flow, Resend, shadcn/ui). All new additions are production-stable with free tiers that exceed the 5-15 user requirement by wide margins.
 
 **Core technologies:**
-- Orq.ai REST API (`/v2/`): dataset create/upload, experiment create/run/poll/results, evaluator create — REST endpoints confirmed HIGH confidence
-- Native MCP tools (`create_dataset`, `create_datapoints`, `create_experiment`, `create_llm_eval`, `create_python_eval`, `list_experiment_runs`, `get_experiment_run`): MCP-first invocation — LOW confidence on exact tool signatures; must be verified against live MCP server at runtime
-- REST fallback pattern: identical to existing deployer REST fallback — HIGH confidence, already validated
-- `@orq-ai/evaluatorq`: REMOVE from experiment critical path entirely; incompatible with Orq.ai agent async runtime
+- **Next.js 16 (App Router)** -- Full-stack framework. Turbopack stable, server components for data fetching, Vercel-native deployment.
+- **Supabase (Auth + Postgres + Realtime)** -- Single platform for M365 OAuth, database with RLS, and real-time subscriptions. Pro plan ($25/mo) recommended for production reliability.
+- **Inngest v3** -- Durable workflow orchestration. Step functions survive Vercel timeouts, `waitForEvent` for HITL pauses, built-in realtime streaming, 100K free executions/month.
+- **@xyflow/react v12 (React Flow)** -- Interactive node graph for agent swarm visualization. Custom nodes, execution overlay, dagre layout. MIT licensed.
+- **Resend + React Email** -- Email notifications for HITL approvals. 100 emails/day free tier. React component templates.
+- **shadcn/ui + Tailwind v4** -- UI components copied locally (no version lock-in). Dashboard tables, cards, dialogs, badges.
 
-**Critical version issue:**
-- `@orq-ai/node@^3.14.45` does not exist on npm; latest is `4.4.9`; v4.x dropped the MCP server binary
-- Do not depend on any `@orq-ai/*` SDK for V2.1 experiment execution
+**Critical version note:** Use Inngest v3 stable, NOT v4 beta. Inngest Realtime is "developer preview" -- fallback is writing step status to Supabase if issues arise.
 
 ### Expected Features
 
-**Must have (table stakes — pipeline produces zero results without these):**
-- Dataset rows with `messages: [{role: "user", content: "..."}]` field — currently broken; confirmed root cause of timeouts
-- Native `create_experiment` with `task.type: "agent"` and `task.key` (not `orqai_id` UUID) — replaces evaluatorq SDK
-- Experiment polling loop (no blocking call exists; 10-second minimum interval for agent experiments)
-- Evaluator IDs resolved before experiment creation (custom evaluators namespaced to avoid built-in collisions)
-- Intermediate JSON files as agent handoffs (`dataset-prep.json`, `experiment-raw.json`)
-- Command-level loop control and stop conditions for `iterate.md`
-- `--agent` flag preserved across rewritten command files
+**Must have (table stakes):**
+- M365 SSO login (Azure AD tenant-restricted)
+- Use case input form with "Design My Agents" button
+- Pipeline run list / history with real-time status
+- Live progress indicators and log stream (vertical timeline, not progress bar)
+- HITL approval for prompt changes with diff view
+- Pipeline error handling with plain-English messages and retry
+- Output download / copy of generated specs
 
-**Should have (architectural quality targets):**
-- 200–300 line target per subagent (architect.md at 267 lines and researcher.md at 383 lines are the reliability benchmarks)
-- Reference file scoping: each subagent loads only the references it actually uses
-- Status fields on per-agent entries in intermediate JSON to propagate upstream failures without crashing
-- Evaluator idempotency: check for existing evaluator by key before creating to prevent accumulation across runs
-- Diagnostic baseline: 3-row minimal experiment to isolate configuration errors from volume-based timeouts
+**Should have (differentiators):**
+- Interactive node graph of agent swarm with execution overlay
+- Agent performance scores overlaid on graph nodes
+- Email notifications for pending approvals
+- Approval history with audit trail
+- Pipeline comparison (before/after iteration scores)
 
-**Defer to v2+:**
-- Custom evaluator creation for domain-specific criteria — V2.1 recommendation is built-in evaluators only (bypasses evaluator name-mapping uncertainty entirely)
-- Parallel experiment execution across agents
-- Evaluatorq SDK cleanup from install script — audit and remove only after all references confirmed gone
+**Defer (v2+):**
+- Keyboard shortcuts for approvals
+- Before/after iteration comparison view
+- Auto-scroll log with step anchors
+- ZIP export of output files
+- Drag-and-drop pipeline builder (anti-feature -- never build)
+- Chat-based interface (anti-feature -- creates false expectations)
+- Mobile optimization (anti-feature for 5-15 desktop users)
 
 ### Architecture Approach
 
-The decomposition follows a clean pipeline pattern: each subagent receives a typed input artifact (from the command file or a predecessor's JSON output), performs a single focused responsibility, and writes a typed output artifact. Command files are thin orchestrators — they handle capability gates, API keys, MCP availability checks, swarm location, and sequential subagent invocations with intermediate-file failure checks. Zero pipeline logic lives in command files. Claude cannot share in-memory state across subagent invocations; file writes are the only durable handoff mechanism.
+The architecture centers on the **prompt adapter pattern**: the web app reads existing markdown pipeline files (`commands/*.md`, `agents/*.md`) and translates them into Claude API calls executed within Inngest step functions. This preserves the CLI pipeline as single source of truth. Each CLI command becomes a separate Inngest function. Subagent spawning (CLI's `Task` tool) becomes nested `step.run()` calls. MCP tool calls become REST API calls via `orqai-bridge.ts`. File I/O redirects to Supabase DB/Storage. Interactive prompts become `step.waitForEvent()` HITL pauses.
 
-**Test pipeline components:**
-1. `dataset-preparer.md` (~250 lines) — pre-check deployment, parse markdown datasets, augment to 30+ examples, 60/20/20 stratified split, upload rows with correct format; writes `dataset-prep.json`
-2. `experiment-runner.md` (~200 lines) — infer agent role, resolve evaluators, create experiment via native MCP/REST, poll for completion, fetch raw scores (3 runs); reads `dataset-prep.json`, writes `experiment-raw.json`
-3. `results-analyzer.md` (~200 lines) — aggregate triple-run scores (median/variance/CI), pass/fail per evaluator, category slicing, worst-case identification, 3 output channels; reads `experiment-raw.json`, writes `test-results.json`
-
-**Iterate pipeline components:**
-4. `failure-diagnoser.md` (~250 lines) — read test results, identify failures, map evaluator failures to XML-tagged prompt sections, propose diffs, collect HITL approval; writes `iteration-proposals.json`
-5. `prompt-editor.md` (~200 lines) — apply approved section-level changes, delegate re-deploy to deployer, delegate holdout re-test to experiment-runner, compute before/after deltas; reads `iteration-proposals.json`, appends to `iteration-log.md`/`audit-trail.md`
-
-**Deleted:** `tester.md` (771 lines), `iterator.md` (544 lines)
-**Unchanged:** `deployer.md`, `hardener.md`, all reference files, `test-results.json` schema
+**Major components:**
+1. **Prompt Adapter** (`lib/prompt-adapter/`) -- Parses markdown prompts, builds Claude API messages, translates MCP to REST. The highest-risk, most novel component.
+2. **Inngest Pipeline Functions** (`lib/inngest/functions/`) -- One function per command (pipeline, deploy, test, iterate). Durable execution with step-level retries and HITL pauses.
+3. **Dual Realtime System** -- Inngest Realtime for ephemeral pipeline progress streaming; Supabase Broadcast for persistent state changes (run status, approval queue).
+4. **React Flow Graph** (`components/graph/`) -- Agent swarm visualization with custom AgentNode components, dagre layout, and live execution overlay.
+5. **HITL Approval System** (`components/approvals/`) -- Approval queue, diff viewer, email notifications via Resend. Dual-write pattern (DB + Inngest event) to prevent race conditions.
 
 ### Critical Pitfalls
 
-1. **Wrong agent identifier in `create_experiment`** — `orqai_id` (UUID) is for REST execution; `key` (e.g., `invoice-processor-agent`) is for experiment task configuration. Passing the wrong one creates a syntactically valid but semantically broken experiment that "runs" and produces zero results with no explicit error. Extract both fields from spec frontmatter; explicitly document the distinction in experiment-runner.
-
-2. **Dataset rows missing `messages` field** — `messages: [{role: "user", content: "..."}]` is required per official Orq.ai API schema; `inputs` is optional key-value metadata. The current tester puts user content only in `inputs.text`. Experiments receive no prompt, produce no agent output, and all evaluator scores are null. Fix: move user input to `messages[0].content`; use `inputs` only for metadata (category, source, eval_id) that is pipeline-internal.
-
-3. **Bloated state passing recreates the token problem** — if command files pass full subagent output (raw scores for all 3 runs, all agents) as string content into downstream subagent prompts, 50–100K token payloads defeat the purpose of decomposition. Always pass file paths; let subagents read what they need from structured JSON files.
-
-4. **Iterator re-test re-uploads datasets** — holdout dataset is already uploaded after the initial test. The iterate pipeline must invoke only experiment-runner and results-analyzer for re-tests, never dataset-preparer. Running the full test pipeline during iteration creates duplicate datasets on Orq.ai and uses wrong dataset IDs for before/after comparisons.
-
-5. **Unscoped reference file loading multiplies token cost** — if all 5 subagents load `orqai-api-endpoints.md` + `orqai-evaluator-types.md` "just in case," cumulative reference loading alone costs 40–60K tokens per pipeline run. Assign each reference file to exactly one subagent that uses it.
+1. **Supabase Realtime Postgres Changes bottleneck** -- Use Broadcast for pipeline progress, NOT Postgres Changes. Postgres Changes processes on a single thread with RLS checks per subscriber. At 10 concurrent viewers, updates lag and time out. Use Broadcast from day one.
+2. **Inngest `waitForEvent` race condition** -- Approval events can be lost if fired before the wait is registered. Mitigation: emit `approval.requested` event before showing Approve button; dual-write approval to DB and Inngest event; always treat `null` return as explicit timeout.
+3. **Azure AD tenant misconfiguration** -- Default `common` endpoint allows ANY Microsoft account. Must set tenant-specific URL in Supabase and verify with middleware. Test with a personal Microsoft account during QA.
+4. **Vercel serverless timeout kills pipeline steps** -- Never run AI pipeline steps in API routes. All pipeline work through Inngest (2-hour step timeout vs Vercel's 10-60 second limit).
+5. **Pipeline state machine not designed** -- Partial failures leave orphaned state (deployed agents without recorded IDs, stuck "In Progress" runs). Design explicit state machine with per-agent deployment tracking and idempotent operations before writing pipeline code.
+6. **Poor HITL approval context** -- Non-technical users cannot evaluate raw diffs. Each approval type needs its own context view with plain-English summaries and "what happens if I reject?" explanations.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure (7 phases, strictly dependency-ordered):
+Based on research, suggested phase structure (8 phases):
 
-### Phase 1: dataset-preparer.md
-**Rationale:** Everything else depends on dataset IDs existing in Orq.ai. The `messages` row format fix is a one-line change but must be validated first — if this is wrong, all downstream phases produce meaningless results. This is also where the `dataset-prep.json` contract is defined, which all subsequent phases depend on.
-**Delivers:** New subagent extracting tester.md Phases 1–5; validated row format for agent experiments; `dataset-prep.json` schema with per-agent status fields
-**Addresses:** Correct datapoint format (table stakes), dataset create/upload, 60/20/20 stratified split, role inference
-**Avoids:** Pitfall 2 (dataset row format mismatch), Pitfall 3 (defines JSON contract upfront, preventing bloated handoffs)
+### Phase 1: Foundation and Auth
+**Rationale:** All features depend on authentication. Azure AD tenant configuration is a known pitfall that must be verified first.
+**Delivers:** Next.js 16 app shell, Supabase project setup, M365 SSO login, auth middleware with tenant verification.
+**Addresses:** M365 SSO login (table stakes), responsive layout shell.
+**Avoids:** Pitfall 3 (tenant misconfiguration) -- verify with personal Microsoft account during this phase.
 
-### Phase 2: experiment-runner.md
-**Rationale:** Depends on Phase 1 output (`dataset-prep.json`). Highest-risk subagent — replaces evaluatorq with native MCP, must handle the agent key vs ID distinction, must implement polling loop. Build after dataset format is validated so the first experiment attempt uses correct rows.
-**Delivers:** New subagent extracting tester.md Phases 6–7 and replacing evaluatorq; `experiment-raw.json` schema; working MCP/REST experiment execution with adaptive polling; standalone re-test mode accepting `dataset_id` directly
-**Addresses:** Native `create_experiment`, evaluator setup (built-in by name), triple-run execution, holdout re-test mode
-**Avoids:** Pitfall 1 (agent key vs ID — explicit documentation required), Pitfall 6 (evaluator name collisions — built-ins only for V2.1), Pitfall 8 (use 3-row baseline to isolate config errors from timeout-by-volume)
+### Phase 2: Database Schema and State Machine
+**Rationale:** All pipeline and dashboard features write to the database. The state machine design (Pitfall 5) must precede pipeline implementation.
+**Delivers:** Supabase migrations for `pipeline_runs`, `pipeline_steps`, `agent_specs`, `approvals` tables. RLS policies. Explicit state machine with transition rules.
+**Addresses:** Run list / history data model, approval audit trail data model.
+**Avoids:** Pitfall 5 (orphaned state from partial failures).
 
-### Phase 3: results-analyzer.md
-**Rationale:** Depends on Phase 2 output (`experiment-raw.json`). Pure computation — no external API calls. Simplest subagent to write. Must preserve `test-results.json` schema exactly because `hardener.md` reads it and must continue working unchanged.
-**Delivers:** New subagent extracting tester.md Phase 8; confirmed `test-results.json` schema backward compatibility with hardener
-**Addresses:** Triple-run aggregation (median/variance/CI), category slicing, worst-case identification, 3 output channels
-**Avoids:** Pitfall 10 (test-results.json schema drift), Pitfall 11 (harden command breakage)
+### Phase 3: Prompt Adapter (Core Bridge)
+**Rationale:** Highest-risk, most novel component. Must validate that markdown-to-API translation works before building UI on top. If this fails, the entire architecture needs rethinking.
+**Delivers:** Markdown parser, Claude API message builder, MCP-to-REST translation (`orqai-bridge.ts`), single subagent end-to-end test (architect).
+**Uses:** Claude API (Anthropic SDK), Orq.ai REST API, existing markdown prompt files.
+**Avoids:** Anti-pattern of duplicating pipeline logic in TypeScript.
 
-### Phase 4: Rewrite test.md
-**Rationale:** Cannot write the orchestrator until all 3 subagents exist and their interfaces are locked. The rewrite is minimal: replace the single tester.md invocation with 3 sequential calls plus intermediate-file failure checks between steps.
-**Delivers:** Simplified command orchestrator (~150 lines); full test pipeline integration validated end-to-end; intermediate JSON failure propagation
-**Addresses:** `--agent` flag preservation, MCP availability check, sequential subagent wiring, pipeline abort on upstream errors
-**Avoids:** Pitfall 5 (skipping intermediate file checks), Pitfall 7 (`--agent` flag lost)
+### Phase 4: Inngest Pipeline Orchestration
+**Rationale:** Validates the full execution path (browser -> Inngest -> Claude API -> Orq.ai REST -> Supabase) before any UI work. Proof-of-concept for the entire V3.0 architecture.
+**Delivers:** Main pipeline as Inngest function, step-level state persistence, auto-approve mode (no HITL yet), Inngest Realtime publish.
+**Addresses:** Pipeline run trigger (table stakes), pipeline error handling.
+**Avoids:** Pitfall 4 (Vercel timeout) by using Inngest from the start.
 
-### Phase 5: failure-diagnoser.md
-**Rationale:** Reads `test-results.json` produced by Phase 4 pipeline — format must be confirmed before writing the input contract. Most reasoning-heavy subagent; HITL approval pause lives here, not in the command file. Diagnosis context must be in-scope when the user approves.
-**Delivers:** New subagent extracting iterator.md Phases 1–3 plus HITL pause; `iteration-proposals.json` schema with per-agent approval field
-**Addresses:** Failure identification, evaluator-to-XML-section mapping, diff proposals, per-agent approval collection
-**Avoids:** Pitfall 3 (minimum input contract: agent_key + scores + worst_cases only; everything else read from files)
+### Phase 5: Dashboard (Run List, Run Detail, Log Stream)
+**Rationale:** First user-visible feature beyond login. Provides debugging visibility for all subsequent development. Validates dual-realtime architecture.
+**Delivers:** Run list page with status, run detail with live progress, log stream with human-readable summaries, error display with retry.
+**Addresses:** Run list / history, real-time progress indicators, log stream, error handling (all table stakes).
+**Avoids:** Pitfall 1 (Postgres Changes bottleneck) by using Broadcast for pipeline updates.
 
-### Phase 6: prompt-editor.md
-**Rationale:** Reads `iteration-proposals.json` from Phase 5. Delegates to `deployer.md` (unchanged) and `experiment-runner.md` (Phase 2) for holdout re-test — not to dataset-preparer.
-**Delivers:** New subagent extracting iterator.md Phases 4–9; section-level spec file editing with YAML frontmatter safety; holdout re-test delegation (no dataset re-upload)
-**Addresses:** Approved change application, re-deploy delegation, holdout re-test without duplicate datasets, before/after comparison
-**Avoids:** Pitfall 4 (iterator re-test breaks — explicitly uses experiment-runner, not dataset-preparer), Pitfall 5 (YAML frontmatter corruption — write safety rules copied verbatim)
+### Phase 6: HITL Approval Flow
+**Rationale:** Depends on both the pipeline (to pause) and the dashboard (to display approvals). The approval context design (Pitfall 6) must happen alongside the mechanism.
+**Delivers:** Approval queue page, diff viewer with plain-English summaries, approve/reject with comments, `waitForEvent` integration, email notifications via Resend, audit trail.
+**Addresses:** HITL approval (table stakes), email notifications (differentiator), approval history (differentiator).
+**Avoids:** Pitfall 2 (waitForEvent race) via dual-write pattern; Pitfall 6 (poor context) via approval-type-specific views.
 
-### Phase 7: Rewrite iterate.md
-**Rationale:** Cannot write until both iteration subagents exist and interfaces are confirmed. Loop control and all 5 stop conditions move from iterator.md into iterate.md — subagents are stateless per invocation; stop conditions require cross-iteration state.
-**Delivers:** Simplified loop orchestrator (~180 lines); 5 stop conditions at command level (max_iterations, timeout, min_improvement, all_pass, user_declined); full iterate pipeline validated
-**Addresses:** Loop control, stop condition evaluation after each cycle, `--agent` flag preservation
-**Avoids:** Pitfall 7 (`--agent` flag preserved), evaluatorq package cleanup deferred to post-Phase-7 audit
+### Phase 7: Node Graph Visualization
+**Rationale:** Visually impressive but has fewer dependencies on other web components. Reads data from completed pipeline runs. Can be developed somewhat independently.
+**Delivers:** React Flow agent swarm graph, custom AgentNode components, dagre layout, execution overlay connected to Inngest Realtime, performance scores on nodes.
+**Addresses:** Interactive node graph (differentiator), execution overlay (differentiator), agent scores on graph (differentiator).
+
+### Phase 8: Remaining Pipeline Functions and Polish
+**Rationale:** Main pipeline validates all patterns in Phase 4. Deploy, test, and iterate follow identical adapter + Inngest + Realtime patterns. Polish features have minimal dependencies.
+**Delivers:** Deploy, test, iterate as separate Inngest functions. Pipeline comparison view. Output download. Discussion wizard for pre-pipeline inputs.
+**Addresses:** Before/after comparison (differentiator), output download (table stakes), remaining pipeline commands.
 
 ### Phase Ordering Rationale
 
-- Phases 1–3 are ordered by strict data dependency: dataset IDs must exist before experiments can run; raw scores must exist before aggregation. No parallelism is possible.
-- Phase 4 (test.md rewrite) follows all 3 subagents because the orchestrator cannot be written until all interfaces are locked.
-- Phases 5–7 mirror the same dependency logic for the iterate pipeline and must follow Phase 4 (needs confirmed `test-results.json` schema).
-- This order also front-loads the highest API risk (MCP tool signature uncertainty in Phase 2) where it can be discovered and corrected before later phases are written against a broken assumption.
+- **Phases 1-2 are foundation:** Auth and database are dependencies for everything. Pitfall 3 (auth) and Pitfall 5 (state machine) must be addressed before any pipeline code runs.
+- **Phase 3 before Phase 4:** The prompt adapter is the highest-risk component. If it does not work, the architecture must change. Build and validate it before wiring it into Inngest.
+- **Phase 4 before Phase 5:** The pipeline must produce data before the dashboard can display it. Phase 4 is the end-to-end proof-of-concept.
+- **Phase 5 before Phase 6:** HITL approval needs a dashboard to display in. The dashboard's realtime infrastructure (Broadcast channels, subscription hooks) is reused by the approval queue.
+- **Phase 7 is independent:** Node graph reads pipeline output data. It can be developed in parallel with Phase 6 if resources allow.
+- **Phase 8 is deferred:** The main pipeline validates ALL integration patterns. Remaining commands are mechanical repetition of the same pattern.
 
 ### Research Flags
 
-Phases needing live verification during implementation:
-- **Phase 2 (experiment-runner):** MCP tool signatures for `create_experiment`, `create_llm_eval`, `create_python_eval` are LOW confidence — first action must be live MCP server inspection (`claude mcp list orqai` or equivalent). If tool signatures differ from hypothesized schemas, fall back to REST and adjust.
-- **Phase 2 (experiment-runner):** `task.key` vs `task.agent_key` vs `task.agent_id` field name is unknown — build in a retry with alternative field names on first failed experiment creation.
-- **Phase 1 (dataset-preparer):** Validate row format (specifically whether metadata in `inputs` breaks experiment runner) with a single Orq.ai Studio experiment before full dataset upload.
+Phases likely needing deeper research during planning:
+- **Phase 3 (Prompt Adapter):** Novel engineering with no prior art. Needs detailed research into markdown parsing strategy, subagent recursion depth handling, and Claude API message context limits.
+- **Phase 6 (HITL Approval):** Inngest `waitForEvent` race condition (GitHub issue #1433) needs testing. Approval context UX for non-technical users needs design research.
+- **Phase 7 (Node Graph):** React Flow performance with live execution overlay needs profiling. Dagre layout configuration for varying swarm sizes needs experimentation.
 
-Phases with well-established patterns (skip additional research):
-- **Phase 3 (results-analyzer):** Pure computation from JSON input; no external calls; existing schema is documented.
-- **Phase 4 (test.md rewrite):** Sequential subagent orchestration with intermediate-file checks follows existing codebase patterns exactly.
-- **Phase 5 (failure-diagnoser):** Reads an existing schema; HITL pattern is specified and locked in PROJECT.md.
-- **Phase 6 (prompt-editor):** Spec file write safety rules are already in iterator.md Phase 5; copy verbatim, do not paraphrase.
-- **Phase 7 (iterate.md rewrite):** Loop control and stop conditions are fully specified in PROJECT.md; no unknown patterns.
+Phases with standard patterns (skip research-phase):
+- **Phase 1 (Foundation/Auth):** Well-documented Supabase + Azure AD OAuth setup. Follow official docs.
+- **Phase 2 (Database):** Standard Supabase migrations and RLS policies. Established patterns.
+- **Phase 5 (Dashboard):** Standard Next.js dashboard with Supabase Realtime. Many tutorials and reference implementations.
+- **Phase 8 (Remaining Pipelines):** Mechanical repetition of Phase 3-4 patterns.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | MEDIUM | REST API endpoints HIGH; MCP tool signatures LOW (not publicly enumerable without live server inspection); SDK version issue HIGH (confirmed via npm registry) |
-| Features | MEDIUM | Dataset format fix and experiment lifecycle HIGH; evaluator name mapping MEDIUM; MCP tool parameter schemas LOW |
-| Architecture | HIGH | Derived entirely from direct codebase analysis; component boundaries, handoff contracts, and build order are concrete and based on existing working patterns |
-| Pitfalls | HIGH | Root causes confirmed from official API docs and npm registry; silent failure modes confirmed from codebase inspection and pattern analysis |
+| Stack | HIGH | All technologies verified via official docs, npm, and changelogs. Versions confirmed stable. Free tier limits validated against 5-15 user requirement. |
+| Features | MEDIUM-HIGH | Table stakes and differentiators well-defined from domain research. UX patterns confirmed by multiple design sources. Exact Supabase Realtime channel limits and React Flow Pro pricing not verified. |
+| Architecture | MEDIUM | Core patterns (Inngest orchestration, Supabase Realtime, React Flow) are HIGH from official docs. Prompt adapter design is MEDIUM -- novel integration with no prior art. Inngest Realtime is MEDIUM -- developer preview. |
+| Pitfalls | MEDIUM-HIGH | Critical pitfalls verified against official docs and confirmed bug reports. Integration gotchas sourced from community reports with corroboration. |
 
-**Overall confidence:** MEDIUM
+**Overall confidence:** MEDIUM-HIGH
 
 ### Gaps to Address
 
-- **MCP tool signatures (Phase 2 priority):** `create_experiment` parameter names (`task.key` vs `task.agent_key`), `create_datapoints` batch vs sequential behavior, and `create_llm_eval` required fields must be verified at runtime before experiment-runner instructions are finalized. Strategy: attempt MCP call, parse error response, adjust field names accordingly.
-- **Built-in evaluator API identifiers:** Orq.ai Studio display names differ from the names in tester.md. Recommendation for V2.1: create custom evaluators via `create_llm_eval` with explicit judge prompts and use returned IDs — bypasses name-mapping uncertainty entirely.
-- **`@orq-ai/node` installed version in user environments:** If v4.x is installed, MCP binary does not exist and all dataset/experiment MCP calls must fall through to REST. Experiment-runner should detect this at startup and set `mcp_available = false` for dataset/experiment operations.
-- **Polling interval calibration for agent experiments:** 10-second minimum is confirmed directionally; 15–30 seconds may be needed for complex agents running tool loops. Build adaptive polling (start at 10s, back off to 30s after 5 polls without completion) rather than a fixed interval.
+- **Prompt adapter feasibility:** No prior art for translating Claude Code markdown skills into API calls. Needs a spike/prototype in Phase 3 before committing to full implementation. Fallback: rewrite pipeline steps as TypeScript (loses single source of truth).
+- **Inngest Realtime stability:** Labeled "developer preview." If it has issues in production, fallback is writing step status to Supabase and using Supabase Broadcast for everything. Adds latency but is fully proven.
+- **Inngest `waitForEvent` multi-day waits:** Documented as supported (7d on free plan), but production validation needed for approval workflows where users may not respond for days.
+- **Claude API rate limits at concurrency:** Each pipeline run makes 10-20+ API calls. At 15 concurrent users, that is 150-300 parallel requests. Need to validate rate limits and implement queuing if needed.
+- **Discussion step translation:** CLI has an interactive Q&A discussion (4-8 questions with conditional branches). Architecture recommends a pre-pipeline wizard, but the exact question flow needs extraction from `commands/orq-agent.md` during Phase 3.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- `orq-agent/agents/tester.md` (771 lines) — current failing implementation; root causes confirmed from direct inspection
-- `orq-agent/agents/iterator.md` (544 lines) — current implementation; re-test invocation chain and iterator.md Phase 7 confirmed
-- `orq-agent/references/orqai-api-endpoints.md` — experiment, dataset, evaluator endpoint paths
-- `orq-agent/references/orqai-evaluator-types.md` — built-in evaluator names vs local evaluatorq SDK scorer names
-- [Orq.ai Datapoints API Reference](https://docs.orq.ai/reference/datasets/create-a-datapoint.md) — `messages` required field, `inputs` optional confirmed
-- [Orq.ai Evaluators Create API](https://docs.orq.ai/reference/evaluators/create-an-evaluator.md) — 6 evaluator types and required fields confirmed
-- [Orq.ai Datasets: API Usage](https://docs.orq.ai/docs/datasets/api-usage.md) — row format (inputs/messages/expected_output) and 5,000 datapoint max confirmed
-- [npm @orq-ai/node](https://www.npmjs.com/package/@orq-ai/node) — v3.14.45 does not exist; latest 4.4.9 confirmed; v4.x dropped MCP binary confirmed
+- [Next.js 16 Upgrade Guide](https://nextjs.org/docs/app/guides/upgrading/version-16) -- v16 stable with Turbopack
+- [Supabase Auth: Azure Login](https://supabase.com/docs/guides/auth/social-login/auth-azure) -- tenant URL configuration
+- [Supabase Realtime Benchmarks](https://supabase.com/docs/guides/realtime/benchmarks) -- single-thread Postgres Changes, RLS overhead
+- [Supabase Realtime Broadcast](https://supabase.com/docs/guides/realtime/broadcast) -- recommended over Postgres Changes
+- [Inngest Steps & Workflows](https://www.inngest.com/docs/features/inngest-functions/steps-workflows) -- step.run, step.waitForEvent
+- [Inngest Wait for Event Reference](https://www.inngest.com/docs/reference/functions/step-wait-for-event) -- timeout returns null, 7d free plan max
+- [Inngest Usage Limits](https://www.inngest.com/docs/usage-limits/inngest) -- 2-hour step timeout, 32MB state, 4MB step output
+- [Inngest Vercel Marketplace](https://vercel.com/marketplace/inngest) -- integration pattern
+- [React Flow Documentation](https://reactflow.dev) -- node-based UI, custom nodes, performance guide
+- [Resend npm](https://www.npmjs.com/package/resend) -- v6.9 stable, email delivery API
+- [Vercel Serverless Timeout](https://vercel.com/kb/guide/what-can-i-do-about-vercel-serverless-functions-timing-out) -- 10s Hobby, 60s Pro
 
 ### Secondary (MEDIUM confidence)
-- [Orq.ai Release 4.1 changelog](https://docs.orq.ai/changelog/release-4-1) — `create_experiment` for agents confirmed; parameter schemas inferred
-- [Orq.ai Workspace MCP Server](https://docs.orq.ai/docs/workspace-mcp.md) — 23 specialized tools confirmed; exact signatures not enumerable without live inspection
-- [Orq.ai Claude Code Integration](https://docs.orq.ai/docs/integrations/code-assistants/claude-code.md) — `create_experiment` tool availability confirmed
-- [Orq.ai Evaluators Library](https://docs.orq.ai/docs/evaluators/library.md) — display names differ from tester.md names confirmed
-- `orq-agent/agents/architect.md` (267 lines), `orq-agent/agents/researcher.md` (383 lines) — empirical reliability benchmarks for subagent line count targets
-- [Context Management with Subagents in Claude Code](https://www.richsnapp.com/article/2025/10-05-context-management-with-subagents-in-claude-code) — pass file paths not content; looping through ~40 files hits 200K token limit
+- [Inngest waitForEvent race condition](https://github.com/inngest/inngest/issues/1433) -- events in quick succession not resolved
+- [Inngest Realtime Docs](https://www.inngest.com/docs/features/realtime) -- developer preview, publish/subscribe pattern
+- [AgentKit HITL Patterns](https://agentkit.inngest.com/advanced-patterns/human-in-the-loop) -- waitForEvent for approvals
+- [Supabase Azure AD single-tenant discussion](https://github.com/orgs/supabase/discussions/1071) -- tenant URL override required
+- [Smashing Magazine: Agentic AI UX Patterns (Feb 2026)](https://www.smashingmagazine.com/2026/02/designing-agentic-ai-practical-ux-patterns/) -- transparency, control patterns
+- [Microsoft Design: UX for Agents](https://microsoft.design/articles/ux-design-for-agents/) -- explainability patterns
 
 ### Tertiary (LOW confidence)
-- MCP tool parameter schemas for experiments/datasets — inferred from REST API shapes; not verified against live server
-- `task.key` field name for agent reference in experiment config — inferred from deployer's `key` pattern; could be `agent_key` or `agent_id`
+- [DEV Community: Supabase Realtime in Next.js 15](https://dev.to/lra8dev/building-real-time-magic-supabase-subscriptions-in-nextjs-15-2kmp) -- implementation patterns
+- [Medium: AI Agent Interfaces with React Flow](https://damiandabrowski.medium.com/day-90-of-100-days-agentic-engineer-challenge-ai-agent-interfaces-with-react-flow-21538a35d098) -- visualization patterns
 
 ---
-*Research completed: 2026-03-10*
+*Research completed: 2026-03-13*
 *Ready for roadmap: yes*

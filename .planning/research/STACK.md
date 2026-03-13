@@ -1,385 +1,335 @@
-# Stack Research
+# Technology Stack
 
-**Domain:** V2.1 Experiment Pipeline Restructure — native Orq.ai MCP tools for experiments, datasets, evaluators
-**Researched:** 2026-03-10
-**Overall Confidence:** MEDIUM — REST API patterns confirmed via docs; MCP tool names for experiments/datasets/evaluators are LOW confidence because they are not publicly documented and differ from the deployer's confirmed MCP tool names.
+**Project:** Orq Agent Designer V3.0 -- Web UI & Dashboard
+**Researched:** 2026-03-13
+**Scope:** NEW stack additions for web app only. Does not cover existing CLI pipeline stack (Claude Code skills, Orq.ai SDK, MCP tools) -- those are validated and locked.
 
----
+## Recommended Stack
 
-## Context: What Already Exists (DO NOT DUPLICATE)
+### Core Framework
 
-### V1.0/V2.0 (Shipped, Working)
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| Next.js (App Router) | `^16.1` | Full-stack React framework | Turbopack stable in v16, server components for pipeline API routes, Vercel-native deployment. Already decided in PROJECT.md. |
+| React | `^19.2` | UI library | Ships with Next.js 16. Server components for data fetching, client components for interactive dashboard. |
+| TypeScript | `^5.7` | Type safety | Non-negotiable for a project with complex data flows (pipeline state, agent specs, approval queues). |
 
-- **Deployer** — uses confirmed MCP tools: `agents-create`, `agents-retrieve`, `agents-update`, `agents-list`, `tools-create`, `tools-retrieve`, `tools-update`, `tools-list`, `models-list`
-- **Tester** — currently uses `@orq-ai/evaluatorq` SDK + `@orq-ai/node` SDK for experiment execution. This is what's failing.
-- **MCP-first / REST-fallback pattern** — validated and locked for all Orq.ai operations
-- **REST API base** — `https://api.orq.ai/v2/`, Bearer token auth
+### Authentication
 
-### Why V2.0 Experiments Are Failing
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| @supabase/supabase-js | `^2.99` | Supabase client (auth, DB, realtime) | Single client for all Supabase services. |
+| @supabase/ssr | `^0.9` | Server-side auth for Next.js App Router | Replaces deprecated `@supabase/auth-helpers-nextjs`. Uses `createBrowserClient` and `createServerClient` for cookie-based auth in App Router. |
 
-The tester uses `@orq-ai/evaluatorq` SDK to run experiments. Based on research findings:
+**Auth Strategy: Microsoft OAuth (not SAML)**
 
-1. **SDK Version Conflict (CRITICAL):** The project is pinned to `@orq-ai/node@^3.14.45` — but this version does not exist on npm. The `@orq-ai/node` package went from the 3.x series directly to 4.x (latest: 4.4.9). Version 3.14.45 was never published. Any `npm install @orq-ai/node@^3.14.45` resolves to either nothing or 3.x.x, causing silent dependency failures.
+Use Supabase's built-in Microsoft OAuth provider with Azure AD tenant restriction -- NOT enterprise SAML SSO. Rationale:
 
-2. **evaluatorq is the wrong abstraction for agents:** The evaluatorq SDK was built for testing Orq _deployments_ (prompt templates), not Orq _agents_ (the `/v2/agents` runtime). When pointed at an agent, evaluatorq times out immediately because the agent's async execution model doesn't fit the evaluatorq job execution model.
+1. **Simpler:** OAuth is a dashboard toggle + Azure App Registration. SAML requires Pro plan minimum and more complex IdP configuration.
+2. **Tenant lockdown:** Set `Azure Tenant URL` to `https://login.microsoftonline.com/<moyne-roberts-tenant-id>` in Supabase dashboard. This restricts login to Moyne Roberts M365 accounts only -- no other Microsoft accounts can sign in.
+3. **Free tier compatible:** Microsoft OAuth works on all Supabase plans. SAML requires Pro ($25/mo).
+4. **Sufficient for 5-15 users:** SAML is overkill for this user count. If requirements grow (SCIM provisioning, group mapping), upgrade to SAML later -- it is an additive change.
 
-3. **Dataset format mismatch:** The current tester uploads rows in a format that may not match what Orq's native experiment runner expects when `task.type: "agent"` is used.
+**Configuration steps:**
+1. Register app in Azure Portal (Entra ID) as single-tenant
+2. Set redirect URI to `https://<project-ref>.supabase.co/auth/v1/callback`
+3. In Supabase dashboard: enable Microsoft provider, add Client ID + Secret + Tenant URL
+4. Use `supabase.auth.signInWithOAuth({ provider: 'azure' })` in frontend
 
----
+**Known gotcha:** Single-tenant Azure AD apps fail with the `/common` endpoint. Supabase defaults to `/common`. You MUST configure the `Azure Tenant URL` field to `https://login.microsoftonline.com/<tenant-id>` to avoid "Application is not configured as a multi-tenant application" errors.
 
-## Critical Finding: MCP Tool Availability for Experiments/Datasets
+### Database & Realtime
 
-The deployer explicitly documents available MCP tools. Datasets, experiments, and evaluators are **NOT listed** — meaning they have no MCP tool coverage in the current `@orq-ai/node` MCP server. The deployer even notes: "Knowledge Bases -- NO MCP TOOLS EXIST."
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| Supabase (hosted Postgres) | managed | Pipeline runs, approval queue, user data, agent metadata | Already decided. RLS for row-level security, JSON columns for flexible agent spec storage. |
+| Supabase Realtime (Postgres Changes) | managed | Live dashboard updates for run list, approval queue changes | Subscribe to INSERT/UPDATE on `pipeline_runs` and `approvals` tables. RLS-aware -- users only see their own data. |
 
-This means `create_experiment`, `create_dataset`, `create_datapoints`, `create_llm_eval`, `create_python_eval`, `list_experiment_runs`, and `get_experiment_run` are either:
-- **Not yet exposed via MCP** (most likely, per existing pattern for KB operations), OR
-- **Present in a newer MCP server version** that requires updating `@orq-ai/node`
+**Note on Realtime architecture:** Supabase Realtime handles *data state changes* (new runs appear, approval status changes). Inngest Realtime handles *pipeline execution progress* (step-by-step streaming). Both are needed -- they serve different purposes. See Integration Points below.
 
-**Recommendation:** Assume these tools are MCP tool names passed at runtime by the user's environment, not SDK calls. Treat them as native Claude Code MCP tool invocations (like `mcp__orqai__create_experiment`). The implementation should attempt MCP first, fall back to REST if MCP call fails.
+### Background Pipeline Orchestration
 
-**Confidence:** LOW — not confirmed against live MCP server tool list. The milestone context asserts these tools exist; this research cannot verify or deny that without live MCP inspection.
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| inngest | `^3.52` | Durable workflow orchestration for pipeline steps | Step functions survive failures, automatic retries, sleep between steps (wait for HITL approval), built-in realtime streaming to frontend. Vercel-native -- deploys as API route, no separate worker. |
 
----
+**Why Inngest (and not alternatives):**
+- **vs. Vercel Serverless Functions alone:** No durable state. Pipeline steps (design, deploy, test, iterate) need to survive timeouts, wait for approvals, retry on failure. Vercel functions time out at 60s (Hobby) / 300s (Pro). Agent design pipelines routinely take 5-15 minutes.
+- **vs. Trigger.dev:** Inngest has first-class Vercel Marketplace integration, built-in realtime streaming to browser, and simpler mental model (event-driven, no separate worker process to deploy).
+- **vs. BullMQ/Redis:** Requires self-hosted infrastructure. Contradicts the "no self-hosted infra" constraint.
+- **vs. Temporal:** Enterprise-grade, self-hosted. Massive overkill for 5-15 users.
 
-## Experiment Pipeline: Correct Orq.ai Patterns
+**Use v3 stable, not v4 beta.** The TypeScript SDK v4 entered beta on 2026-03-04. Stay on v3 for production stability. Upgrade to v4 after it reaches stable.
 
-### REST API: Experiments Lifecycle
+**Inngest free tier:** 100K executions/month via Vercel Marketplace. For 5-15 users running agent design pipelines (each pipeline ~20-40 steps), this supports ~2,500-5,000 pipeline runs/month. More than sufficient.
 
-Based on confirmed REST endpoint patterns from `orqai-api-endpoints.md` and Orq.ai documentation:
+**Inngest Realtime (built-in, not a separate package):**
 
-```
-POST   /v2/experiments              # Create experiment
-GET    /v2/experiments              # List experiments
-GET    /v2/experiments/{id}         # Get experiment
-POST   /v2/experiments/{id}/run     # Trigger a run
-GET    /v2/experiments/{id}/results # Get results
-```
+Inngest includes a realtime streaming feature that publishes step progress to the browser via `useInngestSubscription()` React hook. This eliminates the need for custom WebSocket implementation for pipeline progress.
 
-### REST API: Dataset Operations
+```typescript
+// Server: publish progress from Inngest function
+import { realtimeMiddleware } from "inngest";
 
-```
-POST /v2/datasets                        # Create dataset
-POST /v2/datasets/{dataset_id}/rows      # Add rows (datapoints)
-GET  /v2/datasets/{dataset_id}/rows      # List rows
-```
-
-### REST API: Evaluator Operations
-
-```
-POST /v2/evaluators          # Create custom evaluator
-GET  /v2/evaluators          # List evaluators
-```
-
-Note: Built-in evaluators (`coherence`, `helpfulness`, `relevance`, `json_validity`, etc.) are referenced by name — they do NOT need to be created via POST. Only custom evaluators (LLM, Python, HTTP, JSON types) use the create endpoint.
-
----
-
-## MCP Tool Schemas (Hypothesized — LOW Confidence)
-
-The milestone context asserts these MCP tools exist. The following schemas are inferred from the REST API patterns and Orq.ai documentation. They must be verified against the live MCP server at runtime.
-
-### create_dataset
-
-```json
-{
-  "name": "string",             // Required — dataset name
-  "description": "string"       // Optional
-}
-```
-
-Returns: `{ "id": "dataset_id", ... }`
-
-### create_datapoints
-
-This is the operation for adding rows to a dataset. Based on REST pattern (`POST /v2/datasets/{id}/rows`), the MCP tool likely takes:
-
-```json
-{
-  "dataset_id": "string",       // Required — dataset platform ID
-  "rows": [                     // Required — array of datapoints
-    {
-      "inputs": {               // Key-value pairs used as prompt variables
-        "text": "string",       // The user input/question
-        "category": "string"    // Metadata (optional, platform may ignore)
-      },
-      "messages": [             // Optional — chat message history
-        { "role": "user", "content": "string" }
-      ],
-      "expected_output": "string"  // Optional — ground truth for evaluators
-    }
-  ]
-}
-```
-
-**Critical format note:** Orq.ai datasets have three optional components: `inputs` (variables), `messages` (prompt template), `expected_output` (reference answer). For agent testing, use `inputs` + `messages` (the actual user message) + `expected_output` (what the agent should say). Do NOT mix `inputs.text` with `messages[0].content` — they serve different purposes. Use `messages` for the agent conversation turn, `inputs` for any template variable substitutions.
-
-### create_experiment
-
-Based on Orq.ai documentation: "test Orq deployments, Orq agents, or any third-party framework."
-
-```json
-{
-  "name": "string",             // Required — experiment name
-  "dataset_id": "string",       // Required — platform dataset ID to run against
-  "task": {
-    "type": "agent",            // "agent" for Orq agents, "deployment" for deployments
-    "key": "string"             // The agent key (e.g., "invoice-processor-agent")
-  },
-  "evaluators": [               // Optional — evaluator configuration
-    {
-      "name": "coherence"       // Built-in evaluator name (no ID needed)
-    },
-    {
-      "name": "json_validity"
-    }
-  ],
-  "auto_run": true              // Optional — trigger run immediately after create
-}
-```
-
-**What `auto_run: true` does:** Creates the experiment AND immediately queues a run, equivalent to calling `POST /v2/experiments/{id}/run` after creation. When `auto_run: true`, the experiment moves to `running` status and results are available once polling shows `completed`. Without `auto_run`, you must call the run endpoint separately.
-
-**MEDIUM confidence on `task.key` field name** — could be `agent_key`, `agent_id`, or `key`. The deployer uses `key` as the agent identifier for CRUD operations, so `task.key` is the most likely pattern.
-
-### create_llm_eval
-
-Creates a custom LLM-as-judge evaluator. Only needed for domain-specific evaluation criteria. Built-in LLM evaluators (`coherence`, `helpfulness`, etc.) do NOT require creation.
-
-```json
-{
-  "name": "string",             // Required — evaluator name
-  "type": "llm",                // Required — evaluator type
-  "prompt": "string",           // Required — judge prompt defining scoring criteria
-  "score_range": {              // Optional — score output range
-    "min": 0,
-    "max": 5
+const pipeline = inngest.createFunction(
+  { id: "agent-pipeline" },
+  { event: "pipeline/started" },
+  async ({ step, publish }) => {
+    await step.run("design-agents", async () => {
+      publish({ step: "design", status: "running" });
+      // ... design logic
+      publish({ step: "design", status: "complete", agentCount: 3 });
+    });
   }
+);
+
+// Client: subscribe to pipeline progress
+const { data } = useInngestSubscription({ channel: `pipeline-${runId}` });
+```
+
+**HITL approval pattern with Inngest:**
+```typescript
+// Pipeline waits for human approval (up to 7 days)
+const approval = await step.waitForEvent("approval.received", {
+  event: "app/approval.completed",
+  match: "data.run_id",
+  timeout: "7d",
+});
+if (approval?.data.decision === "rejected") {
+  // Handle rejection
 }
 ```
 
-### create_python_eval
+**Inngest Realtime confidence note:** Realtime is labeled "developer preview" as of March 2026. The core step function and waitForEvent features are production-stable. If Realtime has issues, fallback is writing step status to Supabase and using Supabase Realtime for everything.
 
-Creates a custom Python evaluator for deterministic scoring logic.
+### Node Graph Visualization
 
-```json
-{
-  "name": "string",             // Required — evaluator name
-  "type": "python",             // Required — evaluator type
-  "code": "string"              // Required — Python code string
-}
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| @xyflow/react | `^12.10` | Interactive agent swarm node graph | Industry standard for node-based UIs in React. 20K+ GitHub stars, actively maintained, TypeScript-first. MIT licensed for all features needed here. |
+
+**Why @xyflow/react v12 (React Flow):**
+- **Custom nodes:** Each agent becomes a node with status indicator, model info, tool count. Lights up during pipeline execution.
+- **Custom edges:** Show data flow between agents with labels (tool calls, handoffs, agent-as-tool relationships).
+- **Execution overlay:** Nodes change color/state as pipeline progresses (pending -> running -> complete/failed).
+- **Layout:** Use dagre or elkjs for automatic hierarchical layout of agent swarms (orchestrator at top, sub-agents below).
+- **Interaction:** Pan, zoom, click-to-inspect agent details. MiniMap plugin for orientation in larger swarms.
+- **Performance:** Only re-renders changed nodes. Fine for swarms of 2-20 agents.
+- **License:** MIT for core features. Pro subscription features (node resizer, helper lines) are NOT needed.
+
+**Layout library addition:**
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| @dagrejs/dagre | `^1.1` | Automatic hierarchical graph layout | Positions agent nodes in a top-down tree. Orchestrator at top, sub-agents below. Deterministic layout from agent relationship data. |
+
+**Do NOT use:** D3.js (too low-level, would need to build everything from scratch), vis.js (dated API, poor React integration), Cytoscape.js (academic focus, force-directed default wrong for pipelines), Mermaid.js (static rendering, no interaction or execution overlay).
+
+### UI Components & Styling
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| shadcn/ui | latest (CLI-installed) | Component library | Not a dependency -- copies components as local TypeScript files. No version lock-in, full code ownership. Tailwind v4 compatible. Dashboard needs: tables, cards, dialogs, badges, tabs, toast notifications, dropdown menus. |
+| Tailwind CSS | `^4.0` | Utility-first CSS | Ships with Next.js 16 scaffolding. v4 uses CSS-first configuration (no `tailwind.config.js`), faster builds. |
+| lucide-react | latest | Icons | Default icon set for shadcn/ui. Tree-shakeable. |
+
+### Email Notifications (HITL Approvals)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| resend | `^6.9` | Email delivery API | Developer-focused, simple API, excellent deliverability. Free tier: 100 emails/day (3,000/month). For 5-15 users with occasional approval requests, this is far more than enough. |
+| @react-email/components | `^0.0.34` | Email template components | Build approval notification emails with React components. Same mental model as the rest of the app. Maintained by Resend team. |
+
+**Why Resend over alternatives:**
+- **vs. SendGrid/Mailgun:** Simpler API, React Email integration, better DX. Those services are designed for high-volume marketing -- overkill.
+- **vs. Nodemailer + SMTP:** Raw SMTP is fragile (deliverability, TLS config, rate limits). Resend handles all of this.
+- **vs. Supabase Edge Functions + external SMTP:** Inngest already orchestrates the pipeline. Sending email from an Inngest step is cleaner than wiring up a separate Edge Function.
+
+**Email flow:**
+1. Pipeline reaches HITL approval step (iteration proposal, guardrail change)
+2. Inngest function calls `step.run("send-notification", () => resend.emails.send(...))`
+3. Email contains deep link: `https://app.example.com/approvals/{run_id}`
+4. User clicks link, authenticates via M365 SSO, sees proposal in-app
+5. User clicks approve/reject
+6. Frontend sends Inngest event via API route -> `waitForEvent` resolves
+7. Pipeline continues or stops based on decision
+
+### Existing SDKs (DO NOT CHANGE -- already in project, pinned)
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| @orq-ai/node | `^3.14.45` | Orq.ai API client |
+| @orq-ai/evaluatorq | `^1.1.0` | Evaluator support |
+| @orq-ai/evaluators | `^1.1.0` | Evaluator types |
+
+These are called from pipeline logic within Inngest steps via Next.js API routes. The web app wraps the existing pipeline -- it does not replace it.
+
+## Alternatives Considered
+
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| Framework | Next.js 16 | Remix, SvelteKit | Already decided. Vercel-native, team familiarity. |
+| Auth | Supabase Microsoft OAuth | Supabase SAML SSO | SAML requires Pro plan, more complex Azure config, unnecessary for 5-15 users. OAuth does tenant lockdown. |
+| Auth | Supabase Auth | NextAuth.js / Auth.js | Extra dependency. Supabase Auth handles M365 natively and shares the same client as DB/Realtime. |
+| Background jobs | Inngest | Trigger.dev | Less mature Vercel integration, no built-in realtime streaming to browser. |
+| Background jobs | Inngest | Vercel Cron + Edge Functions | No durable state, no step functions, no HITL wait pattern, no automatic retries. |
+| Node graph | @xyflow/react | react-force-graph | Force-directed layout is wrong for pipeline/swarm visualization. Need hierarchical/tree layout with explicit positioning. |
+| Node graph | @xyflow/react | Mermaid.js | Static rendering only. No click interaction, no execution overlay, no dynamic state updates. |
+| Email | Resend | Postmark | Both are good. Resend wins on React Email integration (same team) and simpler API surface. |
+| UI | shadcn/ui | Chakra UI, MUI | shadcn/ui copies code locally (no version lock-in). MUI/Chakra add heavy runtime CSS-in-JS. |
+| Realtime (progress) | Inngest Realtime | Socket.io / Pusher | Self-hosted (Socket.io) or extra service (Pusher). Inngest provides this built-in. |
+
+## What NOT to Add
+
+| Technology | Why Tempting | Why Wrong for This Project |
+|------------|-------------|---------------------------|
+| Prisma / Drizzle ORM | Type-safe DB queries | Supabase client handles queries with TypeScript codegen (`supabase gen types typescript`). Adding an ORM creates a second data layer, migration conflicts, and connection pooling issues on serverless. |
+| Redis / Upstash | Caching, rate limiting | No self-hosted infra constraint. Inngest replaces queue need. For 5-15 users, caching is premature. |
+| tRPC | Type-safe API layer | Next.js Server Actions + Supabase client cover the API surface. tRPC adds boilerplate for a small user base. |
+| Zustand / Redux / Jotai | Global state management | React 19 `use()` hook + Server Components + React Context sufficient at this scale. Dashboard state is mostly server-fetched. |
+| Clerk / Auth0 / Kinde | Auth provider | Supabase Auth is already in the stack. Adding another auth provider splits identity and doubles session management. |
+| Playwright (in web app) | E2E testing | V5.0 concern (browser automation for legacy systems). Not relevant to V3.0 web app. |
+| GraphQL / Apollo | API layer | REST via Supabase client is simpler. No schema stitching needed. GraphQL adds complexity without benefit at this scale. |
+| Vercel KV / Blob | Key-value store, file storage | Supabase covers both (Postgres for KV patterns, Storage for files). No need for a second data service. |
+
+## Installation
+
+```bash
+# Create Next.js 16 project
+npx create-next-app@latest orq-agent-web --typescript --tailwind --app --src-dir
+
+# Supabase (auth, DB, realtime)
+npm install @supabase/supabase-js @supabase/ssr
+
+# Background pipeline orchestration
+npm install inngest
+
+# Node graph visualization + layout
+npm install @xyflow/react @dagrejs/dagre
+
+# Email notifications for HITL approvals
+npm install resend @react-email/components
+
+# Dev dependencies
+npm install -D supabase  # CLI for migrations, type generation, local dev
+
+# shadcn/ui setup (copies components locally, not an npm dependency)
+npx shadcn@latest init
+npx shadcn@latest add button card dialog table badge tabs avatar \
+  dropdown-menu toast sheet separator scroll-area alert progress
 ```
 
-### list_experiment_runs
+**Environment variables needed:**
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>  # Server-side only
 
-```json
-{
-  "experiment_id": "string"     // Required — experiment platform ID
-}
+# Inngest
+INNGEST_EVENT_KEY=<event-key>
+INNGEST_SIGNING_KEY=<signing-key>
+
+# Resend
+RESEND_API_KEY=<api-key>
+
+# Orq.ai (existing)
+ORQ_API_KEY=<api-key>
+
+# Claude API (for pipeline prompts)
+ANTHROPIC_API_KEY=<api-key>
 ```
 
-Returns: array of run objects with `{ "id": "run_id", "status": "running|completed|failed", ... }`
+## Integration Points
 
-### get_experiment_run
-
-```json
-{
-  "experiment_id": "string",    // Required — experiment platform ID
-  "run_id": "string"            // Required — specific run ID
-}
-```
-
-Returns: run object with status and results when `status: "completed"`.
-
----
-
-## Experiment Lifecycle: Create → Run → Poll → Results
+### Pipeline Execution Flow
 
 ```
-1. create_dataset          → dataset_id
-2. create_datapoints       → adds rows to dataset_id (batch or sequential)
-3. create_experiment       → experiment_id (with auto_run: true OR explicit run trigger)
-4. POLL list_experiment_runs  → wait for status: "completed" (poll every 5-10s, timeout 5min)
-5. get_experiment_run      → retrieve scores per evaluator per example
+Browser -> Next.js API Route -> inngest.send("pipeline/started") -> Inngest Function
+                                                                        |
+                                                      Step 1: Design (Claude API)
+                                                      Step 2: Deploy (Orq.ai API)
+                                                      Step 3: Test (Orq.ai API)
+                                                      Step 4: HITL Wait (waitForEvent)
+                                                          |-> Resend email notification
+                                                          |<- User approves in browser
+                                                      Step 5: Iterate (Claude + Orq.ai)
+                                                      Step 6: Harden (Orq.ai API)
+                                                                        |
+                                              Each step: publish() -> Inngest Realtime -> Browser
+                                              Each step: Supabase DB write -> Realtime -> Dashboard
 ```
 
-**Polling pattern:**
-```
-max_polls = 30
-poll_interval = 10s  (agents take longer than deployments — 10s minimum)
-timeout = 5 minutes
+### Realtime Dual-Channel Architecture
 
-FOR i in 1..max_polls:
-  runs = list_experiment_runs(experiment_id)
-  IF any run.status == "completed": break
-  IF any run.status == "failed": handle failure, break
-  WAIT poll_interval
-```
+| Channel | Technology | Data | Consumer |
+|---------|-----------|------|----------|
+| Pipeline execution progress | Inngest Realtime | Step status, logs, intermediate results | Active pipeline view (user watching their own run) |
+| Dashboard data state | Supabase Realtime (Postgres Changes) | Run list updates, approval queue changes, final scores | Dashboard (all runs list), approval queue, score history |
 
-**Why agents time out:** The existing evaluatorq approach invokes the agent inline per dataset row. Orq's agent runtime is async — it runs the full agent loop (tool calls, iterations, max_iterations cap). The evaluatorq job timeout is hit before the agent finishes. The native experiment runner (`task.type: "agent"`) handles this correctly by managing execution server-side.
+This separation is intentional:
+- **Inngest Realtime** = ephemeral streaming during pipeline execution. Disappears when pipeline completes.
+- **Supabase Realtime** = persistent data changes. New runs appear in run list for all users. Approval status changes update queue.
 
----
+**Fallback if Inngest Realtime has issues:** Write step status to a `pipeline_steps` table in Supabase. Subscribe to that table via Supabase Realtime instead. Slightly more latency, but fully production-proven.
 
-## Dataset Format for Experiments
-
-### What Works (Confirmed)
-
-Orq.ai dataset rows take three optional components:
-- `inputs` — key-value variables (string values)
-- `messages` — chat message array (`[{ role: "user", content: "..." }]`)
-- `expected_output` — string reference answer
-
-### What May Be Wrong in the Current Implementation
-
-The current tester (Phase 5, Step 5.2) uploads rows in this format:
-```json
-{
-  "inputs": {
-    "text": "...",
-    "category": "...",
-    "source": "...",
-    "eval_id": "..."
-  },
-  "messages": [{ "role": "user", "content": "..." }],
-  "expected_output": "..."
-}
-```
-
-**Potential issue:** Including metadata fields (`category`, `source`, `eval_id`) inside `inputs` may confuse the experiment runner if it tries to substitute these as prompt template variables. The safest format for agent testing:
-
-```json
-{
-  "messages": [{ "role": "user", "content": "THE_INPUT_TEXT" }],
-  "expected_output": "THE_EXPECTED_RESPONSE"
-}
-```
-
-Strip non-standard metadata from `inputs`. Keep metadata in local tracking only.
-
-**Confidence:** LOW — cannot verify without live experiment run. The issue may be in the task type, not the dataset format.
-
----
-
-## Evaluator Attachment Pattern
-
-### Built-in Evaluators (No Creation Required)
-
-Reference by name only in the experiment config:
-```json
-"evaluators": [
-  { "name": "coherence" },
-  { "name": "helpfulness" },
-  { "name": "relevance" },
-  { "name": "json_validity" },
-  { "name": "instruction_following" },
-  { "name": "toxicity" },
-  { "name": "harmfulness" }
-]
-```
-
-### Custom Evaluators (Must Create First)
+### Node Graph Data Flow
 
 ```
-1. create_llm_eval or create_python_eval  → evaluator_id
-2. Reference in experiment: { "id": "evaluator_id" }
+Pipeline spec (from design step)
+  -> Extract agents + relationships
+  -> Convert to @xyflow/react nodes + edges
+  -> dagre layout (hierarchical, top-down)
+  -> Render graph with custom AgentNode component
+  -> During execution: update node status via Inngest Realtime subscription
 ```
 
-**Key rule:** Built-in evaluators are referenced by `name`. Custom evaluators are referenced by `id`. Do not mix these.
+### Supabase Plan Requirement
 
-**Recommendation for V2.1:** Use only built-in evaluators. Custom evaluator creation adds complexity and is not needed for the existing role-based evaluator selection logic.
+**Pro plan ($25/mo) recommended** -- not for SAML (using OAuth instead) but for:
+- 8GB database (vs 500MB on Free)
+- No project pausing after 1 week inactivity
+- Daily backups
+- Email support
+- 100K monthly active users (vs 50K on Free -- irrelevant at 5-15 users, but good headroom)
 
----
-
-## SDK Versions: Critical Corrections
-
-| Package | Pinned (Broken) | Actual Current | Recommendation |
-|---------|----------------|----------------|----------------|
-| `@orq-ai/node` | `^3.14.45` (DOES NOT EXIST) | `4.4.9` | Pin to `^3.2.8` for MCP server binary, or upgrade to `^4.4.9` and use REST-only |
-| `@orq-ai/evaluatorq` | `^1.1.0` | Latest in `@orq-ai/orqkit` | Stop using for agent testing |
-| `@orq-ai/evaluators` | `^1.1.0` | Part of orqkit | Stop using for agent testing |
-
-**Critical:** Version 4.x of `@orq-ai/node` dropped the bundled MCP server binary. The MCP tools (`agents-create`, etc.) that the deployer uses come from the v3.x MCP server binary. If the environment is running `@orq-ai/node@4.x`, MCP tools may be unavailable — which would explain why experiments fall back to REST but then fail because evaluatorq doesn't work with agents.
-
-**The V2.1 fix should not depend on any of these three SDKs for experiment execution.** Use MCP tools natively (Claude Code calling MCP tools directly) + REST API fallback.
-
----
-
-## What NOT to Use for V2.1
-
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| `@orq-ai/evaluatorq` for agent testing | Times out immediately — evaluatorq job model is not compatible with Orq agent async runtime | Native MCP `create_experiment` + `task.type: "agent"` |
-| `@orq-ai/node@^3.14.45` | Version does not exist on npm | Verify actual installed version; use REST API directly |
-| Inline agent invocation per dataset row | N×timeout risk, no parallelism control | Let Orq's experiment runner handle batch execution server-side |
-| Creating custom evaluators for built-in types | Unnecessary — `coherence`, `json_validity`, etc. are referenced by name | Reference built-ins by name in experiment config |
-| `agents.responses.create()` for per-row execution | Per-row agent calls in a loop time out before results come back | Batch via native experiment runner |
-
----
-
-## MCP-First / REST-Fallback for Experiment Operations
-
-Following the locked pattern from the deployer. New tool mapping for V2.1:
-
-```
-Operation               MCP Tool (attempt first)     REST Fallback
---------------------    -------------------------    ------------------------------------------
-Create dataset          create_dataset               POST /v2/datasets
-Add datapoints          create_datapoints            POST /v2/datasets/{id}/rows
-Create experiment       create_experiment            POST /v2/experiments
-Trigger run             (included in auto_run:true)  POST /v2/experiments/{id}/run
-Poll runs               list_experiment_runs         GET /v2/experiments/{id}/results
-Get run results         get_experiment_run           GET /v2/experiments/{id}/results
-Create LLM eval         create_llm_eval              POST /v2/evaluators (type: "llm")
-Create Python eval      create_python_eval           POST /v2/evaluators (type: "python")
-```
-
-If MCP tools for datasets/experiments do not exist in the environment, all operations fall through to REST automatically. This is identical to how KB operations work in the deployer.
-
----
+The Free tier technically works for MVP but the 500MB database limit and auto-pause make it unsuitable for a production tool colleagues depend on.
 
 ## Confidence Assessment
 
-| Area | Confidence | Notes |
-|------|------------|-------|
-| REST API endpoints | HIGH | Documented in `orqai-api-endpoints.md`, confirmed against Orq.ai docs |
-| Evaluator types/names | HIGH | Documented in `orqai-evaluator-types.md`, consistent across sources |
-| MCP tool names (experiments) | LOW | Not confirmed in any public source; asserted by milestone context only |
-| MCP tool parameter schemas | LOW | Inferred from REST API shapes; not verified against live server |
-| `task.type: "agent"` field name | MEDIUM | Consistent with Orq.ai documentation describing agent vs deployment experiments |
-| `task.key` field name | LOW | Inferred from deployer's `key` pattern; could be `agent_key` or `agent_id` |
-| `auto_run: true` behavior | MEDIUM | Consistent with Orq.ai changelog describing one-step experiment creation + run |
-| Dataset format for agents | LOW | Uncertain whether metadata in `inputs` breaks experiment runner |
-| SDK version issue | HIGH | npm registry confirms v3.14.45 does not exist; latest is v4.4.9 |
-| evaluatorq timeout cause | HIGH | Agent async runtime incompatible with evaluatorq's synchronous job model |
-
----
-
-## Gaps to Address During Implementation
-
-1. **MCP tool verification (Phase 1 of any subagent):** Before attempting MCP operations, the dataset-preparer and experiment-runner subagents must verify which MCP tools are available. Use a lightweight probe — attempt `list_experiment_runs` with a dummy ID or use the environment's tool list.
-
-2. **`task.key` vs `task.agent_key` vs `task.agent_id`:** The exact field name for the agent identifier inside `task` is unknown. The first failed experiment will reveal the correct name via the API error response. Build in a fallback retry that tries alternative field names.
-
-3. **Batch vs sequential datapoints:** It is unknown whether `create_datapoints` accepts an array of rows in one call (batch) or requires per-row calls. The REST endpoint (`POST /v2/datasets/{id}/rows`) appears to accept an array based on existing tester code. Confirm at runtime.
-
-4. **Polling interval for agent experiments:** Agent experiments are slower than deployment experiments (agents run tool loops). A 10-second poll interval is the minimum safe floor; 15-30 seconds may be needed for complex agents.
-
-5. **`@orq-ai/node` installed version:** The MCP server binary in the user's environment determines which MCP tools are available. If v4.x is installed, no MCP binary exists — all operations must use REST. The experiment-runner should detect this early and set `mcp_available = false` for dataset/experiment operations.
-
----
+| Component | Confidence | Basis |
+|-----------|------------|-------|
+| Next.js 16 + App Router | HIGH | Official docs confirm v16 stable with Turbopack, Feb 2026 |
+| Supabase Auth (Microsoft OAuth + tenant lock) | HIGH | Official docs confirm tenant-restricted OAuth. Known gotcha with `/common` endpoint documented. |
+| @supabase/ssr for App Router | HIGH | Official replacement for deprecated auth helpers. v0.9 published 2 days ago. |
+| Supabase Realtime (Postgres Changes) | HIGH | v2 stable, well-documented, RLS-aware |
+| Inngest v3 (durable workflows) | HIGH | v3.52 stable, Vercel Marketplace, 100K free executions |
+| Inngest waitForEvent (HITL) | MEDIUM | Documented pattern, but multi-day waits (7d timeout for approvals) need validation in production |
+| Inngest Realtime (streaming) | MEDIUM | Feature exists and is documented, but labeled "developer preview" -- may have edge cases |
+| @xyflow/react v12 | HIGH | 20K+ stars, v12 stable, TypeScript-first, MIT licensed |
+| shadcn/ui + Tailwind v4 | HIGH | Industry standard combo for Next.js in 2026 |
+| Resend + React Email | HIGH | v6.9 stable, 1.3M weekly npm downloads, free tier sufficient |
+| @dagrejs/dagre | HIGH | Mature library, standard for hierarchical graph layout |
 
 ## Sources
 
-- `orq-agent/agents/deployer.md` — confirmed MCP tool names (agents-create, etc.) and KB no-MCP note. HIGH confidence.
-- `orq-agent/agents/tester.md` — current failing implementation. HIGH confidence on what's broken.
-- `orq-agent/references/orqai-api-endpoints.md` — REST endpoint catalog. HIGH confidence.
-- `orq-agent/references/orqai-evaluator-types.md` — built-in evaluator names and types. HIGH confidence.
-- [Orq.ai Release 4.1 changelog](https://docs.orq.ai/changelog/release-4-1) — "run experiments programmatically, test Orq deployments, Orq agents, or any third-party framework." MEDIUM confidence.
-- [Orq.ai Experiments Overview](https://docs.orq.ai/docs/experiments/overview) — dataset prerequisites, evaluator attachment. MEDIUM confidence.
-- [npm @orq-ai/node](https://www.npmjs.com/package/@orq-ai/node) — latest version 4.4.9, confirming 3.14.45 does not exist. HIGH confidence.
-- [@orq-ai/evaluatorq npm](https://www.npmjs.com/package/@orq-ai/evaluatorq) — `{ data: { datasetId }, jobs, evaluators }` pattern, deployment-oriented. HIGH confidence on SDK model.
-- [orqkit GitHub](https://github.com/orq-ai/orqkit) — evaluatorq is an open-source evaluation framework for deployments. MEDIUM confidence.
-
----
-
-*Stack research for: V2.1 Experiment Pipeline Restructure — experiment MCP/REST patterns*
-*Researched: 2026-03-10*
+- [Next.js 16 Upgrade Guide](https://nextjs.org/docs/app/guides/upgrading/version-16)
+- [Next.js App Router Docs](https://nextjs.org/docs/app)
+- [Supabase Auth: Login with Azure](https://supabase.com/docs/guides/auth/social-login/auth-azure)
+- [Supabase SAML SSO for Projects](https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml)
+- [Supabase SSR Package (npm)](https://www.npmjs.com/package/@supabase/ssr)
+- [Supabase Realtime Docs](https://supabase.com/docs/guides/realtime)
+- [Azure AD single-tenant OAuth discussion](https://github.com/orgs/supabase/discussions/1071)
+- [Supabase Pricing](https://supabase.com/pricing)
+- [Inngest npm](https://www.npmjs.com/package/inngest)
+- [Inngest Realtime Docs](https://www.inngest.com/docs/features/realtime)
+- [Inngest React Hooks for Realtime](https://www.inngest.com/docs/features/realtime/react-hooks)
+- [Inngest Background Jobs Guide](https://www.inngest.com/docs/guides/background-jobs)
+- [Inngest Vercel Marketplace](https://vercel.com/marketplace/inngest)
+- [Inngest Pricing](https://www.inngest.com/pricing)
+- [@xyflow/react npm](https://www.npmjs.com/package/@xyflow/react)
+- [React Flow Documentation](https://reactflow.dev)
+- [Resend npm](https://www.npmjs.com/package/resend)
+- [React Email Documentation](https://react.email/docs/introduction)
+- [shadcn/ui Next.js Installation](https://ui.shadcn.com/docs/installation/next)
+- [shadcn/ui + Next.js 16 (2026)](https://adminlte.io/blog/nextjs-admin-dashboards-shadcn/)
