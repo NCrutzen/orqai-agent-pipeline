@@ -48,7 +48,13 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 
 ### Active
 
-(No active requirements — next milestone not yet started)
+**V3.0 Web UI & Dashboard:**
+- [ ] Browser-based pipeline with real-time visibility for non-technical colleagues
+- [ ] M365 SSO authentication (Azure AD) — Moyne Roberts employees only
+- [ ] Self-service use case input to deployed agents via browser
+- [ ] Real-time pipeline dashboard with run list, progress, log stream, and performance scores
+- [ ] Interactive node graph visualization of agent swarms with execution overlay
+- [ ] HITL approval flow with in-app approve/reject, queue, history, and email notifications
 
 ### Out of Scope
 
@@ -57,9 +63,16 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 - Auto-update on launch — updates are manual via `/orq-agent:update`
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current State
+## Current Milestone: V3.0 Web UI & Dashboard
 
-V2.1 shipped 2026-03-13. No active milestone. Next milestone candidates: V3.0 (Web UI), V4.0 (Cross-Swarm Intelligence), V5.0 (Browser Automation).
+**Goal:** Build a browser-based interface so non-technical colleagues can create, deploy, test, and iterate agent swarms on Orq.ai — with real-time dashboard, node graph visualization, and HITL approval workflows.
+
+**Target features:**
+- Foundation & Auth (Next.js + Supabase + M365 SSO)
+- Self-Service Pipeline (use case → deployed agents via browser)
+- Pipeline Dashboard (run list, progress, logs, scores)
+- Node Graph (interactive swarm visualization)
+- HITL Approval Flow (in-app approve/reject with notifications)
 
 ## Context
 
@@ -113,4 +126,4 @@ V2.1 shipped 2026-03-13. No active milestone. Next milestone candidates: V3.0 (W
 | Application capabilities config file | Pipeline reads per-system integration method from config; discussion step fills gaps for unknown systems | — Pending |
 
 ---
-*Last updated: 2026-03-13 after V2.1 milestone*
+*Last updated: 2026-03-13 after V3.0 milestone start*
