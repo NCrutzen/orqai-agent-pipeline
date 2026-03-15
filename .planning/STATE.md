@@ -24,16 +24,16 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 35 of 38 (Pipeline Engine)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: Executing
-Last activity: 2026-03-15 -- Completed 35-02 (Pipeline durable function)
+Last activity: 2026-03-15 -- Completed 35-03 (Pipeline UI)
 
-Progress: [#####.....] 50%
+Progress: [#######...] 75%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4 (V3.0)
+- Total plans completed: 5 (V3.0)
 - Average duration: 5 min
 - Total execution time: 0.4 hours
 
@@ -42,7 +42,7 @@ Progress: [#####.....] 50%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 34-foundation-auth | 2 | 10 min | 5 min |
-| 35-pipeline-engine | 2 | 9 min | 4.5 min |
+| 35-pipeline-engine | 3 | 12 min | 4 min |
 
 ## Accumulated Context
 
@@ -66,6 +66,9 @@ Recent decisions affecting current work:
 - Supabase Broadcast over Postgres Changes -- avoids single-thread RLS bottleneck
 - [Phase 35]: Stage results stored in Supabase pipeline_steps.result, references returned from step.run() -- avoids Inngest state size limits
 - [Phase 35]: retryPipeline resets failed step AND all subsequent steps -- ensures clean slate for re-execution
+- [Phase 35]: Client-only new-run page with useActionState for form submission -- simpler than server/client split
+- [Phase 35]: Server component + client wrapper pattern for run detail -- server fetches, client polls and handles interactivity
+- [Phase 35]: 5-second polling via router.refresh() for live updates -- simple, replaced by Supabase Realtime in Phase 36
 
 ### Blockers/Concerns
 
@@ -80,6 +83,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-15
-Stopped at: Completed 35-02-PLAN.md
-Resume with: `/gsd:execute-phase 35` (plan 03 next)
-Resume file: `.planning/phases/35-pipeline-engine/35-02-SUMMARY.md`
+Stopped at: Completed 35-03-PLAN.md
+Resume with: `/gsd:execute-phase 35` (plan 04 next)
+Resume file: `.planning/phases/35-pipeline-engine/35-03-SUMMARY.md`

@@ -11,8 +11,8 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 
 - [x] **FOUND-01**: User can sign in with their M365 (Azure AD) work account via SSO
 - [x] **FOUND-02**: Only Moyne Roberts tenant accounts can access the app (tenant-restricted)
-- [ ] **FOUND-03**: User can enter a use case description in a text input form
-- [ ] **FOUND-04**: User can trigger the pipeline with a single button click
+- [x] **FOUND-03**: User can enter a use case description in a text input form
+- [x] **FOUND-04**: User can trigger the pipeline with a single button click
 - [ ] **FOUND-05**: User can view a list of their pipeline runs with status and timestamps
 
 ### Pipeline Execution
@@ -95,8 +95,8 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 |-------------|-------|--------|
 | FOUND-01 | Phase 34 | Complete |
 | FOUND-02 | Phase 34 | Complete |
-| FOUND-03 | Phase 35 | Pending |
-| FOUND-04 | Phase 35 | Pending |
+| FOUND-03 | Phase 35 | Complete |
+| FOUND-04 | Phase 35 | Complete |
 | FOUND-05 | Phase 35 | Pending |
 | PIPE-01 | Phase 35 | Complete |
 | PIPE-02 | Phase 35 | Complete |
