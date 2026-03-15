@@ -1,3 +1,16 @@
+---
+gsd_state_version: 1.0
+milestone: v0.3
+milestone_name: milestone
+status: unknown
+last_updated: "2026-03-15T16:10:08.732Z"
+progress:
+  total_phases: 10
+  completed_phases: 8
+  total_plans: 16
+  completed_plans: 13
+---
+
 # Project State
 
 ## Project Reference
@@ -11,25 +24,25 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 35 of 38 (Pipeline Engine)
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: Executing
-Last activity: 2026-03-15 -- Completed 35-01 (Pipeline infrastructure)
+Last activity: 2026-03-15 -- Completed 35-02 (Pipeline durable function)
 
-Progress: [###.......] 25%
+Progress: [#####.....] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (V3.0)
+- Total plans completed: 4 (V3.0)
 - Average duration: 5 min
-- Total execution time: 0.3 hours
+- Total execution time: 0.4 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 34-foundation-auth | 2 | 10 min | 5 min |
-| 35-pipeline-engine | 1 | 5 min | 5 min |
+| 35-pipeline-engine | 2 | 9 min | 4.5 min |
 
 ## Accumulated Context
 
@@ -51,6 +64,8 @@ Recent decisions affecting current work:
 - GitHub repo as single source of truth -- pipeline prompts shared between CLI and web app
 - Inngest for pipeline orchestration -- durable functions survive Vercel timeouts, waitForEvent for HITL
 - Supabase Broadcast over Postgres Changes -- avoids single-thread RLS bottleneck
+- [Phase 35]: Stage results stored in Supabase pipeline_steps.result, references returned from step.run() -- avoids Inngest state size limits
+- [Phase 35]: retryPipeline resets failed step AND all subsequent steps -- ensures clean slate for re-execution
 
 ### Blockers/Concerns
 
@@ -65,6 +80,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-15
-Stopped at: Completed 35-01-PLAN.md
-Resume with: `/gsd:execute-phase 35` (plan 02 next)
-Resume file: `.planning/phases/35-pipeline-engine/35-01-SUMMARY.md`
+Stopped at: Completed 35-02-PLAN.md
+Resume with: `/gsd:execute-phase 35` (plan 03 next)
+Resume file: `.planning/phases/35-pipeline-engine/35-02-SUMMARY.md`

@@ -196,7 +196,7 @@ Phases execute in numeric order: 34 -> 35 -> 36 -> 37 -> 38
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 34. Foundation & Auth | 2/3 | In Progress|  | - |
-| 35. Pipeline Engine | 1/4 | In Progress|  | - |
+| 35. Pipeline Engine | 2/4 | In Progress|  | - |
 | 36. Dashboard & Graph | V3.0 | 0/TBD | Not started | - |
 | 37. HITL Approval | V3.0 | 0/TBD | Not started | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
