@@ -48,10 +48,10 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 
 ### Projects & Access
 
-- [ ] **PROJ-01**: User can create and name projects
-- [ ] **PROJ-02**: User can assign colleagues to a project
-- [ ] **PROJ-03**: Pipeline runs and agent graphs are scoped to a project (users only see their projects)
-- [ ] **PROJ-04**: All project members have equal access within a project
+- [x] **PROJ-01**: User can create and name projects
+- [x] **PROJ-02**: User can assign colleagues to a project
+- [x] **PROJ-03**: Pipeline runs and agent graphs are scoped to a project (users only see their projects)
+- [x] **PROJ-04**: All project members have equal access within a project
 
 ### Swarm Activation
 
@@ -117,10 +117,10 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 | HITL-04 | Phase 37 | Pending |
 | HITL-05 | Phase 37 | Pending |
 | HITL-06 | Phase 37 | Pending |
-| PROJ-01 | Phase 34 | Pending |
-| PROJ-02 | Phase 34 | Pending |
-| PROJ-03 | Phase 34 | Pending |
-| PROJ-04 | Phase 34 | Pending |
+| PROJ-01 | Phase 34 | Complete |
+| PROJ-02 | Phase 34 | Complete |
+| PROJ-03 | Phase 34 | Complete |
+| PROJ-04 | Phase 34 | Complete |
 | ACTV-01 | Phase 38 | Pending |
 | ACTV-02 | Phase 38 | Pending |
 | ACTV-03 | Phase 38 | Pending |

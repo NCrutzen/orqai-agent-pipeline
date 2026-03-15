@@ -11,24 +11,24 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 34 of 38 (Foundation & Auth)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: Executing
-Last activity: 2026-03-15 -- Completed 34-01 (Foundation Auth scaffold)
+Last activity: 2026-03-15 -- Completed 34-02 (Project management layer)
 
-Progress: [###.......] 33%
+Progress: [######....] 67%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1 (V3.0)
-- Average duration: 6 min
-- Total execution time: 0.1 hours
+- Total plans completed: 2 (V3.0)
+- Average duration: 5 min
+- Total execution time: 0.2 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 34-foundation-auth | 1 | 6 min | 6 min |
+| 34-foundation-auth | 2 | 10 min | 5 min |
 
 ## Accumulated Context
 
@@ -37,6 +37,9 @@ Progress: [###.......] 33%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- Invite API uses upsert with onConflict for idempotent member addition -- prevents duplicate member errors
+- Database trigger handles auto-membership on project creation -- no client-side second insert needed
+- AD search passes email (not Supabase user ID) to invite API -- Graph IDs differ from Supabase auth IDs
 - Geist font (shadcn Nova preset) for web app typography -- ships with create-next-app, consistent with shadcn/ui
 - Auto-add project creator as member via DB trigger -- ensures RLS works for newly created projects
 - Next.js + Supabase + Vercel for web app -- Supabase Realtime for live updates, M365 SSO support
@@ -58,6 +61,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-15
-Stopped at: Completed 34-01-PLAN.md
-Resume with: `/gsd:execute-phase 34` (plan 02 next)
-Resume file: `.planning/phases/34-foundation-auth/34-01-SUMMARY.md`
+Stopped at: Completed 34-02-PLAN.md
+Resume with: `/gsd:execute-phase 34` (plan 03 next)
+Resume file: `.planning/phases/34-foundation-auth/34-02-SUMMARY.md`
