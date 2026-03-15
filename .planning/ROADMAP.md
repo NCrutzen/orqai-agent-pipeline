@@ -116,11 +116,12 @@ Build a Claude Code skill that transforms natural language use case descriptions
   2. A personal Microsoft account is rejected at login (tenant restriction verified)
   3. User can create a named project and invite colleagues to it
   4. User only sees projects they belong to -- no cross-project data leakage
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 34-01: TBD
-- [ ] 34-02: TBD
+- [ ] 34-01-PLAN.md -- App scaffold, Supabase auth (M365 SSO + email/password), proxy.ts, DB schema with RLS
+- [ ] 34-02-PLAN.md -- Project list home page, create project modal, invite flow (AD + email), project detail
+- [ ] 34-03-PLAN.md -- Checkpoint: verify auth flow, tenant restriction, project CRUD, invitation
 
 ### Phase 35: Pipeline Engine
 **Goal**: Users can submit a use case description and watch it execute as a durable pipeline that survives server restarts and recovers from failures
@@ -193,7 +194,7 @@ Phases execute in numeric order: 34 -> 35 -> 36 -> 37 -> 38
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 34. Foundation & Auth | V3.0 | 0/TBD | Not started | - |
+| 34. Foundation & Auth | V3.0 | 0/3 | Planned | - |
 | 35. Pipeline Engine | V3.0 | 0/TBD | Not started | - |
 | 36. Dashboard & Graph | V3.0 | 0/TBD | Not started | - |
 | 37. HITL Approval | V3.0 | 0/TBD | Not started | - |
