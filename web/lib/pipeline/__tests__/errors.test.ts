@@ -19,13 +19,13 @@ describe("classifyError", () => {
 
   it("classifies GitHub fetch failures", () => {
     const error = new Error("Failed to fetch pipeline template");
-    (error as Record<string, unknown>).code = "GITHUB_FETCH_FAILED";
+    (error as unknown as Record<string, unknown>).code = "GITHUB_FETCH_FAILED";
     expect(classifyError(error)).toBe("GITHUB_FETCH_FAILED");
   });
 
   it("classifies GitHub 404 errors", () => {
     const error = new Error("Pipeline template not found");
-    (error as Record<string, unknown>).code = "GITHUB_NOT_FOUND";
+    (error as unknown as Record<string, unknown>).code = "GITHUB_NOT_FOUND";
     expect(classifyError(error)).toBe("GITHUB_NOT_FOUND");
   });
 

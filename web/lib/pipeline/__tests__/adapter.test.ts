@@ -5,17 +5,14 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 // Mock Anthropic SDK
+const mockCreate = vi.fn();
 vi.mock("@anthropic-ai/sdk", () => {
-  const mockCreate = vi.fn();
   return {
     default: class MockAnthropic {
       messages = { create: mockCreate };
     },
-    __mockCreate: mockCreate,
   };
 });
-
-import { __mockCreate } from "@anthropic-ai/sdk";
 
 // Must import after mocks are set up
 const { runPromptAdapter } = await import("../adapter");
@@ -36,7 +33,7 @@ You are a test agent. Do testing things.`;
       text: () => Promise.resolve(mdContent),
     });
 
-    (__mockCreate as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    mockCreate.mockResolvedValueOnce({
       content: [{ type: "text", text: "Test result" }],
     });
 
@@ -58,14 +55,14 @@ You are the architect agent.`;
       text: () => Promise.resolve(mdContent),
     });
 
-    (__mockCreate as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    mockCreate.mockResolvedValueOnce({
       content: [{ type: "text", text: "Blueprint result" }],
     });
 
     await runPromptAdapter("architect", { useCase: "Build something" });
 
     // The system prompt should NOT contain frontmatter
-    const callArgs = (__mockCreate as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    const callArgs = mockCreate.mock.calls[0][0];
     expect(callArgs.system).not.toContain("title: Architect");
     expect(callArgs.system).toContain("You are the architect agent.");
   });
@@ -76,7 +73,7 @@ You are the architect agent.`;
       text: () => Promise.resolve("You are a test agent."),
     });
 
-    (__mockCreate as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    mockCreate.mockResolvedValueOnce({
       content: [{ type: "text", text: "Agent output" }],
     });
 
@@ -84,8 +81,8 @@ You are the architect agent.`;
       useCase: "Process invoices",
     });
 
-    expect((__mockCreate as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
-    const callArgs = (__mockCreate as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    const callArgs = mockCreate.mock.calls[0][0];
     expect(callArgs.system).toBe("You are a test agent.");
     expect(callArgs.messages[0].role).toBe("user");
     expect(callArgs.messages[0].content).toContain("Process invoices");
@@ -98,7 +95,7 @@ You are the architect agent.`;
       text: () => Promise.resolve("System prompt content"),
     });
 
-    (__mockCreate as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    mockCreate.mockResolvedValueOnce({
       content: [{ type: "text", text: "Result" }],
     });
 
@@ -107,7 +104,7 @@ You are the architect agent.`;
       blueprint: "Architecture blueprint here",
     });
 
-    const callArgs = (__mockCreate as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    const callArgs = mockCreate.mock.calls[0][0];
     const userContent = callArgs.messages[0].content;
     expect(userContent).toContain("<use_case>");
     expect(userContent).toContain("Test case");
