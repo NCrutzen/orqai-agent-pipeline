@@ -133,12 +133,13 @@ Plans:
   3. User can see a list of their pipeline runs with current status and timestamps
   4. User can retry a failed pipeline from the exact step that failed (not from scratch)
   5. Pipeline errors display plain-English messages (not stack traces) with a retry button
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 35-01: TBD
-- [ ] 35-02: TBD
-- [ ] 35-03: TBD
+- [ ] 35-01-PLAN.md -- Database schema (pipeline_runs/steps/files), Inngest setup, prompt adapter, stage definitions, error mapper
+- [ ] 35-02-PLAN.md -- Pipeline durable function (Inngest step-per-stage), server action to trigger runs, retry-from-failed-step
+- [ ] 35-03-PLAN.md -- New run form (use case textarea, file upload), run detail page (step timeline, expandable logs, retry)
+- [ ] 35-04-PLAN.md -- Run list UI (project tabs, global runs page, run cards), end-to-end verification checkpoint
 
 ### Phase 36: Dashboard & Graph
 **Goal**: Users have real-time visibility into pipeline execution through a live timeline, log stream, and interactive agent swarm graph
