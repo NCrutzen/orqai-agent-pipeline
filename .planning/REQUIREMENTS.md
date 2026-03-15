@@ -17,9 +17,9 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 
 ### Pipeline Execution
 
-- [ ] **PIPE-01**: Pipeline executes server-side via Inngest durable functions (not API route timeouts)
-- [ ] **PIPE-02**: Prompt adapter translates markdown pipeline files into Claude API calls
-- [ ] **PIPE-03**: Pipeline state machine tracks each step (pending/running/complete/failed/waiting)
+- [x] **PIPE-01**: Pipeline executes server-side via Inngest durable functions (not API route timeouts)
+- [x] **PIPE-02**: Prompt adapter translates markdown pipeline files into Claude API calls
+- [x] **PIPE-03**: Pipeline state machine tracks each step (pending/running/complete/failed/waiting)
 - [ ] **PIPE-04**: User can retry a failed pipeline from the failed step
 - [ ] **PIPE-05**: Pipeline errors display plain-English messages with retry action
 
@@ -98,9 +98,9 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 | FOUND-03 | Phase 35 | Pending |
 | FOUND-04 | Phase 35 | Pending |
 | FOUND-05 | Phase 35 | Pending |
-| PIPE-01 | Phase 35 | Pending |
-| PIPE-02 | Phase 35 | Pending |
-| PIPE-03 | Phase 35 | Pending |
+| PIPE-01 | Phase 35 | Complete |
+| PIPE-02 | Phase 35 | Complete |
+| PIPE-03 | Phase 35 | Complete |
 | PIPE-04 | Phase 35 | Pending |
 | PIPE-05 | Phase 35 | Pending |
 | DASH-01 | Phase 36 | Pending |

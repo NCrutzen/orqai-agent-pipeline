@@ -5,30 +5,31 @@
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** Phase 34 -- Foundation & Auth
+**Current focus:** Phase 35 -- Pipeline Engine
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V2.1 shipped 2026-03-13 (8 phases, 9 plans)
 
 ## Current Position
 
-Phase: 34 of 38 (Foundation & Auth)
-Plan: 2 of 3 in current phase
+Phase: 35 of 38 (Pipeline Engine)
+Plan: 1 of 4 in current phase
 Status: Executing
-Last activity: 2026-03-15 -- Completed 34-02 (Project management layer)
+Last activity: 2026-03-15 -- Completed 35-01 (Pipeline infrastructure)
 
-Progress: [######....] 67%
+Progress: [###.......] 25%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2 (V3.0)
+- Total plans completed: 3 (V3.0)
 - Average duration: 5 min
-- Total execution time: 0.2 hours
+- Total execution time: 0.3 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 34-foundation-auth | 2 | 10 min | 5 min |
+| 35-pipeline-engine | 1 | 5 min | 5 min |
 
 ## Accumulated Context
 
@@ -37,6 +38,9 @@ Progress: [######....] 67%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- Direct Claude messages.create() over Agent SDK -- pipeline stages are predetermined, not agent-decided
+- GitHub raw URL for .md file fetching with PIPELINE_REPO_RAW_URL env var -- runtime fetching per user decision
+- Vitest for test framework -- ESM-native, fast, TypeScript out of the box
 - Invite API uses upsert with onConflict for idempotent member addition -- prevents duplicate member errors
 - Database trigger handles auto-membership on project creation -- no client-side second insert needed
 - AD search passes email (not Supabase user ID) to invite API -- Graph IDs differ from Supabase auth IDs
@@ -61,6 +65,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-15
-Stopped at: Completed 34-02-PLAN.md
-Resume with: `/gsd:execute-phase 34` (plan 03 next)
-Resume file: `.planning/phases/34-foundation-auth/34-02-SUMMARY.md`
+Stopped at: Completed 35-01-PLAN.md
+Resume with: `/gsd:execute-phase 35` (plan 02 next)
+Resume file: `.planning/phases/35-pipeline-engine/35-01-SUMMARY.md`
