@@ -1,7 +1,7 @@
 # Requirements: Orq Agent Designer
 
 **Defined:** 2026-03-15
-**Core Value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai — through a browser UI with real-time visibility, visual agent graphs, and in-app approvals — without touching a terminal or needing technical knowledge.
+**Core Value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
 
 ## V3.0 Requirements
 
@@ -93,44 +93,44 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | TBD | Pending |
-| FOUND-02 | TBD | Pending |
-| FOUND-03 | TBD | Pending |
-| FOUND-04 | TBD | Pending |
-| FOUND-05 | TBD | Pending |
-| PIPE-01 | TBD | Pending |
-| PIPE-02 | TBD | Pending |
-| PIPE-03 | TBD | Pending |
-| PIPE-04 | TBD | Pending |
-| PIPE-05 | TBD | Pending |
-| DASH-01 | TBD | Pending |
-| DASH-02 | TBD | Pending |
-| DASH-03 | TBD | Pending |
-| DASH-04 | TBD | Pending |
-| GRAPH-01 | TBD | Pending |
-| GRAPH-02 | TBD | Pending |
-| GRAPH-03 | TBD | Pending |
-| GRAPH-04 | TBD | Pending |
-| HITL-01 | TBD | Pending |
-| HITL-02 | TBD | Pending |
-| HITL-03 | TBD | Pending |
-| HITL-04 | TBD | Pending |
-| HITL-05 | TBD | Pending |
-| HITL-06 | TBD | Pending |
-| PROJ-01 | TBD | Pending |
-| PROJ-02 | TBD | Pending |
-| PROJ-03 | TBD | Pending |
-| PROJ-04 | TBD | Pending |
-| ACTV-01 | TBD | Pending |
-| ACTV-02 | TBD | Pending |
-| ACTV-03 | TBD | Pending |
-| ACTV-04 | TBD | Pending |
+| FOUND-01 | Phase 34 | Pending |
+| FOUND-02 | Phase 34 | Pending |
+| FOUND-03 | Phase 35 | Pending |
+| FOUND-04 | Phase 35 | Pending |
+| FOUND-05 | Phase 35 | Pending |
+| PIPE-01 | Phase 35 | Pending |
+| PIPE-02 | Phase 35 | Pending |
+| PIPE-03 | Phase 35 | Pending |
+| PIPE-04 | Phase 35 | Pending |
+| PIPE-05 | Phase 35 | Pending |
+| DASH-01 | Phase 36 | Pending |
+| DASH-02 | Phase 36 | Pending |
+| DASH-03 | Phase 36 | Pending |
+| DASH-04 | Phase 36 | Pending |
+| GRAPH-01 | Phase 36 | Pending |
+| GRAPH-02 | Phase 36 | Pending |
+| GRAPH-03 | Phase 36 | Pending |
+| GRAPH-04 | Phase 36 | Pending |
+| HITL-01 | Phase 37 | Pending |
+| HITL-02 | Phase 37 | Pending |
+| HITL-03 | Phase 37 | Pending |
+| HITL-04 | Phase 37 | Pending |
+| HITL-05 | Phase 37 | Pending |
+| HITL-06 | Phase 37 | Pending |
+| PROJ-01 | Phase 34 | Pending |
+| PROJ-02 | Phase 34 | Pending |
+| PROJ-03 | Phase 34 | Pending |
+| PROJ-04 | Phase 34 | Pending |
+| ACTV-01 | Phase 38 | Pending |
+| ACTV-02 | Phase 38 | Pending |
+| ACTV-03 | Phase 38 | Pending |
+| ACTV-04 | Phase 38 | Pending |
 
 **Coverage:**
 - V3.0 requirements: 32 total
-- Mapped to phases: 0
-- Unmapped: 32
+- Mapped to phases: 32
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after initial definition*
+*Last updated: 2026-03-15 after roadmap creation*
