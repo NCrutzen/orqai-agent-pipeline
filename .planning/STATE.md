@@ -17,18 +17,18 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-03-13)
 
-**Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** Phase 35 -- Pipeline Engine
-**Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V2.1 shipped 2026-03-13 (8 phases, 9 plans)
+**Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through an automated pipeline with real-time visibility and HITL approvals -- without needing to understand the underlying AI platform.
+**Current focus:** Between milestones -- V3.0 dropped, V4.0 not yet started
+**Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V2.1 shipped 2026-03-13 (8 phases, 9 plans), V3.0 dropped 2026-03-19 (web interface removed from scope)
 
 ## Current Position
 
-Phase: 35 of 38 (Pipeline Engine)
-Plan: 3 of 4 in current phase
-Status: Executing
-Last activity: 2026-03-15 -- Completed 35-03 (Pipeline UI)
+Phase: No active phase (V3.0 dropped, V4.0 not started)
+Plan: N/A
+Status: Between milestones
+Last activity: 2026-03-19 -- V3.0 web interface stripped from repo
 
-Progress: [#######...] 75%
+Progress: V2.1 complete. V4.0 next.
 
 ## Performance Metrics
 
@@ -51,30 +51,22 @@ Progress: [#######...] 75%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- V3.0 Web UI dropped from scope -- project refocused on CLI pipeline skill only (2026-03-19)
 - Direct Claude messages.create() over Agent SDK -- pipeline stages are predetermined, not agent-decided
 - GitHub raw URL for .md file fetching with PIPELINE_REPO_RAW_URL env var -- runtime fetching per user decision
 - Vitest for test framework -- ESM-native, fast, TypeScript out of the box
-- Invite API uses upsert with onConflict for idempotent member addition -- prevents duplicate member errors
-- Database trigger handles auto-membership on project creation -- no client-side second insert needed
-- AD search passes email (not Supabase user ID) to invite API -- Graph IDs differ from Supabase auth IDs
-- Geist font (shadcn Nova preset) for web app typography -- ships with create-next-app, consistent with shadcn/ui
-- Auto-add project creator as member via DB trigger -- ensures RLS works for newly created projects
-- Next.js + Supabase + Vercel for web app -- Supabase Realtime for live updates, M365 SSO support
-- Node graph for swarm visualization -- React Flow v12 with custom AgentNode components
-- GitHub repo as single source of truth -- pipeline prompts shared between CLI and web app
-- Inngest for pipeline orchestration -- durable functions survive Vercel timeouts, waitForEvent for HITL
-- Supabase Broadcast over Postgres Changes -- avoids single-thread RLS bottleneck
-- [Phase 35]: Stage results stored in Supabase pipeline_steps.result, references returned from step.run() -- avoids Inngest state size limits
-- [Phase 35]: retryPipeline resets failed step AND all subsequent steps -- ensures clean slate for re-execution
-- [Phase 35]: Client-only new-run page with useActionState for form submission -- simpler than server/client split
-- [Phase 35]: Server component + client wrapper pattern for run detail -- server fetches, client polls and handles interactivity
-- [Phase 35]: 5-second polling via router.refresh() for live updates -- simple, replaced by Supabase Realtime in Phase 36
+
+Archived (V3.0 web infrastructure -- no longer relevant):
+- ~~Next.js + Supabase + Vercel for web app~~
+- ~~Node graph for swarm visualization~~
+- ~~GitHub repo as single source of truth (web + CLI shared pipeline)~~
+- ~~Inngest for pipeline orchestration~~
+- ~~Supabase Broadcast over Postgres Changes~~
+- ~~All Phase 34-35 web-specific decisions~~
 
 ### Blockers/Concerns
 
-- Prompt adapter is novel engineering with no prior art -- validate in Phase 35 before building UI
-- Inngest waitForEvent race condition (GitHub #1433) -- dual-write pattern needed for HITL approvals
-- Azure AD tenant misconfiguration silently allows any Microsoft account -- must test with personal account in Phase 34
+None -- V3.0 web-specific blockers removed (prompt adapter, Inngest race condition, Azure AD tenant were all web infrastructure concerns).
 
 ### Pending Todos
 
@@ -82,7 +74,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15
-Stopped at: Completed 35-03-PLAN.md
-Resume with: `/gsd:execute-phase 35` (plan 04 next)
-Resume file: `.planning/phases/35-pipeline-engine/35-03-SUMMARY.md`
+Last session: 2026-03-19
+Stopped at: Stripped V3.0 web interface from repo (quick task 260319-cbi)
+Resume with: Start V4.0 planning when ready
+Resume file: N/A -- between milestones
