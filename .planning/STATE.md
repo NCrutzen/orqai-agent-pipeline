@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 Phase: No active phase (V3.0 dropped, V4.0 not started)
 Plan: N/A
 Status: Between milestones
-Last activity: 2026-03-19 -- V3.0 web interface stripped from repo
+Last activity: 2026-03-19 - Completed quick task 260319-cbi: Strip web interface, Supabase, and Vercel — keep only the Orq AI agent pipeline skill
 
 Progress: V2.1 complete. V4.0 next.
 
@@ -67,6 +67,12 @@ Archived (V3.0 web infrastructure -- no longer relevant):
 ### Blockers/Concerns
 
 None -- V3.0 web-specific blockers removed (prompt adapter, Inngest race condition, Azure AD tenant were all web infrastructure concerns).
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260319-cbi | Strip web interface, Supabase, and Vercel — keep only the Orq AI agent pipeline skill | 2026-03-19 | 7cfa1d4 | [260319-cbi-strip-web-interface-supabase-and-vercel-](./quick/260319-cbi-strip-web-interface-supabase-and-vercel-/) |
 
 ### Pending Todos
 
