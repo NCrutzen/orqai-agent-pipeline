@@ -48,11 +48,11 @@ Exceptions: Run card uses 16px internal padding (p-4). Step timeline uses 24px b
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body | 14px (text-sm) | 400 (normal) | 1.43 (20px) | Run card descriptions, step log content, metadata text |
-| Label | 14px (text-sm) | 500 (medium) | 1.43 (20px) | Form labels, step display names, section headings |
+| Label | 14px (text-sm) | 600 (semibold) | 1.43 (20px) | Form labels, step display names, section headings |
 | Heading | 24px (text-2xl) | 600 (semibold) | 1.33 (32px) | Page titles: "New Pipeline Run", "All Pipeline Runs", project name |
 | Small | 12px (text-xs) | 400 (normal) | 1.33 (16px) | Timestamps, duration, metadata row, helper text, badge labels |
 
-Note: The shadcn radix-nova preset uses `text-sm` (14px) as the default body size across all components (cards, tabs, buttons). Page headings use `text-2xl` (24px). There is no display size in this phase. The `text-base` (16px) size is used only for CardTitle default and textarea on mobile (md:text-sm override on desktop).
+Note: Two weights only -- 400 (normal) for body/small text, 600 (semibold) for labels/headings. The shadcn radix-nova preset uses `text-sm` (14px) as the default body size across all components (cards, tabs, buttons). Page headings use `text-2xl` (24px). There is no display size in this phase. The `text-base` (16px) size is used only for CardTitle default and textarea on mobile (md:text-sm override on desktop).
 
 ---
 
