@@ -113,9 +113,9 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 **Requirements**: FOUND-01, FOUND-02, PROJ-01, PROJ-02, PROJ-03, PROJ-04
 **Success Criteria** (what must be TRUE):
   1. User can sign in with email/password and reach the app dashboard
-  2. Auth is configured so M365 SSO can be added as an additional provider without code changes
-  3. User can create a named project and invite colleagues to it
-  4. User only sees projects they belong to -- no cross-project data leakage
+  2. User can create a named project and invite colleagues to it
+  3. User only sees projects they belong to -- no cross-project data leakage
+**Deferred**: M365 SSO (FOUND-01, FOUND-02) moved to future phase -- Azure AD integration removed during development
 **Plans**: 3 plans
 
 Plans:
@@ -195,7 +195,7 @@ Phases execute in numeric order: 34 -> 35 -> 36 -> 37 -> 38
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 34. Foundation & Auth | 3/3 | Complete |  | 2026-03-20 |
+| 34. Foundation & Auth | 3/3 | Complete    | 2026-03-20 | 2026-03-20 |
 | 35. Pipeline Engine | 3/4 | In Progress|  | - |
 | 36. Dashboard & Graph | V3.0 | 0/TBD | Not started | - |
 | 37. HITL Approval | V3.0 | 0/TBD | Not started | - |
