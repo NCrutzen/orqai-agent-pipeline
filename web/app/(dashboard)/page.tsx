@@ -11,14 +11,20 @@ export default async function DashboardPage() {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
-  console.log("[DEBUG] Dashboard user:", user?.id, user?.email);
-
+  const { data: { session } } = await supabase.auth.getSession();
   const { data: projects, error } = await supabase
     .from("projects")
     .select("*, project_members(user_id)")
     .order("updated_at", { ascending: false });
 
-  console.log("[DEBUG] Projects query:", { count: projects?.length, error });
+  console.log("[DEBUG-ALL]", JSON.stringify({
+    userId: user?.id,
+    email: user?.email,
+    hasSession: !!session,
+    hasAccessToken: !!session?.access_token,
+    projectCount: projects?.length ?? 0,
+    queryError: error,
+  }));
 
   const projectList = projects ?? [];
 
