@@ -78,7 +78,7 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 
 **Milestone Goal:** Build a browser-based interface so non-technical colleagues can create, deploy, test, and iterate agent swarms on Orq.ai -- with authentication, real-time dashboard, node graph visualization, and HITL approval workflows.
 
-- [ ] **Phase 34: Foundation & Auth** - Next.js app shell, Supabase DB schema with RLS, Supabase auth (email/password, M365 SSO future), project CRUD
+- [x] **Phase 34: Foundation & Auth** - Next.js app shell, Supabase DB schema with RLS, Supabase auth (email/password, M365 SSO), project CRUD (completed 2026-03-20)
 - [ ] **Phase 35: Pipeline Engine** - Prompt adapter, Inngest durable functions, pipeline state machine, use case input form, run list
 - [ ] **Phase 36: Dashboard & Graph** - Real-time progress timeline, log stream, run list updates, interactive node graph with execution overlay
 - [ ] **Phase 37: HITL Approval** - Pipeline pause/resume, diff viewer, approve/reject flow, email notifications, audit trail
@@ -119,9 +119,9 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 **Plans**: 3 plans
 
 Plans:
-- [ ] 34-01-PLAN.md -- App scaffold, Supabase auth (email/password, M365 SSO future), proxy.ts, DB schema with RLS
-- [ ] 34-02-PLAN.md -- Project list home page, create project modal, invite flow (AD + email), project detail
-- [ ] 34-03-PLAN.md -- Checkpoint: verify auth flow, tenant restriction, project CRUD, invitation
+- [x] 34-01-PLAN.md -- App scaffold, Supabase auth (email/password, M365 SSO future), proxy.ts, DB schema with RLS
+- [x] 34-02-PLAN.md -- Project list home page, create project modal, invite flow (AD + email), project detail
+- [x] 34-03-PLAN.md -- Checkpoint: verify auth flow, tenant restriction, project CRUD, invitation
 
 ### Phase 35: Pipeline Engine
 **Goal**: Users can submit a use case description and watch it execute as a durable pipeline that survives server restarts and recovers from failures
@@ -195,7 +195,7 @@ Phases execute in numeric order: 34 -> 35 -> 36 -> 37 -> 38
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 34. Foundation & Auth | 2/3 | In Progress|  | - |
+| 34. Foundation & Auth | 3/3 | Complete |  | 2026-03-20 |
 | 35. Pipeline Engine | 3/4 | In Progress|  | - |
 | 36. Dashboard & Graph | V3.0 | 0/TBD | Not started | - |
 | 37. HITL Approval | V3.0 | 0/TBD | Not started | - |
