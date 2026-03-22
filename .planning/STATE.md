@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: executing
-stopped_at: Completed 34-03-PLAN.md (Phase 34 verification -- all checkpoints approved)
-last_updated: "2026-03-20T07:59:06.369Z"
-last_activity: "2026-03-20 - Completed 34-03-PLAN.md: Phase 34 verification (auth flow + project CRUD approved)"
+stopped_at: Phase 35 code complete, e2e checkpoint deferred
+last_updated: "2026-03-20T08:16:05.708Z"
+last_activity: "2026-03-22 - Completed 35-04-PLAN.md code (checkpoint deferred)"
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 7
-  completed_plans: 6
-  percent: 86
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
@@ -27,16 +27,16 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 35 of 38 (Pipeline Engine)
-Plan: 3 of 4 in current phase
-Status: Executing
-Last activity: 2026-03-20 - Completed 34-03-PLAN.md: Phase 34 verification (auth flow + project CRUD approved)
+Plan: 4 of 4 in current phase
+Status: Executing (checkpoint deferred)
+Last activity: 2026-03-22 - Completed 35-04-PLAN.md code (checkpoint verification deferred to next session)
 
 Progress: [████████░░] 86%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6 (V3.0)
+- Total plans completed: 7 (V3.0)
 - Average duration: 4 min
 - Total execution time: 0.4 hours
 
@@ -45,7 +45,7 @@ Progress: [████████░░] 86%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 34-foundation-auth | 3 | 11 min | 4 min |
-| 35-pipeline-engine | 3 | 12 min | 4 min |
+| 35-pipeline-engine | 4 | 16 min | 4 min |
 
 ## Accumulated Context
 
@@ -93,7 +93,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20
-Stopped at: Completed 34-03-PLAN.md (Phase 34 verification -- all checkpoints approved)
-Resume with: `/gsd:execute-phase 35` (plan 04 next)
-Resume file: `.planning/phases/34-foundation-auth/34-03-SUMMARY.md`
+Last session: 2026-03-20T08:16:05.700Z
+Stopped at: Phase 35 UI-SPEC approved
+Resume with: `/gsd:plan-phase 36` or test Phase 35 e2e checkpoint
+Resume file: .planning/phases/35-pipeline-engine/35-04-SUMMARY.md
