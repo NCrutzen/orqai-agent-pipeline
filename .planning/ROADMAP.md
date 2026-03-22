@@ -151,9 +151,10 @@ Plans:
   3. Run list page updates automatically when any pipeline run changes status
   4. User sees an interactive node graph showing agents, their roles, and tool connections
   5. Graph nodes light up during execution and display performance scores after completion
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 Plans:
+- [ ] 36-00-PLAN.md -- Wave 0: test infrastructure (vitest jsdom config, 5 test stub files for Nyquist compliance)
 - [ ] 36-01-PLAN.md -- Broadcast infrastructure, graph-mapper utility, pipeline Broadcast emissions, npm deps install
 - [ ] 36-02-PLAN.md -- React Flow graph components (AgentNode, AnimatedEdge, dagre layout, AgentDetailPanel, SwarmGraph wrapper with celebration)
 - [ ] 36-03-PLAN.md -- Page integration (graph-primary run detail, Sheet timeline drawer, live run list, Swarm Graph tab), verification checkpoint
@@ -198,7 +199,7 @@ Phases execute in numeric order: 34 -> 35 -> 36 -> 37 -> 38
 |-------|-----------|----------------|--------|-----------|
 | 34. Foundation & Auth | 3/3 | Complete    | 2026-03-20 | 2026-03-20 |
 | 35. Pipeline Engine | 4/4 | Complete   | 2026-03-22 | - |
-| 36. Dashboard & Graph | V3.0 | 0/3 | Not started | - |
+| 36. Dashboard & Graph | V3.0 | 0/4 | Not started | - |
 | 37. HITL Approval | V3.0 | 0/TBD | Not started | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
 

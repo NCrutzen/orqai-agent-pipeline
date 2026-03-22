@@ -2,8 +2,9 @@
 phase: 36
 slug: dashboard-graph
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
+wave_0_planned: true
 created: 2026-03-22
 ---
 
@@ -18,7 +19,7 @@ created: 2026-03-22
 | Property | Value |
 |----------|-------|
 | **Framework** | Vitest 4.1.x |
-| **Config file** | web/vitest.config.ts (needs verification) |
+| **Config file** | web/vitest.config.ts (updated in Plan 00 for jsdom + React) |
 | **Quick run command** | `cd web && npx vitest run --reporter=verbose` |
 | **Full suite command** | `cd web && npx vitest run` |
 | **Estimated runtime** | ~15 seconds |
@@ -38,29 +39,30 @@ created: 2026-03-22
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 36-01-01 | 01 | 1 | DASH-01 | unit | `npx vitest run tests/broadcast.test.ts -x` | ❌ W0 | ⬜ pending |
-| 36-01-02 | 01 | 1 | DASH-02 | unit | `npx vitest run tests/step-log-panel.test.ts -x` | ❌ W0 | ⬜ pending |
-| 36-01-03 | 01 | 1 | DASH-03 | unit | `npx vitest run tests/step-log-panel.test.ts -x` | ❌ W0 | ⬜ pending |
-| 36-01-04 | 01 | 1 | DASH-04 | unit | `npx vitest run tests/run-list-live.test.ts -x` | ❌ W0 | ⬜ pending |
-| 36-02-01 | 02 | 1 | GRAPH-01 | unit | `npx vitest run tests/swarm-graph.test.ts -x` | ❌ W0 | ⬜ pending |
-| 36-02-02 | 02 | 1 | GRAPH-02 | unit | `npx vitest run tests/agent-node.test.ts -x` | ❌ W0 | ⬜ pending |
-| 36-02-03 | 02 | 1 | GRAPH-03 | unit | `npx vitest run tests/swarm-graph.test.ts -x` | ❌ W0 | ⬜ pending |
-| 36-02-04 | 02 | 1 | GRAPH-04 | unit | `npx vitest run tests/agent-node.test.ts -x` | ❌ W0 | ⬜ pending |
+| 36-00-01 | 00 | 1 | ALL | infra | `npx vitest run lib/pipeline/__tests__/stages.test.ts -x` | Y (existing) | ⬜ pending |
+| 36-00-02 | 00 | 1 | ALL | stubs | `npx vitest run --reporter=verbose` (all stubs pending) | W0 creates | ⬜ pending |
+| 36-01-01 | 01 | 2 | DASH-01 | unit | `npx vitest run lib/supabase/__tests__/broadcast.test.ts -x` | W0 creates | ⬜ pending |
+| 36-01-02 | 01 | 2 | DASH-02,03 | unit | `npx vitest run lib/pipeline/__tests__/graph-mapper.test.ts -x` | W0 creates | ⬜ pending |
+| 36-02-01 | 02 | 3 | GRAPH-02,04 | unit | `npx vitest run components/graph/__tests__/agent-node.test.ts -x` | W0 creates | ⬜ pending |
+| 36-02-02 | 02 | 3 | GRAPH-01,03 | unit | `npx vitest run components/graph/__tests__/swarm-graph.test.ts -x` | W0 creates | ⬜ pending |
+| 36-03-01 | 03 | 4 | DASH-04 | unit | `npx vitest run components/dashboard/__tests__/run-list-live.test.ts -x` | W0 creates | ⬜ pending |
+| 36-03-02 | 03 | 4 | ALL | e2e | Human checkpoint (14 verification steps) | N/A | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
 ---
 
-## Wave 0 Requirements
+## Wave 0 Requirements (Plan 36-00)
 
-- [ ] `web/tests/broadcast.test.ts` — stubs for DASH-01 (broadcast events trigger UI updates)
-- [ ] `web/tests/step-log-panel.test.ts` — stubs for DASH-02, DASH-03 (step descriptions, timeline state indicators)
-- [ ] `web/tests/run-list-live.test.ts` — stubs for DASH-04 (run list live updates)
-- [ ] `web/tests/swarm-graph.test.ts` — stubs for GRAPH-01, GRAPH-03 (React Flow render, node status updates)
-- [ ] `web/tests/agent-node.test.ts` — stubs for GRAPH-02, GRAPH-04 (agent node display, score rendering)
-- [ ] Verify vitest config exists at `web/vitest.config.ts` and runs
-
-*If none: "Existing infrastructure covers all phase requirements."*
+- [ ] Verify vitest config exists at `web/vitest.config.ts` and supports jsdom + React plugin
+- [ ] Install `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`, `@vitejs/plugin-react`
+- [ ] Create `web/test-setup.ts` with jest-dom matcher registration
+- [ ] `web/lib/supabase/__tests__/broadcast.test.ts` — stubs for DASH-01 (broadcast events trigger UI updates)
+- [ ] `web/lib/pipeline/__tests__/graph-mapper.test.ts` — stubs for DASH-02, DASH-03 (graph data transformation)
+- [ ] `web/components/graph/__tests__/agent-node.test.ts` — stubs for GRAPH-02, GRAPH-04 (agent node display, score rendering)
+- [ ] `web/components/graph/__tests__/swarm-graph.test.ts` — stubs for GRAPH-01, GRAPH-03 (React Flow render, node status updates)
+- [ ] `web/components/dashboard/__tests__/run-list-live.test.ts` — stubs for DASH-04 (run list live updates)
+- [ ] Existing `lib/pipeline/__tests__/stages.test.ts` continues to pass
 
 ---
 
@@ -77,11 +79,11 @@ created: 2026-03-22
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (Plan 36-00 creates all 5 test files)
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** pending execution of Plan 36-00
