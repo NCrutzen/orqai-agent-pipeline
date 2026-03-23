@@ -60,20 +60,79 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 - [ ] **ACTV-03**: Webhook trigger starts the full pipeline and returns a run ID
 - [ ] **ACTV-04**: External systems can check run status via the run ID
 
+## V4.0 Requirements
+
+Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
+
+### Detection & SOP Intake
+
+- [ ] **DETECT-01**: Pipeline auto-detects when a designed agent needs browser automation for a no-API system
+- [ ] **DETECT-02**: User can upload SOP document (Word/PDF) describing the target process
+- [ ] **DETECT-03**: User can upload screenshots of the target system screens
+- [ ] **DETECT-04**: Structured intake wizard validates SOP completeness before script generation
+- [ ] **DETECT-05**: Pipeline skips automation builder when target system has an API
+
+### AI Vision & Annotation (via Orq.ai)
+
+- [ ] **VISION-01**: AI analyzes screenshots via Orq.ai (Agent or AI Routing) to identify UI elements and layout
+- [ ] **VISION-02**: AI parses SOP document and correlates steps with screenshot elements
+- [ ] **VISION-03**: AI presents annotated screenshots with highlighted elements back to user
+- [ ] **VISION-04**: User can confirm or correct AI's interpretation of each automation step
+- [ ] **VISION-05**: AI incorporates user corrections and updates its understanding
+
+### Script Generation & Testing
+
+- [ ] **SCRIPT-01**: AI generates Playwright script from confirmed steps using getByRole/getByText locators
+- [ ] **SCRIPT-02**: Script executes on Browserless.io (REST `/function` for simple, BaaS for stateful multi-step)
+- [ ] **SCRIPT-03**: User can view Session Replay recording of test execution (RRWeb-based, built-in Browserless.io)
+- [ ] **SCRIPT-04**: Iterative test-fix loop: AI diagnoses failures and proposes script fixes
+- [ ] **SCRIPT-05**: DOM accessibility tree captured on execution for informed iteration
+- [ ] **SCRIPT-06**: Convergence detection stops iteration when script stabilizes
+- [ ] **SCRIPT-07**: Hard iteration cap (5 max) prevents runaway testing
+- [ ] **SCRIPT-08**: Persistent sessions maintain auth state across test iterations (cookies/localStorage)
+
+### MCP Deployment & Agent Attachment
+
+- [ ] **MCPTL-01**: Verified Playwright script deploys as MCP tool on same Vercel deployment
+- [ ] **MCPTL-02**: MCP tool automatically attaches to the Orq.ai agent that needs it
+- [ ] **MCPTL-03**: Orq.ai agent can call the browser automation MCP tool during execution
+
+### Credential Management
+
+- [ ] **CRED-01**: User can securely store credentials for target systems
+- [ ] **CRED-02**: Credentials inject at runtime into Playwright script execution on Browserless.io
+- [ ] **CRED-03**: Credential rotation reminders notify when credentials may need updating
+- [ ] **CRED-04**: Per-system authentication profiles support different auth methods
+
+### Standalone Automations
+
+- [ ] **AUTO-01**: User can create browser automations standalone (without the agent pipeline)
+- [ ] **AUTO-02**: Simple automations can be described conversationally without SOP + screenshots
+- [ ] **AUTO-03**: Complex standalone automations use the full SOP + screenshot flow
+- [ ] **AUTO-04**: User can manage automations from the web app dashboard (list, view, edit, delete)
+
+### Scheduling & External Triggers
+
+- [ ] **TRIG-01**: User can schedule automations from the web app (daily, weekly, cron)
+- [ ] **TRIG-02**: Automations can be triggered via webhook endpoint (HTTP POST)
+- [ ] **TRIG-03**: Custom Zapier integration with callback URL for result waiting in larger flows
+- [ ] **TRIG-04**: Automation execution results returned to caller (webhook response, Zapier callback)
+
 ## Future Requirements
 
-### V4.0 Cross-Swarm Intelligence
+### V5.0 Cross-Swarm Intelligence
 
 - **XSWM-01**: Unified inventory of all swarms from local specs and live Orq.ai state
 - **XSWM-02**: Drift detection between spec and deployed state
 - **XSWM-03**: Overlap and gap analysis across swarms
 - **XSWM-04**: Structured fix proposals with HITL approval
 
-### V5.0 Browser Automation
+### V4.0+ Automation Enhancements
 
-- **BRWS-01**: Playwright script generation for deterministic browser flows
-- **BRWS-02**: VPS-hosted MCP server for script execution
-- **BRWS-03**: Agent spec wiring with browser automation MCP tools
+- **AUTOX-01**: Health check canaries for deployed automations (detect UI changes)
+- **AUTOX-02**: Automation versioning when target system UI changes
+- **AUTOX-03**: Multi-step automations spanning multiple systems in sequence
+- **AUTOX-04**: Automation templates for common enterprise patterns
 
 ## Out of Scope
 
@@ -86,8 +145,11 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 | Multi-tenant workspace separation | Single company; projects provide sufficient isolation |
 | Custom evaluator configuration UI | Pipeline auto-selects evaluators based on agent role |
 | Mobile-optimized interface | 5-15 internal users on office desktops/laptops |
-| Zapier integration | Existing Orq.ai Zapier integration covers this |
 | Generative UI | Non-technical users need consistency, not AI-generated interfaces |
+| Dynamic/exploratory browser-use | Already handled by existing Orq.ai MCP tools |
+| No-code visual builder / record-replay | Contradicts SOP-upload value proposition |
+| Self-hosted Playwright infrastructure | Browserless.io SaaS handles this |
+| BrowserQL stealth mode | Internal enterprise systems don't need anti-detection (available as fallback) |
 
 ## Traceability
 
@@ -126,11 +188,16 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 | ACTV-03 | Phase 38 | Pending |
 | ACTV-04 | Phase 38 | Pending |
 
-**Coverage:**
+**V3.0 Coverage:**
 - V3.0 requirements: 32 total
 - Mapped to phases: 32
 - Unmapped: 0
 
+**V4.0 Coverage:**
+- V4.0 requirements: 32 total
+- Mapped to phases: 0
+- Unmapped: 32 (pending roadmap creation)
+
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after roadmap creation*
+*Last updated: 2026-03-23 after V4.0 requirements definition*
