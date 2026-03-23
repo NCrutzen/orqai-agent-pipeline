@@ -288,6 +288,34 @@ export const executePipeline = inngest.createFunction(
             approvalId: id,
           });
 
+          // Send email notification (best-effort)
+          try {
+            const { sendApprovalEmail } = await import("@/lib/email/approval-notification");
+
+            // Fetch user email and project name
+            const { data: runData } = await admin
+              .from("pipeline_runs")
+              .select("created_by, project_id, projects(name)")
+              .eq("id", runId)
+              .single();
+
+            if (runData?.created_by) {
+              const { data: userData } = await admin.auth.admin.getUserById(runData.created_by);
+              if (userData?.user?.email) {
+                await sendApprovalEmail({
+                  runId,
+                  approvalId: id,
+                  recipientEmail: userData.user.email,
+                  projectName: (runData as any).projects?.name || "Unknown Project",
+                  projectId: runData.project_id,
+                  stepName: stage.displayName,
+                });
+              }
+            }
+          } catch (emailError) {
+            console.error("[pipeline] Email notification failed (non-blocking):", emailError);
+          }
+
           return id;
         });
 
