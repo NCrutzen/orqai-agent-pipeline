@@ -9,6 +9,7 @@ model: inherit
 - orq-agent/references/orchestration-patterns.md
 - orq-agent/references/orqai-model-catalog.md
 - orq-agent/references/naming-conventions.md
+- orq-agent/systems.md
 </files_to_read>
 
 <role>
@@ -53,6 +54,25 @@ Common over-engineering signals:
 
 </complexity_gate>
 </decision_framework>
+
+<systems_awareness>
+
+## Systems Awareness
+
+Before designing the swarm topology, check if `orq-agent/systems.md` exists and contains user-defined systems (not just the default examples).
+
+If systems.md contains real system entries:
+1. Cross-reference the use case description against the listed systems
+2. For systems with `integration_method: browser-automation`, note that these will need MCP tool integration via Playwright scripts (workflow to be handled by downstream agents)
+3. For systems with `integration_method: api`, note standard API tool integration
+4. For systems with `integration_method: knowledge-base`, note KB tool requirement
+5. For systems with `integration_method: manual`, note human-handoff requirement in the agent's instructions
+
+If systems.md contains only examples or does not exist, proceed with standard analysis -- infer integration methods from the use case description and web research.
+
+This awareness informs tool selection and agent responsibility assignment but does NOT change the complexity gate logic. A single agent can still use multiple integration methods.
+
+</systems_awareness>
 
 <output_format>
 

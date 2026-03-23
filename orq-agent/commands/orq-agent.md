@@ -14,6 +14,7 @@ Follow each step in order. Do not skip steps. Do not proceed past a checkpoint u
 
 <files_to_read>
 - orq-agent/SKILL.md
+- orq-agent/systems.md
 </files_to_read>
 
 <pipeline>

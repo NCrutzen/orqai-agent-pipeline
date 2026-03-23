@@ -12,6 +12,7 @@ Generate complete, copy-paste-ready Orq.ai Agent specifications with orchestrati
 ```
 orq-agent/
   SKILL.md                       # This file -- skill index
+  systems.md                     # User-configurable IT systems registry
   commands/
     orq-agent.md                 # Phase 3: Orchestrator slash command
     prompt.md                    # Quick single-agent spec generator
@@ -228,3 +229,10 @@ Packages required by V2.0 subagents at runtime. Not installed by `install.sh` (w
 - **MCP-first V2.0:** Deploy/test/iterate use MCP when available, V1.0 copy-paste fallback otherwise
 - **Clean install:** Always overwrite from GitHub; no user customization preservation
 - **`--gsd` flag is a hint:** Skill works standalone without GSD installed
+
+## User Configuration
+
+| File | Purpose | Managed By |
+|------|---------|------------|
+| `systems.md` | IT systems your agents interact with (integration methods, URLs, auth) | User |
+| `.orq-agent/config.json` | Capability tier, model profile, API key | Installer |
