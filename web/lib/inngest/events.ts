@@ -11,4 +11,13 @@ export type Events = {
       resumeFromStep?: string;
     };
   };
+  "pipeline/approval.decided": {
+    data: {
+      approvalId: string;
+      runId: string;
+      decision: "approved" | "rejected";
+      decidedBy: string;
+      comment: string | null;
+    };
+  };
 };

@@ -19,12 +19,13 @@ import { createClient } from "@/lib/supabase/client";
 
 export interface StepUpdatePayload {
   stepName: string;
-  status: "pending" | "running" | "complete" | "failed" | "skipped";
+  status: "pending" | "running" | "complete" | "failed" | "skipped" | "waiting";
   displayName: string;
   durationMs?: number;
   stepsCompleted?: number;
   runStatus?: string;
   log?: string;
+  approvalId?: string;
 }
 
 export interface RunUpdatePayload {

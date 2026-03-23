@@ -15,6 +15,8 @@ export interface PipelineStage {
   displayName: string;
   /** Execution order (1-based) */
   stepOrder: number;
+  /** Whether this stage requires human approval before its changes are applied */
+  needsApproval?: boolean;
 }
 
 const PIPELINE_REPO_RAW_URL =
