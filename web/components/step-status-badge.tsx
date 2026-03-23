@@ -1,9 +1,9 @@
 "use client";
 
-import { CheckCircle2, XCircle, Clock, Loader2, MinusCircle, PauseCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Loader2, MinusCircle, PauseCircle, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-export type StepStatus = "pending" | "running" | "complete" | "failed" | "skipped" | "waiting";
+export type StepStatus = "pending" | "running" | "complete" | "failed" | "skipped" | "waiting" | "uploading" | "analyzing" | "reviewing";
 
 interface StepStatusBadgeProps {
   status: StepStatus;
@@ -55,6 +55,24 @@ const statusConfig: Record<
     icon: PauseCircle,
     className: "bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800 dark:text-amber-400 animate-pulse",
   },
+  uploading: {
+    label: "Uploading SOP",
+    variant: "default",
+    icon: Upload,
+    className: "bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800 dark:text-blue-400",
+  },
+  analyzing: {
+    label: "Analyzing...",
+    variant: "default",
+    icon: Loader2,
+    className: "bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800 dark:text-blue-400 animate-pulse",
+  },
+  reviewing: {
+    label: "Awaiting Review",
+    variant: "default",
+    icon: PauseCircle,
+    className: "bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800 dark:text-amber-400 animate-pulse",
+  },
 };
 
 export function StepStatusBadge({ status, className }: StepStatusBadgeProps) {
@@ -67,7 +85,7 @@ export function StepStatusBadge({ status, className }: StepStatusBadgeProps) {
       className={`${config.className} ${className ?? ""}`}
     >
       <Icon
-        className={`size-3 ${status === "running" ? "animate-spin" : ""}`}
+        className={`size-3 ${status === "running" || status === "analyzing" ? "animate-spin" : ""}`}
       />
       {config.label}
     </Badge>
