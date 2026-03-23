@@ -187,9 +187,11 @@ CONFIG_FILE="$CONFIG_DIR/config.json"
 # Detect existing config for re-install/upgrade handling
 EXISTING_TIER=""
 EXISTING_OVERRIDES="{}"
+EXISTING_BROWSER_TOOL=""
 if [ -f "$CONFIG_FILE" ]; then
   EXISTING_TIER=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$CONFIG_FILE','utf8')).tier)}catch(e){}" 2>/dev/null || echo "")
   EXISTING_OVERRIDES=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$CONFIG_FILE','utf8'));console.log(JSON.stringify(c.model_overrides||{}))}catch(e){console.log('{}')}" 2>/dev/null || echo "{}")
+  EXISTING_BROWSER_TOOL=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$CONFIG_FILE','utf8')).browser_tool||'')}catch(e){}" 2>/dev/null || echo "")
 fi
 
 # --- Tier Selection (INST-01) ---
@@ -357,6 +359,65 @@ esac
 
 echo -e "  ${GREEN}Profile selected: ${SELECTED_PROFILE}${NC}"
 
+# --- Browser Automation Setup (optional) ---
+echo ""
+echo -e "${BOLD}Browser automation support (optional):${NC}"
+echo ""
+echo "  If your agents interact with web-only systems (no API), you can"
+echo "  configure a browser automation tool. Skip this if unsure."
+echo ""
+echo "  ┌───────────────┬────────────────────────────────────────────┐"
+echo "  │ Option        │ Description                                │"
+echo "  ├───────────────┼────────────────────────────────────────────┤"
+echo "  │ none          │ Skip -- no browser automation              │"
+echo "  │ browserless   │ Browserless.io (cloud, recommended)        │"
+echo "  │ playwright    │ Local Playwright (self-managed)            │"
+echo "  │ other         │ Other tool (configure manually later)      │"
+echo "  └───────────────┴────────────────────────────────────────────┘"
+echo ""
+
+if [ -n "$EXISTING_BROWSER_TOOL" ]; then
+  echo -e "  Current: ${BOLD}${EXISTING_BROWSER_TOOL}${NC}"
+  read -p "  Select browser tool [none/browserless/playwright/other] (enter to keep $EXISTING_BROWSER_TOOL): " SELECTED_BROWSER_TOOL </dev/tty
+  if [ -z "$SELECTED_BROWSER_TOOL" ]; then
+    SELECTED_BROWSER_TOOL="$EXISTING_BROWSER_TOOL"
+  fi
+else
+  read -p "  Select browser tool [none/browserless/playwright/other] (default: none): " SELECTED_BROWSER_TOOL </dev/tty
+  if [ -z "$SELECTED_BROWSER_TOOL" ]; then
+    SELECTED_BROWSER_TOOL="none"
+  fi
+fi
+
+case "$SELECTED_BROWSER_TOOL" in
+  none|browserless|playwright|other) ;;
+  *) echo -e "  ${YELLOW}Invalid choice. Defaulting to none.${NC}"; SELECTED_BROWSER_TOOL="none" ;;
+esac
+
+echo -e "  ${GREEN}Browser tool: ${SELECTED_BROWSER_TOOL}${NC}"
+
+BROWSERLESS_MCP_REGISTERED=false
+
+if [ "$SELECTED_BROWSER_TOOL" = "browserless" ]; then
+  echo ""
+  read -sp "  Enter your Browserless.io API token: " BROWSERLESS_TOKEN </dev/tty
+  echo ""
+
+  if [ -n "$BROWSERLESS_TOKEN" ]; then
+    # Register Browserless.io MCP server
+    echo "  Registering Browserless.io MCP server..."
+    if claude mcp add --transport sse --scope user browserless-mcp \
+      "https://production-gateway.browserless.io/mcp?token=${BROWSERLESS_TOKEN}" 2>/dev/null; then
+      echo -e "  ${GREEN}Browserless.io MCP server registered.${NC}"
+      BROWSERLESS_MCP_REGISTERED=true
+    else
+      echo -e "  ${YELLOW}MCP registration failed. Configure manually later.${NC}"
+    fi
+  else
+    echo -e "  ${YELLOW}No token provided. Configure Browserless.io MCP manually later.${NC}"
+  fi
+fi
+
 # --- Config File Creation ---
 mkdir -p "$CONFIG_DIR"
 
@@ -373,8 +434,10 @@ const config = {
   model_profile: '$SELECTED_PROFILE',
   model_overrides: $MODEL_OVERRIDES,
   orq_api_key: '${ORQ_API_KEY:-}',
+  browser_tool: '$SELECTED_BROWSER_TOOL',
   installed_at: new Date().toISOString(),
-  orqai_mcp_registered: $MCP_REGISTERED
+  orqai_mcp_registered: $MCP_REGISTERED,
+  browserless_mcp_registered: $BROWSERLESS_MCP_REGISTERED
 };
 require('fs').writeFileSync('$CONFIG_FILE', JSON.stringify(config, null, 2) + '\n');
 "
@@ -389,6 +452,9 @@ echo ""
 echo -e "${GREEN}===========================================${NC}"
 echo -e "${GREEN}  Orq Agent Designer v${INSTALLED_VERSION} installed!${NC}"
 echo -e "${GREEN}  Tier: ${SELECTED_TIER}${NC}"
+if [ "$SELECTED_BROWSER_TOOL" != "none" ]; then
+  echo -e "${GREEN}  Browser tool: ${SELECTED_BROWSER_TOOL}${NC}"
+fi
 echo -e "${GREEN}===========================================${NC}"
 echo ""
 echo -e "  ${BOLD}Quick start:${NC}"
