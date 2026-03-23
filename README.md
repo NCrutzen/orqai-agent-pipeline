@@ -1,6 +1,6 @@
 # Orq Agent Designer
 
-Generate, deploy, test, iterate, and harden Orq.ai agent swarms from a simple use case description. Built as a Claude Code skill for the Moyne Roberts team.
+Generate, deploy, test, iterate, and harden Orq.ai agent swarms from a simple use case description. A Claude Code skill that turns plain-language use cases into production-ready agents.
 
 ## What it does
 
@@ -137,6 +137,6 @@ Or re-run the install command -- it updates to the latest version automatically.
 
 **"Claude Code is not installed"** -- Run `npm install -g @anthropic-ai/claude-code` in your terminal
 
-**"Permission denied"** -- Try running the install command with `sudo` in front, or contact Nick
+**"Permission denied"** -- Try running the install command with `sudo` in front
 
 **Skill not showing up in Claude Code** -- Make sure Claude Code is up to date (`npm update -g @anthropic-ai/claude-code`), then restart it
