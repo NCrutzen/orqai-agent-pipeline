@@ -11,7 +11,6 @@ Build a Claude Code skill that transforms natural language use case descriptions
 | **v0.3** | Core Pipeline + V2.0 Foundation -- V1.0 spec generation + V2.0 install infrastructure | **Shipped 2026-03-01** |
 | **V2.0** | Autonomous Orq.ai Pipeline -- deploy, test, iterate, and harden agent swarms via MCP/API | **Shipped 2026-03-02** |
 | **V2.1** | Experiment Pipeline Restructure -- rewrite test/iterate with native MCP, smaller subagents | **Shipped 2026-03-13** |
-| **V3.0** | Web UI & Dashboard -- browser-based pipeline with real-time visibility, node graph, HITL approvals | **Dropped** (web interface removed from scope 2026-03-19) |
 | **V4.0** | Cross-Swarm Intelligence -- ecosystem mapping, drift detection, overlap analysis, and fix proposals | **Defined** |
 | **V5.0** | Browser Automation -- Playwright script generation, VPS MCP server, automated deployment, agent spec wiring | **Defined** |
 
@@ -75,19 +74,6 @@ Build a Claude Code skill that transforms natural language use case descriptions
 ## Phases
 
 <details>
-<summary>V3.0 Web UI & Dashboard (Phases 34-38) -- DROPPED</summary>
-
-**Status:** Dropped (2026-03-19). Web interface removed from scope. Project refocused on CLI pipeline skill.
-
-- [Dropped] **Phase 34: Foundation & Auth** - Next.js app shell, Supabase DB schema with RLS, M365 SSO with tenant restriction, project CRUD
-- [Dropped] **Phase 35: Pipeline Engine** - Prompt adapter, Inngest durable functions, pipeline state machine, use case input form, run list
-- [Dropped] **Phase 36: Dashboard & Graph** - Real-time progress timeline, log stream, run list updates, interactive node graph with execution overlay
-- [Dropped] **Phase 37: HITL Approval** - Pipeline pause/resume, diff viewer, approve/reject flow, email notifications, audit trail
-- [Dropped] **Phase 38: Swarm Activation** - Webhook endpoints for external pipeline triggering with API key auth and status polling
-
-</details>
-
-<details>
 <summary>V4.0 Cross-Swarm Intelligence (Phases 39-43) -- DEFINED</summary>
 
 - [ ] Phase 39: Ecosystem Foundation -- Unified inventory of all swarms from local specs and live Orq.ai state
@@ -111,15 +97,9 @@ Build a Claude Code skill that transforms natural language use case descriptions
 ## Progress
 
 **Execution Order:**
-V3.0 phases dropped. Next active milestone: V4.0 (Phases 39-43).
+Next active milestone: V4.0 (Phases 39-43).
 
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| ~~34. Foundation & Auth~~ | V3.0 | - | **Dropped** | 2026-03-19 |
-| ~~35. Pipeline Engine~~ | V3.0 | - | **Dropped** | 2026-03-19 |
-| ~~36. Dashboard & Graph~~ | V3.0 | - | **Dropped** | 2026-03-19 |
-| ~~37. HITL Approval~~ | V3.0 | - | **Dropped** | 2026-03-19 |
-| ~~38. Swarm Activation~~ | V3.0 | - | **Dropped** | 2026-03-19 |
+(No active phases -- V4.0 not yet started)
 
 ## Progress Summary
 
@@ -128,6 +108,5 @@ V3.0 phases dropped. Next active milestone: V4.0 (Phases 39-43).
 | v0.3 | 1-05.2 (11 phases) | 28/28 | **Shipped** | 2026-03-01 |
 | V2.0 | 6-11 (7 phases) | 11/11 | **Shipped** | 2026-03-02 |
 | V2.1 | 26-33 (8 phases) | 9/9 | **Shipped** | 2026-03-13 |
-| V3.0 | 34-38 (5 phases) | - | **Dropped** (2026-03-19) | - |
 | V4.0 | 39-43 (5 phases) | 0/TBD | **Defined** | - |
 | V5.0 | 44-47 (4 phases) | 0/TBD | **Defined** | - |

@@ -46,16 +46,6 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 - ✓ Failure-diagnoser + prompt-editor for section-level diagnosis and HITL-approved iteration (ITPIPE-01 through ITPIPE-06) — V2.1
 - ✓ Rewritten iterate.md with 2-subagent loop and 5 stop conditions (LOOP-01 through LOOP-03) — V2.1
 
-### Archived (V3.0 -- Removed)
-
-**V3.0 Web UI & Dashboard** -- Archived 2026-03-19. Web interface removed from scope; project refocused on CLI pipeline skill.
-- ~~Browser-based pipeline with real-time visibility for non-technical colleagues~~
-- ~~M365 SSO authentication (Azure AD)~~
-- ~~Self-service use case input to deployed agents via browser~~
-- ~~Real-time pipeline dashboard with run list, progress, log stream, and performance scores~~
-- ~~Interactive node graph visualization of agent swarms with execution overlay~~
-- ~~HITL approval flow with in-app approve/reject, queue, history, and email notifications~~
-
 ### Out of Scope
 
 - Orq.ai Deployments — output targets Agents API (`/v2/agents`), not the simpler Deployments pattern
@@ -65,7 +55,7 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 
 ## Current Milestone
 
-V3.0 Web UI removed from scope (2026-03-19). Next milestone: V4.0 Cross-Swarm Intelligence.
+Next milestone: V4.0 Cross-Swarm Intelligence.
 
 **V4.0 Goal:** As swarms multiply across business processes, they develop blind spots -- overlapping work, missing handoffs, conflicting actions. The ultra architect layer provides cross-swarm awareness with ecosystem mapping, drift detection, overlap analysis, and fix proposals.
 
@@ -79,7 +69,7 @@ V3.0 Web UI removed from scope (2026-03-19). Next milestone: V4.0 Cross-Swarm In
 - **Distribution model:** Claude Code skill (`/orq-agent`) distributed via GitHub install script.
 - **Users:** 5-15 Moyne Roberts employees. Claude Code skill is the primary interface for agent pipeline operations.
 - **Codebase:** 10,628 lines across orq-agent/ (markdown + JSON). 43 files: 11 agents, 5 commands, 8 references, 7 templates, SKILL.md, install script
-- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements), V2.1 (2026-03-13, 24 requirements). V3.0-V5.0 defined, not yet shipped
+- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements), V2.1 (2026-03-13, 24 requirements). V4.0-V5.0 defined, not yet started
 
 ## Constraints
 
@@ -104,10 +94,6 @@ V3.0 Web UI removed from scope (2026-03-19). Next milestone: V4.0 Cross-Swarm In
 | Native `settings.guardrails` API for guardrail attachment | Direct Orq.ai integration, no application-layer workarounds | ✓ Good |
 | Holdout dataset for re-test | Clean isolation between training and iteration testing | ✓ Good |
 | HITL approval before any prompt change | Non-technical users maintain trust and control | ✓ Good |
-| Next.js + Supabase + Vercel for web app | Existing tech stack, Supabase Realtime for live updates, M365 SSO support, zero infrastructure management | Dropped -- V3.0 removed from scope |
-| Node graph for swarm visualization | Intuitive representation of agent relationships and data flow, lights up during pipeline execution | Dropped -- V3.0 removed from scope |
-| GitHub repo as single source of truth | Pipeline prompts shared between Claude Code skill and web app, auto-deploy on push | Dropped -- V3.0 removed from scope |
-
 | Cross-swarm intelligence layer | Swarms grow siloed; need ecosystem-level awareness to prevent overlaps and missing handoffs | — Pending |
 | Dual source of truth (specs + Orq.ai) | Drift detection requires reading both local specs and live deployed state | — Pending |
 | Auto-apply low-risk, escalate structural | Shared context additions are safe; rewiring agent relationships needs human judgment | — Pending |
@@ -116,4 +102,4 @@ V3.0 Web UI removed from scope (2026-03-19). Next milestone: V4.0 Cross-Swarm In
 | Application capabilities config file | Pipeline reads per-system integration method from config; discussion step fills gaps for unknown systems | — Pending |
 
 ---
-*Last updated: 2026-03-19 after V3.0 web interface stripped from scope*
+*Last updated: 2026-03-23*
