@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InviteMemberModal } from "@/components/invite-member-modal";
 import { RunListLive } from "@/components/dashboard/run-list-live";
 import { SwarmGraph } from "@/components/graph/swarm-graph";
+import { ProjectCredentialLinker } from "@/components/credentials/project-credential-linker";
 import { ChevronRight, Calendar, Play, Plus, Network } from "lucide-react";
 
 interface PageProps {
@@ -52,6 +53,29 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           a.step_order - b.step_order
       )
     : [];
+
+  // Fetch credentials linked to this project
+  const { data: credentialLinks } = await supabase
+    .from("credential_project_links")
+    .select("credential_id")
+    .eq("project_id", id);
+  const linkedIds = new Set(
+    (credentialLinks ?? []).map(
+      (l: { credential_id: string }) => l.credential_id
+    )
+  );
+
+  // Fetch all user's credentials
+  const { data: allCredentials } = await supabase
+    .from("credentials")
+    .select("id, name, auth_type, status");
+
+  const linkedCredentials = (allCredentials ?? []).filter(
+    (c: { id: string }) => linkedIds.has(c.id)
+  );
+  const availableCredentials = (allCredentials ?? []).filter(
+    (c: { id: string }) => !linkedIds.has(c.id)
+  );
 
   // Fetch member emails for display
   const members: { user_id: string; email?: string }[] = (
@@ -108,6 +132,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="runs">Runs</TabsTrigger>
           <TabsTrigger value="swarm-graph">Swarm Graph</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         {/* Overview tab -- existing members content */}
@@ -201,6 +226,17 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               </p>
             </div>
           )}
+        </TabsContent>
+
+        {/* Settings tab */}
+        <TabsContent value="settings">
+          <div className="mt-4">
+            <ProjectCredentialLinker
+              projectId={id}
+              linkedCredentials={linkedCredentials}
+              availableCredentials={availableCredentials}
+            />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

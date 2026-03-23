@@ -12,6 +12,7 @@
 import { useEffect, useRef } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/client";
+import type { HealthUpdatePayload } from "@/lib/credentials/types";
 
 // ---------------------------------------------------------------------------
 // Payload types
@@ -70,6 +71,23 @@ export async function broadcastRunUpdate(
   await channel.send({
     type: "broadcast",
     event: "run-update",
+    payload,
+  });
+  admin.removeChannel(channel);
+}
+
+/**
+ * Broadcast health check results to the health dashboard.
+ * Channel: health:status, Event: health-update
+ */
+export async function broadcastHealthUpdate(
+  payload: HealthUpdatePayload
+): Promise<void> {
+  const admin = createAdminClient();
+  const channel = admin.channel("health:status");
+  await channel.send({
+    type: "broadcast",
+    event: "health-update",
     payload,
   });
   admin.removeChannel(channel);
