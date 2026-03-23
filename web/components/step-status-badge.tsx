@@ -1,9 +1,9 @@
 "use client";
 
-import { CheckCircle2, XCircle, Clock, Loader2, MinusCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Loader2, MinusCircle, PauseCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-export type StepStatus = "pending" | "running" | "complete" | "failed" | "skipped";
+export type StepStatus = "pending" | "running" | "complete" | "failed" | "skipped" | "waiting";
 
 interface StepStatusBadgeProps {
   status: StepStatus;
@@ -48,6 +48,12 @@ const statusConfig: Record<
     variant: "outline",
     icon: MinusCircle,
     className: "text-muted-foreground",
+  },
+  waiting: {
+    label: "Waiting for Approval",
+    variant: "default",
+    icon: PauseCircle,
+    className: "bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800 dark:text-amber-400 animate-pulse",
   },
 };
 

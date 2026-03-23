@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Clock,
   Timer,
@@ -32,6 +32,7 @@ import {
   useBroadcast,
   type StepUpdatePayload,
 } from "@/lib/supabase/broadcast";
+import { createClient } from "@/lib/supabase/client";
 import { retryPipeline } from "../../new-run/actions";
 
 interface PipelineRun {
@@ -88,9 +89,91 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [useCaseExpanded, setUseCaseExpanded] = useState(false);
   const [showJumpButton, setShowJumpButton] = useState(false);
+  const [approvalMap, setApprovalMap] = useState<Record<string, PipelineStep["approvalData"]>>({});
   const timelineRef = useRef<HTMLDivElement>(null);
   const activeStepRef = useRef<HTMLDivElement>(null);
   const userScrolledRef = useRef(false);
+
+  // ---------------------------------------------------------------------------
+  // Approval data fetching
+  // ---------------------------------------------------------------------------
+
+  const supabase = useMemo(() => createClient(), []);
+
+  async function fetchApprovalData(approvalId: string, stepName: string) {
+    try {
+      const { data } = await supabase
+        .from("approval_requests")
+        .select("id, old_content, new_content, explanation, status, decided_by, decided_at, comment")
+        .eq("id", approvalId)
+        .single();
+
+      if (data) {
+        setApprovalMap((prev) => ({
+          ...prev,
+          [stepName]: {
+            id: data.id,
+            oldContent: data.old_content,
+            newContent: data.new_content,
+            explanation: data.explanation,
+            status: data.status as "pending" | "approved" | "rejected" | "expired",
+            decidedBy: data.decided_by || undefined,
+            decidedAt: data.decided_at || undefined,
+            comment: data.comment,
+          },
+        }));
+      }
+    } catch {
+      // Best-effort -- approval panel will show loading state
+    }
+  }
+
+  // Fetch approval data for any existing waiting steps on mount
+  useEffect(() => {
+    steps.forEach((step) => {
+      if (step.status === "waiting") {
+        supabase
+          .from("approval_requests")
+          .select("id, old_content, new_content, explanation, status, decided_by, decided_at, comment")
+          .eq("run_id", run.id)
+          .eq("step_name", step.name)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              setApprovalMap((prev) => ({
+                ...prev,
+                [step.name]: {
+                  id: data.id,
+                  oldContent: data.old_content,
+                  newContent: data.new_content,
+                  explanation: data.explanation,
+                  status: data.status as "pending" | "approved" | "rejected" | "expired",
+                  decidedBy: data.decided_by || undefined,
+                  decidedAt: data.decided_at || undefined,
+                  comment: data.comment,
+                },
+              }));
+            }
+          });
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount
+
+  // Handle deep link from email (?approval= query param)
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const approvalId = url.searchParams.get("approval");
+    if (approvalId) {
+      // Open the sheet drawer and find the waiting step
+      setDrawerOpen(true);
+      // Clean up the URL
+      url.searchParams.delete("approval");
+      window.history.replaceState({}, "", url.pathname);
+    }
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Broadcast subscription for step updates (replaces 5-second polling)
@@ -115,12 +198,39 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
     if (payload.runStatus) {
       setRunStatus(payload.runStatus);
     }
+    // Fetch approval data when step enters waiting state
+    if (payload.status === "waiting" && payload.approvalId) {
+      fetchApprovalData(payload.approvalId, payload.stepName);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useBroadcast<StepUpdatePayload>(
     `run:${run.id}`,
     "step-update",
     handleStepUpdate
+  );
+
+  // Subscribe to approval-decided events for multi-user scenarios
+  useBroadcast<{ approvalId: string; decision: string; decidedBy: string; comment: string | null }>(
+    `run:${run.id}`,
+    "approval-decided",
+    useCallback((payload) => {
+      setApprovalMap((prev) => {
+        const updated = { ...prev };
+        for (const [stepName, data] of Object.entries(updated)) {
+          if (data?.id === payload.approvalId) {
+            updated[stepName] = {
+              ...data,
+              status: payload.decision as "approved" | "rejected",
+              decidedBy: payload.decidedBy,
+              comment: payload.comment,
+            };
+          }
+        }
+        return updated;
+      });
+    }, [])
   );
 
   // ---------------------------------------------------------------------------
@@ -273,10 +383,13 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
             {steps.map((step, index) => (
               <div
                 key={step.id}
-                ref={step.status === "running" ? activeStepRef : undefined}
+                ref={step.status === "running" || step.status === "waiting" ? activeStepRef : undefined}
               >
                 <StepLogPanel
-                  step={step}
+                  step={{
+                    ...step,
+                    approvalData: approvalMap[step.name],
+                  }}
                   isLast={index === steps.length - 1}
                   onRetry={step.status === "failed" ? handleRetry : undefined}
                 />
@@ -285,7 +398,7 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
           </div>
 
           {/* Jump to active step button */}
-          {showJumpButton && runStatus === "running" && (
+          {showJumpButton && (runStatus === "running" || runStatus === "waiting") && (
             <Button
               variant="secondary"
               size="sm"

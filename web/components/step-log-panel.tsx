@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronRight, ChevronDown, RotateCcw, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StepStatusBadge, type StepStatus } from "@/components/step-status-badge";
+import { ApprovalPanel } from "@/components/approval/approval-panel";
 
 export interface PipelineStep {
   id: string;
@@ -18,6 +19,16 @@ export interface PipelineStep {
   started_at: string | null;
   completed_at: string | null;
   duration_ms: number | null;
+  approvalData?: {
+    id: string;
+    oldContent: string;
+    newContent: string;
+    explanation: string;
+    status: "pending" | "approved" | "rejected" | "expired";
+    decidedBy?: string;
+    decidedAt?: string;
+    comment?: string | null;
+  };
 }
 
 interface StepLogPanelProps {
@@ -37,7 +48,7 @@ function formatDuration(ms: number): string {
 
 export function StepLogPanel({ step, onRetry, isLast }: StepLogPanelProps) {
   const [expanded, setExpanded] = useState(
-    step.status === "failed" || step.status === "running"
+    step.status === "failed" || step.status === "running" || step.status === "waiting"
   );
 
   return (
@@ -50,9 +61,11 @@ export function StepLogPanel({ step, onRetry, isLast }: StepLogPanelProps) {
               ? "border-green-500 bg-green-500"
               : step.status === "running"
                 ? "border-blue-500 bg-blue-500"
-                : step.status === "failed"
-                  ? "border-destructive bg-destructive"
-                  : "border-muted-foreground/30 bg-transparent"
+                : step.status === "waiting"
+                  ? "border-amber-500 bg-amber-500 animate-pulse"
+                  : step.status === "failed"
+                    ? "border-destructive bg-destructive"
+                    : "border-muted-foreground/30 bg-transparent"
           }`}
         />
         {!isLast && (
@@ -85,6 +98,16 @@ export function StepLogPanel({ step, onRetry, isLast }: StepLogPanelProps) {
         {/* Expanded content */}
         {expanded && (
           <div className="mt-2 ml-5">
+            {/* Waiting for approval state */}
+            {step.status === "waiting" && step.approvalData && (
+              <ApprovalPanel approval={step.approvalData} />
+            )}
+
+            {/* Decided approval (read-only) */}
+            {step.status === "complete" && step.approvalData && step.approvalData.status !== "pending" && (
+              <ApprovalPanel approval={step.approvalData} />
+            )}
+
             {/* Log output */}
             {step.log && (
               <pre className="max-h-64 overflow-auto rounded-md bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
