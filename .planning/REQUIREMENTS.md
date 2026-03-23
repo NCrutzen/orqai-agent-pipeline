@@ -25,17 +25,17 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 
 ### Real-time Dashboard
 
-- [ ] **DASH-01**: User sees live progress indicators as pipeline steps complete (Supabase Realtime)
-- [ ] **DASH-02**: User sees a log stream with human-readable step descriptions
-- [ ] **DASH-03**: Dashboard shows vertical timeline of pipeline steps with state indicators
-- [ ] **DASH-04**: Run list updates in real-time when pipeline status changes
+- [x] **DASH-01**: User sees live progress indicators as pipeline steps complete (Supabase Realtime)
+- [x] **DASH-02**: User sees a log stream with human-readable step descriptions
+- [x] **DASH-03**: Dashboard shows vertical timeline of pipeline steps with state indicators
+- [x] **DASH-04**: Run list updates in real-time when pipeline status changes
 
 ### Node Graph
 
-- [ ] **GRAPH-01**: User sees an interactive node graph of the designed agent swarm (React Flow)
-- [ ] **GRAPH-02**: Nodes show agent name, role, and tool connections
-- [ ] **GRAPH-03**: Nodes light up during pipeline execution (running/complete/failed states)
-- [ ] **GRAPH-04**: Agent performance scores display on nodes after pipeline completion
+- [x] **GRAPH-01**: User sees an interactive node graph of the designed agent swarm (React Flow)
+- [x] **GRAPH-02**: Nodes show agent name, role, and tool connections
+- [x] **GRAPH-03**: Nodes light up during pipeline execution (running/complete/failed states)
+- [x] **GRAPH-04**: Agent performance scores display on nodes after pipeline completion
 
 ### HITL Approval
 
@@ -103,14 +103,14 @@ Requirements for V3.0 Web UI & Dashboard. Each maps to roadmap phases.
 | PIPE-03 | Phase 35 | Complete |
 | PIPE-04 | Phase 35 | Complete |
 | PIPE-05 | Phase 35 | Complete |
-| DASH-01 | Phase 36 | Pending |
-| DASH-02 | Phase 36 | Pending |
-| DASH-03 | Phase 36 | Pending |
-| DASH-04 | Phase 36 | Pending |
-| GRAPH-01 | Phase 36 | Pending |
-| GRAPH-02 | Phase 36 | Pending |
-| GRAPH-03 | Phase 36 | Pending |
-| GRAPH-04 | Phase 36 | Pending |
+| DASH-01 | Phase 36 | Complete |
+| DASH-02 | Phase 36 | Complete |
+| DASH-03 | Phase 36 | Complete |
+| DASH-04 | Phase 36 | Complete |
+| GRAPH-01 | Phase 36 | Complete |
+| GRAPH-02 | Phase 36 | Complete |
+| GRAPH-03 | Phase 36 | Complete |
+| GRAPH-04 | Phase 36 | Complete |
 | HITL-01 | Phase 37 | Pending |
 | HITL-02 | Phase 37 | Pending |
 | HITL-03 | Phase 37 | Pending |

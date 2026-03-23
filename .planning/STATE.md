@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: executing
-stopped_at: Phase 36 context gathered
-last_updated: "2026-03-22T16:09:54.791Z"
-last_activity: 2026-03-22 - Completed 35-04-PLAN.md code (checkpoint verification deferred to next session)
+stopped_at: Completed 36-00-PLAN.md
+last_updated: "2026-03-23T05:27:40.818Z"
+last_activity: 2026-03-23 - Completed 36-00-PLAN.md (Wave 0 test infrastructure)
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
-  percent: 86
+  total_plans: 11
+  completed_plans: 8
+  percent: 73
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** Phase 35 -- Pipeline Engine (Phase 34 complete as of 2026-03-20)
+**Current focus:** Phase 36 -- Dashboard & Graph (Phase 35 complete as of 2026-03-22)
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V2.1 shipped 2026-03-13 (8 phases, 9 plans)
 
 ## Current Position
 
-Phase: 35 of 38 (Pipeline Engine)
-Plan: 4 of 4 in current phase
-Status: Executing (checkpoint deferred)
-Last activity: 2026-03-22 - Completed 35-04-PLAN.md code (checkpoint verification deferred to next session)
+Phase: 36 of 38 (Dashboard & Graph)
+Plan: 1 of 4 in current phase
+Status: Executing
+Last activity: 2026-03-23 - Completed 36-00-PLAN.md (Wave 0 test infrastructure)
 
-Progress: [████████░░] 86%
+Progress: [███████░░░] 73%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7 (V3.0)
+- Total plans completed: 8 (V3.0)
 - Average duration: 4 min
 - Total execution time: 0.4 hours
 
@@ -46,6 +46,7 @@ Progress: [████████░░] 86%
 |-------|-------|-------|----------|
 | 34-foundation-auth | 3 | 11 min | 4 min |
 | 35-pipeline-engine | 4 | 16 min | 4 min |
+| 36-dashboard-graph | 1 | 2 min | 2 min |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [Phase 35]: Client-only new-run page with useActionState for form submission -- simpler than server/client split
 - [Phase 35]: Server component + client wrapper pattern for run detail -- server fetches, client polls and handles interactivity
 - [Phase 35]: 5-second polling via router.refresh() for live updates -- simple, replaced by Supabase Realtime in Phase 36
+- [Phase 36]: jsdom as global test environment replacing node -- all new tests are component tests, existing pure-logic tests work fine in jsdom
+- [Phase 36]: it.todo() stubs over it.skip() for Wave 0 -- avoids import errors from non-existent source modules
 
 ### Blockers/Concerns
 
@@ -93,7 +96,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T16:09:54.787Z
-Stopped at: Phase 36 context gathered
-Resume with: `/gsd:plan-phase 36` or test Phase 35 e2e checkpoint
-Resume file: .planning/phases/36-dashboard-graph/36-CONTEXT.md
+Last session: 2026-03-23T05:27:40.814Z
+Stopped at: Completed 36-00-PLAN.md
+Resume with: `/gsd:execute-phase 36` to continue with plan 36-01
+Resume file: .planning/phases/36-dashboard-graph/36-01-PLAN.md
