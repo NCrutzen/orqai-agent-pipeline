@@ -1,5 +1,5 @@
 /**
- * Typed Inngest event definitions for the pipeline engine.
+ * Typed Inngest event definitions for the pipeline engine and infrastructure.
  */
 export type Events = {
   "pipeline/run.started": {
@@ -18,6 +18,11 @@ export type Events = {
       decision: "approved" | "rejected";
       decidedBy: string;
       comment: string | null;
+    };
+  };
+  "infrastructure/health-check.requested": {
+    data: {
+      requestedBy: string;
     };
   };
 };
