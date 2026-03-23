@@ -22,6 +22,7 @@ import { broadcastStepUpdate, broadcastRunUpdate, broadcastChatMessage } from "@
 import { detectAutomationNeeds } from "@/lib/pipeline/automation-detector";
 import { analyzeScreenshots } from "@/lib/pipeline/vision-adapter";
 import { runDiscussionTurn } from "@/lib/pipeline/discussion-agent";
+import { streamNarrator } from "@/lib/pipeline/streaming-narrator";
 import { saveChatMessage } from "@/lib/supabase/chat-messages";
 
 /**
@@ -302,6 +303,93 @@ export const executePipeline = inngest.createFunction(
       // Store the output for downstream stages to use
       // This is the return value from step.run() -- available across re-invocations via memoization
       stageResults[stage.name] = stepRef.output;
+
+      // Template chat messages for silent stages (no extra API call)
+      if (stage.templateMessage) {
+        await step.run(`${stage.name}-template-msg`, async () => {
+          const tmplId = crypto.randomUUID();
+          await saveChatMessage(runId, "assistant", stage.templateMessage!, stage.name);
+          await broadcastChatMessage(runId, { id: tmplId, role: "assistant", content: stage.templateMessage!, stageName: stage.name });
+        });
+      }
+
+      // Narrator interjection for stages with needsNarration (architect, spec-generator)
+      if (stage.needsNarration && stepRef.output && !stepRef.skipped) {
+        const narratorPrompt = stage.name === "architect"
+          ? "You are a friendly narrator explaining an AI agent swarm design to a non-technical user. Summarize the architecture: what agents were designed, their roles, and how they work together. Be conversational and encouraging. Keep it to 3-5 paragraphs."
+          : "You are a friendly narrator explaining AI agent specifications to a non-technical user. Highlight the key capabilities of each agent, what they can do, and any important configuration. Be conversational. Keep it to 3-5 paragraphs.";
+
+        // OUTSIDE step.run() -- streaming is incompatible with Inngest memoization
+        const narratorMessageId = crypto.randomUUID();
+        await streamNarrator(runId, narratorPrompt, stepRef.output, narratorMessageId, `${stage.name}-summary`);
+
+        // Save a "What do you think?" prompt message
+        await step.run(`${stage.name}-confirm-prompt`, async () => {
+          const promptMsg = stage.name === "architect"
+            ? "What do you think of this design? You can confirm to continue, or share feedback and I'll adjust."
+            : "Do these specifications look good? Confirm to continue, or share your feedback.";
+          const msgId = await saveChatMessage(runId, "assistant", promptMsg, `${stage.name}-summary`);
+          await broadcastChatMessage(runId, { id: msgId, role: "assistant", content: promptMsg, stageName: `${stage.name}-summary` });
+
+          // Mark as waiting
+          const admin = createAdminClient();
+          await admin.from("pipeline_runs").update({ status: "waiting" }).eq("id", runId);
+          await broadcastStepUpdate(runId, { stepName: stage.name, status: "waiting", displayName: stage.displayName, runStatus: "waiting" });
+        });
+
+        // Wait for user confirmation/feedback via review event
+        const reviewEvent = await step.waitForEvent(`${stage.name}-narration-wait`, {
+          event: "pipeline/review.responded",
+          timeout: "7d",
+          if: `async.data.runId == "${runId}" && async.data.stepName == "${stage.name}"`,
+        });
+
+        if (reviewEvent?.data.decision === "feedback" && reviewEvent.data.feedback) {
+          // Save user feedback as chat message
+          await step.run(`${stage.name}-save-feedback`, async () => {
+            const msgId = await saveChatMessage(runId, "user", reviewEvent.data.feedback!, stage.name);
+            await broadcastChatMessage(runId, { id: msgId, role: "user", content: reviewEvent.data.feedback!, stageName: stage.name });
+          });
+
+          // Re-run stage with feedback appended to context
+          const rerunRef = await step.run(`${stage.name}-rerun`, async () => {
+            const admin = createAdminClient();
+            const contextBuilder = STAGE_CONTEXT_MAP[stage.name];
+            const baseContext = contextBuilder
+              ? contextBuilder(stageResults, enrichedUseCase)
+              : { useCase: enrichedUseCase };
+            const contextWithFeedback = {
+              ...baseContext,
+              userFeedback: reviewEvent.data.feedback!,
+            };
+            const result = await runPromptAdapter(stage.name, contextWithFeedback);
+
+            // Update DB step with new result
+            const { data: existingStep } = await admin
+              .from("pipeline_steps")
+              .select("id")
+              .eq("run_id", runId)
+              .eq("name", stage.name)
+              .single();
+            if (existingStep) {
+              await admin.from("pipeline_steps").update({ result: { output: result } }).eq("id", existingStep.id);
+            }
+            return { output: result };
+          });
+          stageResults[stage.name] = rerunRef.output;
+
+          // Re-narrate with updated output
+          const renarrationId = crypto.randomUUID();
+          await streamNarrator(runId, narratorPrompt, rerunRef.output, renarrationId, `${stage.name}-summary`);
+        }
+
+        // Resume running
+        await step.run(`${stage.name}-narration-resume`, async () => {
+          const admin = createAdminClient();
+          await admin.from("pipeline_runs").update({ status: "running" }).eq("id", runId);
+          await broadcastStepUpdate(runId, { stepName: stage.name, status: "complete", displayName: stage.displayName, runStatus: "running" });
+        });
+      }
 
       // HITL Approval Gate: if stage needs approval and produced a diff
       if (stage.needsApproval && stepRef.output && !stepRef.skipped) {
