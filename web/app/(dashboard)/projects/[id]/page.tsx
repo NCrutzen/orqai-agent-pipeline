@@ -6,8 +6,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InviteMemberModal } from "@/components/invite-member-modal";
-import { RunCard } from "@/components/run-card";
-import { ChevronRight, Calendar, Play, Plus } from "lucide-react";
+import { RunListLive } from "@/components/dashboard/run-list-live";
+import { SwarmGraph } from "@/components/graph/swarm-graph";
+import { ChevronRight, Calendar, Play, Plus, Network } from "lucide-react";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -34,6 +35,23 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     .select("*")
     .eq("project_id", id)
     .order("created_at", { ascending: false });
+
+  // Fetch latest successful run for Swarm Graph tab
+  const { data: latestCompleteRun } = await supabase
+    .from("pipeline_runs")
+    .select("*, pipeline_steps(*)")
+    .eq("project_id", id)
+    .eq("status", "complete")
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  const latestRunSteps = latestCompleteRun
+    ? (latestCompleteRun.pipeline_steps ?? []).sort(
+        (a: { step_order: number }, b: { step_order: number }) =>
+          a.step_order - b.step_order
+      )
+    : [];
 
   // Fetch member emails for display
   const members: { user_id: string; email?: string }[] = (
@@ -89,6 +107,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="runs">Runs</TabsTrigger>
+          <TabsTrigger value="swarm-graph">Swarm Graph</TabsTrigger>
         </TabsList>
 
         {/* Overview tab -- existing members content */}
@@ -137,10 +156,8 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           </div>
 
           {pipelineRuns.length > 0 ? (
-            <div className="mt-4 flex flex-col gap-3">
-              {pipelineRuns.map((run) => (
-                <RunCard key={run.id} run={run} />
-              ))}
+            <div className="mt-4">
+              <RunListLive initialRuns={pipelineRuns} />
             </div>
           ) : (
             <div className="mt-6 flex flex-col items-center py-12 text-center">
@@ -159,6 +176,29 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                   Start your first pipeline run
                 </Link>
               </Button>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Swarm Graph tab */}
+        <TabsContent value="swarm-graph">
+          {latestCompleteRun ? (
+            <div className="h-[calc(100vh-theme(spacing.64))]">
+              <SwarmGraph
+                runId={latestCompleteRun.id}
+                steps={latestRunSteps}
+                runStatus="complete"
+              />
+            </div>
+          ) : (
+            <div className="mt-6 flex flex-col items-center py-12 text-center">
+              <div className="rounded-full bg-muted p-3">
+                <Network className="size-5 text-muted-foreground" />
+              </div>
+              <p className="mt-3 text-sm font-medium">No agent swarm yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Complete a pipeline run to see the agent swarm graph here.
+              </p>
             </div>
           )}
         </TabsContent>

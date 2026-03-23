@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { RunCard } from "@/components/run-card";
+import { RunListLive } from "@/components/dashboard/run-list-live";
 import { Play } from "lucide-react";
 
 export default async function RunsPage() {
@@ -23,10 +23,8 @@ export default async function RunsPage() {
       </div>
 
       {pipelineRuns.length > 0 ? (
-        <div className="mt-6 flex flex-col gap-3">
-          {pipelineRuns.map((run) => (
-            <RunCard key={run.id} run={run} showProject />
-          ))}
+        <div className="mt-6">
+          <RunListLive initialRuns={pipelineRuns} showProject />
         </div>
       ) : (
         <div className="mt-12 flex flex-col items-center py-12 text-center">
