@@ -70,6 +70,16 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 
 </details>
 
+### Phase 43: Upstream Sync: orq-agent-pipeline → agent-workforce
+
+**Goal:** Implement a formal sync workflow that detects changes in the orqai-agent-pipeline GitHub repo and propagates required updates to agent-workforce. New agents, renamed/deleted files, structural prompt changes, and new context requirements must be surfaced automatically — no manual discovery.
+**Requirements**: (1) Pipeline manifest tracking expected file paths, input context tags, and output format contracts (2) Change detection that classifies upstream diffs by impact tier (transparent / monitor / review / code-change) (3) Auto-update PIPELINE_STAGES + STAGE_CONTEXT_MAP when agents are added/removed (4) Pass systems.md content as context to architect stage (5) GitHub webhook or scheduled check that creates issues/PRs for tier 2-3 changes (6) Support future iterations — new pipeline agents surfaced without manual discovery
+**Depends on:** Phase 40
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 43 to break down)
+
 ---
 
 ## Phases

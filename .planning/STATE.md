@@ -60,6 +60,10 @@ Progress: [██████████] 100%
 
 ## Accumulated Context
 
+### Roadmap Evolution
+
+- Phase 43 added: Upstream Sync — orq-agent-pipeline → agent-workforce (detect upstream changes, auto-update pipeline stages, manifest tracking, systems.md context passthrough)
+
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
