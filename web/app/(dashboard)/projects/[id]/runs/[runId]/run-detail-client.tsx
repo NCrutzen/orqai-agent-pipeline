@@ -1,32 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Clock,
   Timer,
   Layers,
   RotateCcw,
-  List,
-  ArrowDown,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   StepStatusBadge,
   type StepStatus,
 } from "@/components/step-status-badge";
-import {
-  StepLogPanel,
-  type PipelineStep,
-} from "@/components/step-log-panel";
+import { type PipelineStep } from "@/components/step-log-panel";
 import { SwarmGraph } from "@/components/graph/swarm-graph";
 import {
   useBroadcast,
@@ -35,6 +24,8 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { retryPipeline } from "../../new-run/actions";
 import { ApprovalHistory } from "@/components/approval/approval-history";
+import { TerminalPanel } from "@/components/terminal/terminal-panel";
+import type { TerminalEntry } from "@/lib/systems/types";
 
 interface PipelineRun {
   id: string;
@@ -87,9 +78,8 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const [runStatus, setRunStatus] = useState(run.status);
   const [stepsCompleted, setStepsCompleted] = useState(run.steps_completed);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [useCaseExpanded, setUseCaseExpanded] = useState(false);
-  const [showJumpButton, setShowJumpButton] = useState(false);
+  const [terminalEntries, setTerminalEntries] = useState<TerminalEntry[]>([]);
   const [approvalMap, setApprovalMap] = useState<Record<string, PipelineStep["approvalData"]>>({});
   const [approvalHistory, setApprovalHistory] = useState<Array<{
     id: string;
@@ -100,9 +90,6 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
     comment?: string | null;
     createdAt: string;
   }>>([]);
-  const timelineRef = useRef<HTMLDivElement>(null);
-  const activeStepRef = useRef<HTMLDivElement>(null);
-  const userScrolledRef = useRef(false);
 
   // ---------------------------------------------------------------------------
   // Approval data fetching
@@ -119,24 +106,56 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
         .single();
 
       if (data) {
+        const approvalData = {
+          id: data.id,
+          oldContent: data.old_content,
+          newContent: data.new_content,
+          explanation: data.explanation,
+          status: data.status as "pending" | "approved" | "rejected" | "expired",
+          decidedBy: data.decided_by || undefined,
+          decidedAt: data.decided_at || undefined,
+          comment: data.comment,
+        };
         setApprovalMap((prev) => ({
           ...prev,
-          [stepName]: {
-            id: data.id,
-            oldContent: data.old_content,
-            newContent: data.new_content,
-            explanation: data.explanation,
-            status: data.status as "pending" | "approved" | "rejected" | "expired",
-            decidedBy: data.decided_by || undefined,
-            decidedAt: data.decided_at || undefined,
-            comment: data.comment,
-          },
+          [stepName]: approvalData,
         }));
+        // Also update terminal entries with approval data
+        setTerminalEntries((prev) =>
+          prev.map((e) =>
+            e.stepName === stepName
+              ? { ...e, type: "approval" as const, metadata: { approvalData } }
+              : e
+          )
+        );
       }
     } catch {
       // Best-effort -- approval panel will show loading state
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Initialize terminal entries from pipeline steps on mount
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    const entries: TerminalEntry[] = steps.map((step) => ({
+      id: step.id,
+      type: step.status === "waiting" && approvalMap[step.name]
+        ? "approval" as const
+        : "status" as const,
+      timestamp: step.started_at || step.completed_at || run.created_at,
+      stepName: step.name,
+      displayName: step.display_name,
+      status: step.status,
+      content: step.log || step.error_message || step.display_name,
+      metadata: approvalMap[step.name]
+        ? { approvalData: approvalMap[step.name] }
+        : undefined,
+    }));
+    setTerminalEntries(entries);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Mount only
 
   // Fetch approval data for any existing waiting steps on mount
   useEffect(() => {
@@ -152,19 +171,28 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
           .single()
           .then(({ data }) => {
             if (data) {
+              const approvalData = {
+                id: data.id,
+                oldContent: data.old_content,
+                newContent: data.new_content,
+                explanation: data.explanation,
+                status: data.status as "pending" | "approved" | "rejected" | "expired",
+                decidedBy: data.decided_by || undefined,
+                decidedAt: data.decided_at || undefined,
+                comment: data.comment,
+              };
               setApprovalMap((prev) => ({
                 ...prev,
-                [step.name]: {
-                  id: data.id,
-                  oldContent: data.old_content,
-                  newContent: data.new_content,
-                  explanation: data.explanation,
-                  status: data.status as "pending" | "approved" | "rejected" | "expired",
-                  decidedBy: data.decided_by || undefined,
-                  decidedAt: data.decided_at || undefined,
-                  comment: data.comment,
-                },
+                [step.name]: approvalData,
               }));
+              // Update terminal entry with approval data
+              setTerminalEntries((prev) =>
+                prev.map((e) =>
+                  e.stepName === step.name
+                    ? { ...e, type: "approval" as const, metadata: { approvalData } }
+                    : e
+                )
+              );
             }
           });
       }
@@ -177,8 +205,8 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
     const url = new URL(window.location.href);
     const approvalId = url.searchParams.get("approval");
     if (approvalId) {
-      // Open the sheet drawer and find the waiting step
-      setDrawerOpen(true);
+      // Terminal panel is always visible -- no need to open a drawer.
+      // The approval entry will be visible in the panel automatically.
       // Clean up the URL
       url.searchParams.delete("approval");
       window.history.replaceState({}, "", url.pathname);
@@ -211,10 +239,11 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   }, [run.id]);
 
   // ---------------------------------------------------------------------------
-  // Broadcast subscription for step updates (replaces 5-second polling)
+  // Broadcast subscription for step updates
   // ---------------------------------------------------------------------------
 
   const handleStepUpdate = useCallback((payload: StepUpdatePayload) => {
+    // Update steps (for graph compatibility)
     setSteps((prev) =>
       prev.map((step) =>
         step.name === payload.stepName
@@ -233,6 +262,37 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
     if (payload.runStatus) {
       setRunStatus(payload.runStatus);
     }
+
+    // Update terminal entries
+    setTerminalEntries((prev) => {
+      const existing = prev.find((e) => e.stepName === payload.stepName);
+      if (existing) {
+        return prev.map((e) =>
+          e.stepName === payload.stepName
+            ? {
+                ...e,
+                status: payload.status,
+                content: payload.log || payload.displayName,
+                displayName: payload.displayName,
+              }
+            : e
+        );
+      }
+      // New step not yet in entries -- append
+      return [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          type: "status" as const,
+          timestamp: new Date().toISOString(),
+          stepName: payload.stepName,
+          displayName: payload.displayName,
+          status: payload.status,
+          content: payload.log || payload.displayName,
+        },
+      ];
+    });
+
     // Fetch approval data when step enters waiting state
     if (payload.status === "waiting" && payload.approvalId) {
       fetchApprovalData(payload.approvalId, payload.stepName);
@@ -278,42 +338,29 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
             : entry
         )
       );
+      // Update terminal entries with new approval status
+      setTerminalEntries((prev) =>
+        prev.map((e) => {
+          const meta = e.metadata?.approvalData as { id?: string } | undefined;
+          if (meta?.id === payload.approvalId) {
+            return {
+              ...e,
+              metadata: {
+                ...e.metadata,
+                approvalData: {
+                  ...meta,
+                  status: payload.decision,
+                  decidedBy: payload.decidedBy,
+                  comment: payload.comment,
+                },
+              },
+            };
+          }
+          return e;
+        })
+      );
     }, [])
   );
-
-  // ---------------------------------------------------------------------------
-  // Auto-scroll behavior in timeline drawer
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    if (!drawerOpen || !activeStepRef.current || userScrolledRef.current) return;
-    activeStepRef.current.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
-  }, [steps, drawerOpen]);
-
-  function handleTimelineScroll() {
-    if (!activeStepRef.current || !timelineRef.current) return;
-    const activeRect = activeStepRef.current.getBoundingClientRect();
-    const containerRect = timelineRef.current.getBoundingClientRect();
-    const isOutOfView =
-      activeRect.top < containerRect.top - 100 ||
-      activeRect.bottom > containerRect.bottom + 100;
-    if (isOutOfView) {
-      userScrolledRef.current = true;
-      setShowJumpButton(true);
-    }
-  }
-
-  function handleJumpToActive() {
-    userScrolledRef.current = false;
-    setShowJumpButton(false);
-    activeStepRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
-  }
 
   // ---------------------------------------------------------------------------
   // Retry handler
@@ -401,71 +448,29 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
         </Card>
       )}
 
-      {/* Graph area -- fills remaining viewport */}
-      <div className="relative mt-4 h-[calc(100vh-theme(spacing.52))]">
-        <SwarmGraph runId={run.id} steps={steps} runStatus={runStatus} />
+      {/* Graph area + Terminal panel side-by-side */}
+      <div className="relative mt-4 flex" style={{ height: 'calc(100vh - 13rem)' }}>
+        {/* Graph area -- fills remaining width */}
+        <div className="flex-1 min-w-0">
+          <SwarmGraph runId={run.id} steps={steps} runStatus={runStatus} />
+        </div>
 
-        {/* Floating Timeline button (top-right) */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="absolute right-4 top-4 z-10"
-          onClick={() => setDrawerOpen(true)}
-        >
-          <List className="mr-1.5 size-4" />
-          Timeline
-        </Button>
-      </div>
+        {/* Terminal panel -- fixed 400px right column */}
+        <div className="w-[400px] shrink-0 border-l flex flex-col">
+          <TerminalPanel
+            runId={run.id}
+            entries={terminalEntries}
+            onEntriesChange={setTerminalEntries}
+          />
 
-      {/* Timeline Sheet drawer (right side, 400px) */}
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent side="right" className="w-[400px] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Pipeline Steps</SheetTitle>
-          </SheetHeader>
-          <div
-            ref={timelineRef}
-            className="mt-4 px-4"
-            onScroll={handleTimelineScroll}
-          >
-            {steps.map((step, index) => (
-              <div
-                key={step.id}
-                ref={step.status === "running" || step.status === "waiting" ? activeStepRef : undefined}
-              >
-                <StepLogPanel
-                  step={{
-                    ...step,
-                    approvalData: approvalMap[step.name],
-                  }}
-                  isLast={index === steps.length - 1}
-                  onRetry={step.status === "failed" ? handleRetry : undefined}
-                />
-              </div>
-            ))}
-
-            {/* Approval History */}
-            {approvalHistory.length > 0 && (
-              <div className="mt-4">
-                <ApprovalHistory entries={approvalHistory} />
-              </div>
-            )}
-          </div>
-
-          {/* Jump to active step button */}
-          {showJumpButton && (runStatus === "running" || runStatus === "waiting") && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="fixed bottom-6 left-1/2 z-20 -translate-x-1/2 shadow-lg"
-              onClick={handleJumpToActive}
-            >
-              <ArrowDown className="mr-1.5 size-4" />
-              Jump to active step
-            </Button>
+          {/* Approval History at the bottom of terminal panel */}
+          {approvalHistory.length > 0 && (
+            <div className="border-t p-4">
+              <ApprovalHistory entries={approvalHistory} />
+            </div>
           )}
-        </SheetContent>
-      </Sheet>
+        </div>
+      </div>
     </div>
   );
 }
