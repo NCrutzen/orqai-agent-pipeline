@@ -16,9 +16,11 @@
 import { inngest } from "../client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runPromptAdapter } from "@/lib/pipeline/adapter";
-import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
+import { PIPELINE_STAGES, AUTOMATION_STAGES } from "@/lib/pipeline/stages";
 import { toPlainEnglish } from "@/lib/pipeline/errors";
 import { broadcastStepUpdate, broadcastRunUpdate } from "@/lib/supabase/broadcast";
+import { detectAutomationNeeds } from "@/lib/pipeline/automation-detector";
+import { analyzeScreenshots } from "@/lib/pipeline/vision-adapter";
 
 /**
  * Context keys expected by each pipeline stage.
@@ -389,6 +391,202 @@ export const executePipeline = inngest.createFunction(
             });
           }
         });
+      }
+    }
+
+    // ============================================================
+    // Automation Detection Branch (Phase 40)
+    // ============================================================
+    // Check if any designed agents target browser-automation systems
+    const automationResult = await step.run("automation-detector", async () => {
+      const admin = createAdminClient();
+
+      const tasks = await detectAutomationNeeds(
+        event.data.projectId,
+        stageResults.architect || "",
+        stageResults["spec-generator"] || ""
+      );
+
+      if (tasks.length === 0) return { tasks: [] as typeof tasks, needed: false };
+
+      // Write automation_tasks to DB
+      for (const task of tasks) {
+        await admin.from("automation_tasks").insert({
+          run_id: runId,
+          agent_name: task.agentName,
+          system_name: task.systemName,
+          system_id: task.systemId,
+          detected_reason: task.reason,
+          status: "pending",
+        });
+      }
+
+      // Broadcast detection result
+      await broadcastStepUpdate(runId, {
+        stepName: "automation-detector",
+        status: "complete",
+        displayName: AUTOMATION_STAGES[0].displayName,
+        runStatus: "running",
+        log: `Detected ${tasks.length} system(s) needing browser automation: ${tasks.map(t => t.systemName).join(", ")}`,
+      });
+
+      return { tasks, needed: true };
+    });
+
+    if (automationResult.needed) {
+      // Process each automation task
+      for (const task of automationResult.tasks) {
+        // Fetch the task ID from DB
+        const taskRow = await step.run(`fetch-task-${task.systemName}`, async () => {
+          const admin = createAdminClient();
+          const { data } = await admin
+            .from("automation_tasks")
+            .select("id")
+            .eq("run_id", runId)
+            .eq("system_name", task.systemName)
+            .single();
+          return data;
+        });
+
+        if (!taskRow) continue;
+        const taskId = taskRow.id;
+
+        // SOP Upload: set status to uploading, wait for user
+        await step.run(`sop-upload-prepare-${task.systemName}`, async () => {
+          const admin = createAdminClient();
+          await admin
+            .from("automation_tasks")
+            .update({ status: "uploading" })
+            .eq("id", taskId);
+
+          await broadcastStepUpdate(runId, {
+            stepName: "sop-upload",
+            status: "waiting",
+            displayName: `Upload SOP for ${task.systemName}`,
+            runStatus: "waiting",
+          });
+        });
+
+        // Wait for SOP upload event
+        const sopEvent = await step.waitForEvent(`sop-upload-wait-${task.systemName}`, {
+          event: "automation/sop.uploaded",
+          timeout: "7d",
+          if: `async.data.taskId == "${taskId}"`,
+        });
+
+        if (!sopEvent) {
+          // Timeout -- mark as skipped
+          await step.run(`sop-upload-timeout-${task.systemName}`, async () => {
+            const admin = createAdminClient();
+            await admin
+              .from("automation_tasks")
+              .update({ status: "skipped" })
+              .eq("id", taskId);
+          });
+          continue;
+        }
+
+        // SOP Analyzer: analyze SOP + screenshots via Orq.ai vision
+        const analysisResult = await step.run(`sop-analyzer-${task.systemName}`, async () => {
+          const admin = createAdminClient();
+
+          // Update status
+          await admin
+            .from("automation_tasks")
+            .update({
+              status: "analyzing",
+              sop_text: sopEvent.data.sopText,
+            })
+            .eq("id", taskId);
+
+          await broadcastStepUpdate(runId, {
+            stepName: "sop-analyzer",
+            status: "running",
+            displayName: `Analyzing SOP for ${task.systemName}`,
+            runStatus: "running",
+          });
+
+          // Download screenshots from Supabase Storage as base64
+          const screenshots: Array<{ base64: string; label: string; mediaType: string }> = [];
+          for (const path of sopEvent.data.screenshotPaths) {
+            const { data } = await admin.storage
+              .from("automation-assets")
+              .download(path);
+            if (data) {
+              const buffer = Buffer.from(await data.arrayBuffer());
+              const ext = path.split(".").pop()?.toLowerCase();
+              const mediaType = ext === "png" ? "image/png" : "image/jpeg";
+              screenshots.push({
+                base64: buffer.toString("base64"),
+                label: path.split("/").pop() || path,
+                mediaType,
+              });
+            }
+          }
+
+          // Run vision analysis
+          const result = await analyzeScreenshots(
+            sopEvent.data.sopText,
+            screenshots
+          );
+
+          // Store result in DB
+          await admin
+            .from("automation_tasks")
+            .update({
+              status: "reviewing",
+              analysis_result: result as unknown as Record<string, unknown>,
+            })
+            .eq("id", taskId);
+
+          await broadcastStepUpdate(runId, {
+            stepName: "sop-analyzer",
+            status: "complete",
+            displayName: `Analysis complete for ${task.systemName}`,
+            runStatus: "waiting",
+            log: `Identified ${result.steps.length} automation steps. ${result.missingScreenshots.length > 0 ? `Missing screenshots: ${result.missingScreenshots.join(", ")}` : "All screenshots matched."}`,
+          });
+
+          // Return reference only (not full analysis)
+          return { taskId, stepCount: result.steps.length, missingCount: result.missingScreenshots.length };
+        });
+
+        // Wait for annotation confirmation (Plan 04 UI sends this event)
+        await step.run(`annotation-review-prepare-${task.systemName}`, async () => {
+          await broadcastStepUpdate(runId, {
+            stepName: "annotation-review",
+            status: "waiting",
+            displayName: `Review automation steps for ${task.systemName}`,
+            runStatus: "waiting",
+          });
+        });
+
+        const confirmEvent = await step.waitForEvent(`annotation-confirm-wait-${task.systemName}`, {
+          event: "automation/annotation.confirmed",
+          timeout: "7d",
+          if: `async.data.taskId == "${taskId}"`,
+        });
+
+        if (confirmEvent) {
+          await step.run(`annotation-confirmed-${task.systemName}`, async () => {
+            const admin = createAdminClient();
+            await admin
+              .from("automation_tasks")
+              .update({
+                status: "confirmed",
+                confirmed_steps: confirmEvent.data.confirmedSteps as unknown as Record<string, unknown>[],
+              })
+              .eq("id", taskId);
+
+            await broadcastStepUpdate(runId, {
+              stepName: "annotation-review",
+              status: "complete",
+              displayName: `Automation steps confirmed for ${task.systemName}`,
+              runStatus: "running",
+              log: `${confirmEvent.data.confirmedSteps.length} steps confirmed for ${task.systemName}`,
+            });
+          });
+        }
       }
     }
 
