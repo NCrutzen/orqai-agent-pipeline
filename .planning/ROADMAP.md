@@ -79,8 +79,8 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 **Milestone Goal:** Build a browser-based interface so non-technical colleagues can create, deploy, test, and iterate agent swarms on Orq.ai -- with authentication, real-time dashboard, node graph visualization, and HITL approval workflows.
 
 - [x] **Phase 34: Foundation & Auth** - Next.js app shell, Supabase DB schema with RLS, Supabase auth (email/password, M365 SSO), project CRUD (completed 2026-03-20)
-- [ ] **Phase 35: Pipeline Engine** - Prompt adapter, Inngest durable functions, pipeline state machine, use case input form, run list
-- [ ] **Phase 36: Dashboard & Graph** - Real-time progress timeline, log stream, run list updates, interactive node graph with execution overlay
+- [x] **Phase 35: Pipeline Engine** - Prompt adapter, Inngest durable functions, pipeline state machine, use case input form, run list (completed 2026-03-22)
+- [x] **Phase 36: Dashboard & Graph** - Real-time progress timeline, log stream, run list updates, interactive node graph with execution overlay (completed 2026-03-23)
 - [ ] **Phase 37: HITL Approval** - Pipeline pause/resume, diff viewer, approve/reject flow, email notifications, audit trail
 - [ ] **Phase 38: Swarm Activation** - Webhook endpoints for external pipeline triggering with API key auth and status polling
 
@@ -154,10 +154,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 36-00-PLAN.md -- Wave 0: test infrastructure (vitest jsdom config, 5 test stub files for Nyquist compliance)
-- [ ] 36-01-PLAN.md -- Broadcast infrastructure, graph-mapper utility, pipeline Broadcast emissions, npm deps install
-- [ ] 36-02-PLAN.md -- React Flow graph components (AgentNode, AnimatedEdge, dagre layout, AgentDetailPanel, SwarmGraph wrapper with celebration)
-- [ ] 36-03-PLAN.md -- Page integration (graph-primary run detail, Sheet timeline drawer, live run list, Swarm Graph tab), verification checkpoint
+- [x] 36-00-PLAN.md -- Wave 0: test infrastructure (vitest jsdom config, 5 test stub files for Nyquist compliance)
+- [x] 36-01-PLAN.md -- Broadcast infrastructure, graph-mapper utility, pipeline Broadcast emissions, npm deps install
+- [x] 36-02-PLAN.md -- React Flow graph components (AgentNode, AnimatedEdge, dagre layout, AgentDetailPanel, SwarmGraph wrapper with celebration)
+- [x] 36-03-PLAN.md -- Page integration (graph-primary run detail, Sheet timeline drawer, live run list, Swarm Graph tab), verification checkpoint
 
 ### Phase 37: HITL Approval
 **Goal**: Users can review, approve, or reject proposed prompt changes from the pipeline with full context and audit trail
@@ -199,7 +199,7 @@ Phases execute in numeric order: 34 -> 35 -> 36 -> 37 -> 38
 |-------|-----------|----------------|--------|-----------|
 | 34. Foundation & Auth | 3/3 | Complete    | 2026-03-20 | 2026-03-20 |
 | 35. Pipeline Engine | 4/4 | Complete   | 2026-03-22 | - |
-| 36. Dashboard & Graph | 3/4 | In Progress|  | - |
+| 36. Dashboard & Graph | 4/4 | Complete   | 2026-03-23 | 2026-03-23 |
 | 37. HITL Approval | V3.0 | 0/TBD | Not started | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
 
