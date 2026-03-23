@@ -2,7 +2,7 @@
 phase: 40
 slug: detection-sop-upload-vision-analysis
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-03-23
 ---
@@ -38,27 +38,33 @@ created: 2026-03-23
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 40-01-01 | 01 | 1 | DETECT-01 | unit | `npx vitest run web/lib/pipeline/__tests__/automation-detector.test.ts -t "detects"` | ❌ W0 | ⬜ pending |
-| 40-01-02 | 01 | 1 | DETECT-05 | unit | `npx vitest run web/lib/pipeline/__tests__/automation-detector.test.ts -t "skips"` | ❌ W0 | ⬜ pending |
+| 40-00-01 | 00 | 1 | DETECT-01, DETECT-05 | stub | `npx vitest run web/lib/pipeline/__tests__/automation-detector.test.ts` | 40-00 creates | ⬜ pending |
+| 40-00-02 | 00 | 1 | DETECT-04, VISION-01, VISION-02, VISION-05 | stub | `npx vitest run web/lib/pipeline/__tests__/vision-adapter.test.ts` | 40-00 creates | ⬜ pending |
+| 40-00-03 | 00 | 1 | VISION-03 | stub | `npx vitest run web/components/annotation/__tests__/annotation-highlight.test.tsx` | 40-00 creates | ⬜ pending |
+| 40-00-04 | 00 | 1 | DETECT-03 | stub | `npx vitest run web/lib/systems/__tests__/upload.test.ts` | 40-00 creates | ⬜ pending |
+| 40-01-01 | 01 | 2 | DETECT-01 | unit | `npx vitest run web/lib/pipeline/__tests__/automation-detector.test.ts -t "detects"` | W0 | ⬜ pending |
+| 40-01-02 | 01 | 2 | DETECT-05 | unit | `npx vitest run web/lib/pipeline/__tests__/automation-detector.test.ts -t "skips"` | W0 | ⬜ pending |
 | 40-02-01 | 02 | 2 | DETECT-02 | integration | Manual -- UI interaction test | Manual | ⬜ pending |
-| 40-02-02 | 02 | 2 | DETECT-03 | unit | `npx vitest run web/lib/systems/__tests__/upload.test.ts` | ❌ W0 | ⬜ pending |
-| 40-02-03 | 02 | 2 | DETECT-04 | unit | `npx vitest run web/lib/pipeline/__tests__/vision-adapter.test.ts -t "completeness"` | ❌ W0 | ⬜ pending |
-| 40-03-01 | 03 | 3 | VISION-01 | unit | `npx vitest run web/lib/pipeline/__tests__/vision-adapter.test.ts -t "image_url"` | ❌ W0 | ⬜ pending |
-| 40-03-02 | 03 | 3 | VISION-02 | unit | `npx vitest run web/lib/pipeline/__tests__/vision-adapter.test.ts -t "maps"` | ❌ W0 | ⬜ pending |
-| 40-03-03 | 03 | 3 | VISION-03 | unit | `npx vitest run web/components/annotation/__tests__/annotation-highlight.test.tsx` | ❌ W0 | ⬜ pending |
+| 40-02-02 | 02 | 2 | DETECT-03 | unit | `npx vitest run web/lib/systems/__tests__/upload.test.ts` | W0 | ⬜ pending |
+| 40-02-03 | 02 | 2 | DETECT-04 | unit | `npx vitest run web/lib/pipeline/__tests__/vision-adapter.test.ts -t "completeness"` | W0 | ⬜ pending |
+| 40-03-01 | 03 | 3 | VISION-01 | unit | `npx vitest run web/lib/pipeline/__tests__/vision-adapter.test.ts -t "image_url"` | W0 | ⬜ pending |
+| 40-03-02 | 03 | 3 | VISION-02 | unit | `npx vitest run web/lib/pipeline/__tests__/vision-adapter.test.ts -t "maps"` | W0 | ⬜ pending |
+| 40-03-03 | 03 | 3 | VISION-03 | unit | `npx vitest run web/components/annotation/__tests__/annotation-highlight.test.tsx` | W0 | ⬜ pending |
 | 40-03-04 | 03 | 3 | VISION-04 | integration | Manual -- UI interaction test | Manual | ⬜ pending |
-| 40-03-05 | 03 | 3 | VISION-05 | unit | `npx vitest run web/lib/pipeline/__tests__/vision-adapter.test.ts -t "corrections"` | ❌ W0 | ⬜ pending |
+| 40-03-05 | 03 | 3 | VISION-05 | unit | `npx vitest run web/lib/pipeline/__tests__/vision-adapter.test.ts -t "corrections"` | W0 | ⬜ pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending · green · red · flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `web/lib/pipeline/__tests__/automation-detector.test.ts` — stubs for DETECT-01, DETECT-05
-- [ ] `web/lib/pipeline/__tests__/vision-adapter.test.ts` — stubs for DETECT-04, VISION-01, VISION-02, VISION-05
-- [ ] `web/components/annotation/__tests__/annotation-highlight.test.tsx` — stubs for VISION-03
-- [ ] `web/lib/systems/__tests__/upload.test.ts` — stubs for DETECT-03
+**Addressed by 40-00-PLAN.md (Wave 1, must execute first):**
+
+- [ ] `web/lib/pipeline/__tests__/automation-detector.test.ts` -- stubs for DETECT-01, DETECT-05
+- [ ] `web/lib/pipeline/__tests__/vision-adapter.test.ts` -- stubs for DETECT-04, VISION-01, VISION-02, VISION-05
+- [ ] `web/components/annotation/__tests__/annotation-highlight.test.tsx` -- stubs for VISION-03
+- [ ] `web/lib/systems/__tests__/upload.test.ts` -- stubs for DETECT-03
 
 ---
 
@@ -73,11 +79,11 @@ created: 2026-03-23
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
