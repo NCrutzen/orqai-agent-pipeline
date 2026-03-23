@@ -106,12 +106,14 @@ All automation commands support `--agent agent-key` to target a single agent.
 | `/orq-agent:help` | Show available commands and options |
 | `/orq-agent:update` | Update to the latest version |
 | `/orq-agent:set-profile` | Switch model profile (quality/balanced/budget) |
+| `/orq-agent:systems` | Manage IT systems registry (list, add, remove entries) |
 
 **When to use which:**
 - Need a complete swarm? `/orq-agent`
 - Just need one agent's prompt? `/orq-agent:prompt`
 - Want to explore architecture before committing? `/orq-agent:architect`
 - Need knowledge base content? `/orq-agent:kb`
+- Need to register IT systems? `/orq-agent:systems`
 - Ready to ship to Orq.ai? `/orq-agent:deploy` then `/orq-agent:test`
 
 ## Update

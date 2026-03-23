@@ -39,6 +39,7 @@ Commands:
   /orq-agent:iterate           Prompt iteration with HITL (full tier)
   /orq-agent:harden            Guardrails & quality gates (full tier)
   /orq-agent:set-profile       Switch model profile
+  /orq-agent:systems           Manage IT systems registry
   /orq-agent:update            Check for and install updates
   /orq-agent:help              Show this help
 

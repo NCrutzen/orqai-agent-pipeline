@@ -101,6 +101,7 @@ Agents/[swarm-name]/
 | `/orq-agent:iterate` | `commands/iterate.md` | full | Iterate on prompts using evaluator feedback (V1.0 fallback: manual steps) |
 | `/orq-agent:harden` | `commands/harden.md` | full | Set up guardrails and quality gates from test results |
 | `/orq-agent:set-profile` | `commands/set-profile.md` | any | View or change model profile (quality/balanced/budget) |
+| `/orq-agent:systems` | `commands/systems.md` | any | Manage IT systems registry (list, add, remove) |
 
 **Invocation:** `/orq-agent "description"` | `/orq-agent` (interactive) | `--gsd` flag | `--output <path>`
 
