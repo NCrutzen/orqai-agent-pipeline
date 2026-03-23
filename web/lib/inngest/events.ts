@@ -20,9 +20,26 @@ export type Events = {
       comment: string | null;
     };
   };
+  "pipeline/review.responded": {
+    data: {
+      runId: string;
+      stepName: string;
+      decision: "confirmed" | "feedback";
+      feedback: string | null;
+    };
+  };
   "infrastructure/health-check.requested": {
     data: {
       requestedBy: string;
+    };
+  };
+
+  // Conversational pipeline events (Phase 37.1)
+  "pipeline/discussion.responded": {
+    data: {
+      runId: string;
+      message: string;
+      turnIndex: number;
     };
   };
 

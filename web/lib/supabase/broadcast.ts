@@ -1,18 +1,20 @@
 /**
- * Supabase Broadcast helpers for real-time pipeline updates.
+ * Supabase Broadcast helpers for real-time pipeline updates (server-side).
  *
  * Server-side: broadcastStepUpdate / broadcastRunUpdate emit events via admin client.
- * Client-side: useBroadcast hook subscribes to channels via browser client.
+ * Client-side: useBroadcast hook is in broadcast-client.ts (separate "use client" file).
  *
  * Channel structure:
  * - `run:{runId}` -- per-run channel for step-level updates
  * - `runs:live`   -- global channel for run-level updates (run list page)
  */
 
-import { useEffect, useRef } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/client";
 import type { HealthUpdatePayload } from "@/lib/credentials/types";
+import type { ChatTokenPayload } from "@/lib/pipeline/chat-types";
+
+// Re-export so consumers can import from broadcast.ts
+export type { ChatTokenPayload };
 
 // ---------------------------------------------------------------------------
 // Payload types
@@ -27,6 +29,12 @@ export interface StepUpdatePayload {
   runStatus?: string;
   log?: string;
   approvalId?: string;
+  /** Included only for the architect step so the graph can populate in real-time */
+  result?: { output: string };
+  /** Review content for interactive review entries (agent summaries, etc.) */
+  reviewData?: {
+    agents: Array<{ name: string; role: string; tools: string[] }>;
+  };
 }
 
 export interface RunUpdatePayload {
@@ -94,40 +102,47 @@ export async function broadcastHealthUpdate(
 }
 
 // ---------------------------------------------------------------------------
-// Client-side subscription hook
+// Chat token broadcasting (persistent channel pattern)
 // ---------------------------------------------------------------------------
 
 /**
- * Subscribe to a Supabase Broadcast channel and receive typed payloads.
- *
- * Uses useRef for the callback to avoid re-subscribing when the callback
- * reference changes (common with inline arrow functions).
- *
- * Cleans up channel subscription on unmount.
+ * Create a chat token broadcaster that keeps the channel open for the
+ * duration of a streaming session. Call send() for each token, then close()
+ * when done. This avoids the per-token channel open/close anti-pattern.
  */
-export function useBroadcast<T>(
-  channelName: string,
-  eventName: string,
-  onMessage: (payload: T) => void
-): void {
-  const callbackRef = useRef(onMessage);
+export function createChatBroadcaster(runId: string) {
+  const admin = createAdminClient();
+  const channel = admin.channel(`run:${runId}`);
 
-  // Keep ref in sync with latest callback without triggering re-subscribe
-  useEffect(() => {
-    callbackRef.current = onMessage;
-  });
-
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel(channelName)
-      .on("broadcast", { event: eventName }, (message) => {
-        callbackRef.current(message.payload as T);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [channelName, eventName]);
+  return {
+    async send(payload: ChatTokenPayload): Promise<void> {
+      await channel.send({
+        type: "broadcast",
+        event: "chat-token",
+        payload,
+      });
+    },
+    close(): void {
+      admin.removeChannel(channel);
+    },
+  };
 }
+
+/**
+ * Broadcast a complete chat message (non-streaming: user messages, template status messages).
+ * Uses the open-send-close pattern since it's a single event.
+ */
+export async function broadcastChatMessage(
+  runId: string,
+  payload: { id: string; role: "assistant" | "user"; content: string; stageName?: string }
+): Promise<void> {
+  const admin = createAdminClient();
+  const channel = admin.channel(`run:${runId}`);
+  await channel.send({
+    type: "broadcast",
+    event: "chat-message",
+    payload,
+  });
+  admin.removeChannel(channel);
+}
+
