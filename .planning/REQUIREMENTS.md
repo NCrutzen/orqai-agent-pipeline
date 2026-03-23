@@ -99,10 +99,10 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 
 ### Credential Management
 
-- [ ] **CRED-01**: User can securely store credentials for target systems
-- [ ] **CRED-02**: Credentials inject at runtime into Playwright script execution on Browserless.io
-- [ ] **CRED-03**: Credential rotation reminders notify when credentials may need updating
-- [ ] **CRED-04**: Per-system authentication profiles support different auth methods
+- [x] **CRED-01**: User can securely store credentials for target systems
+- [x] **CRED-02**: Credentials inject at runtime into Playwright script execution on Browserless.io
+- [x] **CRED-03**: Credential rotation reminders notify when credentials may need updating
+- [x] **CRED-04**: Per-system authentication profiles support different auth methods
 
 ### Standalone Automations
 
@@ -208,10 +208,10 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 | MCPTL-01 | Phase 41 | Pending |
 | MCPTL-02 | Phase 41 | Pending |
 | MCPTL-03 | Phase 41 | Pending |
-| CRED-01 | Phase 39 | Pending |
-| CRED-02 | Phase 39 | Pending |
-| CRED-03 | Phase 39 | Pending |
-| CRED-04 | Phase 39 | Pending |
+| CRED-01 | Phase 39 | Complete |
+| CRED-02 | Phase 39 | Complete |
+| CRED-03 | Phase 39 | Complete |
+| CRED-04 | Phase 39 | Complete |
 | AUTO-01 | Phase 42 | Pending |
 | AUTO-02 | Phase 42 | Pending |
 | AUTO-03 | Phase 42 | Pending |

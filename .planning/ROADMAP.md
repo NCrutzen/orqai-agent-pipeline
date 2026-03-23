@@ -273,7 +273,7 @@ V4.0: 39 -> 40 -> 41 -> 42
 | 36. Dashboard & Graph | V3.0 | 4/4 | Complete | 2026-03-23 |
 | 37. HITL Approval | 4/4 | Complete    | 2026-03-23 | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
-| 39. Infrastructure & Credential Foundation | 1/3 | In Progress|  | - |
+| 39. Infrastructure & Credential Foundation | 2/3 | In Progress|  | - |
 | 40. Detection, SOP Upload & Vision Analysis | V4.0 | 0/TBD | Not started | - |
 | 41. Script Generation, Testing & MCP Deployment | V4.0 | 0/TBD | Not started | - |
 | 42. Standalone Automations & Triggers | V4.0 | 0/TBD | Not started | - |

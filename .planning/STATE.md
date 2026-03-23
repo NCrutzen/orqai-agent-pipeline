@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: executing
-stopped_at: Completed 39-00-PLAN.md
-last_updated: "2026-03-23T10:48:12.986Z"
-last_activity: 2026-03-23 -- Phase 39 Plan 00 executed
+stopped_at: Completed 39-01-PLAN.md
+last_updated: "2026-03-23T10:55:49.253Z"
+last_activity: 2026-03-23 -- Phase 39 Plan 01 executed
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 18
-  completed_plans: 16
-  percent: 89
+  completed_plans: 17
+  percent: 94
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** Phase 39 Infrastructure & Credential Foundation -- Plan 00 complete, Plans 01-02 remaining
+**Current focus:** Phase 39 Infrastructure & Credential Foundation -- Plans 00-01 complete, Plan 02 remaining
 **Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress
 
 ## Current Position
 
 Phase: 39 of 42 (Infrastructure & Credential Foundation)
-Plan: 1 of 3 in current phase (39-00 complete)
+Plan: 2 of 3 in current phase (39-00, 39-01 complete)
 Status: In Progress
-Last activity: 2026-03-23 -- Phase 39 Plan 00 executed
+Last activity: 2026-03-23 -- Phase 39 Plan 01 executed
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Progress: [█████████░] 89%
 | Phase 37-hitl-approval P02 | 4min | 2 tasks | 7 files |
 | Phase 37-hitl-approval P03 | 4min | 3 tasks | 6 files |
 | Phase 39 P00 | 3min | 2 tasks | 8 files |
+| Phase 39 P01 | 3min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,9 @@ Recent decisions affecting current work:
 - [Phase 39]: Singleton health_checks table with TEXT PK DEFAULT 'latest' for single-row upsert pattern
 - [Phase 39]: Auth profile types use TEXT primary key for readable type IDs matching TypeScript string literals
 - [Phase 39]: No UPDATE/DELETE RLS policies on credentials -- all mutations via admin client in server actions
+- [Phase 39-01]: Credential API routes use admin client for encrypted_values writes, authenticated client for ownership verification via RLS
+- [Phase 39-01]: Health check Inngest function uses sequential step.run() calls with individual timeouts per service
+- [Phase 39-01]: MCP adapter route uses mcp-handler package for tool hosting with health_check scaffold tool
 
 ### Blockers/Concerns
 
@@ -87,7 +91,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T10:48:12.981Z
-Stopped at: Completed 39-00-PLAN.md
+Last session: 2026-03-23T10:55:49.251Z
+Stopped at: Completed 39-01-PLAN.md
 Resume with: `/gsd:execute-phase 39` to continue with plan 39-01
-Resume file: .planning/phases/39-infrastructure-credential-foundation/39-01-PLAN.md
+Resume file: None
