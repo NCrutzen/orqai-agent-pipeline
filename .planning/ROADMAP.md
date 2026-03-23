@@ -276,7 +276,7 @@ V4.0: 39 -> 40 -> 41 -> 42
 | 37. HITL Approval | 4/4 | Complete    | 2026-03-23 | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
 | 39. Infrastructure & Credential Foundation | 3/3 | Complete    | 2026-03-23 | - |
-| 40. Detection, SOP Upload & Vision Analysis | 3/5 | In Progress|  | - |
+| 40. Detection, SOP Upload & Vision Analysis | 4/5 | In Progress|  | - |
 | 41. Script Generation, Testing & MCP Deployment | V4.0 | 0/TBD | Not started | - |
 | 42. Standalone Automations & Triggers | V4.0 | 0/TBD | Not started | - |
 
