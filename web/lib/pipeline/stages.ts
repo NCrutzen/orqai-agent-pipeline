@@ -81,3 +81,20 @@ export function getStageUrl(stage: PipelineStage): string {
 export function getStageByName(name: string): PipelineStage | undefined {
   return PIPELINE_STAGES.find((s) => s.name === name);
 }
+
+/**
+ * Automation sub-pipeline stages.
+ *
+ * These are CONDITIONAL stages that only activate when the automation detector
+ * finds browser-automation systems linked to the project. They render in the
+ * terminal panel but are not part of the main PIPELINE_STAGES loop.
+ * stepOrder starts at 100 to avoid collision with main pipeline stages.
+ */
+export const AUTOMATION_STAGES = [
+  { name: "automation-detector", displayName: "Detecting automation needs", stepOrder: 100 },
+  { name: "sop-upload", displayName: "Waiting for SOP upload", stepOrder: 101 },
+  { name: "sop-analyzer", displayName: "Analyzing SOP and screenshots", stepOrder: 102 },
+  { name: "annotation-review", displayName: "Reviewing automation steps", stepOrder: 103 },
+] as const;
+
+export type AutomationStageName = (typeof AUTOMATION_STAGES)[number]["name"];

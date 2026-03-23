@@ -25,4 +25,29 @@ export type Events = {
       requestedBy: string;
     };
   };
+
+  // Automation HITL events (Phase 40)
+  "automation/sop.uploaded": {
+    data: {
+      runId: string;
+      taskId: string;
+      sopText: string;
+      screenshotPaths: string[];
+    };
+  };
+  "automation/annotation.confirmed": {
+    data: {
+      runId: string;
+      taskId: string;
+      confirmedSteps: Array<{
+        stepNumber: number;
+        action: string;
+        targetElement: string;
+        expectedResult: string;
+        screenshotRef: string;
+        confirmed: boolean;
+        userCorrection?: string;
+      }>;
+    };
+  };
 };
