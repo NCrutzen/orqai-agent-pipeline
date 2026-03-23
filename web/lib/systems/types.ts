@@ -84,7 +84,7 @@ export interface ElementAnnotation {
 }
 
 // Terminal entry types (used by terminal panel in Plan 02)
-export type TerminalEntryType = "status" | "prompt" | "upload" | "approval" | "annotation-review" | "user-input";
+export type TerminalEntryType = "status" | "prompt" | "upload" | "approval" | "review" | "annotation-review" | "user-input" | "chat-message";
 
 // Terminal entry (card-based log entry in terminal panel)
 export interface TerminalEntry {
