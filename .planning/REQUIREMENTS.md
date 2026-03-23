@@ -77,7 +77,7 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 - [x] **VISION-01**: AI analyzes screenshots via Orq.ai (Agent or AI Routing) to identify UI elements and layout
 - [x] **VISION-02**: AI parses SOP document and correlates steps with screenshot elements
 - [x] **VISION-03**: AI presents annotated screenshots with highlighted elements back to user
-- [ ] **VISION-04**: User can confirm or correct AI's interpretation of each automation step
+- [x] **VISION-04**: User can confirm or correct AI's interpretation of each automation step
 - [x] **VISION-05**: AI incorporates user corrections and updates its understanding
 
 ### Script Generation & Testing
@@ -195,7 +195,7 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 | VISION-01 | Phase 40 | Complete |
 | VISION-02 | Phase 40 | Complete |
 | VISION-03 | Phase 40 | Complete |
-| VISION-04 | Phase 40 | Pending |
+| VISION-04 | Phase 40 | Complete |
 | VISION-05 | Phase 40 | Complete |
 | SCRIPT-01 | Phase 41 | Pending |
 | SCRIPT-02 | Phase 41 | Pending |
