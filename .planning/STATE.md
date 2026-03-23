@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: executing
-stopped_at: Completed 36-00-PLAN.md
-last_updated: "2026-03-23T05:27:40.818Z"
-last_activity: 2026-03-23 - Completed 36-00-PLAN.md (Wave 0 test infrastructure)
+stopped_at: Completed 36-01-PLAN.md
+last_updated: "2026-03-23T05:36:15.919Z"
+last_activity: 2026-03-23 - Completed 36-01-PLAN.md (Broadcast infrastructure & graph mapper)
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 11
-  completed_plans: 8
+  completed_plans: 9
   percent: 73
 ---
 
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 36 of 38 (Dashboard & Graph)
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: Executing
-Last activity: 2026-03-23 - Completed 36-00-PLAN.md (Wave 0 test infrastructure)
+Last activity: 2026-03-23 - Completed 36-01-PLAN.md (Broadcast infrastructure & graph mapper)
 
 Progress: [███████░░░] 73%
 
@@ -47,6 +47,7 @@ Progress: [███████░░░] 73%
 | 34-foundation-auth | 3 | 11 min | 4 min |
 | 35-pipeline-engine | 4 | 16 min | 4 min |
 | 36-dashboard-graph | 1 | 2 min | 2 min |
+| Phase 36 P01 | 6min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,7 @@ Recent decisions affecting current work:
 - [Phase 35]: 5-second polling via router.refresh() for live updates -- simple, replaced by Supabase Realtime in Phase 36
 - [Phase 36]: jsdom as global test environment replacing node -- all new tests are component tests, existing pure-logic tests work fine in jsdom
 - [Phase 36]: it.todo() stubs over it.skip() for Wave 0 -- avoids import errors from non-existent source modules
+- [Phase 36]: Broadcast channel naming: run:{runId} for per-run updates, runs:live for global run list
 
 ### Blockers/Concerns
 
@@ -96,7 +98,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T05:27:40.814Z
-Stopped at: Completed 36-00-PLAN.md
+Last session: 2026-03-23T05:36:08.609Z
+Stopped at: Completed 36-01-PLAN.md
 Resume with: `/gsd:execute-phase 36` to continue with plan 36-01
-Resume file: .planning/phases/36-dashboard-graph/36-01-PLAN.md
+Resume file: None
