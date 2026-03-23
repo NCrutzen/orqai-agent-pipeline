@@ -27,10 +27,8 @@ import {
   mapPipelineToGraph,
   type AgentNodeData,
 } from "@/lib/pipeline/graph-mapper";
-import {
-  useBroadcast,
-  type StepUpdatePayload,
-} from "@/lib/supabase/broadcast";
+import { useBroadcast } from "@/lib/supabase/broadcast-client";
+import type { StepUpdatePayload } from "@/lib/supabase/broadcast";
 import type { PipelineStep } from "@/components/step-log-panel";
 
 // ---------------------------------------------------------------------------

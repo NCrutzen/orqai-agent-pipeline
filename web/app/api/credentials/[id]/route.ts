@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { encryptCredential } from "@/lib/credentials/crypto";
 
 const replaceCredentialSchema = z.object({
-  values: z.record(z.string()),
+  values: z.record(z.string(), z.string()),
 });
 
 /**

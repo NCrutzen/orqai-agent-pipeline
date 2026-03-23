@@ -8,7 +8,7 @@ import type { CredentialWithLinks } from "@/lib/credentials/types";
 const createCredentialSchema = z.object({
   name: z.string().min(1).max(200),
   authType: z.string(),
-  values: z.record(z.string()),
+  values: z.record(z.string(), z.string()),
   projectIds: z.array(z.string().uuid()).optional(),
 });
 

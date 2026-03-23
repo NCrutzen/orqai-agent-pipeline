@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { HealthStatusCard } from "./health-status-card";
-import { useBroadcast } from "@/lib/supabase/broadcast";
+import { useBroadcast } from "@/lib/supabase/broadcast-client";
 import { triggerHealthCheck } from "@/app/(dashboard)/settings/actions";
 import type {
   HealthCheckResult,

@@ -2,7 +2,8 @@
 
 import { useCallback, useState } from "react";
 import { RunCard } from "@/components/run-card";
-import { useBroadcast, type RunUpdatePayload } from "@/lib/supabase/broadcast";
+import { useBroadcast } from "@/lib/supabase/broadcast-client";
+import type { RunUpdatePayload } from "@/lib/supabase/broadcast";
 
 interface PipelineRun {
   id: string;

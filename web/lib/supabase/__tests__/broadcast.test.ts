@@ -34,10 +34,10 @@ vi.mock("@/lib/supabase/client", () => ({
 import {
   broadcastStepUpdate,
   broadcastRunUpdate,
-  useBroadcast,
   type StepUpdatePayload,
   type RunUpdatePayload,
 } from "../broadcast";
+import { useBroadcast } from "../broadcast-client";
 
 // ---------------------------------------------------------------------------
 // Tests
