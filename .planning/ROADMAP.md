@@ -70,15 +70,17 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 
 </details>
 
-### Phase 43: Upstream Sync: orq-agent-pipeline → agent-workforce
+### Phase 43: Upstream Sync: orq-agent-pipeline -> agent-workforce
 
-**Goal:** Implement a formal sync workflow that detects changes in the orqai-agent-pipeline GitHub repo and propagates required updates to agent-workforce. New agents, renamed/deleted files, structural prompt changes, and new context requirements must be surfaced automatically — no manual discovery.
-**Requirements**: (1) Pipeline manifest tracking expected file paths, input context tags, and output format contracts (2) Change detection that classifies upstream diffs by impact tier (transparent / monitor / review / code-change) (3) Auto-update PIPELINE_STAGES + STAGE_CONTEXT_MAP when agents are added/removed (4) Pass systems.md content as context to architect stage (5) GitHub webhook or scheduled check that creates issues/PRs for tier 2-3 changes (6) Support future iterations — new pipeline agents surfaced without manual discovery
+**Goal:** Implement a formal sync workflow that detects changes in the orqai-agent-pipeline GitHub repo and propagates required updates to agent-workforce. New agents, renamed/deleted files, structural prompt changes, and new context requirements must be surfaced automatically -- no manual discovery.
+**Requirements**: (1) Pipeline manifest tracking expected file paths, input context tags, and output format contracts (2) Change detection that classifies upstream diffs by impact tier (transparent / monitor / review / code-change) (3) Auto-update PIPELINE_STAGES + STAGE_CONTEXT_MAP when agents are added/removed (4) Pass systems.md content as context to architect stage (5) GitHub webhook or scheduled check that creates issues/PRs for tier 2-3 changes (6) Support future iterations -- new pipeline agents surfaced without manual discovery
 **Depends on:** Phase 40
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 43 to break down)
+- [ ] 43-01-PLAN.md -- Manifest JSON + types, refactor stages.ts and pipeline.ts to be manifest-driven
+- [ ] 43-02-PLAN.md -- Upstream sync detection (Vercel Cron, GitHub Trees API, tier classification, issue/PR creation), health dashboard Pipeline Sync UI
+- [ ] 43-03-PLAN.md -- Systems context passthrough (serialize DB systems to markdown, inject into architect stage)
 
 ---
 
@@ -92,6 +94,7 @@ Plans:
 - [x] **Phase 35: Pipeline Engine** - Prompt adapter, Inngest durable functions, pipeline state machine, use case input form, run list (completed 2026-03-22)
 - [x] **Phase 36: Dashboard & Graph** - Real-time progress timeline, log stream, run list updates, interactive node graph with execution overlay (completed 2026-03-23)
 - [ ] **Phase 37: HITL Approval** - Pipeline pause/resume, diff viewer, approve/reject flow, email notifications, audit trail
+- [ ] **Phase 37.1: Conversational Pipeline** - Streaming chat interface, discussion phase, architect/spec review with user interaction, narrator summaries, chat UI with user input
 - [ ] **Phase 38: Swarm Activation** - Webhook endpoints for external pipeline triggering with API key auth and status polling
 
 ### V4.0 Browser Automation Builder (Phases 39-42)
@@ -186,6 +189,22 @@ Plans:
 - [ ] 37-01-PLAN.md -- DB schema (approval_requests), Inngest events, Broadcast extension, approval helpers, pipeline waitForEvent integration
 - [ ] 37-02-PLAN.md -- Approval UI (DiffViewer, ApprovalPanel, ApprovalBadge), StepStatusBadge + StepLogPanel waiting state, RunDetailClient wiring
 - [ ] 37-03-PLAN.md -- Email notifications (Resend), audit trail UI (ApprovalHistory), graph node waiting state, end-to-end verification
+
+### Phase 37.1: Conversational Pipeline
+**Goal**: The pipeline is a streaming conversation — an AI narrator asks clarifying questions, explains what it's designing, shows results, and gets user feedback at key decision points, mirroring the CLI skill experience
+**Depends on**: Phase 37 (uses HITL approval infrastructure, terminal panel, broadcast)
+**Requirements**: UAT gaps — interactive dialogue, discussion phase, streaming narration
+**Success Criteria** (what must be TRUE):
+  1. User sees a streaming chat conversation in the run detail page, not just status cards
+  2. Before the pipeline runs, a discussion phase asks clarifying questions about the use case (multi-turn)
+  3. After the architect stage, user sees a conversational summary of the designed swarm and can confirm or give feedback
+  4. After the spec-generator stage, user sees spec highlights and can approve or request changes
+  5. Silent stages (tool-resolver, researcher, etc.) show brief status messages in the chat without extra API calls
+  6. User has a text input field to respond at interaction points, and the pipeline resumes based on their response
+**Plans**: TBD
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 37.1 to break down)
 
 ### Phase 38: Swarm Activation
 **Goal**: External systems can trigger pipeline runs and check status via authenticated webhook endpoints
@@ -289,6 +308,7 @@ V4.0: 39 -> 40 -> 41 -> 42
 | 40. Detection, SOP Upload & Vision Analysis | 5/5 | Complete    | 2026-03-23 | - |
 | 41. Script Generation, Testing & MCP Deployment | V4.0 | 0/TBD | Not started | - |
 | 42. Standalone Automations & Triggers | V4.0 | 0/TBD | Not started | - |
+| 43. Upstream Sync | - | 0/3 | Not started | - |
 
 ## Progress Summary
 
