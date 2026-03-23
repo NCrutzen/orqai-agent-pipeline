@@ -199,7 +199,7 @@ Phases execute in numeric order: 34 -> 35 -> 36 -> 37 -> 38
 |-------|-----------|----------------|--------|-----------|
 | 34. Foundation & Auth | 3/3 | Complete    | 2026-03-20 | 2026-03-20 |
 | 35. Pipeline Engine | 4/4 | Complete   | 2026-03-22 | - |
-| 36. Dashboard & Graph | 4/4 | Complete   | 2026-03-23 | 2026-03-23 |
+| 36. Dashboard & Graph | 4/4 | Complete    | 2026-03-23 | 2026-03-23 |
 | 37. HITL Approval | V3.0 | 0/TBD | Not started | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
 
