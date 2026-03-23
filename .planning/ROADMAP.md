@@ -201,11 +201,13 @@ Plans:
   3. User receives a reminder notification when stored credentials are approaching their rotation date
   4. Different target systems can use different authentication methods (username/password, SSO token, certificate) via per-system auth profiles
   5. Browserless.io connectivity, Supabase Storage uploads, and MCP adapter route all respond successfully from an Inngest step (infrastructure smoke test)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 39-01: TBD
-- [ ] 39-02: TBD
+- [ ] 39-00-PLAN.md -- Wave 0: npm install (mcp-handler, @modelcontextprotocol/sdk, playwright-core), TypeScript types, DB schema, test stubs
+- [ ] 39-01-PLAN.md -- Credential encryption (AES-256-GCM), proxy, failure detection, API routes, Inngest health check, MCP adapter route
+- [ ] 39-02-PLAN.md -- Settings page with Tabs, credential list table, create/replace/delete modals, auth type selector, status badges
+- [ ] 39-03-PLAN.md -- Health dashboard UI, health status cards, API trigger route, Broadcast extension, Settings Health tab wiring
 
 ### Phase 40: Detection, SOP Upload & Vision Analysis
 **Goal**: The pipeline detects when agents need browser automation, guides users through SOP and screenshot upload, and uses AI vision to build a confirmed step-by-step understanding of the target process
@@ -272,7 +274,7 @@ V4.0: 39 -> 40 -> 41 -> 42
 | 36. Dashboard & Graph | V3.0 | 4/4 | Complete | 2026-03-23 |
 | 37. HITL Approval | 4/4 | Complete    | 2026-03-23 | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
-| 39. Infrastructure & Credential Foundation | V4.0 | 0/TBD | Not started | - |
+| 39. Infrastructure & Credential Foundation | V4.0 | 0/4 | Not started | - |
 | 40. Detection, SOP Upload & Vision Analysis | V4.0 | 0/TBD | Not started | - |
 | 41. Script Generation, Testing & MCP Deployment | V4.0 | 0/TBD | Not started | - |
 | 42. Standalone Automations & Triggers | V4.0 | 0/TBD | Not started | - |
