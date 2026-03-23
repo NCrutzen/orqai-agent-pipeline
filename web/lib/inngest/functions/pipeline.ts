@@ -232,6 +232,136 @@ export const executePipeline = inngest.createFunction(
       // Store the output for downstream stages to use
       // This is the return value from step.run() -- available across re-invocations via memoization
       stageResults[stage.name] = stepRef.output;
+
+      // HITL Approval Gate: if stage needs approval and produced a diff
+      if (stage.needsApproval && stepRef.output && !stepRef.skipped) {
+        // Step A: Create approval request in DB (dual-write pattern -- before waitForEvent)
+        const approvalId = await step.run(`${stage.name}-create-approval`, async () => {
+          const { createApprovalRequest } = await import("@/lib/pipeline/approval");
+          const admin = createAdminClient();
+
+          // Parse the stage output for diff content
+          // Convention: stage output contains <approval_*> tags with old and new content
+          const oldMatch = stepRef.output.match(/<approval_old>([\s\S]*?)<\/approval_old>/);
+          const newMatch = stepRef.output.match(/<approval_new>([\s\S]*?)<\/approval_new>/);
+          const explanationMatch = stepRef.output.match(/<approval_explanation>([\s\S]*?)<\/approval_explanation>/);
+
+          const oldContent = oldMatch ? oldMatch[1].trim() : "";
+          const newContent = newMatch ? newMatch[1].trim() : stepRef.output;
+          const explanation = explanationMatch ? explanationMatch[1].trim() : "Proposed changes to agent prompt.";
+
+          const id = await createApprovalRequest({
+            runId,
+            stepName: stage.name,
+            oldContent,
+            newContent,
+            explanation,
+          });
+
+          // Update step status to "waiting"
+          const { data: existingStep } = await admin
+            .from("pipeline_steps")
+            .select("id")
+            .eq("run_id", runId)
+            .eq("name", stage.name)
+            .single();
+
+          if (existingStep) {
+            await admin
+              .from("pipeline_steps")
+              .update({ status: "waiting" })
+              .eq("id", existingStep.id);
+          }
+
+          // Update run status to "waiting"
+          await admin
+            .from("pipeline_runs")
+            .update({ status: "waiting" })
+            .eq("id", runId);
+
+          // Broadcast "waiting" status to real-time subscribers
+          await broadcastStepUpdate(runId, {
+            stepName: stage.name,
+            status: "waiting",
+            displayName: stage.displayName,
+            runStatus: "waiting",
+            approvalId: id,
+          });
+
+          return id;
+        });
+
+        // Step B: Wait for approval event (with 7-day timeout)
+        const approvalEvent = await step.waitForEvent(`${stage.name}-wait-approval`, {
+          event: "pipeline/approval.decided",
+          timeout: "7d",
+          if: `async.data.approvalId == "${approvalId}"`,
+        });
+
+        // Step C: Handle approval result
+        await step.run(`${stage.name}-handle-approval`, async () => {
+          const admin = createAdminClient();
+
+          if (!approvalEvent) {
+            // Timeout -- mark as expired
+            await admin
+              .from("approval_requests")
+              .update({ status: "expired" })
+              .eq("id", approvalId);
+
+            throw new Error("Approval timed out after 7 days");
+          }
+
+          const { data: stepRow } = await admin
+            .from("pipeline_steps")
+            .select("id")
+            .eq("run_id", runId)
+            .eq("name", stage.name)
+            .single();
+
+          if (approvalEvent.data.decision === "rejected") {
+            // Rejected: revert step to "complete" with original output, continue pipeline
+            if (stepRow) {
+              await admin
+                .from("pipeline_steps")
+                .update({ status: "complete" })
+                .eq("id", stepRow.id);
+            }
+            await admin
+              .from("pipeline_runs")
+              .update({ status: "running" })
+              .eq("id", runId);
+
+            await broadcastStepUpdate(runId, {
+              stepName: stage.name,
+              status: "complete",
+              displayName: stage.displayName,
+              runStatus: "running",
+              log: "Changes rejected -- using original prompt.",
+            });
+          } else {
+            // Approved: update step to "complete", continue pipeline with new content
+            if (stepRow) {
+              await admin
+                .from("pipeline_steps")
+                .update({ status: "complete" })
+                .eq("id", stepRow.id);
+            }
+            await admin
+              .from("pipeline_runs")
+              .update({ status: "running" })
+              .eq("id", runId);
+
+            await broadcastStepUpdate(runId, {
+              stepName: stage.name,
+              status: "complete",
+              displayName: stage.displayName,
+              runStatus: "running",
+              log: "Changes approved -- applying proposed prompt.",
+            });
+          }
+        });
+      }
     }
 
     // All stages complete: mark run as complete
