@@ -340,9 +340,9 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
   }
 
   return (
-    <div>
+    <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
       {/* Run header */}
-      <div className="flex items-start justify-between px-6 pt-6">
+      <div className="flex shrink-0 items-start justify-between px-6 pt-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold">
@@ -389,7 +389,7 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
 
       {/* Collapsible use case card */}
       {run.use_case && (
-        <Card className="mx-6 mt-4">
+        <Card className="mx-6 mt-2 shrink-0">
           <CardContent className="py-3">
             <button
               type="button"
@@ -412,8 +412,8 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
         </Card>
       )}
 
-      {/* Graph | Progress Timeline | Chat — 3-column layout */}
-      <div className="relative mt-4 flex overflow-hidden" style={{ height: 'calc(100vh - 13rem)' }}>
+      {/* Graph | Progress Timeline | Chat — 3-column layout, fills remaining height */}
+      <div className="relative mt-2 flex flex-1 overflow-hidden">
         {/* Graph area -- fills remaining width */}
         <div className="flex-1 min-w-0 h-full">
           <SwarmGraph runId={run.id} steps={steps} runStatus={runStatus} />
