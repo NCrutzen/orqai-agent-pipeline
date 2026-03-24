@@ -7,7 +7,6 @@ import { useBroadcast } from "@/lib/supabase/broadcast-client";
 import type { ChatTokenPayload, ChatMessage } from "@/lib/pipeline/chat-types";
 import { ChatMessageBubble } from "./chat-message";
 import { ChatInput } from "./chat-input";
-import { StageProgressBar } from "./stage-progress-bar";
 
 interface DisplayMessage {
   id: string;
@@ -17,16 +16,9 @@ interface DisplayMessage {
   stageName?: string;
 }
 
-interface StageStatus {
-  name: string;
-  displayName: string;
-  status: "pending" | "running" | "complete" | "failed" | "waiting";
-}
-
 interface ChatPanelProps {
   runId: string;
   initialMessages: ChatMessage[];
-  stages: StageStatus[];
   isWaitingForInput: boolean;
   waitingStage: string | null;
   onSendMessage: (message: string) => void;
@@ -35,7 +27,6 @@ interface ChatPanelProps {
 export function ChatPanel({
   runId,
   initialMessages,
-  stages,
   isWaitingForInput,
   waitingStage,
   onSendMessage,

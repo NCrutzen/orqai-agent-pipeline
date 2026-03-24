@@ -111,14 +111,19 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
 
   const supabase = useMemo(() => createClient(), []);
 
-  // Build stage statuses for StageProgressBar
+  // Build stage statuses for StageProgressBar (includes output for clickable expansion)
   const stageStatuses = useMemo(() => {
     return PIPELINE_STAGES.map((stage) => {
       const step = steps.find((s) => s.name === stage.name);
+      const output = step?.result && typeof step.result === "object"
+        ? (step.result as { output?: string }).output
+        : undefined;
       return {
         name: stage.name,
         displayName: stage.displayName,
         status: (step?.status ?? "pending") as "pending" | "running" | "complete" | "failed" | "waiting",
+        output: output ?? undefined,
+        durationMs: step?.duration_ms ?? undefined,
       };
     });
   }, [steps]);
@@ -437,7 +442,6 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
           <ChatPanel
             runId={run.id}
             initialMessages={chatMessages}
-            stages={stageStatuses}
             isWaitingForInput={!!waitingStage}
             waitingStage={waitingStage}
             onSendMessage={handleSendMessage}
