@@ -188,16 +188,29 @@ export function mapPipelineToGraph(
   steps: PipelineStep[],
   runStatus: string
 ): GraphData {
-  // Find architect step and extract output
+  // Find architect step and extract agents
   const architectStep = steps.find((s) => s.name === "architect");
-  const architectOutput =
-    architectStep?.result &&
-    typeof architectStep.result === "object" &&
-    (architectStep.result as { output?: string }).output
-      ? (architectStep.result as { output: string }).output
-      : "";
+  let agents: AgentNodeData[] = [];
 
-  const agents = parseArchitectOutput(architectOutput);
+  if (architectStep?.result && typeof architectStep.result === "object") {
+    const result = architectStep.result as { output?: string; agents?: Array<{ name: string; role: string; model: string; tools: string[] }> };
+
+    // Prefer structured JSON agents (extracted by AI, stored in result.agents)
+    if (result.agents && Array.isArray(result.agents) && result.agents.length > 0) {
+      agents = result.agents.map((a) => ({
+        name: a.name,
+        role: a.role || "Agent",
+        model: a.model || "default",
+        toolCount: a.tools?.length ?? 0,
+        tools: a.tools ?? [],
+        status: "idle" as const,
+      }));
+    }
+    // Fallback to regex parsing of raw output
+    else if (result.output) {
+      agents = parseArchitectOutput(result.output);
+    }
+  }
 
   if (agents.length === 0) {
     return { nodes: [], edges: [] };

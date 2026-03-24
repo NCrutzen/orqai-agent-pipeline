@@ -113,14 +113,21 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
   const stageStatuses = useMemo(() => {
     return PIPELINE_STAGES.map((stage) => {
       const step = steps.find((s) => s.name === stage.name);
-      const output = step?.result && typeof step.result === "object"
-        ? (step.result as { output?: string }).output
-        : undefined;
+      let output: string | undefined;
+      if (step?.result && typeof step.result === "object") {
+        const raw = (step.result as { output?: string }).output ?? "";
+        // Strip tool_call/tool_response blocks — show only the actual output
+        output = raw
+          .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "")
+          .replace(/<tool_response>[\s\S]*?<\/tool_response>/g, "")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim() || undefined;
+      }
       return {
         name: stage.name,
         displayName: stage.displayName,
         status: (step?.status ?? "pending") as "pending" | "running" | "complete" | "failed" | "waiting",
-        output: output ?? undefined,
+        output,
         durationMs: step?.duration_ms ?? undefined,
       };
     });

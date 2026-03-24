@@ -24,6 +24,7 @@ import { analyzeScreenshots } from "@/lib/pipeline/vision-adapter";
 import { runConversationTurn } from "@/lib/pipeline/conversation-agent";
 import type { PipelineAction } from "@/lib/pipeline/conversation-agent";
 import { saveChatMessage } from "@/lib/supabase/chat-messages";
+import { extractAgentsFromOutput } from "@/lib/pipeline/extract-agents";
 
 /**
  * Context keys expected by each pipeline stage.
@@ -323,8 +324,30 @@ export const executePipeline = inngest.createFunction(
       });
 
       // Store the output for downstream stages to use
-      // This is the return value from step.run() -- available across re-invocations via memoization
       stageResults[stage.name] = stepRef.output;
+
+      // After architect: extract agents as structured JSON using AI (not regex)
+      if (stage.name === "architect" && stepRef.output && !stepRef.skipped) {
+        await step.run("architect-extract-agents", async () => {
+          const agents = await extractAgentsFromOutput(stepRef.output);
+          if (agents.length > 0) {
+            const admin = createAdminClient();
+            const { data: existingStep } = await admin
+              .from("pipeline_steps")
+              .select("id, result")
+              .eq("run_id", runId)
+              .eq("name", "architect")
+              .single();
+            if (existingStep) {
+              // Store agents JSON alongside the raw output
+              const currentResult = (existingStep.result as Record<string, unknown>) ?? {};
+              await admin.from("pipeline_steps").update({
+                result: { ...currentResult, agents },
+              }).eq("id", existingStep.id);
+            }
+          }
+        });
+      }
 
       // Template chat messages for silent stages (no extra API call)
       if (stage.templateMessage) {
