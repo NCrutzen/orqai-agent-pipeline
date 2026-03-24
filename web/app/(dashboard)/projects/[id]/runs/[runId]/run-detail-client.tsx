@@ -325,10 +325,9 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
         setDiscussionTurnIndex((prev) => prev + 1);
       } else if (previousWaitingStage) {
         // Architect/spec review -- use review server action
-        const decision = message.toLowerCase().trim() === "confirm"
-          || message.toLowerCase().trim() === "yes"
-          || message.toLowerCase().trim() === "looks good"
-            ? "confirmed" as const : "feedback" as const;
+        const lower = message.toLowerCase().trim();
+        const isConfirm = lower.includes("confirm") || lower.includes("yes") || lower.includes("looks good") || lower.includes("ok") || lower.includes("proceed") || lower.includes("go ahead") || lower.includes("lgtm");
+        const decision = isConfirm ? "confirmed" as const : "feedback" as const;
         const feedback = decision === "feedback" ? message : undefined;
         await submitReviewResponse(run.id, previousWaitingStage, decision, feedback);
       }
@@ -426,19 +425,19 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
       )}
 
       {/* Graph | Progress Timeline | Chat — 3-column layout */}
-      <div className="relative mt-4 flex" style={{ height: 'calc(100vh - 13rem)' }}>
+      <div className="relative mt-4 flex overflow-hidden" style={{ height: 'calc(100vh - 13rem)' }}>
         {/* Graph area -- fills remaining width */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 h-full">
           <SwarmGraph runId={run.id} steps={steps} runStatus={runStatus} />
         </div>
 
         {/* Vertical progress timeline -- narrow middle column */}
-        <div className="w-[180px] shrink-0 overflow-hidden">
+        <div className="w-[180px] shrink-0 h-full overflow-hidden">
           <StageProgressBar stages={stageStatuses} />
         </div>
 
-        {/* Chat panel -- wider right column, overflow-hidden keeps input pinned */}
-        <div className="w-[480px] shrink-0 border-l flex flex-col overflow-hidden">
+        {/* Chat panel -- wider right column, h-full + overflow-hidden pins input */}
+        <div className="w-[480px] shrink-0 border-l flex flex-col h-full overflow-hidden">
           <ChatPanel
             runId={run.id}
             initialMessages={chatMessages}
