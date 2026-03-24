@@ -43,7 +43,7 @@ ${context.discussionTurns && context.discussionTurns >= 3 ? "You've asked enough
 ${context.stageOutput?.slice(0, 4000) ?? ""}
 </architect_output>
 
-Summarize the designed swarm CONCISELY (bullet points, agent names and roles only, under 10 lines). Then ask if this looks right. If the user confirms, signal to continue. If they have feedback, capture it clearly.`,
+Summarize the designed swarm CONCISELY (bullet points, agent names and roles, under 10 lines). Do NOT ask for confirmation — just inform the user and say you're continuing to the next step. The pipeline keeps running.`,
 
     "spec-review": `The spec generator just created detailed agent specifications. Here is the output:
 
@@ -51,7 +51,7 @@ Summarize the designed swarm CONCISELY (bullet points, agent names and roles onl
 ${context.stageOutput?.slice(0, 4000) ?? ""}
 </spec_output>
 
-Highlight 2-3 key points per agent (model, main tools, key instructions). Keep it compact. Ask if the user wants to proceed or adjust anything.`,
+Highlight 2-3 key points per agent (model, main tools). Keep it compact. Do NOT ask for confirmation — just inform the user and say you're continuing. The pipeline keeps running.`,
 
     "running": `Pipeline stages are running. If the user asks a question, answer based on what you know. If they want to change something, explain that the current stage needs to finish first.`,
   };
@@ -63,10 +63,11 @@ You are the user's single point of contact. You speak their language (auto-detec
 ${phaseInstructions[context.phase] ?? phaseInstructions["running"]}
 
 CRITICAL: At the end of EVERY response, include exactly ONE action tag on its own line:
-- <pipeline_action>wait</pipeline_action> — you asked a question and need the user's answer
+- <pipeline_action>wait</pipeline_action> — you asked a question during DISCUSSION and need the user's answer
 - <pipeline_action>discussion_complete</pipeline_action> — discussion is done, start building
-- <pipeline_action>continue</pipeline_action> — user confirmed, proceed to next stage
-- <pipeline_action>feedback: BRIEF SUMMARY OF WHAT TO CHANGE</pipeline_action> — user wants changes
+- <pipeline_action>continue</pipeline_action> — informing user about progress, pipeline continues
+
+For architect-review and spec-review phases: ALWAYS use <pipeline_action>continue</pipeline_action> — these are informational, the pipeline doesn't wait.
 
 The action tag MUST be the last line. Never include more than one.`;
 }
@@ -140,11 +141,6 @@ export async function runConversationTurn(
     // Signal stream start
     await broadcaster.send({ messageId, role: "assistant", token: "", isStart: true, stageName });
 
-    // Hold-back buffer: tokens that might be part of the action tag
-    // We stream tokens only when we're sure they're not part of "<pipeline_action>"
-    let streamedUpTo = 0;
-    let tagDetected = false;
-
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -162,42 +158,8 @@ export async function runConversationTurn(
           const token = chunk.choices?.[0]?.delta?.content ?? "";
           if (token) {
             fullText += token;
-
-            if (tagDetected) continue; // Already found tag, stop streaming
-
-            // Check if the action tag has started appearing
-            const tagStart = fullText.indexOf("<pipeline_action>");
-            if (tagStart !== -1) {
-              // Stream everything before the tag that we haven't streamed yet
-              const safeText = fullText.slice(streamedUpTo, tagStart);
-              if (safeText) {
-                await broadcaster.send({ messageId, role: "assistant", token: safeText, stageName });
-              }
-              tagDetected = true;
-              continue;
-            }
-
-            // Check for partial tag at the end (e.g., "<pipeline_" or "<pipel")
-            const partialTagCheck = fullText.slice(-20); // Check last 20 chars
-            const partialIdx = partialTagCheck.indexOf("<");
-            if (partialIdx !== -1 && "<pipeline_action>".startsWith(partialTagCheck.slice(partialIdx))) {
-              // Might be start of tag — hold back, don't stream yet
-              const safeEnd = fullText.length - (20 - partialIdx);
-              if (safeEnd > streamedUpTo) {
-                const safeToken = fullText.slice(streamedUpTo, safeEnd);
-                if (safeToken) {
-                  await broadcaster.send({ messageId, role: "assistant", token: safeToken, stageName });
-                }
-                streamedUpTo = safeEnd;
-              }
-            } else {
-              // No tag in sight — stream everything we haven't streamed
-              const newContent = fullText.slice(streamedUpTo);
-              if (newContent) {
-                await broadcaster.send({ messageId, role: "assistant", token: newContent, stageName });
-              }
-              streamedUpTo = fullText.length;
-            }
+            // Stream all tokens to the user — action tag is stripped from DB save
+            await broadcaster.send({ messageId, role: "assistant", token, stageName });
           }
         } catch {
           // skip malformed chunk

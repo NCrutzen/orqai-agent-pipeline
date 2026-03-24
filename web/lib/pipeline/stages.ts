@@ -63,7 +63,6 @@ export const PIPELINE_STAGES: PipelineStage[] = [
     mdFile: "orq-agent/agents/spec-generator.md",
     displayName: "Generating agent specifications",
     stepOrder: 4,
-    needsApproval: true,
     needsNarration: true,
   },
   {

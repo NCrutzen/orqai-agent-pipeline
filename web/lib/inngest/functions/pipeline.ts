@@ -411,63 +411,11 @@ export const executePipeline = inngest.createFunction(
         });
       }
 
-      // Conversation agent review for stages that need it (architect, spec-generator)
+      // Narrate stage completion — inform user, don't block pipeline
       if (stage.needsNarration && stepRef.output && !stepRef.skipped) {
         const reviewPhase = stage.name === "architect" ? "architect-review" : "spec-review";
-
-        // Conversation agent streams summary + asks user (OUTSIDE step.run for streaming)
-        let action = await converse(reviewPhase, stepRef.output, stage.name);
-
-        // If agent asks user to confirm/give feedback → wait for response
-        // Loop allows multiple rounds of feedback
-        for (let reviewTurn = 0; reviewTurn < 3; reviewTurn++) {
-          if (action.type === "continue") break; // User confirmed
-          if (action.type !== "wait" && action.type !== "feedback") break; // Unexpected
-
-          if (action.type === "feedback") {
-            // Re-run stage with AI-extracted feedback
-            const rerunRef = await step.run(`${stage.name}-rerun-${reviewTurn}`, async () => {
-              const admin = createAdminClient();
-              const contextBuilder = STAGE_CONTEXT_MAP[stage.name];
-              const baseContext = contextBuilder
-                ? contextBuilder(stageResults, enrichedUseCase)
-                : { useCase: enrichedUseCase };
-              const result = await runPromptAdapter(stage.name, {
-                ...baseContext,
-                userFeedback: (action as { type: "feedback"; summary: string }).summary,
-              });
-              const { data: existingStep } = await admin
-                .from("pipeline_steps")
-                .select("id")
-                .eq("run_id", runId)
-                .eq("name", stage.name)
-                .single();
-              if (existingStep) {
-                await admin.from("pipeline_steps").update({ result: { output: result } }).eq("id", existingStep.id);
-              }
-              return { output: result };
-            });
-            stageResults[stage.name] = rerunRef.output;
-
-            // Re-converse with updated output
-            action = await converse(reviewPhase, rerunRef.output, stage.name);
-            continue;
-          }
-
-          // action.type === "wait" — agent asked a question, wait for user
-          const userMsg = await waitForUserMessage(`${stage.name}-review-wait-${reviewTurn}`);
-          if (!userMsg) { action = { type: "continue" }; break; } // Timeout → proceed
-
-          // Let conversation agent process the user's response
-          action = await converse(reviewPhase, stepRef.output, stage.name);
-        }
-
-        // Resume running
-        await step.run(`${stage.name}-narration-resume`, async () => {
-          const admin = createAdminClient();
-          await admin.from("pipeline_runs").update({ status: "running" }).eq("id", runId);
-          await broadcastStepUpdate(runId, { stepName: stage.name, status: "complete", displayName: stage.displayName, runStatus: "running" });
-        });
+        // Stream a summary to the user — pipeline continues immediately after
+        await converse(reviewPhase, stepRef.output, stage.name);
       }
 
       // HITL Approval Gate: if stage needs approval and produced a diff
