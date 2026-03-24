@@ -113,7 +113,7 @@ export async function runConversationTurn(
     },
     body: JSON.stringify({
       model: "anthropic/claude-sonnet-4-6",
-      max_tokens: 2048,
+      max_tokens: 4096,
       stream: true,
       messages: [
         { role: "system", content: systemPrompt },
@@ -140,6 +140,11 @@ export async function runConversationTurn(
     // Signal stream start
     await broadcaster.send({ messageId, role: "assistant", token: "", isStart: true, stageName });
 
+    // Hold-back buffer: tokens that might be part of the action tag
+    // We stream tokens only when we're sure they're not part of "<pipeline_action>"
+    let streamedUpTo = 0;
+    let tagDetected = false;
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -157,9 +162,41 @@ export async function runConversationTurn(
           const token = chunk.choices?.[0]?.delta?.content ?? "";
           if (token) {
             fullText += token;
-            // Don't stream the action tag to the user
-            if (!fullText.includes("<pipeline_action>")) {
-              await broadcaster.send({ messageId, role: "assistant", token, stageName });
+
+            if (tagDetected) continue; // Already found tag, stop streaming
+
+            // Check if the action tag has started appearing
+            const tagStart = fullText.indexOf("<pipeline_action>");
+            if (tagStart !== -1) {
+              // Stream everything before the tag that we haven't streamed yet
+              const safeText = fullText.slice(streamedUpTo, tagStart);
+              if (safeText) {
+                await broadcaster.send({ messageId, role: "assistant", token: safeText, stageName });
+              }
+              tagDetected = true;
+              continue;
+            }
+
+            // Check for partial tag at the end (e.g., "<pipeline_" or "<pipel")
+            const partialTagCheck = fullText.slice(-20); // Check last 20 chars
+            const partialIdx = partialTagCheck.indexOf("<");
+            if (partialIdx !== -1 && "<pipeline_action>".startsWith(partialTagCheck.slice(partialIdx))) {
+              // Might be start of tag — hold back, don't stream yet
+              const safeEnd = fullText.length - (20 - partialIdx);
+              if (safeEnd > streamedUpTo) {
+                const safeToken = fullText.slice(streamedUpTo, safeEnd);
+                if (safeToken) {
+                  await broadcaster.send({ messageId, role: "assistant", token: safeToken, stageName });
+                }
+                streamedUpTo = safeEnd;
+              }
+            } else {
+              // No tag in sight — stream everything we haven't streamed
+              const newContent = fullText.slice(streamedUpTo);
+              if (newContent) {
+                await broadcaster.send({ messageId, role: "assistant", token: newContent, stageName });
+              }
+              streamedUpTo = fullText.length;
             }
           }
         } catch {
@@ -168,7 +205,7 @@ export async function runConversationTurn(
       }
     }
 
-    // Signal stream end (with clean text, no action tag)
+    // Signal stream end
     await broadcaster.send({ messageId, role: "assistant", token: "", isDone: true, stageName });
   } finally {
     broadcaster.close();

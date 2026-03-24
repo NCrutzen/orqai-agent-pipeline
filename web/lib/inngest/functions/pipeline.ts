@@ -23,7 +23,7 @@ import { detectAutomationNeeds } from "@/lib/pipeline/automation-detector";
 import { analyzeScreenshots } from "@/lib/pipeline/vision-adapter";
 import { runConversationTurn } from "@/lib/pipeline/conversation-agent";
 import type { PipelineAction } from "@/lib/pipeline/conversation-agent";
-import { saveChatMessage } from "@/lib/supabase/chat-messages";
+import { saveChatMessage, getChatMessages } from "@/lib/supabase/chat-messages";
 import { extractAgentsFromOutput } from "@/lib/pipeline/extract-agents";
 
 /**
@@ -145,8 +145,18 @@ export const executePipeline = inngest.createFunction(
 
     let enrichedUseCase = useCase;
 
-    // Persistent conversation history (survives across all phases)
-    const conversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
+    // Helper: load conversation history from DB (survives Inngest retries)
+    async function loadConversationHistory(): Promise<Array<{ role: "user" | "assistant"; content: string }>> {
+      try {
+        const messages = await getChatMessages(runId);
+        return messages.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }));
+      } catch {
+        return [];
+      }
+    }
 
     // Helper: run one conversation turn (stream to user, get action)
     async function converse(
@@ -154,14 +164,15 @@ export const executePipeline = inngest.createFunction(
       stageOutput?: string,
       completedStage?: string,
     ): Promise<PipelineAction> {
+      // Always reload history from DB — survives retries
+      const history = await loadConversationHistory();
       const msgId = crypto.randomUUID();
       const result = await runConversationTurn(
         runId,
-        conversationHistory,
-        { phase, stageOutput, completedStage, discussionTurns: conversationHistory.filter(m => m.role === "user").length },
+        history,
+        { phase, stageOutput, completedStage, discussionTurns: history.filter(m => m.role === "user").length },
         msgId,
       );
-      conversationHistory.push({ role: "assistant", content: result.response });
       return result.action;
     }
 
@@ -182,7 +193,8 @@ export const executePipeline = inngest.createFunction(
       if (!userEvent) return ""; // Timeout
 
       const msg = userEvent.data.message;
-      conversationHistory.push({ role: "user", content: msg });
+      // User message is already saved to DB by the conversation-action server action
+      // No need to push to in-memory array — converse() loads from DB
 
       await step.run(`${waitStepId}-mark-running`, async () => {
         const admin = createAdminClient();
@@ -195,8 +207,14 @@ export const executePipeline = inngest.createFunction(
 
     // --- Discussion phase ---
     if (!event.data.resumeFromStep) {
-      // Seed conversation with use case
-      conversationHistory.push({ role: "user", content: useCase });
+      // Save initial use case as the first user message (if not already saved)
+      await step.run("discussion-seed", async () => {
+        const existing = await getChatMessages(runId);
+        if (existing.length === 0) {
+          const msgId = await saveChatMessage(runId, "user", useCase, "discussion");
+          await broadcastChatMessage(runId, { id: msgId, role: "user", content: useCase });
+        }
+      });
 
       for (let turn = 0; turn < 8; turn++) {
         // Conversation agent streams response to user
@@ -210,8 +228,9 @@ export const executePipeline = inngest.createFunction(
         if (!userMsg) break; // Timeout
       }
 
-      // Build enriched use case from full conversation
-      const userMessages = conversationHistory
+      // Build enriched use case from full conversation (load from DB)
+      const allMessages = await loadConversationHistory();
+      const userMessages = allMessages
         .filter((m) => m.role === "user")
         .slice(1); // Skip the initial use case message
       if (userMessages.length > 0) {
