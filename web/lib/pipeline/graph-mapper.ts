@@ -63,6 +63,17 @@ export function parseArchitectOutput(output: string): AgentNodeData[] {
     return [];
   }
 
+  // The architect output may contain tool_call/tool_response blocks before the actual agents.
+  // Extract only the section after "## Agents" or "ARCHITECTURE COMPLETE" if present.
+  let agentSection = output;
+  const agentsHeaderIdx = output.search(/^##\s+Agents\b/m);
+  const archCompleteIdx = output.indexOf("ARCHITECTURE COMPLETE");
+  if (agentsHeaderIdx !== -1) {
+    agentSection = output.slice(agentsHeaderIdx);
+  } else if (archCompleteIdx !== -1) {
+    agentSection = output.slice(archCompleteIdx);
+  }
+
   const agents: AgentNodeData[] = [];
 
   // The architect output uses multiple possible formats:
@@ -70,7 +81,7 @@ export function parseArchitectOutput(output: string): AgentNodeData[] {
   // Format B (legacy): "## Agent: Name" with Role:, Model:, Tools:
   //
   // Split by numbered agent headings (### N. name) or "## Agent:" prefix
-  const sections = output.split(
+  const sections = agentSection.split(
     /(?=^#{1,3}\s+(?:\d+\.\s+|Agent:\s*))/m
   );
 
