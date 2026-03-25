@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 Phase: No active phase (V4.0 not started)
 Plan: N/A
 Status: Between milestones
-Last activity: 2026-03-23 - Completed quick task 260323-gex: Create /orq-agent:systems command for managing IT systems registry
+Last activity: 2026-03-25 - Completed quick task 260325-r2j: Apply 6 experiment learnings to pipeline agent specs and references
 
 Progress: V2.1 complete. V4.0 next.
 
@@ -66,6 +66,7 @@ None.
 | 260323-ep2 | Rewrite assessment with workflow-discovery + workflow-builder model (replaces SOP-dependent approach) | 2026-03-23 | 260ac19 | Verified | [260323-ep2-herschrijf-browser-automation-assessment](./quick/260323-ep2-herschrijf-browser-automation-assessment/) |
 | 260323-ey0 | Neutralize skill set for public repo: systems.md registry, browser automation installer prompt, zero IT-specific refs | 2026-03-23 | 5e944d6 | Verified | [260323-ey0-neutralize-skill-set-for-public-repo-ext](./quick/260323-ey0-neutralize-skill-set-for-public-repo-ext/) |
 | 260323-gex | Create /orq-agent:systems command for managing IT systems registry (list/add/remove) | 2026-03-23 | 5946bae | Verified | [260323-gex-create-orq-agent-systems-command-for-man](./quick/260323-gex-create-orq-agent-systems-command-for-man/) |
+| 260325-r2j | Apply 6 experiment learnings to agent specs and reference files (json_schema, two-evaluator, portionOptimizer, KB heuristic, API pitfalls) | 2026-03-25 | b528587 | | [260325-r2j-apply-orq-ai-experiment-learnings-to-age](./quick/260325-r2j-apply-orq-ai-experiment-learnings-to-age/) |
 
 ### Pending Todos
 
@@ -73,7 +74,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23
-Stopped at: Created /orq-agent:systems command (quick task 260323-gex)
+Last session: 2026-03-25
+Stopped at: Completed quick task 260325-r2j: Apply 6 experiment learnings to pipeline
 Resume with: Start V4.0 planning when ready, or implement browser automation integration per revised ACTION-PLAN.md
 Resume file: N/A -- between milestones
