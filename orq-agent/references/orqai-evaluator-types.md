@@ -81,6 +81,7 @@ Choose evaluator type based on what you are testing:
 
 | Testing Goal | Recommended Evaluators |
 |-------------|----------------------|
+| **Any agent (mandatory baseline)** | 1 function evaluator + 1 LLM evaluator minimum (two-evaluator pattern) |
 | **Semantic quality** (is the answer good?) | LLM evaluators: `relevance`, `coherence`, `helpfulness` |
 | **Structural correctness** (right format?) | Function evaluators: `json_validity`, `json_schema`, `regex_match` |
 | **RAG pipeline quality** (retrieval working?) | RAGAS evaluators: `faithfulness`, `context_precision`, `answer_relevancy` |
@@ -91,3 +92,28 @@ Choose evaluator type based on what you are testing:
 | **Multi-agent orchestration** (handoffs correct?) | Custom: Python or HTTP evaluator with orchestration-aware logic |
 
 **Combining evaluators:** Use multiple evaluators per agent test. Typical setup: 1 structural (json_validity) + 1 semantic (relevance) + 1 domain-specific (custom LLM). Weight scores by importance in experiment configuration.
+
+## Two-Evaluator Pattern (Mandatory)
+
+Every experiment MUST pair at least one code/function evaluator with at least one LLM evaluator. This is the **two-evaluator pattern** -- using only one type gives incomplete signal.
+
+### Why both types are required
+
+- **Code/function evaluators** catch: structural issues (malformed JSON, missing fields), format compliance (regex patterns, schema validity), exact matches, and deterministic correctness checks. They are fast, cheap, and 100% reproducible.
+- **LLM evaluators** catch: semantic quality (is the answer helpful?), coherence (does it flow logically?), instruction following (did it do what was asked?), and nuanced quality issues that code cannot assess.
+
+Using only code evaluators misses semantic quality problems -- an agent can produce perfectly valid JSON that is completely wrong or unhelpful. Using only LLM evaluators misses structural issues -- an agent can produce eloquent text that fails to parse or violates format requirements.
+
+### Minimum evaluator sets by agent role
+
+| Agent Role | Minimum Code Evaluator | Minimum LLM Evaluator |
+|-----------|----------------------|---------------------|
+| **Structural** (JSON output, data extraction) | `json_validity` or `json_schema` | `instruction_following` |
+| **Conversational** (chat, support, advice) | `contains` or `regex_match` (for required elements) | `relevance` or `coherence` |
+| **Hybrid** (structured output + conversation) | `json_validity` | `instruction_following` + `relevance` |
+
+### Examples
+
+- **Structural agent** (invoice extractor): `json_validity` (code) + `instruction_following` (LLM)
+- **Conversational agent** (customer support): `regex_match` on required sections (code) + `relevance` (LLM) + `helpfulness` (LLM)
+- **Hybrid agent** (classifier with explanation): `json_schema` (code) + `instruction_following` (LLM) + `coherence` (LLM)

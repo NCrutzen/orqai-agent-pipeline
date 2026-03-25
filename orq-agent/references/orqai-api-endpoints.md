@@ -192,3 +192,50 @@ Key SDK methods used by subagents and their REST API equivalents. Use these when
 - **Rate limits:** Respect `Retry-After` headers on 429 responses.
 - **Idempotency:** Use agent `key` field for idempotent creates -- if a key already exists, use PATCH to update instead.
 - **Full docs:** For request/response schemas, fetch from `https://docs.orq.ai/reference/` at runtime.
+
+## Common Pitfalls
+
+Hard-won lessons from running experiments on the Orq.ai platform. Avoid these mistakes:
+
+### Pitfall 1: Using evaluator names instead of IDs in experiment creation
+
+The `POST /v2/experiments` endpoint requires evaluator IDs in the `evaluators` array, not display names:
+
+```json
+// WRONG -- causes 422 validation error
+{ "evaluators": [{ "name": "coherence" }] }
+
+// CORRECT -- resolve IDs first via GET /v2/evaluators
+{ "evaluators": [{ "id": "01JXXXXXXXXXXXXXX" }] }
+```
+
+Always resolve evaluator names to platform IDs by calling `GET /v2/evaluators?limit=200` first, then matching by `name` field to extract the `id`.
+
+### Pitfall 2: Nesting messages inside inputs for dataset rows
+
+The experiment engine reads `messages` as a **top-level field** on the datapoint, not nested inside `inputs`:
+
+```json
+// WRONG -- experiment runs but evaluator scores are null (silent failure)
+{ "inputs": { "messages": [{ "role": "user", "content": "..." }] } }
+
+// CORRECT -- messages is top-level alongside inputs
+{
+  "inputs": { "text": "...", "category": "..." },
+  "messages": [{ "role": "user", "content": "..." }],
+  "expected_output": "..."
+}
+```
+
+This is a silent failure -- the experiment completes but all evaluator scores come back null because the agent never received the input messages.
+
+### Pitfall 3: Using /invoke instead of /execute for agent execution
+
+The correct endpoint for synchronous agent execution is `/execute`, not `/invoke`:
+
+```
+WRONG:  POST /v2/agents/{agent_id}/invoke
+CORRECT: POST /v2/agents/{agent_id}/execute
+```
+
+The `/invoke` endpoint does not exist in the v2 API. Use `POST /v2/agents/{agent_id}/execute` for synchronous execution or `POST /v2/agents/{agent_id}/stream` for streaming.

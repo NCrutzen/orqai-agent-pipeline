@@ -25,6 +25,7 @@ Authoritative reference for all Orq.ai Agent API v2 fields. Subagents load this 
 | `variables` | object | No | Key-value pairs for template replacement in instructions. Values are substituted at runtime using `{{variable_name}}` syntax. |
 | `identity` | object | No | Contact information: `{ "id": "...", "display_name": "...", "email": "...", "metadata": {...}, "tags": [...] }`. |
 | `thread` | object | No | Groups related invocations: `{ "id": "...", "tags": [...] }`. Use for conversation continuity. |
+| `response_format` | object | No | Response format configuration. Use `{ "type": "json_schema", "json_schema": { "name": "...", "strict": true, "schema": {JSON Schema} } }` for structured output. ALWAYS use `json_schema` with `strict: true` -- never use `json_object` (causes hallucinated fields and missing required fields). |
 | `memory` | object | No | Memory configuration: `{ "entity_id": "..." }`. Links agent to a memory entity for persistent recall. |
 
 ## Tool Types
@@ -50,6 +51,50 @@ All tools support `requires_approval` (boolean) for human-in-the-loop gating.
 | Agent Invocation | `call_sub_agent` | `{ "type": "call_sub_agent" }` | Invoke a sub-agent for task delegation (multi-agent only) |
 
 **Multi-agent requirement:** An orchestrator agent using sub-agents must have both `retrieve_agents` and `call_sub_agent` tools, plus `team_of_agents` listing the sub-agent keys.
+
+## Response Format
+
+When an agent must produce structured or JSON output, configure the `response_format` field to enforce schema compliance.
+
+### json_schema with strict mode (ALWAYS use this)
+
+```json
+{
+  "type": "json_schema",
+  "json_schema": {
+    "name": "agent_output",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "result": { "type": "string", "description": "The agent's output" },
+        "confidence": { "type": "number", "description": "Confidence score 0-1" }
+      },
+      "required": ["result", "confidence"],
+      "additionalProperties": false
+    }
+  }
+}
+```
+
+- `strict: true` enforces exact schema compliance -- the model output will match the schema precisely
+- `name` is a descriptive identifier for the schema (e.g., `triage_classification`, `invoice_extraction`)
+- `schema` follows JSON Schema Draft 2020-12 format, same as function tool parameter schemas
+- `additionalProperties: false` is recommended with strict mode to prevent extra fields
+
+### Anti-pattern: json_object (NEVER use this)
+
+Do NOT use `{ "type": "json_object" }` for response format. The `json_object` type tells the model to produce JSON but provides no schema enforcement. This causes:
+
+- **Hallucinated field names** -- the model invents field names not in your expected schema
+- **Missing required fields** -- the model omits fields it considers optional
+- **Inconsistent structure** -- output shape varies across invocations
+
+### When to use response_format
+
+- Any agent that must produce structured/JSON output (classifiers, extractors, formatters, data transformers)
+- Agents whose output is consumed by downstream code or other agents that parse specific fields
+- Do NOT use for conversational agents that produce free-text responses
 
 ## Task States
 
