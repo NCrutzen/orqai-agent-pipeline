@@ -79,7 +79,7 @@ For each agent in the blueprint, work through these areas in order:
 
 4. **Guardrail design** -- Research domain-specific risks. What inputs should be filtered? What outputs need safety checks? What scope boundaries must be enforced?
 
-5. **Context requirements** -- What knowledge does the agent need? What variables enable personalization? Does the agent need conversation memory?
+5. **Context requirements** -- What knowledge does the agent need? What variables enable personalization? Does the agent need conversation memory? Assess KB tool necessity: if the domain knowledge is small enough to fit in the system prompt (<5000 words) and does not change frequently, recommend baking knowledge inline instead of using KB tools. KB tools add latency and return inconsistent chunks.
 
 6. **Context management strategy** -- Does the agent need just-in-time retrieval (tool-heavy agents) or upfront context (simple classifiers)? Does it benefit from summarization directives? What is the expected context budget intensity?
 
@@ -158,6 +158,10 @@ Produce your output in EXACTLY this format. Downstream subagents parse this stru
 ### Tool Recommendations
 - `tool_type_identifier` -- [why this agent needs it, tied to Orq.ai tool type from agent fields reference]
 - `tool_type_identifier` -- [why this agent needs it]
+
+**Math-heavy agents:** When an agent needs calculations (percentages, totals, averages, ratios), recommend `code` tool type with the portionOptimizer pattern -- LLM for selection/reasoning, code tool for math. LLMs cannot do arithmetic reliably.
+
+**KB tool assessment:** When recommending KB tools (`retrieve_knowledge_bases`, `query_knowledge_base`), assess whether the knowledge could be baked into the system prompt instead. If the knowledge corpus is small (<5000 words) and static (does not change frequently), recommend inline knowledge in the system prompt rather than KB tools. KB tools add latency and return inconsistent chunks.
 
 ### Guardrail Suggestions
 - **Input:** [input filtering recommendation -- domain-specific, not generic]
@@ -381,3 +385,5 @@ This example demonstrates the complete output format for a customer support swar
 - **Do NOT hallucinate model IDs.** Only use models confirmed available via the MCP models-list tool. If MCP is unavailable, use well-known model IDs with the provider/model-name format and flag confidence as MEDIUM. Valid providers include: `openai/`, `anthropic/`, `google-ai/`, `aws/`, `azure/`, `groq/`, `deepseek/`, `mistral/`, `cohere/`, `cerebras/`, `perplexity/`, `togetherai/`, `alibaba/`, `minimax/`.
 
 - **Do NOT provide recommendations without tying them to Orq.ai fields.** Every model recommendation maps to `model` and `fallback_models`. Every tool maps to `settings.tools`. Every context need maps to `knowledge_bases`, `variables`, or `memory_stores`. Untied recommendations are not actionable for downstream generators.
+
+- **Do NOT recommend KB tools by default when knowledge is small and static.** If the domain knowledge fits in the system prompt (<5000 words) and does not change frequently, recommend baking knowledge inline in the system prompt instead. Only use KB tools for large (>5000 words) or frequently-changing knowledge corpuses. KB retrieval adds latency, costs tokens, and returns inconsistent chunks.

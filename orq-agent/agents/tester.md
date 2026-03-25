@@ -366,7 +366,9 @@ Log role classification: `Agent {agent-key}: role = {role} (inferred|override)`
 
 ### Step 6.2: Select Base Evaluators by Role
 
-Select evaluators based on the inferred or overridden role:
+Select evaluators based on the inferred or overridden role.
+
+**Two-evaluator validation (mandatory):** After selecting evaluators by role, verify at least one function/code evaluator AND one LLM evaluator are present. If only one type is selected (e.g., conversational agents get only LLM evaluators), add the minimum from the other type: for conversational agents missing a function evaluator, add `contains` or `regex_match`; for structural agents missing an LLM evaluator, add `instruction_following`.
 
 **Structural agents:**
 
@@ -758,6 +760,8 @@ This output is consumed by the test command for results formatting and by Phase 
 - **Averaging scores across different evaluator scales** -- Function evaluators score binary (0/1), similarity metrics score 0-1, LLM evaluators score 1-5. Report per-evaluator scores separately. Normalize only if absolutely needed for comparison.
 - **Installing @orq-ai/node@latest** -- Must be `^3.14.45`. Version 4 dropped the MCP server binary. Never use `latest`.
 - **Deploying resources in parallel** -- Upload datasets sequentially to respect rate limits. Parallel uploads risk 429 errors.
+- **Using the @orq-ai/evaluatorq SDK for experiments** -- The evaluatorq SDK approach referenced in Phase 7 (Step 7.2) is LEGACY. It has been superseded by the experiment-runner subagent which uses REST API directly (`POST /v2/experiments`, `POST /v2/experiments/{id}/run`). The evaluatorq SDK caused experiment timeouts and has been replaced. Actual test execution now flows through: dataset-preparer -> experiment-runner -> results-analyzer.
+- **Running experiments with only one evaluator type** -- Always use both code/function evaluators AND LLM evaluators together (two-evaluator pattern). Using only one type gives incomplete signal.
 
 ## Decision Framework
 

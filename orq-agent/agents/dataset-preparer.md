@@ -256,3 +256,4 @@ Agent              | Status | Role    | Examples | Datasets
 - **Do NOT put `messages` inside `inputs`** -- The experiment engine reads `messages` as a top-level field on the datapoint, not nested inside `inputs`.
 - **Do NOT skip the smoke test** -- Null evaluator scores from missing `messages` are silent failures. Experiments complete but produce unusable results.
 - **Do NOT copy expected outputs verbatim for augmented examples** -- Each augmented example needs an adapted expected output reflecting the specific input changes.
+- **Do NOT use `json_object` as response format when testing agents that produce structured output** -- Ensure the agent spec uses `json_schema` with `strict: true` for reliable evaluation. The `json_object` format causes hallucinated field names and missing required fields, which makes evaluator scores unreliable and non-reproducible across experiment runs.

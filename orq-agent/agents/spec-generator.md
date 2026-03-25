@@ -278,6 +278,28 @@ Use `provider/model-name` format. Use the research brief's primary model recomme
 
 Examples of valid format: `anthropic/claude-sonnet-4-5`, `openai/gpt-4o`, `google-ai/gemini-2.5-pro`
 
+### Response Format
+
+When the agent must produce structured or JSON output, add a `response_format` field with `json_schema` and `strict: true`. See `orqai-agent-fields.md` Response Format section for the full configuration template.
+
+**Configuration template:**
+```json
+{
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "[descriptive-schema-name]",
+      "strict": true,
+      "schema": { "type": "object", "properties": { ... }, "required": [...], "additionalProperties": false }
+    }
+  }
+}
+```
+
+**NEVER use `json_object`** -- it causes hallucinated field names and missing required fields. Always use `json_schema` with `strict: true` for any structured output requirement.
+
+**When to apply:** Any agent whose output is consumed by downstream code, other agents, or needs to conform to a specific schema (classifiers, extractors, formatters, data transformers). Do NOT apply to conversational agents that produce free-text responses.
+
 ### Fallback Models
 
 Ordered list from the research brief's alternative model recommendations. Rules:
@@ -370,6 +392,11 @@ If the agent does not need HTTP tools, mark as "Not applicable for this agent."
 
 #### Code Tools
 
+**LLMs cannot do math reliably.** When an agent needs numeric calculations (percentages, totals, averages, ratios, unit conversions), ALWAYS pair it with a code tool. Use the LLM for selection and reasoning, the code tool for computation. This is the portionOptimizer pattern:
+- LLM decides **what** to calculate (selects items, determines the operation needed)
+- Code tool performs **the actual math** (computes totals, percentages, averages)
+- Example: LLM selects menu items based on dietary preferences, code tool computes nutritional totals and portion percentages
+
 Identify when Python computation is needed. For each code tool, provide:
 - Purpose and description
 - Python code template
@@ -399,6 +426,22 @@ Identify when MCP (Model Context Protocol) server connections are relevant based
 - Flag: "MCP available when Orq.ai adds MCP support" for future integrations not yet available
 
 If the agent does not need MCP tools, mark as "Not applicable for this agent."
+
+#### KB Tool Decision
+
+Before adding KB tools (`retrieve_knowledge_bases`, `query_knowledge_base`) to an agent, apply this decision heuristic:
+
+**Remove KB tools and bake knowledge inline when ALL of these are true:**
+- The agent's system prompt already contains comprehensive domain knowledge
+- The reference material is less than ~5000 words
+- The knowledge does not change frequently (static policies, fixed rules, established procedures)
+
+**Keep KB tools when ANY of these are true:**
+- The knowledge corpus is too large to fit in the prompt (>5000 words of reference material)
+- The knowledge changes frequently (product catalogs, pricing, frequently updated policies)
+- Multiple distinct knowledge domains need to be queried dynamically
+
+**Anti-pattern:** Do NOT add KB tools to agents with detailed system prompts where the knowledge is already baked in. KB retrieval adds latency, costs tokens for retrieval overhead, and returns inconsistent chunks that may miss relevant context or include irrelevant fragments. When in doubt, measure: if the system prompt already contains all the knowledge the agent needs, KB tools add complexity without benefit.
 
 #### Agent Tools (Sub-Agents)
 
@@ -455,6 +498,8 @@ Derive from the research brief's "Context Needs" section. Include:
 If the agent does not need context configuration, mark as "Not applicable for this agent."
 
 ### Evaluators
+
+**Mandatory:** Every agent must have at least one code/function evaluator AND one LLM evaluator. This is the two-evaluator pattern -- see `orqai-evaluator-types.md` for the full rationale and minimum evaluator sets by role. Using only one evaluator type gives incomplete signal: code catches structural issues, LLM catches semantic quality.
 
 Derive from the research brief's evaluation recommendations. Recommend specific Orq.ai evaluator types:
 
@@ -524,6 +569,7 @@ Before producing your final output, verify ALL of the following. Do NOT skip thi
 - [ ] Every section is filled or explicitly marked "Not applicable for this agent"
 - [ ] No `{{PLACEHOLDER}}` text remains in output
 - [ ] Description is 1-2 sentences, not a paragraph
+- [ ] If agent produces structured output, `response_format` uses `json_schema` with `strict: true` (NOT `json_object`)
 - [ ] Runtime constraints are specified with specific numeric values (not ranges)
 - [ ] If agent has `Knowledge base != none` in blueprint, `knowledge_bases` array is non-empty with descriptive names (not generic like `kb-1`) and descriptions referencing ORCHESTRATION.md KB Design section for setup details
 
@@ -820,3 +866,5 @@ End of example. Match this level of completeness for every agent you generate.
 - `<constraints>` must include WHY each rule exists. Keep rules for security, data leakage, and scope only. Move tone, style, and edge-case behavior into examples.
 - Every agent must have at least 2 examples in `<example>` tags with `<input>` and `<output>` pairs.
 - Every agent must have a `<context_management>` section.
+- Do NOT use `json_object` for response_format -- always use `json_schema` with `strict: true`. The `json_object` type causes hallucinated field names and missing required fields.
+- Do NOT rely on the LLM for numeric calculations -- always use code tools for math. LLMs produce incorrect arithmetic, percentages, and totals. Use the portionOptimizer pattern: LLM for selection/reasoning, code tool for computation.

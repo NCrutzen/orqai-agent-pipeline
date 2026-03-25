@@ -109,6 +109,8 @@ Full evaluator set per role:
 - **Conversational:** coherence, helpfulness, relevance, instruction_following, toxicity, harmfulness
 - **Hybrid:** json_validity, exactness, coherence, helpfulness, relevance, instruction_following, toxicity, harmfulness
 
+**Two-evaluator validation (mandatory):** After building the evaluator set per role, verify it contains at least 1 function-type evaluator AND at least 1 LLM-type evaluator. The role-based sets above already satisfy this (structural has json_validity + instruction_following, conversational has instruction_following + toxicity alongside the LLM evaluators), but always perform this explicit check before proceeding to evaluator resolution. If a custom evaluator set is provided that violates this rule, add the minimum missing type.
+
 ### Resolve Names to Platform IDs
 
 1. Call `GET /v2/evaluators?limit=200` with `Authorization: Bearer $ORQ_API_KEY`
@@ -298,3 +300,4 @@ Agent              | Status   | Experiment ID          | Runs | Evaluators
 - **Do NOT run experiments in parallel** -- Sequential per-agent to respect rate limits. Parallel execution risks 429 errors.
 - **Do NOT pass evaluator names to experiment creation** -- Must resolve names to platform IDs first via `GET /v2/evaluators`. Passing names instead of IDs causes 422 validation errors.
 - **Do NOT treat `get_experiment_run` response as inline data** -- It returns a signed download URL. You must fetch the URL separately to get the actual JSONL content with scores.
+- **Do NOT run experiments with only code evaluators OR only LLM evaluators** -- Always use both types together (two-evaluator pattern). Code evaluators catch structural issues; LLM evaluators catch semantic quality. Using only one type gives incomplete signal and produces misleading pass/fail results.
