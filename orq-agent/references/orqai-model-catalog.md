@@ -6,6 +6,8 @@ Model recommendations for Orq.ai agents. Categorized by use case, not exhaustive
 
 **Format reference only.** For live model availability, use the MCP `models-list` tool.
 
+> **WARNING: `models-list` returns ALL models.** The MCP `models-list` tool and `GET /v2/models` endpoint return every model across all providers (300+), NOT just models enabled in your workspace. There is no API to check enable/disable status. After selecting a model, **verify it is enabled in Orq.ai Studio** (Models page) before deploying. An agent configured with a disabled model will fail at execution time with no clear error.
+
 ## Provider Format
 
 All model IDs use `provider/model-name` format.
@@ -85,6 +87,7 @@ For tasks involving images, screenshots, or visual content.
 3. **Factor in cost sensitivity.** High-volume tasks (thousands of invocations) should use cost-effective models. Low-volume critical decisions justify premium models.
 4. **Check multimodal needs.** If the agent processes images or visual content, only vision-capable models qualify.
 5. **Match provider availability.** Verify the model is available in your Orq.ai workspace before specifying it in a spec.
+6. **Consider the AI Router.** Orq.ai's AI Router (`/v2/router/`) provides a unified gateway to all 300+ models with automatic retries and fallbacks. The `fallback_models` field on agents provides basic failover. For more sophisticated routing (weighted load balancing across models), use the `model.parameters.load_balancer` configuration in agent specs. See `orqai-agent-fields.md` Model Parameters section.
 
 ## Fallback Model Strategy
 

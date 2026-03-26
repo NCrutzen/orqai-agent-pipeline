@@ -66,6 +66,12 @@ Supports 4 custom evaluator types: LLM, Python, HTTP, JSON.
 | POST | `/v2/experiments/{experiment_id}/run` | Run an experiment |
 | GET | `/v2/experiments/{experiment_id}/results` | Get experiment results |
 
+## Deployments
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v2/deployments/invoke` | Invoke a deployment with optional `modelId` override (used for A/B testing) |
+
 ## Prompts
 
 | Method | Path | Description |
@@ -84,6 +90,24 @@ Supports 4 custom evaluator types: LLM, Python, HTTP, JSON.
 | GET | `/v2/memory-stores` | List all memory stores |
 | GET | `/v2/memory-stores/{store_id}` | Get memory store by ID |
 | DELETE | `/v2/memory-stores/{store_id}` | Delete a memory store |
+
+### Create Payloads
+
+**Memory Store:**
+```json
+{
+  "key": "store-key",
+  "embedding_config": { "model": "provider/model-name" },
+  "description": "Store purpose",
+  "path": "project/folder"
+}
+```
+
+Optional: `ttl` (time-to-live in seconds for memory documents).
+
+**Notes:**
+- `key` pattern: `^[A-Za-z][A-Za-z0-9]*([._-][A-Za-z0-9]+)*$`
+- Memory stores use REST-only (no MCP tools exist for memory store CRUD, same as KBs)
 
 ## Knowledge Bases
 
@@ -173,17 +197,45 @@ Maps ORCHESTRATION.md chunking strategy values to API `strategy` parameter value
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v2/models` | List available models (used for API key validation) |
+| GET | `/v2/models` | List all models (used for API key validation and model discovery). **NOTE:** Returns ALL models across all providers, not just models enabled in your workspace. Verify model is enabled in Orq.ai Studio before using. |
 
-## SDK Method Mapping
+## SDK and Integration Patterns
 
-Key SDK methods used by subagents and their REST API equivalents. Use these when the `@orq-ai/node` SDK is unavailable or for manual debugging.
+The pipeline uses three integration methods with the Orq.ai platform. Choose based on the operation:
+
+### 1. MCP Tools (Primary for Agent/Tool CRUD)
+
+Used by deployer, tester, hardener for agent and tool operations. See per-agent MCP Tool Names sections.
+
+### 2. REST API (Primary for Experiments, KBs, Memory Stores, Datasets)
+
+Direct `curl`/`fetch` calls to `https://api.orq.ai/v2/`. Used when MCP tools don't exist for the operation (KBs, memory stores) or when REST is more reliable (experiments).
+
+### 3. @orq-ai/node SDK (Specific Use Cases)
+
+The `@orq-ai/node` SDK IS actively used in the pipeline for specific patterns:
+
+- **`deployments.invoke()`** with `modelId` override -- used for A/B testing different models against the same deployment
+- **Direct `fetch()` to `/v2/router/chat/completions`** -- used for LLM-as-judge evaluation calls
+
+**Environment variable mapping:** The SDK expects `ORQ_API_KEY` but the project `.env` uses `ORQ_KEY`. When initializing the SDK, map accordingly:
+```javascript
+const orq = new Orq({ apiKey: process.env.ORQ_KEY || process.env.ORQ_API_KEY });
+```
+
+**Version:** Do NOT pin to a specific version like `^3.14.45` (does not exist on npm). Install the latest compatible version: `npm install @orq-ai/node`. If v4 causes MCP binary issues, install `@orq-ai/node@3` explicitly.
+
+### REST Equivalents
+
+Key SDK methods and their REST equivalents for debugging or when the SDK is unavailable:
 
 | SDK Method | REST Equivalent | Used By |
 |------------|----------------|---------|
-| `client.agents.responses.create({ agent_id, messages })` | `POST /v2/agents/{agent_id}/execute` with `{ messages: [...] }` body | tester.md (Step 7.1) |
-| `client.datasets.create({ name, ... })` | `POST /v2/datasets` | tester.md (Step 5) |
-| `client.datasets.addRows({ dataset_id, rows })` | `POST /v2/datasets/{dataset_id}/rows` | tester.md (Step 5) |
+| `client.agents.responses.create({ agent_id, messages })` | `POST /v2/agents/{agent_id}/execute` | Agent invocation |
+| `client.datasets.create({ name, ... })` | `POST /v2/datasets` | Dataset creation |
+| `client.datasets.addRows({ dataset_id, rows })` | `POST /v2/datasets/{dataset_id}/rows` | Row upload |
+| `client.deployments.invoke({ key, ... })` | `POST /v2/deployments/invoke` | A/B testing |
+| `orq.feedback.create({ field, value, trace_id })` | *REST endpoint undocumented* | Feedback/annotations |
 
 ## Usage Notes
 
@@ -192,6 +244,32 @@ Key SDK methods used by subagents and their REST API equivalents. Use these when
 - **Rate limits:** Respect `Retry-After` headers on 429 responses.
 - **Idempotency:** Use agent `key` field for idempotent creates -- if a key already exists, use PATCH to update instead.
 - **Full docs:** For request/response schemas, fetch from `https://docs.orq.ai/reference/` at runtime.
+
+## Streaming
+
+Agent streaming is available via `POST /v2/agents/{agent_id}/stream`. Returns Server-Sent Events (SSE):
+
+- Each chunk: `{ id, object: "chat.completion.chunk", delta: { content: "..." }, finish_reason: null|"stop"|"length"|"tool_calls" }`
+- The `/stream` endpoint is already listed in the Agents table above
+- Use `/execute` (synchronous) for testing pipelines; recommend `/stream` for user-facing agents in production
+
+Gateway streaming is also available on `/v2/router/chat/completions` with `"stream": true`.
+
+## Webhooks
+
+Webhooks are configured in Orq.ai Studio (Organization > Webhooks). Cannot be automated via API.
+
+**Available events:**
+
+| Category | Events |
+|----------|--------|
+| Agents | `agent.created`, `agent.updated`, `agent.deleted` |
+| Deployments | `deployment.created`, `deployment.updated`, `deployment.deleted`, `deployment.invoked` |
+| Prompts | `prompt.created`, `prompt.updated`, `prompt.deleted` |
+
+- Payloads signed with HMAC-SHA256 (`X-Orq-Signature` header)
+- `deployment.invoked` includes execution data (response, token usage, latency, evaluation results)
+- Recommended for production monitoring setups -- configure after initial deployment is stable
 
 ## Common Pitfalls
 
