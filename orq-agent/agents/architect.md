@@ -271,6 +271,17 @@ These examples demonstrate the complete blueprint output for different complexit
 
 </examples>
 
+## A2A Protocol Compliance
+
+Orq.ai's Agents API is built on the A2A (Agent-to-Agent) protocol. This is already the foundation -- no additional integration is needed. Key A2A concepts the pipeline already uses:
+
+- **Task states:** `submitted` -> `working` -> `completed`/`failed`/`input_required`/`canceled`. Use `task_id` continuation for sequential pipelines.
+- **Message format:** A2A-style parts: `{ role, parts: [{ kind: "text", text: "..." }] }`
+- **Agent states:** Active, Inactive, Error, Approval Required
+- **`team_of_agents`:** Array of `{ "key": "sub-agent-key", "role": "description" }` objects (NOT strings). Each entry identifies a sub-agent by its key and describes its role in the team.
+
+When designing multi-agent swarms, leverage A2A task states for orchestration flow control. The orchestrator can check sub-agent task state to decide whether to proceed, retry, or escalate.
+
 <constraints>
 
 ## Constraints

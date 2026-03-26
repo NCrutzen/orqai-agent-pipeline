@@ -87,6 +87,8 @@ For each agent in the blueprint, work through these areas in order:
 
 8. **Knowledge base design** (only for agents where the architect blueprint sets `Knowledge base` to something other than `none`) -- What chunking strategy fits this data type? What metadata fields are needed? How should documents be prepared for ingestion? Should this KB be shared across agents or dedicated to one?
 
+9. **Evaluator pre-selection** -- Based on the agent's role (structural/conversational/hybrid) and tool set, recommend evaluators that downstream testing should use. This gives the experiment-runner a head start on evaluator selection. Pay special attention to RAG agents (agents with `query_knowledge_base` tool) -- these need RAGAS evaluators.
+
 ## Knowledge Base Design Training Knowledge
 
 When an agent in the architect blueprint has `Knowledge base` set to something other than `none`, you must produce a KB Design section for that agent. Use the heuristic defaults below as your starting point, then refine based on any discussion KB context (source type, freshness, access control answers) if available.
@@ -183,6 +185,17 @@ Produce your output in EXACTLY this format. Downstream subagents parse this stru
 - **Self-contained check:** [confirm each recommended tool has a description that stands alone -- no cross-references to other tools]
 - **Overlap assessment:** [flag any tools that may overlap with tools assigned to other agents in the swarm -- e.g., "query_knowledge_base appears in both the resolver and the triage agent; confirm distinct knowledge bases or consolidate"]
 - **Token efficiency:** [recommend structured JSON return values over verbose narratives for tool outputs; flag any tools that return unnecessarily verbose data]
+
+### Evaluator Recommendations
+**Role classification:** [structural|conversational|hybrid -- based on agent's output type]
+**Recommended evaluators:**
+- **Function evaluators:** [list with rationale -- e.g., `json_validity` because agent produces JSON output]
+- **LLM evaluators:** [list with rationale -- e.g., `instruction_following` for all agents, `coherence` for conversational]
+- **RAGAS evaluators (if RAG agent):** [faithfulness, context_precision, answer_relevancy -- include when agent has KB tools]
+- **Domain-specific custom evaluators:** [suggest if standard evaluators insufficient -- e.g., custom LLM evaluator for regulatory compliance]
+**Confidence:** [HIGH/MEDIUM/LOW]
+
+**RAGAS auto-selection rule:** If the agent has `query_knowledge_base` tool in its tool set (from the architect blueprint), ALWAYS recommend RAGAS evaluators: `faithfulness`, `context_precision`, `answer_relevancy`. These are critical for validating RAG pipeline quality. Also note that datasets for this agent should include `retrievals` field for RAG-aware evaluation.
 
 ### Knowledge Base Design: [descriptive-kb-name]
 <!-- CONDITIONAL: Only include this section for agents where the architect blueprint sets Knowledge base to something other than none. Omit entirely for agents with Knowledge base: none. -->

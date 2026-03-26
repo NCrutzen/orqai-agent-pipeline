@@ -198,6 +198,50 @@ Memory store description guidance: Configure the memory store description to sum
 
 Only include this section when the agent has Memory Store tools (`retrieve_memory_stores`, `query_memory_store`, `write_memory_store`). Omit for agents without persistent memory needs.
 
+#### Prompt Snippets Awareness
+
+Orq.ai supports Prompt Snippets -- reusable text blocks referenced as `{{snippet.snippet_name}}` in agent instructions. Snippets are created in Orq.ai Studio and changes propagate to all agents using them.
+
+**When to recommend snippets:** If the swarm has 3+ agents sharing common instruction blocks (e.g., company tone guidelines, data handling policies, output format standards), note in the spec: "Consider extracting [shared section] to a Prompt Snippet for cross-agent consistency." This is an advisory note for the user -- snippets cannot be created via API.
+
+#### Thinking Configuration
+
+When the research brief recommends extended thinking (complex reasoning tasks, orchestrators, multi-step analysis), configure the `thinking` parameter in the model object form:
+
+```json
+{
+  "model": {
+    "id": "anthropic/claude-sonnet-4-5",
+    "parameters": {
+      "thinking": { "type": "enabled", "budget_tokens": 4096, "thinking_level": "medium" }
+    }
+  }
+}
+```
+
+**Selection guidance:**
+- `{ "type": "disabled" }` -- Default. Use for simple classifiers, formatters, and straightforward tasks.
+- `{ "type": "enabled", "budget_tokens": N, "thinking_level": "low"|"medium"|"high" }` -- Use for complex reasoning. Budget 2048-8192 tokens depending on task complexity.
+- `{ "type": "adaptive" }` -- Model decides when to think. Good default for agents that handle both simple and complex inputs.
+
+When the `<thinking_recommendation>` advisory section says "Extended thinking recommended", use `"type": "enabled"` with `"thinking_level": "medium"` and `"budget_tokens": 4096` as defaults. When it says "Standard mode sufficient", use `"type": "disabled"` or omit entirely.
+
+#### Multimodal Input Support
+
+When the agent processes images, screenshots, or PDF documents (identified from the architect blueprint or research brief):
+
+1. Ensure the selected model is vision-capable (`openai/gpt-4o`, `google-ai/gemini-2.5-flash`, `anthropic/claude-sonnet-4-5`)
+2. Document the expected message format in the agent spec's Instructions section:
+   ```
+   User messages may include file attachments using the A2A parts format:
+   - Images: via `uri` (URL) or `bytes` (base64) with appropriate mimeType
+   - PDFs: via `bytes` (base64 only -- URI not supported for PDFs)
+   ```
+3. Include a multimodal example in the `<examples>` section showing the agent handling a file input
+4. Add a note in the Configuration section: `Multimodal: Yes -- accepts [image/PDF] inputs`
+
+Only include this when the agent genuinely needs to process visual content. Do not add multimodal configuration to text-only agents.
+
 #### What DEEP Instructions Look Like (TARGET THIS)
 
 ```xml
@@ -297,6 +341,8 @@ When the agent must produce structured or JSON output, add a `response_format` f
 ```
 
 **NEVER use `json_object`** -- it causes hallucinated field names and missing required fields. Always use `json_schema` with `strict: true` for any structured output requirement.
+
+**response_format placement:** When using the model-as-object form (with `model.parameters`), `response_format` can be placed either at the top level OR inside `model.parameters.response_format`. Both are equivalent. Prefer top-level for clarity when the agent spec uses the simple `"model": "provider/model-name"` string form. Use `model.parameters.response_format` when the spec already uses the model object form (e.g., for thinking configuration).
 
 **When to apply:** Any agent whose output is consumed by downstream code, other agents, or needs to conform to a specific schema (classifiers, extractors, formatters, data transformers). Do NOT apply to conversational agents that produce free-text responses.
 
