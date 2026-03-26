@@ -2,7 +2,7 @@
 
 Orq.ai evaluator types reference for automated testing and guardrail configuration. The tester subagent loads this to select appropriate evaluators for each agent's testing needs.
 
-## Built-in Function Evaluators (19)
+## Built-in Function Evaluators (27)
 
 Pre-built evaluators that run deterministic scoring functions. No LLM calls required.
 
@@ -23,12 +23,20 @@ Pre-built evaluators that run deterministic scoring functions. No LLM calls requ
 | `word_count` | Output word count within range | Binary |
 | `char_count` | Output character count within range | Binary |
 | `contains` | Output contains expected substring | Binary |
+| `contains_all` | All expected substrings present in output | Binary |
+| `contains_any` | At least one expected substring present in output | Binary |
+| `contains_none` | No expected substrings present in output | Binary |
+| `contains_valid_link` | Output contains a valid, reachable URL | Binary |
 | `starts_with` | Output starts with expected prefix | Binary |
 | `ends_with` | Output ends with expected suffix | Binary |
+| `length_between` | Output length within specified min/max range | Binary |
+| `length_greater_than` | Output length exceeds specified minimum | Binary |
+| `length_less_than` | Output length below specified maximum | Binary |
+| `bert_score` | BERT-based semantic similarity score | Continuous (0-1) |
 | `toxicity` | Toxicity score of output text | Continuous (0-1) |
 | `readability` | Flesch-Kincaid readability score | Continuous |
 
-## LLM Evaluators (10)
+## LLM Evaluators (19)
 
 Pre-built LLM-as-judge evaluators. Each uses an LLM to assess output quality against criteria. Supports custom judge prompts for domain-specific evaluation.
 
@@ -44,6 +52,15 @@ Pre-built LLM-as-judge evaluators. Each uses an LLM to assess output quality aga
 | `correctness` | Factual accuracy of the response | Continuous (1-5) |
 | `helpfulness` | Practical usefulness of the response | Continuous (1-5) |
 | `instruction_following` | Adherence to given instructions | Continuous (1-5) |
+| `age_appropriate` | Content suitable for the target age group | Continuous (1-5) |
+| `bot_detection` | Output appears human-written vs AI-generated | Continuous (1-5) |
+| `fact_checking_knowledge_base` | Claims verifiable against provided knowledge base | Continuous (1-5) |
+| `grammar` | Grammatical correctness and proper language use | Continuous (1-5) |
+| `localization` | Content appropriately localized for target locale | Continuous (1-5) |
+| `pii` | Presence of personally identifiable information | Binary |
+| `sentiment_classification` | Sentiment matches expected tone | Continuous (1-5) |
+| `tone_of_voice` | Output matches desired tone and style | Continuous (1-5) |
+| `translation` | Translation quality and accuracy | Continuous (1-5) |
 
 ## RAGAS Evaluators (12)
 
@@ -75,6 +92,31 @@ Users define their own evaluation logic using one of 4 custom evaluator types.
 | **HTTP** | External endpoint receives a payload, returns a score. Runs your own evaluation service. | Existing evaluation infrastructure, proprietary scoring models, team-specific APIs |
 | **JSON** | Custom JSON schema validation with scoring rules. Declarative evaluation definition. | Structured output validation, schema compliance, field-level scoring |
 
+### Creating Custom Evaluators via API
+
+Custom evaluators can be created programmatically using the REST API. This enables automated evaluator provisioning as part of the pipeline.
+
+```bash
+POST /v2/evaluators
+Authorization: Bearer $ORQ_API_KEY
+Content-Type: application/json
+
+{
+  "name": "custom-domain-eval",
+  "description": "Domain-specific evaluation logic",
+  "type": "llm",  // or "python", "http", "json"
+  "config": {
+    // Type-specific configuration
+    // LLM: { "prompt": "...", "model": "provider/model-name" }
+    // Python: { "code": "def evaluate(input, output): ..." }
+    // HTTP: { "url": "https://...", "method": "POST" }
+    // JSON: { "schema": {...}, "scoring_rules": {...} }
+  }
+}
+```
+
+The created evaluator's `id` can then be used in experiment creation and deploy-time guardrail/evaluator attachment. See `orqai-api-endpoints.md` for the full CRUD endpoints.
+
 ## Selection Guidance
 
 Choose evaluator type based on what you are testing:
@@ -88,8 +130,13 @@ Choose evaluator type based on what you are testing:
 | **Safety and compliance** (no harmful output?) | Function: `toxicity` + LLM: `harmfulness` |
 | **Similarity to reference** (matches expected?) | Function: `exactness`, `bleu`, `rouge_l`, `cosine_similarity` |
 | **Domain-specific criteria** (custom rules?) | Custom: LLM (judge prompt) or Python (code logic) |
-| **Output length constraints** (within limits?) | Function: `word_count`, `char_count` |
+| **Output length constraints** (within limits?) | Function: `word_count`, `char_count`, `length_between`, `length_greater_than`, `length_less_than` |
 | **Multi-agent orchestration** (handoffs correct?) | Custom: Python or HTTP evaluator with orchestration-aware logic |
+| **Grammar and language quality** | LLM evaluators: `grammar`, `tone_of_voice`, `localization` |
+| **Content moderation** | LLM evaluators: `age_appropriate`, `pii`, `bot_detection` |
+| **Knowledge-grounded tasks** | LLM evaluators: `fact_checking_knowledge_base` |
+| **Translation and localization** | LLM evaluators: `translation`, `localization` |
+| **Substring/pattern matching** | Function: `contains_all`, `contains_any`, `contains_none`, `contains_valid_link` |
 
 **Combining evaluators:** Use multiple evaluators per agent test. Typical setup: 1 structural (json_validity) + 1 semantic (relevance) + 1 domain-specific (custom LLM). Weight scores by importance in experiment configuration.
 
