@@ -59,6 +59,28 @@ The edge case dataset tests robustness and security. It validates that the agent
 
 **Combined requirement:** Edge case dataset count / (clean dataset count + edge case dataset count) >= 30%
 
+### RAG Agent Datasets (Knowledge Base Agents)
+
+When generating datasets for agents that have `query_knowledge_base` tool (identified from the agent spec's tools section):
+
+**Additional field: `context`**
+
+Each eval pair for RAG agents must include a `context` field containing the expected retrieved context:
+
+| ID | Input | Context | Expected Output | Pass Criteria |
+|----|-------|---------|----------------|---------------|
+| E-01 | What is the return policy? | [Section from return policy doc: "Returns accepted within 30 days..."] | Returns are accepted within 30 days... | Faithful to context, cites policy |
+
+The `context` field represents the relevant document chunks the agent should retrieve. This enables RAGAS evaluators (`faithfulness`, `context_precision`, `answer_relevancy`) to assess retrieval quality.
+
+**How to generate context values:**
+- Extract from the knowledge base content described in the architect blueprint
+- Use realistic document snippets that the KB would contain
+- Include both highly relevant chunks (for context_precision testing) and partially relevant chunks (for noise_sensitivity testing)
+- If KB content is not available, generate plausible document excerpts based on the domain
+
+**Distribution:** For RAG agents, maintain the same category distribution (happy-path, variation, boundary) but ensure every eval pair has a `context` field populated.
+
 ## Test Input Generation (DATA-01)
 
 Generate 15-25 total test cases per agent across both datasets.

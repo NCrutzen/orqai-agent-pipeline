@@ -73,7 +73,7 @@ Format:
 **Orq.ai configuration requirements for each parent agent:**
 - Add `retrieve_agents` tool: `{ "type": "retrieve_agents" }` -- discovers available sub-agents
 - Add `call_sub_agent` tool: `{ "type": "call_sub_agent" }` -- invokes sub-agents for task delegation
-- Set `team_of_agents` field: list of sub-agent keys (e.g., `["sub-agent-a", "sub-agent-b"]`)
+- Set `team_of_agents` field: array of `{ "key": "sub-agent-key", "role": "description" }` objects (e.g., `[{"key": "sub-agent-a", "role": "Handles research tasks"}, {"key": "sub-agent-b", "role": "Handles analysis tasks"}]`)
 
 **Rules:**
 - Only include agent keys that exist in the architect blueprint
@@ -200,6 +200,63 @@ flowchart TD
 - Include every agent from the architect blueprint in the diagram
 - Show the direction of data flow with arrow labels
 - For single-agent swarms: **omit the data flow section entirely**
+
+### Inter-Agent Communication Contracts
+
+For multi-agent swarms where agents pass structured data to each other, define `response_format` contracts at the orchestration level:
+
+**When to add response_format contracts:**
+- Agent A's output is consumed by Agent B (not by a human)
+- The consuming agent needs specific fields (not free-text)
+- The data flow involves structured handoffs (JSON payloads between agents)
+
+**How to document:**
+In the Data Flow section, for each agent-to-agent edge, document the expected schema:
+
+```markdown
+### Data Contract: {agent-a} -> {agent-b}
+
+Agent {agent-a} produces structured output consumed by {agent-b}:
+
+```json
+{
+  "type": "json_schema",
+  "json_schema": {
+    "name": "{agent-a}_output",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "field_name": { "type": "string", "description": "..." }
+      },
+      "required": ["field_name"],
+      "additionalProperties": false
+    }
+  }
+}
+```
+
+This schema should be set as `response_format` on agent-a's spec to enforce the contract.
+```
+
+**CRITICAL:** Always use `json_schema` with `strict: true` for inter-agent contracts. Never use `json_object`.
+
+### Task State Management (Sequential Pipelines)
+
+For sequential orchestration patterns, document the task state flow between agents:
+
+| State | Meaning | Orchestrator Action |
+|-------|---------|---------------------|
+| `submitted` | Task queued | Wait for processing to begin |
+| `working` | Agent actively executing | Poll or wait (do NOT send continuation) |
+| `input_required` | Agent needs additional input | Send continuation with `task_id` and additional data |
+| `completed` | Agent finished successfully | Extract output, proceed to next agent |
+| `failed` | Agent execution error | Log error, apply retry/escalation policy |
+| `canceled` | Task was canceled | Handle gracefully, skip downstream agents |
+
+**Continuation pattern:** When a sub-agent returns `input_required`, the orchestrator continues it by sending a new message with the original `task_id`. This is the A2A continuation mechanism -- the sub-agent resumes from where it paused.
+
+Include this state table in the ORCHESTRATION.md Error Handling section for swarms using sequential pipelines.
 
 ### Error Handling (ORCH-04)
 
@@ -440,7 +497,7 @@ This example shows a COMPLETE orchestration document for a 2-agent customer supp
 
 **Orq.ai configuration for `customer-support-triage-agent`:**
 - Tools: add `{ "type": "retrieve_agents" }` and `{ "type": "call_sub_agent" }`
-- Field: set `team_of_agents: ["customer-support-resolver-agent"]`
+- Field: set `team_of_agents: [{"key": "customer-support-resolver-agent", "role": "Answers customer questions using the company knowledge base"}]`
 
 ## Delegation Framework
 
@@ -526,7 +583,7 @@ flowchart TD
    - Set key: `customer-support-triage-agent`
    - Configure model and instructions per the agent spec file
    - Add tools: `retrieve_agents`, `call_sub_agent`, `current_date`
-   - Set `team_of_agents`: `["customer-support-resolver-agent"]`
+   - Set `team_of_agents`: `[{"key": "customer-support-resolver-agent", "role": "Answers customer questions using the company knowledge base"}]`
 3. **Test the resolver agent standalone** -- send sample customer questions and verify knowledge base responses
 4. **Test the triage agent standalone** -- send sample tickets and verify urgency classification
 5. **Test the full swarm** -- send end-to-end support tickets through the triage agent and verify delegation to resolver

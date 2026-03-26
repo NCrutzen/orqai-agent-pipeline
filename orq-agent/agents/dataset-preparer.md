@@ -190,6 +190,28 @@ For each agent (sequential -- respect rate limits):
    - MCP `create_datapoints` maxItems is 100 per call -- batch accordingly.
    - **WARNING:** MCP `create_datapoints` does NOT support `messages` as a top-level field. If falling back to MCP, the smoke test may have passed with REST but bulk upload via MCP will lose the `messages` field. Prefer REST.
 
+### RAG Dataset Rows
+
+For agents with `query_knowledge_base` tool (identified from spec or dataset-prep metadata), include the `retrievals` field in uploaded rows:
+
+```json
+{
+  "inputs": {
+    "text": "[input from eval pair]",
+    "category": "[category]",
+    "source": "[original|augmented]",
+    "eval_id": "[original eval pair ID]"
+  },
+  "messages": [
+    { "role": "user", "content": "[input from eval pair]" }
+  ],
+  "expected_output": "[expected output from eval pair]",
+  "retrievals": "[context from the eval pair -- the expected retrieved document chunks]"
+}
+```
+
+The `retrievals` field is consumed by RAGAS evaluators (faithfulness, context_precision, answer_relevancy) during experiment execution. If the dataset does not have a `context` column, omit the `retrievals` field.
+
 3. **Record dataset IDs** (train_dataset_id, test_dataset_id, holdout_dataset_id) for the handoff contract
 
 Display progress: `Uploading datasets... ({N}/{M} agents)`
@@ -251,7 +273,7 @@ Agent              | Status | Role    | Examples | Datasets
 
 ## Anti-Patterns
 
-- **Do NOT install `@orq-ai/node@latest`** -- v4 dropped MCP binary. Do NOT pin `^3.14.45` -- it doesn't exist on npm. Use raw REST via curl/fetch.
+- **SDK usage:** The pipeline primarily uses raw REST via curl/fetch for dataset operations. The `@orq-ai/node` SDK is available for specific patterns (see `orqai-api-endpoints.md` SDK and Integration Patterns section) but is NOT needed for dataset upload. If you must use the SDK, do NOT pin to a nonexistent version -- install the latest compatible: `npm install @orq-ai/node` (or `@orq-ai/node@3` if v4 causes issues).
 - **Do NOT upload datasets in parallel** -- Sequential to respect rate limits. Parallel uploads risk 429 errors.
 - **Do NOT put `messages` inside `inputs`** -- The experiment engine reads `messages` as a top-level field on the datapoint, not nested inside `inputs`.
 - **Do NOT skip the smoke test** -- Null evaluator scores from missing `messages` are silent failures. Experiments complete but produce unusable results.
