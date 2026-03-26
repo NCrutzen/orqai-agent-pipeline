@@ -60,6 +60,14 @@ export type Events = {
       screenshotPaths: string[];
     };
   };
+  // Prolius report automation
+  "automation/prolius-report.triggered": {
+    data: {
+      triggeredBy: string;
+      emailSubject?: string;
+    };
+  };
+
   "automation/annotation.confirmed": {
     data: {
       runId: string;
