@@ -19,10 +19,10 @@ Your job:
 - Parse V1.0 markdown datasets (clean + edge) into structured eval pairs
 - Augment datasets to a minimum of 30 examples per agent with tagged variations
 - Merge clean + edge datasets with category metadata and split 60/20/20
-- Upload transformed datasets to Orq.ai via `@orq-ai/node` SDK
+- Upload transformed datasets to Orq.ai via REST API (MCP-first with REST-fallback)
 - Infer agent role (structural/conversational/hybrid) from spec content
 - Select appropriate evaluators based on role with category overlays for adversarial examples
-- Execute experiments 3x per agent via evaluatorq SDK and aggregate results
+- Orchestrate 3-subagent test pipeline: dataset-preparer -> experiment-runner -> results-analyzer
 - Produce structured test results in three channels: JSON, markdown, and terminal summary
 - Report progress per phase and return a structured result object
 
@@ -259,7 +259,7 @@ Agent {agent-key}: {total} total -> {train} train / {test} test / {holdout} hold
 
 ## Phase 5: Upload Datasets to Orq.ai
 
-Upload the transformed datasets to the Orq.ai platform using `@orq-ai/node` SDK (REST-based, not MCP -- per research Pitfall 4).
+Upload the transformed datasets to the Orq.ai platform using MCP-first with REST-fallback (MCP `create_dataset` + REST `POST /v2/datasets/{id}/rows` for row upload).
 
 ### Step 5.1: Create Platform Datasets
 
@@ -389,6 +389,27 @@ Select evaluators based on the inferred or overridden role.
 
 **Hybrid agents:** Union of structural + conversational evaluators, deduplicated by name. When `instruction_following` appears in both sets, keep one instance (threshold 0.8).
 
+### Step 6.2.1: RAGAS Auto-Selection for RAG Agents
+
+After selecting base evaluators by role, check if the agent has `query_knowledge_base` in its tools section (from the agent spec):
+
+**If agent has `query_knowledge_base` tool:** Add these RAGAS evaluators to the base set:
+
+| Evaluator | Type | Threshold | Scale |
+|-----------|------|-----------|-------|
+| `faithfulness` | RAGAS | 0.7 | continuous-01 |
+| `context_precision` | RAGAS | 0.6 | continuous-01 |
+| `answer_relevancy` | RAGAS | 0.7 | continuous-01 |
+
+These evaluate RAG-specific quality:
+- `faithfulness` -- Is the output faithful to retrieved context?
+- `context_precision` -- Was relevant context ranked higher?
+- `answer_relevancy` -- Does the answer address the question?
+
+**Dataset requirement:** RAGAS evaluators require `retrievals` field in dataset rows. If the dataset does not have retrievals, log a warning: "Agent {agent-key} has KB tools but dataset lacks retrievals field. RAGAS evaluators may produce null scores." Still include the evaluators -- they will either use the available context or score as null (which is better than missing the signal entirely).
+
+**If agent does NOT have `query_knowledge_base` tool:** Skip RAGAS evaluators. Do not add them for non-RAG agents.
+
 ### Step 6.3: Apply Category Overlays (LOCKED)
 
 For examples with category `adversarial` or `edge-case`, add these additional evaluators on top of the role-based base set:
@@ -418,6 +439,8 @@ Agent {agent-key}:
 ## Phase 7: Execute Experiments (3x per Agent)
 
 Run experiments using `@orq-ai/evaluatorq` SDK. Execute 3 runs per agent against the test split dataset, collecting per-evaluator scores for each run. Individual agent failures do not block testing of remaining agents.
+
+> **NOTE:** This phase describes the tester's built-in experiment execution for backward compatibility. The standard pipeline path delegates experiment execution to the experiment-runner subagent (REST API). See Anti-Patterns at end of file for the full pattern comparison.
 
 ### Step 7.1: Create Agent Invocation Job
 
@@ -758,9 +781,13 @@ This output is consumed by the test command for results formatting and by Phase 
 - **Using holdout set during Phase 7** -- The 20% holdout split is reserved for Phase 8 iteration loop. Phase 7 tests use ONLY the test split. Train split is uploaded but not used in Phase 7 experiments.
 - **Blocking on individual agent test failure** -- Continue testing remaining agents. Report all results at the end.
 - **Averaging scores across different evaluator scales** -- Function evaluators score binary (0/1), similarity metrics score 0-1, LLM evaluators score 1-5. Report per-evaluator scores separately. Normalize only if absolutely needed for comparison.
-- **Installing @orq-ai/node@latest** -- Must be `^3.14.45`. Version 4 dropped the MCP server binary. Never use `latest`.
+- **SDK version pinning** -- Do NOT pin `@orq-ai/node` to `^3.14.45` (does not exist on npm). If SDK is needed, install latest compatible: `npm install @orq-ai/node` (or `@orq-ai/node@3` if v4 causes issues). The pipeline primarily uses raw REST via curl for experiments. See `orqai-api-endpoints.md` SDK and Integration Patterns section for when SDK is appropriate.
 - **Deploying resources in parallel** -- Upload datasets sequentially to respect rate limits. Parallel uploads risk 429 errors.
-- **Using the @orq-ai/evaluatorq SDK for experiments** -- The evaluatorq SDK approach referenced in Phase 7 (Step 7.2) is LEGACY. It has been superseded by the experiment-runner subagent which uses REST API directly (`POST /v2/experiments`, `POST /v2/experiments/{id}/run`). The evaluatorq SDK caused experiment timeouts and has been replaced. Actual test execution now flows through: dataset-preparer -> experiment-runner -> results-analyzer.
+- **Experiment execution patterns** -- Two patterns exist for running experiments:
+  1. **REST API (primary):** `POST /v2/experiments` + `POST /v2/experiments/{id}/run`. Used by the experiment-runner subagent. This is the standard pipeline path: dataset-preparer -> experiment-runner -> results-analyzer.
+  2. **evaluatorq SDK (alternative):** `@orq-ai/evaluatorq` works for structured experiments with local evaluator scoring. It is NOT legacy -- it was the root cause of V2.1 timeouts when used as the ONLY execution method, but it functions correctly for its intended use case (local evaluation with custom scorers). Use evaluatorq when you need local Python/function evaluation that the platform does not support.
+  3. **deployments.invoke() (A/B testing):** `@orq-ai/node` SDK's `deployments.invoke()` with `modelId` override. Used for comparing models against the same deployment. This is a separate pattern from experiments.
+  The pipeline's default path is pattern 1 (REST). Phases 7.1-7.5 above describe the legacy evaluatorq approach for reference; actual execution uses the experiment-runner subagent.
 - **Running experiments with only one evaluator type** -- Always use both code/function evaluators AND LLM evaluators together (two-evaluator pattern). Using only one type gives incomplete signal.
 
 ## Decision Framework
