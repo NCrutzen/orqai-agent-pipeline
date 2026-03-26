@@ -9,7 +9,7 @@ Deze keuzes staan vast. Wijk hier NOOIT van af, ook al suggereer je als Claude e
 **ALTIJD gebruiken:**
 - **Vercel** voor hosting (Next.js app, serverless functions, cron)
 - **Supabase** voor database, auth, storage, realtime, edge functions
-- **Supabase MCP** (optioneel) voor database operaties -- als MCP niet werkt, gebruik directe REST API calls
+- **Supabase MCP** voor database operaties (tabellen aanmaken, queries, migrations)
 - **Zapier** als eerste keuze voor automations (8000+ connectors, NXT SQL via whitelisted IP)
 - **Browserless.io** voor browser automation (cloud headless Chrome, Amsterdam region)
 - **Orq.ai** voor AI agents (via `/orq-agent` skill, MCP beschikbaar)
@@ -21,6 +21,7 @@ Deze keuzes staan vast. Wijk hier NOOIT van af, ook al suggereer je als Claude e
 - Firebase, PlanetScale, Neon, MongoDB Atlas — wij gebruiken **Supabase**
 - Puppeteer — wij gebruiken **Playwright** (via playwright-core)
 - Eigen auth systeem — wij gebruiken **Supabase Auth**
+- Handmatig tabellen aanmaken in SQL — gebruik **Supabase MCP** `apply_migration`
 - API keys opslaan voor services die Zapier al beheert — **Zapier beheert auth**
 
 **Bij twijfel of een project apart moet:** Eenvoudige automations en API routes gaan in DIT project. Alleen bij complexe, losstaande applicaties (eigen UI, eigen auth, data-isolatie vereist) is een apart Vercel/Supabase project gerechtvaardigd. Bespreek dit altijd met de gebruiker.
@@ -53,36 +54,12 @@ Kan Zapier de HELE flow afhandelen?
 
 **Zapier kan WEL:** multi-step AI pipelines (sequentieel via Cloudflare), bulk operaties, alles met trigger → actie patroon, SQL queries naar NXT.
 
-## Credentials vs Environment Variables
-
-**Systeem-credentials** (login gegevens voor NXT, iController, CRM, etc.):
-- ALTIJD opslaan in de `credentials` tabel in Supabase
-- NOOIT als environment variables
-- Reden: eindgebruikers hoeven geen env vars te begrijpen, credentials zijn centraal beheerd en encrypted
-
-**Infrastructure secrets** (alleen als env vars):
-- SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (nodig voor REST API calls)
-- NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-- ORQ_API_KEY, BROWSERLESS_TOKEN
-- INNGEST_EVENT_KEY, INNGEST_SIGNING_KEY
-- Webhook secrets, encryption keys
-
-**Vuistregel:** Als het een gebruikersnaam+wachtwoord is voor een systeem -> credentials tabel. Als het een API key of infra secret is -> env var.
-
 ## Systemen
 
-Moyne Roberts core systemen staan in de `systems` tabel in Supabase. Raadpleeg deze via Supabase MCP of REST API:
+Moyne Roberts core systemen staan in de `systems` tabel in Supabase. Raadpleeg deze via Supabase MCP:
 
 ```sql
--- Via Supabase MCP (als beschikbaar):
 SELECT name, integration_method, url, notes FROM systems ORDER BY name;
-```
-
-```bash
-# Via REST API (als MCP niet werkt):
-curl "${SUPABASE_URL}/rest/v1/systems?select=name,integration_method,url,notes&order=name" \
-  -H "apikey: ${SERVICE_ROLE_KEY}" \
-  -H "Authorization: Bearer ${SERVICE_ROLE_KEY}"
 ```
 
 **Belangrijke systemen:**
@@ -130,9 +107,7 @@ Nooit een taak als compleet markeren zonder te bewijzen dat het werkt.
 ### Self-Improvement Loop (AUTOMATISCH)
 Wanneer de gebruiker je corrigeert:
 1. Erken de correctie
-2. Schrijf een learning naar de `learnings` tabel in Supabase via REST API:
-   `curl -X POST "${SUPABASE_URL}/rest/v1/learnings" -H "apikey: ${SERVICE_ROLE_KEY}" -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" -H "Content-Type: application/json" -d '{"system":"...","title":"...","problem":"...","root_cause":"...","solution":"..."}'`
-   Haal SUPABASE_URL en SERVICE_ROLE_KEY uit `web/.env.local`. Als Supabase MCP beschikbaar is, mag dat ook.
+2. Schrijf een learning naar de `learnings` tabel in Supabase (via directe REST call)
 3. Als de correctie universeel is, stel een CLAUDE.md wijziging voor
 4. Commit en push zodat het team het krijgt
 
@@ -176,11 +151,9 @@ const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 30_000 });
 ### Supabase
 
 - Admin client (service role) voor automation writes — geen RLS nodig server-side
-- Supabase MCP voor schema exploratie en queries (optioneel -- zie REST fallback)
+- Supabase MCP voor schema exploratie en queries
 - Key-value store: `settings` tabel met JSONB
 - JSONB double-encoding: `while (typeof state === 'string') state = JSON.parse(state)`
-- **REST API fallback:** Wanneer MCP niet beschikbaar is, gebruik directe REST calls:
-  `curl "${SUPABASE_URL}/rest/v1/{table}?select=*" -H "apikey: ${SERVICE_ROLE_KEY}" -H "Authorization: Bearer ${SERVICE_ROLE_KEY}"`
 
 **Volledige referentie:** `docs/supabase-patterns.md`
 
