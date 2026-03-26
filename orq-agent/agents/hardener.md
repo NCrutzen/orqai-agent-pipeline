@@ -256,6 +256,20 @@ Add (or replace) a `## Guardrails` section in the agent spec file:
 
 **Placement:** Add the `## Guardrails` section after `## Runtime Constraints` (or after the last existing section if Runtime Constraints is absent). If a `## Guardrails` section already exists, replace it entirely.
 
+**Include platform IDs:** When writing guardrails to the agent spec file, include both the guardrail names AND platform IDs (resolved in Phase 5) so the deployer can use `settings.guardrails` on the next re-deploy without re-resolving:
+
+```markdown
+## Guardrails
+
+| Evaluator | Platform ID | Execute On | Sample Rate | Severity | Threshold |
+|-----------|-------------|------------|-------------|----------|-----------|
+| toxicity | eval_abc123 | output | 100 | high | 0.1 |
+| instruction_following | eval_def456 | output | 80 | low | 3.5 |
+| orq_pii_detection | orq_pii_detection | output | 100 | high | -- |
+```
+
+Platform IDs enable the deployer to include guardrails in subsequent agent create/update payloads without calling `GET /v2/evaluators` again.
+
 ### Step 4.3: Preserve Other Sections
 
 **CRITICAL:** Preserve ALL other parts of the spec file:
@@ -307,6 +321,37 @@ For each approved agent, build the `settings.guardrails` array:
 
 **Important:** Only `id`, `execute_on`, and `sample_rate` are sent to the Orq.ai API. Severity and threshold are application-layer fields stored in the spec file only -- they are NOT part of the Orq.ai guardrails API schema.
 
+**Guardrail format:** Each guardrail in `settings.guardrails` is an object:
+```json
+{
+  "id": "evaluator-platform-id",
+  "execute_on": "output",
+  "sample_rate": 100
+}
+```
+
+- `id`: Platform evaluator ID (resolved via `GET /v2/evaluators`)
+- `execute_on`: When to run the guardrail. Use `"output"` for post-generation checks.
+- `sample_rate`: Percentage of invocations to evaluate (1-100). Safety guardrails: 100. Quality guardrails: 80.
+
+**Evaluator attachment (monitoring):** For evaluators that should monitor but not block, use `settings.evaluators` with the same format:
+```json
+{
+  "settings": {
+    "evaluators": [
+      { "id": "eval-platform-id", "execute_on": "output", "sample_rate": 80 }
+    ],
+    "guardrails": [
+      { "id": "guard-platform-id", "execute_on": "output", "sample_rate": 100 }
+    ]
+  }
+}
+```
+
+**Distinction:** Guardrails can block/flag responses. Evaluators only monitor and score. Both use the same attachment format but serve different purposes. Safety items -> guardrails. Quality items -> evaluators.
+
+This is the Control Tower integration -- attached evaluators/guardrails automatically appear in the Control Tower for monitoring.
+
 ### Step 5.3: PATCH Agent with Guardrails
 
 For each approved agent:
@@ -333,6 +378,32 @@ For each agent, record:
 - Include failed agents in the quality report with an `attachment_failed` flag
 
 Display progress: `Attaching guardrails... ({N}/{M} agents)`
+
+---
+
+## Annotations and Feedback
+
+After hardening, the pipeline can submit programmatic feedback on low-scoring traces using the Orq.ai Feedback API:
+
+```javascript
+// Via @orq-ai/node SDK
+orq.feedback.create({
+  field: "rating",        // "rating" or "defects"
+  value: ["poor"],        // rating: ["good"|"poor"], defects: ["hallucination", "off_topic", etc.]
+  trace_id: trace_id      // from agent execution response
+});
+```
+
+**Available defect types:** grammatical, spelling, hallucination, repetition, inappropriate, off_topic, incompleteness, ambiguity
+
+**When to annotate:**
+- After experiments, for any example where evaluator scores fell below thresholds
+- The `trace_id` comes from the experiment execution results (each agent invocation produces a trace)
+- Annotations feed into Orq.ai's Annotation Queues (configured via Trace Automations in Studio)
+
+**Limitation:** Only SDK method is documented for feedback. REST endpoint is not publicly documented. If SDK is unavailable, skip annotations and log: "Feedback annotations skipped -- SDK not available."
+
+This is an advisory feature, not a blocking step. The hardener should offer to annotate low-scoring traces after guardrail attachment is complete.
 
 ---
 
@@ -445,6 +516,22 @@ Also write `quality-report.json` in the swarm directory, following the template 
 }
 ```
 
+### Post-Harden Webhook Recommendation
+
+After hardening is complete, include in the quality report:
+
+```markdown
+## Recommended Next Steps
+
+### Webhook Monitoring (Optional)
+Configure webhooks in Orq.ai Studio (Organization > Webhooks) for production monitoring:
+- `deployment.invoked` -- includes evaluation results from attached guardrails
+- Enable for agents with guardrails to get real-time quality alerts
+- Payloads signed with HMAC-SHA256 (`X-Orq-Signature` header)
+```
+
+This is a documentation-only addition to the quality report. Webhooks cannot be configured via API.
+
 ---
 
 ## Output Format
@@ -489,7 +576,7 @@ When deciding how to handle ambiguous situations:
 ## Anti-Patterns
 
 - **Do NOT attach guardrails before testing (LOCKED: data-driven, not guesswork)** -- The harden command requires test-results.json to exist. Guardrail suggestions are based on actual test data.
-- **Do NOT put guardrails in `settings.evaluators` array** -- Use `settings.guardrails` exclusively. Evaluators and guardrails have identical schema but different runtime behavior. Evaluators log scores passively; guardrails enforce constraints and can block.
+- **Do NOT put safety guardrails in `settings.evaluators` array** -- Safety items belong in `settings.guardrails` (enforces constraints, can block). Quality-only monitoring items may use `settings.evaluators` (logs scores passively). Both arrays use identical schema but have different runtime behavior. See Phase 5.2 for the distinction.
 - **Do NOT use different thresholds for testing vs production (LOCKED: same thresholds)** -- The score threshold from testing carries directly to the guardrail configuration. No separate production thresholds.
 - **Do NOT block deploy in advisory mode** -- Advisory mode (severity: low) warns but allows. Only strict mode (severity: high) flags an agent as not production-ready. Default is advisory for most evaluators, strict for safety evaluators.
 - **Do NOT hand-roll evaluator IDs** -- Resolve via `GET /v2/evaluators` API to get canonical IDs. Pre-built guardrails use `orq_` prefix IDs directly.
