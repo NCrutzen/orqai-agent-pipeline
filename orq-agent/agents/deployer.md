@@ -154,8 +154,9 @@ Create an ordered list of resources to deploy:
 
 1. **Tools** (from TOOLS.md) -- deployed first because agents reference them
 2. **Knowledge Bases** (from ORCHESTRATION.md Knowledge Base Design section) -- deployed second because agents reference knowledge_ids
-3. **Sub-agents** (non-orchestrator agents from ORCHESTRATION.md) -- deployed third
-4. **Orchestrator** (the agent with `team_of_agents`) -- deployed last so sub-agent keys exist
+3. **Memory Stores** (from agent specs) -- deployed third, referenced by key at runtime
+4. **Sub-agents** (non-orchestrator agents) -- deployed fourth
+5. **Orchestrator** (agent with `team_of_agents`) -- deployed last
 
 This ordering is mandatory. Never deploy an agent before its tools or knowledge bases, never deploy the orchestrator before its sub-agents.
 
@@ -289,6 +290,56 @@ After all KBs: `Provisioning knowledge bases... (M/M) done`
 
 ---
 
+## Phase 1.6: Provision Memory Stores
+
+For each memory store referenced in agent specs (parsed from `memory_stores` arrays during Step 0.3), provision them before agent deployment.
+
+### Step 1.6.0: REST-Only Pattern
+
+Memory store operations are REST-only. No MCP tools exist for memory store CRUD. All calls use `Authorization: Bearer $ORQ_API_KEY` against REST endpoints directly. Same pattern as KB operations (Phase 1.5).
+
+### Step 1.6.1: Lookup Existing Memory Stores
+
+`GET /v2/memory-stores?limit=200` with Bearer auth. Search response for matching `key` field.
+
+**Cache the memory store list** after the first call. Same caching pattern as tools (Step 1.1) and KBs (Step 1.5.1).
+
+### Step 1.6.2: Per-Memory-Store Provisioning
+
+For each memory store referenced by agents in the swarm:
+
+1. Check cached list for existing memory store with matching `key`
+2. If not found: Create via REST:
+   ```bash
+   POST /v2/memory-stores
+   Authorization: Bearer $ORQ_API_KEY
+   Content-Type: application/json
+
+   {
+     "key": "memory-store-key",
+     "embedding_config": { "model": "cohere/embed-english-v3.0" },
+     "description": "Memory store purpose from agent spec",
+     "path": "Default"
+   }
+   ```
+3. If found: Check if `description` matches. Update if different. Skip if identical.
+4. Record `memory_store_id` from response
+
+**Build `memory_store_id_map`:** After all stores are processed, dictionary maps `store_key -> memory_store_id`.
+
+### Step 1.6.3: Error Handling
+
+- **Memory store creation failure is a WARNING** (not a blocker). Agents can still deploy without memory stores -- memory functionality will be unavailable but the agent will operate. Log the warning and continue.
+- Unlike KBs (which block because agents wire `knowledge_id`), memory stores are referenced by key at runtime and do not need IDs in the agent payload.
+
+### Step 1.6.4: Report Progress
+
+Display: `Provisioning memory stores... (N/M)` where N is current store and M is total.
+
+After all stores: `Provisioning memory stores... (M/M) done`
+
+---
+
 ## Phase 2: Deploy Sub-Agents
 
 For each sub-agent (non-orchestrator) from ORCHESTRATION.md, in the listed dependency order:
@@ -325,13 +376,39 @@ Create via `agents-create` (MCP) or `POST /v2/agents` (REST) with payload built 
     "max_execution_time": 300,
     "tools": [
       ... (tool configurations from the agent spec Tools section)
-    ]
+    ],
+    "evaluators": [],
+    "guardrails": [],
+    "max_cost": null,
+    "tool_approval_required": "respect_tool"
   },
   "knowledge_bases": [...],
   "memory_stores": [...],
-  "variables": {...}
+  "variables": {...},
+  "response_format": { ... (if present in agent spec) }
 }
 ```
+
+**Including `response_format`:** When the agent spec file defines a `response_format` field (e.g., `json_schema` with `strict: true`), include it in the create/update payload. Omit the field entirely if the spec does not define structured output.
+
+**Deploy-time evaluator/guardrail attachment:** When the agent spec includes evaluators or guardrails (added by the hardener in Phase 9), include them in the `settings.evaluators` and `settings.guardrails` arrays:
+
+```json
+{
+  "settings": {
+    "evaluators": [
+      { "id": "evaluator-platform-id", "execute_on": "output", "sample_rate": 100 }
+    ],
+    "guardrails": [
+      { "id": "guardrail-platform-id", "execute_on": "output", "sample_rate": 100 }
+    ]
+  }
+}
+```
+
+Evaluator/guardrail IDs must be resolved platform IDs (from `GET /v2/evaluators`), not display names. This is the Control Tower integration -- evaluators attached at deploy time automatically monitor agent outputs.
+
+**On first deploy (no hardening yet):** `evaluators` and `guardrails` arrays will be empty. After the hardener runs and attaches guardrails, subsequent re-deploys include them.
 
 **Resolving `knowledge_bases` from `kb_id_map`:** When building the agent payload, resolve each entry in the agent's `knowledge_bases` array using `kb_id_map` (built in Phase 1.5) instead of using placeholder IDs from spec files. For each KB referenced by the agent, look up its `knowledge_id` in `kb_id_map`. If a KB was skipped (`null` in `kb_id_map`), omit it from the agent's `knowledge_bases` array.
 
@@ -349,6 +426,7 @@ Diff local spec against Orq.ai state. Compare these fields:
 - `memory_stores`
 - `role`
 - `description`
+- `response_format`
 
 Exclude server-added fields from comparison: `_id`, `created`, `updated`, `workspace_id`, `project_id`, `status`, `created_by_id`, `updated_by_id`
 
@@ -375,15 +453,16 @@ Same as Step 2.1 -- agents-retrieve or GET by key.
 
 The orchestrator payload includes everything from a regular agent PLUS:
 
-- **`team_of_agents`**: Array referencing sub-agent keys. Try array of strings first:
+- **`team_of_agents`**: Array of objects with `key` and `role` fields:
   ```json
-  { "team_of_agents": ["sub-agent-key-1", "sub-agent-key-2"] }
+  {
+    "team_of_agents": [
+      { "key": "sub-agent-key-1", "role": "Handles data extraction and parsing" },
+      { "key": "sub-agent-key-2", "role": "Validates and enriches extracted data" }
+    ]
+  }
   ```
-  If the API returns a 422 validation error, switch to array of objects:
-  ```json
-  { "team_of_agents": [{"key": "sub-agent-key-1"}, {"key": "sub-agent-key-2"}] }
-  ```
-  Document which format the API accepted for future reference.
+  Each entry identifies a sub-agent by its `key` (matching the sub-agent's deployed key) and describes its `role` (from the ORCHESTRATION.md agent descriptions). The `role` field helps the orchestrator understand what each sub-agent does.
 
 - **Orchestrator tools**: The orchestrator MUST have both `retrieve_agents` and `call_sub_agent` in its `settings.tools`:
   ```json
@@ -441,6 +520,7 @@ For each read-back response, compare against the local spec using an **allowlist
 - `team_of_agents`
 - `knowledge_bases`
 - `memory_stores`
+- `response_format`
 
 **Tool fields to compare** (if present in local spec):
 - `type`
@@ -577,6 +657,31 @@ If any file could not be annotated (e.g., file not found, write permission error
 
 ---
 
+## Post-Deploy Recommendations
+
+After successful deployment, these additional configurations can be set up in Orq.ai Studio:
+
+### Streaming for User-Facing Agents
+
+For agents that will serve user-facing applications, recommend using the streaming endpoint (`POST /v2/agents/{agent_id}/stream`) instead of the synchronous `/execute` endpoint. Streaming provides:
+- Progressive response rendering (better UX for long responses)
+- Server-Sent Events (SSE) with OpenAI-compatible chunk format
+- Same authentication and message format as `/execute`
+
+The deployer does NOT configure streaming (it is an endpoint choice at invocation time, not a deployment setting). Document in the deploy log: "For user-facing agents, use `/stream` endpoint in production."
+
+### Webhook Monitoring
+
+Webhooks can be configured in Orq.ai Studio (Organization > Webhooks) after deployment. Key events:
+- `agent.created` / `agent.updated` -- track deployment changes
+- `deployment.invoked` -- monitor execution (includes response, token usage, latency, evaluation results)
+
+Webhooks use HMAC-SHA256 signing (`X-Orq-Signature` header). Recommend setting up after initial deployment is stable.
+
+This cannot be automated by the deployer (Studio-only configuration). Include a note in the deploy log when suggesting webhook setup.
+
+---
+
 ## Re-run After Partial Failure (LOCKED)
 
 When the deploy command detects a previous partial deployment (e.g., some resources exist in Orq.ai already):
@@ -635,7 +740,7 @@ When deciding how to handle ambiguous situations:
 - **Deploying agents before their tools** -- Tools must exist before agents can reference them in `settings.tools`. The 4-phase pipeline enforces this.
 - **Deploying orchestrator before sub-agents** -- The orchestrator's `team_of_agents` references sub-agent keys that must already exist.
 - **Using tool key for PATCH** -- Tools are updated by `tool_id` (from `_id` field), not by key. Use `PATCH /v2/tools/{tool_id}`. Agents, however, DO use key: `PATCH /v2/agents/{agent_key}`.
-- **Installing @orq-ai/node@latest** -- Must be `^3.14.45`. Version 4 dropped the MCP server binary. Never use `latest`.
+- **SDK version pinning** -- Do NOT pin `@orq-ai/node` to `^3.14.45` (does not exist on npm). The deployer uses MCP tools and REST API directly (no SDK needed for deployment). For other pipeline stages that use the SDK, install the latest compatible version. See `orqai-api-endpoints.md` SDK and Integration Patterns for guidance.
 - **Comparing all response fields for diff** -- Server adds metadata fields (`_id`, `created`, `updated`, `workspace_id`, `project_id`, `status`, `created_by_id`, `updated_by_id`). Only compare fields present in the local spec.
 - **Silently swallowing errors** -- Every failure must be reported. Never catch an error and continue as if nothing happened.
 - **Deploying resources in parallel** -- Deploy sequentially to respect rate limits and dependency order. Parallel deploys risk 429 errors and race conditions.
