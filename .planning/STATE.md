@@ -2,13 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-23T10:55:24Z"
+status: Between milestones
+stopped_at: Completed quick-260326-ann-04-PLAN.md (deploy/harden agents)
+last_updated: "2026-03-26T17:30:42.560Z"
+last_activity: "2026-03-25 - Completed quick task 260325-r2j: Apply 6 experiment learnings to pipeline agent specs and references"
 progress:
-  total_phases: 10
+  total_phases: 8
   completed_phases: 8
-  total_plans: 16
-  completed_plans: 13
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Project State
@@ -26,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 Phase: No active phase (V4.0 not started)
 Plan: N/A
 Status: Between milestones
-Last activity: 2026-03-25 - Completed quick task 260325-r2j: Apply 6 experiment learnings to pipeline agent specs and references
+Last activity: 2026-03-26 - Completed quick task 260326-ann-01: Update 4 reference files with complete Orq.ai API surface
 
 Progress: V2.1 complete. V4.0 next.
 
@@ -51,6 +53,7 @@ Recent decisions affecting current work:
 - Direct Claude messages.create() over Agent SDK -- pipeline stages are predetermined, not agent-decided
 - GitHub raw URL for .md file fetching with PIPELINE_REPO_RAW_URL env var -- runtime fetching per user decision
 - Vitest for test framework -- ESM-native, fast, TypeScript out of the box
+- [Phase quick-260326-ann]: evaluatorq is NOT legacy -- use with caution for local custom scoring; REST is primary experiment path
 
 ### Blockers/Concerns
 
@@ -67,6 +70,7 @@ None.
 | 260323-ey0 | Neutralize skill set for public repo: systems.md registry, browser automation installer prompt, zero IT-specific refs | 2026-03-23 | 5e944d6 | Verified | [260323-ey0-neutralize-skill-set-for-public-repo-ext](./quick/260323-ey0-neutralize-skill-set-for-public-repo-ext/) |
 | 260323-gex | Create /orq-agent:systems command for managing IT systems registry (list/add/remove) | 2026-03-23 | 5946bae | Verified | [260323-gex-create-orq-agent-systems-command-for-man](./quick/260323-gex-create-orq-agent-systems-command-for-man/) |
 | 260325-r2j | Apply 6 experiment learnings to agent specs and reference files (json_schema, two-evaluator, portionOptimizer, KB heuristic, API pitfalls) | 2026-03-25 | b528587 | | [260325-r2j-apply-orq-ai-experiment-learnings-to-age](./quick/260325-r2j-apply-orq-ai-experiment-learnings-to-age/) |
+| 260326-ann-01 | Update 4 reference files with complete Orq.ai API surface (model params, 27+19 evaluators, multimodal, streaming, webhooks, SDK patterns) | 2026-03-26 | 5be7440 | | [260326-ann-apply-all-21-pipeline-optimizations-eval](./quick/260326-ann-apply-all-21-pipeline-optimizations-eval/) |
 
 ### Pending Todos
 
@@ -74,7 +78,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-25
-Stopped at: Completed quick task 260325-r2j: Apply 6 experiment learnings to pipeline
+Last session: 2026-03-26T17:30:37.670Z
+Stopped at: Completed quick-260326-ann-04-PLAN.md (deploy/harden agents)
 Resume with: Start V4.0 planning when ready, or implement browser automation integration per revised ACTION-PLAN.md
-Resume file: N/A -- between milestones
+Resume file: None
