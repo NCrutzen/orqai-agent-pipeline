@@ -18,11 +18,11 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-23)
+See: .planning/PROJECT.md (updated 2026-03-26)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** Phase 37.1 Conversational Pipeline -- Plan 01 complete, Plans 02-03 remaining
-**Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress
+**Current focus:** Defining V6.0 Executive Dashboard & UI Revamp requirements
+**Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress, V4.0 partially complete
 
 ## Current Position
 

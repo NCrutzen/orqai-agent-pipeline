@@ -64,6 +64,14 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 - [ ] Script execution and iterative testing on Browserless.io
 - [ ] Deployment of verified script as MCP tool attached to the Orq.ai agent
 
+**V6.0 Executive Dashboard & UI Revamp** (defining):
+- [ ] Full visual redesign across all pages (executive-worthy for CEO/CTO/CFO)
+- [ ] 360° management dashboard with ROI estimates, activity, health metrics
+- [ ] Data integration from Agent Workforce + Zapier (browser scraper) + Orq.ai analytics
+- [ ] Extended project model with status lifecycle and automation type tracking
+- [ ] Automated project status monitoring (agent/job keeps statuses accurate)
+- [ ] O365 SSO via Azure AD
+
 ### Out of Scope
 
 - Orq.ai Deployments — output targets Agents API (`/v2/agents`), not the simpler Deployments pattern
@@ -71,19 +79,19 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 - CLI skill management -- lives in orqai-agent-pipeline repo
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: V4.0 Browser Automation Builder
+## Current Milestone: V6.0 Executive Dashboard & UI Revamp
 
-**Goal:** Add a pipeline stage that takes users from SOP document + screenshots to a working MCP tool — so agents can interact with no-API systems (NXT, iController, Intelly) through verified Playwright scripts running on Browserless.io.
+**Goal:** Transform the Agent Workforce app into an executive-worthy platform with a 360° management dashboard showing ROI, activity, and health metrics across all automation types (Zapier, hybrid, Orq.ai agents, standalone apps) — pulling data from Agent Workforce, Zapier (via browser automation scraper), and Orq.ai analytics. Full UI redesign for CEO/CTO/CFO audience. O365 SSO for Microsoft 365 login.
 
 **Target features:**
-- No-API system detection within pipeline (auto-detect when agent needs browser automation)
-- SOP + screenshot upload and AI-driven analysis (vision reads screenshots, parses SOP)
-- Conversational annotation flow (AI presents understanding, user confirms/corrects)
-- Playwright script generation and Browserless.io execution
-- Iterative testing with user feedback until automation works reliably
-- MCP tool deployment and automatic attachment to the Orq.ai agent
+- Full visual redesign across all pages (typography, spacing, color palette, card styles, navigation)
+- Executive dashboard with project status (idea/building/testing/live), ROI & time saved estimates, activity/adoption metrics, health/reliability
+- 360° data integration: Agent Workforce pipeline data + Zapier analytics (browser automation scraper) + Orq.ai analytics (usage, cost, latency, agent performance)
+- Extended project model with automation type (zapier-only, hybrid, standalone-app, orqai-agent) and automated status monitoring
+- O365 SSO via Azure AD alongside existing email/password auth
+- Zapier analytics browser automation (Browserless.io scraper, multiple snapshots/day)
 
-**Previous milestone:** V3.0 Web UI & Dashboard (executing, 91% complete)
+**Previous milestones:** V3.0 Web UI & Dashboard (executing, 91%), V4.0 Browser Automation Builder (phases 39-40 complete, 41-42 pending)
 
 ## Context
 
@@ -135,4 +143,4 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 | Auto-apply low-risk, escalate structural (V5.0) | Shared context additions are safe; rewiring agent relationships needs human judgment | — Pending |
 
 ---
-*Last updated: 2026-03-23 after V4.0 milestone start*
+*Last updated: 2026-03-26 after V6.0 milestone definition*
