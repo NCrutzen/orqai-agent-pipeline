@@ -17,14 +17,38 @@ Als de conversatie deze context al bevat (we hebben net iets gedebugd), extract 
 
 ### 2. Schrijf naar Supabase
 
-Sla de learning op in de `learnings` tabel via Supabase MCP:
+Sla de learning op in de `learnings` tabel via REST API of Supabase MCP.
+
+**Optie A: MCP beschikbaar** (probeer dit eerst)
+
+Als Supabase MCP werkt, gebruik het:
 
 ```sql
 INSERT INTO learnings (system, title, problem, root_cause, solution, discovered_by)
 VALUES ('{system}', '{title}', '{problem}', '{root_cause}', '{solution}', '{user name or "team"}');
 ```
 
-Als de `learnings` tabel nog niet bestaat, maak hem aan via `apply_migration`:
+**Optie B: REST API** (als MCP niet werkt)
+
+Gebruik een directe REST call. Haal SUPABASE_URL en SUPABASE_SERVICE_ROLE_KEY uit `web/.env.local`:
+
+```bash
+curl -X POST "${SUPABASE_URL}/rest/v1/learnings" \
+  -H "apikey: ${SERVICE_ROLE_KEY}" \
+  -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
+  -d '{
+    "system": "{system}",
+    "title": "{title}",
+    "problem": "{problem}",
+    "root_cause": "{root_cause}",
+    "solution": "{solution}",
+    "discovered_by": "{user name or team}"
+  }'
+```
+
+Als de `learnings` tabel nog niet bestaat, maak hem aan via Supabase MCP `apply_migration` of via de Supabase Dashboard SQL editor:
 
 ```sql
 CREATE TABLE IF NOT EXISTS learnings (

@@ -21,98 +21,102 @@ Controleer of de MR Automations Toolkit correct is ingericht. Toon EERST dit wel
      ██████████████████████████████████████████████████████████
 ```
 
-Dan voer de checks uit:
+Dan voer de setup uit:
 
-## Stap 1: Environment variables
+## Deel 1: Prerequisites (Nick regelt dit)
 
-Controleer of `web/.env.local` bestaat en de vereiste variabelen bevat:
+Dit zijn dingen die VOOR de setup klaar moeten zijn. De gebruiker kan deze niet zelf doen.
+
+Vraag de gebruiker of deze stappen al geregeld zijn:
+
+- [ ] GitHub account uitgenodigd voor Moyne Roberts organisatie?
+- [ ] Vercel invite ontvangen voor Moin Roberts team?
+- [ ] Supabase invite ontvangen voor Agent-Workforce project?
+- [ ] Claude Code geinstalleerd? (claude.ai/code)
+
+Als iets ontbreekt: "Vraag Nick om [ontbrekend item] te regelen voordat je verder gaat."
+
+## Deel 2: Project Setup
+
+### Stap 1: Clone en installeer
 
 ```bash
-test -f web/.env.local && echo "OK" || echo "MISSING"
+git clone [repo url]
+cd agent-workforce
+npm install
 ```
 
-Als het niet bestaat, help de gebruiker:
-```
-  .env.local niet gevonden. Twee opties:
+### Stap 2: Vercel linken
 
-  1. (Aanbevolen) Pull vanuit Vercel:
-     cd web && vercel env pull .env.local
+**BELANGRIJK:** Link naar de **Moin Roberts ORGANISATIE**, niet naar je persoonlijke account!
 
-  2. (Handmatig) Kopieer van een collega of vraag Nick
+```bash
+vercel link
 ```
 
-Check deze variabelen (lees het bestand, toon alleen of ze gevuld zijn — toon NOOIT de waarden):
+- Kies "Link to existing project" en zoek "agent-workforce"
+- Als je een keuze krijgt tussen persoonlijk account en organisatie: kies ALTIJD de **organisatie**
+- Als het project niet gevonden wordt, controleer of je Vercel invite geaccepteerd is (Deel 1)
+
+### Stap 3: Environment variables ophalen
+
+```bash
+cd web && vercel env pull .env.local
+```
+
+Controleer of `.env.local` bestaat en deze variabelen bevat (toon NOOIT de waarden):
 
 ```
-  ┌─────────────────────────────────────────┬──────────┐
-  │ Variabele                               │ Status   │
-  ├─────────────────────────────────────────┼──────────┤
-  │ NEXT_PUBLIC_SUPABASE_URL                │ [?]      │
-  │ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY    │ [?]      │
-  │ SUPABASE_SERVICE_ROLE_KEY               │ [?]      │
-  │ ORQ_API_KEY                             │ [?]      │
-  │ BROWSERLESS_TOKEN                       │ [?]      │
-  │ INNGEST_EVENT_KEY                       │ [?]      │
-  │ INNGEST_SIGNING_KEY                     │ [?]      │
-  └─────────────────────────────────────────┴──────────┘
+  ┌─────────────────────────────────────┬──────────┐
+  │ Variabele                           │ Status   │
+  ├─────────────────────────────────────┼──────────┤
+  │ NEXT_PUBLIC_SUPABASE_URL            │ [?]      │
+  │ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY│ [?]      │
+  │ SUPABASE_SERVICE_ROLE_KEY           │ [?]      │
+  │ ORQ_API_KEY                         │ [?]      │
+  │ BROWSERLESS_TOKEN                   │ [?]      │
+  │ INNGEST_EVENT_KEY                   │ [?]      │
+  │ INNGEST_SIGNING_KEY                 │ [?]      │
+  └─────────────────────────────────────┴──────────┘
 ```
 
 Vul [?] in met OK of MISSING na het controleren.
 
-## Stap 2: MCP Servers
+## Deel 3: Optioneel -- MCP Servers
 
-**Supabase MCP:**
-Test met `mcp__supabase__list_tables`. Als het werkt → Connected. Anders: begeleid de gebruiker:
-```
-  Supabase MCP niet verbonden. Zo stel je het in:
-  1. Claude Code herkent de Supabase MCP automatisch
-  2. Bij eerste gebruik word je gevraagd in te loggen via de browser
-  3. Selecteer het "Agent-Workforce" project
-```
+MCP servers zijn **OPTIONEEL**. Alles in de toolkit werkt ook zonder MCP via REST API calls.
 
-**Orq.ai MCP:**
-Test met `mcp__orqai-mcp__list_models`. Als het werkt → Connected. Anders: leg uit dat de ORQ_API_KEY nodig is en hoe de MCP in te stellen.
+Als je ze wil installeren voor extra gemak:
 
-## Stap 3: Tools
+### Supabase MCP (optioneel)
+
+Test: `mcp__supabase__list_tables`
+
+**Voordeel:** Database queries direct vanuit Claude -- sneller dan REST API calls.
+**Zonder MCP:** REST API calls werken ook. Zie CLAUDE.md voor het patroon.
+
+### Orq.ai MCP (optioneel)
+
+Test: `mcp__orqai-mcp__list_models`
+
+**Voordeel:** Agent management direct vanuit Claude.
+**Zonder MCP:** Gebruik de Orq.ai Dashboard UI.
+
+## Deel 4: Tools (optioneel)
 
 **GSD Workflow:**
 ```bash
 ls ~/.claude/get-shit-done/VERSION 2>/dev/null
 ```
-Als niet geinstalleerd:
-```
-  GSD niet gevonden. Installeer met:
-  npx get-shit-done-cc@latest
-```
+Als niet geinstalleerd: `npx get-shit-done-cc@latest`
 
 **Orq Agent Skill:**
 ```bash
 ls ~/.claude/skills/orq-agent/SKILL.md 2>/dev/null
 ```
-Als niet geinstalleerd:
-```
-  Orq Agent skill niet gevonden. Vraag Nick voor install instructies.
-```
+Als niet geinstalleerd: vraag Nick voor install instructies.
 
-**Vercel CLI:**
-```bash
-vercel --version 2>/dev/null
-```
-Als niet geinstalleerd:
-```
-  Vercel CLI niet gevonden. Installeer met:
-  npm i -g vercel
-  vercel link    (selecteer het bestaande agent-workforce project)
-```
-
-## Stap 4: Systems Registry
-
-Check of de systems tabel bereikbaar is via Supabase MCP:
-```sql
-SELECT name, integration_method, has_api, is_core_system FROM systems ORDER BY name;
-```
-
-## Stap 5: Samenvatting
+## Deel 5: Samenvatting
 
 Toon dit overzicht met de werkelijke resultaten:
 
@@ -123,23 +127,17 @@ Toon dit overzicht met de werkelijke resultaten:
 
      ──────────────────────────────────────────────────────────
 
-       Environment
-       ├─ .env.local           ✓ OK / ✗ MISSING
-       ├─ Supabase URL         ✓ OK / ✗ MISSING
-       ├─ Orq.ai Key           ✓ OK / ✗ MISSING
-       ├─ Browserless Token    ✓ OK / ✗ MISSING
-       └─ Inngest Keys         ✓ OK / ✗ MISSING
+       Vereist
+       ├─ Prerequisites        ✓ Compleet / ✗ Vraag Nick
+       ├─ Project gecloned     ✓ OK / ✗ Niet gevonden
+       ├─ Vercel gelinkt       ✓ Moin Roberts org / ✗ Niet gelinkt
+       └─ .env.local           ✓ OK / ✗ MISSING
 
-       MCP Servers
-       ├─ Supabase MCP         ✓ Connected / ✗ Not connected
-       └─ Orq.ai MCP           ✓ Connected / ✗ Not connected
-
-       Tools
-       ├─ GSD Workflow          ✓ v1.25.1 / ✗ Not installed
-       ├─ Orq Agent Skill       ✓ Installed / ✗ Not installed
-       └─ Vercel CLI            ✓ v37.x / ✗ Not installed
-
-       Systems Registry         X core systemen gevonden
+       Optioneel
+       ├─ Supabase MCP         ✓ Connected / ─ Niet ingesteld (OK)
+       ├─ Orq.ai MCP           ✓ Connected / ─ Niet ingesteld (OK)
+       ├─ GSD Workflow          ✓ Installed / ─ Niet ingesteld (OK)
+       └─ Orq Agent Skill      ✓ Installed / ─ Niet ingesteld (OK)
 
      ──────────────────────────────────────────────────────────
 
@@ -147,10 +145,9 @@ Toon dit overzicht met de werkelijke resultaten:
 
        /mr-automations:automate   Bouw een nieuwe automation
        /mr-automations:learn      Leg een inzicht vast
-       /orq-agent                 Ontwerp een agent swarm
        /gsd:new-project           Start een complex project
 
      ██████████████████████████████████████████████████████████
 ```
 
-Als iets ✗ is, bied aan om het stap voor stap op te lossen. Begin met het meest kritieke item (env vars eerst, dan MCP, dan tools).
+Als een vereist item ontbreekt, help de gebruiker dat eerst op te lossen. Optionele items kunnen later worden ingesteld.
