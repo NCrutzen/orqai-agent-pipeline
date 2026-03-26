@@ -190,11 +190,13 @@ Packages required by V2.0 subagents at runtime. Not installed by `install.sh` (w
 
 | Package | Version | Purpose | Tier Required |
 |---------|---------|---------|---------------|
-| `@orq-ai/node` | `^3.14.45` | Orq.ai SDK (agent CRUD, dataset ops, agent invocation) | deploy+ |
+| `@orq-ai/node` | latest | Orq.ai SDK — used for `deployments.invoke()` with modelId override (A/B testing). Env: `ORQ_API_KEY` | deploy+ |
 | `@orq-ai/evaluatorq` | `^1.1.0` | Experiment execution framework (Effect-based parallel evaluations) | test+ |
 | `@orq-ai/evaluators` | `^1.1.0` | Local evaluator scorers (peer dep of evaluatorq — cosine similarity, threshold evaluators) | test+ |
 
 > **Note:** `@orq-ai/evaluatorq` also declares peer dependencies on `@opentelemetry/*` packages for tracing. These are optional — evaluatorq works without them but npm may issue warnings.
+>
+> **SDK vs REST vs MCP:** The SDK is used for `deployments.invoke()` with modelId override. Agent CRUD uses MCP tools. Experiments and dataset uploads use REST via curl. See `orqai-api-endpoints.md` for the full pattern.
 
 ## Templates
 

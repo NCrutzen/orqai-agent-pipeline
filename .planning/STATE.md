@@ -5,7 +5,7 @@ milestone_name: milestone
 status: Between milestones
 stopped_at: Completed quick-260326-ann-04-PLAN.md (deploy/harden agents)
 last_updated: "2026-03-26T17:30:42.560Z"
-last_activity: "2026-03-25 - Completed quick task 260325-r2j: Apply 6 experiment learnings to pipeline agent specs and references"
+last_activity: "2026-03-26 - Completed quick task 260326-ann: Apply all 21 pipeline optimizations (evaluators, deploy, testing, specs, architecture)"
 progress:
   total_phases: 8
   completed_phases: 8
@@ -70,8 +70,7 @@ None.
 | 260323-ey0 | Neutralize skill set for public repo: systems.md registry, browser automation installer prompt, zero IT-specific refs | 2026-03-23 | 5e944d6 | Verified | [260323-ey0-neutralize-skill-set-for-public-repo-ext](./quick/260323-ey0-neutralize-skill-set-for-public-repo-ext/) |
 | 260323-gex | Create /orq-agent:systems command for managing IT systems registry (list/add/remove) | 2026-03-23 | 5946bae | Verified | [260323-gex-create-orq-agent-systems-command-for-man](./quick/260323-gex-create-orq-agent-systems-command-for-man/) |
 | 260325-r2j | Apply 6 experiment learnings to agent specs and reference files (json_schema, two-evaluator, portionOptimizer, KB heuristic, API pitfalls) | 2026-03-25 | b528587 | | [260325-r2j-apply-orq-ai-experiment-learnings-to-age](./quick/260325-r2j-apply-orq-ai-experiment-learnings-to-age/) |
-| 260326-ann-01 | Update 4 reference files with complete Orq.ai API surface (model params, 27+19 evaluators, multimodal, streaming, webhooks, SDK patterns) | 2026-03-26 | 5be7440 | | [260326-ann-apply-all-21-pipeline-optimizations-eval](./quick/260326-ann-apply-all-21-pipeline-optimizations-eval/) |
-| 260326-ann-02 | Update 6 core pipeline agents: evaluator recs, thinking config, multimodal, A2A protocol, inter-agent contracts, RAG context | 2026-03-26 | e64c1ff | | [260326-ann-apply-all-21-pipeline-optimizations-eval](./quick/260326-ann-apply-all-21-pipeline-optimizations-eval/) |
+| 260326-ann | Apply all 21 pipeline optimizations (evaluators, deploy, testing, specs, architecture) | 2026-03-26 | 17b7d4e | Verified | [260326-ann-apply-all-21-pipeline-optimizations-eval](./quick/260326-ann-apply-all-21-pipeline-optimizations-eval/) |
 
 ### Pending Todos
 
