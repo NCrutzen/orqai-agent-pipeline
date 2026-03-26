@@ -1,8 +1,8 @@
 # Technology Stack
 
-**Project:** Orq Agent Designer V4.0 -- Browser Automation Builder Pipeline Stage
-**Researched:** 2026-03-23
-**Scope:** NEW stack additions for browser automation builder only. Does not re-research existing validated stack (Next.js 16, Supabase, Inngest, React Flow, Claude API, Orq.ai API, Vitest, TypeScript). See V3.0 STACK.md for those.
+**Project:** Agent Workforce V6.0 -- Executive Dashboard & UI Revamp
+**Researched:** 2026-03-26
+**Scope:** NEW stack additions for V6.0 only. Does not re-research existing validated stack (Next.js 16, Supabase, Inngest, React Flow, Playwright-core, Claude API, Orq.ai MCP, shadcn/ui, Tailwind CSS 4, Vitest, TypeScript, Zod). See V4.0 STACK.md for those.
 
 ## Existing Stack (DO NOT CHANGE)
 
@@ -11,514 +11,408 @@ These are locked and validated. Listed here for integration context only.
 | Technology | Version | Purpose |
 |------------|---------|---------|
 | Next.js (App Router) | `^16.1` | Full-stack framework on Vercel |
-| @supabase/supabase-js | `^2.99` | Auth, DB, Realtime, **Storage** |
-| inngest | `^3.52` | Durable pipeline orchestration with step.run(), step.waitForEvent() |
+| React | `19.2` | UI framework |
+| @supabase/supabase-js | `^2.99` | Auth, DB, Realtime, Storage |
+| @supabase/ssr | `^0.9` | Server-side auth with cookie handling |
+| inngest | `^3.52` | Durable pipeline orchestration |
 | @xyflow/react | `^12.10` | Node graph visualization |
-| Claude API (via Orq.ai router) | anthropic/claude-sonnet-4-6 | Pipeline prompts via messages.create() |
-| Vitest | `^4.1` | Testing |
+| radix-ui | `^1.4` | Accessible UI primitives |
+| shadcn (CLI) | `^4.0` | Component generation (radix-nova style) |
+| Tailwind CSS | `^4` | Utility-first CSS |
+| lucide-react | `^0.577` | Icon library |
+| sonner | `^2.0` | Toast notifications |
 | zod | `^4.3` | Schema validation |
+| Vitest | `^4.1` | Testing |
 | TypeScript | `^5` | Type safety |
 
-## New Stack Additions for V4.0
+## New Stack Additions for V6.0
 
-### 1. Browser Automation Execution -- Browserless.io API (no SDK)
+### 1. Charts & Data Visualization -- Recharts via shadcn/ui Charts
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| Browserless.io REST API | v2 (managed) | Execute Playwright scripts in the cloud | No SDK needed -- plain HTTP fetch to REST endpoints. Runs generated scripts without managing infrastructure. Free tier: 1K units (each unit = 30s of browser time). |
-| playwright-core | `^1.58` | Script generation templates + type definitions | Use `playwright-core` (not `playwright`) because it does NOT download browser binaries. We only need it for TypeScript types during script generation and for `connectOverCDP()` if we do live debugging. Browserless.io provides the actual browsers. |
+| recharts | `^3.8` | Charting engine (area, bar, line, pie, radar) | shadcn/ui charts are built on Recharts. V3.8 is the latest (March 2026). The project already uses shadcn/ui (radix-nova style), so using shadcn's chart components gives us consistent theming, dark mode support, and CSS variable integration for free. No new design system to learn. |
 
-**Integration pattern -- /function REST API (not WebSocket):**
+**Why Recharts via shadcn, not Tremor or standalone Recharts:**
 
-For V4.0's use case (run a generated Playwright script, get results), the Browserless `/function` REST API is the right choice over WebSocket `connectOverCDP()`. Rationale:
+- **Tremor** was considered (purpose-built for dashboards with KPI cards, charts, and tables). Rejected because: (1) Tremor is a wrapper around Recharts anyway -- adds an abstraction layer without adding value when we already have shadcn/ui components for cards, tables, and layout. (2) Tremor's high-level API limits customization for executive branding needs. (3) Adding Tremor alongside shadcn creates two competing component systems.
+- **Standalone Recharts** was considered. Rejected because shadcn's `<ChartContainer>`, `<ChartTooltip>`, and `<ChartLegend>` wrappers already provide theming via CSS variables, automatic light/dark mode, and consistent styling with our existing components. No reason to build custom chart theming.
+- **Nivo, Victory, Visx** -- overkill. Recharts handles all our chart types (area trends, bar comparisons, line timelines, pie distributions) with React 19 compatibility.
 
-1. **Simpler:** POST the script code as JSON, get results back. No WebSocket connection management.
-2. **Stateless:** Each execution is isolated. Script runs, browser closes. Perfect for testing generated automations.
-3. **Inngest-compatible:** REST calls work naturally inside Inngest `step.run()` (30-60s per step). WebSocket connections are incompatible with Inngest's step-based execution model.
-4. **Session cleanup:** `/function` automatically closes the browser session after execution. No leaked sessions.
+**React 19 compatibility note:** Recharts 3.x requires overriding the `react-is` dependency to match React 19. This is a known issue tracked in shadcn-ui/ui#7669 and shadcn-ui/ui#9892. The override is simple:
 
-```typescript
-// Execute generated Playwright script on Browserless.io via REST API
-async function executeOnBrowserless(scriptCode: string, context: Record<string, string>): Promise<BrowserlessResult> {
-  const response = await fetch(
-    `https://production-sfo.browserless.io/function?token=${process.env.BROWSERLESS_API_TOKEN}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code: scriptCode,
-        context: context,
-      }),
-    }
-  );
-  return response.json();
+```json
+// package.json
+{
+  "overrides": {
+    "react-is": "^19.0.0"
+  }
 }
 ```
 
-**Why NOT connectOverCDP / WebSocket:**
-- WebSocket connections cannot survive Inngest step boundaries (each step is a separate HTTP invocation).
-- CDP connections require version matching with the remote browser -- the `/function` API abstracts this away.
-- Live browser sessions require persistent connections -- incompatible with Vercel serverless (60s timeout).
+**Chart types needed for the executive dashboard:**
 
-**Browserless.io pricing context:**
-- Free: 1K units/month (1 unit = 30s). A single script test run ~1-3 units. Sufficient for development.
-- Starter ($50/mo): 10K units. Supports ~3,000-10,000 script executions/month. Right for production with 5-15 users.
-- No self-hosted infrastructure needed -- aligns with project constraints.
+| Chart Type | Use Case | shadcn Component |
+|------------|----------|------------------|
+| Area chart | ROI trends over time, cost trends | `npx shadcn add chart` (area variants) |
+| Bar chart | Agent performance comparison, monthly usage | bar variants |
+| Line chart | Latency trends, activity over time | line variants |
+| Pie/Donut | Cost distribution by automation type | pie variants |
+| Radial | Health scores, reliability percentages | radial variants |
 
-### 2. AI Vision for Screenshot Analysis -- Claude Vision (already in stack)
+**Installation:**
+
+```bash
+cd web
+npm install recharts@^3.8
+npx shadcn add chart
+```
+
+The `npx shadcn add chart` command scaffolds a `components/ui/chart.tsx` with `ChartContainer`, `ChartTooltip`, `ChartTooltipContent`, `ChartLegend`, and `ChartLegendContent` -- all pre-themed with the project's CSS variables.
+
+**Confidence:** HIGH -- shadcn/ui official docs confirm Recharts v3 support. React 19 override is documented.
+
+---
+
+### 2. Azure AD / Microsoft Entra ID SSO -- Supabase OAuth Provider
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| Claude Vision API | via Orq.ai router | Analyze uploaded screenshots, identify UI elements, annotate steps | NO new dependency. Claude Sonnet already supports vision via messages.create() with base64 image content blocks. Route through existing Orq.ai router. |
+| (no new package) | -- | Azure OAuth via Supabase Auth | Supabase has a built-in Azure (Microsoft) OAuth provider. No additional npm packages needed. Configuration is done in Supabase Dashboard + Azure Entra ID portal. The existing `@supabase/ssr` and `@supabase/supabase-js` packages already support `signInWithOAuth()`. |
 
-**Integration pattern -- extend existing adapter:**
+**Why Supabase OAuth, not SAML SSO or NextAuth:**
 
-The current `runPromptAdapter()` in `web/lib/pipeline/adapter.ts` sends text-only messages. For V4.0, extend it to support image content blocks:
+- **SAML SSO** was considered (Supabase supports SAML 2.0 for Azure). Rejected because: SAML requires Team or Enterprise plan. OAuth social login works on all plans including Free/Pro. For 5-15 users with O365 accounts, OAuth is the right choice.
+- **NextAuth/Auth.js** was considered. Rejected because: the app already uses Supabase Auth everywhere (middleware, server client, browser client, invite flow). Adding NextAuth would create two auth systems. Supabase's built-in Azure provider handles the same flow with zero additional dependencies.
 
-```typescript
-// Current: text-only messages
-messages: [
-  { role: "system", content: systemPrompt },
-  { role: "user", content: userMessage },  // string
-]
+**Integration approach:**
 
-// V4.0: mixed content with images
-messages: [
-  { role: "system", content: systemPrompt },
-  { role: "user", content: [
-    { type: "text", text: "Analyze this screenshot of the NXT login page..." },
-    { type: "image", source: { type: "base64", media_type: "image/png", data: base64Screenshot } },
-  ]},
-]
-```
+The existing auth infrastructure (middleware.ts, `/auth/callback/route.ts`, login page) already supports the OAuth code exchange pattern via `exchangeCodeForSession()`. Adding Azure SSO requires:
 
-**Key constraints:**
-- Max image size: 8000x8000px (internally resized to 1568px longest side). Resize before upload to save bandwidth.
-- Supported formats: JPEG, PNG, GIF, WebP. Use **PNG for screenshots** (lossless).
-- Up to 100 images per API request. SOP flows typically have 5-20 screenshots -- well within limits.
-- The Orq.ai router passes through multimodal content to Claude. Verify this works with a test -- if it does not, call the Claude API directly for vision steps (ANTHROPIC_API_KEY is already in env).
+1. **Azure Entra ID portal:** Register app, configure redirect URI (`{SITE_URL}/auth/callback`), get client ID + secret
+2. **Supabase Dashboard:** Enable Azure provider, paste client ID + secret, set tenant URL (`https://login.microsoftonline.com/{tenant-id}`)
+3. **Login page:** Add "Sign in with Microsoft" button calling `supabase.auth.signInWithOAuth({ provider: 'azure', options: { redirectTo: '{SITE_URL}/auth/callback', scopes: 'email' } })`
+4. **No middleware changes needed** -- the existing `getUser()` call already validates any Supabase session, regardless of provider
 
-**Why NOT a separate vision service:**
-- No need for Google Vision, AWS Rekognition, or GPT-4V. Claude's vision is best-in-class for UI understanding and already in the stack.
-- Claude can simultaneously read the screenshot AND generate Playwright selectors for the elements it identifies -- one model call, not a vision call + a separate code generation call.
+**Tenant restriction:** Configure the Azure tenant URL in Supabase to restrict login to the Moyne Roberts Microsoft 365 tenant only. Do NOT use the `common` tenant (allows any Microsoft account).
 
-### 3. SOP Document Parsing -- mammoth + pdf-parse
+**Security: `xms_edov` claim:** Configure the optional `xms_edov` (email domain owner verified) claim in the Azure app registration. This lets Supabase Auth verify that the email address is actually verified by Microsoft, preventing spoofed emails.
+
+**Plan requirement:** Social login (OAuth) is available on all Supabase plans. SAML SSO requires Team/Enterprise. Use OAuth.
+
+**Confidence:** HIGH -- Supabase official docs confirm Azure OAuth provider support. The existing callback route already handles the code exchange.
+
+---
+
+### 3. Orq.ai Analytics Data -- @orq-ai/node SDK + Browser Scraper Fallback
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| mammoth | `^1.8` | Extract text from .docx SOP documents | Lightweight (~200KB), zero native deps, works in serverless. `extractRawText()` gives clean text with paragraph breaks. No need for HTML conversion -- we want plain text for Claude to process. |
-| pdf-parse | `^2.4` | Extract text from .pdf SOP documents | Pure TypeScript, cross-platform, works on Vercel serverless. v2 API with class-based `PDFParse` interface. Supports Node.js 20+. |
+| @orq-ai/node | `^4.4` (pin exact: `4.4.9`) | Orq.ai TypeScript SDK for deployment data, traces, agent listing | SDK is in beta with potential breaking changes. Pin to exact version. Provides typed access to deployments, contacts, and traces. |
 
-**Integration pattern:**
+**Critical finding: Orq.ai does NOT expose an analytics REST API.**
 
-```typescript
-import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
+Research confirmed that Orq.ai's analytics (usage, cost, latency, agent performance) are available ONLY through the web dashboard UI. There is no documented REST API endpoint for pulling aggregated analytics data programmatically. The SDK supports:
 
-async function parseSopDocument(buffer: Buffer, mimeType: string): Promise<string> {
-  if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-    const result = await mammoth.extractRawText({ buffer });
-    return result.value;
-  }
-  if (mimeType === "application/pdf") {
-    const parser = new PDFParse({ data: buffer });
-    return parser.getText();
-  }
-  throw new Error(`Unsupported document type: ${mimeType}`);
-}
+- `client.deployments.invoke()` -- invoke deployments
+- `client.deployments.list()` -- list deployments
+- `client.deployments.getConfig()` -- get deployment config
+- Trace logging via OpenTelemetry (`/v2/otel` endpoint)
+- `add_metrics()` -- add custom metrics TO deployments
+
+But there are NO endpoints to READ aggregated analytics (total cost, latency p50/p99, token usage over time, error rates).
+
+**Solution: Dual data strategy:**
+
+1. **Direct SDK data (what's available programmatically):**
+   - Agent/deployment inventory via `deployments.list()`
+   - Agent configuration and status
+   - Custom metrics attached to deployments
+
+2. **Browser scraper for analytics (Browserless.io):**
+   - Schedule Inngest cron to run Playwright scripts on Browserless.io
+   - Scrape the Orq.ai Studio dashboard pages for: total requests, total cost, total tokens, latency (p50/p99), error rate
+   - Parse the scraped data and store snapshots in Supabase
+   - This is the same pattern already used for Zapier analytics scraping -- reuse the infrastructure
+
+**Why not OpenTelemetry export:** The OTEL endpoint (`/v2/otel`) is for SENDING traces TO Orq.ai, not for reading them back. It's an ingestion endpoint, not a query endpoint.
+
+**Installation:**
+
+```bash
+cd web
+npm install @orq-ai/node@4.4.9
 ```
 
-**Why these libraries specifically:**
-- **mammoth over docx4js/docxtemplater:** mammoth is purpose-built for text extraction. Others focus on document creation/manipulation -- wrong tool.
-- **pdf-parse v2 over pdf.js-extract/unpdf:** Pure TypeScript with zero native dependencies. Works on Vercel without binary compilation issues. v2's class-based API is cleaner than v1's callback pattern.
-- **Both libraries over Unstructured.io/LlamaParse:** External API services add latency, cost, and another dependency. SOP docs are simple text documents, not complex multi-column layouts. Local extraction is sufficient and free.
+**Confidence:** MEDIUM -- SDK capabilities confirmed via npm + GitHub. The absence of an analytics API is a "negative claim" -- verified against official docs, SDK source, and multiple search queries. Flag for re-verification when starting implementation; Orq.ai may add analytics endpoints.
 
-**Supported SOP formats:**
-- `.docx` (Word) -- primary, most Moyne Roberts SOPs are Word documents
-- `.pdf` -- secondary, for exported/shared versions
-- `.txt` / `.md` -- pass through directly, no parsing needed
+---
 
-### 4. File Upload Handling -- Supabase Storage (already in stack)
+### 4. Dark Mode & Theme Switching -- next-themes
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| Supabase Storage | managed | Store SOP documents + screenshots uploaded by users | Already in the stack via @supabase/supabase-js. No new dependency. Create a `browser-automation` bucket with proper RLS policies. |
+| next-themes | `^0.4.6` | Theme provider for light/dark mode switching | shadcn/ui's official recommendation for dark mode in Next.js. The project already has `.dark` CSS variables defined in globals.css (lines 85-117) but no theme provider or toggle. next-themes adds system preference detection, persistence, and zero-flash switching. |
 
-**Integration pattern:**
+**Why this is needed for V6.0:**
 
-```typescript
-// Upload SOP document to Supabase Storage
-const { data, error } = await supabase.storage
-  .from("browser-automation")
-  .upload(`${runId}/sop/${filename}`, file, {
-    contentType: mimeType,
-    upsert: false,
-  });
+The executive dashboard needs a polished dark mode. The CSS variables are already defined (the `globals.css` has both `:root` and `.dark` themes), but there is no runtime theme switching. The `suppressHydrationWarning` prop is already on the `<html>` tag (layout.tsx line 28), which is required by next-themes.
 
-// Upload screenshot
-const { data, error } = await supabase.storage
-  .from("browser-automation")
-  .upload(`${runId}/screenshots/${stepNumber}-${filename}`, file, {
-    contentType: "image/png",
-    upsert: false,
-  });
+**Integration:**
 
-// Retrieve for processing (server-side, service role key)
-const { data } = await adminClient.storage
-  .from("browser-automation")
-  .download(`${runId}/sop/${filename}`);
+1. Create `components/theme-provider.tsx` -- wraps `NextThemesProvider` with `"use client"`
+2. Add `<ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>` in root layout
+3. Add theme toggle component (shadcn has one: `npx shadcn add mode-toggle` or build manually with `useTheme()` hook)
+
+**Installation:**
+
+```bash
+cd web
+npm install next-themes@^0.4.6
 ```
 
-**File size handling:**
-- Standard upload (supabase-js): up to 6MB per file. Fine for documents.
-- For larger screenshots/PDFs: use signed upload URLs with TUS resumable protocol.
-- Resize screenshots client-side before upload (canvas API -> max 1568px longest side, matching Claude's internal resize). Saves storage and bandwidth.
+**Confidence:** HIGH -- shadcn/ui official docs prescribe next-themes for dark mode in Next.js.
 
-**Storage bucket design:**
-```
-browser-automation/
-  {runId}/
-    sop/
-      process-document.docx
-      process-document.pdf
-    screenshots/
-      01-login-page.png
-      02-dashboard.png
-      03-invoice-form.png
-    scripts/
-      automation-v1.ts
-      automation-v2.ts  (after iteration)
-    annotations/
-      01-login-page-annotated.json  (element positions, selectors)
-```
+---
 
-**RLS policy:** Users can only access files within runs they own (`auth.uid() = pipeline_runs.user_id`).
-
-### 5. MCP Tool Hosting -- mcp-handler + @modelcontextprotocol/sdk on Vercel
+### 5. Date Formatting -- date-fns
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| mcp-handler | latest | Vercel adapter for MCP servers in Next.js | Official Vercel package. Creates MCP server endpoints from Next.js API routes. Handles Streamable HTTP transport, session management, and tool registration. |
-| @modelcontextprotocol/sdk | `^1.27` | MCP protocol implementation | Official TypeScript SDK. Defines tool schemas, handles protocol negotiation. Required peer dependency of mcp-handler. Use v1.x (stable) -- v2 is still pre-release as of March 2026. |
+| date-fns | `^4.1` | Date formatting, relative time, ranges for dashboard metrics | Tree-shakeable (only import what you use), functional API, works with native Date objects. The dashboard needs "3 days ago", "March 2026", "Last 30 days" type formatting. date-fns is 18KB gzipped but tree-shakes to 2-5KB for typical usage. |
 
-**Integration pattern -- MCP tools as Next.js API routes:**
+**Why date-fns, not dayjs:**
 
-The generated Playwright scripts become MCP tools hosted on the same Vercel deployment. Each verified automation is registered as a tool that Orq.ai agents can call.
+- dayjs is 2KB smaller at baseline but requires plugins for timezone/locale support that close the gap
+- date-fns is fully tree-shakeable (import only `format`, `formatDistanceToNow`, `subDays` etc.)
+- TypeScript-first with excellent type safety
+- No global state or mutation -- pure functions
+- Already the shadcn/ui ecosystem recommendation (shadcn-ui/ui Discussion #4817)
 
-```typescript
-// app/api/mcp/[transport]/route.ts
-import { createMcpHandler } from "mcp-handler";
-import { z } from "zod";
+**Installation:**
 
-const handler = createMcpHandler(
-  async (server) => {
-    // Dynamically register tools from database
-    const tools = await loadVerifiedAutomations();
-
-    for (const tool of tools) {
-      server.tool(
-        tool.name,  // e.g., "nxt-create-invoice"
-        tool.description,
-        tool.inputSchema,  // zod schema
-        async (params) => {
-          // Execute the Playwright script on Browserless.io
-          const result = await executeOnBrowserless(tool.scriptCode, params);
-          return { content: [{ type: "text", text: JSON.stringify(result) }] };
-        }
-      );
-    }
-  },
-  {
-    basePath: "/api/mcp",
-    maxDuration: 120,  // Browserless execution can take up to 2 minutes
-    verboseLogs: process.env.NODE_ENV === "development",
-  }
-);
-
-export { handler as GET, handler as POST, handler as DELETE };
+```bash
+cd web
+npm install date-fns@^4.1
 ```
 
-**Why mcp-handler over raw @modelcontextprotocol/sdk:**
-- Handles Vercel-specific concerns: routing, Streamable HTTP transport setup, session management.
-- One-line setup vs. manual transport configuration.
-- Maintained by Vercel -- guaranteed to work on their platform.
+**Confidence:** HIGH -- well-established library, actively maintained, standard choice.
 
-**Why host MCP tools on our Vercel deployment (not a separate server):**
-- No additional infrastructure. Tools are API routes in the same Next.js app.
-- Shared authentication context. Tools can verify the calling agent belongs to the right tenant.
-- Shared database access. Tools can log execution results, update status, trigger alerts.
-- Auto-deploys with the rest of the app. No separate CI/CD pipeline.
+---
 
-**Orq.ai agent attachment:**
-After a script is verified, the pipeline stage registers the MCP server URL with the Orq.ai agent:
-
-```typescript
-// Attach MCP tool to agent via Orq.ai API
-await orqClient.agents.update(agentId, {
-  tools: [
-    ...existingTools,
-    {
-      type: "mcp",
-      server_url: `https://${process.env.VERCEL_URL}/api/mcp`,
-      tool_name: "nxt-create-invoice",
-    },
-  ],
-});
-```
-
-### 6. Image Processing (Optional) -- sharp
+### 6. Number & Currency Formatting -- Intl API (no package needed)
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| sharp | `^0.33` | Resize screenshots before upload + annotated image generation | Fast native image processing. Resize to max 1568px (Claude's internal limit) before storing. Composite overlay for visual annotations. Works on Vercel with `@img/sharp-linux-x64` layer. |
+| Intl.NumberFormat | (built-in) | Currency, percentages, compact numbers for KPIs | Native browser/Node.js API. No package needed. Handles EUR formatting ("EUR 1.234,56"), compact notation ("1.2K requests"), percentages ("87.3%"). |
 
-**Why sharp is OPTIONAL and can be deferred:**
-- Screenshot resizing CAN be done client-side with Canvas API (simpler, no server dependency).
-- Visual annotation overlays CAN be returned as JSON coordinates + rendered in the browser with React (no server-side image generation needed).
-- Only add sharp if we need server-side annotated image generation (e.g., emailing annotated screenshots to users).
+**Why no `numeral.js` or `accounting.js`:**
 
-**If added, Vercel compatibility note:**
-Sharp requires native binaries. On Vercel, use `@img/sharp-linux-x64` or set `SHARP_IGNORE_GLOBAL_LIBVIPS=1` in env. The `next/image` component already bundles sharp for image optimization -- check if the existing Next.js install includes it before adding separately.
+The built-in `Intl.NumberFormat` handles all executive dashboard formatting needs:
+
+```typescript
+// EUR currency
+new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(12345.67)
+// => "EUR 12.345,67"
+
+// Compact numbers for KPIs
+new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(15234)
+// => "15.2K"
+
+// Percentages
+new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 1 }).format(0.873)
+// => "87.3%"
+```
+
+No additional dependency needed. Build a small `lib/format.ts` utility with typed helper functions.
+
+**Confidence:** HIGH -- native API, zero-dependency.
+
+---
+
+### 7. Automated Status Monitoring -- Inngest Cron (no new package)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| inngest (existing) | `^3.52` | Scheduled cron functions for status monitoring and data scraping | Inngest already supports cron schedules natively. No new packages needed. Define `createFunction({ id: "...", triggers: { cron: "TZ=Europe/Amsterdam 0 8,12,17 * * *" } })` for three scraping runs per day. |
+
+**Functions to schedule:**
+
+| Function | Schedule | Purpose |
+|----------|----------|---------|
+| `sync-orqai-analytics` | `0 8,12,17 * * *` (3x/day) | Scrape Orq.ai Studio dashboard via Browserless.io, store metrics snapshot |
+| `sync-zapier-analytics` | `0 8,12,17 * * *` (3x/day) | Scrape Zapier dashboard via Browserless.io, store task usage + Zap run data |
+| `update-project-statuses` | `0 */4 * * *` (every 4h) | Check latest activity per project, update status (idea -> building -> testing -> live -> stale) |
+| `compute-roi-metrics` | `0 6 * * 1` (weekly Monday) | Aggregate time savings, cost savings, ROI calculations across all projects |
+
+**Why Inngest cron, not Vercel cron:**
+
+- Vercel cron is limited to the Vercel Pro timeout (60s). Browser scraping can take 30-45s, leaving no margin.
+- Inngest cron supports multi-step functions with `step.run()` -- each step gets its own timeout. A scraper function can have: step 1 (navigate + scrape), step 2 (parse + validate), step 3 (store in Supabase).
+- Inngest provides automatic retries, logging, and failure alerting out of the box.
+- Already in the stack -- no new infrastructure.
+
+**Confidence:** HIGH -- Inngest cron is documented and already used in the project.
+
+---
+
+## Typography & Font Strategy (No New Packages)
+
+The project currently uses **Geist** and **Geist Mono** (loaded via `next/font/google` in layout.tsx). For the executive dashboard:
+
+**Keep Geist.** Do not switch to Inter.
+
+Rationale:
+- Geist is Vercel's typeface, designed for the exact kind of professional UI this project builds
+- Geist is influenced by Inter but with slightly rounder curves and better character spacing -- more modern feel
+- Already loaded and configured via `--font-geist-sans` and `--font-geist-mono` CSS variables
+- Switching to Inter would require touching every font reference and loses the Next.js-native integration
+- For executive audiences, the difference between Geist and Inter is negligible; both are excellent screen-optimized sans-serifs
+
+**What to change for executive polish:**
+- Increase base font weight for headings (use `font-semibold` / `font-bold` more)
+- Tighten letter spacing on large display text (`tracking-tight`)
+- Establish a clear type scale in the design system: display (36px), heading (24px), subheading (18px), body (14px), caption (12px)
+- Use Geist Mono exclusively for metrics/numbers on KPI cards -- gives them a data-driven feel
+
+---
+
+## Color Palette Strategy (No New Packages)
+
+The current theme uses neutral/grayscale oklch colors. For V6.0's executive redesign:
+
+**Extend the existing shadcn CSS variable system.** Do not add a color library.
+
+The globals.css already defines `--chart-1` through `--chart-5` with a blue-to-indigo gradient. For the executive dashboard:
+
+1. **Keep the blue-indigo chart palette** -- professional, data-focused, accessible
+2. **Add semantic status colors** as CSS variables:
+   - `--status-live`: green (projects in production)
+   - `--status-building`: blue (projects in development)
+   - `--status-testing`: amber (projects in test)
+   - `--status-idea`: gray (project ideas)
+   - `--status-stale`: red (inactive projects)
+3. **Add ROI/metric colors:**
+   - `--metric-positive`: green (savings, improvements)
+   - `--metric-negative`: red (costs, regressions)
+   - `--metric-neutral`: gray (unchanged)
+
+All in oklch format for perceptual consistency, matching the existing theme.
+
+---
+
+## What NOT to Add
+
+| Technology | Why NOT |
+|------------|---------|
+| **Tremor** | Adds competing component system alongside shadcn. Recharts via shadcn charts does everything Tremor does with better integration. |
+| **D3.js directly** | Overkill. Recharts abstracts D3 with a React-native API. No custom SVG visualizations needed. |
+| **NextAuth / Auth.js** | Supabase Auth already handles Azure OAuth. Adding NextAuth creates two auth systems. |
+| **TanStack Query / SWR** | Dashboard data is server-rendered (RSC) or fetched via server actions. No client-side cache layer needed for 5-15 users. If polling is needed later, Supabase Realtime or simple `setInterval` + `fetch` suffices. |
+| **Framer Motion** | The existing `tw-animate-css` handles transitions. Framer Motion adds 30KB+ for animation capabilities the executive dashboard doesn't need. |
+| **numeral.js / accounting.js** | `Intl.NumberFormat` covers all formatting needs natively. Zero-dependency. |
+| **dayjs / moment** | date-fns is tree-shakeable and TypeScript-first. dayjs adds minimal value over date-fns. moment is deprecated. |
+| **Chart.js** | Canvas-based, not React-native. Recharts is the standard for React dashboards and already integrated into shadcn/ui. |
+| **Prisma / Drizzle** | Supabase JS client handles all database access. Adding an ORM for 5-15 users is unnecessary complexity. |
+| **Redis / Upstash** | No caching layer needed at this scale. Supabase queries are fast enough for dashboard data. |
+| **Zapier SDK (@zapier/zapier-sdk)** | Not needed for V6.0. Zapier analytics come from browser scraping, not the SDK. |
+
+---
 
 ## Alternatives Considered
 
 | Category | Recommended | Alternative | Why Not |
 |----------|-------------|-------------|---------|
-| Browser execution | Browserless.io /function REST | Browserless.io connectOverCDP | WebSocket incompatible with Inngest steps. CDP requires version matching. REST is stateless and simpler. |
-| Browser execution | Browserless.io | BrowserBase, Apify, self-hosted Playwright | Browserless has the simplest API, best Playwright support, free tier for dev. No VPS needed. |
-| Browser execution | Browserless.io /function | Puppeteer via Browserless | Playwright has better API (auto-wait, locators), cross-browser support. PROJECT.md specifies Playwright. |
-| Screenshot analysis | Claude Vision (Orq.ai router) | GPT-4V, Google Vision, AWS Rekognition | Claude already in stack. Vision is built into Sonnet. Can analyze UI AND generate code in one call. |
-| Screenshot analysis | Claude Vision (Orq.ai router) | Claude Vision (direct API) | Prefer Orq.ai router for unified billing. Fall back to direct API only if router cannot pass image blocks. |
-| DOCX parsing | mammoth | docx4js, officegen, libreoffice-convert | mammoth is purpose-built for extraction. Others focus on creation. Zero native deps = serverless-safe. |
-| PDF parsing | pdf-parse v2 | unpdf, pdf.js-extract, LlamaParse | Pure TypeScript, v2 API is clean, works on Vercel without binary issues. LlamaParse is external service -- unnecessary for simple SOPs. |
-| File storage | Supabase Storage | Vercel Blob, S3, Cloudflare R2 | Already in stack. Same client, same auth, same RLS. No reason to add another storage service. |
-| MCP hosting | mcp-handler on Vercel | Separate MCP server (EC2, Fly.io) | No additional infra. Auto-deploys. Shared auth/DB. Vercel-native transport handling. |
-| MCP hosting | mcp-handler | Raw @modelcontextprotocol/sdk | mcp-handler handles Vercel transport plumbing. Less boilerplate. |
-| Image processing | sharp (deferred) | Jimp, canvas (node-canvas) | sharp is fastest. But client-side resize is simpler for V4.0 MVP. Defer sharp unless server-side annotation is needed. |
+| Charts | Recharts 3.x via shadcn | Tremor | Competing component system, wraps Recharts anyway |
+| Charts | Recharts 3.x via shadcn | Nivo | Heavier, less React-native feel, no shadcn integration |
+| SSO | Supabase Azure OAuth | SAML SSO | Requires Team/Enterprise plan, OAuth works on all plans |
+| SSO | Supabase Azure OAuth | NextAuth | Creates second auth system alongside existing Supabase Auth |
+| Theme | next-themes | Manual `data-theme` | next-themes handles system preference, persistence, flash prevention |
+| Dates | date-fns | dayjs | Tree-shaking, TypeScript-first, shadcn ecosystem standard |
+| Analytics data | Browser scraping | Orq.ai API | API does not exist for analytics read-back (verified) |
+| Cron | Inngest cron | Vercel cron | Inngest supports multi-step, retries, longer timeouts |
+| Numbers | Intl.NumberFormat | numeral.js | Native API, zero dependencies |
 
-## What NOT to Add
+---
 
-| Technology | Why Tempting | Why Wrong for V4.0 |
-|------------|-------------|---------------------|
-| playwright (full package) | "We need Playwright" | Full `playwright` downloads browser binaries (~400MB). Use `playwright-core` for types only. Browserless.io provides browsers. |
-| Puppeteer | Alternative to Playwright | PROJECT.md specifies Playwright. Playwright has better auto-wait, locators, and API design. |
-| browser-use / Stagehand | "AI browser automation" | These are for dynamic/exploratory browsing. V4.0 generates **deterministic Playwright scripts** for known SOP flows. Dynamic browser-use is already handled by existing Orq.ai MCP tools (see PROJECT.md Out of Scope). |
-| LlamaParse / Unstructured.io | "Better document parsing" | External API services. SOP documents are simple text -- mammoth + pdf-parse handle them perfectly. No complex layout parsing needed. |
-| Tesseract.js / OCR libraries | "Read text from screenshots" | Claude Vision reads screenshot text natively AND understands UI layout. OCR gives you raw text without context -- useless for generating selectors. |
-| Canvas/Fabric.js (server-side) | "Annotate images server-side" | Annotations are coordinates + labels. Render them in the browser with React components over the screenshot image. No server-side canvas needed. |
-| Puppeteer Recorder / Playwright Codegen | "Record user interactions" | We are generating scripts from SOP + screenshots, not recording live browser sessions. Different approach entirely. |
-| Redis / BullMQ | "Queue browser automation jobs" | Inngest already handles job queuing, retries, and durable execution. Adding Redis violates the "no self-hosted infra" constraint. |
-| WebSocket library (ws, socket.io) | "Real-time script execution output" | Use existing Inngest Realtime + Supabase Realtime for progress updates. No new real-time channel needed. |
-
-## Installation
+## Installation Summary
 
 ```bash
-# Document parsing (SOP Word + PDF)
-npm install mammoth pdf-parse
+cd web
 
-# Browser automation types (NO browser binaries)
-npm install playwright-core
+# New dependencies for V6.0
+npm install recharts@^3.8 next-themes@^0.4.6 date-fns@^4.1 @orq-ai/node@4.4.9
 
-# MCP tool hosting
-npm install mcp-handler @modelcontextprotocol/sdk
+# Add shadcn chart component
+npx shadcn add chart
 
-# Optional: server-side image processing (DEFER unless needed)
-# npm install sharp
+# React 19 compatibility override (add to package.json)
+# "overrides": { "react-is": "^19.0.0" }
 ```
 
-**Dev dependencies:** None needed beyond what V3.0 already has (Vitest, testing-library, TypeScript).
+**Total new packages: 4** (recharts, next-themes, date-fns, @orq-ai/node)
+**Total new shadcn components: 1** (chart)
+**Bundle size impact:** ~45KB gzipped (recharts ~35KB, next-themes ~3KB, date-fns ~5KB tree-shaken, @orq-ai/node server-only)
 
-**Environment variables (NEW for V4.0):**
-```env
-# Browserless.io
-BROWSERLESS_API_TOKEN=<api-token>
-BROWSERLESS_REGION=sfo  # or us-east-1, eu-west-1 -- choose closest to target systems
+---
 
-# All other env vars unchanged from V3.0 (Supabase, Inngest, Orq.ai, Claude)
-```
+## Integration Points
 
-## Integration Points with Existing Pipeline
-
-### How V4.0 Fits into the Inngest Pipeline
-
-The browser automation builder is a **new pipeline stage** (or set of stages) that runs AFTER the architect detects a no-API system need. It integrates with the existing `executePipeline` function pattern.
+### Data Flow Architecture
 
 ```
-Existing pipeline:
-  architect -> tool-resolver -> researcher -> spec-generator -> ...
-                    |
-                    v
-          Detects agent needs browser automation for NXT/iController/Intelly
-                    |
-                    v
-V4.0 stages (new Inngest steps):
-  sop-upload (waitForEvent -- user uploads SOP + screenshots)
-    -> sop-parse (extract text from document)
-    -> screenshot-analysis (Claude Vision -- analyze each screenshot)
-    -> annotation-review (waitForEvent -- user confirms/corrects AI understanding)
-    -> script-generation (Claude -- generate Playwright script from SOP + annotations)
-    -> script-test (Browserless.io /function API -- execute script)
-    -> test-review (waitForEvent -- user reports success/failure)
-    -> script-iterate (loop back to generation if failed, max 3 iterations)
-    -> mcp-deploy (register verified script as MCP tool)
-    -> agent-attach (attach MCP tool to Orq.ai agent)
-                    |
-                    v
-Continues existing pipeline:
-  ... -> dataset-generator -> readme-generator -> complete
+Orq.ai Studio (dashboard) ──[Browserless.io scraper]──> Supabase (orqai_metrics)
+Zapier (dashboard)         ──[Browserless.io scraper]──> Supabase (zapier_metrics)
+Agent Workforce (DB)       ──[direct queries]──────────> Supabase (projects, pipeline_runs)
+                                                              |
+                                                              v
+                                                    Next.js RSC (aggregation)
+                                                              |
+                                                              v
+                                                    Recharts (visualization)
 ```
 
-### Key Inngest Patterns for V4.0
-
-```typescript
-// 1. Wait for user file upload
-const uploadEvent = await step.waitForEvent("sop-upload-received", {
-  event: "automation/sop.uploaded",
-  match: "data.runId",
-  timeout: "24h",
-});
-
-// 2. Parse document inside step.run()
-const sopText = await step.run("parse-sop-document", async () => {
-  const admin = createAdminClient();
-  const { data } = await admin.storage.from("browser-automation").download(uploadEvent.data.filePath);
-  return parseSopDocument(Buffer.from(await data.arrayBuffer()), uploadEvent.data.mimeType);
-});
-
-// 3. Vision analysis inside step.run() (each screenshot = separate step for retry isolation)
-for (const screenshot of uploadEvent.data.screenshots) {
-  await step.run(`analyze-screenshot-${screenshot.stepNumber}`, async () => {
-    const imageBuffer = await downloadScreenshot(screenshot.path);
-    const base64 = imageBuffer.toString("base64");
-    const analysis = await runVisionAdapter("screenshot-analyzer", {
-      sopText,
-      screenshot: { base64, mediaType: "image/png" },
-      stepNumber: screenshot.stepNumber,
-    });
-    await saveAnnotation(runId, screenshot.stepNumber, analysis);
-    return analysis;
-  });
-}
-
-// 4. Wait for user confirmation of annotations
-const confirmation = await step.waitForEvent("annotation-confirmed", {
-  event: "automation/annotations.confirmed",
-  match: "data.runId",
-  timeout: "7d",
-});
-
-// 5. Generate and test script (with iteration loop)
-let scriptWorking = false;
-let iteration = 0;
-while (!scriptWorking && iteration < 3) {
-  const script = await step.run(`generate-script-v${iteration + 1}`, async () => {
-    // Claude generates Playwright script from SOP + annotations + previous failure
-    return runPromptAdapter("script-generator", { sopText, annotations, previousError });
-  });
-
-  const testResult = await step.run(`test-script-v${iteration + 1}`, async () => {
-    // Execute on Browserless.io
-    return executeOnBrowserless(script, { targetUrl: "https://nxt.example.com" });
-  });
-
-  // Wait for user to verify script worked correctly
-  const review = await step.waitForEvent(`script-review-v${iteration + 1}`, {
-    event: "automation/script.reviewed",
-    match: "data.runId",
-    timeout: "7d",
-  });
-
-  scriptWorking = review.data.approved;
-  iteration++;
-}
-
-// 6. Deploy as MCP tool
-await step.run("deploy-mcp-tool", async () => {
-  // Store verified script in DB
-  // Register MCP tool metadata
-  // Attach to Orq.ai agent
-});
-```
-
-### Vercel Timeout Considerations
-
-Each V4.0 pipeline step must complete within Vercel's function timeout:
-- **Hobby plan:** 10s -- TOO SHORT for Browserless execution.
-- **Pro plan ($20/mo):** 60s default, 300s with `maxDuration`. Sufficient for most script executions.
-- **Fluid Compute (Pro):** up to 800s. For complex multi-page automations.
-
-Inngest splits each step into a separate HTTP invocation, so only individual steps need to fit within the timeout. The total pipeline can run for hours (across HITL waits).
-
-**Recommendation:** Ensure the Vercel project is on Pro plan (likely already is for V3.0). Set `maxDuration: 120` for Browserless execution steps.
-
-### Data Flow Through Supabase
+### Auth Flow (with Azure SSO addition)
 
 ```
-New tables needed:
-  browser_automations
-    id, run_id, agent_id, target_system, status
-    sop_file_path, created_at, updated_at
-
-  automation_screenshots
-    id, automation_id, step_number, file_path, annotation_json
-    analysis_text, confirmed_by_user (boolean)
-
-  automation_scripts
-    id, automation_id, version, script_code, test_result
-    browserless_response, status (draft/testing/verified/failed)
-
-  mcp_tools
-    id, automation_id, agent_id, tool_name, tool_description
-    input_schema (jsonb), script_id (FK to automation_scripts)
-    deployed_at, status (active/inactive)
+Login Page
+  ├── Email/Password ──> supabase.auth.signInWithPassword() ──> session
+  └── Microsoft SSO  ──> supabase.auth.signInWithOAuth({ provider: 'azure' })
+                           ──> Azure Entra ID login
+                           ──> /auth/callback (existing route)
+                           ──> exchangeCodeForSession() (existing code)
+                           ──> session
 ```
 
-## Confidence Assessment
+### Scraper Scheduling
 
-| Component | Confidence | Basis |
-|-----------|------------|-------|
-| Browserless.io /function REST API | HIGH | Official docs describe /function endpoint. JSON POST with code + context. Production-proven service. |
-| Browserless.io + Inngest integration | MEDIUM | Pattern is straightforward (HTTP fetch inside step.run()), but Browserless execution times may exceed Vercel step timeout for complex automations. Need maxDuration config. |
-| Claude Vision via Orq.ai router | MEDIUM | Claude Vision is HIGH confidence. The Orq.ai router passing through multimodal content blocks needs VERIFICATION. May need direct Claude API call as fallback. |
-| mammoth for DOCX parsing | HIGH | Mature library, 4.8K GitHub stars, well-documented extractRawText() API. Works in serverless. |
-| pdf-parse v2 for PDF parsing | HIGH | Pure TypeScript, v2 stable (2.4.5), explicit Vercel/serverless support documented. |
-| Supabase Storage for file upload | HIGH | Already in stack. Standard upload API. Signed URLs for larger files. |
-| mcp-handler for MCP tool hosting | MEDIUM | Official Vercel package, documented examples. But dynamic tool registration (loading tools from DB at request time) needs validation -- most examples show static tool definitions. |
-| @modelcontextprotocol/sdk v1.x | HIGH | v1.27 stable. v2 pre-release -- stay on v1.x for production. Required peer dep of mcp-handler. |
-| playwright-core for types only | HIGH | Widely used pattern. playwright-core is the no-browsers package. 1.58.2 current. |
-| sharp for image processing | HIGH (if needed) | Industry standard. But DEFERRED -- client-side resize is simpler for MVP. |
-| Inngest step.waitForEvent for HITL | HIGH | Documented pattern, already used in V3.0 for approval flows. Multi-day timeouts supported. |
+```
+Inngest Cron ──> Browserless.io
+  step.run("navigate")     → Open Orq.ai/Zapier dashboard
+  step.run("authenticate") → Login with stored session (Supabase storage)
+  step.run("scrape")       → Extract metrics from dashboard DOM
+  step.run("store")        → Insert snapshot into Supabase metrics table
+```
 
-## Open Questions (Resolve During Implementation)
-
-1. **Orq.ai router multimodal passthrough:** Does the Orq.ai chat completions router forward image content blocks to Claude? Test with a simple vision request. If not, call Claude API directly for vision steps.
-
-2. **Browserless /function timeout:** What is the maximum execution time for a single /function call? If a complex multi-step SOP automation exceeds it, we may need to split script execution across multiple Browserless calls.
-
-3. **MCP tool dynamic registration:** Can mcp-handler load tools from a database at request time (not just at server startup)? If tools are static, we need a deployment strategy for adding new automation tools.
-
-4. **Orq.ai MCP server attachment:** What is the exact API for attaching a remote MCP server to an Orq.ai agent? The docs mention MCP support but the specific `/v2/agents` payload format for MCP tools needs verification.
-
-5. **Vercel Pro plan confirmation:** Is the Vercel deployment on Pro plan? Hobby plan's 10s timeout is insufficient for Browserless execution steps. Pro's 60-300s is needed.
+---
 
 ## Sources
 
-- [Browserless.io Function API](https://docs.browserless.io/rest-apis/function) -- /function endpoint for running custom code
-- [Browserless.io Playwright Quick Start](https://docs.browserless.io/libraries/playwright) -- connection patterns and version support
-- [Browserless.io Connection URLs](https://docs.browserless.io/overview/connection-urls) -- regional endpoints and auth
-- [Browserless.io Pricing](https://www.browserless.io/pricing) -- unit-based pricing, free tier details
-- [Claude Vision API Docs](https://platform.claude.com/docs/en/build-with-claude/vision) -- base64 image format, limits, best practices
-- [mammoth npm](https://www.npmjs.com/package/mammoth) -- DOCX text extraction
-- [pdf-parse npm](https://www.npmjs.com/package/pdf-parse) -- v2 TypeScript API
-- [pdf-parse GitHub](https://github.com/mehmet-kozan/pdf-parse) -- cross-platform support, Vercel compatibility
-- [@modelcontextprotocol/sdk npm](https://www.npmjs.com/package/@modelcontextprotocol/sdk) -- v1.27 stable, TypeScript SDK
-- [MCP TypeScript SDK Server Docs](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/server.md) -- tool registration
-- [mcp-handler npm / GitHub](https://github.com/vercel/mcp-handler) -- Vercel MCP adapter for Next.js
-- [Vercel MCP Server Deployment](https://vercel.com/docs/mcp/deploy-mcp-servers-to-vercel) -- Streamable HTTP transport on Vercel
-- [Vercel MCP Server Template](https://vercel.com/templates/next.js/model-context-protocol-mcp-with-next-js) -- Next.js example
-- [Supabase Storage Upload Docs](https://supabase.com/docs/reference/javascript/storage-from-upload) -- standard upload API
-- [Supabase Standard Uploads](https://supabase.com/docs/guides/storage/uploads/standard-uploads) -- TUS for large files
-- [Inngest waitForEvent Docs](https://www.inngest.com/docs/features/inngest-functions/steps-workflows/wait-for-event) -- HITL pattern
-- [Inngest Long-Running on Vercel](https://www.inngest.com/blog/vercel-long-running-background-functions) -- timeout workarounds
-- [Orq.ai Tools Documentation](https://docs.orq.ai/docs/agents/tools) -- MCP and function tools for agents
-- [playwright-core npm](https://www.npmjs.com/package/playwright-core) -- v1.58.2, no browser binaries
+- [shadcn/ui Charts Documentation](https://ui.shadcn.com/docs/components/radix/chart)
+- [shadcn/ui Area Charts Gallery](https://ui.shadcn.com/charts/area)
+- [Recharts v3.8 on npm](https://www.npmjs.com/package/recharts)
+- [Recharts v3 shadcn compatibility issue](https://github.com/shadcn-ui/ui/issues/7669)
+- [Supabase Azure (Microsoft) OAuth](https://supabase.com/docs/guides/auth/social-login/auth-azure)
+- [Supabase SSO with Azure AD (SAML)](https://supabase.com/docs/guides/platform/sso/azure)
+- [Supabase SAML 2.0 SSO docs](https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml)
+- [Orq.ai Dashboards and Analytics](https://docs.orq.ai/docs/dashboards-and-analytics)
+- [Orq.ai Analytics docs](https://docs.orq.ai/docs/analytics)
+- [Orq.ai Traces docs](https://docs.orq.ai/docs/traces)
+- [@orq-ai/node SDK on npm](https://www.npmjs.com/package/@orq-ai/node)
+- [@orq-ai/node GitHub](https://github.com/orq-ai/orq-node)
+- [next-themes on npm](https://www.npmjs.com/package/next-themes)
+- [shadcn/ui Dark Mode with Next.js](https://ui.shadcn.com/docs/dark-mode/next)
+- [Inngest Cron/Scheduled Functions](https://www.inngest.com/docs/guides/scheduled-functions)
+- [date-fns vs dayjs discussion](https://github.com/shadcn-ui/ui/discussions/4817)
+- [Supabase Social Login docs](https://supabase.com/docs/guides/auth/social-login)
+- [Supabase Pricing](https://supabase.com/pricing)

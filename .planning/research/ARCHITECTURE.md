@@ -1,497 +1,577 @@
-# Architecture: Browser Automation Builder Pipeline Stage
+# Architecture: V6.0 Executive Dashboard & UI Revamp
 
-**Domain:** V4.0 Browser Automation Builder -- adding SOP-to-MCP-tool pipeline stage to existing Inngest-orchestrated agent design pipeline
-**Researched:** 2026-03-23
-**Confidence:** MEDIUM-HIGH -- Inngest patterns verified via official docs and existing codebase; Browserless.io integration verified via official docs; Orq.ai MCP tool creation verified via API docs; Claude vision API verified via official docs; Vercel MCP hosting verified via official Vercel docs
+**Domain:** Adding executive dashboard, 360-degree data integration, project model extension, automated status monitoring, Azure AD SSO, and full UI redesign to existing Next.js + Supabase + Vercel app
+**Researched:** 2026-03-26
+**Confidence:** MEDIUM-HIGH -- Supabase Azure OAuth verified via official docs; Inngest cron patterns verified via official docs; existing codebase thoroughly analyzed; Orq.ai analytics API has limited public documentation (MEDIUM confidence); Zapier has no public API for analytics (confirmed -- browser scraper is the right approach)
 
 ## Executive Summary
 
-The browser automation builder integrates as a **conditional sub-pipeline** within the existing Inngest `executePipeline` function. It activates after the spec-generator stage when the architect identifies agents that need browser automation for no-API systems. The sub-pipeline uses `step.waitForEvent()` for HITL interactions (SOP upload, annotation confirmation, test validation) -- a pattern not yet used in the codebase but native to Inngest. Browserless.io connects via WebSocket (`connectOverCDP`) within Inngest step.run() calls, with script execution fitting within Vercel's 300s Pro timeout. MCP tools deploy to a dedicated route in the existing Next.js app using `@vercel/mcp-adapter`, then register with Orq.ai via `POST /v2/tools`.
+V6.0 adds an executive-facing layer on top of the existing pipeline-centric architecture. The core challenge is **data aggregation from three independent sources** (Agent Workforce DB, Zapier dashboard via browser scraping, Orq.ai analytics API) into unified dashboard metrics. The architecture introduces a **data aggregation layer** consisting of: (1) a `dashboard_snapshots` table storing pre-computed metrics, (2) Inngest cron functions that periodically collect and compute these metrics, and (3) server components that read from the snapshot table for fast page loads.
+
+The project model extends the existing `projects` table with `status` and `automation_type` columns. An Inngest cron function monitors activity and transitions statuses automatically. Azure AD integrates as an OAuth social provider in Supabase Auth alongside existing email/password -- requiring no middleware changes, only a login page update and Azure AD app registration. The UI redesign works entirely through CSS variable overrides in `globals.css` and shadcn theme tokens, touching zero component internals.
 
 ## Recommended Architecture
 
-### High-Level Flow
+### High-Level System Diagram
 
 ```
-Existing Pipeline                    New Sub-Pipeline (conditional)
-=================                    ==============================
-
-architect         ─┐
-tool-resolver      │
-researcher         │  (existing stages,
-spec-generator    ─┘   unchanged)
-        │
-        ▼
-[automation-detector]  ─── NO ──→  (continue to orchestration-generator)
-        │
-       YES
-        ▼
-[sop-upload]           ← step.waitForEvent("automation/sop.uploaded")
-        │                  User uploads SOP doc + screenshots via UI
-        ▼
-[sop-analyzer]         ← Claude vision API (base64 images + SOP text)
-        │                  Produces structured step list with selectors
-        ▼
-[annotation-review]    ← step.waitForEvent("automation/annotation.confirmed")
-        │                  User confirms/corrects AI understanding
-        ▼
-[script-generator]     ← Claude API generates Playwright script
-        │                  from confirmed annotations
-        ▼
-┌─[script-executor]    ← Browserless.io connectOverCDP
-│       │                  runs Playwright against target system
-│       ▼
-│  [test-reviewer]     ← step.waitForEvent("automation/test.reviewed")
-│       │                  User sees results, approves or requests changes
-│       │
-│      FAIL ──────────── loops back to script-generator (max 5 iterations)
-│       │
-└───── OK
-        │
-        ▼
-[mcp-deployer]         ← Creates Orq.ai MCP tool via POST /v2/tools
-        │                  Attaches to target agent via PUT /v2/agents
-        ▼
-orchestration-generator ─┐
-dataset-generator        │  (existing stages,
-readme-generator        ─┘   continue as before)
+                    +-------------------+
+                    |   Login Page      |
+                    | email/pw + Azure  |
+                    +--------+----------+
+                             |
+                    Supabase Auth (middleware.ts unchanged)
+                             |
+                    +--------v----------+
+                    |  Dashboard Layout |
+                    |  (app-sidebar.tsx) |
+                    +--------+----------+
+                             |
+              +--------------+--------------+
+              |              |              |
+     +--------v---+  +------v------+ +-----v--------+
+     | Executive  |  | Projects    | | Existing     |
+     | Dashboard  |  | (extended)  | | Pages        |
+     | (NEW page) |  | status/type | | (restyled)   |
+     +--------+---+  +------+------+ +--------------+
+              |              |
+     +--------v--------------v----------+
+     |     Data Aggregation Layer       |
+     |  dashboard_snapshots table       |
+     |  (pre-computed metrics)          |
+     +--------+----------+---------+---+
+              |          |         |
+     +--------v--+ +----v----+ +--v-----------+
+     | Supabase  | | Zapier  | | Orq.ai       |
+     | DB queries| | Scraper | | Analytics    |
+     | (direct)  | | (cron)  | | API (cron)   |
+     +-----------+ +---------+ +--------------+
+                     |                |
+              Browserless.io    api.orq.ai/v2
+              (existing)        (server-side)
 ```
 
 ### Component Boundaries
 
 | Component | Responsibility | Communicates With | New/Modified |
 |-----------|---------------|-------------------|--------------|
-| `automation-detector` | Analyzes architect blueprint + spec-gen output for no-API system indicators (NXT, iController, Intelly, or generic "no API" markers) | Reads `stageResults.architect` and `stageResults["spec-generator"]` | **NEW** Inngest step |
-| `sop-upload-handler` | Accepts SOP document + screenshot files from UI, stores in Supabase Storage, records in `pipeline_files` + new `automation_tasks` table | Supabase Storage, `pipeline_files` table | **NEW** API route + UI component |
-| `sop-analyzer` | Sends screenshots as base64 to Claude vision API with SOP text, produces structured step-by-step automation plan | Claude API (vision), Supabase (reads files, writes analysis) | **NEW** Inngest step + prompt adapter variant |
-| `annotation-review-ui` | Displays AI-generated step list with annotated screenshots, allows user to confirm/edit/reject steps | Broadcasts via `run:{runId}`, receives via `automation/annotation.confirmed` event | **NEW** UI component |
-| `script-generator` | Generates Playwright script from confirmed step annotations using Claude API | Claude API (text), reads confirmed annotations from Supabase | **NEW** Inngest step + prompt |
-| `script-executor` | Connects to Browserless.io via `connectOverCDP`, runs generated Playwright script, captures results/screenshots | Browserless.io WebSocket, Supabase Storage (result screenshots) | **NEW** Inngest step |
-| `test-review-ui` | Shows execution results (pass/fail, screenshots, error logs), lets user approve or request iteration | Broadcasts via `run:{runId}`, receives via `automation/test.reviewed` event | **NEW** UI component |
-| `mcp-tool-route` | Hosts the verified Playwright script as a callable MCP tool endpoint | Receives requests from Orq.ai agent runtime, calls Browserless.io | **NEW** Next.js API route with `@vercel/mcp-adapter` |
-| `mcp-deployer` | Registers MCP tool with Orq.ai via `POST /v2/tools`, attaches to agent via `PUT /v2/agents` | Orq.ai API | **NEW** Inngest step |
-| `pipeline.ts` | Main Inngest function -- needs conditional branch after spec-generator | Orchestrates all steps | **MODIFIED** |
-| `stages.ts` | Pipeline stage definitions -- needs automation stages added | Referenced by pipeline.ts and UI | **MODIFIED** |
-| `events.ts` | Inngest event types -- needs new HITL events | Referenced by pipeline.ts and API routes | **MODIFIED** |
-| `broadcast.ts` | Real-time update helpers -- needs automation-specific payloads | Called by new Inngest steps | **MODIFIED** (minor) |
+| `app/(dashboard)/executive/page.tsx` | Executive dashboard page with KPI cards, charts, project status grid | Reads `dashboard_snapshots`, `projects` | **NEW** server component |
+| `lib/dashboard/aggregator.ts` | Computes dashboard metrics from all three sources, writes to `dashboard_snapshots` | Supabase DB, `zapier_snapshots`, `orqai_snapshots` | **NEW** lib module |
+| `lib/inngest/functions/zapier-scraper.ts` | Inngest cron function: connects to Browserless.io, scrapes Zapier admin dashboard, stores metrics | Browserless.io, Supabase `zapier_snapshots` table | **NEW** Inngest cron function |
+| `lib/inngest/functions/orqai-collector.ts` | Inngest cron function: calls Orq.ai analytics/traces API, stores metrics | Orq.ai REST API, Supabase `orqai_snapshots` table | **NEW** Inngest cron function |
+| `lib/inngest/functions/dashboard-aggregator.ts` | Inngest cron function: reads all source tables, computes aggregated KPIs, writes `dashboard_snapshots` | Supabase DB (reads sources, writes snapshot) | **NEW** Inngest cron function |
+| `lib/inngest/functions/status-monitor.ts` | Inngest cron function: checks project activity, transitions statuses (idea -> building -> testing -> live -> stale) | Supabase `projects` table, `pipeline_runs`, `zapier_snapshots` | **NEW** Inngest cron function |
+| `projects` table | Extended with `status`, `automation_type`, `roi_estimate_hours`, `time_saved_hours` columns | Existing queries add new columns to SELECT | **MODIFIED** (migration) |
+| `app/(auth)/login/page.tsx` | Add "Sign in with Microsoft" button alongside email/password form | Supabase Auth `signInWithOAuth({ provider: 'azure' })` | **MODIFIED** |
+| `app/api/inngest/route.ts` | Register new cron functions with Inngest serve | All new Inngest functions | **MODIFIED** |
+| `lib/inngest/events.ts` | Add new event types for cron triggers (optional, cron functions auto-fire) | Referenced by new functions | **MODIFIED** (minor) |
+| `globals.css` | New color palette, typography scale, spacing overrides via CSS variables | All components inherit changes | **MODIFIED** |
+| `components/project-card.tsx` | Add status badge, automation type indicator | Reads new project columns | **MODIFIED** |
+| `components/app-sidebar.tsx` | Add "Executive Dashboard" nav item, update branding | New route link | **MODIFIED** (minor) |
+| `components/dashboard/` | New chart components (KPI cards, trend lines, status grid) | Read from server component props | **NEW** components |
+| `components/ui/` | No changes to shadcn internals -- all theming via CSS variables | N/A | **UNCHANGED** |
 
 ### Data Flow
 
-#### 1. Detection Flow (no user interaction)
+#### 1. Zapier Analytics Collection (Inngest Cron -> Browserless.io -> Supabase)
+
 ```
-architect output (blueprint)
-  + spec-generator output (agent specs)
-  → automation-detector step
-  → scans for no-API keywords/tool references
-  → writes automation_tasks[] to Supabase (agent_name, system_name, detected_reason)
-  → returns { needsAutomation: true, tasks: [...] }
+Every 6 hours:
+  Inngest cron "zapier-scraper/collect"
+    |
+    +-> step.run("scrape-zapier-dashboard")
+    |     Connect to Browserless.io via connectOverCDP
+    |     Load Zapier admin dashboard (credentials from Supabase credentials table)
+    |     Extract: active zap count, task usage, error rate, last 7-day runs
+    |     Screenshot the dashboard for audit
+    |
+    +-> step.run("store-snapshot")
+          INSERT INTO zapier_snapshots (
+            active_zaps, tasks_used, tasks_limit,
+            error_rate_pct, zap_runs_7d, raw_data,
+            screenshot_path, scraped_at
+          )
 ```
 
-#### 2. Upload Flow (HITL)
+**Why browser scraping:** Zapier has no public API for analytics or Zap history data. The admin dashboard is the only source. This pattern already exists in the codebase via Browserless.io for other no-API systems (NXT, iController). Credentials are stored in the existing `credentials` table with AES-256-GCM encryption.
+
+**Frequency rationale:** 4 times/day (every 6 hours) balances freshness with Browserless.io costs. Executive dashboards do not need real-time Zapier data.
+
+#### 2. Orq.ai Analytics Collection (Inngest Cron -> REST API -> Supabase)
+
 ```
-UI receives broadcast: "automation needed for [agent] targeting [system]"
-  → user navigates to upload view
-  → uploads SOP document (PDF/DOCX) + screenshots (PNG/JPG)
-  → files stored in Supabase Storage bucket: `automation-assets/{runId}/{taskId}/`
-  → metadata recorded in pipeline_files table
-  → UI sends event: inngest.send("automation/sop.uploaded", { runId, taskId, fileIds })
-  → pipeline resumes from step.waitForEvent()
+Every 4 hours:
+  Inngest cron "orqai-collector/collect"
+    |
+    +-> step.run("fetch-orqai-analytics")
+    |     GET /v2/agents (list all agents, extract per-agent metadata)
+    |     GET analytics/traces data (usage, cost, latency per agent)
+    |     Aggregate: total cost, total tokens, avg latency, error rates
+    |
+    +-> step.run("store-snapshot")
+          INSERT INTO orqai_snapshots (
+            total_agents, total_cost_usd, total_tokens,
+            avg_latency_ms, error_rate_pct,
+            per_agent_metrics JSONB, collected_at
+          )
 ```
 
-#### 3. Analysis Flow (AI + HITL)
+**Confidence note (MEDIUM):** Orq.ai's analytics API documentation is sparse. The platform provides dashboard analytics (latency, token usage, error rates, costs) but the exact REST endpoints for programmatic access are not fully documented publicly. The `/v2/agents` endpoint is confirmed. For traces/analytics, Orq.ai may expose this via the Enterprise API or require custom reporting endpoints. **Phase-specific research needed** to verify exact endpoints before building. Fallback: browser-scrape the Orq.ai dashboard similar to Zapier.
+
+#### 3. Dashboard Aggregation (Inngest Cron -> Supabase)
+
 ```
-sop-analyzer step receives file references
-  → downloads SOP document from Supabase Storage
-  → downloads screenshots from Supabase Storage
-  → builds Claude API request:
-      - system prompt: SOP analysis instructions (from GitHub .md file)
-      - user message: SOP text content + base64-encoded screenshots
-  → Claude returns structured step list:
-      { steps: [{ order, action, target_element, expected_result, screenshot_ref }] }
-  → stores analysis in automation_tasks.analysis_result (JSONB)
-  → broadcasts: "annotation ready for review"
-  → step.waitForEvent("automation/annotation.confirmed", { match: "data.taskId", timeout: "7d" })
-  → user reviews, confirms/edits in UI
-  → event received with confirmed_steps payload
+Every 2 hours (or triggered after scraper/collector completes):
+  Inngest cron "dashboard/aggregate"
+    |
+    +-> step.run("compute-metrics")
+    |     Query projects table (status distribution, types)
+    |     Query pipeline_runs (success rate, avg duration, throughput)
+    |     Query zapier_snapshots (latest: active zaps, tasks, errors)
+    |     Query orqai_snapshots (latest: agents, cost, performance)
+    |     Compute derived metrics:
+    |       - ROI estimate = SUM(projects.time_saved_hours) * hourly_rate
+    |       - Adoption rate = active users / total users
+    |       - Health score = weighted average of error rates
+    |
+    +-> step.run("write-snapshot")
+          UPSERT INTO dashboard_snapshots (id='latest', ...)
+          Also INSERT historical row for trend charts
 ```
 
-#### 4. Script Generation + Test Loop (AI + Browserless + HITL)
+#### 4. Dashboard Page Rendering (Server Component -> Supabase)
+
 ```
-script-generator step receives confirmed annotations
-  → builds Claude API request:
-      - system prompt: Playwright generation instructions
-      - user message: confirmed step list + system URL + credentials pattern
-  → Claude returns Playwright script as string
-  → stores script in automation_tasks.current_script
-
-script-executor step:
-  → connects: playwright.chromium.connectOverCDP(browserlessWSUrl)
-  → executes generated script
-  → captures: screenshots at each step, final result, any errors
-  → stores execution results in automation_tasks.test_results (JSONB)
-  → stores result screenshots in Supabase Storage
-
-test-reviewer (HITL):
-  → broadcasts: "test results ready for review"
-  → step.waitForEvent("automation/test.reviewed", { match: "data.taskId", timeout: "7d" })
-  → if approved: proceed to mcp-deployer
-  → if rejected: loop back with user feedback, regenerate script (max 5 iterations)
+User visits /executive
+  |
+  Next.js Server Component
+    |
+    +-> Parallel queries (Promise.all):
+    |     SELECT * FROM dashboard_snapshots WHERE id = 'latest'
+    |     SELECT id, name, status, automation_type, ... FROM projects
+    |     SELECT ... FROM dashboard_snapshots ORDER BY computed_at DESC LIMIT 30
+    |
+    +-> Render:
+          KPI cards (pre-computed values, instant load)
+          Project status grid (from projects query)
+          Trend charts (from historical snapshots)
 ```
 
-#### 5. MCP Deployment Flow
+**Why pre-computed snapshots instead of live queries:** Executive dashboards must load instantly. Aggregating across three sources on every page load would be slow and fragile (external API calls on render). The cron-based snapshot pattern gives sub-100ms page loads and decouples page rendering from external service availability.
+
+#### 5. Project Status Monitor (Inngest Cron -> Supabase)
+
 ```
-mcp-deployer step:
-  → stores finalized script in Supabase (automation_tasks.final_script)
-  → script becomes available at MCP endpoint: /api/mcp/[toolKey]/
-  → registers with Orq.ai:
-      POST /v2/tools { type: "mcp", mcp: { server_url, connection_type: "http" } }
-  → attaches to target agent:
-      PUT /v2/agents/{agentKey} { settings: { tools: [...existing, { tool_id }] } }
-  → stores tool_id in automation_tasks.orq_tool_id
+Every 1 hour:
+  Inngest cron "status-monitor/check"
+    |
+    +-> step.run("evaluate-all-projects")
+          For each project with status != 'archived':
+            Query latest pipeline_run, latest zapier activity,
+            latest orqai agent activity
+            |
+            Apply transition rules:
+              idea -> building: first pipeline_run started
+              building -> testing: pipeline_run completed, agents deployed
+              testing -> live: agents active in Orq.ai for 7+ days
+              live -> stale: no activity for 30+ days
+              any -> stale: no activity for 60+ days
+            |
+            UPDATE projects SET status = new_status
+              WHERE id = project_id AND status != new_status
+            |
+            Log transition in project_status_history table
 ```
+
+#### 6. Azure AD SSO Flow (Supabase Auth OAuth)
+
+```
+User clicks "Sign in with Microsoft" on login page
+  |
+  supabase.auth.signInWithOAuth({
+    provider: 'azure',
+    options: {
+      scopes: 'email profile openid',
+      redirectTo: `${origin}/auth/callback`
+    }
+  })
+  |
+  Redirects to Azure AD consent screen
+  |
+  Azure AD redirects to /auth/callback with code
+  |
+  Existing callback route exchanges code for session
+  (app/(auth)/auth/callback/route.ts -- UNCHANGED)
+  |
+  middleware.ts validates session (UNCHANGED)
+  |
+  User lands on dashboard
+```
+
+**Critical: User identity linking.** Supabase Auth does NOT automatically link OAuth identities to existing email/password accounts with the same email. This means an existing user (email/password) who signs in via Azure AD will get a NEW user account. Mitigation approaches:
+
+1. **Pre-migration (recommended):** Before enabling Azure SSO, manually link Azure identities to existing users via Supabase Admin API: `admin.auth.admin.updateUserById(existingUserId, { app_metadata: { provider: 'azure', ... } })`
+2. **Post-login merge:** After Azure OAuth login, check if an email/password account exists with the same email, and prompt the user to link accounts
+3. **Enforce single provider:** Once Azure SSO is live, disable email/password for migrated users
+
+**Recommendation:** Use approach 1 (pre-migration) since there are only 5-15 users. This is a one-time manual step.
+
+### New Database Tables
+
+#### `zapier_snapshots`
+
+```sql
+CREATE TABLE zapier_snapshots (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  active_zaps     INTEGER NOT NULL DEFAULT 0,
+  tasks_used      INTEGER NOT NULL DEFAULT 0,
+  tasks_limit     INTEGER NOT NULL DEFAULT 0,
+  error_rate_pct  DECIMAL(5,2) DEFAULT 0,
+  zap_runs_7d     INTEGER DEFAULT 0,
+  raw_data        JSONB,
+  screenshot_path TEXT,
+  scraped_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_zapier_snapshots_scraped_at ON zapier_snapshots(scraped_at DESC);
+```
+
+#### `orqai_snapshots`
+
+```sql
+CREATE TABLE orqai_snapshots (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  total_agents      INTEGER NOT NULL DEFAULT 0,
+  total_cost_usd    DECIMAL(10,4) DEFAULT 0,
+  total_tokens      BIGINT DEFAULT 0,
+  avg_latency_ms    INTEGER DEFAULT 0,
+  error_rate_pct    DECIMAL(5,2) DEFAULT 0,
+  per_agent_metrics JSONB,
+  collected_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_orqai_snapshots_collected_at ON orqai_snapshots(collected_at DESC);
+```
+
+#### `dashboard_snapshots`
+
+```sql
+CREATE TABLE dashboard_snapshots (
+  id                    TEXT PRIMARY KEY,  -- 'latest' for current, UUID for history
+  -- Project metrics
+  total_projects        INTEGER DEFAULT 0,
+  projects_by_status    JSONB,  -- {"idea": 2, "building": 3, "live": 5}
+  projects_by_type      JSONB,  -- {"zapier-only": 4, "hybrid": 2, "orqai-agent": 3}
+  -- Pipeline metrics
+  total_runs            INTEGER DEFAULT 0,
+  runs_this_week        INTEGER DEFAULT 0,
+  success_rate_pct      DECIMAL(5,2) DEFAULT 0,
+  avg_run_duration_s    INTEGER DEFAULT 0,
+  -- Zapier metrics (from latest zapier_snapshot)
+  zapier_active_zaps    INTEGER DEFAULT 0,
+  zapier_tasks_used     INTEGER DEFAULT 0,
+  zapier_error_rate_pct DECIMAL(5,2) DEFAULT 0,
+  -- Orq.ai metrics (from latest orqai_snapshot)
+  orqai_total_agents    INTEGER DEFAULT 0,
+  orqai_total_cost_usd  DECIMAL(10,4) DEFAULT 0,
+  orqai_avg_latency_ms  INTEGER DEFAULT 0,
+  orqai_error_rate_pct  DECIMAL(5,2) DEFAULT 0,
+  -- Derived metrics
+  roi_estimate_eur      DECIMAL(10,2) DEFAULT 0,
+  total_time_saved_hrs  DECIMAL(10,2) DEFAULT 0,
+  health_score_pct      DECIMAL(5,2) DEFAULT 0,
+  adoption_score_pct    DECIMAL(5,2) DEFAULT 0,
+  -- Meta
+  computed_at           TIMESTAMPTZ DEFAULT now()
+);
+```
+
+#### `project_status_history`
+
+```sql
+CREATE TABLE project_status_history (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id  UUID REFERENCES projects(id) ON DELETE CASCADE NOT NULL,
+  old_status  TEXT NOT NULL,
+  new_status  TEXT NOT NULL,
+  reason      TEXT,
+  changed_by  TEXT DEFAULT 'status-monitor',  -- 'status-monitor' or user_id
+  changed_at  TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_status_history_project ON project_status_history(project_id, changed_at DESC);
+```
+
+### Project Table Extension
+
+```sql
+-- Add new columns to existing projects table
+ALTER TABLE projects
+  ADD COLUMN status TEXT NOT NULL DEFAULT 'idea'
+    CHECK (status IN ('idea', 'building', 'testing', 'live', 'stale', 'archived')),
+  ADD COLUMN automation_type TEXT DEFAULT 'unknown'
+    CHECK (automation_type IN ('zapier-only', 'hybrid', 'standalone-app', 'orqai-agent', 'unknown')),
+  ADD COLUMN roi_estimate_hours DECIMAL(10,2) DEFAULT 0,
+  ADD COLUMN time_saved_hours DECIMAL(10,2) DEFAULT 0;
+
+CREATE INDEX idx_projects_status ON projects(status);
+CREATE INDEX idx_projects_automation_type ON projects(automation_type);
+```
+
+**RLS impact:** The existing RLS policy on `projects` uses `project_members.user_id = auth.uid()` for access control. Adding columns does NOT break existing RLS policies -- they continue to work because RLS policies filter rows, not columns. The new columns are visible to all users who can already see the project row.
+
+**Existing query impact:** Current queries like `supabase.from("projects").select("*, project_members(user_id)")` will automatically include the new columns. No query changes needed for existing pages. The `ProjectCard` component will need a minor update to display status badges, but this is additive, not breaking.
 
 ## Patterns to Follow
 
-### Pattern 1: Conditional Sub-Pipeline via Inngest Steps
-
-**What:** The automation stages execute as additional Inngest steps within the existing `executePipeline` function, gated by a conditional check.
-
-**When:** After spec-generator completes, before orchestration-generator.
-
-**Why this over a separate Inngest function:** The existing pipeline already loops through `PIPELINE_STAGES` and accumulates `stageResults`. A separate function would require `step.invoke()` and lose access to the accumulated context. Keeping it in the same function maintains the existing pattern and data flow.
-
+### Pattern 1: Pre-computed Snapshot for Dashboard Metrics
+**What:** Cron functions collect data from external sources and compute aggregated metrics into a snapshot table. Dashboard pages read only from the snapshot table.
+**When:** Any dashboard that aggregates data from multiple sources where freshness requirements are measured in hours, not seconds.
+**Why:** Decouples page rendering from external service availability. Sub-100ms page loads. External failures degrade data freshness, not page functionality.
 **Example:**
 ```typescript
-// In pipeline.ts, after the existing stage loop:
-const automationNeeded = await step.run("automation-detector", async () => {
-  // Analyze blueprint + specs for no-API indicators
-  const blueprint = stageResults.architect || "";
-  const specs = stageResults["spec-generator"] || "";
-  return detectAutomationNeeds(blueprint, specs);
-});
+// lib/inngest/functions/dashboard-aggregator.ts
+export const aggregateDashboard = inngest.createFunction(
+  { id: "dashboard/aggregate" },
+  { cron: "0 */2 * * *" },  // Every 2 hours
+  async ({ step }) => {
+    const metrics = await step.run("compute-metrics", async () => {
+      const admin = createAdminClient();
 
-if (automationNeeded.tasks.length > 0) {
-  for (const task of automationNeeded.tasks) {
-    // Each automation task runs its own sub-sequence of steps
-    await runAutomationSubPipeline(step, runId, task, stageResults);
+      const [projects, runs, zapier, orqai] = await Promise.all([
+        admin.from("projects").select("status, automation_type, roi_estimate_hours, time_saved_hours"),
+        admin.from("pipeline_runs").select("status, created_at, completed_at, started_at"),
+        admin.from("zapier_snapshots").select("*").order("scraped_at", { ascending: false }).limit(1).single(),
+        admin.from("orqai_snapshots").select("*").order("collected_at", { ascending: false }).limit(1).single(),
+      ]);
+
+      // Compute aggregated metrics...
+      return computeMetrics(projects.data, runs.data, zapier.data, orqai.data);
+    });
+
+    await step.run("write-snapshot", async () => {
+      const admin = createAdminClient();
+      // Upsert 'latest' for current dashboard
+      await admin.from("dashboard_snapshots").upsert(
+        { id: "latest", ...metrics, computed_at: new Date().toISOString() },
+        { onConflict: "id" }
+      );
+      // Also insert historical row for trend charts
+      await admin.from("dashboard_snapshots").insert(
+        { id: crypto.randomUUID(), ...metrics, computed_at: new Date().toISOString() }
+      );
+    });
   }
-}
-
-// Continue with existing stages: orchestration-generator, etc.
-```
-
-### Pattern 2: step.waitForEvent for HITL Interactions
-
-**What:** Pause the durable function until a user action triggers a matching event. This is the standard Inngest pattern for human-in-the-loop workflows.
-
-**When:** SOP upload, annotation review, test result approval.
-
-**Why:** The existing pipeline has no HITL steps -- all stages run autonomously. The automation builder is the first stage requiring user interaction mid-pipeline. `step.waitForEvent()` is purpose-built for this: the function suspends (no compute cost), resumes when the matching event arrives, and times out gracefully.
-
-**Example:**
-```typescript
-// Wait for user to upload SOP + screenshots
-const uploadEvent = await step.waitForEvent("wait-for-sop-upload", {
-  event: "automation/sop.uploaded",
-  match: "data.taskId",  // Match on the specific automation task
-  timeout: "7d",         // Give user 7 days to upload
-});
-
-if (!uploadEvent) {
-  // Timeout -- mark task as skipped
-  await markTaskSkipped(admin, task.id, "SOP upload timed out");
-  return;
-}
-
-// Continue with SOP analysis using uploadEvent.data.fileIds
-```
-
-**Event sending from UI (Next.js Server Action):**
-```typescript
-export async function submitSOPUpload(taskId: string, runId: string, fileIds: string[]) {
-  await inngest.send({
-    name: "automation/sop.uploaded",
-    data: { taskId, runId, fileIds },
-  });
-}
-```
-
-### Pattern 3: Vision-Augmented Prompt Adapter
-
-**What:** Extend the existing `runPromptAdapter` to support Claude's vision API by including base64-encoded images in the messages array.
-
-**When:** SOP analysis step, where screenshots need to be understood alongside text.
-
-**Why:** The existing adapter only handles text-to-text (system prompt + XML-tagged user message). The SOP analyzer needs to send images. Rather than creating a completely separate path, extend the adapter with an optional `images` parameter.
-
-**Example:**
-```typescript
-// New function alongside existing runPromptAdapter
-export async function runVisionAdapter(
-  stage: string,
-  context: Record<string, string>,
-  images: Array<{ base64: string; mediaType: string }>
-): Promise<string> {
-  // Build user content blocks: text + images
-  const userContent: ContentBlock[] = [
-    { type: "text", text: buildUserMessage(context) },
-    ...images.map(img => ({
-      type: "image" as const,
-      source: { type: "base64" as const, media_type: img.mediaType, data: img.base64 },
-    })),
-  ];
-
-  // Same Orq.ai router call, but with content blocks instead of string
-  // ...
-}
-```
-
-### Pattern 4: Browserless.io Execution Within Inngest Step
-
-**What:** Run Playwright scripts on Browserless.io inside an Inngest `step.run()`, using `playwright-core` and `connectOverCDP`.
-
-**When:** Script testing step.
-
-**Why:** Inngest steps retry on failure (3 retries configured) and have per-step timeout equal to the serverless function timeout (300s on Vercel Pro). Browserless.io sessions on the Prototyping plan allow up to 15 minutes, far exceeding the Vercel limit. The step handles the WebSocket connection, script execution, and cleanup within the serverless function lifecycle.
-
-**Critical constraint:** Use `playwright-core` (not full `playwright`) because it is the library-only package without bundled browsers -- browsers are provided by Browserless.io. This keeps the Vercel deployment size manageable.
-
-**Example:**
-```typescript
-import { chromium } from "playwright-core";
-
-const result = await step.run(`execute-script-${task.id}`, async () => {
-  const browser = await chromium.connectOverCDP(
-    `wss://production-sfo.browserless.io?token=${process.env.BROWSERLESS_TOKEN}`
-  );
-  try {
-    const context = await browser.newContext();
-    const page = await context.newPage();
-
-    // Execute the generated script
-    const execResult = await executeGeneratedScript(page, task.currentScript);
-
-    // Capture result screenshots
-    const screenshots = await captureStepScreenshots(page, task.steps);
-
-    return { success: execResult.success, errors: execResult.errors, screenshots };
-  } finally {
-    await browser.close();
-  }
-});
-```
-
-### Pattern 5: MCP Tool Hosting on Same Vercel App
-
-**What:** Host MCP tool endpoints as part of the existing Next.js app using `@vercel/mcp-adapter`, with each automation tool served from a dynamic route.
-
-**When:** After script is verified and approved.
-
-**Why:** Deploying a separate MCP server would add infrastructure complexity. Vercel natively supports MCP servers within Next.js apps via `@vercel/mcp-adapter`. The tool endpoint receives calls from Orq.ai's agent runtime, executes the Playwright script on Browserless.io, and returns results. This keeps everything in one deployment.
-
-**Route structure:**
-```
-app/api/mcp/[transport]/route.ts  -- MCP adapter endpoint
-```
-
-**Example:**
-```typescript
-// app/api/mcp/[transport]/route.ts
-import { createMcpHandler } from "@vercel/mcp-adapter";
-import { z } from "zod";
-
-const handler = createMcpHandler(
-  (server) => {
-    // Dynamically register tools from database
-    // Each verified automation script becomes a callable tool
-    server.tool(
-      "nxt-create-invoice",
-      "Create an invoice in the NXT system",
-      { invoiceData: z.object({ /* schema from automation task */ }) },
-      async ({ invoiceData }) => {
-        // Load script from Supabase, execute on Browserless.io
-        const result = await executeBrowserAutomation("nxt-create-invoice", invoiceData);
-        return { content: [{ type: "text", text: JSON.stringify(result) }] };
-      }
-    );
-  },
-  { basePath: "/api/mcp", maxDuration: 300 }
 );
+```
 
-export { handler as GET, handler as POST, handler as DELETE };
+### Pattern 2: Browserless.io Scraper as Inngest Cron
+**What:** Scheduled function connects to Browserless.io, navigates authenticated web pages, extracts structured data.
+**When:** External service has no API but has a web dashboard with the data you need.
+**Why:** Zapier has no analytics API. Browser scraping is the only viable approach. Inngest provides retries, logging, and scheduling. Browserless.io is already in the stack.
+**Example:**
+```typescript
+// lib/inngest/functions/zapier-scraper.ts
+export const scrapeZapier = inngest.createFunction(
+  { id: "zapier-scraper/collect", retries: 2 },
+  { cron: "0 */6 * * *" },  // Every 6 hours
+  async ({ step }) => {
+    const data = await step.run("scrape-dashboard", async () => {
+      const { chromium } = await import("playwright-core");
+      const admin = createAdminClient();
+
+      // Load Zapier credentials from credentials table
+      const creds = await loadCredential(admin, "zapier-admin");
+
+      const browser = await chromium.connectOverCDP(
+        `wss://production-ams.browserless.io?token=${process.env.BROWSERLESS_API_TOKEN}&timeout=60000`,
+        { timeout: 30_000 }
+      );
+
+      try {
+        const context = browser.contexts()[0] || await browser.newContext();
+        // Load saved session state if available
+        // Navigate, authenticate, extract metrics
+        // ... (see browserless-patterns.md for session reuse)
+        const page = await context.newPage();
+        // Scrape logic here
+      } finally {
+        await browser.close();
+      }
+    });
+  }
+);
+```
+
+### Pattern 3: Azure OAuth Alongside Email/Password
+**What:** Add `signInWithOAuth` for Azure as an additional login method without removing email/password.
+**When:** Adding SSO to an existing app with email/password users.
+**Why:** Supabase supports multiple auth providers simultaneously. Azure OAuth is a "social login" provider -- it coexists with email/password with zero middleware changes.
+**Example:**
+```typescript
+// In login page -- add alongside existing email/password form
+async function handleAzureSignIn() {
+  const supabase = createClient();
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "azure",
+    options: {
+      scopes: "email profile openid",
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+  if (error) setFormError(error.message);
+}
+```
+
+### Pattern 4: CSS Variable Theme Override (Non-Breaking Redesign)
+**What:** Override shadcn CSS variables in `globals.css` :root and .dark blocks to change colors, spacing, and typography across all components simultaneously.
+**When:** Full visual redesign without touching component source code.
+**Why:** shadcn/ui components reference semantic CSS variables (`--primary`, `--background`, etc.). Changing these variables propagates to every component automatically. Zero risk of breaking existing functionality.
+**Example:**
+```css
+/* globals.css -- executive theme override */
+:root {
+  /* Replace neutral grays with branded palette */
+  --primary: oklch(0.55 0.15 250);        /* Brand blue */
+  --primary-foreground: oklch(0.98 0 0);
+  --accent: oklch(0.92 0.03 250);          /* Subtle brand tint */
+
+  /* Executive-grade typography */
+  --radius: 0.5rem;                        /* Slightly sharper corners */
+
+  /* Chart colors for dashboard */
+  --chart-1: oklch(0.65 0.18 145);         /* Success green */
+  --chart-2: oklch(0.60 0.20 250);         /* Primary blue */
+  --chart-3: oklch(0.70 0.15 50);          /* Warning amber */
+  --chart-4: oklch(0.55 0.20 25);          /* Error red */
+  --chart-5: oklch(0.50 0.10 280);         /* Info purple */
+}
 ```
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Separate Inngest Function for Automation
+### Anti-Pattern 1: Live-Querying External APIs on Page Render
+**What:** Calling Orq.ai API or scraping Zapier every time the dashboard loads.
+**Why bad:** Page load times become unpredictable (500ms-5s+). External service downtime breaks the dashboard. Rate limiting on external APIs.
+**Instead:** Pre-computed snapshots via Inngest cron. Dashboard reads only from Supabase.
 
-**What:** Creating a new `inngest.createFunction()` for the automation sub-pipeline and invoking it via `step.invoke()`.
+### Anti-Pattern 2: Forking shadcn Components for Visual Changes
+**What:** Copying shadcn `button.tsx`, `card.tsx` etc. and modifying styles directly.
+**Why bad:** Loses ability to update shadcn components. Creates maintenance burden. Theme changes require touching every forked component.
+**Instead:** Use CSS variables and Tailwind utility classes. If a component needs structural changes, extend it (wrapper component), do not fork it.
 
-**Why bad:** Loses access to `stageResults` context from the main pipeline. Adds complexity for error handling (the onFailure handler in the main function wouldn't cover it). The automation sub-pipeline's results need to feed back into the main pipeline (e.g., the MCP tool reference needs to appear in the orchestration spec).
+### Anti-Pattern 3: Separate Auth System for Azure AD
+**What:** Building custom Azure OIDC flow, token handling, or using next-auth alongside Supabase Auth.
+**Why bad:** Two auth systems means double session management, split user tables, and middleware conflicts.
+**Instead:** Use Supabase Auth's built-in Azure OAuth provider. It uses the same session cookies, same middleware, same `auth.getUser()` call.
 
-**Instead:** Keep automation steps as conditional steps within the existing `executePipeline` function. The function already supports up to 1000 steps per run (Inngest limit), and the automation sub-pipeline adds at most ~30 steps (5 tasks x 6 steps each).
+### Anti-Pattern 4: Single Monolithic Aggregator Function
+**What:** One Inngest function that scrapes Zapier, calls Orq.ai, queries Supabase DB, and computes all metrics.
+**Why bad:** If Zapier scraping fails, Orq.ai data is also lost. Retry would re-run everything. Debugging is harder.
+**Instead:** Separate Inngest functions for each data source (zapier-scraper, orqai-collector, dashboard-aggregator). Aggregator runs after collectors and reads from Supabase tables.
 
-### Anti-Pattern 2: Streaming Claude API in Inngest Steps
+### Anti-Pattern 5: Automatic Status Transitions Without History
+**What:** Updating project status without logging what changed and why.
+**Why bad:** Executives will ask "why did this project change to stale?" No audit trail means no answers.
+**Instead:** Always write to `project_status_history` before updating the project status. Include the reason for the transition.
 
-**What:** Using Claude's streaming API for the vision analysis to reduce perceived latency.
+## New vs Modified Components Summary
 
-**Why bad:** Already documented in the existing pipeline.ts comments: "Non-streaming Claude API calls (streaming incompatible with Inngest steps)." Inngest steps must return a serializable value. Streaming responses cannot be accumulated within `step.run()` because the function may be re-invoked at any point.
+### NEW Components (14)
 
-**Instead:** Use non-streaming API calls. Broadcast progress updates between steps to keep the UI responsive.
+| Component | Type | Dependencies |
+|-----------|------|-------------|
+| `app/(dashboard)/executive/page.tsx` | Page | dashboard_snapshots, projects |
+| `components/dashboard/kpi-card.tsx` | UI | shadcn Card |
+| `components/dashboard/status-grid.tsx` | UI | projects data |
+| `components/dashboard/trend-chart.tsx` | UI | recharts (new dep) |
+| `components/dashboard/source-status.tsx` | UI | zapier/orqai snapshot freshness |
+| `lib/dashboard/aggregator.ts` | Lib | Supabase admin client |
+| `lib/dashboard/metrics.ts` | Lib | Type definitions for metrics |
+| `lib/inngest/functions/zapier-scraper.ts` | Inngest | Browserless.io, credentials |
+| `lib/inngest/functions/orqai-collector.ts` | Inngest | Orq.ai API |
+| `lib/inngest/functions/dashboard-aggregator.ts` | Inngest | Supabase queries |
+| `lib/inngest/functions/status-monitor.ts` | Inngest | Supabase projects + runs |
+| `zapier_snapshots` table | DB | -- |
+| `orqai_snapshots` table | DB | -- |
+| `dashboard_snapshots` table | DB | -- |
+| `project_status_history` table | DB | projects |
 
-### Anti-Pattern 3: Storing Playwright Scripts in Inngest State
+### MODIFIED Components (7)
 
-**What:** Passing generated Playwright script strings through Inngest step return values.
+| Component | Change | Risk |
+|-----------|--------|------|
+| `projects` table | Add status, automation_type, roi/time columns | LOW -- additive columns, RLS unchanged |
+| `app/(auth)/login/page.tsx` | Add Azure OAuth button | LOW -- additive, email/pw unchanged |
+| `app/api/inngest/route.ts` | Register 4 new functions | LOW -- additive array push |
+| `components/app-sidebar.tsx` | Add Executive Dashboard nav item | LOW -- additive nav item |
+| `components/project-card.tsx` | Display status badge, type indicator | LOW -- additive rendering |
+| `globals.css` | New color palette, typography, chart colors | MEDIUM -- visual change across all pages |
+| `app/(dashboard)/page.tsx` | Live stats from dashboard_snapshots | MEDIUM -- replaces hardcoded "0" values |
 
-**Why bad:** Inngest function run state cannot exceed 32MB, and each step return value is stored in state. Playwright scripts can be large, especially with embedded selectors and multi-step flows. Combined with base64 screenshot data, this could blow the state limit.
+### UNCHANGED Components
 
-**Instead:** Store scripts in Supabase (`automation_tasks.current_script`) and pass only references (task IDs) through Inngest step returns. This follows the existing pattern in pipeline.ts where "Large outputs stored in Supabase, only references returned from step.run()."
+All existing pipeline functionality, Inngest pipeline function, approval flow, chat panel, graph visualization, credential management, health checks, broadcast system, middleware, auth callback route, terminal panel -- all remain completely unchanged.
 
-### Anti-Pattern 4: Dynamic Tool Registration on Every MCP Request
+## Suggested Build Order
 
-**What:** Loading all automation tools from the database on every MCP endpoint request.
-
-**Why bad:** Each MCP request would hit Supabase to list tools, adding latency and database load. Vercel cold starts already add 1-3 seconds.
-
-**Instead:** Cache tool definitions using Next.js `unstable_cache` or a simple in-memory cache with TTL. Tools change infrequently (only when new automations are deployed), so a 5-minute cache is safe.
-
-## New Database Schema
-
-### automation_tasks Table
-
-```sql
-CREATE TABLE automation_tasks (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_id UUID REFERENCES pipeline_runs(id) ON DELETE CASCADE NOT NULL,
-  agent_name TEXT NOT NULL,           -- Which agent needs this automation
-  system_name TEXT NOT NULL,          -- Target system (NXT, iController, etc.)
-  detected_reason TEXT,               -- Why automation was flagged
-  status TEXT NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending', 'uploading', 'analyzing', 'reviewing',
-                      'generating', 'testing', 'deploying', 'complete',
-                      'failed', 'skipped')),
-
-  -- SOP analysis
-  sop_text TEXT,                      -- Extracted text from SOP document
-  analysis_result JSONB,              -- Structured step list from Claude vision
-  confirmed_steps JSONB,              -- User-confirmed/edited step list
-
-  -- Script generation + testing
-  current_script TEXT,                -- Latest generated Playwright script
-  iteration_count INTEGER DEFAULT 0,  -- How many generate-test cycles
-  test_results JSONB,                 -- Latest test execution results
-  user_feedback TEXT,                 -- Feedback from user on failed tests
-
-  -- MCP deployment
-  final_script TEXT,                  -- Verified, approved script
-  mcp_tool_key TEXT,                  -- Orq.ai tool key (e.g., "nxt-create-invoice")
-  mcp_tool_id TEXT,                   -- Orq.ai tool ID after registration
-  mcp_endpoint_url TEXT,              -- Full URL of MCP endpoint
-
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE INDEX idx_automation_tasks_run_id ON automation_tasks(run_id);
-CREATE INDEX idx_automation_tasks_status ON automation_tasks(status);
-```
-
-### Supabase Storage Bucket
+Based on dependency analysis:
 
 ```
-Bucket: automation-assets (private)
-Structure:
-  {runId}/{taskId}/sop/         -- SOP document (PDF/DOCX)
-  {runId}/{taskId}/screenshots/  -- User-uploaded screenshots
-  {runId}/{taskId}/results/      -- Execution result screenshots
+Phase 1: Foundation (no external dependencies)
+  1. Project model extension (migration + RLS)
+  2. CSS variable redesign (globals.css)
+  3. Project card status badges
+
+Phase 2: Data Collection Infrastructure
+  4. New DB tables (zapier_snapshots, orqai_snapshots, dashboard_snapshots, project_status_history)
+  5. Zapier browser scraper (Inngest cron + Browserless.io)
+  6. Orq.ai analytics collector (Inngest cron + REST API)
+
+Phase 3: Dashboard
+  7. Dashboard aggregator (Inngest cron)
+  8. Executive dashboard page + components
+  9. Status monitor (Inngest cron)
+
+Phase 4: Auth
+  10. Azure AD app registration (Azure portal)
+  11. Supabase Azure provider configuration
+  12. Login page Microsoft button
+  13. User identity pre-migration
+
+Phase 5: Polish
+  14. Dashboard page real stats (replace hardcoded values on home page)
+  15. Full UI redesign pass (all pages)
 ```
 
-## New Inngest Events
-
-```typescript
-// Added to events.ts
-export type Events = {
-  // Existing
-  "pipeline/run.started": { data: { runId, projectId, useCase, userId, resumeFromStep? } };
-
-  // New: automation HITL events
-  "automation/sop.uploaded": {
-    data: {
-      runId: string;
-      taskId: string;
-      fileIds: string[];          // References to pipeline_files records
-    };
-  };
-  "automation/annotation.confirmed": {
-    data: {
-      runId: string;
-      taskId: string;
-      confirmedSteps: AutomationStep[];  // User-confirmed step list
-    };
-  };
-  "automation/test.reviewed": {
-    data: {
-      runId: string;
-      taskId: string;
-      approved: boolean;
-      feedback?: string;           // User feedback if rejected
-    };
-  };
-};
-```
-
-## Modified Pipeline Stage Definitions
-
-```typescript
-// stages.ts additions -- automation stages are CONDITIONAL
-// They don't appear in PIPELINE_STAGES (which drives the for-loop)
-// Instead, they're defined separately for UI rendering
-
-export const AUTOMATION_STAGES: PipelineStage[] = [
-  { name: "automation-detector", mdFile: "...", displayName: "Detecting automation needs", stepOrder: 100 },
-  { name: "sop-upload", mdFile: "...", displayName: "Waiting for SOP upload", stepOrder: 101 },
-  { name: "sop-analyzer", mdFile: "...", displayName: "Analyzing SOP and screenshots", stepOrder: 102 },
-  { name: "annotation-review", mdFile: "...", displayName: "Reviewing automation steps", stepOrder: 103 },
-  { name: "script-generator", mdFile: "...", displayName: "Generating Playwright script", stepOrder: 104 },
-  { name: "script-executor", mdFile: "...", displayName: "Testing automation script", stepOrder: 105 },
-  { name: "test-review", mdFile: "...", displayName: "Reviewing test results", stepOrder: 106 },
-  { name: "mcp-deployer", mdFile: "...", displayName: "Deploying MCP tool", stepOrder: 107 },
-];
-```
+**Rationale:** Project model extension comes first because status badges are needed by both the dashboard and the existing project list. Data collection infra comes before the dashboard because the dashboard needs data to display. Auth is independent and can be done in parallel with Phase 2-3 but is placed later because Azure AD tenant setup may have organizational dependencies. The UI redesign is last because it is purely visual and can be refined iteratively.
 
 ## Scalability Considerations
 
-| Concern | At 5 users (current) | At 15 users (target) | At 50+ users (future) |
-|---------|---------------------|---------------------|----------------------|
-| Browserless.io concurrency | Free plan (1 concurrent) is fine for development; Prototyping plan (3 concurrent) sufficient for sequential runs | Starter plan (20 concurrent) handles parallel runs | Scale plan (50 concurrent) or self-hosted Browserless Docker |
-| MCP endpoint load | Negligible -- agents call tools infrequently | Still low -- each agent call triggers one Browserless session | May need connection pooling or queue; Vercel auto-scales the endpoint |
-| Supabase Storage | Well under free tier limits | ~100MB for screenshots across all runs | May need storage lifecycle policies (auto-delete old run assets) |
-| Inngest step count | ~15 steps per run (7 existing + ~8 automation) | Same per-run, but more concurrent runs | Well within 1000-step limit per function |
-| Vercel function timeout | 300s Pro plan sufficient for single Browserless execution | Same -- each step.run() is independent | Consider Fluid Compute (800s) if scripts grow complex |
+| Concern | At 5-15 users (current) | At 50 users | At 200+ users |
+|---------|------------------------|-------------|---------------|
+| Dashboard load time | Sub-100ms (snapshot read) | Same (snapshot pattern) | Same |
+| Snapshot storage | 4 rows/day, negligible | Same | Same |
+| Zapier scraping | 4x/day, ~$0.05/month | Same (1 account) | Same (1 account) |
+| Orq.ai API calls | 6x/day, within free tier | Same (1 workspace) | Same (1 workspace) |
+| Browserless.io usage | ~2min/day sessions | Same | Same |
+| Status monitor | 1 query/hour, < 50 projects | Fast | Add pagination at 500+ projects |
 
-## Integration Points Summary
-
-| Integration | Type | Direction | Authentication |
-|-------------|------|-----------|----------------|
-| Browserless.io | WebSocket (CDP) | Outbound from Inngest step | Token in query string (`?token=...`) |
-| Claude Vision API | HTTP POST (via Orq.ai router) | Outbound from Inngest step | Bearer token (ORQ_API_KEY) |
-| Supabase Storage | HTTP REST | Bidirectional (upload from UI, download from Inngest) | Signed URLs (upload), service role key (download) |
-| Orq.ai Tools API | HTTP REST | Outbound from Inngest step | Bearer token (ORQ_API_KEY) |
-| MCP endpoint | HTTP POST | Inbound from Orq.ai agent runtime | Vercel MCP adapter handles auth |
-| Inngest events (HITL) | HTTP POST | Outbound from Next.js server actions | Inngest event key |
-| Supabase Broadcast | WebSocket | Outbound from Inngest steps, inbound to UI | Supabase anon key (client), service role (server) |
+No scalability concerns at the target user range. The cron-based architecture scales by adjusting frequency, not by adding infrastructure.
 
 ## Sources
 
-- [Inngest step.waitForEvent documentation](https://www.inngest.com/docs/features/inngest-functions/steps-workflows/wait-for-event) -- HITL patterns, match syntax, timeout configuration
-- [Inngest step.invoke documentation](https://www.inngest.com/docs/reference/functions/step-invoke) -- child function patterns (considered and rejected)
-- [Inngest usage limits](https://www.inngest.com/docs/usage-limits/inngest) -- 4MB step return, 32MB state, 1000 steps/function
-- [Browserless.io connection URLs](https://docs.browserless.io/overview/connection-urls) -- WebSocket endpoint format, token auth
-- [Browserless.io /function API](https://docs.browserless.io/rest-apis/function) -- REST API for custom script execution
-- [Browserless.io pricing](https://www.browserless.io/pricing) -- Unit-based pricing, concurrency limits, session timeouts
-- [Vercel MCP adapter](https://vercel.com/docs/mcp/deploy-mcp-servers-to-vercel) -- @vercel/mcp-adapter, route structure, SSE transport
-- [Vercel function duration limits](https://vercel.com/docs/functions/configuring-functions/duration) -- 300s Pro, 800s Fluid Compute
-- [Claude Vision API](https://platform.claude.com/docs/en/build-with-claude/vision) -- base64 image encoding, multi-image support
-- [Orq.ai Tools API](https://docs.orq.ai/docs/agents/tools) -- MCP tool creation, agent tool attachment
-- [Supabase Storage signed URLs](https://supabase.com/docs/reference/javascript/storage-from-createsigneduploadurl) -- secure upload pattern
-- [Inngest AgentKit HITL](https://agentkit.inngest.com/advanced-patterns/human-in-the-loop) -- waitForEvent patterns for AI workflows
+- [Supabase Azure OAuth Login](https://supabase.com/docs/guides/auth/social-login/auth-azure) -- Official docs for Azure provider setup
+- [Supabase Auth signInWithOAuth](https://supabase.com/docs/reference/javascript/auth-signinwithoauth) -- JavaScript API reference
+- [Supabase SAML SSO for Projects](https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml) -- Enterprise SSO (SAML alternative)
+- [Inngest Cron/Scheduled Functions](https://www.inngest.com/docs/guides/scheduled-functions) -- Official cron syntax and patterns
+- [Inngest createFunction Reference](https://www.inngest.com/docs/reference/functions/create) -- Function creation API
+- [Inngest Vercel Integration](https://www.inngest.com/docs/deploy/vercel) -- Auto-sync and env setup
+- [Orq.ai Analytics Docs](https://docs.orq.ai/docs/analytics) -- Dashboard metrics (latency, token usage, error rates, costs)
+- [Orq.ai Agent API](https://docs.orq.ai/docs/agents/agent-api) -- v2 agents endpoint
+- [Orq.ai Traces](https://docs.orq.ai/docs/traces) -- Execution traces and observability
+- [Zapier Zap History](https://help.zapier.com/hc/en-us/articles/8496291148685-View-and-manage-your-Zap-history) -- No API available, UI only
+- [Zapier Admin Center](https://help.zapier.com/hc/en-us/articles/38925392216973-Review-your-account-in-the-admin-center) -- Dashboard metrics (UI only)
+- [shadcn/ui Theming](https://ui.shadcn.com/docs/theming) -- CSS variable approach
+- [shadcn/ui Tailwind v4](https://ui.shadcn.com/docs/tailwind-v4) -- Current OKLCH color system
+- [Next.js Data Fetching Patterns](https://nextjs.org/docs/14/app/building-your-application/data-fetching/patterns) -- Parallel fetching in server components
