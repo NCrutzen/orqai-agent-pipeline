@@ -36,6 +36,28 @@ Accepts `dataset_id` directly as input. Skips reading dataset-prep.json for the 
 
 Holdout mode writes to `experiment-raw-holdout.json` (separate file to avoid overwriting primary results).
 
+### A/B Testing Mode (Alternative Pattern)
+
+For A/B testing different models against the same deployment, the pipeline supports an alternative pattern using `deployments.invoke()`:
+
+```javascript
+import { Orq } from "@orq-ai/node";
+const orq = new Orq({ apiKey: process.env.ORQ_KEY || process.env.ORQ_API_KEY });
+
+const result = await orq.deployments.invoke({
+  key: "deployment-key",
+  modelId: "anthropic/claude-sonnet-4-5",  // Override model
+  messages: [{ role: "user", content: "test input" }]
+});
+```
+
+This is NOT used in the standard experiment pipeline (which uses REST `POST /v2/experiments`). It is a separate pattern for:
+- Comparing model performance on the same deployment
+- Quick A/B tests without creating formal experiments
+- Integration testing with specific model overrides
+
+For formal experiments with datasets and evaluator scoring, always use the standard REST pipeline (Phases 3-6 below).
+
 ## REST-Only for Experiments (LOCKED)
 
 All experiment operations use REST API exclusively. Do NOT attempt MCP for experiment creation or run triggering.
@@ -100,6 +122,24 @@ Experiment-runner owns evaluator selection. For each agent, read `role` from dat
 **Conversational agents:** coherence, helpfulness, relevance, instruction_following
 **Hybrid agents:** Union of both (deduplicated -- instruction_following appears once)
 
+### RAGAS Auto-Selection for RAG Agents
+
+After role-based selection, check if the agent has `query_knowledge_base` in its spec tools:
+
+**If RAG agent (has `query_knowledge_base`):** Add to the evaluator set:
+- `faithfulness` (RAGAS)
+- `context_precision` (RAGAS)
+- `answer_relevancy` (RAGAS)
+
+Full evaluator set for RAG agents per role:
+- **Structural + RAG:** json_validity, exactness, instruction_following, toxicity, harmfulness, faithfulness, context_precision, answer_relevancy
+- **Conversational + RAG:** coherence, helpfulness, relevance, instruction_following, toxicity, harmfulness, faithfulness, context_precision, answer_relevancy
+- **Hybrid + RAG:** json_validity, exactness, coherence, helpfulness, relevance, instruction_following, toxicity, harmfulness, faithfulness, context_precision, answer_relevancy
+
+RAGAS evaluators require `retrievals` field in dataset rows. The dataset-preparer handles this for RAG agents. If retrievals are missing, RAGAS evaluator scores may be null -- log a warning but proceed.
+
+**If NOT RAG agent:** Skip RAGAS evaluators.
+
 ### Category Overlays
 
 Attach ALL evaluators including toxicity and harmfulness to every experiment. Results-analyzer will slice scores by category from `inputs.category` metadata. This simplifies experiment creation to one evaluator set per agent.
@@ -156,6 +196,11 @@ For each agent (sequential -- respect rate limits):
    EXPERIMENT_ID=$(echo "$RESPONSE" | jq -r '.id')
    ```
 3. The `agent_key` in `task.agents` is the `key` field from the agent spec YAML frontmatter -- NOT `orqai_id`
+
+**NOTE on `task.type: "agent"`:** The pipeline uses `task.type: "agent"` for experiment creation via REST. This works for dataset-based evaluations via `POST /v2/experiments`. However, `task.type: "agent"` via MCP `create_experiment` tool may fail silently (confirmed). Always use REST for experiment creation (which this pipeline already does per the REST-Only lock above).
+
+For A/B testing without formal experiments, use `deployments.invoke()` with `modelId` override (see A/B Testing Mode above).
+
 4. If 409 Conflict (key already exists): append random suffix `-$(shuf -i 1000-9999 -n 1)` and retry once
 5. If creation fails after retries: record agent as `"error"` with failure details and continue to next agent
 6. Store per agent: `experiment_id`, `experiment_key`, `agent_key`, `evaluator_ids_used`
@@ -293,8 +338,8 @@ Agent              | Status   | Experiment ID          | Runs | Evaluators
 
 ## Anti-Patterns
 
-- **Do NOT use evaluatorq SDK (`@orq-ai/evaluatorq`)** -- Root cause of V2.1 restructure. Causes experiment timeouts. Replaced entirely by REST API.
-- **Do NOT install `@orq-ai/node`** -- v4 dropped MCP binary, v3.14.45 doesn't exist on npm. Use raw REST via curl.
+- **evaluatorq SDK (`@orq-ai/evaluatorq`) -- use with caution.** The evaluatorq SDK caused experiment timeouts when used as the sole execution method in V2.1. The REST API (`POST /v2/experiments`) is the primary pattern for this pipeline. However, evaluatorq DOES work correctly for its intended use case: structured experiments with local custom evaluator scoring (Python evaluators, custom function evaluators). If you need local evaluation that the Orq.ai platform does not support, evaluatorq is a valid tool. For standard experiments, use REST.
+- **SDK for experiments is optional** -- The experiment pipeline uses raw REST via curl (no SDK needed). The `@orq-ai/node` SDK IS used in the broader pipeline for specific patterns (deployments.invoke() for A/B testing, feedback.create() for annotations). Do NOT install a nonexistent version like `^3.14.45`. If SDK is needed: `npm install @orq-ai/node` (or `@orq-ai/node@3` if v4 causes issues). Env var mapping: project uses `ORQ_KEY`, SDK expects `ORQ_API_KEY`.
 - **Do NOT create experiments via MCP** -- User decision: REST-only for experiments to reduce risk from LOW-confidence MCP schema.
 - **Do NOT apply thresholds or compute pass/fail** -- Raw scores only. Results-analyzer (Phase 28) owns threshold application and pass/fail determination.
 - **Do NOT run experiments in parallel** -- Sequential per-agent to respect rate limits. Parallel execution risks 429 errors.
