@@ -71,6 +71,7 @@ None.
 | 260323-gex | Create /orq-agent:systems command for managing IT systems registry (list/add/remove) | 2026-03-23 | 5946bae | Verified | [260323-gex-create-orq-agent-systems-command-for-man](./quick/260323-gex-create-orq-agent-systems-command-for-man/) |
 | 260325-r2j | Apply 6 experiment learnings to agent specs and reference files (json_schema, two-evaluator, portionOptimizer, KB heuristic, API pitfalls) | 2026-03-25 | b528587 | | [260325-r2j-apply-orq-ai-experiment-learnings-to-age](./quick/260325-r2j-apply-orq-ai-experiment-learnings-to-age/) |
 | 260326-ann-01 | Update 4 reference files with complete Orq.ai API surface (model params, 27+19 evaluators, multimodal, streaming, webhooks, SDK patterns) | 2026-03-26 | 5be7440 | | [260326-ann-apply-all-21-pipeline-optimizations-eval](./quick/260326-ann-apply-all-21-pipeline-optimizations-eval/) |
+| 260326-ann-02 | Update 6 core pipeline agents: evaluator recs, thinking config, multimodal, A2A protocol, inter-agent contracts, RAG context | 2026-03-26 | e64c1ff | | [260326-ann-apply-all-21-pipeline-optimizations-eval](./quick/260326-ann-apply-all-21-pipeline-optimizations-eval/) |
 
 ### Pending Todos
 
@@ -78,7 +79,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-26T17:30:37.670Z
-Stopped at: Completed quick-260326-ann-04-PLAN.md (deploy/harden agents)
+Last session: 2026-03-26T17:30:07Z
+Stopped at: Completed quick-260326-ann-02-PLAN.md (core pipeline agents)
 Resume with: Start V4.0 planning when ready, or implement browser automation integration per revised ACTION-PLAN.md
 Resume file: None
