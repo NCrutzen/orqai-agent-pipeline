@@ -81,7 +81,7 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
   3. When tests reveal failures, the pipeline diagnoses issues, proposes prompt fixes, and asks user for approval before applying
   4. User can apply guardrails (promoted from test evaluators) to harden production agents
   5. The iterate loop (diagnose → fix → re-deploy → re-test) runs up to 5 times or until the user is satisfied
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 38.1 to break down)
@@ -257,7 +257,7 @@ Plans:
   2. Webhook requests without a valid API key are rejected
   3. A webhook call starts the full pipeline and returns a run ID for tracking
   4. External systems can poll the run ID to check pipeline status and completion
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 38-01: TBD
@@ -308,7 +308,7 @@ Plans:
   3. When a script fails, AI diagnoses the failure using DOM accessibility tree context and proposes fixes -- iterating up to 5 times or until the script stabilizes
   4. Auth state persists across test iterations via cookies/localStorage so the user does not need to re-authenticate the target system repeatedly
   5. Verified script deploys as an MCP tool on the Vercel deployment, automatically attaches to the Orq.ai agent, and the agent can successfully call the tool during execution
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 41-01: TBD
@@ -325,7 +325,7 @@ Plans:
   3. User can view, edit, and delete their automations from a management dashboard
   4. User can schedule an automation to run on a recurring basis (daily, weekly, or custom cron) and trigger it via webhook
   5. Automation results are returned to the caller -- webhook response for direct triggers, callback URL for Zapier integration
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 42-01: TBD
@@ -341,12 +341,12 @@ Plans:
   3. Zapier scraper includes validation that detects broken selectors or stale data and flags the issue instead of silently storing bad data
   4. Orq.ai analytics (usage, cost, latency, errors, agent performance) is collected via MCP analytics API and stored in Supabase snapshots on a schedule
   5. Both collectors run as Inngest cron functions and accumulate data independently of whether the dashboard UI exists yet
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 44-01: TBD
-- [ ] 44-02: TBD
-- [ ] 44-03: TBD
+- [ ] 44-01-PLAN.md -- DB migration (project model extension + snapshot tables), TypeScript types, ProjectStatusBadge + AutomationTypeTag components, ProjectCard update
+- [ ] 44-02-PLAN.md -- Orq.ai analytics collector (Inngest hourly cron, MCP API, Zod validation, orqai_snapshots)
+- [ ] 44-03-PLAN.md -- Zapier analytics browser scraper (Inngest twice-daily cron, Browserless.io, multi-fallback selectors, validation layer, zapier_snapshots)
 
 ### Phase 45: Executive Dashboard
 **Goal**: Executives (CEO/CTO/CFO) can open a single dashboard page and see a 360-degree overview of all automation activity, project health, ROI estimates, and trends -- loaded from pre-computed snapshots in under 100ms
@@ -359,7 +359,7 @@ Plans:
   4. ROI metrics are clearly labeled as "estimates" with distinct visual treatment separating measured from estimated data
   5. Health indicators show error rates and reliability trends per project with traffic-light status (green/yellow/red)
   6. Dashboard page loads in under 100ms by reading only from pre-computed `dashboard_snapshots` table, never querying external services directly
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 45-01: TBD
@@ -375,7 +375,7 @@ Plans:
   2. Backward status transitions are suggested via notification only -- user must confirm before the status changes
   3. User can sign in with "Sign in with Microsoft" button using their Moyne Roberts M365 account (Azure AD OAuth)
   4. Existing email/password users are pre-linked to their Azure AD identity so SSO login connects to their existing account and project data (no duplicate accounts)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 46-01: TBD
@@ -391,7 +391,7 @@ Plans:
   3. Sidebar navigation is polished with active state indicators, branding, and professional visual hierarchy
   4. Dark mode toggle persists user preference and all pages render correctly in both light and dark themes
   5. Layout is responsive and usable on both tablet and desktop screens
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 47-01: TBD
@@ -420,7 +420,7 @@ V6.0: 44 -> 45 -> 46 -> 47
 | 41. Script Generation, Testing & MCP Deployment | V4.0 | 0/TBD | Not started | - |
 | 42. Standalone Automations & Triggers | V4.0 | 0/TBD | Not started | - |
 | 43. Upstream Sync | - | 0/3 | Not started | - |
-| 44. Project Model & Data Collection | V6.0 | 0/TBD | Not started | - |
+| 44. Project Model & Data Collection | V6.0 | 0/3 | Not started | - |
 | 45. Executive Dashboard | V6.0 | 0/TBD | Not started | - |
 | 46. Status Monitoring & O365 SSO | V6.0 | 0/TBD | Not started | - |
 | 47. UI Redesign & Polish | V6.0 | 0/TBD | Not started | - |
