@@ -277,6 +277,32 @@ Requirements for V6.0 Executive Dashboard & UI Revamp. Each maps to roadmap phas
 | TRIG-02 | Phase 42 | Pending |
 | TRIG-03 | Phase 42 | Pending |
 | TRIG-04 | Phase 42 | Pending |
+| UIDX-01 | Phase 47 | Pending |
+| UIDX-02 | Phase 47 | Pending |
+| UIDX-03 | Phase 47 | Pending |
+| UIDX-04 | Phase 47 | Pending |
+| UIDX-05 | Phase 47 | Pending |
+| UIDX-06 | Phase 47 | Pending |
+| EDASH-01 | Phase 45 | Pending |
+| EDASH-02 | Phase 45 | Pending |
+| EDASH-03 | Phase 45 | Pending |
+| EDASH-04 | Phase 45 | Pending |
+| EDASH-05 | Phase 45 | Pending |
+| EDASH-06 | Phase 45 | Pending |
+| DINT-01 | Phase 44 | Pending |
+| DINT-02 | Phase 44 | Pending |
+| DINT-03 | Phase 44 | Pending |
+| DINT-04 | Phase 44 | Pending |
+| DINT-05 | Phase 44 | Pending |
+| DINT-06 | Phase 45 | Pending |
+| PEXT-01 | Phase 44 | Pending |
+| PEXT-02 | Phase 44 | Pending |
+| PEXT-03 | Phase 44 | Pending |
+| PEXT-04 | Phase 46 | Pending |
+| PEXT-05 | Phase 46 | Pending |
+| O365-01 | Phase 46 | Pending |
+| O365-02 | Phase 46 | Pending |
+| O365-03 | Phase 46 | Pending |
 
 **V3.0 Coverage:**
 - V3.0 requirements: 32 total
@@ -290,9 +316,9 @@ Requirements for V6.0 Executive Dashboard & UI Revamp. Each maps to roadmap phas
 
 **V6.0 Coverage:**
 - V6.0 requirements: 26 total
-- Mapped to phases: 0 ⚠️ (pending roadmap creation)
-- Unmapped: 26
+- Mapped to phases: 26
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-27 after V6.0 requirements definition*
+*Last updated: 2026-03-27 after V6.0 roadmap creation*

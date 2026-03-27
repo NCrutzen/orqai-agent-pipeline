@@ -2,7 +2,7 @@
 
 ## Overview
 
-Browser-based interface for creating, deploying, testing, and iterating AI agent swarms on Orq.ai. Non-technical colleagues describe a use case and watch agents get designed, deployed, and tested -- with a real-time dashboard, node graph visualization, and HITL approval workflows. V4.0 adds a browser automation builder so that agents can interact with no-API systems (NXT, iController, Intelly) -- users upload SOPs and screenshots, AI generates and tests Playwright scripts on Browserless.io, and verified scripts deploy as MCP tools attached to agents. CLI skills for technical users are available separately in the orqai-agent-pipeline repo.
+Browser-based interface for creating, deploying, testing, and iterating AI agent swarms on Orq.ai. Non-technical colleagues describe a use case and watch agents get designed, deployed, and tested -- with a real-time dashboard, node graph visualization, and HITL approval workflows. V4.0 adds a browser automation builder so that agents can interact with no-API systems (NXT, iController, Intelly) -- users upload SOPs and screenshots, AI generates and tests Playwright scripts on Browserless.io, and verified scripts deploy as MCP tools attached to agents. V6.0 adds an executive-facing management dashboard with 360-degree data integration (Agent Workforce + Zapier + Orq.ai), full UI redesign for CEO/CTO/CFO audience, and O365 SSO. CLI skills for technical users are available separately in the orqai-agent-pipeline repo.
 
 ## Milestones
 
@@ -14,6 +14,7 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 | **V3.0** | Web UI & Dashboard -- browser-based pipeline with authentication, real-time visibility, node graph, HITL approvals | **In Progress** |
 | **V4.0** | Browser Automation Builder -- SOP + screenshots to MCP tools for no-API systems via Browserless.io | **Defined** |
 | **V5.0** | Cross-Swarm Intelligence -- ecosystem mapping, drift detection, overlap analysis, and fix proposals | **Defined** |
+| **V6.0** | Executive Dashboard & UI Revamp -- 360-degree management dashboard, UI redesign, O365 SSO | **Defined** |
 
 ---
 
@@ -134,6 +135,15 @@ Plans:
 - [ ] **Phase 40: Detection, SOP Upload & Vision Analysis** - No-API system detection, SOP/screenshot upload wizard, AI vision analysis via Orq.ai, annotated step confirmation with user
 - [ ] **Phase 41: Script Generation, Testing & MCP Deployment** - Playwright script generation, Browserless.io execution with Session Replay, iterative test-fix loop, MCP tool deployment and agent attachment
 - [ ] **Phase 42: Standalone Automations & Triggers** - Standalone automation creation (conversational and SOP-based), dashboard management, scheduling, webhooks, Zapier integration
+
+### V6.0 Executive Dashboard & UI Revamp (Phases 44-47)
+
+**Milestone Goal:** Transform the Agent Workforce app into an executive-worthy platform with a 360-degree management dashboard showing ROI, activity, and health metrics across all automation types -- pulling data from Agent Workforce, Zapier (browser scraper), and Orq.ai analytics (API). Full UI redesign for CEO/CTO/CFO audience. O365 SSO for Microsoft 365 login.
+
+- [ ] **Phase 44: Project Model & Data Collection** - Extended project model (status lifecycle, automation type), Zapier browser scraper, Orq.ai analytics collector, snapshot tables, status badges on project cards
+- [ ] **Phase 45: Executive Dashboard** - KPI summary cards, activity trend charts, project status breakdown, ROI estimates, health indicators, dashboard aggregator, sub-100ms from pre-computed snapshots
+- [ ] **Phase 46: Status Monitoring & O365 SSO** - Automated forward status transitions, suggest-only backward transitions, status history audit trail, Azure AD OAuth login alongside email/password
+- [ ] **Phase 47: UI Redesign & Polish** - Brand colors and typography from moyneroberts.com, consistent design system, sidebar polish, grid layout, dark mode toggle, responsive tablet/desktop
 
 <details>
 <summary>V5.0 Cross-Swarm Intelligence -- DEFINED</summary>
@@ -321,13 +331,81 @@ Plans:
 - [ ] 42-01: TBD
 - [ ] 42-02: TBD
 
+### Phase 44: Project Model & Data Collection
+**Goal**: Every project has a status lifecycle and automation type classification, and data from Zapier (browser scraper) and Orq.ai (analytics API) accumulates in Supabase -- so the executive dashboard has real data to display from day one
+**Depends on**: Phase 35 (uses Inngest, Supabase DB, Next.js API routes; also uses Browserless.io patterns from Phase 39)
+**Requirements**: PEXT-01, PEXT-02, PEXT-03, DINT-01, DINT-02, DINT-03, DINT-04, DINT-05
+**Success Criteria** (what must be TRUE):
+  1. User can see status (idea/building/testing/live) and automation type (zapier-only/hybrid/standalone-app/orqai-agent) badges on project cards throughout the app
+  2. Zapier analytics data (active zaps, task counts, success rates) is scraped via Browserless.io and stored in Supabase snapshots multiple times per day
+  3. Zapier scraper includes validation that detects broken selectors or stale data and flags the issue instead of silently storing bad data
+  4. Orq.ai analytics (usage, cost, latency, errors, agent performance) is collected via MCP analytics API and stored in Supabase snapshots on a schedule
+  5. Both collectors run as Inngest cron functions and accumulate data independently of whether the dashboard UI exists yet
+**Plans**: TBD
+
+Plans:
+- [ ] 44-01: TBD
+- [ ] 44-02: TBD
+- [ ] 44-03: TBD
+
+### Phase 45: Executive Dashboard
+**Goal**: Executives (CEO/CTO/CFO) can open a single dashboard page and see a 360-degree overview of all automation activity, project health, ROI estimates, and trends -- loaded from pre-computed snapshots in under 100ms
+**Depends on**: Phase 44 (data from all three sources must be accumulating)
+**Requirements**: EDASH-01, EDASH-02, EDASH-03, EDASH-04, EDASH-05, EDASH-06, DINT-06
+**Success Criteria** (what must be TRUE):
+  1. Dashboard shows KPI summary cards with real data (total runs, success rate, active automations, estimated time saved)
+  2. Dashboard shows activity trend charts (runs over time, broken down by source) using Recharts via shadcn chart components
+  3. Dashboard shows project status breakdown by lifecycle stage (idea/building/testing/live) as a visual distribution
+  4. ROI metrics are clearly labeled as "estimates" with distinct visual treatment separating measured from estimated data
+  5. Health indicators show error rates and reliability trends per project with traffic-light status (green/yellow/red)
+  6. Dashboard page loads in under 100ms by reading only from pre-computed `dashboard_snapshots` table, never querying external services directly
+**Plans**: TBD
+
+Plans:
+- [ ] 45-01: TBD
+- [ ] 45-02: TBD
+- [ ] 45-03: TBD
+
+### Phase 46: Status Monitoring & O365 SSO
+**Goal**: Project statuses stay accurate through automated monitoring that auto-applies forward transitions and suggests backward transitions, and users can sign in with their Microsoft 365 work account alongside existing email/password auth
+**Depends on**: Phase 45 (needs dashboard infrastructure and accumulated signal data); O365 is independent but grouped here for coarse granularity
+**Requirements**: PEXT-04, PEXT-05, O365-01, O365-02, O365-03
+**Success Criteria** (what must be TRUE):
+  1. Status monitor auto-transitions projects forward (idea->building->testing->live) based on observed activity signals without user intervention
+  2. Backward status transitions are suggested via notification only -- user must confirm before the status changes
+  3. User can sign in with "Sign in with Microsoft" button using their Moyne Roberts M365 account (Azure AD OAuth)
+  4. Existing email/password users are pre-linked to their Azure AD identity so SSO login connects to their existing account and project data (no duplicate accounts)
+**Plans**: TBD
+
+Plans:
+- [ ] 46-01: TBD
+- [ ] 46-02: TBD
+
+### Phase 47: UI Redesign & Polish
+**Goal**: The entire application looks executive-worthy with consistent branding, professional typography, and dark mode -- covering all existing pages plus the new executive dashboard
+**Depends on**: Phase 46 (all pages must exist before full-surface redesign)
+**Requirements**: UIDX-01, UIDX-02, UIDX-03, UIDX-04, UIDX-05, UIDX-06
+**Success Criteria** (what must be TRUE):
+  1. App uses Moyne Roberts brand colors and typography derived from moyneroberts.com across all pages
+  2. All UI components (cards, buttons, inputs, badges, navigation) follow a consistent design system with no visual inconsistencies between pages
+  3. Sidebar navigation is polished with active state indicators, branding, and professional visual hierarchy
+  4. Dark mode toggle persists user preference and all pages render correctly in both light and dark themes
+  5. Layout is responsive and usable on both tablet and desktop screens
+**Plans**: TBD
+
+Plans:
+- [ ] 47-01: TBD
+- [ ] 47-02: TBD
+
 ## Progress
 
 **Execution Order:**
 V3.0: 34 -> 35 -> 36 -> 37 -> 38
 V4.0: 39 -> 40 -> 41 -> 42
+V6.0: 44 -> 45 -> 46 -> 47
 (Phase 38 depends on Phase 35, not 37 -- can execute in parallel with 36/37 if needed)
 (Phase 39 depends on Phase 35 infrastructure, not V3.0 completion -- but V3.0 should ship first)
+(Phase 44 depends on Phase 35 + Browserless.io patterns from Phase 39)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -342,6 +420,10 @@ V4.0: 39 -> 40 -> 41 -> 42
 | 41. Script Generation, Testing & MCP Deployment | V4.0 | 0/TBD | Not started | - |
 | 42. Standalone Automations & Triggers | V4.0 | 0/TBD | Not started | - |
 | 43. Upstream Sync | - | 0/3 | Not started | - |
+| 44. Project Model & Data Collection | V6.0 | 0/TBD | Not started | - |
+| 45. Executive Dashboard | V6.0 | 0/TBD | Not started | - |
+| 46. Status Monitoring & O365 SSO | V6.0 | 0/TBD | Not started | - |
+| 47. UI Redesign & Polish | V6.0 | 0/TBD | Not started | - |
 
 ## Progress Summary
 
@@ -353,3 +435,4 @@ V4.0: 39 -> 40 -> 41 -> 42
 | V3.0 | 34-38 (5 phases) | 11/TBD | **In Progress** | - |
 | V4.0 | 39-42 (4 phases) | 0/TBD | **Defined** | - |
 | V5.0 | TBD | 0/TBD | **Defined** | - |
+| V6.0 | 44-47 (4 phases) | 0/TBD | **Defined** | - |
