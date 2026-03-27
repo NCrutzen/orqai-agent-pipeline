@@ -118,6 +118,53 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 - [ ] **TRIG-03**: Custom Zapier integration with callback URL for result waiting in larger flows
 - [ ] **TRIG-04**: Automation execution results returned to caller (webhook response, Zapier callback)
 
+## V6.0 Requirements
+
+Requirements for V6.0 Executive Dashboard & UI Revamp. Each maps to roadmap phases.
+
+> **Note:** The executive dashboard (EDASH category) requires additional research and discussion during implementation to investigate what data is actually available from each source and how to present it meaningfully for top management (CEO/CTO/CFO). Requirements below define the intent; exact metrics and visualizations will be refined during the dashboard phase.
+
+### UI Redesign
+
+- [ ] **UIDX-01**: App uses Moyne Roberts brand colors and typography (reference: moyneroberts.com)
+- [ ] **UIDX-02**: All page components (cards, buttons, inputs, badges) follow consistent design system
+- [ ] **UIDX-03**: Sidebar navigation is visually polished with active state indicators and branding
+- [ ] **UIDX-04**: Spacing and layout follow consistent grid system across all pages
+- [ ] **UIDX-05**: Dark mode toggle with persistent user theme preference
+- [ ] **UIDX-06**: Responsive layout works on tablet and desktop screens
+
+### Executive Dashboard
+
+- [ ] **EDASH-01**: Management dashboard shows KPI summary cards (total runs, success rate, active automations, time saved)
+- [ ] **EDASH-02**: Dashboard shows automation activity trend charts (runs over time, by source)
+- [ ] **EDASH-03**: Dashboard shows project status breakdown by lifecycle stage (idea/building/testing/live)
+- [ ] **EDASH-04**: Dashboard shows AI-estimated ROI metrics (estimated hours saved, cost efficiency) clearly badged as estimates
+- [ ] **EDASH-05**: Dashboard shows health indicators (error rates, reliability trends across sources)
+- [ ] **EDASH-06**: Dashboard loads sub-100ms from pre-computed snapshot tables
+
+### Data Integration
+
+- [ ] **DINT-01**: Zapier analytics browser automation scrapes run/task data and stores snapshots in Supabase
+- [ ] **DINT-02**: Zapier scraper runs multiple times per day via Inngest cron
+- [ ] **DINT-03**: Zapier scraper includes validation layer to detect broken selectors and stale data
+- [ ] **DINT-04**: Orq.ai analytics (usage, cost, latency, errors, agent performance) collected via API and stored in Supabase
+- [ ] **DINT-05**: Orq.ai collector runs on schedule via Inngest cron
+- [ ] **DINT-06**: Dashboard aggregator combines Agent Workforce + Zapier + Orq.ai data into unified 360° metrics
+
+### Project Model Extension
+
+- [ ] **PEXT-01**: Projects have status lifecycle: idea → building → testing → live
+- [ ] **PEXT-02**: Projects have automation type: zapier-only, hybrid, standalone-app, orqai-agent
+- [ ] **PEXT-03**: Status and type badges visible on project cards and dashboard
+- [ ] **PEXT-04**: Automated monitor auto-transitions forward statuses (idea→building→testing→live) based on activity signals
+- [ ] **PEXT-05**: Backward status transitions are suggest-only via notification, user confirms
+
+### O365 Authentication
+
+- [ ] **O365-01**: O365 SSO login via Azure AD (Microsoft Entra ID) alongside existing email/password
+- [ ] **O365-02**: Existing users pre-migrated to link Azure AD identities (prevent duplicate accounts)
+- [ ] **O365-03**: Login page shows "Sign in with Microsoft" button with branded styling
+
 ## Future Requirements
 
 ### V5.0 Cross-Swarm Intelligence
@@ -134,6 +181,12 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 - **AUTOX-03**: Multi-step automations spanning multiple systems in sequence
 - **AUTOX-04**: Automation templates for common enterprise patterns
 
+### V6.0+ Dashboard Enhancements
+
+- **EDASHX-01**: Role-based views (management overview vs team detail)
+- **EDASHX-02**: Zapier Partner API integration (replaces browser scraper when approved)
+- **EDASHX-03**: Export dashboard reports as PDF
+
 ## Out of Scope
 
 | Feature | Reason |
@@ -144,12 +197,16 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 | Role-based access control (RBAC) | All project members have equal access; 5-15 internal users |
 | Multi-tenant workspace separation | Single company; projects provide sufficient isolation |
 | Custom evaluator configuration UI | Pipeline auto-selects evaluators based on agent role |
-| Mobile-optimized interface | 5-15 internal users on office desktops/laptops |
 | Generative UI | Non-technical users need consistency, not AI-generated interfaces |
 | Dynamic/exploratory browser-use | Already handled by existing Orq.ai MCP tools |
 | No-code visual builder / record-replay | Contradicts SOP-upload value proposition |
 | Self-hosted Playwright infrastructure | Browserless.io SaaS handles this |
 | BrowserQL stealth mode | Internal enterprise systems don't need anti-detection (available as fallback) |
+| Team-facing dashboard view (V6.0) | V6.0 dashboard is management-only; team uses existing project/run pages |
+| Real-time streaming metrics (V6.0) | Pre-computed snapshots sufficient; real-time adds complexity without exec value |
+| Manual ROI baselines (V6.0) | AI-estimated baselines chosen; manual entry deferred unless estimates prove insufficient |
+| Zapier Partner API (V6.0) | Requires partner approval process; browser scraper is the V6.0 approach |
+| Mobile app (V6.0) | Web-first; responsive layout covers tablet use case |
 
 ## Traceability
 
@@ -231,6 +288,11 @@ Requirements for V4.0 Browser Automation Builder. Each maps to roadmap phases.
 - Mapped to phases: 33
 - Unmapped: 0
 
+**V6.0 Coverage:**
+- V6.0 requirements: 26 total
+- Mapped to phases: 0 ⚠️ (pending roadmap creation)
+- Unmapped: 26
+
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-23 after V4.0 roadmap creation*
+*Last updated: 2026-03-27 after V6.0 requirements definition*
