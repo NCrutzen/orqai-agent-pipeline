@@ -10,6 +10,8 @@ interface Project {
   name: string;
   description: string | null;
   updated_at: string;
+  status: "idea" | "building" | "testing" | "live";
+  automation_type: "zapier-only" | "hybrid" | "standalone-app" | "orqai-agent" | "unknown";
   project_members: { user_id: string }[];
 }
 

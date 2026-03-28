@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Users, Clock } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ProjectStatusBadge } from "@/components/project-status-badge";
+import { AutomationTypeTag } from "@/components/automation-type-tag";
 
 interface ProjectCardProps {
   project: {
@@ -11,6 +12,8 @@ interface ProjectCardProps {
     name: string;
     description: string | null;
     updated_at: string;
+    status: "idea" | "building" | "testing" | "live";
+    automation_type: "zapier-only" | "hybrid" | "standalone-app" | "orqai-agent" | "unknown";
     project_members: { user_id: string }[];
   };
 }
@@ -37,11 +40,10 @@ export function ProjectCard({ project }: ProjectCardProps) {
     <Link href={`/projects/${project.id}`} className="block">
       <Card className="transition-colors hover:bg-muted/30">
         <CardHeader>
-          <div className="flex items-start justify-between">
-            <CardTitle className="truncate">{project.name}</CardTitle>
-            <Badge variant="outline" className="ml-2 shrink-0 text-xs">
-              No runs yet
-            </Badge>
+          <CardTitle className="truncate">{project.name}</CardTitle>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <ProjectStatusBadge status={project.status} />
+            <AutomationTypeTag type={project.automation_type} />
           </div>
           {project.description && (
             <CardDescription className="line-clamp-2">
