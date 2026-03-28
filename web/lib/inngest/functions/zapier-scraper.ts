@@ -41,30 +41,21 @@ export const scrapeZapierAnalytics = inngest.createFunction(
         const { chromium } = await import("playwright-core");
         const admin = createAdminClient();
 
-        // 1. Resolve credential ID from settings table
-        const { data: credSetting } = await admin
-          .from("settings")
-          .select("value")
-          .eq("key", "zapier_credential_id")
+        // 1. Look up Zapier credential by name from credentials table
+        const { data: credRecord } = await admin
+          .from("credentials")
+          .select("id")
+          .eq("name", "Zapier Analytics")
           .single();
 
-        if (!credSetting?.value) {
+        if (!credRecord?.id) {
           throw new Error(
-            "Zapier credential ID not configured in settings table (key: zapier_credential_id)"
+            "Zapier credential not found in credentials table (name: 'Zapier Analytics')"
           );
         }
 
-        let credentialId = credSetting.value;
-        // Handle JSONB double-encoding
-        while (
-          typeof credentialId === "string" &&
-          credentialId.startsWith('"')
-        ) {
-          credentialId = JSON.parse(credentialId);
-        }
-
         // 2. Decrypt credentials from vault
-        const creds = await resolveCredentials(credentialId as string);
+        const creds = await resolveCredentials(credRecord.id);
 
         // 3. Load existing session state (if any)
         const { data: sessionData } = await admin
