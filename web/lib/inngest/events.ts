@@ -75,4 +75,19 @@ export type Events = {
       }>;
     };
   };
+
+  // Analytics collection events (Phase 44)
+  "analytics/orqai-collect.completed": {
+    data: {
+      snapshotId: string;
+      collectedAt: string;
+    };
+  };
+  "analytics/zapier-scrape.completed": {
+    data: {
+      snapshotId: string;
+      validationStatus: "valid" | "suspicious" | "failed";
+      scrapedAt: string;
+    };
+  };
 };
