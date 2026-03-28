@@ -147,8 +147,8 @@ Requirements for V6.0 Executive Dashboard & UI Revamp. Each maps to roadmap phas
 - [ ] **DINT-01**: Zapier analytics browser automation scrapes run/task data and stores snapshots in Supabase
 - [ ] **DINT-02**: Zapier scraper runs multiple times per day via Inngest cron
 - [ ] **DINT-03**: Zapier scraper includes validation layer to detect broken selectors and stale data
-- [ ] **DINT-04**: Orq.ai analytics (usage, cost, latency, errors, agent performance) collected via API and stored in Supabase
-- [ ] **DINT-05**: Orq.ai collector runs on schedule via Inngest cron
+- [x] **DINT-04**: Orq.ai analytics (usage, cost, latency, errors, agent performance) collected via API and stored in Supabase
+- [x] **DINT-05**: Orq.ai collector runs on schedule via Inngest cron
 - [ ] **DINT-06**: Dashboard aggregator combines Agent Workforce + Zapier + Orq.ai data into unified 360° metrics
 
 ### Project Model Extension
@@ -292,8 +292,8 @@ Requirements for V6.0 Executive Dashboard & UI Revamp. Each maps to roadmap phas
 | DINT-01 | Phase 44 | Pending |
 | DINT-02 | Phase 44 | Pending |
 | DINT-03 | Phase 44 | Pending |
-| DINT-04 | Phase 44 | Pending |
-| DINT-05 | Phase 44 | Pending |
+| DINT-04 | Phase 44 | Complete |
+| DINT-05 | Phase 44 | Complete |
 | DINT-06 | Phase 45 | Pending |
 | PEXT-01 | Phase 44 | Complete |
 | PEXT-02 | Phase 44 | Complete |

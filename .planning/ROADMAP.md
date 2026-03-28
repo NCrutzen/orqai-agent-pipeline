@@ -420,7 +420,7 @@ V6.0: 44 -> 45 -> 46 -> 47
 | 41. Script Generation, Testing & MCP Deployment | V4.0 | 0/TBD | Not started | - |
 | 42. Standalone Automations & Triggers | V4.0 | 0/TBD | Not started | - |
 | 43. Upstream Sync | - | 0/3 | Not started | - |
-| 44. Project Model & Data Collection | 1/3 | In Progress|  | - |
+| 44. Project Model & Data Collection | 2/3 | In Progress|  | - |
 | 45. Executive Dashboard | V6.0 | 0/TBD | Not started | - |
 | 46. Status Monitoring & O365 SSO | V6.0 | 0/TBD | Not started | - |
 | 47. UI Redesign & Polish | V6.0 | 0/TBD | Not started | - |
