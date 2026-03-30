@@ -7,6 +7,14 @@ import type { Period } from "@/lib/dashboard/types";
 import { KpiGrid } from "@/components/dashboard/kpi-grid";
 import { PeriodSelector } from "@/components/dashboard/period-selector";
 import { SourceStatusCard } from "@/components/dashboard/source-status-card";
+import { ActivityChart } from "@/components/dashboard/activity-chart";
+import { SuccessRateChart } from "@/components/dashboard/success-rate-chart";
+import { ProjectHealthTable } from "@/components/dashboard/project-health-table";
+import { AgentMetricsTable } from "@/components/dashboard/agent-metrics-table";
+import { StatusDistributionChart } from "@/components/dashboard/status-distribution-chart";
+import { TypeBreakdownChart } from "@/components/dashboard/type-breakdown-chart";
+import { RoiTable } from "@/components/dashboard/roi-table";
+import { CostTrendChart } from "@/components/dashboard/cost-trend-chart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BarChart3 } from "lucide-react";
@@ -94,6 +102,43 @@ export default async function ExecutiveDashboardPage({
   const metrics = metricsResult.data;
   const freshness = freshnessResult.data;
 
+  // Fetch historical snapshots for time series charts
+  const historicalResult = await supabase
+    .from("dashboard_snapshots")
+    .select("metrics, computed_at")
+    .order("computed_at", { ascending: true })
+    .limit(360);
+
+  // Transform historical data server-side into chart-ready arrays
+  const activityData = (historicalResult.data ?? []).map((s: { metrics: Record<string, unknown>; computed_at: string }) => {
+    const m = s.metrics as Record<string, unknown>;
+    const runsBySource = m?.runsBySource as Record<string, number> | undefined;
+    return {
+      date: s.computed_at.slice(0, 10),
+      pipeline: runsBySource?.pipeline ?? 0,
+      zapier: runsBySource?.zapier ?? 0,
+      orqai: runsBySource?.orqai ?? 0,
+    };
+  });
+
+  const successRateData = (historicalResult.data ?? []).map((s: { metrics: Record<string, unknown>; computed_at: string }) => {
+    const m = s.metrics as Record<string, unknown>;
+    const ts = (m?.timeSeries as Array<Record<string, unknown>> | undefined)?.[0];
+    return {
+      date: s.computed_at.slice(0, 10),
+      rate: (ts?.successRate as number | null) ?? null,
+    };
+  });
+
+  const costTrendData = (historicalResult.data ?? []).map((s: { metrics: Record<string, unknown>; computed_at: string }) => {
+    const m = s.metrics as Record<string, unknown>;
+    const ts = (m?.timeSeries as Array<Record<string, unknown>> | undefined)?.[0];
+    return {
+      date: s.computed_at.slice(0, 10),
+      costPerRun: (ts?.costPerRun as number | null) ?? null,
+    };
+  });
+
   return (
     <TooltipProvider>
       <div className="p-6 space-y-6">
@@ -124,22 +169,65 @@ export default async function ExecutiveDashboardPage({
             <TabsTrigger value="sources">Source Status</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="activity" className="py-6">
-            <p className="text-sm text-muted-foreground">
-              Activity charts will be added in the next plan.
-            </p>
+          <TabsContent value="activity" className="py-6 space-y-8">
+            <div>
+              <h3 className="text-base font-normal mb-4">Runs Over Time</h3>
+              <ActivityChart data={activityData} />
+            </div>
+            <div>
+              <h3 className="text-base font-normal mb-4">
+                Success Rate Trend
+              </h3>
+              <SuccessRateChart data={successRateData} />
+            </div>
+            <div>
+              <h3 className="text-base font-normal mb-4">
+                Per-Project Health
+              </h3>
+              <ProjectHealthTable projects={metrics.projectHealth} />
+            </div>
+            {metrics.agentMetrics && metrics.agentMetrics.length > 0 && (
+              <div>
+                <h3 className="text-base font-normal mb-4">
+                  Per-Agent Orq.ai Metrics
+                </h3>
+                <AgentMetricsTable agents={metrics.agentMetrics} />
+              </div>
+            )}
           </TabsContent>
 
-          <TabsContent value="projects" className="py-6">
-            <p className="text-sm text-muted-foreground">
-              Project breakdown charts will be added in the next plan.
-            </p>
+          <TabsContent value="projects" className="py-6 space-y-8">
+            <div className="grid gap-8 grid-cols-1 lg:grid-cols-2">
+              <div>
+                <h3 className="text-base font-normal mb-4">
+                  Status Distribution
+                </h3>
+                <StatusDistributionChart data={metrics.projectsByStatus} />
+              </div>
+              <div>
+                <h3 className="text-base font-normal mb-4">
+                  Automation Type Breakdown
+                </h3>
+                <TypeBreakdownChart data={metrics.projectsByType} />
+              </div>
+            </div>
           </TabsContent>
 
-          <TabsContent value="roi" className="py-6">
-            <p className="text-sm text-muted-foreground">
-              ROI tables will be added in the next plan.
-            </p>
+          <TabsContent value="roi" className="py-6 space-y-8">
+            <div>
+              <h3 className="text-base font-normal mb-4">ROI by Project</h3>
+              <RoiTable
+                projects={metrics.roiByProject}
+                totalProjects={metrics.totalProjects}
+                projectsWithBaselines={metrics.projectsWithBaselines}
+              />
+            </div>
+            <div>
+              <h3 className="text-base font-normal mb-4">
+                Cost Per Run Trend
+              </h3>
+              <CostTrendChart data={costTrendData} />
+            </div>
           </TabsContent>
 
           <TabsContent value="sources" className="py-6">
