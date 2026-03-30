@@ -48,6 +48,57 @@ Bij `vercel link` of `vercel env pull`: gebruik ALTIJD deze organisatie en dit p
 
 **Vuistregel:** Als het een gebruikersnaam+wachtwoord is voor een systeem → credentials tabel. Als het een API key of infra secret is → env var.
 
+- **Environment:** Credentials hebben een `environment` kolom (`production`, `acceptance`, `test`). Gebruik altijd acceptance/test als default — zie "Test-First Automation Pattern" hieronder.
+
+## Test-First Automation Pattern
+
+**Regel: Gebruik ALTIJD acceptance/test credentials als default. Productie vereist expliciete bevestiging van de gebruiker.**
+
+### Environment Awareness
+
+De `systems` en `credentials` tabellen hebben een `environment` kolom met waarden: `production`, `acceptance`, `test`.
+
+**Query pattern — acceptance/test first:**
+```sql
+SELECT * FROM systems WHERE name = '{systeem}' AND environment IN ('acceptance', 'test') LIMIT 1;
+SELECT * FROM credentials WHERE name = '{credential}' AND environment IN ('acceptance', 'test') LIMIT 1;
+```
+
+Als er geen acceptance/test rij bestaat voor een systeem, is het production-only. Detectie is data-driven — geen aparte vlag nodig.
+
+### Environment Banner (ALTIJD tonen)
+
+Bij elke systeeminteractie, toon de environment banner:
+
+- Acceptance/test: `ENVIRONMENT: ACCEPTANCE (test.nxt.example.com) -- Credentials: "NXT Acceptance Login"`
+- Production: `PRODUCTION -- {systeem} -- Actie: {beschrijving}`
+
+### Production Safety Gates
+
+**Systeem MET test environment:** Gebruik altijd de test/acceptance omgeving. Productie alleen na expliciete user request.
+
+**Systeem ZONDER test environment (production-only):**
+
+| Operatie | Gedrag |
+|----------|--------|
+| Read-only tegen productie | Toegestaan. Toon environment banner. |
+| Write tegen productie | Safety gate: volg onderstaand protocol |
+
+**Write-operatie protocol voor production-only systemen:**
+1. Beschrijf de exacte actie in dry-run formaat: "Will click Submit on invoice form #1234"
+2. Maak screenshot van het doelscherm VOOR uitvoering
+3. Toon screenshot + dry-run beschrijving aan gebruiker
+4. Wacht op visuele bevestiging van de gebruiker
+5. Voer de actie uit
+6. Maak screenshot van het resultaat
+7. Sla beide screenshots op in `web/lib/automations/{naam}/screenshots/`
+
+### Screenshots
+
+- Opslaan in `web/lib/automations/{naam}/screenshots/` tijdens development
+- Naamgeving: `{actie}-{before|after}-{timestamp}.png`
+- Later eventueel migreren naar Supabase Storage
+
 ## Supabase REST API
 
 Voor alle database operaties, gebruik directe REST API calls. Dit werkt altijd, ongeacht MCP status.
