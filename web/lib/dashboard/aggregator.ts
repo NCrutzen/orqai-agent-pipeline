@@ -326,7 +326,7 @@ export async function computeDashboardMetrics(
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function parseRoiDefaults(value: unknown): typeof ROI_DEFAULTS {
+function parseRoiDefaults(value: unknown): { minutesPerTask: number; tasksPerMonth: number; hourlyCostEur: number } {
   if (typeof value === "object" && value !== null) {
     let parsed = value as Record<string, unknown>;
     // Handle JSONB double-encoding
