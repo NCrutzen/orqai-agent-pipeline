@@ -344,9 +344,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 44-01-PLAN.md -- DB migration (project model extension + snapshot tables), TypeScript types, ProjectStatusBadge + AutomationTypeTag components, ProjectCard update
-- [ ] 44-02-PLAN.md -- Orq.ai analytics collector (Inngest hourly cron, MCP API, Zod validation, orqai_snapshots)
-- [ ] 44-03-PLAN.md -- Zapier analytics browser scraper (Inngest twice-daily cron, Browserless.io, multi-fallback selectors, validation layer, zapier_snapshots)
+- [x] 44-01-PLAN.md -- DB migration (project model extension + snapshot tables), TypeScript types, ProjectStatusBadge + AutomationTypeTag components, ProjectCard update
+- [x] 44-02-PLAN.md -- Orq.ai analytics collector (Inngest hourly cron, MCP API, Zod validation, orqai_snapshots)
+- [x] 44-03-PLAN.md -- Zapier analytics browser scraper (Inngest twice-daily cron, Browserless.io, multi-fallback selectors, validation layer, zapier_snapshots)
 
 ### Phase 45: Executive Dashboard
 **Goal**: Executives (CEO/CTO/CFO) can open a single dashboard page and see a 360-degree overview of all automation activity, project health, ROI estimates, and trends -- loaded from pre-computed snapshots in under 100ms
@@ -362,9 +362,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 45-01: TBD
-- [ ] 45-02: TBD
-- [ ] 45-03: TBD
+- [ ] 45-01-PLAN.md -- DB migration (dashboard_snapshots + ROI baselines), types, Zod schemas, health score, format utils, aggregator logic, Inngest cron, test stubs
+- [ ] 45-02-PLAN.md -- npm install (recharts, date-fns), shadcn chart/select/table, KPI card components, dashboard page shell, sidebar nav, loading/empty states
+- [ ] 45-03-PLAN.md -- Chart and table components (8 total), wire into page tab content, visual verification checkpoint
 
 ### Phase 46: Status Monitoring & O365 SSO
 **Goal**: Project statuses stay accurate through automated monitoring that auto-applies forward transitions and suggests backward transitions, and users can sign in with their Microsoft 365 work account alongside existing email/password auth
@@ -421,7 +421,7 @@ V6.0: 44 -> 45 -> 46 -> 47
 | 42. Standalone Automations & Triggers | V4.0 | 0/TBD | Not started | - |
 | 43. Upstream Sync | - | 0/3 | Not started | - |
 | 44. Project Model & Data Collection | 3/3 | Complete    | 2026-03-28 | - |
-| 45. Executive Dashboard | V6.0 | 0/TBD | Not started | - |
+| 45. Executive Dashboard | V6.0 | 0/3 | Not started | - |
 | 46. Status Monitoring & O365 SSO | V6.0 | 0/TBD | Not started | - |
 | 47. UI Redesign & Polish | V6.0 | 0/TBD | Not started | - |
 
@@ -435,4 +435,4 @@ V6.0: 44 -> 45 -> 46 -> 47
 | V3.0 | 34-38 (5 phases) | 11/TBD | **In Progress** | - |
 | V4.0 | 39-42 (4 phases) | 0/TBD | **Defined** | - |
 | V5.0 | TBD | 0/TBD | **Defined** | - |
-| V6.0 | 44-47 (4 phases) | 0/TBD | **Defined** | - |
+| V6.0 | 44-47 (4 phases) | 3/TBD | **In Progress** | - |
