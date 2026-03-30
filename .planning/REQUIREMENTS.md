@@ -137,7 +137,7 @@ Requirements for V6.0 Executive Dashboard & UI Revamp. Each maps to roadmap phas
 
 - [x] **EDASH-01**: Management dashboard shows KPI summary cards (total runs, success rate, active automations, time saved)
 - [ ] **EDASH-02**: Dashboard shows automation activity trend charts (runs over time, by source)
-- [ ] **EDASH-03**: Dashboard shows project status breakdown by lifecycle stage (idea/building/testing/live)
+- [x] **EDASH-03**: Dashboard shows project status breakdown by lifecycle stage (idea/building/testing/live)
 - [x] **EDASH-04**: Dashboard shows AI-estimated ROI metrics (estimated hours saved, cost efficiency) clearly badged as estimates
 - [x] **EDASH-05**: Dashboard shows health indicators (error rates, reliability trends across sources)
 - [x] **EDASH-06**: Dashboard loads sub-100ms from pre-computed snapshot tables
@@ -285,7 +285,7 @@ Requirements for V6.0 Executive Dashboard & UI Revamp. Each maps to roadmap phas
 | UIDX-06 | Phase 47 | Pending |
 | EDASH-01 | Phase 45 | Complete |
 | EDASH-02 | Phase 45 | Pending |
-| EDASH-03 | Phase 45 | Pending |
+| EDASH-03 | Phase 45 | Complete |
 | EDASH-04 | Phase 45 | Complete |
 | EDASH-05 | Phase 45 | Complete |
 | EDASH-06 | Phase 45 | Complete |
