@@ -3,6 +3,9 @@ import {
   DashboardMetricsSchema,
   SourceFreshnessSchema,
 } from "@/lib/dashboard/metrics-schema";
+
+// Force dynamic rendering — dashboard data changes frequently
+export const dynamic = "force-dynamic";
 import type { Period } from "@/lib/dashboard/types";
 import { KpiGrid } from "@/components/dashboard/kpi-grid";
 import { PeriodSelector } from "@/components/dashboard/period-selector";
