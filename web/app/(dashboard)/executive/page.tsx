@@ -60,9 +60,6 @@ export default async function ExecutiveDashboardPage({
           There was a problem reading the latest snapshot. This is usually
           temporary -- try refreshing the page.
         </p>
-        <pre className="mt-4 text-xs text-left bg-muted p-3 rounded max-w-lg overflow-auto">
-          {JSON.stringify(error, null, 2)}
-        </pre>
       </div>
     );
   }
@@ -89,24 +86,18 @@ export default async function ExecutiveDashboardPage({
   );
 
   if (!metricsResult.success || !freshnessResult.success) {
-    const zodErrors = {
-      metrics: metricsResult.success ? "OK" : metricsResult.error.issues,
-      freshness: freshnessResult.success ? "OK" : freshnessResult.error.issues,
-    };
     return (
       <div className="p-6 flex flex-col items-center justify-center min-h-[50vh] text-center">
         <div className="rounded-full bg-muted p-4 mb-4">
           <BarChart3 className="size-16 text-muted-foreground" />
         </div>
         <h2 className="text-xl font-semibold mb-2">
-          Dashboard data validation failed
+          Unable to load dashboard data
         </h2>
         <p className="text-sm text-muted-foreground max-w-md">
-          The snapshot data does not match the expected schema.
+          There was a problem reading the latest snapshot. This is usually
+          temporary -- try refreshing the page.
         </p>
-        <pre className="mt-4 text-xs text-left bg-muted p-3 rounded max-w-2xl overflow-auto whitespace-pre-wrap">
-          {JSON.stringify(zodErrors, null, 2)}
-        </pre>
       </div>
     );
   }
