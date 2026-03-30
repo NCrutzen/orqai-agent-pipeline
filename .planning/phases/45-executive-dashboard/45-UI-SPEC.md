@@ -61,10 +61,12 @@ Exceptions: KPI card grid uses `gap-4` (16px) consistently. Tab content areas us
 | Role | Size | Weight | Line Height | Font Family | Usage |
 |------|------|--------|-------------|-------------|-------|
 | Body | 14px (`text-sm`) | 400 (normal) | 1.43 (`leading-snug`) | Geist Sans | Table cells, card descriptions, tooltip content, "Updated X ago" text |
-| Label | 14px (`text-sm`) | 500 (medium) | 1.43 (`leading-snug`) | Geist Sans | KPI card titles, tab labels, table column headers, section headings within tabs |
-| Heading | 24px (`text-2xl`) | 600 (semibold) | 1.33 | Geist Sans | Page title "Executive Dashboard" |
+| Label | 14px (`text-sm`) | 400 (normal) | 1.43 (`leading-snug`) | Geist Sans | KPI card titles, tab labels, table column headers, section headings within tabs |
+| Heading | 24px (`text-2xl`) | 700 (bold) | 1.33 | Geist Sans | Page title "Executive Dashboard" |
 | KPI Value | 30px (`text-3xl`) | 700 (bold) | 1.2 | Geist Mono | KPI card primary values (e.g., "142", "~EUR8,520", "87/100") |
-| Subhead | 16px (`text-base`) | 500 (medium) | 1.5 | Geist Sans | Tab section subheadings (e.g., "Runs Over Time", "Per-Project Health") |
+| Subhead | 16px (`text-base`) | 400 (normal) | 1.5 | Geist Sans | Tab section subheadings (e.g., "Runs Over Time", "Per-Project Health") |
+
+**Weight strategy:** Two weights only -- 400 (normal) and 700 (bold). Visual hierarchy between Body, Label, and Subhead is achieved through font size (14px vs 16px) and spatial context (position, proximity to data), not through intermediate weights. Bold (700) is reserved exclusively for the page heading and KPI card values, which are the primary focal points.
 
 **Key rule:** KPI card values use `font-mono` (Geist Mono) for tabular number alignment. All other text uses the default sans-serif (Geist Sans). No other fonts are permitted in this phase.
 
@@ -147,6 +149,10 @@ Accent reserved for: period selector active item highlight, "View project" link 
 ---
 
 ## Layout Contract
+
+### Primary Visual Anchor
+
+Primary visual anchor: the 6 KPI cards above the fold, arranged in a 3x2 grid. Within each card, the KPI Value (30px Geist Mono bold) is the dominant element -- the largest and heaviest text on the page. The user's eye lands here first, then scans card titles (14px normal) and trend indicators for context. Everything below the fold (tabs, charts, tables) is secondary drill-down content.
 
 ### Page Structure
 
