@@ -60,6 +60,9 @@ export default async function ExecutiveDashboardPage({
           There was a problem reading the latest snapshot. This is usually
           temporary -- try refreshing the page.
         </p>
+        <pre className="mt-4 text-xs text-left bg-muted p-3 rounded max-w-lg overflow-auto">
+          {JSON.stringify(error, null, 2)}
+        </pre>
       </div>
     );
   }
