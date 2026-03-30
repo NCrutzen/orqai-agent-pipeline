@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   DashboardMetricsSchema,
   SourceFreshnessSchema,
@@ -38,7 +38,7 @@ export default async function ExecutiveDashboardPage({
   // Suppress unused variable warning -- period will be used when aggregator supports period filtering
   void period;
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: snapshot, error } = await supabase
     .from("dashboard_snapshots")
