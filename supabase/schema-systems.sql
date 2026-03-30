@@ -12,6 +12,8 @@
 CREATE TABLE systems (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
+  environment TEXT NOT NULL DEFAULT 'production'
+    CHECK (environment IN ('production', 'acceptance', 'test')),
   integration_method TEXT NOT NULL
     CHECK (integration_method IN ('api', 'browser-automation', 'knowledge-base', 'manual')),
   url TEXT,
@@ -58,6 +60,7 @@ CREATE TABLE automation_tasks (
 -- Indexes
 -- =============================================
 CREATE INDEX idx_systems_created_by ON systems(created_by);
+CREATE UNIQUE INDEX idx_systems_name_environment ON systems(name, environment);
 CREATE INDEX idx_system_project_links_project ON system_project_links(project_id);
 CREATE INDEX idx_automation_tasks_run_id ON automation_tasks(run_id);
 

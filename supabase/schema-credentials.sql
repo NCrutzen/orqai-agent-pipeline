@@ -25,6 +25,8 @@ CREATE TABLE auth_profile_types (
 CREATE TABLE credentials (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
+  environment TEXT NOT NULL DEFAULT 'production'
+    CHECK (environment IN ('production', 'acceptance', 'test')),
   auth_type TEXT NOT NULL REFERENCES auth_profile_types(id),
   encrypted_values TEXT NOT NULL,
   key_version INTEGER NOT NULL DEFAULT 1,
@@ -65,6 +67,7 @@ CREATE TABLE health_checks (
 -- Indexes
 -- =============================================
 CREATE INDEX idx_credentials_created_by ON credentials(created_by);
+CREATE INDEX idx_credentials_name_environment ON credentials(name, environment);
 
 -- Partial index: only index credentials needing attention
 CREATE INDEX idx_credentials_status ON credentials(status)
