@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
@@ -19,6 +20,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
+    "exceljs": "^4.4.0",
     "gray-matter": "^4.0.3",
     "inngest": "^3.52.6",
     "lucide-react": "^0.577.0",
