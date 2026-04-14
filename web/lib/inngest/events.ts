@@ -108,10 +108,14 @@ export type Events = {
   };
 
   // Uren controle automation
+  // Supports two file delivery modes — exactly one of contentBase64 or downloadUrl must be set:
+  //   downloadUrl: SharePoint pre-authenticated signed URL (simpler Zapier setup, no base64 step)
+  //   contentBase64: raw base64 string (fallback)
   "automation/uren-controle.triggered": {
     data: {
       filename: string;
-      contentBase64: string;
+      contentBase64?: string;
+      downloadUrl?: string;
       environment: "production" | "acceptance" | "test";
       triggeredBy: string;
       triggeredAt: string;

@@ -15,20 +15,19 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
 
-  if (!body.filename || !body.contentBase64) {
-    return NextResponse.json(
-      { error: "filename and contentBase64 required" },
-      { status: 400 },
-    );
-  }
+  // Accept either a pre-authenticated download URL (simpler for Zapier) or raw base64.
+  // SharePoint trigger in Zapier provides a signed downloadUrl field directly.
+  const hasBase64 =
+    typeof body.contentBase64 === "string" && body.contentBase64.length >= 100;
+  const hasUrl =
+    typeof body.downloadUrl === "string" && body.downloadUrl.startsWith("http");
 
-  // Validate base64 roughly — reject impossibly small payloads
-  if (
-    typeof body.contentBase64 !== "string" ||
-    body.contentBase64.length < 100
-  ) {
+  if (!body.filename || (!hasBase64 && !hasUrl)) {
     return NextResponse.json(
-      { error: "contentBase64 too small to be a valid Excel file" },
+      {
+        error:
+          "filename required + either downloadUrl (SharePoint signed URL) or contentBase64",
+      },
       { status: 400 },
     );
   }
@@ -45,7 +44,9 @@ export async function POST(request: NextRequest) {
     name: "automation/uren-controle.triggered",
     data: {
       filename: body.filename,
-      contentBase64: body.contentBase64,
+      // One of these will be set — Inngest function handles both
+      contentBase64: hasBase64 ? body.contentBase64 : undefined,
+      downloadUrl: hasUrl ? body.downloadUrl : undefined,
       environment,
       triggeredBy: body.triggeredBy ?? "zapier-sharepoint-webhook",
       triggeredAt: body.triggeredAt ?? new Date().toISOString(),

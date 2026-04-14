@@ -33,9 +33,22 @@ export const processUrenControle = inngest.createFunction(
   async ({ event, step }) => {
     const environment = event.data.environment ?? "acceptance";
 
-    // Step 1: Decode base64 and upload to Supabase Storage
+    // Step 1: Fetch/decode file and upload to Supabase Storage
+    // Supports two delivery modes:
+    //   - downloadUrl: SharePoint signed URL (simpler Zapier setup, no base64 encoding step)
+    //   - contentBase64: raw base64 (fallback for other trigger sources)
     const fileRef = await step.run("decode-upload", async () => {
-      const buffer = Buffer.from(event.data.contentBase64, "base64");
+      let buffer: Buffer;
+      if (event.data.downloadUrl) {
+        const res = await fetch(event.data.downloadUrl);
+        if (!res.ok)
+          throw new Error(
+            `File download failed: ${res.status} ${res.statusText}`,
+          );
+        buffer = Buffer.from(await res.arrayBuffer());
+      } else {
+        buffer = Buffer.from(event.data.contentBase64!, "base64");
+      }
       const runId = crypto.randomUUID();
       const storagePath = `uren-controle/${runId}/${event.data.filename}`;
 
