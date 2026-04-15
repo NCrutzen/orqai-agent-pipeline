@@ -420,12 +420,12 @@ Plans:
   3. V7 glassmorphism components (backdrop-blur, semi-transparent panels) render correctly without breaking any existing V6 pages
   4. User can sign in with "Sign in with Microsoft" button and existing email/password accounts link automatically to M365 identity
   5. User without project_members association sees "access pending" page after SSO login (not a blank screen or error)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 48-01: TBD
-- [ ] 48-02: TBD
-- [ ] 48-03: TBD
+- [ ] 48-01-PLAN.md — V7 design system (fonts, theme toggle, tokens, GlassCard)
+- [ ] 48-02-PLAN.md — Database migrations (agent_events, swarm_jobs, swarm_agents, swarm_briefings)
+- [ ] 48-03-PLAN.md — Azure AD OAuth SSO with access-pending gate
 
 ### Phase 49: Navigation & Realtime
 **Goal**: Users can browse swarms via a sidebar and each swarm view shares a single Realtime connection that all child components consume
