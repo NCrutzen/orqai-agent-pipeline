@@ -112,7 +112,7 @@ URL:  https://mvqjhlxfvtqqubqgdvhz.supabase.co
 Key:  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U
 ```
 
-Dit is de publieke (anon) key met beperkte rechten: kan alleen INSERT en SELECT op `learnings` en `automation_projects`. Veilig om te gebruiken.
+Dit is de publieke (anon) key met beperkte rechten: kan alleen INSERT en SELECT op `learnings`. Veilig om te gebruiken.
 
 **Lezen:**
 ```bash
@@ -198,24 +198,34 @@ Wanneer de gebruiker je corrigeert:
 
 ## Project Tracking
 
+**Eén tabel voor alle projecten: `projects`.** De oude `automation_projects` tabel is DEPRECATED — gebruik die niet meer.
+
 Wanneer een gebruiker vraagt om iets te automatiseren of een nieuw project start, **vraag altijd:** "Zal ik dit als nieuw project registreren?"
 
-Bij akkoord:
+Bij akkoord, gebruik de **service role key** (anon key heeft geen INSERT rechten op `projects`):
 ```bash
-curl -X POST "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/automation_projects" \
-  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
+curl -X POST "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/projects" \
+  -H "apikey: {SUPABASE_SERVICE_ROLE_KEY uit web/.env.local}" \
+  -H "Authorization: Bearer {SUPABASE_SERVICE_ROLE_KEY uit web/.env.local}" \
   -H "Content-Type: application/json" \
   -H "Prefer: return=representation" \
   -d '{
     "name": "{project naam}",
-    "type": "zapier|hybrid|standalone|agent",
+    "automation_type": "zapier-only|hybrid|standalone-app|orqai-agent|unknown",
     "status": "idea",
     "description": "{korte beschrijving}",
     "systems": ["{systeem1}", "{systeem2}"],
-    "created_by": "{naam}"
+    "created_by": "{user UUID}"
   }'
 ```
+
+**Kolommen:**
+- `name`, `description`, `status` — basis info
+- `automation_type` — zapier, hybrid, standalone, agent
+- `systems` — text[] met betrokken systemen
+- `github_url` — link naar GitHub repo (optioneel)
+- `executive_summary` — korte samenvatting voor directie (optioneel)
+- `manual_minutes_per_task`, `task_frequency_per_month`, `hourly_cost_eur` — ROI berekening
 
 Status waarden: `idea` → `building` → `testing` → `live`
 
