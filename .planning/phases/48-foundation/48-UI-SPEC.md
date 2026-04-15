@@ -32,47 +32,39 @@ created: 2026-04-15
 
 ## Spacing Scale
 
-Declared values (multiples of 4). Extracted from HTML design prototype paddings and gaps.
+Declared values — all multiples of 4. Extracted from HTML design prototype paddings and gaps, snapped to nearest multiple of 4.
 
 | Token | Value | Usage |
 |-------|-------|-------|
 | xs | 4px | Inline icon gaps, margin between label and value |
 | sm | 8px | Nav group gaps, skill pill gaps, tag row gaps, compact spacing |
-| md | 10px | Kanban column gap, job list gap, agent metric gap |
+| md | 12px | Kanban column gap, job list gap, agent metric gap |
 | base | 12px | KPI grid gap, timeline gap, drawer timeline gap |
-| lg | 14px | Agent card padding, KPI inner padding, nav button padding, workbench gap |
+| lg | 16px | Agent card padding, KPI inner padding, nav button padding, workbench gap |
 | xl | 16px | Drawer body gap, theme toggle padding, mini-card padding |
-| 2xl | 18px | Sidebar padding, main gap, briefing gap, brand bottom padding |
+| 2xl | 20px | Sidebar padding, main gap, briefing gap, brand bottom padding |
 | 3xl | 20px | Main area padding, panel padding, graph card gap |
-| 4xl | 22px | Sidebar padding (vertical) |
+| 4xl | 24px | Sidebar padding (vertical) |
 
-Exceptions: `44px` minimum touch target for interactive controls (nav buttons at `padding: 14px 14px`, inputs at `height: 46px`). `46px` brand mark size.
+Exceptions: `44px` minimum touch target for interactive controls (nav buttons at `padding: 16px`, inputs at `height: 48px`). `48px` brand mark size.
 
 ---
 
 ## Typography
 
-All fonts from HTML prototype. Satoshi for body, Cabinet Grotesk for headings/display.
+All fonts from HTML prototype. Satoshi for body/UI text, Cabinet Grotesk for headings/display. Scale collapsed to 4 sizes, weights to 2.
 
 | Role | Font Family | Size | Weight | Line Height | Letter Spacing |
 |------|-------------|------|--------|-------------|----------------|
 | Body | Satoshi | 16px (1rem) | 400 | 1.5 | normal |
-| Body small | Satoshi | 14px (0.88rem) | 400 | 1.45 | normal |
-| Label / caption | Satoshi | 12px (0.75-0.76rem) | 400 | 1.3 | 0.1-0.14em, uppercase |
-| Nav button | Satoshi | 16px (1rem) | 500 | 1.4 | normal |
-| Badge / tag | Satoshi | 12px (0.74-0.76rem) | 400 | 1.2 | normal |
-| Skill pill | Satoshi | 12px (0.76rem) | 400 | 1.2 | normal |
-| KPI number | Cabinet Grotesk | 26px (1.65rem) | 700 | 1.1 | normal |
-| Section heading | Cabinet Grotesk | 21px (1.3rem) | 700 | 1.2 | normal |
-| Panel title | Cabinet Grotesk | 19px (1.2rem) | 700 | 1.2 | normal |
-| Briefing title | Cabinet Grotesk | 29px (1.8rem) | 700 | 1.05 | normal |
-| Page heading | Cabinet Grotesk | 32px (2rem) | 700 | 1.1 | -0.03em |
-| Drawer title | Cabinet Grotesk | 26px (1.6rem) | 700 | 1.1 | normal |
-| Terminal log | ui-monospace, SFMono-Regular, Menlo, Consolas, monospace | 13px (0.84rem) | 400 | 1.45 | normal |
-| Terminal badge | monospace | 12px (0.72rem) | 400 | 1.2 | normal |
-| Delta / metric label | Satoshi | 12px (0.78rem) | 400 | 1.2 | normal |
+| Body small / label / caption / badge / tag / metric | Satoshi | 12px (0.75rem) | 400 | 1.3 | 0.1em uppercase for labels; normal for tags/badges |
+| Display heading | Cabinet Grotesk | 32px (2rem) | 700 | 1.1 | -0.03em |
+| Section heading / KPI number | Cabinet Grotesk | 20px (1.25rem) | 700 | 1.2 | normal |
+| Terminal log | ui-monospace, SFMono-Regular, Menlo, Consolas, monospace | 12px (0.75rem) | 400 | 1.45 | normal |
 
-Font weight summary: Use exactly 400 (regular) and 500 (medium) for Satoshi, 700 (bold) for Cabinet Grotesk. No other weights in Phase 48.
+Type scale summary: 4 sizes (32px, 20px, 16px, 12px). Font weights: 400 (regular) and 700 (bold) only — weight 500 is not used in Phase 48.
+
+Note: The swimlane bar text and terminal badge use 12px weight 700 (bold) within the existing 2-weight system — this is valid as 700 is already declared.
 
 ---
 
@@ -208,14 +200,14 @@ Extracted from HTML prototype grid structure.
 | Shell grid | `grid-template-columns: 286px 1fr` |
 | Shell height | `100vh`, `overflow: hidden` |
 | Main grid | `grid-template-rows: auto auto auto 1fr` |
-| Main gap | `18px` |
+| Main gap | `20px` |
 | Main padding | `20px` |
-| Sidebar padding | `22px` |
-| Sidebar gap | `18px` |
+| Sidebar padding | `24px` |
+| Sidebar gap | `20px` |
 | Briefing grid | `grid-template-columns: 1.4fr 0.8fr` |
-| Fleet cards grid | `grid-template-columns: repeat(4, 1fr)`, gap `14px` |
+| Fleet cards grid | `grid-template-columns: repeat(4, 1fr)`, gap `16px` |
 | KPI grid | `grid-template-columns: repeat(4, 1fr)`, gap `12px` |
-| Workbench grid | `grid-template-columns: 1.2fr 0.8fr`, gap `18px` |
+| Workbench grid | `grid-template-columns: 1.2fr 0.8fr`, gap `20px` |
 | Kanban grid | `grid-template-columns: repeat(5, 1fr)`, gap `12px` |
 
 ### Responsive Breakpoints
@@ -303,7 +295,7 @@ Relevant to Phase 48 for establishing design tokens. Actual terminal component i
 | Waiting | `linear-gradient(90deg, var(--v7-amber), #ffd89a)` | same pattern with light amber values |
 | Done | `linear-gradient(90deg, var(--v7-teal), #b7f6f7)` | same pattern with light teal values |
 
-Bar properties: `height: 18px`, `border-radius: 999px`, `font-size: 0.72rem`, `font-weight: 700`, `color: #081018`, `box-shadow: 0 6px 16px rgba(0,0,0,0.18)`.
+Bar properties: `height: 18px`, `border-radius: 999px`, `font-size: 0.75rem` (12px), `font-weight: 700`, `color: #081018`, `box-shadow: 0 6px 16px rgba(0,0,0,0.18)`.
 
 ---
 
