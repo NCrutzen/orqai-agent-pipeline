@@ -2,7 +2,7 @@
 
 ## Overview
 
-Browser-based interface for creating, deploying, testing, and iterating AI agent swarms on Orq.ai. Non-technical colleagues describe a use case and watch agents get designed, deployed, and tested -- with a real-time dashboard, node graph visualization, and HITL approval workflows. V4.0 adds a browser automation builder so that agents can interact with no-API systems (NXT, iController, Intelly) -- users upload SOPs and screenshots, AI generates and tests Playwright scripts on Browserless.io, and verified scripts deploy as MCP tools attached to agents. V6.0 adds an executive-facing management dashboard with 360-degree data integration (Agent Workforce + Zapier + Orq.ai), full UI redesign for CEO/CTO/CFO audience, and O365 SSO. CLI skills for technical users are available separately in the orqai-agent-pipeline repo.
+Browser-based interface for creating, deploying, testing, and iterating AI agent swarms on Orq.ai. Non-technical colleagues describe a use case and watch agents get designed, deployed, and tested -- with a real-time dashboard, node graph visualization, and HITL approval workflows. V4.0 adds a browser automation builder so that agents can interact with no-API systems (NXT, iController, Intelly) -- users upload SOPs and screenshots, AI generates and tests Playwright scripts on Browserless.io, and verified scripts deploy as MCP tools attached to agents. V6.0 adds an executive-facing management dashboard with 360-degree data integration (Agent Workforce + Zapier + Orq.ai), full UI redesign for CEO/CTO/CFO audience, and O365 SSO. V7.0 transforms the app into a cinematic swarm operating system with real-time delegation graphs, AI briefings, Kanban job tracking, and a new glassmorphism design system. CLI skills for technical users are available separately in the orqai-agent-pipeline repo.
 
 ## Milestones
 
@@ -14,7 +14,8 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 | **V3.0** | Web UI & Dashboard -- browser-based pipeline with authentication, real-time visibility, node graph, HITL approvals | **In Progress** |
 | **V4.0** | Browser Automation Builder -- SOP + screenshots to MCP tools for no-API systems via Browserless.io | **Defined** |
 | **V5.0** | Cross-Swarm Intelligence -- ecosystem mapping, drift detection, overlap analysis, and fix proposals | **Defined** |
-| **V6.0** | Executive Dashboard & UI Revamp -- 360-degree management dashboard, UI redesign, O365 SSO | **Defined** |
+| **V6.0** | Executive Dashboard & UI Revamp -- 360-degree management dashboard, UI redesign, O365 SSO | **Partially Complete** |
+| **V7.0** | Agent OS -- cinematic swarm operating view with new design system, real-time data, AI briefings, delegation graphs | **In Progress** |
 
 ---
 
@@ -140,10 +141,22 @@ Plans:
 
 **Milestone Goal:** Transform the Agent Workforce app into an executive-worthy platform with a 360-degree management dashboard showing ROI, activity, and health metrics across all automation types -- pulling data from Agent Workforce, Zapier (browser scraper), and Orq.ai analytics (API). Full UI redesign for CEO/CTO/CFO audience. O365 SSO for Microsoft 365 login.
 
-- [ ] **Phase 44: Project Model & Data Collection** - Extended project model (status lifecycle, automation type), Zapier browser scraper, Orq.ai analytics collector, snapshot tables, status badges on project cards
-- [ ] **Phase 45: Executive Dashboard** - KPI summary cards, activity trend charts, project status breakdown, ROI estimates, health indicators, dashboard aggregator, sub-100ms from pre-computed snapshots
+- [x] **Phase 44: Project Model & Data Collection** - Extended project model (status lifecycle, automation type), Zapier browser scraper, Orq.ai analytics collector, snapshot tables, status badges on project cards (completed 2026-03-28)
+- [x] **Phase 45: Executive Dashboard** - KPI summary cards, activity trend charts, project status breakdown, ROI estimates, health indicators, dashboard aggregator, sub-100ms from pre-computed snapshots (completed 2026-03-30)
 - [ ] **Phase 46: Status Monitoring & O365 SSO** - Automated forward status transitions, suggest-only backward transitions, status history audit trail, Azure AD OAuth login alongside email/password
 - [ ] **Phase 47: UI Redesign & Polish** - Brand colors and typography from moyneroberts.com, consistent design system, sidebar polish, grid layout, dark mode toggle, responsive tablet/desktop
+
+### V7.0 Agent OS (Phases 48-54)
+
+**Milestone Goal:** Transform the Agent Workforce app into a cinematic swarm operating system where management sees every swarm, agent, and job in action -- powered by a new glassmorphism design system, Supabase Realtime data pipeline, AI narrative briefings, live delegation graphs, and Kanban job tracking. O365 SSO for frictionless executive access.
+
+- [ ] **Phase 48: Foundation** - Design system (Satoshi + Cabinet Grotesk, glassmorphism tokens, dark/light toggle), new Supabase tables (agent_events, swarm_jobs, swarm_agents), Azure AD OAuth SSO with account linking
+- [ ] **Phase 49: Navigation & Realtime** - Sidebar with dynamic swarm list, /swarm/[swarmId] routing, single Realtime subscription per swarm view, useRealtimeTable hook
+- [ ] **Phase 50: Data Pipeline** - Inngest orqai-trace-sync cron, Orq.ai trace-to-agent_events mapping, Supabase caching layer, rate limit handling
+- [ ] **Phase 51: Hero Components** - Subagent fleet cards with state badges and metrics, AI narrative briefing panel with Orq.ai Briefing Agent, agent detail drawer with communication timeline
+- [ ] **Phase 52: Live Interactivity** - Claude-style terminal event stream with ring buffer, 5-column Kanban board with dnd-kit drag-and-drop, smart sidebar filters
+- [ ] **Phase 53: Advanced Observability** - Live delegation graph with CSS-animated particles, Gantt-style swimlane timeline per agent
+- [ ] **Phase 54: Polish** - Migrate executive dashboard, projects page, and settings page to V7 design tokens
 
 <details>
 <summary>V5.0 Cross-Swarm Intelligence -- DEFINED</summary>
@@ -230,7 +243,7 @@ Plans:
 - [ ] 37-03-PLAN.md -- Email notifications (Resend), audit trail UI (ApprovalHistory), graph node waiting state, end-to-end verification
 
 ### Phase 37.1: Conversational Pipeline
-**Goal**: The pipeline is a streaming conversation — an AI narrator asks clarifying questions, explains what it's designing, shows results, and gets user feedback at key decision points, mirroring the CLI skill experience
+**Goal**: The pipeline is a streaming conversation -- an AI narrator asks clarifying questions, explains what it's designing, shows results, and gets user feedback at key decision points, mirroring the CLI skill experience
 **Depends on**: Phase 37 (uses HITL approval infrastructure, terminal panel, broadcast)
 **Requirements**: UAT-DIALOGUE, UAT-DISCUSSION, UAT-STREAMING
 **Success Criteria** (what must be TRUE):
@@ -397,33 +410,147 @@ Plans:
 - [ ] 47-01: TBD
 - [ ] 47-02: TBD
 
+### Phase 48: Foundation
+**Goal**: The new design system, database schema, and Azure AD SSO are in place so all V7 visual and data-driven features can build on a stable foundation
+**Depends on**: Phase 45 (V6.0 executive dashboard complete; V7 extends it)
+**Requirements**: DS-01, DS-02, DS-03, DS-04, AUTH-01, AUTH-02, AUTH-03, RT-02, RT-03, RT-04
+**Success Criteria** (what must be TRUE):
+  1. App renders with Satoshi Variable (body) and Cabinet Grotesk Variable (headings) fonts with no CLS flash on load
+  2. User can toggle between dark and light theme and their preference persists across sessions with no flash of unstyled content
+  3. V7 glassmorphism components (backdrop-blur, semi-transparent panels) render correctly without breaking any existing V6 pages
+  4. User can sign in with "Sign in with Microsoft" button and existing email/password accounts link automatically to M365 identity
+  5. User without project_members association sees "access pending" page after SSO login (not a blank screen or error)
+**Plans**: TBD
+
+Plans:
+- [ ] 48-01: TBD
+- [ ] 48-02: TBD
+- [ ] 48-03: TBD
+
+### Phase 49: Navigation & Realtime
+**Goal**: Users can browse swarms via a sidebar and each swarm view shares a single Realtime connection that all child components consume
+**Depends on**: Phase 48
+**Requirements**: NAV-01, NAV-02, NAV-03, RT-01
+**Success Criteria** (what must be TRUE):
+  1. Sidebar displays swarm list dynamically loaded from the projects table with live mini-stats (active jobs, agent count)
+  2. User can click a swarm in the sidebar to navigate to /swarm/[swarmId] and see the swarm-specific view
+  3. A single Supabase Realtime subscription per swarm view distributes events to all child components (no per-component subscriptions)
+  4. Navigating between swarms cleanly tears down the previous subscription and creates a new one (no stale data, no channel leaks)
+**Plans**: TBD
+
+Plans:
+- [ ] 49-01: TBD
+- [ ] 49-02: TBD
+
+### Phase 50: Data Pipeline
+**Goal**: Orq.ai trace and span data flows into Supabase automatically so all live UI components have real agent execution events to display
+**Depends on**: Phase 49 (Realtime subscription infrastructure must exist)
+**Requirements**: DATA-01, DATA-02, DATA-03
+**Success Criteria** (what must be TRUE):
+  1. Inngest orqai-trace-sync cron function polls Orq.ai for trace/span data and writes structured events to the agent_events table
+  2. New agent_events rows propagate to connected UI clients via Supabase Realtime postgres_changes within seconds
+  3. Orq.ai API rate limits are respected through server-side caching -- no client ever calls Orq.ai directly
+**Plans**: TBD
+
+Plans:
+- [ ] 50-01: TBD
+- [ ] 50-02: TBD
+
+### Phase 51: Hero Components
+**Goal**: Management sees at a glance what each agent is doing (fleet cards), gets a plain-English health narrative (briefing), and can drill into any agent for details (drawer)
+**Depends on**: Phase 49 (uses swarm routing and Realtime infrastructure); Phase 50 for drawer communication timeline
+**Requirements**: FLEET-01, FLEET-02, FLEET-03, FLEET-04, BRIEF-01, BRIEF-02, BRIEF-03, DRAW-01, DRAW-02, DRAW-03, DRAW-04
+**Success Criteria** (what must be TRUE):
+  1. Subagent fleet section shows a card per agent with name, role, state badge, color indicator, 3 metrics (active jobs, queue depth, error count), and skill pill tags
+  2. AI briefing panel displays a plain-English swarm health narrative with KPI grid (active jobs, human review, blocked, done today)
+  3. Briefing refreshes automatically every 30 minutes and on-demand via a UI button
+  4. User can click a fleet card to open a slide-out drawer showing agent name, role, active count, average cycle time, behavior description, recent communication timeline (last 5 events), and workflow stage tags
+**Plans**: TBD
+
+Plans:
+- [ ] 51-01: TBD
+- [ ] 51-02: TBD
+- [ ] 51-03: TBD
+
+### Phase 52: Live Interactivity
+**Goal**: Users have a live scrolling event stream for real-time monitoring and a Kanban board for tracking where jobs stand in the business process, with smart filters to surface exceptions
+**Depends on**: Phase 50 (terminal needs agent_events data flowing); Phase 49 (Kanban uses Realtime for multi-user sync)
+**Requirements**: OBS-03, OBS-04, OBS-05, KAN-01, KAN-02, KAN-03, KAN-04, NAV-04
+**Success Criteria** (what must be TRUE):
+  1. Claude-style terminal displays scrolling event stream with timestamp, event type badge, and payload text -- receiving events via Supabase Realtime in real-time
+  2. Terminal uses a ring buffer (max 500 events) with virtualized rendering and never causes memory leaks on always-on monitoring screens
+  3. 5-column Kanban board displays jobs across business stages (backlog, ready, in progress, human review, done) with title, description, and colored tag pills
+  4. User can drag and drop jobs between Kanban columns with keyboard accessibility, and moves persist to swarm_jobs with optimistic UI and snapshot rollback on failure
+  5. Smart filter buttons in the sidebar filter the swarm view to show only blocked, needs review, or high SLA risk items
+**Plans**: TBD
+
+Plans:
+- [ ] 52-01: TBD
+- [ ] 52-02: TBD
+- [ ] 52-03: TBD
+
+### Phase 53: Advanced Observability
+**Goal**: Users can see real-time agent-to-agent delegation as an animated graph and parallel agent activity as a Gantt-style timeline -- the primary differentiators from competing agent platforms
+**Depends on**: Phase 50 (needs proven agent_events data with parent_span_id relationships)
+**Requirements**: GRAPH-01, GRAPH-02, GRAPH-03, GRAPH-04, OBS-01, OBS-02
+**Success Criteria** (what must be TRUE):
+  1. Live delegation graph shows orchestrator and sub-agent nodes with animated connection paths that update in real-time as delegation events arrive
+  2. Animated particles travel along graph paths using CSS offset-path (not React state) for 60fps performance
+  3. Graph layout is auto-computed from agent hierarchy (parent_span_id relationships) -- no manual positioning needed
+  4. Gantt-style swimlane timeline shows parallel agent activity with colored bars (thinking, tool_call, waiting, done) time-bucketed from agent_events spans per agent
+**Plans**: TBD
+
+Plans:
+- [ ] 53-01: TBD
+- [ ] 53-02: TBD
+
+### Phase 54: Polish
+**Goal**: All existing pages share the V7 visual identity so the app feels cohesive from end to end
+**Depends on**: Phase 53 (all new features complete before full-surface migration)
+**Requirements**: POL-01, POL-02, POL-03
+**Success Criteria** (what must be TRUE):
+  1. Executive dashboard page renders with V7 design tokens (Satoshi/Cabinet Grotesk fonts, glassmorphism panels, V7 color palette)
+  2. Projects page renders with V7 design tokens and all project cards use the new visual style
+  3. Settings page renders with V7 design tokens with no visual inconsistencies against V7 pages
+**Plans**: TBD
+
+Plans:
+- [ ] 54-01: TBD
+- [ ] 54-02: TBD
+
 ## Progress
 
 **Execution Order:**
-V3.0: 34 -> 35 -> 36 -> 37 -> 38
+V3.0: 34 -> 35 -> 36 -> 37 -> 37.1 -> 38 -> 38.1
 V4.0: 39 -> 40 -> 41 -> 42
 V6.0: 44 -> 45 -> 46 -> 47
-(Phase 38 depends on Phase 35, not 37 -- can execute in parallel with 36/37 if needed)
-(Phase 39 depends on Phase 35 infrastructure, not V3.0 completion -- but V3.0 should ship first)
-(Phase 44 depends on Phase 35 + Browserless.io patterns from Phase 39)
+V7.0: 48 -> 49 -> 50 -> 51 -> 52 -> 53 -> 54
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 34. Foundation & Auth | V3.0 | 3/3 | Complete | 2026-03-20 |
 | 35. Pipeline Engine | V3.0 | 4/4 | Complete | 2026-03-22 |
 | 36. Dashboard & Graph | V3.0 | 4/4 | Complete | 2026-03-23 |
-| 37. HITL Approval | 4/4 | Complete    | 2026-03-23 | - |
-| 37.1 Conversational Pipeline | 3/4 | In Progress|  | - |
+| 37. HITL Approval | V3.0 | 4/4 | Complete | 2026-03-23 |
+| 37.1 Conversational Pipeline | V3.0 | 3/4 | In Progress | - |
 | 38. Swarm Activation | V3.0 | 0/TBD | Not started | - |
-| 39. Infrastructure & Credential Foundation | 3/3 | Complete    | 2026-03-23 | - |
-| 40. Detection, SOP Upload & Vision Analysis | 5/5 | Complete    | 2026-03-23 | - |
+| 38.1 Full Pipeline Lifecycle | V3.0 | 0/TBD | Not started | - |
+| 39. Infrastructure & Credential Foundation | V4.0 | 3/3 | Complete | 2026-03-23 |
+| 40. Detection, SOP Upload & Vision Analysis | V4.0 | 5/5 | Complete | 2026-03-23 |
 | 41. Script Generation, Testing & MCP Deployment | V4.0 | 0/TBD | Not started | - |
 | 42. Standalone Automations & Triggers | V4.0 | 0/TBD | Not started | - |
 | 43. Upstream Sync | - | 0/3 | Not started | - |
-| 44. Project Model & Data Collection | 3/3 | Complete    | 2026-03-28 | - |
-| 45. Executive Dashboard | 3/3 | Complete    | 2026-03-30 | - |
+| 44. Project Model & Data Collection | V6.0 | 3/3 | Complete | 2026-03-28 |
+| 45. Executive Dashboard | V6.0 | 3/3 | Complete | 2026-03-30 |
 | 46. Status Monitoring & O365 SSO | V6.0 | 0/TBD | Not started | - |
 | 47. UI Redesign & Polish | V6.0 | 0/TBD | Not started | - |
+| 48. Foundation | V7.0 | 0/TBD | Not started | - |
+| 49. Navigation & Realtime | V7.0 | 0/TBD | Not started | - |
+| 50. Data Pipeline | V7.0 | 0/TBD | Not started | - |
+| 51. Hero Components | V7.0 | 0/TBD | Not started | - |
+| 52. Live Interactivity | V7.0 | 0/TBD | Not started | - |
+| 53. Advanced Observability | V7.0 | 0/TBD | Not started | - |
+| 54. Polish | V7.0 | 0/TBD | Not started | - |
 
 ## Progress Summary
 
@@ -432,7 +559,8 @@ V6.0: 44 -> 45 -> 46 -> 47
 | v0.3 | 1-05.2 (11 phases) | 28/28 | **Shipped** | 2026-03-01 |
 | V2.0 | 6-11 (7 phases) | 11/11 | **Shipped** | 2026-03-02 |
 | V2.1 | 26-33 (8 phases) | 9/9 | **Shipped** | 2026-03-13 |
-| V3.0 | 34-38 (5 phases) | 11/TBD | **In Progress** | - |
-| V4.0 | 39-42 (4 phases) | 0/TBD | **Defined** | - |
+| V3.0 | 34-38.1 (7 phases) | 14/TBD | **In Progress** | - |
+| V4.0 | 39-42 (4 phases) | 8/TBD | **Partially Complete** | - |
 | V5.0 | TBD | 0/TBD | **Defined** | - |
-| V6.0 | 44-47 (4 phases) | 3/TBD | **In Progress** | - |
+| V6.0 | 44-47 (4 phases) | 6/TBD | **Partially Complete** | - |
+| V7.0 | 48-54 (7 phases) | 0/TBD | **Not started** | - |

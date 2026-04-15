@@ -120,13 +120,57 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| — | — | Pending |
+| AUTH-01 | Phase 48 | Pending |
+| AUTH-02 | Phase 48 | Pending |
+| AUTH-03 | Phase 48 | Pending |
+| DS-01 | Phase 48 | Pending |
+| DS-02 | Phase 48 | Pending |
+| DS-03 | Phase 48 | Pending |
+| DS-04 | Phase 48 | Pending |
+| RT-02 | Phase 48 | Pending |
+| RT-03 | Phase 48 | Pending |
+| RT-04 | Phase 48 | Pending |
+| NAV-01 | Phase 49 | Pending |
+| NAV-02 | Phase 49 | Pending |
+| NAV-03 | Phase 49 | Pending |
+| RT-01 | Phase 49 | Pending |
+| DATA-01 | Phase 50 | Pending |
+| DATA-02 | Phase 50 | Pending |
+| DATA-03 | Phase 50 | Pending |
+| FLEET-01 | Phase 51 | Pending |
+| FLEET-02 | Phase 51 | Pending |
+| FLEET-03 | Phase 51 | Pending |
+| FLEET-04 | Phase 51 | Pending |
+| BRIEF-01 | Phase 51 | Pending |
+| BRIEF-02 | Phase 51 | Pending |
+| BRIEF-03 | Phase 51 | Pending |
+| DRAW-01 | Phase 51 | Pending |
+| DRAW-02 | Phase 51 | Pending |
+| DRAW-03 | Phase 51 | Pending |
+| DRAW-04 | Phase 51 | Pending |
+| OBS-03 | Phase 52 | Pending |
+| OBS-04 | Phase 52 | Pending |
+| OBS-05 | Phase 52 | Pending |
+| KAN-01 | Phase 52 | Pending |
+| KAN-02 | Phase 52 | Pending |
+| KAN-03 | Phase 52 | Pending |
+| KAN-04 | Phase 52 | Pending |
+| NAV-04 | Phase 52 | Pending |
+| GRAPH-01 | Phase 53 | Pending |
+| GRAPH-02 | Phase 53 | Pending |
+| GRAPH-03 | Phase 53 | Pending |
+| GRAPH-04 | Phase 53 | Pending |
+| OBS-01 | Phase 53 | Pending |
+| OBS-02 | Phase 53 | Pending |
+| POL-01 | Phase 54 | Pending |
+| POL-02 | Phase 54 | Pending |
+| POL-03 | Phase 54 | Pending |
 
 **Coverage:**
-- V7.0 requirements: 40 total
-- Mapped to phases: 0 (pending roadmap creation)
-- Unmapped: 40
+- V7.0 requirements: 45 total (12 categories)
+- Mapped to phases: 45/45
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-15*
-*Last updated: 2026-04-15 after initial definition*
+*Last updated: 2026-04-15 after roadmap creation*
