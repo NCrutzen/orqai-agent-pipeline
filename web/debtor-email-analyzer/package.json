@@ -1,0 +1,23 @@
+{
+  "name": "debtor-email-analyzer",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Fetch and analyze debtor emails from shared mailboxes via Zapier SDK + Supabase",
+  "scripts": {
+    "fetch": "npx tsx src/fetch-emails.ts",
+    "setup-db": "npx tsx src/setup-db.ts",
+    "stats": "npx tsx src/stats.ts"
+  },
+  "dependencies": {
+    "@orq-ai/node": "^4.7.6",
+    "@supabase/supabase-js": "^2.49.0",
+    "@zapier/zapier-sdk": "latest",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@zapier/zapier-sdk-cli": "latest",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
