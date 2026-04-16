@@ -207,3 +207,29 @@
     @apply font-sans;
   }
 }
+
+/* V7 animations (Phase 51) */
+@keyframes v7-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.85); }
+}
+
+@keyframes v7-pulse-eyebrow {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+/* Drawer (Phase 51) — V7-themed override for shadcn Sheet content */
+.v7-drawer-content {
+  background: var(--v7-glass-bg) !important;
+  border: 1px solid var(--v7-glass-border) !important;
+  box-shadow: var(--v7-glass-shadow-heavy) !important;
+  border-radius: var(--v7-radius-lg) !important;
+  backdrop-filter: blur(var(--v7-glass-blur));
+  margin: 16px;
+  height: calc(100vh - 32px) !important;
+  width: min(540px, calc(100vw - 32px)) !important;
+  max-width: none !important;
+  padding: 18px;
+  inset-block: 16px !important;
+}
