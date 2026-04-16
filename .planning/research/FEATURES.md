@@ -1,400 +1,221 @@
-# Feature Landscape: V6.0 Executive Dashboard & UI Revamp
+# Feature Landscape: V7.0 Agent OS
 
-**Domain:** Executive automation management dashboard with 360-degree data integration, project lifecycle tracking, visual redesign, and O365 SSO
-**Researched:** 2026-03-26
-**Confidence:** MEDIUM-HIGH -- Feature requirements from PROJECT.md. ROI calculation patterns verified against UiPath Insights and Automation Anywhere. Dashboard design patterns verified against 2026 SaaS research. Supabase Azure OAuth verified via official docs. Orq.ai analytics API availability LOW confidence (programmatic access not confirmed). Zapier analytics scraper approach MEDIUM confidence (no API, scraper required).
+**Domain:** Cinematic AI agent swarm operating dashboard with real-time observability
+**Researched:** 2026-04-15
+**Confidence:** MEDIUM-HIGH -- UI patterns verified against LangSmith, Langfuse, Datadog LLM Observability, and AG-UI protocol. Existing codebase analyzed for dependencies. Orq.ai trace data availability MEDIUM confidence (OTEL endpoint exists but ingestion pipeline not yet built).
 
 ---
 
 ## Context: What This Research Covers
 
-This research answers: **what features does V6.0 need so that Moyne Roberts executives (CEO, CTO, CFO) can see ROI, activity, and health metrics across all automation types through a polished, professional dashboard?**
+This research answers: **what features does V7.0 need to transform the existing dashboard into a cinematic swarm operating view where management sees every swarm, agent, and job in action?**
 
-The app currently serves pipeline builders (non-technical colleagues creating agent swarms). V6.0 adds a second audience: executives who want to understand the business impact of automations. They do not create agents -- they monitor value creation.
+V6.0 shipped an executive dashboard (KPI cards, trend charts, project health table, ROI analysis) and an extended project model. V7.0 builds ON TOP of that foundation -- same app, new views, new design system.
 
 Key constraints:
-- 5-15 users total (3-5 executives, rest are pipeline users)
-- Existing email/password auth + need O365 SSO for Microsoft 365 login
-- Three data sources: Agent Workforce DB (direct), Zapier dashboard (browser scraper), Orq.ai analytics (API or scraper)
-- Zapier has NO analytics API -- browser automation scraper required
-- Orq.ai analytics API availability uncertain -- verify before committing to approach
-- Must not disrupt existing pipeline, conversational chat, HITL approval, credential vault, or systems registry functionality
+- 5-15 users (management + pipeline builders)
+- Existing stack: Next.js 16, React 19, shadcn v4, Tailwind CSS v4, Supabase (with Broadcast already wired), Recharts v3, React Flow v12 (`@xyflow/react`), dagre
+- Supabase Broadcast infrastructure already works (`useBroadcast` hook, `broadcastStepUpdate`, `run:{runId}` and `runs:live` channels)
+- Orq.ai is the source of truth for agent configs, traces, and metrics
+- HTML prototype exists at `docs/designs/agent-dashboard-v2.html` defining the target look
 
 ---
 
 ## Table Stakes
 
-Features users expect. Missing = product feels incomplete for a management dashboard.
+Features users expect from a real-time agent monitoring UI. Missing = product feels incomplete or toy-like.
 
-| Feature | Why Expected | Complexity | Depends On | Notes |
-|---------|--------------|------------|------------|-------|
-| **Project status lifecycle** (idea/building/testing/live/paused) | Every project management tool has status tracking. Without it, the dashboard has nothing to aggregate. | Low | Extended `projects` table | Add `status` column + `automation_type` enum. Simple DB migration. Foundation for everything else. |
-| **KPI summary cards with real data** | The existing dashboard has placeholder cards showing "0" and "--" for Runs This Week, Success Rate, Pending Approvals. Users expect real numbers. | Low | Existing `pipeline_runs` table | Replace hardcoded values with Supabase aggregation queries. Quick win. |
-| **Run success/failure metrics** (total runs, success %, failure %, avg duration) | UiPath Orchestrator, Automation Anywhere Bot Insights, and Zapier's dashboard all show successful run rates. Industry standard. | Low | Existing `pipeline_runs` table | Data already exists. Needs aggregation queries + display. |
-| **Time-range filtering** (7d, 30d, 90d, custom) | Zapier analytics offers 7d, billing cycle, calendar month, and custom range. Every dashboard tool does this. Without filtering, data is noise. | Low | All metric queries | Single date range filter component propagating to all metric cards and charts. |
-| **Activity timeline** (recent pipeline runs, approvals, project changes) | Management needs to see "what happened recently" at a glance. This is the heartbeat of the dashboard. | Medium | Existing tables | Aggregate recent events from `pipeline_runs`, `pipeline_steps`, project updates into a chronological feed. |
-| **Per-project status and type display** | The existing project detail page needs status badge, automation type indicator, and health signal. Users expect to know a project's state at a glance. | Low | Extended `projects` table | Extend existing ProjectCard and project detail page. Not a rebuild. |
-| **Visual redesign: typography, spacing, color palette** | Current UI is developer-focused (basic shadcn defaults). C-suite users expect polish: consistent spacing, professional typography hierarchy, refined color palette. | Medium | Nothing -- pure CSS/Tailwind | Tailwind v4 + shadcn v4 theming. No new dependencies needed. |
-| **Visual redesign: navigation restructure** | Current sidebar: Dashboard, Projects, Creations, Settings. Need to add management/analytics section for the executive dashboard. | Low | Nothing | Add "Analytics" nav group to existing AppSidebar. |
-| **O365 SSO login button** | Moyne Roberts runs on Microsoft 365. Every internal tool supports M365 login. Email/password login feels dated. | Medium | Azure AD tenant setup in Azure Portal, Supabase OAuth provider config | Supabase has built-in Azure OAuth via `signInWithOAuth({ provider: 'azure' })`. Main effort is Azure portal config (IT admin) + login page UI update. |
-| **Dual auth support** (email/password + O365 SSO side by side) | Must keep email/password for non-M365 accounts (contractors, service accounts). Both methods on same login page. | Low | O365 SSO feature | Supabase handles coexisting providers natively. Add "Sign in with Microsoft" button alongside existing email/password form. |
-| **Cost tracking** | "How much are we spending on AI?" is a day-one CFO question. Even approximate numbers demonstrate cost awareness. | Medium | Orq.ai usage data (scraped or API) + known Zapier plan costs | Orq.ai tracks per-call costs. Zapier plan cost is a known fixed amount. Show as total monthly cost card. |
-| **Dark mode** | 2026 SaaS standard. Power users expect it. Executives presenting on projectors may prefer light mode. Toggle in settings. | Low | Tailwind v4 dark mode, shadcn theming | shadcn/ui already supports dark mode via CSS variables. Ensure all new components use semantic color tokens. |
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| **Dark/light theme toggle with new design system** | Every modern monitoring dashboard has dark mode. The prototype defines both palettes with CSS custom properties (Satoshi body font, Cabinet Grotesk headings, glassmorphism panels). Current app uses shadcn defaults only. | Low | `next-themes` package (new dep), Tailwind CSS v4 `@custom-variant dark`, CSS custom properties for color tokens, Fontshare CDN for Satoshi + Cabinet Grotesk | Foundation for everything. All V7.0 components are designed against these tokens. Without this, nothing looks right. Glassmorphism = `backdrop-blur` + `bg-opacity` + subtle `border` + `box-shadow`. Works in all modern browsers. |
+| **Sidebar with swarm navigation** | Users need to switch between swarms (Debtor Email, Sales Email, Tender, etc.). Without this, there is no per-swarm view. Every monitoring tool (Datadog, Grafana, LangSmith) has a navigation structure for switching between monitored entities. | Medium | Existing `AppSidebar` component (shadcn Sidebar), `automation_projects` table for swarm list, new swarm config (mapping agents to swarms) | Current sidebar has 5 static nav items. Must restructure to: (1) Views group with per-swarm entries loaded from DB, (2) Smart filters group, (3) Bottom stats cards. Each swarm entry shows badge with count or "Live" indicator. Prototype shows this clearly. |
+| **Subagent fleet cards** | Users need to see which agents exist in a swarm, their status, and key metrics at a glance. This is the primary "who is doing what" view. LangSmith shows per-agent metrics tables. Langfuse shows trace-level breakdowns. Cards are more visual and scannable. | Medium | Orq.ai `/v2/agents` API for agent list + metrics, new `swarm_config` table (maps agent keys to swarm IDs), existing `agentMetrics` in dashboard metrics schema, Supabase for caching | 4 cards per swarm (prototype). Each card: state badge (Busy/Running/Bottleneck/Ready with color dot), name, role description, 3 metric boxes (Active/Queue/Errors), skill tag row. Click opens detail drawer. Data from Orq.ai agent metrics (already collected) + local job tracking. |
+| **Real-time event stream (Claude-style terminal)** | A live scrolling log of agent events is now table stakes. Claude.ai, Cursor, Windsurf all show step-by-step activity logs. LangSmith shows trace events. Langfuse shows nested spans. Management expects to see "what just happened." | Medium | Supabase Broadcast (existing `useBroadcast` hook works), new `swarm:{swarmId}` channel, event type taxonomy | Extends existing broadcast infra. New channel per swarm. Events: tool calls (PreToolUse/PostToolUse), reasoning, delegation, human gates, completions, compaction. Monospace font terminal with: timestamp, event type badge (emoji + label), payload text, blinking caret at bottom. Auto-scroll with pause-on-hover. Prototype shows exact format. |
+| **AI narrative briefing** | Plain-English swarm health summary is what separates this from raw metrics. LangSmith has "AI summaries" of traces. Management expects actionable prose, not just numbers. "The swarm is healthy, but compliance is becoming the bottleneck." | Medium | New Orq.ai Briefing Agent (must be created), swarm metrics data as agent input, Supabase for caching briefing text, Inngest or Vercel cron for scheduled generation | Dedicated Orq.ai agent receives swarm KPIs (active jobs, blocked count, review queue, done today, error rates) and generates a 2-3 sentence narrative. Runs on schedule (every 30 min) and on-demand via button. Cache in Supabase `swarm_briefings` table. Display with pulsing "Autonomous briefing" eyebrow + KPI grid below (active, review, blocked, done) as in prototype. |
+| **Agent detail drawer** | Clicking an agent card must show more detail. Drill-down is expected in any monitoring UI. LangSmith, Datadog, and Grafana all use slide-out panels for entity detail. | Low-Med | Subagent fleet cards (parent), Orq.ai agent detail API, agent event history from Supabase | Slide-out drawer with backdrop blur + main area dim (prototype pattern). Shows: expanded 2-column KPI grid (Active, Avg cycle), description panel, recent communication timeline (last 5 events from that agent), local workflow as tag chips. Uses shadcn Sheet component or custom drawer matching glassmorphism design. |
 
 ## Differentiators
 
-Features that set the product apart. Not expected, but create the "wow" factor for CEO/CTO/CFO.
+Features that set Agent OS apart from LangSmith, Langfuse, Datadog LLM Observability, and generic dashboards. These create the "cinematic control room" feel.
 
-| Feature | Value Proposition | Complexity | Depends On | Notes |
-|---------|-------------------|------------|------------|-------|
-| **ROI & time saved estimates** | THE killer feature for executive buy-in. Shows business value in hours saved and euros. Industry standard formula (UiPath): `TIME_SAVED = (executions * manual_minutes) - (executions * automated_minutes)`. `MONEY_SAVED = TIME_SAVED * hourly_cost`. | Medium | Per-project manual time estimate (user-entered), run count from pipeline data | User enters "manual time per task" and "hourly cost" per project. System calculates from run data. Always labeled "estimated." NOT automatic -- requires user input for manual baseline. |
-| **360-degree data integration** (Agent Workforce + Zapier + Orq.ai in one view) | Single pane of glass across all automation types. No other tool at MR combines these three data sources. Unique organizational visibility. | High | Zapier browser scraper, Orq.ai analytics API/scraper, internal pipeline data | Three data sources, three collection mechanisms. The integration layer normalizes everything into a unified view. |
-| **Zapier analytics integration** (active zaps, task usage, success rates, error rates) | Zapier has no analytics API. Browser scraper gives data nobody else at MR can aggregate programmatically. Shows zap count, task consumption, error rates. | High | Browserless.io scraper on Inngest cron schedule, `zapier_snapshots` table | Most technically complex feature. Scraper authenticates to Zapier, navigates analytics dashboard, extracts KPIs. Multiple snapshots/day for trend data. |
-| **Orq.ai analytics integration** (agent usage, cost, latency, token consumption) | Shows operational cost and performance of deployed AI agents. CFO cares about cost; CTO cares about latency and error rates. | Medium | Orq.ai analytics API (if available) or scraper fallback | Orq.ai tracks latency, token usage, error rates, costs. Verify REST API access first. Scraper fallback reuses Zapier scraper pattern. |
-| **Automated project status monitoring** | Projects auto-transition between statuses based on real signals. "idea" on creation, "building" when pipeline runs, "testing" during experiments, "live" when agents active, "degraded" when errors spike. Human override always available. | Medium | Status lifecycle, health signals from all data sources | Inngest cron function (every 15 min) checks signals and applies state machine transitions. Status changes logged for audit trail. |
-| **Health/reliability indicators per project** | Traffic light indicator (green/yellow/red) per project. At a glance: "are our automations healthy?" Executives scan for red indicators. | Medium | Run data aggregation, threshold config | Green: >90% success + ran in last 24h. Yellow: 70-90% OR no run in 48h. Red: <70% OR no run in 7d. Configurable thresholds. |
-| **Trend charts** (runs over time, success rate over time, ROI accumulation) | Line/area charts showing improvement over time. Executives love upward-trending lines. Shows the story: "automation is working and growing." | Medium | Time-series aggregation from `pipeline_runs`, `zapier_snapshots`, `orq_snapshots` | shadcn/ui charts (Recharts v3). Area charts for volume, line for success rate, cumulative area for ROI. |
-| **Automation type classification** (zapier-only, hybrid, standalone-app, orqai-agent) | Executives want distribution overview: "what kinds of automations do we have?" Pie chart showing type breakdown across projects. | Low | Extended `projects` table | Add `automation_type` enum. User selects during project creation or edits later. |
+| Feature | Value Proposition | Complexity | Dependencies | Notes |
+|---------|-------------------|------------|--------------|-------|
+| **Live delegation graph with animated particles** | No competing product visualizes real-time agent-to-agent communication as an animated graph. LangSmith shows static trace trees. Langfuse shows nested span hierarchies. Datadog shows service maps but not with live animated delegation. This makes the orchestrator pattern tangible and alive. | High | React Flow v12 (`@xyflow/react` -- already installed), dagre (`@dagrejs/dagre` -- already installed), Supabase Broadcast for delegation events, custom glassmorphism nodes | Prototype uses hand-positioned SVG with CSS-animated particles (`animateMotion` along paths). Production: React Flow with custom node components (glassmorphism cards showing label/name/active jobs), animated edges using SVG `animateMotion` or React Flow's `AnimatedSVGEdge`. Orchestrator node gets special glow (outline + box-shadow). Particles travel from orchestrator to sub-agents when delegation events fire. Typically 3-5 nodes, not a massive graph -- layout with dagre tree. |
+| **Gantt-style observability swimlanes** | Per-agent timeline showing thinking/tool/wait/done phases in parallel. Unique visualization. Langfuse shows sequential trace trees. LangSmith shows waterfall traces. Neither shows per-agent parallel swimlanes. Gives instant visual understanding of where time goes and who is the bottleneck. | High | Orq.ai trace data (OpenTelemetry via `/v2/otel` endpoint), new `agent_spans` table in Supabase for ingested trace data, custom SVG rendering | Prototype: 3 horizontal lanes (Qualifier, Drafter, Compliance) with colored bars: pink=thinking, blue=tool call, amber=waiting, teal=done. Must build trace ingestion pipeline: Orq.ai OTEL -> collector -> Supabase. Then render time-bucketed bars per agent. Build with plain SVG + CSS (prototype approach) -- Recharts is not designed for Gantt. Time axis scrolls right. |
+| **Kanban execution board** | Business-stage job tracking (backlog/ready/progress/review/done) with drag-and-drop. Management sees work in business terms, not technical pipeline steps. No agent observability platform has this. LangSmith tracks traces, not business outcomes. This bridges the gap between "what agents are doing" and "where the work stands." | High | New `swarm_jobs` table in Supabase (id, swarm_id, stage, title, description, tags, assigned_agent_id, timestamps, metadata), `@dnd-kit/core` + `@dnd-kit/sortable` (new deps), Supabase Realtime for cross-client sync | Prototype: 5 columns, draggable job cards with title/description/tags (risk/warn/ok colored). Use dnd-kit because it is React-native, accessible (keyboard DnD), has excellent shadcn+tailwind kanban reference implementations. Jobs initially created by agents via tool calls or manually. Stage transitions broadcast via Supabase Realtime for multi-user sync. |
+| **Recursive agent detail view** | The drawer reveals that a sub-agent behaves like a micro-orchestrator with its own workflow. No competing product exposes this recursive pattern. Shows the fractal nature of agent swarms. | Medium | Agent detail drawer (parent), Orq.ai agent config (tools = sub-agent references), delegation event log | Prototype: "This agent behaves like a micro-orchestrator with its own intake, verification, and escalation logic." Show local workflow as tag chip sequence (Inbox -> Score -> Clarify -> Escalate -> Done). If agent has tools that are other agents, render a mini delegation graph inside the drawer. |
+| **Smart sidebar filters** | "Only blocked jobs", "Needs human review", "High SLA risk" -- one-click exception filters. Management wants problems surfaced, not a firehose. No agent platform does this. | Low-Med | Kanban job data with stage/tag fields, sidebar UI update | Prototype shows these as nav buttons with arrow icons. Implementation: filter functions applied to `swarm_jobs` query (WHERE stage = 'review' AND tags @> '{"risk"}', etc.). Counts displayed as badges. Cheap to build -- just query filters. |
 
 ## Anti-Features
 
-Features to explicitly NOT build. These are tempting but wrong for V6.0.
+Features to explicitly NOT build. Tempting but wrong for V7.0.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Automatic ROI calculation without user input** | Cannot algorithmically determine "how long this task took manually." Every platform (UiPath, Automation Anywhere, Zapier) requires user-entered manual baseline. Estimating erodes trust. | Require user to enter `manual_minutes_per_task` and `hourly_cost_eur` per project. Label ROI as "estimated" with clear methodology tooltip. |
-| **Real-time Zapier data via API** | Zapier has no public analytics API. API v2 covers zap CRUD, not analytics. Reverse-engineering internal API is fragile and potentially against ToS. | Browser automation scraper on schedule. Accept 4-hour data staleness. |
-| **Custom dashboard builder** (drag-and-drop widget arrangement) | Massive engineering effort for 5-15 users. ROI of customizable layout for 15 people is negative. | Fixed, well-designed layout. One executive dashboard with curated metrics. Layout changes via code. |
-| **Real-time streaming dashboard** (WebSocket-driven live updates) | Executive dashboards are not operations centers. Nobody watches a management dashboard in real-time. Adds complexity for zero value. | Server-rendered dashboard with `revalidate` or client-side polling every 5 minutes. |
-| **Multi-tenant / multi-organization support** | Only Moyne Roberts uses this. Multi-tenancy adds auth complexity, data isolation, and schema overhead for zero users. | Single-tenant. All data belongs to one organization. |
-| **PDF/email report generation** | Tempting for executives, but premature. Build the dashboard first. Reports can be added if explicitly requested. | Print-friendly CSS for the dashboard page. Browser print or screenshot for sharing. |
-| **Zapier Zap creation/management from dashboard** | Out of scope. Zapier has its own UI. Our dashboard aggregates analytics only. | Display Zapier analytics data. Deep-link to Zapier for management actions. |
-| **Custom alerting / notification rules** | Complex feature (threshold config, delivery channels, snooze logic). Health indicators + existing credential failure notifications cover critical path. | Traffic light health indicators visible on dashboard. Existing email notifications for credential failures. |
-| **SAML SSO / Enterprise SSO** | Supabase OAuth with Azure provider is simpler, free-tier compatible, and sufficient for single-tenant M365 integration. SAML requires Supabase Pro plan and more config. | Use OAuth. Switch to SAML only if OAuth cannot meet tenant restrictions (unlikely for single-tenant). |
-| **Role-based dashboard views** (different views for CEO vs CTO vs engineer) | Over-engineering for 15 users. One dashboard, one view. Same metrics matter to everyone at this scale. | Single executive dashboard. All authenticated users see the same data. |
-| **AI-generated insights** ("Your ROI is up 23% because...") | Unreliable. Executives will not trust AI-generated business analysis at current state. Risk of hallucinated explanations damaging credibility. | Show data clearly with trend indicators. Let executives draw conclusions. |
-| **Historical data backfill** | Scraper data starts from when scraping begins. Reconstructing past metrics from partial data is unreliable. | Show "data available since [start date]" on charts. Start scraping in the first phase to accumulate data early. |
+| **Full trace explorer / individual span viewer** | Orq.ai has this natively and it is better than anything custom-built. PROJECT.md explicitly lists "Real-time agent monitoring/observability -- Orq.ai handles this natively" as out of scope. Building a trace explorer duplicates Orq.ai's core product. | Show summary swimlanes (Gantt view) for bottleneck identification. Link to Orq.ai trace explorer from event stream entries for deep-dive. |
+| **Custom alerting / paging system** | Overkill for 5-15 users. Building threshold config, delivery channels, snooze logic is a product unto itself. | Use Zapier webhooks triggered by Supabase database changes (e.g., job stuck in "review" > 2 hours -> Slack notification). |
+| **Historical playback / time-travel** | Replaying event streams at arbitrary timestamps is extremely complex (event sourcing, snapshot management, scrubber UI). Zero management ask. | Store metric snapshots for trend charts (already done via `dashboard_snapshots`). Live view is live only. |
+| **Mobile-responsive kanban drag-and-drop** | Drag-and-drop on mobile is poor UX. All 5-15 users are office-based on desktop/laptop. | Make sidebar collapsible on tablet. Stack cards vertically on small screens but disable drag. Read-only on mobile. |
+| **Custom dashboard builder / widget arrangement** | Massive engineering effort for 5-15 users. Every "configurable" dashboard ships late and confuses users. | Fixed layout per prototype. Iterate based on user feedback in subsequent versions. |
+| **Direct agent control (start/stop/restart/redeploy)** | Agent lifecycle is managed via Orq.ai and the pipeline. Adding control buttons creates a dangerous second control plane with sync issues. | Show status. Link to Orq.ai Studio for admin actions. |
+| **Multi-tenant / org switching** | Only Moyne Roberts uses this. Multi-tenancy adds complexity for zero users. | Hardcode single org. Supabase RLS scoped to authenticated users. |
+| **Real-time collaborative cursors on kanban** | Tempting because Supabase has Presence. But 5-15 users will never have contention on the same board. Over-engineering. | Optimistic updates via Supabase Broadcast. Last-write-wins is fine at this scale. |
+| **AI-powered root cause analysis** | "Your swarm is slow because the compliance agent's checklist tool has a cold start" -- unreliable and risks hallucinated explanations damaging credibility with management. | The narrative briefing states facts ("compliance is the bottleneck") without speculating on causes. Engineers investigate via Orq.ai traces. |
 
 ## Feature Dependencies
 
 ```
-Extended Project Model ─────→ Status Lifecycle
-     │                              │
-     ├─→ Automation Type Enum       ├─→ Automated Status Monitoring (cron)
-     │                              ├─→ Health Indicators (derived)
-     └─→ ROI Fields (manual_mins,   └─→ KPI Summary Cards (aggregation)
-         hourly_cost)
-              │
-              └─→ ROI Calculation ──→ ROI Dashboard Cards ──→ Trend Charts
+Design System (CSS tokens + fonts + glassmorphism)
+  |-> Dark/light theme toggle (next-themes)
+  |-> All visual components (cards, panels, drawer, terminal, kanban columns)
 
-O365 SSO (Azure OAuth) ─────→ Login Page Update ──→ Dual Auth Support
-  (independent of dashboard features)
+Sidebar with swarm navigation
+  |-> Swarm-specific routes (/swarm/[id])
+  |-> All per-swarm views depend on knowing which swarm is selected
 
-Visual Redesign (theme) ─────→ Applied to All Pages
-  (independent, can be done first or last)
+Supabase data model (new tables)
+  |-> swarm_config (maps agents to swarms)
+  |     |-> Subagent fleet cards
+  |     |-> AI narrative briefing (knows which agents to summarize)
+  |
+  |-> swarm_jobs (id, swarm_id, stage, title, tags, agent_id, timestamps)
+  |     |-> Kanban execution board
+  |     |-> Smart sidebar filters
+  |
+  |-> agent_events (id, swarm_id, agent_key, event_type, payload, created_at)
+  |     |-> Real-time event stream (historical backfill)
+  |     |-> Agent detail drawer (recent events)
+  |
+  |-> swarm_briefings (swarm_id, text, kpis, generated_at)
+  |     |-> AI narrative briefing (cache storage)
+  |
+  |-> agent_spans (id, agent_key, span_type, start_at, end_at, metadata)
+        |-> Gantt-style swimlanes
 
-Charts Library (shadcn chart) ──→ All Trend Charts + ROI + Status Distribution
-  (install once, use everywhere)
+Orq.ai API integration
+  |-> Agent list + metrics -> Subagent fleet cards
+  |-> Trace data (OTEL) -> agent_spans table -> Gantt swimlanes
+  |-> New Briefing Agent -> AI narrative briefing
 
-Zapier Browser Scraper ──────→ zapier_snapshots table ──→ 360-degree Dashboard
-  │                                                         │
-  └─→ Depends on: Browserless.io credential (V4.0 setup)   └─→ Zapier cost data
+Supabase Broadcast (extend existing infra)
+  |-> New channel: swarm:{swarmId}
+  |     |-> Real-time event stream (live events)
+  |     |-> Kanban optimistic updates
+  |     |-> Delegation graph animations
 
-Orq.ai Analytics ────────────→ orq_snapshots table ──→ 360-degree Dashboard
-  │                                                       │
-  └─→ Depends on: Verify API access first                └─→ Orq.ai cost data
+React Flow (already installed)
+  |-> Custom glassmorphism nodes -> Live delegation graph
+  |-> AnimatedSVGEdge or custom particle edge -> Delegation animations
 
-Internal Pipeline Data ──────→ Already in pipeline_runs ──→ 360-degree Dashboard
-  (no new collection needed)
+dnd-kit (new dependency)
+  |-> @dnd-kit/core + @dnd-kit/sortable -> Kanban drag-and-drop
 ```
 
-**Critical path:** Extended Project Model must come first -- everything depends on it. Zapier scraper has the longest lead time and highest risk, start early. Charts library is a one-time install needed before any visualization work.
+**Critical path:** Design system MUST come first (everything is styled against its tokens). Sidebar + data model second (structural foundation). Subagent cards + briefing third (hero components). Event stream + kanban fourth (interactivity). Delegation graph + swimlanes last (highest complexity, most data dependencies).
 
 ## MVP Recommendation
 
-### Phase 1: Foundation (data model + quick wins)
+Build in this order based on dependency chain, visual impact, and risk:
 
-1. **Extended project model** -- Add `status`, `automation_type`, `manual_minutes_per_task`, `hourly_cost_eur` to `projects` table. 10-minute migration, but everything depends on it.
-2. **KPI summary cards with real data** -- Replace hardcoded "0"/"--" on existing dashboard with actual aggregation queries from `pipeline_runs`.
-3. **Project status lifecycle UI** -- Status badges on project cards. Manual status changes via dropdown. Foundation for automated transitions later.
-4. **Charts library** -- `npx shadcn add chart` to install Recharts v3 integration. One-time setup.
+### Phase 1: Design System + Structure
+1. **Design system** -- CSS custom properties (prototype's color tokens), Satoshi + Cabinet Grotesk fonts via Fontshare, glassmorphism panel classes, `next-themes` for dark/light toggle. Low complexity, unblocks everything.
+2. **Sidebar restructure** -- Dynamic swarm navigation from DB, smart filter placeholders, bottom stats cards, theme toggle button. Routing: `/swarm/[id]` pattern.
+3. **Supabase schema** -- Create `swarm_config`, `swarm_jobs`, `agent_events`, `swarm_briefings` tables. Seed with Debtor Email swarm config.
 
-### Phase 2: Executive Dashboard + ROI
+### Phase 2: Hero Components
+4. **Subagent fleet cards** -- 4-column grid of glassmorphism agent cards with state, metrics, skills. Data from Orq.ai API + local cache.
+5. **AI narrative briefing** -- Create Orq.ai Briefing Agent, integrate with swarm metrics, display briefing card with KPI grid.
+6. **Agent detail drawer** -- Slide-out with expanded metrics, recent events, local workflow tags.
 
-5. **Executive dashboard page** -- New `/analytics` route: project status distribution (donut chart), run volume over time (area chart), success rate trend (line chart), ROI summary cards.
-6. **ROI calculation engine** -- User enters manual baseline per project. System calculates cumulative time saved and money saved.
-7. **Health indicators** -- Traffic light per project based on recent run success rate + recency.
-8. **Navigation restructure** -- Add "Analytics" section to sidebar.
+### Phase 3: Interactivity
+7. **Real-time event stream** -- Terminal component with Supabase Broadcast subscription. Event type badges, auto-scroll, blinking caret.
+8. **Kanban execution board** -- 5-column board with dnd-kit drag-and-drop. Supabase Realtime sync.
+9. **Smart sidebar filters** -- Wire up "Only blocked", "Needs review", "High SLA risk" filters to kanban query.
 
-### Phase 3: Data Integration (Zapier + Orq.ai scrapers)
+### Phase 4: Advanced Observability
+10. **Live delegation graph** -- React Flow with custom nodes, animated particle edges, delegation event integration.
+11. **Gantt-style swimlanes** -- Trace ingestion from Orq.ai OTEL, `agent_spans` table, custom SVG timeline renderer.
 
-9. **Zapier browser scraper** -- Browserless.io cron job scraping Zapier analytics dashboard. Stores in `zapier_snapshots`.
-10. **Orq.ai analytics integration** -- API first, scraper fallback. Stores in `orq_snapshots`.
-11. **360-degree unified view** -- Combine all three sources in executive dashboard. "Total automations" = Zapier zaps + Agent Workforce projects.
-
-### Phase 4: Auth, Polish, Automation
-
-12. **O365 SSO** -- Azure AD OAuth provider in Supabase. "Sign in with Microsoft" button alongside email/password.
-13. **Visual redesign** -- Typography scale, color palette, spacing system, card styles across all pages.
-14. **Automated status monitoring** -- Inngest cron for automatic status transitions.
-15. **Dark mode** -- Ensure all components respect shadcn theme tokens. Add theme toggle.
-16. **Activity timeline** -- Recent events feed on dashboard.
-
-### Defer to V7.0+
-
-- PDF report generation
-- Custom alerting / notification rules
-- Dashboard widget customization
-- SAML SSO (if OAuth insufficient)
-- Historical ROI comparisons (QoQ)
+### Defer to V8.0+
+- Recursive agent detail view (mini sub-graph in drawer) -- add after basic drawer is validated
+- Historical swimlane playback
+- Cross-swarm correlation views
 - Agent performance leaderboard
-- Cross-source correlation views
 
-## Detailed Feature Specifications
+## Data Sources Required
 
-### ROI & Time Saved Calculation
-
-**Industry standard approach** (verified against UiPath Insights, Automation Anywhere Bot Insights, Zapier ROI calculator):
-
-```
-Per project, user provides:
-  - manual_minutes_per_task: number  (how long a human takes per task execution)
-  - hourly_cost_eur: number          (cost per hour of human labor, default: 45)
-
-System calculates:
-  - total_executions: COUNT(*) FROM pipeline_runs WHERE project_id = X AND status = 'complete'
-  - avg_automated_minutes: AVG(EXTRACT(EPOCH FROM completed_at - started_at) / 60) FROM pipeline_runs
-  - time_saved_minutes: (total_executions * manual_minutes) - (total_executions * avg_automated_minutes)
-  - money_saved_eur: (time_saved_minutes / 60) * hourly_cost_eur
-  - roi_percentage: (money_saved_eur / total_cost) * 100
-    where total_cost = orqai_cost + estimated_dev_hours * hourly_cost
-```
-
-**Key design decision:** ROI is ALWAYS labeled "estimated" on the dashboard. The `manual_minutes` value is a user estimate, not a measurement. Presenting it as precise would erode executive trust.
-
-**Display pattern (F-shaped scanning):** Large stat cards at top of dashboard:
-- "~X hours saved this month" (time_saved_minutes / 60, rounded)
-- "~EUR Y saved this month" (money_saved_eur, rounded)
-- "X automations active" (projects WHERE status = 'live')
-- "X% success rate" (successful_runs / total_runs * 100)
-
-Each card includes a trend indicator (up/down arrow + percentage vs previous period).
-
-### Zapier Analytics Scraper
-
-**What data to extract** (verified from Zapier analytics dashboard documentation):
-
-| Metric | Where in Zapier UI | Storage Column |
-|--------|-------------------|----------------|
-| Active Zaps count | KPI card at top | `zapier_snapshots.active_zaps` |
-| Task usage (used / limit) | KPI card + usage chart | `tasks_used`, `tasks_limit` |
-| Successful run rate % | KPI card | `success_rate` |
-| Active members count | KPI card | `active_members` |
-| Error count | Reports section | `error_count` |
-| Top zaps by usage | Reports table | `top_zaps` (JSONB) |
-| Alert count | KPI card | `alert_count` |
-
-**Scraper architecture:**
-```
-Schedule: Inngest cron function, every 4 hours (6x/day)
-Steps:
-1. Load Zapier session cookie from credential vault (encrypted in Supabase)
-2. Launch Browserless.io session (connectOverCDP)
-3. Set session cookie, navigate to zapier.com/app/settings/analytics
-4. Wait for KPI cards to render (DOM selectors)
-5. Extract text content from each KPI element
-6. Navigate to reports tab
-7. Extract top zaps by usage table rows
-8. Store snapshot row in zapier_snapshots table with timestamp
-9. Close browser session
-10. On failure: store error screenshot, retry via Inngest retry (3 attempts)
-```
-
-**Estimated Browserless.io cost:** 6 runs/day * ~3 units/run = 18 units/day = ~540 units/month. Well within Starter plan (10K units/month).
-
-**Risk:** Zapier DOM changes break the scraper. Mitigation: use semantic selectors (aria-labels, data-testid) where possible, and robust error handling with screenshot capture on failure.
-
-### Orq.ai Analytics Integration
-
-**Available data** (from Orq.ai documentation -- dashboards, traces, logs):
-- Latency per agent/deployment call
-- Token usage (input + output tokens)
-- Cost per call (model-specific pricing)
-- Error rates per deployment
-- Traces (full request/response chains)
-- Custom events and metadata
-
-**Integration approach (ordered by preference):**
-1. **REST API** -- Check if Orq.ai exposes analytics endpoints. Documentation mentions dashboards but does not explicitly document an analytics REST API. MEDIUM confidence this exists but is undocumented. Query: `GET /v2/analytics/...` or similar.
-2. **OpenTelemetry export** -- Orq.ai documentation mentions traces can be exported via OpenTelemetry. If available, pipe to a lightweight collector that stores in Supabase.
-3. **Dashboard scraper** -- Fallback. Same Browserless.io pattern as Zapier scraper. Navigate to Orq.ai Studio dashboard, extract metrics.
-
-**Recommendation:** Verify option 1 (REST API) during Phase 3 infrastructure setup. If unavailable, implement option 3 (scraper) which reuses the Zapier scraper framework.
-
-### O365 SSO via Azure AD
-
-**Implementation approach** (from Supabase official documentation):
-
-```
-Step 1 -- Azure Portal (IT admin task):
-  - Register application in Microsoft Entra ID
-  - Set redirect URI: https://<supabase-ref>.supabase.co/auth/v1/callback
-  - Configure as single-tenant (Moyne Roberts organization only)
-  - Create client secret
-  - Configure xms_edov optional claim (email verification signal)
-  - Grant openid, email, profile scopes
-
-Step 2 -- Supabase Dashboard:
-  - Navigate to Auth > Providers > Azure
-  - Enter Client ID + Client Secret from Azure
-  - Set Azure Tenant URL: https://login.microsoftonline.com/<tenant-id>
-  - Enable provider
-
-Step 3 -- Login Page Code:
-  - Add "Sign in with Microsoft" button below existing email/password form
-  - onClick: supabase.auth.signInWithOAuth({
-      provider: 'azure',
-      options: { redirectTo: window.location.origin + '/auth/callback' }
-    })
-  - Add /auth/callback route to handle OAuth code exchange (PKCE flow)
-  - Supabase @supabase/ssr handles PKCE automatically
-
-Step 4 -- Account linking:
-  - Configure allow_linking in Azure provider settings
-  - When existing email/password user signs in via M365 with matching email,
-    accounts merge automatically
-```
-
-**Complexity:** LOW-MEDIUM. Supabase does the heavy lifting. Azure portal config is the bottleneck (requires IT admin access). Code changes are minimal: one button + one callback route.
-
-### Automated Status Monitoring
-
-**Status state machine:**
-```
-idea ──→ building ──→ testing ──→ live ──→ paused
-  │         │           │          │         │
-  └─────────┴───────────┴──────────┴─────────┘
-              (manual override: any → any)
-
-Automatic transitions:
-  idea → building:     First pipeline run starts for this project
-  building → testing:  Pipeline completes successfully, OR Orq.ai experiments detected
-  testing → live:      Agent deployed on Orq.ai AND receiving production calls
-  live → paused:       No activity for 30 days OR manual pause
-  any → degraded:      Error rate > 30% in last 24 hours (overlay status, not a replacement)
-```
-
-**Implementation:** Inngest cron function (`0 */15 * * *` -- every 15 minutes):
-1. Query all projects WHERE `status` NOT IN ('paused', 'archived') AND `status_locked_by` IS NULL
-2. For each project: check latest signals (pipeline_runs, orq_snapshots, zapier_snapshots)
-3. Apply state machine transition rules
-4. If transition warranted: update `projects.status`, insert row in `project_status_log`
-5. Human override: set `status_locked_by = user_id` to prevent automatic transitions
-
-### Visual Redesign Principles
-
-**Design principles for executive audience** (synthesized from 2026 SaaS dashboard research):
-
-1. **F-shaped scanning pattern:** Most important metrics in top-left. KPI summary row at top. Secondary data flows down-left.
-2. **Big numbers, not busy charts:** CEO wants to see "47 hours saved" not a multi-axis chart. Large stat cards with trend indicators (up/down arrow + percentage change).
-3. **Minimal clutter:** Show what matters NOW. Drill-down available but not prominent. Avoid showing everything on one screen.
-4. **Consistent spacing:** Tailwind v4 spacing scale. `space-y-8` between dashboard sections, `gap-4` within card grids.
-5. **Typography hierarchy:** Page title (text-2xl font-semibold), Section header (text-lg font-medium), Card title (text-sm font-medium), Stat number (text-3xl font-bold), Body text (text-sm), Caption (text-xs text-muted-foreground).
-6. **Semantic colors:** Green = healthy/success. Amber = warning/attention. Red = failure/critical. Blue = informational/neutral. No decorative colors.
-7. **Accessibility:** WCAG AA contrast ratios. Data tables alongside visual charts for screen readers.
-
-**No new UI library needed.** shadcn/ui v4 + Tailwind v4 + Recharts v3 (via `npx shadcn add chart`) covers everything. The redesign is about consistent application of existing tools, not new dependencies.
-
-### Charts Specification
-
-**Library:** shadcn/ui charts (Recharts v3). Install: `npx shadcn add chart`. Already in the shadcn ecosystem. No lock-in -- uses Recharts directly without abstraction layer.
-
-| Chart Type | Data Source | Dashboard Location | Purpose |
-|------------|-------------|-------------------|---------|
-| Donut/pie | Project status counts | Top section | Status distribution at a glance |
-| Area (filled) | pipeline_runs count by day/week | Metrics section | Run volume trend |
-| Line | Success rate % by day/week | Metrics section | Reliability trend |
-| Stacked bar | Project count by automation_type | Overview section | Automation type distribution |
-| Cumulative area | ROI money_saved_eur over time | ROI section | Value accumulation story |
-| Horizontal bar | Top 5 projects by run count | Activity section | Most active automations |
-
-**Bundle impact:** ~50KB gzipped (Recharts v3). Acceptable for a dashboard app. Significantly lighter than Tremor (~200KB+).
+| Data Point | Source | Status | Effort to Access | Notes |
+|------------|--------|--------|-------------------|-------|
+| Agent list per swarm | Orq.ai `/v2/agents` API + local `swarm_config` mapping | Available (API exists), mapping must be built | Low | Orq.ai does not group agents into "swarms" -- that is our abstraction. Need a config table. |
+| Agent metrics (requests, latency, cost, errors) | Orq.ai API / existing `agentMetrics` in dashboard_snapshots | Available now | None | Already collected by Orq.ai collector and stored in snapshots. |
+| Agent trace spans (thinking/tool/wait durations) | Orq.ai OpenTelemetry (`/v2/otel`) | Available but untapped | High | Must build trace ingestion pipeline: Orq.ai OTEL endpoint -> ingestion API route -> Supabase `agent_spans`. This is the hardest data integration. |
+| Job/task status per swarm | Does not exist yet | Must build from scratch | Medium | New `swarm_jobs` table. Initially seeded manually or via API. Later, agents create/update jobs via Orq.ai tool calls that hit Vercel API routes. |
+| Delegation events (agent A delegates to agent B) | Orq.ai traces (agent-as-tool pattern creates trace spans) | Partially available in traces | Medium | Must extract delegation events from OTEL trace data. Each agent-as-tool call = one delegation event. |
+| Briefing text | New Orq.ai Briefing Agent output | Must build agent | Medium | Create dedicated agent, deploy to Orq.ai. Schedule via Inngest cron. Cache in `swarm_briefings`. |
+| Live events for terminal stream | Supabase Broadcast | Infrastructure exists | Low | Extend existing `broadcastStepUpdate` pattern. New channel: `swarm:{swarmId}`. Emit events from agent tool call webhooks. |
+| Swarm KPIs (active/blocked/review/done counts) | Derived from `swarm_jobs` table | Must build | Low | Simple COUNT queries with GROUP BY stage. Refresh on Broadcast events. |
 
 ## Complexity Summary
 
-| Feature | Effort | Risk | Priority | Notes |
-|---------|--------|------|----------|-------|
-| Extended project model | XS | LOW | P0 | DB migration, everything depends on it |
-| KPI cards with real data | XS | LOW | P0 | Replace hardcoded values |
-| Project status lifecycle UI | S | LOW | P0 | Badges + dropdown |
-| Charts library install | XS | LOW | P0 | `npx shadcn add chart` |
-| Executive dashboard page | L | LOW | P1 | New route + layout + all chart components |
-| ROI calculation engine | M | MEDIUM | P1 | User input UX + calculation logic |
-| Health indicators | S | LOW | P1 | Derived from run data |
-| Navigation restructure | XS | LOW | P1 | Add sidebar section |
-| O365 SSO | M | LOW-MED | P1 | Azure config is the bottleneck |
-| Visual redesign | L | LOW | P2 | No technical risk, design effort |
-| Zapier browser scraper | XL | HIGH | P2 | Auth, DOM selectors, maintenance |
-| Orq.ai analytics | M-L | MEDIUM | P2 | API availability uncertain |
-| Automated status monitoring | M | MEDIUM | P2 | State machine edge cases |
-| 360-degree unified view | M | MEDIUM | P3 | Normalizing three data sources |
-| Dark mode + theme toggle | S | LOW | P3 | shadcn already supports it |
-| Activity timeline | M | LOW | P3 | Event aggregation feed |
-| Cost tracking | M | MEDIUM | P3 | Depends on Orq.ai + Zapier data |
-
-## Data Sources Summary
-
-| Source | Collection Method | Freshness | Confidence |
-|--------|-------------------|-----------|------------|
-| Agent Workforce pipeline runs | Direct Supabase query | Real-time | HIGH -- own database |
-| Agent Workforce project data | Direct Supabase query | Real-time | HIGH -- own database |
-| Zapier analytics | Browserless.io scraper, Inngest cron | 4-hour intervals | MEDIUM -- scraper fragility, DOM changes |
-| Orq.ai agent metrics | REST API (preferred) or scraper | Depends on method | LOW -- programmatic API access not confirmed |
-| User-entered ROI baselines | Supabase `projects` table columns | Real-time | HIGH -- user-managed values |
-| Zapier plan cost | Manual configuration in settings | Static until changed | HIGH -- known fixed amount |
+| Feature | Effort | Risk | Priority | Existing Infra Leverage |
+|---------|--------|------|----------|------------------------|
+| Design system + theme toggle | S | LOW | P0 | shadcn theming, Tailwind v4 |
+| Sidebar restructure | M | LOW | P0 | Existing AppSidebar, shadcn Sidebar |
+| Supabase schema (new tables) | S | LOW | P0 | Existing Supabase admin client |
+| Subagent fleet cards | M | LOW | P1 | Existing agentMetrics, Orq.ai collector |
+| AI narrative briefing | M | MEDIUM | P1 | Orq.ai agent infra, Inngest cron |
+| Agent detail drawer | S | LOW | P1 | shadcn Sheet, existing Broadcast |
+| Real-time event stream | M | LOW | P2 | Existing useBroadcast hook, Broadcast channels |
+| Kanban execution board | L | MEDIUM | P2 | New dep (dnd-kit), new table |
+| Smart sidebar filters | S | LOW | P2 | Depends on kanban data |
+| Live delegation graph | L | MEDIUM | P3 | React Flow v12 + dagre already installed |
+| Gantt-style swimlanes | XL | HIGH | P3 | Orq.ai OTEL pipeline must be built first |
 
 ## Sources
 
-### ROI & Time Saved
-- [Forecasting and tracking the ROI of automation (Red Hat)](https://www.redhat.com/en/blog/forecast-track-measure-roi-automation)
-- [10 Metrics to Measure Automation ROI (Latenode)](https://latenode.com/blog/workflow-automation-business-processes/automation-roi-metrics/10-metrics-to-measure-automation-roi)
-- [UiPath Insights ROI customizations and calculations](https://docs.uipath.com/insights/automation-cloud/latest/user-guide/roi-customizations-and-calculations)
-- [UiPath Business ROI Dashboard](https://docs.uipath.com/insights/automation-cloud/latest/user-guide/business-roi)
-- [ROI Dashboard: Ultimate Guide 2026 (Improvado)](https://improvado.io/blog/roi-dashboard)
-- [ROI tracking (Automation Anywhere)](https://docs.automationanywhere.com/bundle/enterprise-v2019/page/roi-tracking.html)
+### Agent Observability Platforms (UI Pattern Research)
+- [LangSmith Observability](https://www.langchain.com/langsmith/observability) -- trace visualization, execution path graphs, per-tool analytics
+- [Langfuse Observability Overview](https://langfuse.com/docs/observability/overview) -- nested span visualization, OpenTelemetry integration, multi-turn tracing
+- [Datadog LLM Observability](https://docs.datadoghq.com/llm_observability/) -- out-of-the-box dashboards, trace/metric/event signal taxonomy
+- [Portkey LLM Observability Guide](https://portkey.ai/blog/the-complete-guide-to-llm-observability/) -- comprehensive signal taxonomy (traces, metrics, events)
+- [Top 5 AI Agent Observability Platforms 2026](https://o-mega.ai/articles/top-5-ai-agent-observability-platforms-the-ultimate-2026-guide) -- platform comparison
 
-### Executive Dashboard Design
-- [Anatomy of High-Performance SaaS Dashboard Design 2026 (SaaSFrame)](https://www.saasframe.io/blog/the-anatomy-of-high-performance-saas-dashboard-design-2026-trends-patterns)
-- [9 Executive Dashboard Examples for C-Suite (AugmentedTechLabs)](https://www.augmentedtechlabs.com/blog/9-executive-dashboard-examples)
-- [Smart SaaS Dashboard Design Guide 2026 (F1Studioz)](https://f1studioz.com/blog/smart-saas-dashboard-design/)
-- [Design Thoughtful Dashboards for B2B SaaS (UX Collective)](https://uxdesign.cc/design-thoughtful-dashboards-for-b2b-saas-ff484385960d)
-- [Top SaaS Design Trends 2026 (DesignStudioUIUX)](https://www.designstudiouiux.com/blog/top-saas-design-trends/)
+### Agent UI Design Patterns
+- [Agent Status Monitoring Pattern](https://www.aiuxdesign.guide/patterns/agent-status-monitoring) -- 4-layer status display (ambient/progress/attention/summary)
+- [AG-UI Protocol](https://www.marktechpost.com/2025/09/18/bringing-ai-agents-into-any-ui-the-ag-ui-protocol-for-real-time-structured-agent-frontend-streams/) -- event-based streaming architecture, TEXT_MESSAGE_CONTENT/TOOL_CALL/STATE events
+- [UI Design for AI Agents (Enterprise)](https://fuselabcreative.com/ui-design-for-ai-agents/) -- enterprise interface requirements
+- [AI Agent Dashboard Comparison 2026](https://thecrunch.io/ai-agent-dashboard/) -- market overview
 
-### Zapier Analytics
-- [Review your account usage in the analytics dashboard (Zapier Help)](https://help.zapier.com/hc/en-us/articles/25444544607373-Review-your-account-usage-in-the-analytics-dashboard)
-- [Enhanced Zap analytics and reporting (Zapier Help)](https://help.zapier.com/hc/en-us/articles/31466726600461-Enhanced-Zap-analytics-and-reporting)
-- [Zapier Analytics Dashboard (Zapier Help)](https://help.zapier.com/hc/en-us/articles/25444514945037-Use-the-Analytics-dashboard-to-easily-monitor-your-account-Beta)
-- [Get usage insights for your Zaps (Zapier Help)](https://help.zapier.com/hc/en-us/articles/37717572014861-Get-usage-insights-for-your-Zaps)
+### Graph Visualization
+- [React Flow](https://reactflow.dev/) -- node-based graph library (already installed as `@xyflow/react`)
+- [React Flow AnimatedSVGEdge](https://reactflow.dev/ui/components/animated-svg-edge) -- animated edge component for delegation visualization
 
-### Orq.ai Analytics
-- [Orq.ai Analytics Documentation](https://docs.orq.ai/docs/analytics)
-- [Orq.ai Observability & Monitoring](https://orq.ai/platform/observability-monitoring)
-- [Orq.ai Logs and Metrics Enhancement (Changelog)](https://docs.orq.ai/changelog/log-and-metrics-enhacements)
+### Drag-and-Drop
+- [dnd-kit Kanban with shadcn + Tailwind](https://github.com/Georgegriff/react-dnd-kit-tailwind-shadcn-ui) -- reference implementation matching our stack
+- [Build Kanban Board with dnd-kit](https://blog.logrocket.com/build-kanban-board-dnd-kit-react/) -- step-by-step guide
 
-### O365 SSO
-- [Supabase Login with Azure (Microsoft) -- Official Docs](https://supabase.com/docs/guides/auth/social-login/auth-azure)
-- [Supabase Enterprise SSO with SAML 2.0](https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml)
-- [Supabase Set Up SSO with Azure AD](https://supabase.com/docs/guides/platform/sso/azure)
+### Real-time Infrastructure
+- [Supabase Realtime with Next.js](https://supabase.com/docs/guides/realtime/realtime-with-nextjs) -- official guide for WebSocket channels
+- [Supabase Broadcast](https://supabase.com/docs/guides/realtime/getting_started) -- channel-based pub/sub
 
-### Charts & Visualization
-- [shadcn/ui Charts -- Area, Line, Bar, Pie (Recharts v3)](https://ui.shadcn.com/docs/components/radix/chart)
-- [Build a Dashboard with shadcn/ui -- Complete Guide 2026](https://designrevision.com/blog/shadcn-dashboard-tutorial)
-- [How to Build an Admin Dashboard with shadcn/ui and Next.js 2026](https://adminlte.io/blog/build-admin-dashboard-shadcn-nextjs/)
+### Orq.ai Data Sources
+- [Orq.ai Observability & Monitoring](https://orq.ai/platform/observe) -- native trace/metrics platform
+- [Orq.ai OpenTelemetry Integration](https://orq.ai/blog/tracing-openclaw-with-opentelemetry-and-orq.ai) -- OTEL endpoint `/v2/otel`, trace ingestion
+- [Orq.ai Logs and Metrics Enhancement](https://docs.orq.ai/changelog/log-and-metrics-enhacements) -- enhanced logging capabilities
 
-### Data Integration Patterns
-- [Polling vs Webhooks: When to Use One Over the Other (Merge.dev)](https://www.merge.dev/blog/webhooks-vs-polling)
-- [Real-Time Data and Next.js: Building Interactive Dashboards (OpsMatters)](https://opsmatters.com/posts/real-time-data-and-nextjs-building-interactive-dashboards)
+### Design System
+- [Dark Glassmorphism 2026 Trend](https://medium.com/@developer_89726/dark-glassmorphism-the-aesthetic-that-will-define-ui-in-2026-93aa4153088f) -- design trend validation
+- [Glassmorphism with Tailwind CSS](https://flyonui.com/blog/glassmorphism-with-tailwind-css/) -- implementation guide
+- [Glass UI Components](https://allshadcn.com/components/glass-ui/) -- shadcn glass components
+
+### Existing Codebase (analyzed)
+- `web/components/app-sidebar.tsx` -- current sidebar (5 static nav items, must restructure)
+- `web/lib/supabase/broadcast.ts` -- existing broadcast infra (channels, step updates, run updates)
+- `web/lib/supabase/broadcast-client.ts` -- existing `useBroadcast` hook (typed, cleanup on unmount)
+- `web/lib/dashboard/metrics-schema.ts` -- existing Zod schemas including `agentMetrics`
+- `web/app/(dashboard)/executive/page.tsx` -- existing executive dashboard (V6.0)
+- `docs/designs/agent-dashboard-v2.html` -- HTML prototype defining V7.0 target design
 
 ---
-*Research completed: 2026-03-26*
+*Research completed: 2026-04-15*
 *Ready for roadmap: yes*

@@ -130,7 +130,7 @@ async function fetchMessagesFromFolder(
 
     // Transform and upsert to Supabase
     const rows = messages.map((msg) => ({
-      graph_id: msg.id,
+      source_id: msg.id,
       mailbox,
       direction,
       subject: msg.subject,
@@ -153,7 +153,7 @@ async function fetchMessagesFromFolder(
 
     const { error } = await supabase
       .from("emails")
-      .upsert(rows, { onConflict: "graph_id" });
+      .upsert(rows, { onConflict: "source_id" });
 
     if (error) {
       console.error(`  Supabase upsert error: ${error.message}`);

@@ -35,6 +35,7 @@ export default async function proxy(request: NextRequest) {
   if (
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
+    !request.nextUrl.pathname.startsWith("/access-pending") &&
     !request.nextUrl.pathname.startsWith("/auth") &&
     !request.nextUrl.pathname.startsWith("/api/inngest") &&
     !request.nextUrl.pathname.startsWith("/api/automations")

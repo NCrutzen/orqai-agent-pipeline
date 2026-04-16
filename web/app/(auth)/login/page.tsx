@@ -13,6 +13,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+function MicrosoftIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 21 21"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+      <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+      <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+      <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+    </svg>
+  );
+}
+
 function LoginForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
@@ -20,9 +38,28 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const supabase = createClient();
+
+  async function handleMicrosoftLogin() {
+    setSsoLoading(true);
+    setFormError(null);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "azure",
+      options: {
+        scopes: "email profile openid",
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setFormError(error.message);
+      setSsoLoading(false);
+    }
+  }
 
   async function handleEmailSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -69,11 +106,39 @@ function LoginForm() {
             Invalid or expired invite link. Please request a new one.
           </div>
         )}
+        {error === "sso_failed" && (
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            Sign-in failed. Microsoft returned an error. Try again or contact
+            your administrator if the problem persists.
+          </div>
+        )}
         {formError && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {formError}
           </div>
         )}
+
+        {/* Microsoft SSO button */}
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={handleMicrosoftLogin}
+          disabled={ssoLoading || loading}
+        >
+          <MicrosoftIcon />
+          {ssoLoading ? "Redirecting..." : "Sign in with Microsoft"}
+        </Button>
+
+        {/* Divider */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">or</span>
+          </div>
+        </div>
 
         {/* Email/password form */}
         <form onSubmit={handleEmailSignIn} className="space-y-4">

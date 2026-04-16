@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *));
 
 @theme inline {
   --color-background: var(--background);
@@ -114,6 +114,86 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* ============================================================
+   V7 Design System — Parallel namespace (--v7-*)
+   These tokens coexist with existing shadcn tokens above.
+   NEVER modify existing :root or .dark token values.
+   ============================================================ */
+
+:root, [data-theme="light"] {
+  /* Backgrounds */
+  --v7-bg: #f6f3ee;
+  --v7-bg-2: #fbfaf7;
+  --v7-panel: #f9f6f1;
+  --v7-panel-2: #f2eee8;
+  --v7-line: #d5d1ca;
+  /* Text */
+  --v7-text: #231f19;
+  --v7-muted: #6f6a61;
+  --v7-faint: #958f84;
+  --v7-inverse: #fbfaf7;
+  /* Accents */
+  --v7-teal: #01696f;
+  --v7-blue: #0c6aa7;
+  --v7-lime: #4d8d1c;
+  --v7-amber: #b66a11;
+  --v7-pink: #b93e8a;
+  --v7-red: #b5454e;
+  /* Soft accent backgrounds */
+  --v7-teal-soft: rgba(1,105,111,0.12);
+  --v7-blue-soft: rgba(12,106,167,0.12);
+  --v7-amber-soft: rgba(182,106,17,0.13);
+  --v7-pink-soft: rgba(185,62,138,0.13);
+  /* Glass */
+  --v7-glass-bg: #f9f6f1;
+  --v7-glass-border: #d5d1ca;
+  --v7-glass-blur: 18px;
+  --v7-glass-shadow: 0 8px 24px rgba(28,24,18,0.08);
+  --v7-glass-shadow-heavy: 0 24px 70px rgba(28,24,18,0.14);
+  /* Radius */
+  --v7-radius: 22px;
+  --v7-radius-lg: 28px;
+  --v7-radius-card: 24px;
+  --v7-radius-sm: 14px;
+  --v7-radius-inner: 16px;
+  --v7-radius-kpi: 20px;
+  --v7-radius-mini: 18px;
+  --v7-radius-pill: 999px;
+}
+
+[data-theme="dark"] {
+  /* Backgrounds */
+  --v7-bg: #0c1117;
+  --v7-bg-2: #101722;
+  --v7-panel: rgba(19,26,36,0.82);
+  --v7-panel-2: #151d29;
+  --v7-line: rgba(255,255,255,0.08);
+  /* Text */
+  --v7-text: #edf3fb;
+  --v7-muted: #9fadc4;
+  --v7-faint: #6b7688;
+  --v7-inverse: #091018;
+  /* Accents */
+  --v7-teal: #3ac7c9;
+  --v7-blue: #69a8ff;
+  --v7-lime: #8ad05e;
+  --v7-amber: #ffb547;
+  --v7-pink: #ff78cf;
+  --v7-red: #ff6b7a;
+  /* Soft accent backgrounds */
+  --v7-teal-soft: rgba(58,199,201,0.13);
+  --v7-blue-soft: rgba(105,168,255,0.13);
+  --v7-amber-soft: rgba(255,181,71,0.13);
+  --v7-pink-soft: rgba(255,120,207,0.13);
+  /* Glass */
+  --v7-glass-bg: rgba(19,26,36,0.82);
+  --v7-glass-border: rgba(255,255,255,0.08);
+  --v7-glass-blur: 18px;
+  --v7-glass-shadow: 0 10px 30px rgba(0,0,0,0.22);
+  --v7-glass-shadow-heavy: 0 30px 100px rgba(0,0,0,0.42);
+  /* Radius — same as light, inherited from :root */
 }
 
 @layer base {

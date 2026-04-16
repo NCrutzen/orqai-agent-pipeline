@@ -1,12 +1,12 @@
 # Technology Stack
 
-**Project:** Agent Workforce V6.0 -- Executive Dashboard & UI Revamp
-**Researched:** 2026-03-26
-**Scope:** NEW stack additions for V6.0 only. Does not re-research existing validated stack (Next.js 16, Supabase, Inngest, React Flow, Playwright-core, Claude API, Orq.ai MCP, shadcn/ui, Tailwind CSS 4, Vitest, TypeScript, Zod). See V4.0 STACK.md for those.
+**Project:** Agent Workforce V7.0 Agent OS
+**Researched:** 2026-04-15
+**Scope:** NEW stack additions for V7.0 only. Does not re-research existing validated stack. See V6.0 STACK.md (git history) for Recharts, next-themes, date-fns, @orq-ai/node decisions.
 
 ## Existing Stack (DO NOT CHANGE)
 
-These are locked and validated. Listed here for integration context only.
+Locked and validated. Listed for integration context only.
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
@@ -15,404 +15,432 @@ These are locked and validated. Listed here for integration context only.
 | @supabase/supabase-js | `^2.99` | Auth, DB, Realtime, Storage |
 | @supabase/ssr | `^0.9` | Server-side auth with cookie handling |
 | inngest | `^3.52` | Durable pipeline orchestration |
-| @xyflow/react | `^12.10` | Node graph visualization |
+| @xyflow/react | `^12.10` | Node graph visualization (delegation graph) |
+| @dagrejs/dagre | `^3.0` | Graph auto-layout |
 | radix-ui | `^1.4` | Accessible UI primitives |
-| shadcn (CLI) | `^4.0` | Component generation (radix-nova style) |
+| shadcn (CLI) | `^4.0` | Component generation |
 | Tailwind CSS | `^4` | Utility-first CSS |
-| lucide-react | `^0.577` | Icon library |
-| sonner | `^2.0` | Toast notifications |
+| recharts | `^3.8` | Charts via shadcn/ui chart components |
+| next-themes | `^0.4` | Dark/light mode switching |
+| date-fns | `^4.1` | Date formatting |
+| @orq-ai/node | `4.4.9` | Orq.ai SDK for agent/trace data |
+| lucide-react | `^0.577` | Icons |
+| sonner | `^2.0` | Toasts |
 | zod | `^4.3` | Schema validation |
-| Vitest | `^4.1` | Testing |
-| TypeScript | `^5` | Type safety |
+| tw-animate-css | `^1.4` | CSS animations |
 
-## New Stack Additions for V6.0
+## New Stack Additions for V7.0
 
-### 1. Charts & Data Visualization -- Recharts via shadcn/ui Charts
+### 1. Animation Library -- Motion (formerly Framer Motion)
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| recharts | `^3.8` | Charting engine (area, bar, line, pie, radar) | shadcn/ui charts are built on Recharts. V3.8 is the latest (March 2026). The project already uses shadcn/ui (radix-nova style), so using shadcn's chart components gives us consistent theming, dark mode support, and CSS variable integration for free. No new design system to learn. |
+| `motion` | `^12.38` | Page transitions, glassmorphism hover effects, micro-interactions, layout animations, Kanban card movement | The React animation standard. Renamed from `framer-motion` to `motion` in 2025. Import from `motion/react`. Runs at 120fps without triggering React re-renders. v12 supports oklch colors (matching Tailwind 4/shadcn theme). Hardware-accelerated scroll animations. |
 
-**Why Recharts via shadcn, not Tremor or standalone Recharts:**
+**Import pattern:**
+```typescript
+import { motion, AnimatePresence } from "motion/react";
+```
 
-- **Tremor** was considered (purpose-built for dashboards with KPI cards, charts, and tables). Rejected because: (1) Tremor is a wrapper around Recharts anyway -- adds an abstraction layer without adding value when we already have shadcn/ui components for cards, tables, and layout. (2) Tremor's high-level API limits customization for executive branding needs. (3) Adding Tremor alongside shadcn creates two competing component systems.
-- **Standalone Recharts** was considered. Rejected because shadcn's `<ChartContainer>`, `<ChartTooltip>`, and `<ChartLegend>` wrappers already provide theming via CSS variables, automatic light/dark mode, and consistent styling with our existing components. No reason to build custom chart theming.
-- **Nivo, Victory, Visx** -- overkill. Recharts handles all our chart types (area trends, bar comparisons, line timelines, pie distributions) with React 19 compatibility.
+**V7.0 uses:**
+- `AnimatePresence` for page/view transitions (sidebar navigation)
+- `motion.div` with `layoutId` for fleet card expand-to-drawer animations
+- `whileHover` / `whileTap` for glassmorphism card interactions
+- `motion.div` with stagger for Kanban column entry animations
+- `useMotionValue` + `useTransform` for parallax glassmorphism depth effects
 
-**React 19 compatibility note:** Recharts 3.x requires overriding the `react-is` dependency to match React 19. This is a known issue tracked in shadcn-ui/ui#7669 and shadcn-ui/ui#9892. The override is simple:
+**NOT needed for edge particles:** The existing `animated-edge.tsx` already uses native SVG `<animateMotion>` for particles traveling along @xyflow/react edges. Pure SVG animation is more performant than JS-driven animation for graph edges. Keep this approach.
 
-```json
-// package.json
-{
-  "overrides": {
-    "react-is": "^19.0.0"
-  }
+**Why not GSAP/anime.js:** Motion covers all our animation needs with React-native API. Adding a second animation library creates confusion about which to use when.
+
+**Confidence:** HIGH -- npm v12.38.0 verified, official docs confirm React 19 support.
+
+---
+
+### 2. Drag-and-Drop -- @dnd-kit/react (v2 rewrite)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| `@dnd-kit/react` | `^0.4.0` | Kanban board drag-and-drop between business-stage columns | Modern v2 rewrite of dnd-kit. Single package replaces the old `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities` combo. Built-in sortable support, accessible by default (keyboard DnD), collision detection. Extensive community examples with shadcn/ui + Tailwind. |
+
+**Important:** This is the NEW `@dnd-kit/react` package (v0.4.0) -- NOT the legacy `@dnd-kit/core`. The v2 API is simpler:
+
+```typescript
+import { DragDropProvider, Draggable, Droppable } from "@dnd-kit/react";
+import { move } from "@dnd-kit/helpers";
+```
+
+**V7.0 uses:**
+- Kanban columns as `Droppable` zones (e.g., "Inbox", "Processing", "Awaiting Response", "Resolved")
+- Job cards as `Draggable` items with sort within columns
+- `DragOverlay` for smooth drag preview (card follows cursor)
+- Persist column changes to Supabase on drop
+
+**Why not react-beautiful-dnd:** Abandoned -- no longer maintained, no React 19 support.
+
+**Confidence:** HIGH -- npm v0.4.0 verified, active development, community Kanban examples exist.
+
+---
+
+### 3. Fonts -- Satoshi + Cabinet Grotesk (self-hosted)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| Satoshi Variable | - | Body text, UI labels, navigation | Free via Fontshare (Indian Type Foundry). Variable font = single woff2 file for all weights 300-900. Modern geometric sans with humanist details. Pairs with Cabinet Grotesk. |
+| Cabinet Grotesk Variable | - | Headings, KPI numbers, hero text | Free via Fontshare. Personality-rich grotesk with distinctive R, angled terminals. Strong display presence for the "cinematic" design language. |
+
+**Licensing:** Both fonts are 100% free for personal AND commercial use under Fontshare's EULA. No per-seat, revenue, or impression restrictions. Self-hosting explicitly permitted.
+
+**Loading strategy -- `next/font/local`:**
+
+```typescript
+// app/layout.tsx
+import localFont from "next/font/local";
+
+const satoshi = localFont({
+  src: "../public/fonts/Satoshi-Variable.woff2",
+  variable: "--font-satoshi",
+  display: "swap",
+  weight: "300 900",
+});
+
+const cabinetGrotesk = localFont({
+  src: "../public/fonts/CabinetGrotesk-Variable.woff2",
+  variable: "--font-cabinet",
+  display: "swap",
+  weight: "100 900",
+});
+
+// Apply to <html> alongside existing font classes
+// <html className={`${satoshi.variable} ${cabinetGrotesk.variable}`}>
+```
+
+**Why NOT Fontshare CDN:** Adds external dependency, GDPR concern with third-party font loading. Self-hosting is faster (Vercel CDN), private, and more reliable.
+
+**Why NOT Google Fonts:** Satoshi and Cabinet Grotesk are not on Google Fonts.
+
+**Font role mapping:**
+
+| Element | Font | Weight | CSS Variable |
+|---------|------|--------|-------------|
+| Body text | Satoshi | 400 | `--font-satoshi` |
+| UI labels, buttons | Satoshi | 500 | `--font-satoshi` |
+| Sidebar nav | Satoshi | 500-600 | `--font-satoshi` |
+| Section headings | Cabinet Grotesk | 700 | `--font-cabinet` |
+| KPI numbers | Cabinet Grotesk | 700-800 | `--font-cabinet` |
+| Hero/display text | Cabinet Grotesk | 800 | `--font-cabinet` |
+
+**Migration note:** This replaces Geist Sans as the primary font. Geist Mono can stay for code/terminal output in the event stream. Update `--font-sans` in `@theme inline` block of globals.css to point to `--font-satoshi`.
+
+**Confidence:** HIGH -- Fontshare EULA confirmed across multiple sources, self-hosting supported.
+
+---
+
+### 4. Glassmorphism Design Tokens -- CSS Custom Properties (no package)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| CSS custom properties | - | Glassmorphism theming layer for dark/light modes | Extend existing shadcn CSS variable system in globals.css. `backdrop-filter: blur()` + semi-transparent backgrounds are native CSS. Tailwind CSS 4 has `backdrop-blur-*` utilities built in. No library needed. |
+
+**New CSS variables to add to globals.css:**
+
+```css
+:root {
+  /* Glassmorphism tokens */
+  --glass-bg: oklch(1 0 0 / 0.7);
+  --glass-border: oklch(0.8 0 0 / 0.3);
+  --glass-blur: 16px;
+  --glass-shadow: 0 8px 32px oklch(0 0 0 / 0.08);
+
+  /* Agent status colors */
+  --agent-thinking: oklch(0.7 0.15 250);   /* blue */
+  --agent-tool-call: oklch(0.7 0.15 150);  /* green */
+  --agent-waiting: oklch(0.7 0.12 80);     /* amber */
+  --agent-done: oklch(0.6 0.1 160);        /* teal */
+  --agent-error: oklch(0.6 0.2 25);        /* red */
+}
+
+.dark {
+  --glass-bg: oklch(0.2 0 0 / 0.6);
+  --glass-border: oklch(0.4 0 0 / 0.2);
+  --glass-blur: 20px;
+  --glass-shadow: 0 8px 32px oklch(0 0 0 / 0.4);
 }
 ```
 
-**Chart types needed for the executive dashboard:**
-
-| Chart Type | Use Case | shadcn Component |
-|------------|----------|------------------|
-| Area chart | ROI trends over time, cost trends | `npx shadcn add chart` (area variants) |
-| Bar chart | Agent performance comparison, monthly usage | bar variants |
-| Line chart | Latency trends, activity over time | line variants |
-| Pie/Donut | Cost distribution by automation type | pie variants |
-| Radial | Health scores, reliability percentages | radial variants |
-
-**Installation:**
-
-```bash
-cd web
-npm install recharts@^3.8
-npx shadcn add chart
-```
-
-The `npx shadcn add chart` command scaffolds a `components/ui/chart.tsx` with `ChartContainer`, `ChartTooltip`, `ChartTooltipContent`, `ChartLegend`, and `ChartLegendContent` -- all pre-themed with the project's CSS variables.
-
-**Confidence:** HIGH -- shadcn/ui official docs confirm Recharts v3 support. React 19 override is documented.
-
----
-
-### 2. Azure AD / Microsoft Entra ID SSO -- Supabase OAuth Provider
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| (no new package) | -- | Azure OAuth via Supabase Auth | Supabase has a built-in Azure (Microsoft) OAuth provider. No additional npm packages needed. Configuration is done in Supabase Dashboard + Azure Entra ID portal. The existing `@supabase/ssr` and `@supabase/supabase-js` packages already support `signInWithOAuth()`. |
-
-**Why Supabase OAuth, not SAML SSO or NextAuth:**
-
-- **SAML SSO** was considered (Supabase supports SAML 2.0 for Azure). Rejected because: SAML requires Team or Enterprise plan. OAuth social login works on all plans including Free/Pro. For 5-15 users with O365 accounts, OAuth is the right choice.
-- **NextAuth/Auth.js** was considered. Rejected because: the app already uses Supabase Auth everywhere (middleware, server client, browser client, invite flow). Adding NextAuth would create two auth systems. Supabase's built-in Azure provider handles the same flow with zero additional dependencies.
-
-**Integration approach:**
-
-The existing auth infrastructure (middleware.ts, `/auth/callback/route.ts`, login page) already supports the OAuth code exchange pattern via `exchangeCodeForSession()`. Adding Azure SSO requires:
-
-1. **Azure Entra ID portal:** Register app, configure redirect URI (`{SITE_URL}/auth/callback`), get client ID + secret
-2. **Supabase Dashboard:** Enable Azure provider, paste client ID + secret, set tenant URL (`https://login.microsoftonline.com/{tenant-id}`)
-3. **Login page:** Add "Sign in with Microsoft" button calling `supabase.auth.signInWithOAuth({ provider: 'azure', options: { redirectTo: '{SITE_URL}/auth/callback', scopes: 'email' } })`
-4. **No middleware changes needed** -- the existing `getUser()` call already validates any Supabase session, regardless of provider
-
-**Tenant restriction:** Configure the Azure tenant URL in Supabase to restrict login to the Moyne Roberts Microsoft 365 tenant only. Do NOT use the `common` tenant (allows any Microsoft account).
-
-**Security: `xms_edov` claim:** Configure the optional `xms_edov` (email domain owner verified) claim in the Azure app registration. This lets Supabase Auth verify that the email address is actually verified by Microsoft, preventing spoofed emails.
-
-**Plan requirement:** Social login (OAuth) is available on all Supabase plans. SAML SSO requires Team/Enterprise. Use OAuth.
-
-**Confidence:** HIGH -- Supabase official docs confirm Azure OAuth provider support. The existing callback route already handles the code exchange.
-
----
-
-### 3. Orq.ai Analytics Data -- @orq-ai/node SDK + Browser Scraper Fallback
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| @orq-ai/node | `^4.4` (pin exact: `4.4.9`) | Orq.ai TypeScript SDK for deployment data, traces, agent listing | SDK is in beta with potential breaking changes. Pin to exact version. Provides typed access to deployments, contacts, and traces. |
-
-**Critical finding: Orq.ai does NOT expose an analytics REST API.**
-
-Research confirmed that Orq.ai's analytics (usage, cost, latency, agent performance) are available ONLY through the web dashboard UI. There is no documented REST API endpoint for pulling aggregated analytics data programmatically. The SDK supports:
-
-- `client.deployments.invoke()` -- invoke deployments
-- `client.deployments.list()` -- list deployments
-- `client.deployments.getConfig()` -- get deployment config
-- Trace logging via OpenTelemetry (`/v2/otel` endpoint)
-- `add_metrics()` -- add custom metrics TO deployments
-
-But there are NO endpoints to READ aggregated analytics (total cost, latency p50/p99, token usage over time, error rates).
-
-**Solution: Dual data strategy:**
-
-1. **Direct SDK data (what's available programmatically):**
-   - Agent/deployment inventory via `deployments.list()`
-   - Agent configuration and status
-   - Custom metrics attached to deployments
-
-2. **Browser scraper for analytics (Browserless.io):**
-   - Schedule Inngest cron to run Playwright scripts on Browserless.io
-   - Scrape the Orq.ai Studio dashboard pages for: total requests, total cost, total tokens, latency (p50/p99), error rate
-   - Parse the scraped data and store snapshots in Supabase
-   - This is the same pattern already used for Zapier analytics scraping -- reuse the infrastructure
-
-**Why not OpenTelemetry export:** The OTEL endpoint (`/v2/otel`) is for SENDING traces TO Orq.ai, not for reading them back. It's an ingestion endpoint, not a query endpoint.
-
-**Installation:**
-
-```bash
-cd web
-npm install @orq-ai/node@4.4.9
-```
-
-**Confidence:** MEDIUM -- SDK capabilities confirmed via npm + GitHub. The absence of an analytics API is a "negative claim" -- verified against official docs, SDK source, and multiple search queries. Flag for re-verification when starting implementation; Orq.ai may add analytics endpoints.
-
----
-
-### 4. Dark Mode & Theme Switching -- next-themes
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| next-themes | `^0.4.6` | Theme provider for light/dark mode switching | shadcn/ui's official recommendation for dark mode in Next.js. The project already has `.dark` CSS variables defined in globals.css (lines 85-117) but no theme provider or toggle. next-themes adds system preference detection, persistence, and zero-flash switching. |
-
-**Why this is needed for V6.0:**
-
-The executive dashboard needs a polished dark mode. The CSS variables are already defined (the `globals.css` has both `:root` and `.dark` themes), but there is no runtime theme switching. The `suppressHydrationWarning` prop is already on the `<html>` tag (layout.tsx line 28), which is required by next-themes.
-
-**Integration:**
-
-1. Create `components/theme-provider.tsx` -- wraps `NextThemesProvider` with `"use client"`
-2. Add `<ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>` in root layout
-3. Add theme toggle component (shadcn has one: `npx shadcn add mode-toggle` or build manually with `useTheme()` hook)
-
-**Installation:**
-
-```bash
-cd web
-npm install next-themes@^0.4.6
-```
-
-**Confidence:** HIGH -- shadcn/ui official docs prescribe next-themes for dark mode in Next.js.
-
----
-
-### 5. Date Formatting -- date-fns
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| date-fns | `^4.1` | Date formatting, relative time, ranges for dashboard metrics | Tree-shakeable (only import what you use), functional API, works with native Date objects. The dashboard needs "3 days ago", "March 2026", "Last 30 days" type formatting. date-fns is 18KB gzipped but tree-shakes to 2-5KB for typical usage. |
-
-**Why date-fns, not dayjs:**
-
-- dayjs is 2KB smaller at baseline but requires plugins for timezone/locale support that close the gap
-- date-fns is fully tree-shakeable (import only `format`, `formatDistanceToNow`, `subDays` etc.)
-- TypeScript-first with excellent type safety
-- No global state or mutation -- pure functions
-- Already the shadcn/ui ecosystem recommendation (shadcn-ui/ui Discussion #4817)
-
-**Installation:**
-
-```bash
-cd web
-npm install date-fns@^4.1
-```
-
-**Confidence:** HIGH -- well-established library, actively maintained, standard choice.
-
----
-
-### 6. Number & Currency Formatting -- Intl API (no package needed)
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Intl.NumberFormat | (built-in) | Currency, percentages, compact numbers for KPIs | Native browser/Node.js API. No package needed. Handles EUR formatting ("EUR 1.234,56"), compact notation ("1.2K requests"), percentages ("87.3%"). |
-
-**Why no `numeral.js` or `accounting.js`:**
-
-The built-in `Intl.NumberFormat` handles all executive dashboard formatting needs:
+**Tailwind utility pattern:**
 
 ```typescript
-// EUR currency
-new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(12345.67)
-// => "EUR 12.345,67"
-
-// Compact numbers for KPIs
-new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(15234)
-// => "15.2K"
-
-// Percentages
-new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 1 }).format(0.873)
-// => "87.3%"
+// Reusable glass card class
+const glassCard = "bg-[var(--glass-bg)] border border-[var(--glass-border)] backdrop-blur-[var(--glass-blur)] shadow-[var(--glass-shadow)] rounded-xl";
 ```
 
-No additional dependency needed. Build a small `lib/format.ts` utility with typed helper functions.
+**Better approach -- create a shadcn-style variant:**
 
-**Confidence:** HIGH -- native API, zero-dependency.
+```typescript
+// components/ui/glass-card.tsx
+import { cn } from "@/lib/utils";
+
+export function GlassCard({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      className={cn(
+        "bg-[var(--glass-bg)] border border-[var(--glass-border)]",
+        "backdrop-blur-[var(--glass-blur)] shadow-[var(--glass-shadow)]",
+        "rounded-xl transition-all",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+```
+
+**Confidence:** HIGH -- native CSS, Tailwind 4 supports all needed utilities.
 
 ---
 
-### 7. Automated Status Monitoring -- Inngest Cron (no new package)
+### 5. Azure AD O365 SSO -- Supabase Auth Azure Provider (no package)
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| inngest (existing) | `^3.52` | Scheduled cron functions for status monitoring and data scraping | Inngest already supports cron schedules natively. No new packages needed. Define `createFunction({ id: "...", triggers: { cron: "TZ=Europe/Amsterdam 0 8,12,17 * * *" } })` for three scraping runs per day. |
+| Supabase Auth (Azure provider) | existing | O365 SSO for frictionless executive access | Built into Supabase Auth. Azure (Microsoft) is a first-class social login provider. Works alongside existing email/password auth. No additional npm packages. |
 
-**Functions to schedule:**
+**Configuration steps:**
 
-| Function | Schedule | Purpose |
-|----------|----------|---------|
-| `sync-orqai-analytics` | `0 8,12,17 * * *` (3x/day) | Scrape Orq.ai Studio dashboard via Browserless.io, store metrics snapshot |
-| `sync-zapier-analytics` | `0 8,12,17 * * *` (3x/day) | Scrape Zapier dashboard via Browserless.io, store task usage + Zap run data |
-| `update-project-statuses` | `0 */4 * * *` (every 4h) | Check latest activity per project, update status (idea -> building -> testing -> live -> stale) |
-| `compute-roi-metrics` | `0 6 * * 1` (weekly Monday) | Aggregate time savings, cost savings, ROI calculations across all projects |
+**Azure Portal (Entra ID):**
+1. App Registrations > New Registration
+2. Name: "Agent Workforce"
+3. Supported account types: "Accounts in this organizational directory only" (single-tenant -- MR employees only)
+4. Redirect URI (Web): `https://mvqjhlxfvtqqubqgdvhz.supabase.co/auth/v1/callback`
+5. Certificates & Secrets > New client secret > copy value immediately
+6. Note: Application (client) ID + Directory (tenant) ID
+7. API Permissions: ensure `email`, `openid`, `profile` are granted
 
-**Why Inngest cron, not Vercel cron:**
+**Supabase Dashboard:**
+1. Authentication > Providers > Microsoft (Azure)
+2. Enable provider toggle
+3. Client ID: paste Application (client) ID
+4. Client Secret: paste secret value
+5. Azure Tenant URL: `https://login.microsoftonline.com/{MR-tenant-id}`
 
-- Vercel cron is limited to the Vercel Pro timeout (60s). Browser scraping can take 30-45s, leaving no margin.
-- Inngest cron supports multi-step functions with `step.run()` -- each step gets its own timeout. A scraper function can have: step 1 (navigate + scrape), step 2 (parse + validate), step 3 (store in Supabase).
-- Inngest provides automatic retries, logging, and failure alerting out of the box.
-- Already in the stack -- no new infrastructure.
+**Code (login page):**
+```typescript
+const handleMicrosoftLogin = async () => {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "azure",
+    options: {
+      scopes: "email profile openid",
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+};
+```
 
-**Confidence:** HIGH -- Inngest cron is documented and already used in the project.
+**Key gotchas:**
+- Supabase Auth REQUIRES Azure to return a valid email address -- the `email` scope is mandatory
+- Azure does NOT allow `127.0.0.1` as redirect URI -- use `localhost` for local dev
+- Single-tenant config restricts to MR organization -- no personal Microsoft accounts
+- The existing `/auth/callback` route and `exchangeCodeForSession()` already handle the OAuth code exchange -- no changes needed to the callback
+- Add `{SITE_URL}/auth/callback` to Supabase Auth > URL Configuration > Redirect URLs
+
+**No middleware changes needed** -- existing `getUser()` validates any Supabase session regardless of auth provider.
+
+**Confidence:** HIGH -- official Supabase docs, first-class provider support.
+
+---
+
+### 6. Gantt-Style Swimlane Timeline -- Custom SVG Component (no package)
+
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| Custom SVG + Motion | - | Per-agent execution timeline (thinking/tool_call/waiting/done phases) | Build custom. Our "Gantt" is a horizontal stacked-bar timeline per agent -- NOT a project management chart. Existing Gantt libraries (SVAR: GPLv3, Bryntum: $399+ commercial, DHTMLX: enterprise pricing) solve the wrong problem and add massive bundle weight. |
+
+**Why custom:**
+- Our visualization shows agent execution phases over a time axis -- closer to a flame chart / trace viewer than a Gantt chart
+- Each row = one agent. Each segment = a phase (thinking, tool_call, waiting, done) with a color from `--agent-*` tokens
+- No dependencies, milestones, resource allocation, or drag-to-resize needed
+- Custom SVG gives full control over the cinematic aesthetic (glassmorphism, glow, dark theme)
+- Estimated effort: ~150-200 lines of SVG with Motion for enter/update animations
+
+**Component sketch:**
+```typescript
+// components/agent-os/swimlane-timeline.tsx
+// SVG with one <g> per agent row
+// Each phase = <rect> with x/width from timestamps, fill from agent status color
+// Motion for staggered entry animation
+// Hover tooltip showing phase details
+```
+
+**Data shape:**
+```typescript
+interface AgentPhase {
+  agentId: string;
+  agentName: string;
+  phase: "thinking" | "tool_call" | "waiting" | "done" | "error";
+  startMs: number;  // relative to run start
+  endMs: number;
+}
+```
+
+**Confidence:** MEDIUM -- judgment call. No exact precedent for this specific visualization, but the SVG pattern is straightforward. Flag for validation during implementation -- if complexity exceeds estimate, reconsider a lightweight charting approach using Recharts stacked bar.
 
 ---
 
-## Typography & Font Strategy (No New Packages)
+### 7. Real-Time Terminal Event Stream -- Supabase Realtime (no package)
 
-The project currently uses **Geist** and **Geist Mono** (loaded via `next/font/google` in layout.tsx). For the executive dashboard:
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| Supabase Realtime (postgres_changes) | existing | Claude-style terminal event stream | Already in the stack. Subscribe to an `agent_events` table for real-time INSERT notifications. Client component with `useEffect` + channel cleanup. |
 
-**Keep Geist.** Do not switch to Inter.
+**Pattern:**
+```typescript
+"use client";
 
-Rationale:
-- Geist is Vercel's typeface, designed for the exact kind of professional UI this project builds
-- Geist is influenced by Inter but with slightly rounder curves and better character spacing -- more modern feel
-- Already loaded and configured via `--font-geist-sans` and `--font-geist-mono` CSS variables
-- Switching to Inter would require touching every font reference and loses the Next.js-native integration
-- For executive audiences, the difference between Geist and Inter is negligible; both are excellent screen-optimized sans-serifs
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
-**What to change for executive polish:**
-- Increase base font weight for headings (use `font-semibold` / `font-bold` more)
-- Tighten letter spacing on large display text (`tracking-tight`)
-- Establish a clear type scale in the design system: display (36px), heading (24px), subheading (18px), body (14px), caption (12px)
-- Use Geist Mono exclusively for metrics/numbers on KPI cards -- gives them a data-driven feel
+function useAgentEvents(runId: string) {
+  const [events, setEvents] = useState<AgentEvent[]>([]);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`agent-events-${runId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "agent_events",
+          filter: `run_id=eq.${runId}`,
+        },
+        (payload) => {
+          setEvents((prev) => [...prev, payload.new as AgentEvent]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [runId, supabase]);
+
+  return events;
+}
+```
+
+**Table design for `agent_events`:**
+```sql
+create table agent_events (
+  id uuid primary key default gen_random_uuid(),
+  run_id uuid references automation_runs(id),
+  agent_name text not null,
+  event_type text not null,  -- 'thinking', 'tool_call', 'tool_result', 'response', 'error'
+  content jsonb,
+  created_at timestamptz default now()
+);
+
+-- Enable realtime
+alter publication supabase_realtime add table agent_events;
+```
+
+**Confidence:** HIGH -- Supabase Realtime with postgres_changes is well-documented, Next.js App Router pattern confirmed.
 
 ---
 
-## Color Palette Strategy (No New Packages)
+### 8. Orq.ai Trace/Event Data -- Existing SDK + REST API
 
-The current theme uses neutral/grayscale oklch colors. For V6.0's executive redesign:
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| @orq-ai/node | `4.4.9` (existing) | Fetch agent traces, tool calls, execution timelines | Already installed from V6.0. Use for agent inventory, deployment config, and whatever trace data the API exposes. |
 
-**Extend the existing shadcn CSS variable system.** Do not add a color library.
+**V7.0 data needs from Orq.ai:**
 
-The globals.css already defines `--chart-1` through `--chart-5` with a blue-to-indigo gradient. For the executive dashboard:
+| Data Point | Source | Method |
+|------------|--------|--------|
+| Agent list + config | SDK `deployments.list()` | Direct API |
+| Agent metrics (cost, latency) | Orq.ai dashboard | Browser scraper (Inngest cron, already designed in V6.0) |
+| Execution traces/events | SDK or REST `/v2/traces` | Verify endpoint exists -- if not, scrape |
+| Tool call logs | SDK or trace data | Part of trace data |
 
-1. **Keep the blue-indigo chart palette** -- professional, data-focused, accessible
-2. **Add semantic status colors** as CSS variables:
-   - `--status-live`: green (projects in production)
-   - `--status-building`: blue (projects in development)
-   - `--status-testing`: amber (projects in test)
-   - `--status-idea`: gray (project ideas)
-   - `--status-stale`: red (inactive projects)
-3. **Add ROI/metric colors:**
-   - `--metric-positive`: green (savings, improvements)
-   - `--metric-negative`: red (costs, regressions)
-   - `--metric-neutral`: gray (unchanged)
+**Action item:** During implementation, verify whether `/v2/traces` or `/v2/logs` endpoints exist in the Orq.ai API for reading execution traces back. The V6.0 research confirmed analytics aggregates are not available via API, but individual trace/event data may be accessible. If not, extend the browser scraper to capture trace-level data.
 
-All in oklch format for perceptual consistency, matching the existing theme.
+**Confidence:** MEDIUM -- trace API availability needs verification during implementation.
 
 ---
+
+## Summary: What Gets Added
+
+| Package | Bundle Impact | Purpose |
+|---------|--------------|---------|
+| `motion` | ~33KB gzip | Animations, transitions, micro-interactions |
+| `@dnd-kit/react` | ~15KB gzip | Kanban drag-and-drop |
+| Satoshi Variable (woff2) | ~45KB | Body font |
+| Cabinet Grotesk Variable (woff2) | ~40KB | Heading font |
+
+**Total new JS packages: 2** (`motion`, `@dnd-kit/react`)
+**Total new JS bundle: ~48KB gzip**
+**Total new font weight: ~85KB** (loaded async, font-display: swap)
+**New CSS-only additions: glassmorphism tokens, agent status colors**
+**Config-only changes: Azure AD in Supabase Dashboard + Entra ID portal**
+**Custom components (no library): swimlane timeline, glass card, terminal stream**
 
 ## What NOT to Add
 
-| Technology | Why NOT |
-|------------|---------|
-| **Tremor** | Adds competing component system alongside shadcn. Recharts via shadcn charts does everything Tremor does with better integration. |
-| **D3.js directly** | Overkill. Recharts abstracts D3 with a React-native API. No custom SVG visualizations needed. |
-| **NextAuth / Auth.js** | Supabase Auth already handles Azure OAuth. Adding NextAuth creates two auth systems. |
-| **TanStack Query / SWR** | Dashboard data is server-rendered (RSC) or fetched via server actions. No client-side cache layer needed for 5-15 users. If polling is needed later, Supabase Realtime or simple `setInterval` + `fetch` suffices. |
-| **Framer Motion** | The existing `tw-animate-css` handles transitions. Framer Motion adds 30KB+ for animation capabilities the executive dashboard doesn't need. |
-| **numeral.js / accounting.js** | `Intl.NumberFormat` covers all formatting needs natively. Zero-dependency. |
-| **dayjs / moment** | date-fns is tree-shakeable and TypeScript-first. dayjs adds minimal value over date-fns. moment is deprecated. |
-| **Chart.js** | Canvas-based, not React-native. Recharts is the standard for React dashboards and already integrated into shadcn/ui. |
-| **Prisma / Drizzle** | Supabase JS client handles all database access. Adding an ORM for 5-15 users is unnecessary complexity. |
-| **Redis / Upstash** | No caching layer needed at this scale. Supabase queries are fast enough for dashboard data. |
-| **Zapier SDK (@zapier/zapier-sdk)** | Not needed for V6.0. Zapier analytics come from browser scraping, not the SDK. |
+| Rejected | Why |
+|----------|-----|
+| `framer-motion` | Deprecated package name. Use `motion` (same library, new name, import from `motion/react`) |
+| `react-beautiful-dnd` | Abandoned, no React 19 support, no maintenance |
+| `@dnd-kit/core` + `@dnd-kit/sortable` | Legacy v1 API. Use `@dnd-kit/react` (the v2 single-package rewrite) |
+| Any Gantt library (SVAR, Bryntum, DHTMLX) | Wrong problem (project management), wrong license (GPLv3/commercial), heavy bundle. Custom SVG is simpler for our trace-viewer-style swimlanes |
+| `@fontsource/satoshi` | Unnecessary wrapper. `next/font/local` handles variable fonts natively |
+| `gsap` / `anime.js` | `motion` covers all animation needs. Two animation libs = confusion |
+| `next-auth` / `auth.js` / `@azure/msal-react` | Supabase Auth handles Azure AD natively. Adding another auth layer is redundant |
+| Custom WebSocket server | Supabase Realtime handles pub/sub natively |
+| `react-grid-layout` | We need Kanban columns (1D sort + cross-column move), not a 2D grid layout |
+| Fontshare CDN | GDPR concern, external dependency, slower than self-hosting on Vercel CDN |
+| `d3` directly | Overkill for swimlane bars. SVG `<rect>` elements with Motion for animation suffices |
 
----
+## Installation
+
+```bash
+cd web
+
+# New dependencies for V7.0 (only 2 new npm packages!)
+npm install motion@^12 @dnd-kit/react@^0.4
+
+# Fonts: download variable woff2 files from Fontshare
+mkdir -p public/fonts
+# Download from https://www.fontshare.com/fonts/satoshi → Satoshi-Variable.woff2
+# Download from https://www.fontshare.com/fonts/cabinet-grotesk → CabinetGrotesk-Variable.woff2
+```
 
 ## Alternatives Considered
 
 | Category | Recommended | Alternative | Why Not |
 |----------|-------------|-------------|---------|
-| Charts | Recharts 3.x via shadcn | Tremor | Competing component system, wraps Recharts anyway |
-| Charts | Recharts 3.x via shadcn | Nivo | Heavier, less React-native feel, no shadcn integration |
-| SSO | Supabase Azure OAuth | SAML SSO | Requires Team/Enterprise plan, OAuth works on all plans |
-| SSO | Supabase Azure OAuth | NextAuth | Creates second auth system alongside existing Supabase Auth |
-| Theme | next-themes | Manual `data-theme` | next-themes handles system preference, persistence, flash prevention |
-| Dates | date-fns | dayjs | Tree-shaking, TypeScript-first, shadcn ecosystem standard |
-| Analytics data | Browser scraping | Orq.ai API | API does not exist for analytics read-back (verified) |
-| Cron | Inngest cron | Vercel cron | Inngest supports multi-step, retries, longer timeouts |
-| Numbers | Intl.NumberFormat | numeral.js | Native API, zero dependencies |
-
----
-
-## Installation Summary
-
-```bash
-cd web
-
-# New dependencies for V6.0
-npm install recharts@^3.8 next-themes@^0.4.6 date-fns@^4.1 @orq-ai/node@4.4.9
-
-# Add shadcn chart component
-npx shadcn add chart
-
-# React 19 compatibility override (add to package.json)
-# "overrides": { "react-is": "^19.0.0" }
-```
-
-**Total new packages: 4** (recharts, next-themes, date-fns, @orq-ai/node)
-**Total new shadcn components: 1** (chart)
-**Bundle size impact:** ~45KB gzipped (recharts ~35KB, next-themes ~3KB, date-fns ~5KB tree-shaken, @orq-ai/node server-only)
-
----
-
-## Integration Points
-
-### Data Flow Architecture
-
-```
-Orq.ai Studio (dashboard) ──[Browserless.io scraper]──> Supabase (orqai_metrics)
-Zapier (dashboard)         ──[Browserless.io scraper]──> Supabase (zapier_metrics)
-Agent Workforce (DB)       ──[direct queries]──────────> Supabase (projects, pipeline_runs)
-                                                              |
-                                                              v
-                                                    Next.js RSC (aggregation)
-                                                              |
-                                                              v
-                                                    Recharts (visualization)
-```
-
-### Auth Flow (with Azure SSO addition)
-
-```
-Login Page
-  ├── Email/Password ──> supabase.auth.signInWithPassword() ──> session
-  └── Microsoft SSO  ──> supabase.auth.signInWithOAuth({ provider: 'azure' })
-                           ──> Azure Entra ID login
-                           ──> /auth/callback (existing route)
-                           ──> exchangeCodeForSession() (existing code)
-                           ──> session
-```
-
-### Scraper Scheduling
-
-```
-Inngest Cron ──> Browserless.io
-  step.run("navigate")     → Open Orq.ai/Zapier dashboard
-  step.run("authenticate") → Login with stored session (Supabase storage)
-  step.run("scrape")       → Extract metrics from dashboard DOM
-  step.run("store")        → Insert snapshot into Supabase metrics table
-```
-
----
+| Animation | `motion` v12 | GSAP, anime.js | One animation lib is enough. Motion is React-native with hooks API |
+| Drag-drop | `@dnd-kit/react` v0.4 | react-beautiful-dnd, react-dnd | Abandoned / lower-level API respectively |
+| Fonts | Self-hosted Fontshare | CDN, @fontsource | Privacy, performance, simplicity |
+| Swimlanes | Custom SVG | SVAR Gantt, Bryntum | Wrong abstraction, licensing issues, bundle weight |
+| O365 SSO | Supabase Azure OAuth | MSAL, NextAuth | Already have Supabase Auth, no need for second auth system |
+| Realtime | Supabase Realtime | Custom WebSocket, Pusher | Already in the stack, zero config |
+| Glass effects | CSS custom props | Material UI, dedicated glass lib | Native CSS, Tailwind 4 has backdrop-blur |
 
 ## Sources
 
-- [shadcn/ui Charts Documentation](https://ui.shadcn.com/docs/components/radix/chart)
-- [shadcn/ui Area Charts Gallery](https://ui.shadcn.com/charts/area)
-- [Recharts v3.8 on npm](https://www.npmjs.com/package/recharts)
-- [Recharts v3 shadcn compatibility issue](https://github.com/shadcn-ui/ui/issues/7669)
-- [Supabase Azure (Microsoft) OAuth](https://supabase.com/docs/guides/auth/social-login/auth-azure)
-- [Supabase SSO with Azure AD (SAML)](https://supabase.com/docs/guides/platform/sso/azure)
-- [Supabase SAML 2.0 SSO docs](https://supabase.com/docs/guides/auth/enterprise-sso/auth-sso-saml)
-- [Orq.ai Dashboards and Analytics](https://docs.orq.ai/docs/dashboards-and-analytics)
-- [Orq.ai Analytics docs](https://docs.orq.ai/docs/analytics)
-- [Orq.ai Traces docs](https://docs.orq.ai/docs/traces)
-- [@orq-ai/node SDK on npm](https://www.npmjs.com/package/@orq-ai/node)
-- [@orq-ai/node GitHub](https://github.com/orq-ai/orq-node)
-- [next-themes on npm](https://www.npmjs.com/package/next-themes)
-- [shadcn/ui Dark Mode with Next.js](https://ui.shadcn.com/docs/dark-mode/next)
-- [Inngest Cron/Scheduled Functions](https://www.inngest.com/docs/guides/scheduled-functions)
-- [date-fns vs dayjs discussion](https://github.com/shadcn-ui/ui/discussions/4817)
-- [Supabase Social Login docs](https://supabase.com/docs/guides/auth/social-login)
-- [Supabase Pricing](https://supabase.com/pricing)
+- [Motion docs - React](https://motion.dev/docs/react)
+- [Motion docs - SVG animation](https://motion.dev/docs/react-svg-animation)
+- [Motion npm v12.38.0](https://www.npmjs.com/package/motion)
+- [Motion upgrade guide (from framer-motion)](https://motion.dev/docs/react-upgrade-guide)
+- [@dnd-kit/react npm v0.4.0](https://www.npmjs.com/package/@dnd-kit/react)
+- [dnd-kit official docs](https://dndkit.com/)
+- [dnd-kit + shadcn/ui Kanban example](https://github.com/Georgegriff/react-dnd-kit-tailwind-shadcn-ui)
+- [Fontshare - Satoshi](https://www.fontshare.com/fonts/satoshi)
+- [Fontshare - Cabinet Grotesk + Satoshi pairing](https://www.fontpair.co/pairings/cabinet-grotesk-satoshi)
+- [Supabase - Login with Azure (Microsoft)](https://supabase.com/docs/guides/auth/social-login/auth-azure)
+- [Supabase - Realtime with Next.js](https://supabase.com/docs/guides/realtime/realtime-with-nextjs)
+- [React Flow - Animating Edges](https://reactflow.dev/examples/edges/animating-edges)
+- [React Flow - AnimatedSVGEdge](https://reactflow.dev/ui/components/animated-svg-edge)
+- [SVAR React Gantt chart comparison (2026)](https://svar.dev/blog/top-react-gantt-charts/)

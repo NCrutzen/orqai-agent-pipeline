@@ -7,7 +7,7 @@ const schema = `
   -- Emails table: stores all fetched emails from shared mailboxes
   create table if not exists emails (
     id uuid primary key default gen_random_uuid(),
-    graph_id text unique not null,
+    source_id text unique not null,
     mailbox text not null,
     direction text not null check (direction in ('incoming', 'sent')),
     subject text,

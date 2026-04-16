@@ -1,5 +1,34 @@
 # Milestones
 
+## V7.0 Agent OS (Defined: 2026-04-15)
+
+**Phases:** 7 (phases 48-54)
+**Requirements:** 45 (DS-01-04, AUTH-01-03, NAV-01-04, RT-01-04, DATA-01-03, BRIEF-01-03, FLEET-01-04, DRAW-01-04, GRAPH-01-04, KAN-01-04, OBS-01-05, POL-01-03)
+
+**Planned deliverables:**
+1. New design system (Satoshi + Cabinet Grotesk, glassmorphism, dark/light toggle with parallel --v7-* tokens)
+2. Azure AD OAuth SSO with automatic account linking for existing email/password users
+3. Sidebar with dynamic swarm navigation and live mini-stats
+4. Single Supabase Realtime subscription per swarm view distributing events to all child components
+5. Inngest orqai-trace-sync cron pipeline from Orq.ai traces to agent_events table
+6. Subagent fleet cards with metrics, skills, and recursive agent detail drawer
+7. AI narrative briefing via dedicated Orq.ai Briefing Agent on 30-minute schedule
+8. Claude-style terminal event stream with ring buffer and virtualized rendering
+9. 5-column Kanban board with dnd-kit drag-and-drop and optimistic persistence
+10. Live delegation graph with CSS-animated particles at 60fps
+11. Gantt-style observability swimlanes per agent
+12. V7 design token migration for all existing pages
+
+**Architecture:** Supabase Realtime postgres_changes pattern -- Inngest cron polls Orq.ai, writes to agent_events, Realtime propagates to all connected UIs. Single subscription per swarm view, ring buffers for unbounded streams.
+
+**Design reference:** docs/designs/agent-dashboard-v2.html
+
+**Research flags:**
+- Phase 50: Orq.ai trace MCP tool names unverified (list_traces/list_spans) -- must validate before planning
+- Phase 53: Custom SVG swimlane complexity -- flag for early prototype
+
+---
+
 ## V6.0 Executive Dashboard & UI Revamp (Defined: 2026-03-27)
 
 **Phases:** 4 (phases 44-47)

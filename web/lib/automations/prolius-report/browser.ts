@@ -1,60 +1,13 @@
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright-core";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { type Browser, type BrowserContext, type Page } from "playwright-core";
+import { connectWithSession, saveSession, captureScreenshot } from "@/lib/browser";
 import { resolveCredentials } from "@/lib/credentials/proxy";
 
-const BROWSERLESS_TOKEN = process.env.BROWSERLESS_API_TOKEN!;
 const PROLIUS_CREDENTIAL_ID = "4ab01ff6-2bbc-48bc-8e63-31bd8d0a2e65";
 
 const SESSION_KEY = "prolius_session";
 const PROLIUS_URL = "https://walkerfire.prolius.app/login";
 
-/**
- * Connect to Browserless.io with session reuse via Supabase settings table.
- * Returns browser, context, and page — caller must close browser.
- */
-export async function connectWithSession(): Promise<{
-  browser: Browser;
-  context: BrowserContext;
-  page: Page;
-}> {
-  const wsEndpoint = `wss://production-ams.browserless.io?token=${BROWSERLESS_TOKEN}&timeout=60000`;
-  const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 30_000 });
-
-  const admin = createAdminClient();
-
-  // Try to restore saved session state
-  const { data: setting } = await admin
-    .from("settings")
-    .select("value")
-    .eq("key", SESSION_KEY)
-    .single();
-
-  let storageState: string | undefined;
-  if (setting?.value) {
-    let parsed = setting.value;
-    while (typeof parsed === "string") parsed = JSON.parse(parsed);
-    storageState = parsed;
-  }
-
-  const context = storageState
-    ? await browser.newContext({ storageState: storageState as never })
-    : await browser.newContext();
-
-  const page = await context.newPage();
-  return { browser, context, page };
-}
-
-/**
- * Save browser session state to Supabase for reuse in next run.
- */
-async function saveSession(context: BrowserContext): Promise<void> {
-  const state = await context.storageState();
-  const admin = createAdminClient();
-  await admin.from("settings").upsert({
-    key: SESSION_KEY,
-    value: JSON.stringify(state),
-  });
-}
+export { connectWithSession, saveSession };
 
 /**
  * Login to Prolius portal. Skips if already logged in (session reuse).
@@ -160,24 +113,12 @@ export async function captureErrorScreenshot(
   errorContext: string,
 ): Promise<string | null> {
   try {
-    const screenshotBuffer = await page.screenshot({ fullPage: true });
-    const filename = `prolius-error-${Date.now()}.png`;
-
-    const admin = createAdminClient();
-    const { error } = await admin.storage
-      .from("automation-screenshots")
-      .upload(filename, screenshotBuffer, {
-        contentType: "image/png",
-        upsert: false,
-      });
-
-    if (error) {
-      console.error("Failed to upload error screenshot:", error.message);
-      return null;
-    }
-
-    console.error(`Error screenshot saved: ${filename} — context: ${errorContext}`);
-    return filename;
+    const result = await captureScreenshot(page, {
+      automation: "prolius-report",
+      label: "error",
+    });
+    console.error(`Error screenshot saved: ${result.path} — context: ${errorContext}`);
+    return result.path;
   } catch (e) {
     console.error("Failed to capture error screenshot:", e);
     return null;
@@ -192,11 +133,11 @@ export async function downloadProliusReport(): Promise<{
   buffer: Buffer;
   filename: string;
 }> {
-  const { browser, context, page } = await connectWithSession();
+  const { browser, context, page } = await connectWithSession(SESSION_KEY);
 
   try {
     const result = await downloadNewestReport(page);
-    await saveSession(context);
+    await saveSession(context, SESSION_KEY);
     return result;
   } catch (error) {
     await captureErrorScreenshot(page, String(error));

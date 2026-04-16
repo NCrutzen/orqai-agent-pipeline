@@ -11,7 +11,7 @@ Deze keuzes staan vast. Wijk hier NOOIT van af, ook al suggereer je als Claude e
 - **Supabase** voor database, auth, storage, realtime, edge functions
 - **Zapier** als eerste keuze voor automations (8000+ connectors, NXT SQL via whitelisted IP)
 - **Browserless.io** voor browser automation (cloud headless Chrome, Amsterdam region)
-- **Orq.ai** voor AI agents (via `/orq-agent` skill)
+- **Orq.ai** voor AI agents (via `/orq-agent` skill) én als LLM Router voor ad-hoc LLM calls
 - **Inngest** voor event-driven pipelines (durable functions, retries, HITL gates)
 - **Playwright** (via `playwright-core`) voor browser scripts op Browserless.io
 - **ElevenLabs** voor conversational AI voice agents (outbound calling, TTS)
@@ -23,6 +23,7 @@ Deze keuzes staan vast. Wijk hier NOOIT van af, ook al suggereer je als Claude e
 - Puppeteer — wij gebruiken **Playwright** (via playwright-core)
 - Eigen auth systeem — wij gebruiken **Supabase Auth**
 - API keys opslaan voor services die Zapier al beheert — **Zapier beheert auth**
+- Directe LLM API keys (OpenAI, Anthropic, etc.) voor ad-hoc LLM calls — **Orq.ai Router beheert alle LLM access** (model routing, fallbacks, cost tracking)
 
 **Bij twijfel of een project apart moet:** Eenvoudige automations en API routes gaan in DIT project. Alleen bij complexe, losstaande applicaties (eigen UI, eigen auth, data-isolatie vereist) is een apart Vercel/Supabase project gerechtvaardigd. Bespreek dit altijd met de gebruiker.
 
@@ -112,7 +113,7 @@ URL:  https://mvqjhlxfvtqqubqgdvhz.supabase.co
 Key:  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U
 ```
 
-Dit is de publieke (anon) key met beperkte rechten: kan alleen INSERT en SELECT op `learnings` en `automation_projects`. Veilig om te gebruiken.
+Dit is de publieke (anon) key met beperkte rechten: kan alleen INSERT en SELECT op `learnings`. Veilig om te gebruiken.
 
 **Lezen:**
 ```bash
@@ -198,24 +199,34 @@ Wanneer de gebruiker je corrigeert:
 
 ## Project Tracking
 
+**Eén tabel voor alle projecten: `projects`.** De oude `automation_projects` tabel is DEPRECATED — gebruik die niet meer.
+
 Wanneer een gebruiker vraagt om iets te automatiseren of een nieuw project start, **vraag altijd:** "Zal ik dit als nieuw project registreren?"
 
-Bij akkoord:
+Bij akkoord, gebruik de **service role key** (anon key heeft geen INSERT rechten op `projects`):
 ```bash
-curl -X POST "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/automation_projects" \
-  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U" \
+curl -X POST "https://mvqjhlxfvtqqubqgdvhz.supabase.co/rest/v1/projects" \
+  -H "apikey: {SUPABASE_SERVICE_ROLE_KEY uit web/.env.local}" \
+  -H "Authorization: Bearer {SUPABASE_SERVICE_ROLE_KEY uit web/.env.local}" \
   -H "Content-Type: application/json" \
   -H "Prefer: return=representation" \
   -d '{
     "name": "{project naam}",
-    "type": "zapier|hybrid|standalone|agent",
+    "automation_type": "zapier-only|hybrid|standalone-app|orqai-agent|unknown",
     "status": "idea",
     "description": "{korte beschrijving}",
     "systems": ["{systeem1}", "{systeem2}"],
-    "created_by": "{naam}"
+    "created_by": "{user UUID}"
   }'
 ```
+
+**Kolommen:**
+- `name`, `description`, `status` — basis info
+- `automation_type` — zapier, hybrid, standalone, agent
+- `systems` — text[] met betrokken systemen
+- `github_url` — link naar GitHub repo (optioneel)
+- `executive_summary` — korte samenvatting voor directie (optioneel)
+- `manual_minutes_per_task`, `task_frequency_per_month`, `hourly_cost_eur` — ROI berekening
 
 Status waarden: `idea` → `building` → `testing` → `live`
 
@@ -277,7 +288,7 @@ Nooit een taak als compleet markeren zonder te bewijzen dat het werkt.
 
 1. Gebruiker beschrijft wat ze willen automatiseren
 2. Claude doet de **Zapier-first discussie** (kan Zapier dit? hybride? custom code?)
-3. Claude vraagt: **"Zal ik dit als project registreren?"** → registreer in Supabase `automation_projects`
+3. Claude vraagt: **"Zal ik dit als project registreren?"** → registreer in Supabase `projects`
 4. Claude maakt een map aan: `web/lib/automations/{naam}/`
 5. Claude runt **`/gsd:quick --full`** vanuit de agent-workforce root voor planning + verificatie
 6. Code en scripts komen in de automation-map
@@ -339,7 +350,7 @@ Wanneer een automation een apart project vereist (eigen UI, eigen auth, data-iso
 3. Voeg project-specifieke regels toe bovenaan de gekopieerde CLAUDE.md
 4. Initialiseer git: `git init` + maak een GitHub repo aan in de Moyne Roberts organisatie
 5. Start GSD: `/gsd:new-project` voor de volledige planning-structuur
-6. Registreer het project in Supabase `automation_projects` met de GitHub repo URL
+6. Registreer het project in Supabase `projects` met de GitHub repo URL
 7. Het apart project krijgt zijn eigen Vercel en eventueel eigen Supabase project
 
 **De MR-basisregels** (stack, credentials, Zapier-first) blijven de fundering in elk project. De gekopieerde CLAUDE.md zorgt daarvoor.
@@ -365,6 +376,17 @@ const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 30_000 });
 
 ### Orq.ai
 
+**Orq.ai heeft twee rollen in onze stack:**
+
+1. **AI Agents** — voor automations/projecten (agent swarms, orchestrators, sub-agents). Ontwerp via `/orq-agent`.
+2. **LLM Router** — voor ad-hoc/eenmalige LLM calls (email classificatie, tekst analyse, data verrijking). Gebruik ALTIJD Orq.ai Router in plaats van directe API keys (OpenAI, Anthropic, etc.). Orq.ai regelt model routing, fallbacks, en cost tracking centraal.
+
+**Wanneer Orq.ai Router gebruiken:** scripts, one-off analyses, experimenten, alles wat een LLM call nodig heeft maar geen volledige agent. Voorbeeld: de debtor email analyzer classificatie.
+
+**Wanneer Orq.ai Agents gebruiken:** automations die beslissingen nemen, tools aanroepen, en in productie draaien.
+
+**Patronen:**
+
 1. **ALTIJD `response_format` met `json_schema` instellen** — prompt-only JSON faalt 15-20%
 2. **ALTIJD agent updates verifiëren** — `update_agent` kan stil falen. Lees terug met `get_agent`.
 3. **Experiments via REST API, NIET MCP** — MCP heeft dataset-mapping problemen
@@ -372,10 +394,36 @@ const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 30_000 });
 5. **3-4 fallback models configureren** — `anthropic/claude-sonnet-4-6` primary
 6. **XML-tagged prompts** — `<role>`, `<task>`, `<constraints>`, `<output_format>`
 7. **45 seconden client timeout** — Orq.ai retry is 31s intern
-8. **Knowledge bases apart vullen** — aanmaken ≠ vullen
+8. **Knowledge bases in Supabase, NIET in Orq.ai** — zie "Knowledge Base Patroon" hieronder
 9. **`user_id` in metadata** — voor cost tracking
 
 **Volledige referentie:** `docs/orqai-patterns.md`
+
+### Knowledge Base Patroon
+
+**Regel: Knowledge bases ALTIJD in Supabase bouwen, NOOIT in Orq.ai of andere externe AI platforms.**
+
+Orq.ai (en andere AI platforms) bieden ingebouwde KB features, maar data zit dan opgesloten in een extern systeem — moeilijk te queryen, inspecteren en onderhouden. Supabase is onze single source of truth.
+
+**Architectuur:**
+```
+Supabase Storage        → PDF/Word/documenten opslag
+Supabase tabel          → Geëxtraheerde tekst + metadata
+pgvector extensie       → Embeddings voor semantic search
+Supabase API            → Tool voor Orq.ai agents om KB te raadplegen
+```
+
+**Voordelen:**
+- Volledige controle over data — geen vendor lock-in
+- SQL queryable — makkelijk te inspecteren en debuggen
+- Makkelijk te onderhouden — nieuwe bronnen = nieuwe rijen/bestanden
+- Schaalbaar met organisatie-documenten (productcatalogi, procedures, tarieven)
+- Orq.ai agents raadplegen Supabase als tool via API call
+
+**Wanneer een KB nodig is:**
+- Agent swarms die domeinkennis nodig hebben (sales emails beantwoorden, klantvragen, etc.)
+- Eerst trainingsdata verzamelen (emails, analyses), dan KB vullen
+- Aanvullen met organisatie-documenten (PDF/Word) via Supabase Storage
 
 ### ElevenLabs
 

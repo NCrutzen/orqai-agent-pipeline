@@ -64,13 +64,23 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 - [ ] Script execution and iterative testing on Browserless.io
 - [ ] Deployment of verified script as MCP tool attached to the Orq.ai agent
 
-**V6.0 Executive Dashboard & UI Revamp** (defining):
-- [ ] Full visual redesign across all pages (executive-worthy for CEO/CTO/CFO)
-- [ ] 360° management dashboard with ROI estimates, activity, health metrics
-- [ ] Data integration from Agent Workforce + Zapier (browser scraper) + Orq.ai analytics
-- [ ] Extended project model with status lifecycle and automation type tracking
-- [ ] Automated project status monitoring (agent/job keeps statuses accurate)
-- [ ] O365 SSO via Azure AD
+**V6.0 Executive Dashboard & UI Revamp** (partially complete — phases 44-45 shipped):
+- [x] Extended project model with status lifecycle and automation type tracking
+- [x] Executive dashboard with KPI cards, charts, tables, 4 tabs
+- [ ] Automated project status monitoring (deferred to V7.0+)
+- [ ] O365 SSO via Azure AD (moved to V7.0)
+
+**V7.0 Agent OS** (defining):
+- [ ] O365 SSO via Azure AD for frictionless executive access
+- [ ] Full visual redesign with new design system (Satoshi + Cabinet Grotesk, glassmorphism, dark/light)
+- [ ] Sidebar with swarm navigation (Debtor Email, Sales Email, + generic template)
+- [ ] AI narrative briefing per swarm (dedicated Orq.ai Briefing Agent)
+- [ ] Live delegation graph with animated orchestrator → sub-agent paths
+- [ ] Subagent fleet cards with recursive detail drawer
+- [ ] Kanban execution board for business-stage job tracking
+- [ ] Gantt-style observability swimlanes (per-agent timeline)
+- [ ] Claude-style terminal event stream (Supabase Realtime)
+- [ ] Data integration: Supabase + Orq.ai API (traces, tool calls, agent metrics)
 
 ### Out of Scope
 
@@ -79,19 +89,25 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 - CLI skill management -- lives in orqai-agent-pipeline repo
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: V6.0 Executive Dashboard & UI Revamp
+## Current Milestone: V7.0 Agent OS
 
-**Goal:** Transform the Agent Workforce app into an executive-worthy platform with a 360° management dashboard showing ROI, activity, and health metrics across all automation types (Zapier, hybrid, Orq.ai agents, standalone apps) — pulling data from Agent Workforce, Zapier (via browser automation scraper), and Orq.ai analytics. Full UI redesign for CEO/CTO/CFO audience. O365 SSO for Microsoft 365 login.
+**Goal:** Transform the Agent Workforce app into a cinematic swarm operating view with O365 SSO for frictionless executive access. A real-time control room where management sees every swarm, agent, and job in action — powered by Supabase Realtime and Orq.ai API data.
 
 **Target features:**
-- Full visual redesign across all pages (typography, spacing, color palette, card styles, navigation)
-- Executive dashboard with project status (idea/building/testing/live), ROI & time saved estimates, activity/adoption metrics, health/reliability
-- 360° data integration: Agent Workforce pipeline data + Zapier analytics (browser automation scraper) + Orq.ai analytics (usage, cost, latency, agent performance)
-- Extended project model with automation type (zapier-only, hybrid, standalone-app, orqai-agent) and automated status monitoring
-- O365 SSO via Azure AD alongside existing email/password auth
-- Zapier analytics browser automation (Browserless.io scraper, multiple snapshots/day)
+- O365 SSO via Azure AD (CEO/management login with Microsoft account)
+- Full visual redesign with new design system (Satoshi + Cabinet Grotesk, glassmorphism, dark/light toggle)
+- Sidebar with swarm navigation (Debtor Email, Sales Email, + generic template for future swarms)
+- AI narrative briefing per swarm (dedicated Orq.ai Briefing Agent, runs recurrently)
+- Live delegation graph with animated orchestrator → sub-agent communication paths
+- Subagent fleet cards with metrics, skills, and recursive detail drawer
+- Kanban execution board for business-stage job tracking (drag & drop)
+- Gantt-style observability swimlanes (per-agent timeline: thinking/tool/wait/done)
+- Claude-style terminal event stream via Supabase Realtime
+- Data integration: Supabase (automation_runs, projects) + Orq.ai API (traces, tool calls, agent metrics)
 
-**Previous milestones:** V3.0 Web UI & Dashboard (executing, 91%), V4.0 Browser Automation Builder (phases 39-40 complete, 41-42 pending)
+**Design reference:** `docs/designs/agent-dashboard-v2.html`
+
+**Previous milestones:** V6.0 (phases 44-45 complete), V3.0 (91%), V4.0 (phases 39-40 complete)
 
 ## Context
 
@@ -143,4 +159,4 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 | Auto-apply low-risk, escalate structural (V5.0) | Shared context additions are safe; rewiring agent relationships needs human judgment | — Pending |
 
 ---
-*Last updated: 2026-03-26 after V6.0 milestone definition*
+*Last updated: 2026-04-15 after V7.0 Agent OS milestone definition*
