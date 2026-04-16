@@ -1,30 +1,38 @@
 /**
- * build-kb.ts — Knowledge Base builder for Smeba Brandbeveiliging sales emails
+ * build-kb.ts — Knowledge Base builder voor Smeba Brandbeveiliging sales emails
  *
- * Reads 34K emails + analyses from Supabase, creates Q&A pairs from threads,
- * embeds via OpenAI text-embedding-3-small, and upserts into sales.kb_chunks.
+ * Leest 34K emails + analyses uit Supabase, maakt Q&A paren via conversation_id threading,
+ * embedt via Orq.ai Router (of OpenAI direct als fallback), en upsertt naar sales.kb_chunks.
  *
  * Run: npx tsx src/build-kb.ts
  *
- * Requires: OPENAI_API_KEY in .env.local (one-time infra build, not production)
- * Idempotent: safe to re-run — upserts on source_key
+ * Embedding volgorde:
+ *   1. Orq.ai Router (ORQ_API_KEY — al in env, preferred)
+ *   2. OpenAI direct (OPENAI_API_KEY — fallback)
  *
- * Threading strategy:
- *   SugarCRM parent_id → stored as conversation_id in email_pipeline.emails
- *   Emails sharing a conversation_id belong to the same CRM object (case/contact)
- *   Per thread: match each inbound → nearest outbound sent after it = Q&A pair
+ * Idempotent: safe to re-run — upsertt op source_key
+ *
+ * Threading strategie:
+ *   SugarCRM parent_id → opgeslagen als conversation_id in email_pipeline.emails
+ *   Emails met dezelfde conversation_id horen bij hetzelfde CRM object (case/contact)
+ *   Per thread: koppel elke inbound → dichtstbijzijnde outbound erna = Q&A pair
  */
 
 import { createClient } from "@supabase/supabase-js";
 import { config } from "./config.js";
 
-// ---- Config ----
+// ---- Embedding provider detectie ----
+const ORQ_API_KEY = process.env.ORQ_API_KEY || config.orq?.apiKey;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-if (!OPENAI_API_KEY) {
-  console.error("ERROR: OPENAI_API_KEY is not set in the environment.");
-  console.error("Add it to web/.env.local and re-run.");
+
+if (!ORQ_API_KEY && !OPENAI_API_KEY) {
+  console.error("ERROR: Geen embedding API key gevonden.");
+  console.error("Voeg ORQ_API_KEY (voorkeur) of OPENAI_API_KEY toe aan web/.env.local");
   process.exit(1);
 }
+
+const USE_ORQ = Boolean(ORQ_API_KEY);
+console.log(`Embedding provider: ${USE_ORQ ? "Orq.ai Router (openai/text-embedding-3-small)" : "OpenAI direct (text-embedding-3-small)"}`);
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const MAX_BODY_CHARS = 2000; // trim long bodies for consistent embedding quality
@@ -107,8 +115,42 @@ function formatOutbound(email: EmailRow): string {
   return [`SMEBA REACTIE:`, email.subject || "", "", body].join("\n").trim();
 }
 
-// ---- OpenAI embeddings (direct fetch — one-time build script) ----
+// ---- Embeddings via Orq.ai Router of OpenAI direct ----
 async function embedBatch(texts: string[]): Promise<number[][]> {
+  // Orq.ai proxied OpenAI embeddings (preferred — ORQ_API_KEY al in env)
+  if (USE_ORQ) {
+    const res = await fetch("https://api.orq.ai/v2/openai/embeddings", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${ORQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ model: EMBEDDING_MODEL, input: texts }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return (data.data as { index: number; embedding: number[] }[])
+        .sort((a, b) => a.index - b.index)
+        .map((d) => d.embedding);
+    }
+
+    // Als Orq.ai embeddings niet ondersteunt: fallback naar OpenAI
+    const errText = await res.text();
+    if (res.status === 404 || res.status === 400) {
+      console.warn(`\n  Orq.ai embeddings niet beschikbaar (${res.status}) — fallback naar OpenAI direct`);
+      if (!OPENAI_API_KEY) {
+        throw new Error("Orq.ai ondersteunt geen embeddings en OPENAI_API_KEY ontbreekt. Voeg toe aan .env.local");
+      }
+      return embedViaOpenAI(texts);
+    }
+    throw new Error(`Orq.ai embeddings error ${res.status}: ${errText.slice(0, 300)}`);
+  }
+
+  return embedViaOpenAI(texts);
+}
+
+async function embedViaOpenAI(texts: string[]): Promise<number[][]> {
   const res = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: {
@@ -124,7 +166,6 @@ async function embedBatch(texts: string[]): Promise<number[][]> {
   }
 
   const data = await res.json();
-  // API returns in same order as input
   return (data.data as { index: number; embedding: number[] }[])
     .sort((a, b) => a.index - b.index)
     .map((d) => d.embedding);
