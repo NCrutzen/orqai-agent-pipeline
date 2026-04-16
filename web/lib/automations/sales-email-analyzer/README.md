@@ -237,33 +237,36 @@ WHERE a.email_intent = 'auto_reply'
 LIMIT 10;
 ```
 
-### Stap 2: Quick-wins implementeren
+### Stap 2: Knowledge Base bouwen in Supabase (FUNDERING)
 
-**HUIDIGE FOCUS:** Eerst auto-reply archiving (#1 quick-win, 3,176 emails). Daarna pas de andere quick-wins zodra de Andrew-review loop draait. Zie sectie "Top 5 Quick-Win Automations" hierboven voor de volledige lijst en prioritering.
-
-Aanpak voor de #1 (auto-reply archive):
-- Filter: `category = 'auto_reply'` of `category = 'spam'`
-- Zapier SDK actie: `update_record/write` op Emails module → `state: 'Archived'`
-- Optioneel: tag toevoegen `auto_archived` voor audit trail
-- Geen menselijke review nodig (laagste risico-categorie)
-
-### Stap 3: Knowledge Base opbouwen in Supabase
-
-**Dit is de kern-prioriteit.** Zonder knowledge base kunnen agents geen goede antwoorden genereren.
+**Dit is de kern-prioriteit en de fundering voor alles wat daarna komt.** Zonder KB kunnen agents geen goede antwoorden genereren. Quick-wins komen PAS NADAT de KB en agent swarm draaien.
 
 **Let op: KB bouwen in Supabase, NIET in Orq.ai.** Dit is een teambreed patroon (zie CLAUDE.md → "Knowledge Base Patroon"). Data moet in ons eigen systeem blijven.
 
-**Aanpak:**
-- Supabase Storage voor PDF/Word documenten (productcatalogi, procedures, tarieven)
-- Supabase tabel voor geextraheerde tekst + metadata
+**Bron data — gebruik ALLES (inkomend + uitgaand + intern):**
+- 17,644 inbound emails — wat klanten vragen
+- 14,642 outbound emails — **HOE Smeba antwoordt** (essentieel: stijl, formuleringen, oplossingen, tone of voice)
+- 2,072 internal emails — hoe het team intern coördineert
+- + alle bijbehorende analyses uit `sales.email_analysis`
+
+Het uitgaande mailverkeer is de gouden bron — daarmee leren we de agents Smeba's eigen antwoord-patronen.
+
+**Aanpak — denk goed na over:**
+- Hoe extraheren we waardevolle informatie? Vraag-antwoord paren? Hele threads? Per intent?
+- Welke embedding strategie? OpenAI text-embedding-3? Cohere? Anders?
+- Hoe maken we het uitbreidbaar voor PDF/Word documenten later (productcatalogi, procedures, tarieven)?
+- Hoe scheid je customer-specifieke context van algemene kennis?
+
+**Architectuur:**
+- Supabase Storage voor toekomstige PDF/Word documenten
+- Supabase tabel voor geëxtraheerde tekst + metadata
 - pgvector extensie voor semantic search (embeddings)
-- De 34K emails + analyses dienen als eerste trainingsdata
-- Organisatie-documenten worden later toegevoegd via Supabase Storage
+- De 34K emails + analyses als eerste trainingsdata
 - Orq.ai agents raadplegen de KB als tool via Supabase API call
 
-### Stap 4: Agent Swarm ontwerpen
+### Stap 3: Agent Swarm ontwerpen (NA de KB)
 
-Gebruik `/orq-agent` om de agent swarm te ontwerpen voor Smeba sales email handling.
+Gebruik `/orq-agent` om de agent swarm te ontwerpen voor Smeba sales email handling. Doe dit PAS NADAT de KB staat — anders ontwerp je in het luchtledige.
 
 **BELANGRIJK bij het aanroepen van `/orq-agent`:** Vermeld altijd in de use case description:
 > "Knowledge Base is in Supabase (pgvector semantic search), NIET in Orq.ai. Agents krijgen een Supabase search tool om de KB te raadplegen via API call."
@@ -276,7 +279,7 @@ Zapier trigger (nieuw email in SugarCRM)
   → Zapier roept Orq.ai V2 aan (via Cloudflare Worker voor lange runs)
     → Agent Swarm met tools:
        - SugarCRM lezen/schrijven (via Zapier SDK)
-       - Knowledge Base raadplegen
+       - Knowledge Base raadplegen (Supabase pgvector)
        - Concept-antwoord genereren
        - Opslaan in sales.email_analysis (draft_response)
 ```
@@ -286,6 +289,16 @@ Zapier trigger (nieuw email in SugarCRM)
 2. **Context Agent** — Haalt klanthistorie, gerelateerde cases/offertes op uit SugarCRM
 3. **Draft Agent** — Genereert concept-antwoord op basis van KB + context
 4. **Router Agent** — Bepaalt of email auto-handled kan worden of menselijke review nodig heeft
+
+### Stap 4: Quick-wins implementeren (PAS NA agent swarm draait)
+
+Zodra de KB en agent swarm staan, kunnen we de quick-wins implementeren. Begin met #1 (auto-reply archive). Zie sectie "Top 5 Quick-Win Automations" hierboven voor de volledige lijst en prioritering.
+
+Aanpak voor #1 (auto-reply archive):
+- Filter: `category = 'auto_reply'` of `category = 'spam'`
+- Zapier SDK actie: `update_record/write` op Emails module → `state: 'Archived'`
+- Optioneel: tag toevoegen `auto_archived` voor audit trail
+- Geen menselijke review nodig (laagste risico-categorie)
 
 ### Stap 5: CEO Review Loop (V7.0 Milestone)
 
