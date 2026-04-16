@@ -18,12 +18,37 @@ import { StatusDistributionChart } from "@/components/dashboard/status-distribut
 import { TypeBreakdownChart } from "@/components/dashboard/type-breakdown-chart";
 import { RoiTable } from "@/components/dashboard/roi-table";
 import { CostTrendChart } from "@/components/dashboard/cost-trend-chart";
+import { GlassCard } from "@/components/ui/glass-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BarChart3 } from "lucide-react";
 import { formatCompactNumber, formatCurrency } from "@/lib/dashboard/format";
 
 const VALID_PERIODS: Period[] = ["7d", "30d", "month", "quarter"];
+
+function EmptyErrorState({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="p-5">
+      <GlassCard className="p-10 flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <div className="rounded-full bg-[var(--v7-panel-2)] p-4 mb-4">
+          <BarChart3 className="size-16 text-[var(--v7-muted)]" />
+        </div>
+        <h2 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)] mb-2">
+          {title}
+        </h2>
+        <p className="text-[14px] text-[var(--v7-muted)] max-w-md">
+          {body}
+        </p>
+      </GlassCard>
+    </div>
+  );
+}
 
 export default async function ExecutiveDashboardPage({
   searchParams,
@@ -49,33 +74,19 @@ export default async function ExecutiveDashboardPage({
 
   if (error) {
     return (
-      <div className="p-6 flex flex-col items-center justify-center min-h-[50vh] text-center">
-        <div className="rounded-full bg-muted p-4 mb-4">
-          <BarChart3 className="size-16 text-muted-foreground" />
-        </div>
-        <h2 className="text-xl font-semibold mb-2">
-          Unable to load dashboard data
-        </h2>
-        <p className="text-sm text-muted-foreground max-w-md">
-          There was a problem reading the latest snapshot. This is usually
-          temporary -- try refreshing the page.
-        </p>
-      </div>
+      <EmptyErrorState
+        title="Unable to load dashboard data"
+        body="There was a problem reading the latest snapshot. This is usually temporary -- try refreshing the page."
+      />
     );
   }
 
   if (!snapshot) {
     return (
-      <div className="p-6 flex flex-col items-center justify-center min-h-[50vh] text-center">
-        <div className="rounded-full bg-muted p-4 mb-4">
-          <BarChart3 className="size-16 text-muted-foreground" />
-        </div>
-        <h2 className="text-xl font-semibold mb-2">No dashboard data yet</h2>
-        <p className="text-sm text-muted-foreground max-w-md">
-          The dashboard aggregator has not run yet. Data will appear
-          automatically within 2 hours as collectors populate snapshots.
-        </p>
-      </div>
+      <EmptyErrorState
+        title="No dashboard data yet"
+        body="The dashboard aggregator has not run yet. Data will appear automatically within 2 hours as collectors populate snapshots."
+      />
     );
   }
 
@@ -87,18 +98,10 @@ export default async function ExecutiveDashboardPage({
 
   if (!metricsResult.success || !freshnessResult.success) {
     return (
-      <div className="p-6 flex flex-col items-center justify-center min-h-[50vh] text-center">
-        <div className="rounded-full bg-muted p-4 mb-4">
-          <BarChart3 className="size-16 text-muted-foreground" />
-        </div>
-        <h2 className="text-xl font-semibold mb-2">
-          Unable to load dashboard data
-        </h2>
-        <p className="text-sm text-muted-foreground max-w-md">
-          There was a problem reading the latest snapshot. This is usually
-          temporary -- try refreshing the page.
-        </p>
-      </div>
+      <EmptyErrorState
+        title="Unable to load dashboard data"
+        body="There was a problem reading the latest snapshot. This is usually temporary -- try refreshing the page."
+      />
     );
   }
 
@@ -144,12 +147,14 @@ export default async function ExecutiveDashboardPage({
 
   return (
     <TooltipProvider>
-      <div className="p-6 space-y-6">
+      <div className="p-5 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Executive Dashboard</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-[32px] leading-[1.1] tracking-[-0.03em] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
+              Executive Dashboard
+            </h1>
+            <p className="text-[14px] text-[var(--v7-muted)] mt-1">
               360-degree overview of automation activity, health, and ROI
             </p>
           </div>
@@ -174,24 +179,26 @@ export default async function ExecutiveDashboardPage({
 
           <TabsContent value="activity" className="py-6 space-y-8">
             <div>
-              <h3 className="text-base font-normal mb-4">Runs Over Time</h3>
+              <h3 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)] mb-4">
+                Runs Over Time
+              </h3>
               <ActivityChart data={activityData} />
             </div>
             <div>
-              <h3 className="text-base font-normal mb-4">
+              <h3 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)] mb-4">
                 Success Rate Trend
               </h3>
               <SuccessRateChart data={successRateData} />
             </div>
             <div>
-              <h3 className="text-base font-normal mb-4">
+              <h3 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)] mb-4">
                 Per-Project Health
               </h3>
               <ProjectHealthTable projects={metrics.projectHealth} />
             </div>
             {metrics.agentMetrics && metrics.agentMetrics.length > 0 && (
               <div>
-                <h3 className="text-base font-normal mb-4">
+                <h3 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)] mb-4">
                   Per-Agent Orq.ai Metrics
                 </h3>
                 <AgentMetricsTable agents={metrics.agentMetrics} />
@@ -202,13 +209,13 @@ export default async function ExecutiveDashboardPage({
           <TabsContent value="projects" className="py-6 space-y-8">
             <div className="grid gap-8 grid-cols-1 lg:grid-cols-2">
               <div>
-                <h3 className="text-base font-normal mb-4">
+                <h3 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)] mb-4">
                   Status Distribution
                 </h3>
                 <StatusDistributionChart data={metrics.projectsByStatus} />
               </div>
               <div>
-                <h3 className="text-base font-normal mb-4">
+                <h3 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)] mb-4">
                   Automation Type Breakdown
                 </h3>
                 <TypeBreakdownChart data={metrics.projectsByType} />
@@ -218,7 +225,9 @@ export default async function ExecutiveDashboardPage({
 
           <TabsContent value="roi" className="py-6 space-y-8">
             <div>
-              <h3 className="text-base font-normal mb-4">ROI by Project</h3>
+              <h3 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)] mb-4">
+                ROI by Project
+              </h3>
               <RoiTable
                 projects={metrics.roiByProject}
                 totalProjects={metrics.totalProjects}
@@ -226,7 +235,7 @@ export default async function ExecutiveDashboardPage({
               />
             </div>
             <div>
-              <h3 className="text-base font-normal mb-4">
+              <h3 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)] mb-4">
                 Cost Per Run Trend
               </h3>
               <CostTrendChart data={costTrendData} />
