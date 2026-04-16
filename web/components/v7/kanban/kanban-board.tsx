@@ -31,7 +31,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { restrictToWindowEdges } from "@dnd-kit/modifiers";
+import { restrictToWindowEdges, snapCenterToCursor } from "@dnd-kit/modifiers";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { toast } from "sonner";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -211,7 +211,7 @@ export function KanbanBoard({ swarmId: _swarmId }: KanbanBoardProps) {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
-        modifiers={[restrictToWindowEdges]}
+        modifiers={[restrictToWindowEdges, snapCenterToCursor]}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
