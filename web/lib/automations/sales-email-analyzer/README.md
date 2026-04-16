@@ -106,54 +106,167 @@ Het script skipt al-geanalyseerde emails automatisch.
 
 ---
 
+## Volledige Analyse Resultaten (16 april 2026)
+
+Categorisatie compleet: **34,358 / 34,368 emails (99.97% success)**.
+
+### Volume
+
+| Metric | Aantal |
+|--------|--------|
+| Totaal opgehaald | 34,368 |
+| Geanalyseerd | 34,358 (99.97%) |
+| Auto-handleable (requires_action=false) | 4,996 (15%) |
+| Vereist menselijke actie | 29,362 (85%) |
+
+### Per richting
+- Inbound: 17,644 (51%)
+- Outbound: 14,642 (43%)
+- Internal: 2,072 (6%)
+
+### Per urgentie
+- Medium: 25,070 (73%)
+- Low: 6,286 (18%)
+- High: 2,938 (9%)
+- Critical: 64 (<1%)
+
+### Top 10 categorieën (werkelijke aantallen)
+
+| # | Categorie | Aantal | % |
+|---|-----------|--------|---|
+| 1 | quote | 8,755 | 25.5% |
+| 2 | internal | 7,458 | 21.7% |
+| 3 | service | 6,984 | 20.3% |
+| 4 | order | 2,823 | 8.2% |
+| 5 | admin | 2,345 | 6.8% |
+| 6 | contract | 1,864 | 5.4% |
+| 7 | auto_reply | 1,845 | 5.4% |
+| 8 | finance | 1,363 | 4.0% |
+| 9 | complaint | 412 | 1.2% |
+| 10 | spam | 106 | 0.3% |
+
+### Top 15 intents
+
+| # | Intent | Aantal | % |
+|---|--------|--------|---|
+| 1 | internal_delegation | 5,517 | 16.1% |
+| 2 | quote_acceptance | 2,898 | 8.4% |
+| 3 | appointment_scheduling | 2,576 | 7.5% |
+| 4 | contact_update | 2,294 | 6.7% |
+| 5 | quote_followup | 2,077 | 6.0% |
+| 6 | appointment_change | 1,593 | 4.6% |
+| 7 | no_show_report | 1,551 | 4.5% |
+| 8 | quote_revision | 1,457 | 4.2% |
+| 9 | quote_rejection | 1,449 | 4.2% |
+| 10 | auto_reply | 1,331 | 3.9% |
+| 11 | quote_request | 1,294 | 3.8% |
+| 12 | maintenance_request | 1,147 | 3.3% |
+| 13 | contract_termination | 998 | 2.9% |
+| 14 | order_placement | 876 | 2.5% |
+| 15 | order_change | 778 | 2.3% |
+
+---
+
+## Top 5 Quick-Win Automations (referentie — focus eerst op #1)
+
+**HUIDIGE FOCUS:** Eerst een werkend systeem bouwen voor auto-antwoorden (concept-antwoorden) die Andrew Cosgrove (CEO) goedkeurt. De andere quick-wins zijn voor later.
+
+Onderstaande lijst is **puur voor referentie** zodat je de scope ziet.
+
+### 1. Auto-reply Archive (3,176 emails, ~9%) ← **PRIO**
+**Wat:** Out-of-office en delivery notifications direct archiveren in SugarCRM.
+**Zapier SDK:** `update_record/write` → `state: 'Archived'`
+**Risico:** Zeer laag — auto-replies vereisen nooit antwoord
+**Waarom prio:** Geen draft response nodig, geen Andrew-review, direct ROI
+
+### 2. Contact Update Sync (2,294 emails, ~7%)
+**Wat:** Klant geeft contactgegevens/openingstijden door → SugarCRM Contact/Account updaten.
+**Zapier SDK:** `record/search` → `update_record/write` op Contact → `update_record/write` op email
+**Risico:** Medium — vereist HITL approval in begin
+**Status:** Later — wacht tot Andrew loop draait
+
+### 3. Quote Acceptance Acknowledgement (2,898 emails, ~8%)
+**Wat:** Klant accepteert offerte → bevestigingsmail + interne task voor order processing.
+**Zapier SDK:** `record/write` (Email + Task) → `update_record/write` op origineel
+**Risico:** Medium — concept antwoord eerst review door Andrew
+**Status:** Later
+
+### 4. No-Show Rescheduling (1,551 emails, ~5%)
+**Wat:** Monteur kon niet binnen → case aanmaken voor herinplannen + email naar klant.
+**Zapier SDK:** `record/write` (Cases + Emails) → `update_record/write` op origineel
+**Risico:** Laag-medium
+**Status:** Later
+
+### 5. Internal Delegation Routing (5,517 emails, ~16%)
+**Wat:** Collega stuurt email door naar collega → automatisch toewijzen aan juiste persoon.
+**Zapier SDK:** `update_record/write` → `assigned_user_id: <correct_user>`
+**Risico:** Laag (geen externe communicatie)
+**Status:** Later — **vereist UI in agent-workforce app**
+
+> **BELANGRIJK voor #5 (Internal Routing):** Hard-coded routing werkt niet. Bijvoorbeeld: Patrick werkt niet meer bij Smeba. Personeel wisselt regelmatig. De Agent Swarm front-end in de agent-workforce Next.js app moet een **eenvoudige routing-configuratie UI** hebben waar het team:
+> - Routing-regels kan toevoegen/wijzigen ("offerte-vragen → Melissa", "technische vragen → Ad")
+> - Personeelsleden kan activeren/deactiveren
+> - Default fallbacks kan instellen
+>
+> Dit is een vereiste voor alle automations met routing/assignment, niet alleen voor #5.
+
+---
+
 ## Volgende stappen voor Koen
 
-### Stap 1: Categorisatie resultaten analyseren
+### Stap 1: Resultaten verifiëren (NIET opnieuw analyseren!)
 
-De categorisatie is klaar (of bijna klaar). Analyseer de resultaten:
+**De globale analyse is al gedaan** — zie sectie "Volledige Analyse Resultaten" hierboven. Begin NIET opnieuw met het draaien van categorisatie of het opnieuw analyseren van de cijfers.
+
+Voer alleen onderstaande queries uit als je iets specifieks wilt verdiepen:
 
 ```sql
--- Verdeling per categorie
-SELECT category, count(*) as cnt FROM sales.email_analysis GROUP BY category ORDER BY cnt DESC;
-
--- Verdeling per intent
-SELECT email_intent, count(*) as cnt FROM sales.email_analysis GROUP BY email_intent ORDER BY cnt DESC;
-
--- Quick-wins: hoeveel emails zijn direct archiveerbaar?
-SELECT category, count(*) FROM sales.email_analysis 
-WHERE category IN ('auto_reply', 'spam') GROUP BY category;
-
--- Top klanten
+-- Top klanten (waar volume zit, voor klant-specifieke patronen)
 SELECT customer_name, count(*) as cnt FROM sales.email_analysis 
 WHERE customer_name IS NOT NULL GROUP BY customer_name ORDER BY cnt DESC LIMIT 20;
 
--- Emails die actie vereisen vs niet
-SELECT requires_action, count(*) FROM sales.email_analysis GROUP BY requires_action;
+-- Top topics binnen 'auto_reply' (om de exacte archive-criteria te bepalen)
+SELECT email_intent, count(*) FROM sales.email_analysis 
+WHERE category = 'auto_reply' GROUP BY email_intent ORDER BY count(*) DESC;
+
+-- Steekproef emails per intent (om de prompt te tunen)
+SELECT a.email_intent, e.subject, e.body_text 
+FROM sales.email_analysis a 
+JOIN email_pipeline.emails e ON e.id = a.email_id
+WHERE a.email_intent = 'auto_reply' 
+LIMIT 10;
 ```
 
-### Stap 2: Quick-wins implementeren
+### Stap 2: Knowledge Base bouwen in Supabase (FUNDERING)
 
-Op basis van de analyse, begin met de categorie die het meeste volume heeft en het makkelijkst te automatiseren is. Waarschijnlijk:
-- **auto_reply + spam** → Direct archiveren/verwijderen in SugarCRM (via Zapier SDK `update_record`)
-- **quote_reminder** (geautomatiseerde herinneringen) → Archiveren
-
-### Stap 3: Knowledge Base opbouwen in Supabase
-
-**Dit is de kern-prioriteit.** Zonder knowledge base kunnen agents geen goede antwoorden genereren.
+**Dit is de kern-prioriteit en de fundering voor alles wat daarna komt.** Zonder KB kunnen agents geen goede antwoorden genereren. Quick-wins komen PAS NADAT de KB en agent swarm draaien.
 
 **Let op: KB bouwen in Supabase, NIET in Orq.ai.** Dit is een teambreed patroon (zie CLAUDE.md → "Knowledge Base Patroon"). Data moet in ons eigen systeem blijven.
 
-**Aanpak:**
-- Supabase Storage voor PDF/Word documenten (productcatalogi, procedures, tarieven)
-- Supabase tabel voor geextraheerde tekst + metadata
+**Bron data — gebruik ALLES (inkomend + uitgaand + intern):**
+- 17,644 inbound emails — wat klanten vragen
+- 14,642 outbound emails — **HOE Smeba antwoordt** (essentieel: stijl, formuleringen, oplossingen, tone of voice)
+- 2,072 internal emails — hoe het team intern coördineert
+- + alle bijbehorende analyses uit `sales.email_analysis`
+
+Het uitgaande mailverkeer is de gouden bron — daarmee leren we de agents Smeba's eigen antwoord-patronen.
+
+**Aanpak — denk goed na over:**
+- Hoe extraheren we waardevolle informatie? Vraag-antwoord paren? Hele threads? Per intent?
+- Welke embedding strategie? OpenAI text-embedding-3? Cohere? Anders?
+- Hoe maken we het uitbreidbaar voor PDF/Word documenten later (productcatalogi, procedures, tarieven)?
+- Hoe scheid je customer-specifieke context van algemene kennis?
+
+**Architectuur:**
+- Supabase Storage voor toekomstige PDF/Word documenten
+- Supabase tabel voor geëxtraheerde tekst + metadata
 - pgvector extensie voor semantic search (embeddings)
-- De 34K emails + analyses dienen als eerste trainingsdata
-- Organisatie-documenten worden later toegevoegd via Supabase Storage
+- De 34K emails + analyses als eerste trainingsdata
 - Orq.ai agents raadplegen de KB als tool via Supabase API call
 
-### Stap 4: Agent Swarm ontwerpen
+### Stap 3: Agent Swarm ontwerpen (NA de KB)
 
-Gebruik `/orq-agent` om de agent swarm te ontwerpen voor Smeba sales email handling.
+Gebruik `/orq-agent` om de agent swarm te ontwerpen voor Smeba sales email handling. Doe dit PAS NADAT de KB staat — anders ontwerp je in het luchtledige.
 
 **BELANGRIJK bij het aanroepen van `/orq-agent`:** Vermeld altijd in de use case description:
 > "Knowledge Base is in Supabase (pgvector semantic search), NIET in Orq.ai. Agents krijgen een Supabase search tool om de KB te raadplegen via API call."
@@ -166,7 +279,7 @@ Zapier trigger (nieuw email in SugarCRM)
   → Zapier roept Orq.ai V2 aan (via Cloudflare Worker voor lange runs)
     → Agent Swarm met tools:
        - SugarCRM lezen/schrijven (via Zapier SDK)
-       - Knowledge Base raadplegen
+       - Knowledge Base raadplegen (Supabase pgvector)
        - Concept-antwoord genereren
        - Opslaan in sales.email_analysis (draft_response)
 ```
@@ -176,6 +289,16 @@ Zapier trigger (nieuw email in SugarCRM)
 2. **Context Agent** — Haalt klanthistorie, gerelateerde cases/offertes op uit SugarCRM
 3. **Draft Agent** — Genereert concept-antwoord op basis van KB + context
 4. **Router Agent** — Bepaalt of email auto-handled kan worden of menselijke review nodig heeft
+
+### Stap 4: Quick-wins implementeren (PAS NA agent swarm draait)
+
+Zodra de KB en agent swarm staan, kunnen we de quick-wins implementeren. Begin met #1 (auto-reply archive). Zie sectie "Top 5 Quick-Win Automations" hierboven voor de volledige lijst en prioritering.
+
+Aanpak voor #1 (auto-reply archive):
+- Filter: `category = 'auto_reply'` of `category = 'spam'`
+- Zapier SDK actie: `update_record/write` op Emails module → `state: 'Archived'`
+- Optioneel: tag toevoegen `auto_archived` voor audit trail
+- Geen menselijke review nodig (laagste risico-categorie)
 
 ### Stap 5: CEO Review Loop (V7.0 Milestone)
 

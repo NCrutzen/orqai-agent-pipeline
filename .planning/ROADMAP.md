@@ -150,9 +150,9 @@ Plans:
 
 **Milestone Goal:** Transform the Agent Workforce app into a cinematic swarm operating system where management sees every swarm, agent, and job in action -- powered by a new glassmorphism design system, Supabase Realtime data pipeline, AI narrative briefings, live delegation graphs, and Kanban job tracking. O365 SSO for frictionless executive access.
 
-- [ ] **Phase 48: Foundation** - Design system (Satoshi + Cabinet Grotesk, glassmorphism tokens, dark/light toggle), new Supabase tables (agent_events, swarm_jobs, swarm_agents), Azure AD OAuth SSO with account linking
-- [ ] **Phase 49: Navigation & Realtime** - Sidebar with dynamic swarm list, /swarm/[swarmId] routing, single Realtime subscription per swarm view, useRealtimeTable hook
-- [ ] **Phase 50: Data Pipeline** - Inngest orqai-trace-sync cron, Orq.ai trace-to-agent_events mapping, Supabase caching layer, rate limit handling
+- [x] **Phase 48: Foundation** - Design system (Satoshi + Cabinet Grotesk, glassmorphism tokens, dark/light toggle), new Supabase tables (agent_events, swarm_jobs, swarm_agents), Azure AD OAuth SSO with account linking (code-complete 2026-04-16; SSO human-verify deferred pending Azure AD tenant)
+- [x] **Phase 49: Navigation & Realtime** - Sidebar with dynamic swarm list, /swarm/[swarmId] routing, single Realtime subscription per swarm view, useRealtimeTable hook (code-complete 2026-04-16; browser-based navigation + channel teardown verification deferred)
+- [x] **Phase 50: Data Pipeline** - Inngest orqai-trace-sync cron, Orq.ai trace-to-agent_events mapping, Supabase caching layer, rate limit handling (code-complete 2026-04-16; migration apply + end-to-end verify deferred pending Management API token)
 - [ ] **Phase 51: Hero Components** - Subagent fleet cards with state badges and metrics, AI narrative briefing panel with Orq.ai Briefing Agent, agent detail drawer with communication timeline
 - [ ] **Phase 52: Live Interactivity** - Claude-style terminal event stream with ring buffer, 5-column Kanban board with dnd-kit drag-and-drop, smart sidebar filters
 - [ ] **Phase 53: Advanced Observability** - Live delegation graph with CSS-animated particles, Gantt-style swimlane timeline per agent
@@ -450,11 +450,11 @@ Plans:
   1. Inngest orqai-trace-sync cron function polls Orq.ai for trace/span data and writes structured events to the agent_events table
   2. New agent_events rows propagate to connected UI clients via Supabase Realtime postgres_changes within seconds
   3. Orq.ai API rate limits are respected through server-side caching -- no client ever calls Orq.ai directly
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 50-01: TBD
-- [ ] 50-02: TBD
+- [x] 50-01: Migration + shared Orq.ai MCP helper + pure trace mapper + vitest tests
+- [x] 50-02: Inngest cron function wiring + serve route registration
 
 ### Phase 51: Hero Components
 **Goal**: Management sees at a glance what each agent is doing (fleet cards), gets a plain-English health narrative (briefing), and can drill into any agent for details (drawer)

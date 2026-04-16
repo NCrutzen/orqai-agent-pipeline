@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { AppSidebar } from "@/components/app-sidebar";
+import { SidebarChooser } from "@/components/v7/sidebar-chooser";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { fetchSwarmsWithCounts } from "@/lib/v7/swarm-data";
 
 export default async function DashboardLayout({
   children,
@@ -27,9 +28,18 @@ export default async function DashboardLayout({
     redirect("/access-pending");
   }
 
+  // Fetch user's swarms + initial Realtime snapshot for the V7 sidebar.
+  // RLS via project_members ensures we only see accessible swarms.
+  const { swarms, initialJobs, initialAgents } = await fetchSwarmsWithCounts();
+
   return (
     <SidebarProvider>
-      <AppSidebar user={user} />
+      <SidebarChooser
+        user={user}
+        swarms={swarms}
+        initialJobs={initialJobs}
+        initialAgents={initialAgents}
+      />
       <main className="flex-1 overflow-auto">{children}</main>
     </SidebarProvider>
   );
