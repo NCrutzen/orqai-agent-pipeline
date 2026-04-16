@@ -27,6 +27,7 @@ export default async function SwarmPage({
 
   return (
     <SwarmLayoutShell
+      swarmId={swarm.id}
       swarmName={swarm.name}
       swarmDescription={swarm.description}
     />
