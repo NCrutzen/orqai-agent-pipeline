@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Users, Clock } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { ProjectStatusBadge } from "@/components/project-status-badge";
 import { AutomationTypeTag } from "@/components/automation-type-tag";
 
@@ -38,21 +38,23 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
   return (
     <Link href={`/projects/${project.id}`} className="block">
-      <Card className="transition-colors hover:bg-muted/30">
-        <CardHeader>
-          <CardTitle className="truncate">{project.name}</CardTitle>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
+      <GlassCard className="p-5 transition-all duration-[220ms] ease-out hover:-translate-y-[3px] hover:shadow-[var(--v7-glass-shadow-heavy)]">
+        <div>
+          <h3 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)] truncate">
+            {project.name}
+          </h3>
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
             <ProjectStatusBadge status={project.status} />
             <AutomationTypeTag type={project.automation_type} />
           </div>
           {project.description && (
-            <CardDescription className="line-clamp-2">
+            <p className="mt-2 text-[14px] leading-[1.5] text-[var(--v7-muted)] line-clamp-2">
               {project.description}
-            </CardDescription>
+            </p>
           )}
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        </div>
+        <div className="mt-4">
+          <div className="flex items-center gap-4 text-[12px] text-[var(--v7-faint)]">
             <span className="inline-flex items-center gap-1">
               <Users className="size-3.5" />
               {memberCount} {memberCount === 1 ? "member" : "members"}
@@ -62,8 +64,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
               {formatRelativeTime(project.updated_at)}
             </span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </GlassCard>
     </Link>
   );
 }
