@@ -84,9 +84,9 @@ Requirements for V7.0 Agent OS milestone. Each maps to roadmap phases.
 
 ### Polish
 
-- [ ] **POL-01**: Existing V6.0 executive dashboard page migrated to V7 design tokens
-- [ ] **POL-02**: Existing projects page migrated to V7 design tokens
-- [ ] **POL-03**: Existing settings page migrated to V7 design tokens
+- [x] **POL-01**: Existing V6.0 executive dashboard page migrated to V7 design tokens
+- [x] **POL-02**: Existing projects page migrated to V7 design tokens
+- [x] **POL-03**: Existing settings page migrated to V7 design tokens
 
 ## V8+ Requirements
 
@@ -162,9 +162,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GRAPH-04 | Phase 53 | Pending |
 | OBS-01 | Phase 53 | Pending |
 | OBS-02 | Phase 53 | Pending |
-| POL-01 | Phase 54 | Pending |
-| POL-02 | Phase 54 | Pending |
-| POL-03 | Phase 54 | Pending |
+| POL-01 | Phase 54 | Complete (code) |
+| POL-02 | Phase 54 | Complete (code) |
+| POL-03 | Phase 54 | Complete (code) |
 
 **Coverage:**
 - V7.0 requirements: 45 total (12 categories)

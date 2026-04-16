@@ -156,7 +156,7 @@ Plans:
 - [x] **Phase 51: Hero Components** - Subagent fleet cards with state badges and metrics, AI narrative briefing panel with Orq.ai Briefing Agent, agent detail drawer with communication timeline (code-complete 2026-04-16; browser verification deferred pending fixture apply + ORQ_API_KEY runtime)
 - [x] **Phase 52: Live Interactivity** - Claude-style terminal event stream with ring buffer, 5-column Kanban board with dnd-kit drag-and-drop, smart sidebar filters (code-complete 2026-04-16; 10-row swarm_jobs fixture APPLIED via Management API; browser walkthrough deferred)
 - [x] **Phase 53: Advanced Observability** - Live delegation graph with CSS-animated particles, Gantt-style swimlane timeline per agent (code-complete 2026-04-16; cross-agent fixture APPLIED via Management API; browser walkthrough deferred)
-- [ ] **Phase 54: Polish** - Migrate executive dashboard, projects page, and settings page to V7 design tokens
+- [x] **Phase 54: Polish** - Migrate executive dashboard, projects page, and settings page to V7 design tokens
 
 <details>
 <summary>V5.0 Cross-Swarm Intelligence -- DEFINED</summary>
@@ -515,8 +515,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 54-01: TBD
-- [ ] 54-02: TBD
+- [x] 54-01: V7 migration across dashboard, executive, projects, settings
 
 ## Progress
 
@@ -550,7 +549,7 @@ V7.0: 48 -> 49 -> 50 -> 51 -> 52 -> 53 -> 54
 | 51. Hero Components | V7.0 | 0/TBD | Not started | - |
 | 52. Live Interactivity | V7.0 | 0/TBD | Not started | - |
 | 53. Advanced Observability | V7.0 | 0/TBD | Not started | - |
-| 54. Polish | V7.0 | 0/TBD | Not started | - |
+| 54. Polish | V7.0 | 1/1 | Code-complete | 2026-04-16 |
 
 ## Progress Summary
 
