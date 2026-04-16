@@ -25,7 +25,7 @@ We bouwen een AI-pipeline die inkomende sales emails van Smeba Brandbeveiliging 
 
 ---
 
-## Wat is er gebouwd (15 april 2026)
+## Wat is er gebouwd (16 april 2026)
 
 ### Database
 
@@ -44,6 +44,13 @@ Alles draait op Supabase (project: `mvqjhlxfvtqqubqgdvhz`).
 - FK naar `email_pipeline.emails(id)`
 
 **`sales.emails`** — GEDROPPED (was overbodig, alles zit in email_pipeline.emails)
+
+**`sales.kb_chunks`** — Knowledge Base (pgvector semantic search) ✓ KLAAR (16 april 2026)
+- 14.647 chunks (12.630 Q&A paren + 2.019 outbound templates)
+- Embedding model: OpenAI text-embedding-3-small (1536 dims), HNSW index
+- Threading via `conversation_id` (= SugarCRM parent_id)
+- Search: `SELECT * FROM sales.search_kb(embedding, intent, category, chunk_types, limit)`
+- Build script: `npx tsx lib/automations/sales-email-analyzer/src/build-kb.ts` (idempotent)
 
 ### Scripts
 
