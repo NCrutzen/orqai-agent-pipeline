@@ -219,6 +219,27 @@
   50%      { opacity: 0.45; }
 }
 
+/* V7 animations (Phase 52) */
+@keyframes v7-blink {
+  50% { opacity: 0; }
+}
+
+/* Terminal shell (Phase 52) — fixed dark surface regardless of theme */
+.v7-terminal-shell {
+  background: #071018;
+  border: 1px solid rgba(105,168,255,0.14);
+  border-radius: var(--v7-radius);
+  padding: 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 20px 70px rgba(0,0,0,0.24);
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
 /* Drawer (Phase 51) — V7-themed override for shadcn Sheet content */
 .v7-drawer-content {
   background: var(--v7-glass-bg) !important;
