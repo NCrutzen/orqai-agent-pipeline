@@ -38,7 +38,7 @@ const EMBEDDING_MODEL = "text-embedding-3-small";
 const MAX_BODY_CHARS = 2000; // trim long bodies for consistent embedding quality
 const EMBED_BATCH_SIZE = 100; // OpenAI allows up to 2048 inputs per call
 const UPSERT_BATCH_SIZE = 50;
-const PAGE_SIZE = 1000;
+const PAGE_SIZE = 250; // kleiner om JSON parse errors op grote body velden te voorkomen
 
 // ---- Supabase clients ----
 const pipeline = createClient(config.supabase.url, config.supabase.serviceKey, {
@@ -53,8 +53,7 @@ interface EmailRow {
   id: string;
   source_id: string;
   subject: string | null;
-  body_text: string | null;
-  body_html: string | null;
+  body_text: string | null; // body_html weggelaten — te groot, veroorzaakt JSON parse errors
   direction: "inbound" | "outbound" | "internal";
   received_at: string | null;
   conversation_id: string | null; // = SugarCRM parent_id
@@ -80,11 +79,7 @@ interface Chunk {
 
 // ---- Helpers ----
 function extractBody(email: EmailRow): string {
-  const body =
-    email.body_text ||
-    (email.body_html
-      ? email.body_html.replace(/<[^>]+>/g, " ").replace(/&\w+;/g, " ")
-      : "");
+  const body = email.body_text || "";
   return body.replace(/\s+/g, " ").trim().slice(0, MAX_BODY_CHARS);
 }
 
@@ -203,7 +198,7 @@ async function main() {
       pipeline
         .from("emails")
         .select(
-          "id, source_id, subject, body_text, body_html, direction, received_at, conversation_id, sender_name"
+          "id, source_id, subject, body_text, direction, received_at, conversation_id, sender_name"
         )
         .eq("source", "sugarcrm")
         .range(offset, offset + PAGE_SIZE - 1)
