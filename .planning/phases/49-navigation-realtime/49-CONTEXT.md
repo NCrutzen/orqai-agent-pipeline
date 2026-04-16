@@ -89,7 +89,7 @@ None -- no relevant todos surfaced from cross_reference_todos check.
 - `web/lib/supabase/client.ts` and `web/lib/supabase/server.ts` -- Supabase client factories
 - `web/app/(dashboard)/layout.tsx` -- where the swarm/legacy sidebar choice lands
 - `web/components/app-sidebar.tsx` -- legacy sidebar (kept untouched, used by non-/swarm routes)
-- `web/components/v7/glass-card.tsx` -- Phase 48 GlassCard primitive used for placeholder regions
+- `web/components/ui/glass-card.tsx` -- Phase 48 GlassCard primitive used for placeholder regions
 
 ### Project constraints
 - `CLAUDE.md` -- Vercel + Supabase stack, no mocking Supabase in tests, Next.js 16 with Turbopack
@@ -106,7 +106,7 @@ None -- no relevant todos surfaced from cross_reference_todos check.
 ## Existing Code Insights
 
 ### Reusable Assets
-- `web/components/v7/glass-card.tsx` (Phase 48) -- use for all placeholder region containers in `/swarm/[swarmId]/page.tsx`
+- `web/components/ui/glass-card.tsx` (Phase 48) -- use for all placeholder region containers in `/swarm/[swarmId]/page.tsx`
 - `web/lib/supabase/broadcast-client.ts` -- mirror its lifecycle pattern (callbackRef, removeChannel cleanup) when writing the `SwarmRealtimeProvider`
 - `web/lib/supabase/client.ts` -- the only correct way to get a client-side Supabase instance for Realtime
 - `web/components/ui/sidebar` (shadcn) -- NOT used by V7 sidebar; V7 needs its own component because the design diverges from shadcn's collapsible-icon pattern

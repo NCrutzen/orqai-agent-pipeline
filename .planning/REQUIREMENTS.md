@@ -148,14 +148,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DRAW-02 | Phase 51 | Complete (code); browser verify pending fixture apply |
 | DRAW-03 | Phase 51 | Complete (code); browser verify pending fixture apply |
 | DRAW-04 | Phase 51 | Complete (code); browser verify pending fixture apply |
-| OBS-03 | Phase 52 | Pending |
-| OBS-04 | Phase 52 | Pending |
-| OBS-05 | Phase 52 | Pending |
-| KAN-01 | Phase 52 | Pending |
-| KAN-02 | Phase 52 | Pending |
-| KAN-03 | Phase 52 | Pending |
-| KAN-04 | Phase 52 | Pending |
-| NAV-04 | Phase 52 | Pending |
+| OBS-03 | Phase 52 | Complete (code); browser walkthrough deferred |
+| OBS-04 | Phase 52 | Complete (ring buffer 500-event FIFO eviction live) |
+| OBS-05 | Phase 52 | Complete (terminal reads via useRealtimeTable, no extra channel) |
+| KAN-01 | Phase 52 | Complete (5 columns rendering 10 fixture jobs in DB) |
+| KAN-02 | Phase 52 | Complete (dnd-kit Pointer + Keyboard sensors) |
+| KAN-03 | Phase 52 | Complete (optimistic overlay + moveJob server action + sonner revert) |
+| KAN-04 | Phase 52 | Complete (title + description line-clamp + tag pill row) |
+| NAV-04 | Phase 52 | Complete (3 chips, ?filter= URL state via router.replace) |
 | GRAPH-01 | Phase 53 | Pending |
 | GRAPH-02 | Phase 53 | Pending |
 | GRAPH-03 | Phase 53 | Pending |

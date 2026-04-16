@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Agent OS
 status: in_progress
-stopped_at: Phase 51 Hero Components complete (code-complete; browser verification + fixture apply deferred)
-last_updated: "2026-04-16T07:40:00.000Z"
+stopped_at: Phase 52 Live Interactivity complete (code-complete; fixture applied; browser walkthrough deferred)
+last_updated: "2026-04-16T09:30:00.000Z"
 last_activity: 2026-04-16
 progress:
   total_phases: 7
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
-  percent: 57
+  completed_phases: 5
+  total_plans: 13
+  completed_plans: 13
+  percent: 71
 ---
 
 # Project State
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** V7.0 Agent OS -- Phase 52 Live Interactivity next (Phase 51 code-complete, browser verify + fixture apply deferred pending Supabase Management API token)
+**Current focus:** V7.0 Agent OS -- Phase 53 Advanced Observability next (Phases 48-52 code-complete; browser walkthroughs deferred)
 **Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress (91%), V4.0 partially complete, V6.0 phases 44-45 complete
 
 ## Current Position
 
-Phase: 51 of 54 (Hero Components)
-Plan: 51-03 complete, Phase 52 next
-Status: Phase 51 code-complete, browser verification + fixture apply deferred
+Phase: 52 of 54 (Live Interactivity)
+Plan: 52-03 complete, Phase 53 next
+Status: Phase 52 code-complete, fixture APPLIED to DB, browser walkthrough deferred
 Last activity: 2026-04-16
 
-Progress: [██████░░░░] 57% (4 of 7 V7.0 phases code-complete)
+Progress: [███████░░░] 71% (5 of 7 V7.0 phases code-complete)
 
 ## Performance Metrics
 
@@ -66,6 +66,12 @@ Progress: [██████░░░░] 57% (4 of 7 V7.0 phases code-complete
 - [Phase 51]: swarm_briefings cached with 5-minute expires_at TTL; 30-min Inngest cron forces refresh
 - [Phase 51]: Drawer uses shadcn Sheet (Radix Dialog) + v7-drawer-content class -- no new dependency
 - [Phase 51]: Drawer open state in React Context, NOT URL -- ephemeral by design
+- [Phase 52]: Ring buffer (max 500) via module store + useSyncExternalStore -- not React state -- so high-frequency Realtime pushes don't cascade re-renders
+- [Phase 52]: dnd-kit (not react-dnd, not HTML5 DnD) -- ~20KB gzipped, accessible-by-default
+- [Phase 52]: Kanban optimistic overlay reconciles via useEffect-on-realtime-match (race-free against any ordering)
+- [Phase 52]: moveJob server action authenticates via auth.getUser() then authorizes via service-role + project_members count check (mirrors Phase 49 access pattern)
+- [Phase 52]: Smart filter URL state is single ?filter=<key> param via router.replace (history-clean); shareable, refresh-stable
+- [Phase 52]: Terminal shell uses fixed dark colors regardless of theme -- intentional terminal feel, matches design reference
 
 ### Blockers/Concerns
 
@@ -77,7 +83,8 @@ Progress: [██████░░░░] 57% (4 of 7 V7.0 phases code-complete
 
 - **Phase 48-03 Azure AD SSO end-to-end** -- Code is in place (SSO button, access-pending page, project_members gate, middleware exemption) but human verification blocked on Azure AD tenant provisioning + Supabase Azure provider config. Full 8-step verification protocol in `.planning/phases/48-foundation/48-03-SUMMARY.md` under "Deferred: Human Verification (Task 3)". Resume signal: "SSO verified".
 - **Phase 50 Data Pipeline migration apply + end-to-end** -- Migration file written and committed (`supabase/migrations/20260416_trace_sync.sql`) but Supabase Management API token in repo is expired. User must apply via Studio SQL editor OR provide a current `sbp_*` token so the next session can run it. Then seed one `projects.orqai_project_id` on a real swarm to kick off the cron. Full protocol in `.planning/phases/50-data-pipeline/50-VERIFICATION.md` under "Deferred: Human Verification". Resume signal: "Phase 50 sync verified".
-- **Phase 51 Hero Components fixture apply + browser verify** -- All code committed. User must apply `supabase/fixtures/51-test-data.sql` via Supabase Studio SQL editor to seed 3 swarm_agents + 12 agent_events on the EASY swarm. Then open `/swarm/f8df0bce-ed24-4b77-b921-7fce44cabbbb` and follow the 7-step browser protocol in `.planning/phases/51-hero-components/51-VERIFICATION.md`. Briefing Agent is already deployed to Orq.ai (key: swarm-briefing-agent). Resume signal: "Phase 51 verified".
+- **Phase 51 Hero Components browser verify** -- All code committed. Phase 51 fixture (3 swarm_agents + 12 agent_events) APPLIED via Management API at Phase 52 session start (verified). Open `/swarm/f8df0bce-ed24-4b77-b921-7fce44cabbbb` and follow the 7-step browser protocol in `.planning/phases/51-hero-components/51-VERIFICATION.md`. Briefing Agent is already deployed to Orq.ai (key: swarm-briefing-agent). Resume signal: "Phase 51 verified".
+- **Phase 52 Live Interactivity browser walkthrough** -- All code committed; 10-row swarm_jobs fixture APPLIED via Management API (verified). Open `/swarm/f8df0bce-ed24-4b77-b921-7fce44cabbbb` and follow the 5-step protocol in `.planning/phases/52-live-interactivity/52-VERIFICATION.md` (terminal renders 12 events; Kanban renders 10 cards; smart filter URL state works; drag persists via Realtime). Resume signal: "Phase 52 verified".
 
 ### Pending Todos
 
@@ -85,7 +92,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-16T07:40:00.000Z
-Stopped at: Phase 51 Hero Components complete (code-complete; browser verification + fixture apply deferred)
-Resume with: `/gsd-autonomous --from 52`
-Resume file: .planning/phases/51-hero-components/51-VERIFICATION.md
+Last session: 2026-04-16T09:30:00.000Z
+Stopped at: Phase 52 Live Interactivity complete (code-complete; fixture applied; browser walkthrough deferred)
+Resume with: `/gsd-autonomous --from 53`
+Resume file: .planning/phases/52-live-interactivity/52-VERIFICATION.md
