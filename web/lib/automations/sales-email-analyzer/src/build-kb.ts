@@ -2,14 +2,10 @@
  * build-kb.ts — Knowledge Base builder voor Smeba Brandbeveiliging sales emails
  *
  * Leest 34K emails + analyses uit Supabase, maakt Q&A paren via conversation_id threading,
- * embedt via Orq.ai Router (of OpenAI direct als fallback), en upsertt naar sales.kb_chunks.
+ * embedt via OpenAI text-embedding-3-small, en upsertt naar sales.kb_chunks.
  *
  * Run: npx tsx src/build-kb.ts
- *
- * Embedding volgorde:
- *   1. Orq.ai Router (ORQ_API_KEY — al in env, preferred)
- *   2. OpenAI direct (OPENAI_API_KEY — fallback)
- *
+ * Vereist: OPENAI_API_KEY in web/.env.local
  * Idempotent: safe to re-run — upsertt op source_key
  *
  * Threading strategie:
@@ -21,18 +17,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { config } from "./config.js";
 
-// ---- Embedding provider detectie ----
-const ORQ_API_KEY = process.env.ORQ_API_KEY || config.orq?.apiKey;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-
-if (!ORQ_API_KEY && !OPENAI_API_KEY) {
-  console.error("ERROR: Geen embedding API key gevonden.");
-  console.error("Voeg ORQ_API_KEY (voorkeur) of OPENAI_API_KEY toe aan web/.env.local");
+if (!OPENAI_API_KEY) {
+  console.error("ERROR: OPENAI_API_KEY ontbreekt. Voeg toe aan web/.env.local");
   process.exit(1);
 }
-
-const USE_ORQ = Boolean(ORQ_API_KEY);
-console.log(`Embedding provider: ${USE_ORQ ? "Orq.ai Router (openai/text-embedding-3-small)" : "OpenAI direct (text-embedding-3-small)"}`);
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const MAX_BODY_CHARS = 2000; // trim long bodies for consistent embedding quality
@@ -110,42 +99,8 @@ function formatOutbound(email: EmailRow): string {
   return [`SMEBA REACTIE:`, email.subject || "", "", body].join("\n").trim();
 }
 
-// ---- Embeddings via Orq.ai Router of OpenAI direct ----
+// ---- OpenAI embeddings ----
 async function embedBatch(texts: string[]): Promise<number[][]> {
-  // Orq.ai proxied OpenAI embeddings (preferred — ORQ_API_KEY al in env)
-  if (USE_ORQ) {
-    const res = await fetch("https://api.orq.ai/v2/openai/embeddings", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${ORQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ model: EMBEDDING_MODEL, input: texts }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      return (data.data as { index: number; embedding: number[] }[])
-        .sort((a, b) => a.index - b.index)
-        .map((d) => d.embedding);
-    }
-
-    // Als Orq.ai embeddings niet ondersteunt: fallback naar OpenAI
-    const errText = await res.text();
-    if (res.status === 404 || res.status === 400) {
-      console.warn(`\n  Orq.ai embeddings niet beschikbaar (${res.status}) — fallback naar OpenAI direct`);
-      if (!OPENAI_API_KEY) {
-        throw new Error("Orq.ai ondersteunt geen embeddings en OPENAI_API_KEY ontbreekt. Voeg toe aan .env.local");
-      }
-      return embedViaOpenAI(texts);
-    }
-    throw new Error(`Orq.ai embeddings error ${res.status}: ${errText.slice(0, 300)}`);
-  }
-
-  return embedViaOpenAI(texts);
-}
-
-async function embedViaOpenAI(texts: string[]): Promise<number[][]> {
   const res = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: {
