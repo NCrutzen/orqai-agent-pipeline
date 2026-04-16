@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -97,26 +97,33 @@ export default async function ProjectDetailPage({ params }: PageProps) {
   const pipelineRuns = runs ?? [];
 
   return (
-    <div className="p-6">
+    <div className="p-5">
       {/* Breadcrumb */}
-      <nav className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
-        <Link href="/" className="hover:text-foreground transition-colors">
+      <nav className="mb-4 flex items-center gap-1 text-[12px] text-[var(--v7-muted)]">
+        <Link
+          href="/"
+          className="hover:text-[var(--v7-text)] transition-colors"
+        >
           Dashboard
         </Link>
         <ChevronRight className="size-3.5" />
-        <span className="font-medium text-foreground">{project.name}</span>
+        <span className="font-medium text-[var(--v7-text)]">
+          {project.name}
+        </span>
       </nav>
 
       {/* Project header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">{project.name}</h1>
+          <h1 className="text-[32px] leading-[1.1] tracking-[-0.03em] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
+            {project.name}
+          </h1>
           {project.description && (
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            <p className="mt-1 max-w-2xl text-[14px] text-[var(--v7-muted)]">
               {project.description}
             </p>
           )}
-          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="mt-2 flex items-center gap-3 text-[12px] text-[var(--v7-faint)]">
             <span className="inline-flex items-center gap-1">
               <Calendar className="size-3.5" />
               Created {createdDate}
@@ -135,16 +142,16 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
-        {/* Overview tab -- existing members content */}
+        {/* Overview tab -- members */}
         <TabsContent value="overview">
           <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-1">
-              <CardHeader>
-                <CardTitle className="text-sm">
+            <GlassCard className="lg:col-span-1 p-5">
+              <div className="pb-3">
+                <h2 className="text-[14px] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
                   Members ({members.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+                </h2>
+              </div>
+              <div>
                 <div className="flex flex-col gap-2">
                   {members.map((member) => (
                     <div
@@ -156,22 +163,24 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                           {member.email?.[0]?.toUpperCase() || "U"}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="truncate text-sm">
+                      <span className="truncate text-[14px] text-[var(--v7-text)]">
                         {member.email ||
                           `User ${member.user_id.slice(0, 8)}...`}
                       </span>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </GlassCard>
           </div>
         </TabsContent>
 
         {/* Runs tab */}
         <TabsContent value="runs">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">Agent Swarms</h2>
+            <h2 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
+              Agent Swarms
+            </h2>
             <Button asChild size="sm">
               <Link href={`/projects/${id}/new-run`}>
                 <Plus className="mr-1.5 size-4" />
@@ -185,14 +194,14 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               <RunListLive initialRuns={pipelineRuns} />
             </div>
           ) : (
-            <div className="mt-6 flex flex-col items-center py-12 text-center">
-              <div className="rounded-full bg-muted p-3">
-                <Play className="size-5 text-muted-foreground" />
+            <GlassCard className="mt-6 p-10 flex flex-col items-center text-center">
+              <div className="rounded-full bg-[var(--v7-panel-2)] p-3">
+                <Play className="size-5 text-[var(--v7-muted)]" />
               </div>
-              <p className="mt-3 text-sm font-medium">
+              <p className="mt-3 text-[14px] font-medium text-[var(--v7-text)]">
                 No agent swarms yet
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-[12px] text-[var(--v7-muted)]">
                 Create your first agent swarm to see results here.
               </p>
               <Button asChild size="sm" className="mt-4">
@@ -201,7 +210,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                   Create your first agent swarm
                 </Link>
               </Button>
-            </div>
+            </GlassCard>
           )}
         </TabsContent>
 
@@ -216,15 +225,17 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               />
             </div>
           ) : (
-            <div className="mt-6 flex flex-col items-center py-12 text-center">
-              <div className="rounded-full bg-muted p-3">
-                <Network className="size-5 text-muted-foreground" />
+            <GlassCard className="mt-6 p-10 flex flex-col items-center text-center">
+              <div className="rounded-full bg-[var(--v7-panel-2)] p-3">
+                <Network className="size-5 text-[var(--v7-muted)]" />
               </div>
-              <p className="mt-3 text-sm font-medium">No agent swarm yet</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-3 text-[14px] font-medium text-[var(--v7-text)]">
+                No agent swarm yet
+              </p>
+              <p className="mt-1 text-[12px] text-[var(--v7-muted)]">
                 Complete a pipeline run to see the agent swarm graph here.
               </p>
-            </div>
+            </GlassCard>
           )}
         </TabsContent>
 
