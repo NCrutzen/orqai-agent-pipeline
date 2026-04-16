@@ -322,3 +322,151 @@
 @media (prefers-reduced-motion: reduce) {
   .v7-graph-node { transition: none; }
 }
+
+/* V7 swimlane (Phase 53) */
+.v7-swimlane-axis {
+  position: relative;
+  height: 22px;
+}
+.v7-swimlane-axis > span {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--v7-faint);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.v7-swimlane-grid {
+  position: relative;
+  border-radius: var(--v7-radius-sm);
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  border: 1px solid var(--v7-line);
+  overflow: hidden;
+}
+.v7-swimlane-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  left: 92px;
+  background: linear-gradient(
+    90deg,
+    transparent 0 16.6%,
+    rgba(255,255,255,0.05) 16.6% 16.8%,
+    transparent 16.8% 33.3%,
+    rgba(255,255,255,0.05) 33.3% 33.5%,
+    transparent 33.5% 50%,
+    rgba(255,255,255,0.05) 50% 50.2%,
+    transparent 50.2% 66.6%,
+    rgba(255,255,255,0.05) 66.6% 66.8%,
+    transparent 66.8% 83.3%,
+    rgba(255,255,255,0.05) 83.3% 83.5%,
+    transparent 83.5% 100%
+  );
+  pointer-events: none;
+}
+
+.v7-swimlane-lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+}
+.v7-swimlane-lane-label {
+  width: 88px;
+  padding-left: 12px;
+  font-size: 12px;
+  color: var(--v7-muted);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.v7-swimlane-bar {
+  position: absolute;
+  height: 18px;
+  min-width: 6px;
+  border-radius: var(--v7-radius-pill);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #081018;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+  cursor: default;
+  overflow: visible;
+  z-index: 2;
+}
+.v7-swimlane-bar[data-type="thinking"] {
+  background: linear-gradient(90deg, var(--v7-pink), color-mix(in srgb, var(--v7-pink) 50%, white));
+}
+.v7-swimlane-bar[data-type="tool_call"],
+.v7-swimlane-bar[data-type="tool_result"] {
+  background: linear-gradient(90deg, var(--v7-blue), color-mix(in srgb, var(--v7-blue) 60%, white));
+}
+.v7-swimlane-bar[data-type="waiting"] {
+  background: linear-gradient(90deg, var(--v7-amber), color-mix(in srgb, var(--v7-amber) 60%, white));
+}
+.v7-swimlane-bar[data-type="done"] {
+  background: linear-gradient(90deg, var(--v7-teal), color-mix(in srgb, var(--v7-teal) 60%, white));
+}
+.v7-swimlane-bar[data-type="error"] {
+  background: linear-gradient(90deg, var(--v7-red), color-mix(in srgb, var(--v7-red) 60%, white));
+}
+.v7-swimlane-bar[data-type="delegation"] {
+  background: linear-gradient(90deg, var(--v7-pink), var(--v7-blue));
+}
+.v7-swimlane-bar-label {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.v7-bar-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  background: var(--v7-glass-bg);
+  border: 1px solid var(--v7-glass-border);
+  border-radius: var(--v7-radius-sm);
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--v7-text);
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: var(--v7-glass-shadow-heavy);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  backdrop-filter: blur(var(--v7-glass-blur));
+}
+.v7-bar-tooltip strong {
+  font-weight: 700;
+  color: var(--v7-text);
+}
+.v7-bar-tooltip span {
+  color: var(--v7-muted);
+  font-weight: 400;
+}
+.v7-swimlane-bar:hover .v7-bar-tooltip,
+.v7-swimlane-bar:focus-visible .v7-bar-tooltip {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v7-bar-tooltip { transition: none; }
+  /* Disable decorative pulses globally for users who prefer reduced motion */
+  [style*="v7-pulse-eyebrow"],
+  .v7-pulse {
+    animation: none !important;
+  }
+}

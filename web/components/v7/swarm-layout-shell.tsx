@@ -16,6 +16,7 @@ import { AgentDetailDrawer } from "@/components/v7/drawer/agent-detail-drawer";
 import { TerminalStream } from "@/components/v7/terminal/terminal-stream";
 import { KanbanBoard } from "@/components/v7/kanban/kanban-board";
 import { DelegationGraph } from "@/components/v7/graph/delegation-graph";
+import { SwimlaneTimeline } from "@/components/v7/swimlane/swimlane-timeline";
 import {
   DrawerProvider,
   useDrawer,
@@ -98,6 +99,10 @@ function ShellBody({
 
         <section>
           <FleetBound />
+        </section>
+
+        <section>
+          <SwimlaneTimeline swarmId={swarmId} />
         </section>
 
         <section className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_0.8fr]">
