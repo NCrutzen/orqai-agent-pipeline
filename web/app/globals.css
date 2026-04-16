@@ -254,3 +254,71 @@
   padding: 18px;
   inset-block: 16px !important;
 }
+
+/* V7 graph (Phase 53) */
+.v7-graph-node {
+  position: absolute;
+  padding: 10px 12px;
+  border-radius: var(--v7-radius-sm);
+  background: var(--v7-glass-bg);
+  border: 1px solid var(--v7-glass-border);
+  min-width: 144px;
+  box-shadow: var(--v7-glass-shadow);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  z-index: 2;
+  backdrop-filter: blur(var(--v7-glass-blur));
+}
+.v7-graph-node:hover {
+  transform: translate(-50%, calc(-50% - 2px));
+  box-shadow: var(--v7-glass-shadow-heavy);
+}
+.v7-graph-node:focus-visible {
+  outline: 2px solid var(--v7-teal);
+  outline-offset: 2px;
+}
+.v7-graph-node[data-orchestrator] {
+  outline: 1px solid var(--v7-teal);
+  box-shadow:
+    0 0 0 1px var(--v7-teal-soft),
+    0 20px 60px var(--v7-teal-soft),
+    var(--v7-glass-shadow);
+}
+.v7-graph-node-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--v7-faint);
+  margin-bottom: 4px;
+}
+.v7-graph-node-name {
+  display: block;
+  font-family: var(--font-cabinet);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--v7-text);
+  line-height: 1.2;
+}
+.v7-graph-node-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--v7-muted);
+}
+.v7-tiny-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--v7-faint);
+  display: inline-block;
+}
+.v7-tiny-dot.status-active  { background: var(--v7-teal); }
+.v7-tiny-dot.status-idle    { background: var(--v7-faint); }
+.v7-tiny-dot.status-waiting { background: var(--v7-amber); }
+.v7-tiny-dot.status-error   { background: var(--v7-red); }
+.v7-tiny-dot.status-offline { background: var(--v7-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .v7-graph-node { transition: none; }
+}

@@ -15,6 +15,7 @@ import { SubagentFleet } from "@/components/v7/fleet/subagent-fleet";
 import { AgentDetailDrawer } from "@/components/v7/drawer/agent-detail-drawer";
 import { TerminalStream } from "@/components/v7/terminal/terminal-stream";
 import { KanbanBoard } from "@/components/v7/kanban/kanban-board";
+import { DelegationGraph } from "@/components/v7/graph/delegation-graph";
 import {
   DrawerProvider,
   useDrawer,
@@ -92,11 +93,7 @@ function ShellBody({
 
         <section className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_0.8fr]">
           <BriefingPanel swarmId={swarmId} />
-          <PlaceholderRegion
-            heading="Delegation graph"
-            caption="Live agent hierarchy \u2014 Phase 53"
-            className="min-h-[260px]"
-          />
+          <DelegationGraph swarmId={swarmId} />
         </section>
 
         <section>
