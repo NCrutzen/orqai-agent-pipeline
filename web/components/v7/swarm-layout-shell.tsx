@@ -13,6 +13,7 @@ import { RealtimeStatusIndicator } from "@/components/v7/realtime-status-indicat
 import { BriefingPanel } from "@/components/v7/briefing/briefing-panel";
 import { SubagentFleet } from "@/components/v7/fleet/subagent-fleet";
 import { AgentDetailDrawer } from "@/components/v7/drawer/agent-detail-drawer";
+import { TerminalStream } from "@/components/v7/terminal/terminal-stream";
 import {
   DrawerProvider,
   useDrawer,
@@ -107,11 +108,7 @@ function ShellBody({
             caption="Job board \u2014 Phase 52"
             className="min-h-[280px]"
           />
-          <PlaceholderRegion
-            heading="Terminal"
-            caption="Event stream \u2014 Phase 52"
-            className="min-h-[280px]"
-          />
+          <TerminalStream swarmId={swarmId} />
         </section>
       </div>
 

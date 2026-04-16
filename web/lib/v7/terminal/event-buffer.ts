@@ -22,7 +22,12 @@ import type { AgentEvent } from "@/lib/v7/types";
 
 type Listener = () => void;
 
-const EMPTY_SNAPSHOT: AgentEvent[] = Object.freeze([]) as AgentEvent[];
+// Frozen empty array reused as the SSR snapshot. We cast through
+// `unknown` because `AgentEvent[]` is mutable and TS would otherwise
+// reject the freeze, but we never mutate the snapshot in practice.
+const EMPTY_SNAPSHOT: AgentEvent[] = Object.freeze(
+  [] as AgentEvent[],
+) as unknown as AgentEvent[];
 
 export class EventBufferStore {
   readonly capacity: number;
