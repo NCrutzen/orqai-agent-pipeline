@@ -1,4 +1,7 @@
-import "dotenv/config";
+import { config as dotenv } from "dotenv";
+// .env.local has priority (Vercel CLI pulls vars here), .env as fallback
+dotenv({ path: ".env.local" });
+dotenv();
 
 export const config = {
   supabase: {
