@@ -5,36 +5,25 @@
  *
  * Do NOT import from client components — this module uses the server
  * Supabase client which reads the auth cookie.
+ * Types and constants live in swarm-types.ts (safe for client imports).
  */
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  ACTIVE_JOB_STAGES,
+  type SwarmWithCounts,
+  type SwarmJobRow,
+  type SwarmAgentRow,
+  type SwarmSidebarData,
+} from "@/lib/v7/swarm-types";
 
-export const ACTIVE_JOB_STAGES = ["ready", "progress", "review"] as const;
-
-export interface SwarmWithCounts {
-  id: string;
-  name: string;
-  description: string | null;
-  activeJobs: number;
-  agentCount: number;
-}
-
-export interface SwarmJobRow {
-  id: string;
-  swarm_id: string;
-  stage: string;
-}
-
-export interface SwarmAgentRow {
-  id: string;
-  swarm_id: string;
-}
-
-export interface SwarmSidebarData {
-  swarms: SwarmWithCounts[];
-  initialJobs: SwarmJobRow[];
-  initialAgents: SwarmAgentRow[];
-}
+export {
+  ACTIVE_JOB_STAGES,
+  type SwarmWithCounts,
+  type SwarmJobRow,
+  type SwarmAgentRow,
+  type SwarmSidebarData,
+};
 
 /**
  * Fetches the user's swarms (via RLS on projects + project_members) and

@@ -25,7 +25,7 @@ import {
   type SwarmAgentRow,
   type SwarmJobRow,
   type SwarmWithCounts,
-} from "@/lib/v7/swarm-data";
+} from "@/lib/v7/swarm-types";
 
 interface SwarmSidebarProps {
   swarms: SwarmWithCounts[];

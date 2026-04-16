@@ -14,7 +14,7 @@ import type {
   SwarmAgentRow,
   SwarmJobRow,
   SwarmWithCounts,
-} from "@/lib/v7/swarm-data";
+} from "@/lib/v7/swarm-types";
 
 interface SidebarChooserProps {
   user: {
