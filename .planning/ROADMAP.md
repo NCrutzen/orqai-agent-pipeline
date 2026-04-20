@@ -258,7 +258,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | v0.3 | 1-05.2 (11 phases) | 28/28 | **Shipped** | 2026-03-01 |
 | V2.0 | 6-11 (7 phases) | 11/11 | **Shipped** | 2026-03-02 |
 | V2.1 | 26-33 (8 phases) | 9/9 | **Shipped** | 2026-03-13 |
-| V3.0 | 34. Skill Structure & Format Foundation | 0/5 | Planned (2026-04-20) | - |
+| V3.0 | 34. Skill Structure & Format Foundation | 2/5 | In Progress | - |
 | V3.0 | 35. Model Selection Discipline | 0/TBD | Not started | - |
 | V3.0 | 36. Lifecycle Slash Commands | 0/TBD | Not started | - |
 | V3.0 | 37. Observability Setup Skill | 0/TBD | Not started | - |

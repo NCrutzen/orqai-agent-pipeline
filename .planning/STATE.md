@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: "Phase 34 in progress - Plan 01 complete (Wave 0 infrastructure shipped)"
-stopped_at: Completed 34-01-PLAN.md
-last_updated: "2026-04-20T14:02:18.971Z"
-last_activity: 2026-04-20 — Phase 34 Plan 01 complete: lint-skills.sh + check-protected-pipelines.sh + 3 golden baselines
+status: "Phase 34 in progress - Plan 02 complete (15 command files migrated to SKST)"
+stopped_at: Completed 34-02-PLAN.md
+last_updated: "2026-04-20T14:14:38Z"
+last_activity: "2026-04-20 — Plan 02 complete: 9 SKST sections applied to all 15 command files; protected pipelines byte-identical"
 progress:
   total_phases: 10
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -26,17 +26,18 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 34 - Skill Structure & Format Foundation (in progress)
-Plan: 01 complete (1 of 5) — Wave 0 validation infrastructure shipped
-Status: Ready for Plan 02 (skill-body format migration)
-Last activity: 2026-04-20 — Plan 01 complete: lint-skills.sh + check-protected-pipelines.sh + 3 golden baselines
+Plan: 02 complete (2 of 5) — 15 command files migrated to SKST
+Status: Ready for Plan 03 (subagent SKST migration)
+Last activity: 2026-04-20 — Plan 02 complete: 9 SKST sections applied to all 15 command files; protected pipelines byte-identical
 
-Progress: V3.0 Phase 34 kicked off. Wave 0 done: POSIX lint + protected-pipeline verifier + pre-migration golden hashes.
+Progress: V3.0 Phase 34 Wave 1 first half shipped. All command-file SKST sections in place; Plan 03 can run in parallel on orq-agent/agents/.
 
 ## Performance Metrics
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 34-skill-structure-format-foundation | 01 | 3 min | 3 | 6 |
+| 34-skill-structure-format-foundation | 02 | 13 min | 3 | 15 |
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ Recent decisions affecting current work:
 - [Phase quick-260326-ann]: evaluatorq is NOT legacy -- use with caution for local custom scoring; REST is primary experiment path
 - [Phase 34-skill-structure-format-foundation]: Golden baselines hash <pipeline> block only (not whole file) — operationalizes ROADMAP #5 'byte-identical in behavior' (2026-04-20)
 - [Phase 34-skill-structure-format-foundation]: POSIX bash + grep/awk/shasum only for Wave-0 validation scripts — zero runtime deps, CI-ready by default for Phase 43 (2026-04-20)
+- [Phase 34-skill-structure-format-foundation]: For XML-tagged command files, SKST pre-body sections go between </files_to_read> and <pipeline>; footer sections after </pipeline> — keeps pipeline SHA-256 byte-identical (2026-04-20)
+- [Phase 34-skill-structure-format-foundation]: Local-config commands (systems, set-profile, update, help) use "- **N/A** — this skill manages local configuration only" for Open in orq.ai; lint accepts N/A per SKST-10 exception (2026-04-20)
+- [Phase 34-skill-structure-format-foundation]: help.md Destructive Actions uses "- **None** — this command is read-only" — read-only commands pass SKST-08 with this explicit shape (2026-04-20)
 
 ### Blockers/Concerns
 
@@ -87,7 +91,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T14:02:18.969Z
-Stopped at: Completed 34-01-PLAN.md
-Resume with: `/gsd:execute-phase 34` to continue with Plan 02 (skill-body format migration).
+Last session: 2026-04-20T14:14:38Z
+Stopped at: Completed 34-02-PLAN.md
+Resume with: `/gsd:execute-phase 34` to continue with Plan 03 (subagent SKST migration).
 Resume file: None
