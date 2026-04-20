@@ -4,13 +4,13 @@ milestone: v0.3
 milestone_name: milestone
 status: verifying
 stopped_at: "Completed 36-03-PLAN.md — /orq-agent:analytics (LCMD-03) authored"
-last_updated: "2026-04-20T16:00:32.402Z"
+last_updated: "2026-04-20T16:01:12.609Z"
 last_activity: "2026-04-20 — Phase 35 Plan 05 complete: full-suite verification sweep executed and 35-05-VERIFICATION.md produced as /gsd:verify-work evidence trail; all gates green, Phase 35 mechanically COMPLETE"
 progress:
   total_phases: 10
   completed_phases: 2
   total_plans: 18
-  completed_plans: 13
+  completed_plans: 16
 ---
 
 # Project State
@@ -49,6 +49,9 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 35-model-selection-discipline P05 | 2 min | 1 tasks | 1 files |
 | Phase 36-lifecycle-slash-commands P02 | 1 min | 1 tasks | 1 files |
 | Phase 36-lifecycle-slash-commands P03 | 1 min | 1 tasks | 1 files |
+| Phase 36-lifecycle-slash-commands P06 | 2 min | 1 tasks | 1 files |
+| Phase 36-lifecycle-slash-commands P04 | 2 min | 1 tasks | 1 files |
+| Phase 36-lifecycle-slash-commands P05 | 3 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -104,6 +107,7 @@ Recent decisions affecting current work:
 - [Phase 36-lifecycle-slash-commands]: analytics.md defaults --last to 24h and requires --group-by to be explicit (no default) — flat total is safest/cheapest output, breakdown requires user intent
 - [Phase 36-lifecycle-slash-commands]: MCP-first with verbatim REST curl fallback on error — never fabricate an analytics table when MCP fails; surface the fallback command inline so the user can retry out-of-band
 - [Phase 36-lifecycle-slash-commands]: Cost output always prefixed with USD $ symbol and 2-decimal precision; error rate always suffixed with % and 1-decimal precision — prevents unit confusion on operator-facing metrics
+- [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands P06] automations.md two-mode split: list (read-only) + --create (AskUserQuestion 4-field collect → yes/no confirm → MCP-first-with-REST-fallback POST). Pattern reusable for any future list+mutate slash command.
 
 ### Blockers/Concerns
 
@@ -128,7 +132,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T16:00:32.399Z
+Last session: 2026-04-20T16:01:00.986Z
 Stopped at: Completed 36-03-PLAN.md — /orq-agent:analytics (LCMD-03) authored
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None

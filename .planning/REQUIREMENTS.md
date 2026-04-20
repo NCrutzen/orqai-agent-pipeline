@@ -16,7 +16,7 @@ Thin MCP-backed slash commands that give users direct visibility into their work
 - [x] **LCMD-03**: User can run `/orq-agent:analytics [--last] [--group-by]` to view requests/cost/tokens/error rate with optional model/deployment/agent/status drill-down
 - [ ] **LCMD-04**: User can run `/orq-agent:models [search-term]` to list Model Garden models by type (chat/embedding/image/rerank/etc.) with provider grouping
 - [ ] **LCMD-05**: User can run `/orq-agent:quickstart` for interactive onboarding — API-key check, MCP registration, first-skill routing
-- [ ] **LCMD-06**: User can run `/orq-agent:automations` to list/create Orq.ai Trace Automation rules that auto-kick-off an experiment when new traces match a filter, closing the production-monitoring loop without leaving Claude Code
+- [x] **LCMD-06**: User can run `/orq-agent:automations` to list/create Orq.ai Trace Automation rules that auto-kick-off an experiment when new traces match a filter, closing the production-monitoring loop without leaving Claude Code
 - [ ] **LCMD-07**: `/orq-agent:quickstart` delivers a 12-step interactive tour modeled on the orq.ai webinar flow — connect MCP → enable models → create project → build agent → invoke → analyze traces → build evaluator → build dataset → run experiment → human review → annotation analysis → promote evaluator (each step has a copy-paste prompt the user runs sequentially)
 
 ### Observability Setup (OBSV)
@@ -208,7 +208,7 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | LCMD-03 | 36 | Complete |
 | LCMD-04 | 36 | Pending |
 | LCMD-05 | 36 | Pending |
-| LCMD-06 | 36 | Pending |
+| LCMD-06 | 36 | Complete |
 | LCMD-07 | 36 | Pending |
 | OBSV-01 | 37 | Pending |
 | OBSV-02 | 37 | Pending |
