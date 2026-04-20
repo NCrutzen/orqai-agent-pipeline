@@ -39,6 +39,7 @@ Rule IDs:
   tools-declared             agents/*.md have non-empty 'tools:' frontmatter
   required-sections          all 9 H2 headings present, outside any XML block
   references-multi-consumer  every file under orq-agent/references/ is referenced by >= 2 skills
+  snapshot-pinned-models     every 'model:' line pins a dated snapshot; rejects -latest/:latest/-beta aliases (MSEL-02)
 
 Exit codes:
   0  all checks pass
@@ -114,6 +115,25 @@ check_references_multi_consumer() {
   done
 }
 
+# --- rule: snapshot-pinned-models (MSEL-02) ---
+# Rejects floating-alias suffixes on any 'model:' line (model: provider/name-latest etc.).
+# Exception: some embedding + speech models Orq.ai only exposes as aliases. When such a
+# model legitimately cannot be pinned, spec-generator emits the alias with the comment
+# '# alias-only -- pinning unavailable <date>' (see orq-agent/agents/spec-generator.md).
+# This rule does NOT grant automatic allow-list bypass; any alias-only line must either
+# (a) not match the floating-suffix regex below, or (b) be explicitly grep-excluded in a
+# future iteration when a concrete alias-only model surfaces in the skill set.
+check_snapshot_pinned_models() {
+  local f="$1"
+  local hits
+  hits=$(grep -nE '^[[:space:]]*-?[[:space:]]*model:[[:space:]]*[^[:space:]]+(-latest|:latest|-beta)[[:space:]]*$' "$f" || true)
+  if [ -n "$hits" ]; then
+    while IFS= read -r line; do
+      emit_fail "${f}:${line%%:*} — floating-alias model ID (use a dated snapshot, e.g. claude-sonnet-4-5-20250929) [MSEL-02]"
+    done <<< "$hits"
+  fi
+}
+
 # --- apply one rule to one file (used by --rule X --file Y) ---
 run_rule_on_file() {
   local rule="$1" f="$2"
@@ -139,6 +159,9 @@ run_rule_on_file() {
     references-multi-consumer)
       # global rule; file argument ignored
       check_references_multi_consumer
+      ;;
+    snapshot-pinned-models)
+      check_snapshot_pinned_models "$f"
       ;;
     *)
       echo "Unknown rule: $rule" >&2
@@ -168,6 +191,9 @@ run_rule_on_default_set() {
     references-multi-consumer)
       check_references_multi_consumer
       ;;
+    snapshot-pinned-models)
+      while IFS= read -r f; do check_snapshot_pinned_models "$f"; done < <(default_file_set)
+      ;;
     *)
       echo "Unknown rule: $rule" >&2
       usage >&2
@@ -186,6 +212,7 @@ lint_file_all_rules() {
   else
     check_allowed_tools "$f"
   fi
+  check_snapshot_pinned_models "$f"
 }
 
 default_file_set() {
