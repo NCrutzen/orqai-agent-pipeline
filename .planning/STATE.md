@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 35-05-PLAN.md — Phase 35 closed
-last_updated: "2026-04-20T15:41:07.141Z"
+stopped_at: "Completed 36-03-PLAN.md — /orq-agent:analytics (LCMD-03) authored"
+last_updated: "2026-04-20T16:00:32.402Z"
 last_activity: "2026-04-20 — Phase 35 Plan 05 complete: full-suite verification sweep executed and 35-05-VERIFICATION.md produced as /gsd:verify-work evidence trail; all gates green, Phase 35 mechanically COMPLETE"
 progress:
   total_phases: 10
   completed_phases: 2
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 18
+  completed_plans: 13
 ---
 
 # Project State
@@ -47,6 +47,8 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 35-model-selection-discipline P02 | 2 min | 1 tasks | 1 files |
 | Phase 35-model-selection-discipline P04 | 1 min | 1 tasks | 1 files |
 | Phase 35-model-selection-discipline P05 | 2 min | 1 tasks | 1 files |
+| Phase 36-lifecycle-slash-commands P02 | 1 min | 1 tasks | 1 files |
+| Phase 36-lifecycle-slash-commands P03 | 1 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -96,6 +98,12 @@ Recent decisions affecting current work:
 - [Phase 35-model-selection-discipline]: Capable Tier Lookup seeded in orqai-model-catalog.md (MSEL-01) with static 4-row table + MCP models-list live-validation gate; WARNING preserved verbatim
 - [Phase 35-model-selection-discipline]: Phase 35 mechanically verified COMPLETE: full-suite lint green across 5 rules × 33 skill files, snapshot-pinned-models rule differentiates positive/negative fixtures, protected-pipeline SHA-256 check 3/3 matches, 16/16 MSEL policy-text phrase anchors present, 35-05-VERIFICATION.md captures full evidence trail with 3-row MSEL traceability + 4-row ROADMAP criteria checklist
 - [Phase 35-model-selection-discipline]: Phase-close VERIFICATION.md pattern (from 34-05) reused: captured silent-on-success lint output + negative-fixture intentional FAIL captured verbatim + ROADMAP success-criteria checklist marks LLM-behavior criteria (1+3) as 'file-level ✓ with manual LLM smoke deferred to /gsd:verify-work' rather than overstating mechanical proof
+- [Phase 36-lifecycle-slash-commands]: [Phase 36 Plan 02]: LCMD thin-command template locked — banner + SKST-9 + MCP-first with REST fallback + --identity stub pattern (parse-only + TODO(OBSV-07) warning, no filtering) — carries to plans 03-06
+- [Phase 36-lifecycle-slash-commands]: [Phase 36 Plan 02]: Full trace IDs never truncated — contract reinforced as NEVER constraint + Anti-Pattern row; errors-first stable sort (status error before ok, then started_at desc) is non-negotiable per LCMD-02
+- [Phase 36-lifecycle-slash-commands]: [Phase 36 Plan 02]: MCP-first, REST fallback, never-fabricate — on MCP error surface raw error + attempt curl GET /v2/traces with ORQ_API_KEY; STOP if REST also fails, never synthesize trace rows
+- [Phase 36-lifecycle-slash-commands]: analytics.md defaults --last to 24h and requires --group-by to be explicit (no default) — flat total is safest/cheapest output, breakdown requires user intent
+- [Phase 36-lifecycle-slash-commands]: MCP-first with verbatim REST curl fallback on error — never fabricate an analytics table when MCP fails; surface the fallback command inline so the user can retry out-of-band
+- [Phase 36-lifecycle-slash-commands]: Cost output always prefixed with USD $ symbol and 2-decimal precision; error rate always suffixed with % and 1-decimal precision — prevents unit confusion on operator-facing metrics
 
 ### Blockers/Concerns
 
@@ -120,7 +128,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T15:31:12.644Z
-Stopped at: Completed 35-05-PLAN.md — Phase 35 closed
+Last session: 2026-04-20T16:00:32.399Z
+Stopped at: Completed 36-03-PLAN.md — /orq-agent:analytics (LCMD-03) authored
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None

@@ -158,7 +158,15 @@ Build a Claude Code skill that transforms natural language use case descriptions
   3. `/orq-agent:analytics` reports requests, cost, tokens, and error rate with optional `--last` and `--group-by` (model/deployment/agent/status) drill-down.
   4. `/orq-agent:models [search-term]` lists Model Garden models grouped by provider, broken out by type (chat/embedding/image/rerank/etc.).
   5. `/orq-agent:quickstart` delivers a 12-step interactive tour (MCP connect → enable models → create project → build agent → invoke → analyze traces → build evaluator → build dataset → run experiment → human review → annotation analysis → promote evaluator), and `/orq-agent:automations` lists/creates Orq.ai Trace Automation rules that auto-trigger experiments on new matching traces.
-**Plans**: TBD
+**Plans**: 8 plans
+  - [ ] 36-01-PLAN.md — Wave 1: create orq-agent/commands/workspace.md (LCMD-01) — single-screen workspace overview
+  - [ ] 36-02-PLAN.md — Wave 1: create orq-agent/commands/traces.md (LCMD-02) — traces query with --deployment/--status/--last/--limit + --identity stub
+  - [ ] 36-03-PLAN.md — Wave 1: create orq-agent/commands/analytics.md (LCMD-03) — analytics summary with --last + --group-by
+  - [ ] 36-04-PLAN.md — Wave 1: create orq-agent/commands/models.md (LCMD-04) — Model Garden listing grouped by provider × type
+  - [ ] 36-05-PLAN.md — Wave 1: create orq-agent/commands/quickstart.md (LCMD-05 + LCMD-07) — 12-step onboarding tour
+  - [ ] 36-06-PLAN.md — Wave 1: create orq-agent/commands/automations.md (LCMD-06) — Trace Automations list + --create with AskUserQuestion
+  - [ ] 36-07-PLAN.md — Wave 2: wire 6 new commands into orq-agent/SKILL.md index + orq-agent/commands/help.md pipeline-order block
+  - [ ] 36-08-PLAN.md — Wave 3: full lint + protected-pipeline + phrase-presence verify; write 36-08-VERIFICATION.md with LCMD-{01..07} traceability + ROADMAP criteria checklist
 
 ### Phase 37: Observability Setup Skill
 **Goal**: Users can instrument their LLM application with correct framework integration, baseline trace verification, and rich metadata (including per-tenant `identity` attribution) so downstream trace-analysis and eval skills have signal to work with.
@@ -265,7 +273,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | V2.1 | 26-33 (8 phases) | 9/9 | **Shipped** | 2026-03-13 |
 | V3.0 | 34. Skill Structure & Format Foundation | 5/5 | Complete    | 2026-04-20 |
 | V3.0 | 35. Model Selection Discipline | 5/5 | Complete    | 2026-04-20 |
-| V3.0 | 36. Lifecycle Slash Commands | 0/TBD | Not started | - |
+| V3.0 | 36. Lifecycle Slash Commands | 2/8 | In Progress|  |
 | V3.0 | 37. Observability Setup Skill | 0/TBD | Not started | - |
 | V3.0 | 38. Trace Failure Analysis Skill | 0/TBD | Not started | - |
 | V3.0 | 39. Dataset Generator Enhancements | 0/TBD | Not started | - |
