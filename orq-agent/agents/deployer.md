@@ -734,6 +734,48 @@ When deciding how to handle ambiguous situations:
 5. **Multiple tools with similar keys:** Use exact key match only. Partial matches are not matches.
 6. **Agent spec has no tools section:** Deploy with empty `settings.tools` array.
 
+## Constraints
+
+- **NEVER** deploy without verifying the spec is syntactically valid via `orqai-agent-fields.md` schema.
+- **NEVER** overwrite live Orq.ai agent config silently — AskUserQuestion confirm required.
+- **ALWAYS** use idempotent create-or-update (not create; not delete-then-create).
+- **ALWAYS** emit a deployment manifest with agent IDs, URLs, and deployment-variant IDs.
+
+**Why these constraints:** Invalid specs fail mid-deploy leaving partial state; silent overwrite destroys rollback anchors; manifests are required by `/orq-agent:test` to target the deployed agent.
+
+## When to use
+
+- After `spec-generator` produces agent specs and `orchestration-generator` produces ORCHESTRATION.md (if multi-agent).
+- `/orq-agent:deploy` invokes deployer against a swarm output directory.
+- Typical next step is `/orq-agent:test` once deploy is green.
+
+## When NOT to use
+
+- Spec files have not been generated → run `/orq-agent:prompt` or `/orq-agent` first.
+- User wants to test without deploying — not supported; test requires a deployed agent.
+- User wants local-only verification → read the spec files directly (no deploy subagent needed).
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `/orq-agent:deploy` — command with deployer as its only subagent
+- ← all generator subagents — consumes spec files, ORCHESTRATION.md, TOOLS.md produced earlier in the pipeline
+- → `tester` — typical next invocation via `/orq-agent:test` against the deployed agent
+- ↔ `iterator` — on iteration cycles, iterator re-invokes deployer to roll out prompt edits
+
+## Done When
+
+- [ ] Every resource in the swarm has been created or updated on Orq.ai (tools → KBs → agents → orchestrator)
+- [ ] Read-back verification succeeded for every deployed resource (local spec matches live config)
+- [ ] Deployment manifest written with agent IDs, URLs, deployment-variant IDs
+- [ ] YAML frontmatter annotation added to local spec files recording deploy timestamp + Orq.ai IDs
+- [ ] Channel annotation recorded (`mcp` vs `rest (fallback)`) per operation
+
+## Destructive Actions
+
+**AskUserQuestion confirm required before** creating or updating Orq.ai agents via MCP (idempotent create-or-update mutates live agent config). Attaches tools, creates KBs.
+
 ## Anti-Patterns
 
 - **Creating before checking** -- Always GET/list first to determine create vs. update. Creating without checking leads to key conflicts or duplicate resources.
@@ -747,3 +789,17 @@ When deciding how to handle ambiguous situations:
 - **Deploying agents before their knowledge bases** -- KBs must exist before agents can reference `knowledge_id` in their payloads. The deploy order (Tools -> KBs -> Agents) enforces this.
 - **Re-chunking existing datasources on re-deploy** -- Chunking is expensive and idempotent re-deploy should skip already-chunked datasources. Only chunk new datasources or datasources with updated files.
 - **Attempting MCP tools for KB operations** -- KB CRUD has no MCP tool equivalents. Always use REST API directly for all knowledge base operations.
+
+## Open in orq.ai
+
+- **Deployments:** https://my.orq.ai/deployments
+- **Agent Studio:** https://my.orq.ai/agents
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

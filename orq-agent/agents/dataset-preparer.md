@@ -271,6 +271,48 @@ Agent              | Status | Role    | Examples | Datasets
 
 ---
 
+## Constraints
+
+- **NEVER** upload datasets that violate coverage rules (Phase 39 DSET-03 enforced upstream by dataset-generator).
+- **NEVER** skip the smoke test after upload.
+- **ALWAYS** run a 5-datapoint smoke test after upload to verify the dataset is queryable.
+- **ALWAYS** record stratified splits (train/dev/test or holdout) in the dataset metadata.
+
+**Why these constraints:** Silent upload failures only surface at experiment-run time. Coverage violations produce biased eval. Splits without metadata can't be reproduced.
+
+## When to use
+
+- `/orq-agent:test` invokes dataset-preparer as the first step in the test pipeline.
+- `tester` orchestrator delegates dataset prep before experiment execution.
+- User has markdown dataset files under `{OUTPUT_DIR}/[swarm-name]/datasets/` that need to be uploaded to Orq.ai.
+
+## When NOT to use
+
+- Datasets don't exist yet → run `dataset-generator` first (via `/orq-agent:datasets` or Step 6 of `/orq-agent`).
+- Dataset already uploaded and user wants to run experiment → call `experiment-runner` directly.
+- User wants to analyze existing results → use `results-analyzer` instead.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `tester` — receives swarm directory path + optional agent-key filter
+- ← `/orq-agent:test` — command with dataset-preparer as the first step
+- → `experiment-runner` — emits `dataset-prep.json` with per-agent dataset IDs and splits
+- ↔ `dataset-generator` — consumes locally generated dataset files produced upstream
+
+## Done When
+
+- [ ] Every deployed agent has a dataset uploaded to Orq.ai (≥30 examples per agent)
+- [ ] Stratified splits (60/20/20) recorded in metadata
+- [ ] Smoke test passed (5 datapoints queried with non-null evaluator scores)
+- [ ] `dataset-prep.json` written with per-agent dataset IDs, role, status, example counts
+- [ ] `messages` field at top level of each datapoint (NOT nested inside `inputs`)
+
+## Destructive Actions
+
+Creates datasets on Orq.ai via MCP/REST. **AskUserQuestion confirm required before** overwriting an existing Orq.ai dataset with the same name.
+
 ## Anti-Patterns
 
 - **SDK usage:** The pipeline primarily uses raw REST via curl/fetch for dataset operations. The `@orq-ai/node` SDK is available for specific patterns (see `orqai-api-endpoints.md` SDK and Integration Patterns section) but is NOT needed for dataset upload. If you must use the SDK, do NOT pin to a nonexistent version -- install the latest compatible: `npm install @orq-ai/node` (or `@orq-ai/node@3` if v4 causes issues).
@@ -279,3 +321,16 @@ Agent              | Status | Role    | Examples | Datasets
 - **Do NOT skip the smoke test** -- Null evaluator scores from missing `messages` are silent failures. Experiments complete but produce unusable results.
 - **Do NOT copy expected outputs verbatim for augmented examples** -- Each augmented example needs an adapted expected output reflecting the specific input changes.
 - **Do NOT use `json_object` as response format when testing agents that produce structured output** -- Ensure the agent spec uses `json_schema` with `strict: true` for reliable evaluation. The `json_object` format causes hallucinated field names and missing required fields, which makes evaluator scores unreliable and non-reproducible across experiment runs.
+
+## Open in orq.ai
+
+- **Datasets:** https://my.orq.ai/datasets
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

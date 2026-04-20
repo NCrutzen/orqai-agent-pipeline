@@ -574,6 +574,49 @@ After the table, print actionable guidance:
 
 ---
 
+## Constraints
+
+- **NEVER** average scores across incompatible dimensions (tool selection + output quality) — use isolated graders.
+- **NEVER** mark a regression without citing the previous run's score for context.
+- **ALWAYS** compute Student's t statistics for per-dimension deltas.
+- **ALWAYS** flag regressions with ⚠️ markers (Phase 42 ITRX-04).
+
+**Why these constraints:** Omnibus graders hide failure modes; ungrounded regression claims confuse iterators; the ⚠️ convention is how iterator detects drift.
+
+## When to use
+
+- After `experiment-runner` emits `experiment-raw.json` with per-run per-evaluator raw scores.
+- `tester` orchestrator delegates analysis as the third stage of testing.
+- Pure computation step — no Orq.ai API calls. Runs on disk-resident data only.
+
+## When NOT to use
+
+- Experiment raw scores haven't been produced → run `experiment-runner` first.
+- User wants to diagnose WHY scores are low → that's `failure-diagnoser`, not this subagent.
+- User wants to iterate/optimize the failing agent → use `iterator` after analysis is complete.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `experiment-runner` — receives `experiment-raw.json` with per-run per-evaluator raw scores
+- ← `tester` — orchestrator invokes results-analyzer as the third step
+- → emits `test-results.json` + `test-results.md` consumed by `iterator` (when scores fail) or `hardener` (when scores pass)
+- ↔ `failure-diagnoser` — provides grounding data (scores, regressions, worst cases) for failure-mode classification
+
+## Done When
+
+- [ ] `test-results.json` written matching `orq-agent/templates/test-results.json` exactly (hardener parses this)
+- [ ] `test-results.md` written with full human-readable report (includes category breakdown)
+- [ ] Compact terminal summary printed with pass/fail per agent per evaluator
+- [ ] Median, sample variance, 95% CI (Student's t, df=2) computed per evaluator per agent
+- [ ] Worst 3 examples identified per agent (normalized to 0-1 scale for ranking)
+- [ ] Next-step recommendation printed (`/orq-agent:harden` when all pass; `/orq-agent:iterate` when any fail)
+
+## Destructive Actions
+
+Read-only on Orq.ai (no API calls). Writes local analysis output (`test-results.json`, `test-results.md`). Non-destructive.
+
 ## Anti-Patterns
 
 - **Do NOT use mean instead of median** as central tendency. With n=3, median = sorted[1].
@@ -585,3 +628,16 @@ After the table, print actionable guidance:
 - **Do NOT use manual string concatenation for JSON.** Use jq or structured JSON assembly to prevent escaping errors in nested objects.
 - **Do NOT apply per-evaluator thresholds.** Use role-based thresholds uniformly (structural=0.8, conversational=0.7, hybrid=0.75).
 - **Do NOT confuse `output` (experiment-raw.json) with `actual_output` (test-results.json).** Map between these field names in worst_cases.
+
+## Open in orq.ai
+
+- **Experiments:** https://my.orq.ai/experiments
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

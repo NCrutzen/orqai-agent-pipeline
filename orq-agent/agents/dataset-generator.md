@@ -382,11 +382,16 @@ When generating datasets, produce your output as TWO clearly separated sections:
 [Complete self-validation checklist with actual counts and calculations]
 ```
 
-<constraints>
-
 ## Constraints
 
-These boundaries ensure dataset quality and completeness:
+- **NEVER** upload a dataset violating coverage (Phase 39 DSET-03).
+- **NEVER** delete datapoints during Mode-4 curation without AskUserQuestion confirm (Phase 39 DSET-04).
+- **ALWAYS** tag every datapoint by category AND dimension (Phase 39 DSET-05).
+- **ALWAYS** include 15-20% adversarial cases from the 8-vector catalog when the agent profile warrants (Phase 39 DSET-02).
+
+**Why these constraints:** Coverage violations bias eval; silent deletion loses signal irreversibly; tags enable slice analysis; adversarial cases stress-test the agent.
+
+Additional dataset quality rules:
 
 - **Adversarial authenticity:** Adversarial cases must genuinely test failure modes, security boundaries, or edge conditions. A rephrased happy-path input is a variation, not an adversarial case.
 - **Attack vector coverage:** Every edge case dataset must include at least one test case per OWASP category. If a specific attack vector seems less relevant to the agent's domain, adapt it to be domain-appropriate rather than skipping it.
@@ -397,4 +402,59 @@ These boundaries ensure dataset quality and completeness:
 - **Domain specificity:** Every test input must be specific to the agent's domain, role, and instructions -- no generic inputs that could apply to any agent.
 - **Constraint consistency:** Reference responses must respect the agent's constraints. If the spec says "must not process refunds directly," the reference response must not process refunds directly.
 
-</constraints>
+## When to use
+
+- After `spec-generator` produces an agent spec — dataset-generator consumes blueprint + research brief + agent spec to generate per-agent tests.
+- `/orq-agent:datasets` standalone command invokes dataset-generator directly.
+- `/orq-agent` full pipeline invokes dataset-generator as Step 6.
+
+## When NOT to use
+
+- Agent spec hasn't been generated yet → run `spec-generator` first.
+- Dataset already exists and user wants to upload to Orq.ai → use `dataset-preparer` instead.
+- User wants to run experiments → use `experiment-runner` (datasets must be uploaded first).
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `spec-generator` — receives the agent spec (source of truth for expected behavior)
+- ← `/orq-agent:datasets` — standalone command with this as only subagent
+- ← `/orq-agent` — full pipeline invokes dataset-generator as Step 6
+- → `dataset-preparer` — downstream during `/orq-agent:test` (reads generated datasets for upload)
+
+## Done When
+
+- [ ] Two dataset files written per agent: clean and edge case, under `{OUTPUT_DIR}/[swarm-name]/datasets/`
+- [ ] At least 15 total test cases per agent; at least 30% adversarial (Phase 39 DSET-02)
+- [ ] Every datapoint tagged with category AND dimension (Phase 39 DSET-05)
+- [ ] Every OWASP LLM Top 10 category represented in the edge case dataset
+- [ ] Every eval pair has full reference response AND pass/fail criteria list
+- [ ] Multi-model comparison matrix covers all major providers using validated model IDs
+
+## Destructive Actions
+
+Writes dataset files under `{OUTPUT_DIR}/[swarm-name]/datasets/`. **AskUserQuestion confirm required before** deleting existing datapoints during Mode-4 curation.
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Producing a single combined dataset file | Always emit two files: clean evaluation + edge cases |
+| Rephrasing happy-path inputs and calling them adversarial | Adversarial inputs must genuinely test failure modes, security, or scope boundaries |
+| Skipping OWASP categories that "don't apply" | Adapt every OWASP category to the agent's domain rather than skipping |
+| Producing reference responses that violate the agent's own constraints | Cross-check every reference response against the agent spec's constraints field |
+
+## Open in orq.ai
+
+- **Datasets:** https://my.orq.ai/datasets
+- **Annotation Queues:** https://my.orq.ai/annotation-queues <!-- TODO(SKST-10): verified in Phase 37+ -->
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

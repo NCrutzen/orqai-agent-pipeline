@@ -773,6 +773,50 @@ The tester returns a structured result object per agent containing:
 
 This output is consumed by the test command for results formatting and by Phase 8 iteration loop for targeting prompt improvements.
 
+## Constraints
+
+- **NEVER** run tests without a deployed agent (use `/orq-agent:deploy` first).
+- **NEVER** mark an experiment failed solely because one datapoint failed — require ≥5% failure rate.
+- **ALWAYS** orchestrate dataset-preparer → experiment-runner → results-analyzer in order.
+- **ALWAYS** surface a warning when average pass rate ≥ 95% (Phase 42 ESCI-05 baseline — eval may be too easy).
+
+**Why these constraints:** Testing specs directly (not deployed agents) tests the file, not production. Single-datapoint failures are noise. 95%+ pass rates suggest over-fit evaluators.
+
+## When to use
+
+- After `/orq-agent:deploy` completes — agent must be live on Orq.ai before testing.
+- `/orq-agent:test` invokes tester as its only subagent.
+- Need to run the full testing pipeline (dataset prep → experiments → results analysis) for an agent or swarm.
+
+## When NOT to use
+
+- Agent isn't deployed yet → run `/orq-agent:deploy` first.
+- User wants raw dataset generation → use `dataset-generator` (via `/orq-agent:datasets`).
+- User wants to analyze existing experiment data → invoke `results-analyzer` directly.
+- Failing agent needs iteration → use `iterator` (via `/orq-agent:iterate`).
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `/orq-agent:test` — command with tester as its only subagent
+- → `dataset-preparer` — delegates dataset transformation and upload
+- → `experiment-runner` — delegates experiment creation, execution, and export
+- → `results-analyzer` — delegates statistical analysis and pass/fail determination
+- → `iterator` — on test failure, `/orq-agent:iterate` picks up the failing run
+
+## Done When
+
+- [ ] All three sub-stages (dataset-preparer → experiment-runner → results-analyzer) ran to completion per agent
+- [ ] `test-results.json` + `test-results.md` produced for the swarm
+- [ ] Pass/fail determined per agent per evaluator with role-based thresholds
+- [ ] Next-step recommendation emitted (`/orq-agent:harden` when all pass; `/orq-agent:iterate` when any fail)
+- [ ] ≥95% pass-rate warning emitted when applicable (Phase 42 ESCI-05)
+
+## Destructive Actions
+
+Orchestrates dataset-preparer → experiment-runner → results-analyzer. Non-destructive itself; delegates destructive acts to `dataset-preparer` (which creates datasets on Orq.ai with AskUserQuestion confirm).
+
 ## Anti-Patterns
 
 - **Running a single mega-experiment with all agents** -- Run per-agent experiments so failures are isolated and results are per-agent. One agent's failure should not abort other agents' tests.
@@ -800,3 +844,18 @@ When deciding how to handle ambiguous situations:
 4. **Augmented example quality concern:** Prefer fewer high-quality augmented examples over many low-quality ones. Better to have 30 good examples than 50 with 20 near-duplicates.
 5. **Role inference is ambiguous:** Default to `hybrid` when both structural and conversational signals are present. Hybrid gets the union of evaluators, which is the safest choice.
 6. **Evaluator score interpretation:** Binary evaluators (json_validity, exactness, harmfulness) use thresholds of 0 or 1. Continuous evaluators use fractional thresholds. Never compare scores across different scales.
+
+## Open in orq.ai
+
+- **Experiments:** https://my.orq.ai/experiments
+- **Datasets:** https://my.orq.ai/datasets
+- **Evaluators:** https://my.orq.ai/evaluators
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

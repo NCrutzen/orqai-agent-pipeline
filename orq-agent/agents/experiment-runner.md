@@ -336,6 +336,47 @@ Agent              | Status   | Experiment ID          | Runs | Evaluators
 
 ---
 
+## Constraints
+
+- **NEVER** run without confirming the deployed agent from deployer's manifest is still active.
+- **NEVER** poll faster than the adaptive polling schedule (starts 10s, backs off to 60s).
+- **ALWAYS** use REST execution (not MCP — REST is the primary experiment path per STATE.md 260326-ann decision).
+- **ALWAYS** emit the experiment ID + Orq.ai URL for monitoring.
+
+**Why these constraints:** Stale agent references cause confusing failures; aggressive polling wastes quota; REST is the primary experiment path — MCP is fallback.
+
+## When to use
+
+- After `dataset-preparer` emits `dataset-prep.json` with agent dataset IDs.
+- `tester` orchestrator delegates experiment execution as the second stage of testing.
+- Holdout re-test mode: invoked directly with a `dataset_id` to re-test an iterated agent against the holdout split.
+
+## When NOT to use
+
+- Agent is not deployed or `dataset-prep.json` is missing → run `/orq-agent:deploy` and `dataset-preparer` first.
+- User wants pass/fail thresholds applied → that's owned by `results-analyzer`, not this subagent.
+- User wants local eval with custom Python → use the evaluatorq SDK pattern directly (this subagent uses REST).
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `dataset-preparer` — receives `dataset-prep.json` with per-agent dataset IDs
+- ← `tester` — orchestrator invokes experiment-runner as the second step
+- → `results-analyzer` — emits `experiment-raw.json` with per-run per-evaluator raw scores
+
+## Done When
+
+- [ ] One experiment created on Orq.ai per agent (via `POST /v2/experiments`)
+- [ ] 3 runs triggered per agent and polled to completion with adaptive backoff
+- [ ] Per-run results exported via `get_experiment_run` and signed URLs fetched
+- [ ] `experiment-raw.json` written with per-run per-evaluator raw scores (no thresholds applied)
+- [ ] Experiment IDs + Orq.ai URLs emitted for monitoring
+
+## Destructive Actions
+
+Creates experiments on Orq.ai. Non-destructive (experiments are append-only). Does not mutate or delete existing experiment data.
+
 ## Anti-Patterns
 
 - **evaluatorq SDK (`@orq-ai/evaluatorq`) -- use with caution.** The evaluatorq SDK caused experiment timeouts when used as the sole execution method in V2.1. The REST API (`POST /v2/experiments`) is the primary pattern for this pipeline. However, evaluatorq DOES work correctly for its intended use case: structured experiments with local custom evaluator scoring (Python evaluators, custom function evaluators). If you need local evaluation that the Orq.ai platform does not support, evaluatorq is a valid tool. For standard experiments, use REST.
@@ -346,3 +387,16 @@ Agent              | Status   | Experiment ID          | Runs | Evaluators
 - **Do NOT pass evaluator names to experiment creation** -- Must resolve names to platform IDs first via `GET /v2/evaluators`. Passing names instead of IDs causes 422 validation errors.
 - **Do NOT treat `get_experiment_run` response as inline data** -- It returns a signed download URL. You must fetch the URL separately to get the actual JSONL content with scores.
 - **Do NOT run experiments with only code evaluators OR only LLM evaluators** -- Always use both types together (two-evaluator pattern). Code evaluators catch structural issues; LLM evaluators catch semantic quality. Using only one type gives incomplete signal and produces misleading pass/fail results.
+
+## Open in orq.ai
+
+- **Experiments:** https://my.orq.ai/experiments
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.
