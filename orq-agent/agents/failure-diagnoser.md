@@ -254,6 +254,50 @@ When deciding how to handle ambiguous situations:
 
 4. **Agent has no XML-tagged sections in instructions:** Propose adding XML tags around logical sections as part of the iteration. This is a structural improvement, not just a content change.
 
+## Constraints
+
+- **NEVER** classify downstream cascading effects as root causes — label only the first upstream failure (Phase 38 TFAIL-03 baseline).
+- **NEVER** propose prompt edits without first naming the failure mode (specification / generalization / dataset / evaluator per Phase 42 ESCI-01).
+- **ALWAYS** cite specific datapoint IDs and trace IDs as evidence.
+- **ALWAYS** separate dataset-quality issues from evaluator-quality issues in the output (Phase 42 ESCI-08).
+
+**Why these constraints:** Labeling downstream effects creates phantom failure modes; speculative fixes without diagnosis wastes iteration budget; conflating dataset and evaluator issues proposes fixes at the wrong layer.
+
+## When to use
+
+- After `tester` produces `test-results.json` with ≥1 failing evaluator.
+- `/orq-agent:iterate` invokes failure-diagnoser as the first step in the iteration pipeline.
+- `iterator` orchestrator delegates diagnosis before any prompt edits are proposed.
+
+## When NOT to use
+
+- Tests are passing → proceed directly to `hardener` via `/orq-agent:harden`.
+- User wants to apply edits directly without diagnosis → use `prompt-editor` (but this bypasses iteration discipline).
+- User wants to re-test the same agent with a different dataset → use `tester` with holdout, not the diagnoser.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `results-analyzer` — receives `test-results.json` with evaluator failures and worst cases
+- ← `iterator` — orchestrator invokes failure-diagnoser as the first step
+- ← `/orq-agent:iterate` — command with this as first subagent
+- → `iterator` — emits `iteration-proposals.json` consumed by iterator for prioritization
+
+## Done When
+
+- [ ] `iteration-proposals.json` written in the swarm directory
+- [ ] Failing agents identified from `test-results.json`
+- [ ] Each failure mapped to specific XML-tagged prompt section with reasoning
+- [ ] Section-level diff proposals produced with plain-language rationale
+- [ ] Per-agent HITL approval collected and recorded
+- [ ] Dataset-quality issues separated from evaluator-quality issues (Phase 42 ESCI-08)
+- [ ] Zero Orq.ai API calls made (pure disk analysis)
+
+## Destructive Actions
+
+Read-only on Orq.ai (reads experiment results via disk artifacts only). Writes local analysis output (`iteration-proposals.json`). Non-destructive. Note: downstream `prompt-editor` (invoked by `iterator`) does the actual spec mutation; an **AskUserQuestion** HITL approval is collected here before those edits are applied downstream.
+
 ## Anti-Patterns
 
 - **Do NOT replace entire prompts** -- modify specific XML-tagged sections and preserve everything else
@@ -263,3 +307,17 @@ When deciding how to handle ambiguous situations:
 - **Do NOT hand-roll XML parsing** -- use string split on `<tag>`/`</tag>` patterns
 - **Do NOT ignore category_scores** -- category breakdown reveals WHERE failures concentrate
 - **Do NOT collect approval outside the diagnosis context** -- user must see diagnosis + proposals before approving
+
+## Open in orq.ai
+
+- **Traces:** https://my.orq.ai/traces
+- **Experiments:** https://my.orq.ai/experiments
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

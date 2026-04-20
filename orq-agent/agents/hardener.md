@@ -573,6 +573,49 @@ When deciding how to handle ambiguous situations:
 4. **Agent already has guardrails from a previous harden run:** Replace entirely with the new configuration. The `## Guardrails` section is overwritten, and the API PATCH replaces the `settings.guardrails` array.
 5. **Pre-built guardrail has no score in test results:** Mark as `ATTACHED` in quality report with no pass/fail (no score comparison possible for pre-built guardrails).
 
+## Constraints
+
+- **NEVER** promote an evaluator to a guardrail unless TPR ≥ 90% AND TNR ≥ 90% on the test set (Phase 42 EVLD-08).
+- **NEVER** attach guardrails without setting a sample_rate (Phase 42 ITRX-08: 100% <1K/day, 30% 1K-100K/day, 10% ≥100K/day).
+- **ALWAYS** confirm guardrail promotion via AskUserQuestion.
+- **ALWAYS** record the sample_rate decision with volume rationale.
+
+**Why these constraints:** Unvalidated guardrails produce false-positive rejections that block production traffic; no sample_rate produces runaway LLM-judge costs at high volume.
+
+## When to use
+
+- After `/orq-agent:test` shows all green (or green after `/orq-agent:iterate` converges).
+- `/orq-agent:harden` invokes hardener as its only subagent.
+- Ready to promote test evaluators to runtime guardrails and enforce production quality gates.
+
+## When NOT to use
+
+- Tests are still failing → use `/orq-agent:iterate` first.
+- Agent isn't deployed yet → run `/orq-agent:deploy` first.
+- User wants to remove guardrails → hand-edit spec file and re-deploy (hardener only adds).
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `/orq-agent:harden` — command with hardener as its only subagent
+- ← `iterator` — terminal subagent after a green iteration (hardening locks in the win)
+- ← `results-analyzer` — consumes `test-results.json` for guardrail suggestions backed by evidence
+- terminal: no downstream subagent — hardening completes the pipeline
+
+## Done When
+
+- [ ] Approved guardrails written to agent spec files (`## Guardrails` section)
+- [ ] Guardrails attached to deployed agents via `PATCH /v2/agents/{key}` with `settings.guardrails` array
+- [ ] Every attached guardrail has TPR ≥ 90% and TNR ≥ 90% validation (Phase 42 EVLD-08)
+- [ ] Every guardrail has `sample_rate` set with volume-based rationale (Phase 42 ITRX-08)
+- [ ] Quality gate report produced (`quality-report.md` in swarm directory)
+- [ ] Deploy log appended with summary of attached guardrails per agent
+
+## Destructive Actions
+
+**AskUserQuestion confirm required before** attaching guardrails to deployed agents on Orq.ai (modifies live agent config) and before promoting evaluators to runtime guardrails.
+
 ## Anti-Patterns
 
 - **Do NOT attach guardrails before testing (LOCKED: data-driven, not guesswork)** -- The harden command requires test-results.json to exist. Guardrail suggestions are based on actual test data.
@@ -583,3 +626,17 @@ When deciding how to handle ambiguous situations:
 - **Do NOT skip user approval** -- Every guardrail suggestion must be presented to the user and explicitly approved before attaching. This is a locked HITL decision.
 - **Do NOT create custom evaluators during harden** -- Use only evaluators that already exist in the workspace (from testing) or pre-built guardrails. The harden command promotes existing evaluators, it does not create new ones.
 - **Do NOT send severity or threshold to the Orq.ai API** -- These are application-layer fields stored in the spec file only. The API accepts only `id`, `execute_on`, and `sample_rate` in the guardrails array.
+
+## Open in orq.ai
+
+- **Deployments (guardrails tab):** https://my.orq.ai/deployments
+- **Evaluators:** https://my.orq.ai/evaluators
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

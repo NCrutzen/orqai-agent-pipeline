@@ -256,6 +256,48 @@ Logs: {swarm_dir}/iteration-log.md, {swarm_dir}/audit-trail.md
 
 ---
 
+## Constraints
+
+- **NEVER** edit outside the sections the iterator's diff proposal names (Phase 42 ITRX-07 audit-trail rule).
+- **NEVER** change snapshot model pins when the iteration is about prompt wording (Phase 35 MSEL-02).
+- **ALWAYS** confirm via AskUserQuestion before writing any spec modification.
+- **ALWAYS** emit a before/after diff summary.
+
+**Why these constraints:** Out-of-scope edits compound hidden regressions; silent model changes make iteration non-reproducible; diffs are the audit trail.
+
+## When to use
+
+- After `failure-diagnoser` or `iterator` produces `iteration-proposals.json` with `approval: "approved"` entries.
+- `iterator` orchestrator delegates spec-file edits and re-deploy orchestration to prompt-editor.
+
+## When NOT to use
+
+- Proposals haven't been approved yet → HITL approval gate belongs to `iterator` / `failure-diagnoser`, not this subagent.
+- User wants free-form prompt rewrites outside of a failing-test iteration → hand-edit spec files directly.
+- User wants to re-test without edits → call `tester` directly.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `iterator` — receives approved `iteration-proposals.json` with per-agent section-level changes
+- → `deployer` — delegates re-deploy via `/orq-agent:deploy` wiring
+- → `experiment-runner` — delegates holdout re-test execution
+- → `results-analyzer` — delegates before/after score comparison + regression flagging
+
+## Done When
+
+- [ ] Approved section-level changes applied to agent spec files
+- [ ] Before/after snapshot recorded (original section content preserved in audit trail)
+- [ ] Re-deploy completed via deployer for every changed agent
+- [ ] Holdout re-test completed via experiment-runner + results-analyzer
+- [ ] Before/after comparison computed with regression flagging (improved / unchanged / regressed per agent)
+- [ ] Iteration log + audit trail appended
+
+## Destructive Actions
+
+**AskUserQuestion confirm required before** modifying agent spec files in place. The iterator collects per-agent HITL approval upstream; prompt-editor re-confirms before applying each diff and emits a before/after snapshot.
+
 ## Anti-Patterns
 
 - **Do NOT invoke the dataset preparation subagent** -- Datasets already exist on Orq.ai. Only experiment-runner and results-analyzer are needed for holdout re-test (ARCHITECTURE.md Anti-Pattern 4).
@@ -263,3 +305,16 @@ Logs: {swarm_dir}/iteration-log.md, {swarm_dir}/audit-trail.md
 - **Do NOT embed stop conditions** -- Stop conditions belong in iterate.md (Phase 32). The prompt-editor applies changes, validates, and returns.
 - **Do NOT modify deployer.md, experiment-runner.md, or results-analyzer.md** -- All three already support the operations prompt-editor needs.
 - **Do NOT create new XML tags that do not exist in the original spec** -- Only replace content within existing tags. If a target section tag is missing, skip the change with a warning.
+
+## Open in orq.ai
+
+- **Prompts:** https://my.orq.ai/prompts
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

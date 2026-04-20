@@ -146,6 +146,48 @@ Files:
 - {filename.md} ({N} lines)
 ```
 
+## Constraints
+
+- **NEVER** wire a KB to a deployment without retrieval quality testing (Phase 40 KBM-01).
+- **NEVER** use memory-style stores for static reference data (Phase 40 KBM-04: KB vs Memory decision rule).
+- **ALWAYS** verify the embedding model is activated in AI Router before KB creation (Phase 40 KBM-02).
+- **ALWAYS** pick the chunking strategy from content type — sentence for prose, recursive for structured docs (Phase 40 KBM-03).
+
+**Why these constraints:** Non-tested KBs return irrelevant chunks silently; misused memory-for-docs pattern is a common failure; non-activated models fail at create-time.
+
+## When to use
+
+- Agent spec has `Knowledge base != none` in the blueprint but no source documents exist yet.
+- `/orq-agent:kb` invokes kb-generator to create upload-ready KB content from pipeline context or domain templates.
+- Deploy flow's Step 3.5.4 option 3 for generating KB content before attaching to the deployed agent.
+
+## When NOT to use
+
+- Source documents already exist → upload directly (no generation needed).
+- Agent doesn't use a KB (blueprint sets `Knowledge base: none`) → skip KB work entirely.
+- User wants to analyze existing KB retrieval quality → not this subagent's scope (deferred to Phase 40 KBM-01).
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `spec-generator` — consumes agent specs when agent has KB references, to synthesize domain-aware content
+- ← `/orq-agent:kb` — standalone command with this as only subagent
+- → `deployer` — generated KB content is uploaded and attached at deploy time
+
+## Done When
+
+- [ ] KB documents written to `{swarm-dir}/kb-content/{kb-name}/` directory
+- [ ] Files split by topic/category for effective chunking (no monolithic files)
+- [ ] Every file < 10MB (Orq.ai upload limit)
+- [ ] Content is domain-specific (no placeholder / lorem ipsum / generic filler)
+- [ ] Approach A (context synthesis) selected when pipeline outputs exist; Approach B (templates + user questions) only when context is missing
+- [ ] Chunking strategy picked from content type (sentence for prose, recursive for structured docs — Phase 40 KBM-03)
+
+## Destructive Actions
+
+**AskUserQuestion confirm required before** creating a KB on Orq.ai when one with the same name already exists. Uploads files.
+
 ## Anti-Patterns
 
 - **Do NOT generate placeholder or lorem ipsum content.** All content must be derived from pipeline context (Approach A) or user answers (Approach B). Every sentence should convey real domain information.
@@ -157,3 +199,16 @@ Files:
 - **Do NOT use generic content that could apply to any domain.** "Contact us for more information" and "Please refer to our website" are not useful KB content. Every document should contain specific, retrievable knowledge.
 
 - **Do NOT duplicate content across files.** If multiple agents share a KB, the content serves all of them. Do not create agent-specific copies of the same information.
+
+## Open in orq.ai
+
+- **Knowledge Bases:** https://my.orq.ai/knowledge-bases
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

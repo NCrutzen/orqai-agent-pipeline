@@ -532,6 +532,51 @@ When deciding how to handle ambiguous situations:
 
 5. **Agent has no XML-tagged sections in instructions:** Some agents may use unstructured instructions. In this case, propose adding XML tags around logical sections as part of the iteration. This is a structural improvement, not just a content change.
 
+## Constraints
+
+- **NEVER** re-run the same optimizer on the same prompt without explicit user override (Phase 42 ITRX-05 no-drift rule).
+- **NEVER** auto-apply prompt diffs without HITL approval.
+- **ALWAYS** assign P0/P1/P2 priority to every proposed improvement (Phase 42 ITRX-01).
+- **ALWAYS** cite Evidence (datapoints affected, scores, run ID) and Success Criteria per diff (Phase 42 ITRX-07).
+
+**Why these constraints:** No-drift prevents infinite loops; silent auto-apply removes the HITL safety rail; priority + evidence make diffs reviewable.
+
+## When to use
+
+- After `tester` produces `test-results.json` with ≥1 failing evaluator.
+- `/orq-agent:iterate` invokes iterator as the orchestrator of the iteration cycle.
+- `failure-diagnoser` has produced `iteration-proposals.json` (or iterator invokes the diagnoser internally).
+
+## When NOT to use
+
+- Tests are passing → proceed to `hardener` via `/orq-agent:harden`.
+- User wants to diagnose only without re-deploying → use `failure-diagnoser` standalone.
+- User wants to make arbitrary prompt edits outside of a failing test context → use `prompt-editor` directly with user-supplied diffs.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `/orq-agent:iterate` — command with iterator as the orchestrator
+- ← `failure-diagnoser` — receives `iteration-proposals.json` with diagnosis + approved diffs
+- → `prompt-editor` — delegates applying approved diffs to local spec files
+- → `deployer` — re-deploys the changed agent after edits
+- → `tester` — re-tests the agent on the holdout split after re-deploy
+
+## Done When
+
+- [ ] `iteration-log.md` written per cycle with per-agent proposals, approvals, and outcomes
+- [ ] `audit-trail.md` appended with the full decision trail (per Phase 42 ITRX-07)
+- [ ] Every proposed improvement has P0/P1/P2 priority and Evidence citation
+- [ ] HITL approval collected per agent BEFORE any file edits
+- [ ] Stop conditions enforced (improvement plateau, iteration limit, regression, user abort)
+- [ ] Re-deploy + re-test completed on the holdout split for every changed agent
+- [ ] Next-step recommendation emitted (`/orq-agent:harden` if green, `/orq-agent:iterate` again if still failing)
+
+## Destructive Actions
+
+**AskUserQuestion confirm required before** orchestrating prompt-editor + re-deploy (which modifies local spec files AND live Orq.ai agent config). Iterator collects per-agent HITL approval and only proceeds to downstream subagents after the user approves each diff.
+
 ## Anti-Patterns
 
 - **Do NOT replace entire prompts** -- modify specific XML-tagged sections and preserve everything else
@@ -542,3 +587,18 @@ When deciding how to handle ambiguous situations:
 - **Do NOT re-deploy and re-test ALL agents** -- only changed agents need re-deploy and re-test
 - **Do NOT hand-roll XML parsing for prompt sections** -- use string split on `<tag>` / `</tag>` patterns (prompts use simple non-nested XML)
 - **Do NOT swallow log write failures silently** -- display log content in terminal if file write fails
+
+## Open in orq.ai
+
+- **Experiments:** https://my.orq.ai/experiments
+- **Prompts:** https://my.orq.ai/prompts
+- **Traces:** https://my.orq.ai/traces
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.
