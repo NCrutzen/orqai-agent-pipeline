@@ -120,6 +120,69 @@ Only include two metadata fields per KB: `source` (document name/URL/identifier)
 
 **Embedding model selection is deferred to Phase 4.5. Do NOT recommend specific embedding models (e.g., text-embedding-3-small, embed-v3, text-embedding-ada-002). Your KB Design section must not mention any embedding model by name.**
 
+## Model Selection Policy
+
+<!-- Phase 35 MSEL-01 + MSEL-03: capable-first, cascade-aware policy enforced in the researcher. -->
+<!-- MSEL-02 (snapshot pinning of emitted IDs) is enforced downstream in spec-generator + the -->
+<!-- `snapshot-pinned-models` lint rule. This section focuses on recommendation ORDERING and -->
+<!-- CASCADE DISCIPLINE; pinning is a write-time concern handled by the spec-generator. -->
+
+Apply this policy to every Model Recommendation section you emit. It overrides any default "cheapest-first" instinct from training data.
+
+### Policy Rules
+
+1. **capable-first ordering** (MSEL-01): The Primary recommendation MUST be the most capable tier model for the task category (chat-heavy, tool-calling, code/RAG, vision). Never start with a budget-tier model, even when the user has requested cost optimization. Capable-first establishes a quality baseline; cost-driven downgrades are proposed as alternatives, not as primaries.
+
+2. **Budget alternatives tagged `after quality baseline run`** (MSEL-01): When you include budget-profile alternatives in the Alternatives list, label them explicitly: `-- after quality baseline run: [trade-off]`. This signals to the user (and to downstream spec-generator + iterator) that the cheaper model is a downgrade path to be taken AFTER the capable-tier baseline has produced a measured Pass rate, not BEFORE.
+
+3. **Cascade-aware pattern** (MSEL-03): Only when the user explicitly requests cost optimization during discussion (e.g., budget_profile=cost-first, or user said "cheapest possible" / "minimize cost"), propose a two-tier cascade. Tag the recommendation `cascade-candidate: true` in the Model Recommendation section so spec-generator knows to emit the cascade block + quality-equivalence test instructions. For normal use cases (no explicit cost-optimization request), tag `cascade-candidate: false` and emit a single capable-tier Primary.
+
+4. **Quality-equivalence gate** (MSEL-03): Every cascade proposal MUST include a `quality-equivalence experiment` step. The cascade is `approved: false` until that experiment runs, produces a measurable Pass-rate comparison between the cheap tier and the capable tier on the same test dataset, and shows that the cheap tier is within an acceptable tolerance (user-defined; suggest 5 percentage points as a default). Do NOT mark a cascade `approved: true` in your output — that flag flips downstream after Phase 42 (Evaluator Validation) runtime wires the experiment.
+
+### Capable Tier Lookup
+
+Use the table at `orq-agent/references/orqai-model-catalog.md §Capable Tier Lookup` as your starting point for selecting the capable-tier Primary. This table maps task categories (chat-heavy, tool-calling, code/RAG, vision) to dated-snapshot model IDs (e.g., `anthropic/claude-sonnet-4-5-20250929`). **Always validate the chosen ID against the live workspace via the MCP `models-list` tool** before committing to it — the static table is a seed, not authoritative.
+
+When the live list does not expose the recommended capable-tier ID, fall back to the next-best available capable-tier option from the same provider family, then flag the substitution as `Confidence: MEDIUM — capable-tier substitute applied (original: <id>)`.
+
+### Cascade Pattern
+
+When `cascade-candidate: true`, structure the Model Recommendation as follows:
+
+```
+**Primary (cascade, cheap tier):** `provider/cheap-model-DATED-SNAPSHOT`
+**Escalation (cascade, capable tier):** `provider/capable-model-DATED-SNAPSHOT`
+**Trigger:** escalate when cheap-tier confidence score < 0.7 (or task-specific threshold; suggest in the Rationale)
+**Rationale:** [why this split is viable for this role -- specifically, what signals predict when the cheap tier will fail]
+**cascade-candidate:** true
+**approved:** false
+**quality-equivalence experiment:**
+  - Run the swarm's test dataset through BOTH tiers independently.
+  - Use the same evaluator suite (see Phase 42 EVLD wiring) for both runs.
+  - Compute Pass-rate delta (capable_tier_pass_rate - cheap_tier_pass_rate).
+  - If delta <= 5 percentage points (default tolerance; user may override in discussion), cascade is viable. Mark `approved: true` only after this experiment closes; Phase 42 runtime flips the flag.
+  - If delta > tolerance, fall back to capable-tier Primary and record the delta in the research brief's Confidence field.
+**Confidence:** LOW until quality-equivalence experiment runs
+```
+
+For non-cascade (the default path):
+
+```
+**Primary:** `provider/capable-model-DATED-SNAPSHOT`
+**cascade-candidate:** false
+**Rationale:** [capable-first rationale -- specific capability match, not generic praise]
+**Alternatives:**
+1. `provider/capable-alt-DATED-SNAPSHOT` -- [capable-tier alternative, different provider, same quality band]
+2. `provider/budget-model-DATED-SNAPSHOT` -- after quality baseline run: [cost trade-off + latency impact]
+3. `provider/fast-model-DATED-SNAPSHOT` -- after quality baseline run: [latency trade-off]
+```
+
+Note the budget alternative carries the `after quality baseline run` tag verbatim.
+
+### Why this policy
+
+Starting with cheap models produces biased baselines: the iterator's first Pass-rate measurement reflects the cheap model's ceiling, not the task's inherent difficulty. Downstream iteration then confuses "this task is hard" with "this model is weak." The capable-first policy forces a true baseline; the cascade discipline provides a principled, test-backed path to cost reduction without sacrificing signal.
+
 ## Output Format
 
 Produce your output in EXACTLY this format. Downstream subagents parse this structure.
@@ -388,7 +451,7 @@ This example demonstrates the complete output format for a customer support swar
 ## Constraints
 
 - **NEVER** recommend models outside the AI Router without flagging activation requirements (Phase 40 KBM-02 baseline).
-- **NEVER** start with the cheapest model — capable-first per Phase 35 MSEL-01.
+- **NEVER** start with the cheapest model — capable-first per Phase 35 MSEL-01. Budget alternatives carry the `after quality baseline run` tag. Cascade proposals (`cascade-candidate: true`) only in response to explicit cost-optimization requests and MUST include a `quality-equivalence experiment` step. See `## Model Selection Policy` above for the full protocol.
 - **ALWAYS** pin model snapshots in the research brief (Phase 35 MSEL-02).
 - **ALWAYS** cross-reference `orq-agent/references/orqai-model-catalog.md`.
 
