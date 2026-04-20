@@ -9,6 +9,53 @@ You are running the `/orq-agent:test` command. This command runs automated tests
 
 Follow these steps in order. Stop at any step that indicates a terminal condition.
 
+## Constraints
+
+- **NEVER** re-run the same experiment without at least re-seeding the dataset order (prevents order-dependent cache hits).
+- **NEVER** treat experiment completion as quality validation — `/orq-agent:iterate` interprets the results.
+- **ALWAYS** use the deployed agent from `/orq-agent:deploy`, not a local spec.
+- **ALWAYS** include the holdout split when the dataset preparer produced one.
+
+**Why these constraints:** Tests are signal-generators, not quality gates. Running without the deployed agent tests a spec file, not production. Stale cache hits hide regressions.
+
+## When to use
+
+- After `/orq-agent:deploy` lands a swarm on Orq.ai and a dataset file exists.
+- When validating a `/orq-agent:iterate` cycle produced real improvement.
+- When re-testing after external changes (model swap, new KB content) to check for regressions.
+
+## When NOT to use
+
+- No swarm has been deployed yet → run `/orq-agent:deploy` first.
+- No dataset file exists → run `/orq-agent` or `/orq-agent:datasets` to generate one.
+- User wants to iterate on prompts directly → use `/orq-agent:iterate` (which calls this test internally).
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- → `tester` — orchestrates the 3-phase test pipeline
+- → `dataset-preparer` — Phase 1: parses, augments, splits, uploads datasets
+- → `experiment-runner` — Phase 2: creates experiments and executes triple runs
+- → `results-analyzer` — Phase 3: statistical aggregation + pass/fail determination
+- ← `/orq-agent:deploy` — consumes the deployed agent
+- → `/orq-agent:iterate` — typical next step when `overall_pass = false`
+
+## Done When
+
+- [ ] `dataset-prep.json`, `experiment-raw.json`, `test-results.json`, and `test-results.md` exist in the swarm directory
+- [ ] `results.overall_pass` is present (true or false) in `test-results.json`
+- [ ] Per-agent evaluator scores (median, min, max) are captured
+- [ ] Terminal summary table shows pass/fail + worst performer
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Create datasets on Orq.ai** — dataset-preparer uploads via REST. `AskUserQuestion` confirmation required when a dataset with the same name already exists on Orq.ai (would overwrite).
+- **Create experiments on Orq.ai** — non-destructive to existing agent config but creates server-side resources (experiment records, trace data).
+- Local file writes (`dataset-prep.json`, `experiment-raw.json`, `test-results.*`) are cleaned before each run — previous pipeline outputs are removed deterministically.
+
 ## Step 1: Capability Gate
 
 Read the config file to check the user's capability tier:
@@ -339,3 +386,27 @@ Failing agents detected. Run /orq-agent:iterate to analyze failures and improve 
 ```
 Single agent tested. Run /orq-agent:test without arguments to test all agents.
 ```
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Running the experiment with the cached dataset to save time | Re-shuffle (re-seed) at minimum; stale cache hits mask behavior change |
+| Treating `overall_pass = true` as "we're done" | Pair with coverage + adversarial dataset checks — Phase 39 DSET-03 |
+| Manually editing `test-results.json` to adjust scores | Fix the agent spec and re-run — editing results destroys the audit trail |
+| Skipping the holdout split because it's "slower" | Holdout is the only guard against train-set contamination of iterator prompts |
+
+## Open in orq.ai
+
+- **Experiments:** https://my.orq.ai/experiments
+- **Datasets:** https://my.orq.ai/datasets
+- **Evaluators:** https://my.orq.ai/evaluators
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

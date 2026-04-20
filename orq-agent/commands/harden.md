@@ -9,6 +9,51 @@ You are running the `/orq-agent:harden` command. This command promotes test eval
 
 Follow these steps in order. Stop at any step that indicates a terminal condition.
 
+## Constraints
+
+- **NEVER** promote an evaluator to a guardrail unless TPR ≥ 90% AND TNR ≥ 90% on its test set (Phase 42 EVLD-08 baseline — currently enforced in spirit via the hardener subagent).
+- **NEVER** attach guardrails silently to a live agent.
+- **ALWAYS** confirm guardrail promotion via `AskUserQuestion`.
+- **ALWAYS** record the `sample_rate` decision with rationale.
+
+**Why these constraints:** Unvalidated guardrails produce false-positive rejections that break production traffic. Silent attachment removes the audit trail hardener depends on.
+
+## When to use
+
+- All target agents pass `/orq-agent:test` (or at minimum have signal-rich test results).
+- Agents have been deployed (`orqai_id` in frontmatter) and are ready for production gates.
+- User wants evaluators promoted to runtime guardrails for drift detection.
+
+## When NOT to use
+
+- `test-results.json` does not exist → run `/orq-agent:test` first.
+- Target agents lack `orqai_id` → run `/orq-agent:deploy` first.
+- Quality is still evolving → iterate until scores are stable before attaching guardrails.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- → `hardener` subagent — executes the 6-phase hardening pipeline
+- ← `/orq-agent:iterate` — typical upstream step when iteration reached `all_pass`
+- ← `/orq-agent:test` — consumes test-results.json for evaluator promotion decisions
+- Terminal step in the pipeline — no typical downstream invocations
+
+## Done When
+
+- [ ] `quality-report.md` written with per-agent guardrail + quality gate status
+- [ ] Guardrails attached to each agent's Orq.ai config (or recorded as skipped with reason)
+- [ ] Per-agent `sample_rate` and `execute_on` decisions captured in the agent spec frontmatter
+- [ ] Terminal summary table shows guardrail count + quality gate PASS/FAIL per agent
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Attach guardrails to deployed agents on Orq.ai** — modifies live agent config (adds `guardrails` block with sample_rate + execute_on).
+- **Promote evaluators to runtime guardrails** — confirms the evaluator meets TPR/TNR thresholds; rejection here aborts promotion.
+- **Write guardrail config to agent spec files** — updates local spec frontmatter with `guardrails` block for future deploys.
+
 ## Step 1: Capability Gate
 
 Read the config file to check the user's capability tier:
@@ -296,3 +341,26 @@ No guardrails were attached. Run /orq-agent:harden again to configure guardrails
 ```
 Single agent hardened. Run /orq-agent:harden without arguments to harden all agents.
 ```
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Attaching guardrails with `sample_rate = 1.0` without cost awareness | Scale sample_rate to traffic volume; record rationale in the agent spec |
+| Skipping the advisory warnings "because the scores look fine" | Advisory warnings are early signal — investigate before promoting |
+| Re-using an evaluator as a guardrail without validating TPR/TNR | Phase 42 EVLD-08 mandates validation; unvalidated guardrails cause false rejections |
+| Promoting all evaluators regardless of severity | Reserve guardrails for high-signal, low-noise checks; others belong in test-time only |
+
+## Open in orq.ai
+
+- **Deployments (guardrails tab):** https://my.orq.ai/deployments
+- **Evaluators:** https://my.orq.ai/evaluators
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

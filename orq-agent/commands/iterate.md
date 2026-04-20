@@ -9,6 +9,54 @@ You are running the `/orq-agent:iterate` command. This command iterates on agent
 
 Follow these steps in order. Stop at any step that indicates a terminal condition.
 
+## Constraints
+
+- **NEVER** modify a deployed agent without a `/orq-agent:deploy` re-run.
+- **NEVER** auto-apply prompt diffs without `AskUserQuestion` HITL approval.
+- **ALWAYS** present the failure-diagnoser output before proposing any prompt edit.
+- **ALWAYS** capture the before/after score delta in the iteration log.
+
+**Why these constraints:** Silent auto-apply destroys the HITL safety rail. Skipping diagnosis produces speculative fixes; the current failure mode must be named before the edit.
+
+## When to use
+
+- `/orq-agent:test` reported `overall_pass = false` and a `test-results.json` exists.
+- User wants an automated diagnosis + prompt-edit loop up to 3 iterations.
+- User wants to bring a specific agent above threshold without manually editing its spec.
+
+## When NOT to use
+
+- `test-results.json` does not exist → run `/orq-agent:test` first.
+- `overall_pass = true` already → no iteration needed.
+- User wants to edit prompts by hand → open the spec file directly; this command's job is automated iteration.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- → `failure-diagnoser` — produces `iteration-proposals.json` with per-agent failure analysis
+- → `iterator` — orchestrates the per-agent decision loop
+- → `prompt-editor` — applies approved edits to spec files, re-deploys, re-tests
+- ← `/orq-agent:test` — consumes test-results.json to identify failing agents
+- → `/orq-agent:deploy` — re-deploys updated specs via prompt-editor Phase 3
+- → `/orq-agent:test` — re-tests on holdout split after each cycle
+- → `/orq-agent:harden` — typical next step once all agents are green
+
+## Done When
+
+- [ ] `iteration-log.md` and `audit-trail.md` exist in the swarm directory with at least one cycle section
+- [ ] `test-results.json` updated with post-iteration scores
+- [ ] Before/after deltas captured per approved agent
+- [ ] Stop reason recorded (`all_pass` | `max_iterations` | `min_improvement` | `user_declined` | `timeout`)
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Modify local agent spec files** — prompt-editor writes new instructions / constraints; confirm per agent before applying.
+- **Re-deploy to Orq.ai** — creates a new agent version and modifies live config via the deployer subagent.
+- Iteration-log.md and audit-trail.md are append-only (cumulative history preserved across runs).
+
 ## Step 1: Capability Gate
 
 Read the config file to check the user's capability tier:
@@ -403,3 +451,27 @@ No changes applied. Review the diagnosis in iteration-log.md for manual improvem
 Iteration limit reached. Review iteration-log.md for progress so far.
 Run /orq-agent:iterate again to continue improving from current state.
 ```
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Approving every proposed edit to "just see what happens" | Read the diagnosis first; each approval is a live-config mutation |
+| Running more than 3 iterations to chase marginal gains | Honor the `min_improvement` stop at <5% delta — diminishing returns indicate a structural issue |
+| Skipping the re-test on the holdout split | Train-set-only improvements overfit the iterator; holdout is the regression guard |
+| Editing prompts outside the iterator loop mid-run | Breaks the audit trail; finish the cycle, then edit, then re-run |
+
+## Open in orq.ai
+
+- **Experiments:** https://my.orq.ai/experiments
+- **Prompts:** https://my.orq.ai/prompts
+- **Traces:** https://my.orq.ai/traces
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

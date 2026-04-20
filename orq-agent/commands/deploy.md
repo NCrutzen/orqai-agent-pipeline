@@ -9,6 +9,52 @@ You are running the `/orq-agent:deploy` command. This command deploys generated 
 
 Follow these steps in order. Stop at any step that indicates a terminal condition.
 
+## Constraints
+
+- **NEVER** deploy without running `/orq-agent:test` on the swarm first.
+- **NEVER** silently overwrite live Orq.ai agent config without `AskUserQuestion` confirmation.
+- **ALWAYS** confirm via `AskUserQuestion` before mutating any Orq.ai entity.
+- **ALWAYS** emit a deployment manifest listing agent IDs, versions, and URLs.
+
+**Why these constraints:** Deploying untested agents puts unverified behavior into production; silent overwrite of live agent config destroys rollback anchors.
+
+## When to use
+
+- A swarm has been generated via `/orq-agent` and specs are reviewed.
+- User is ready to push spec files to Orq.ai (tools, KBs, agents, orchestrator wiring).
+- Re-deploying after `/orq-agent:iterate` has updated prompts.
+
+## When NOT to use
+
+- Specs have not been generated → run `/orq-agent` first.
+- User wants to test a single agent version locally → invoke directly via MCP without deploying.
+- Only a blueprint exists (no specs) → run `/orq-agent` to produce specs first.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- → `deployer` subagent — executes the 6-phase deployment pipeline
+- ← `/orq-agent` — produces the swarm spec files this command consumes
+- → `/orq-agent:test` — typical next step after a successful deploy
+- ← `/orq-agent:iterate` — re-invokes deploy after prompt-editor changes
+
+## Done When
+
+- [ ] Agent IDs printed for every spec deployed
+- [ ] Deployment variants registered on Orq.ai match `spec.deployment`
+- [ ] Tools attached to agents match `spec.tools`
+- [ ] KBs (if any) attached and indexable
+- [ ] `deploy-log.md` appended with a new run section
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Create or update agents on Orq.ai via MCP/REST** — idempotent create-or-update overwrites live agent config.
+- **Attach tools to deployed agents** — modifies live agent config.
+- **Create Knowledge Bases on Orq.ai** — provisions new infra; confirm embedding model + host choice before creation (embedding model is immutable after creation).
+
 ## Step 1: Capability Gate
 
 Read the config file to check the user's capability tier:
@@ -584,3 +630,26 @@ Re-run /orq-agent:deploy to retry failed resources.
 ```
 Deploy complete. {N} resources verified, all unchanged. No updates needed.
 ```
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Deploying untested specs "to see if they work in prod" | Run `/orq-agent:test` first — production is not your test rig |
+| Skipping the scoped `--agent` flag when retrying one agent | Use `--agent agent-key` to deploy only the failed agent + its tool deps |
+| Relying on frontmatter `orqai_id` alone to detect existing resources | Deployer re-verifies state against Orq.ai on every run (idempotent create-or-update) |
+| Ignoring read-back warnings | Read-back discrepancies are silent drift indicators; investigate before next deploy |
+
+## Open in orq.ai
+
+- **Deployments:** https://my.orq.ai/deployments
+- **Agent Studio:** https://my.orq.ai/agents
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

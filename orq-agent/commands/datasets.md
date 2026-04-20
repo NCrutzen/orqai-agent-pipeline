@@ -18,6 +18,49 @@ Follow each step in order. Do not skip steps.
 - orq-agent/SKILL.md
 </files_to_read>
 
+## Constraints
+
+- **NEVER** upload a dataset that violates coverage rules (every dimension value ≥2 datapoints, no value > 30% — Phase 39 DSET-03).
+- **NEVER** delete datapoints during Mode-4 curation without `AskUserQuestion` confirmation.
+- **ALWAYS** tag every datapoint by category AND dimension (Phase 39 DSET-05).
+- **ALWAYS** include 15-20% adversarial cases from the 8-vector catalog when the agent profile warrants it.
+
+**Why these constraints:** Biased coverage produces over-fit evaluators; unconfirmed deletion loses signal irretrievably; tags enable slice analysis in results-analyzer.
+
+## When to use
+
+- User invokes `/orq-agent:datasets <spec-path>` or `<description>` to generate dual datasets (clean + adversarial) for a single agent.
+- Pre-existing agent spec needs a test dataset before `/orq-agent:test`.
+- Adversarial coverage needs to be refreshed (new attack vectors, new edge cases).
+
+## When NOT to use
+
+- User is running the full pipeline → `/orq-agent` already generates datasets per agent.
+- User only needs to upload an existing dataset → use `/orq-agent:deploy` with the dataset-preparer in scope.
+- Use case is multi-agent and dataset shape depends on orchestration → use `/orq-agent` to preserve cross-agent consistency.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- → `dataset-generator` subagent — produces the two dataset files
+- ← `/orq-agent` — full-pipeline invocation during Wave 3
+- ← standalone invocation — one-off dataset generation for an existing spec
+
+## Done When
+
+- [ ] `{agent-key}-dataset.md` (clean) and `{agent-key}-edge-dataset.md` (adversarial) exist under `{OUTPUT_DIR}/[agent-name]/datasets/`
+- [ ] At least 30% of total test cases are adversarial / edge cases
+- [ ] Every datapoint is tagged with category + dimension
+- [ ] Dataset size matches the user's preference (small 15 / standard 25 / large 40+)
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Overwrite an existing dataset file** — `{OUTPUT_DIR}/[agent-name]/datasets/[agent-key]-dataset.md` or `-edge-dataset.md`. Confirm before writing when the file already exists.
+- **Write `blueprint.md`** — only when constructed inline (description path); overwrites any existing blueprint in the auto-versioned directory.
+
 <pipeline>
 
 ---
@@ -231,3 +274,26 @@ Next steps:
 ```
 
 </pipeline>
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Generating only clean cases ("adversarial slows me down") | 30% adversarial minimum is the floor — not a suggestion |
+| Skipping category/dimension tagging to save time | Tags drive slice analysis in the results-analyzer; missing tags means blind aggregates |
+| Reusing the same dataset across unrelated agents | Each agent's failure surface is different — generate per-agent |
+| Padding the dataset with duplicates to hit the size target | Coverage matters more than size; fewer high-quality cases beat many near-duplicates |
+
+## Open in orq.ai
+
+- **Datasets:** https://my.orq.ai/datasets
+- **Annotation Queues:** https://my.orq.ai/annotation-queues <!-- TODO(SKST-10): verified in Phase 37+ -->
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

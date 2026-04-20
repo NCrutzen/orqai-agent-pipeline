@@ -9,6 +9,52 @@ You are running the `/orq-agent:kb` command. This command provides standalone kn
 
 Follow these steps in order. Stop at any step that indicates a terminal condition.
 
+## Constraints
+
+- **NEVER** wire a KB to a deployment without retrieval quality testing (Phase 40 KBM-01).
+- **NEVER** use memory-style stores for static reference data.
+- **ALWAYS** verify the embedding model is activated in AI Router before KB creation.
+- **ALWAYS** record the chunking strategy chosen and why.
+
+**Why these constraints:** KBs that return no relevant chunks silently hurt agent quality; activation failures produce opaque API errors; chunking choice drives retrieval precision.
+
+## When to use
+
+- An agent in the swarm references a KB in its spec or ORCHESTRATION.md.
+- User wants to generate KB content from pipeline context (Option 1).
+- User needs to provision KBs in Orq.ai with a chosen embedding model and host (Option 2).
+- User has local files to upload into an existing KB (Option 3).
+
+## When NOT to use
+
+- No KB is needed for the use case → skip this command entirely.
+- User is storing dynamic conversation history → use memory stores, not KBs.
+- User wants to attach a KB that already exists in Orq.ai → use `/orq-agent:deploy` scoped to the agent.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- → `kb-generator` subagent — produces KB content files under `{swarm-dir}/kb-content/{kb-name}/`
+- ← `/orq-agent` — when the generated agent spec references a KB
+- → `/orq-agent:deploy` — KB is attached to the agent during deploy
+- ← standalone invocation — user can generate / provision / upload without a full swarm
+
+## Done When
+
+- [ ] Selected action (generate / provision / upload / full setup) has completed
+- [ ] Summary table shows status per KB
+- [ ] For provisioning: KB `knowledge_id` recorded for downstream deploy
+- [ ] For upload: file count + chunking trigger confirmed per KB
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Create a KB on Orq.ai** — required when a KB with the same name already exists on Orq.ai (overwrites host + embedding model assignment).
+- **Upload files to an existing KB** — triggers re-chunking; confirm before uploading duplicate filenames.
+- **Generate KB content via `kb-generator`** — writes to `{swarm-dir}/kb-content/{kb-name}/`; overwrites any existing generated content under that path.
+
 ## Step 1: Capability Gate
 
 Read the config file to check the user's capability tier:
@@ -343,3 +389,25 @@ After completing the selected action(s), display a summary:
 ```
 
 Only show rows for actions that were actually performed. If only "Generate" was selected, only the Generated row appears.
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Picking an embedding model without checking AI Router activation | Verify activation first — embedding model is immutable after KB creation |
+| Uploading files larger than 10 MB | Split the file at logical boundaries; Orq.ai enforces a 10 MB per-file limit |
+| Using the same KB for multiple agents with different retrieval shapes | Create per-agent KBs when retrieval queries differ meaningfully |
+| Skipping the KB plan summary before provisioning | The summary is the only place host + embedding model + file plan are visible together |
+
+## Open in orq.ai
+
+- **Knowledge Bases:** https://my.orq.ai/knowledge-bases
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.
