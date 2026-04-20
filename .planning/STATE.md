@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: V3.0
-milestone_name: Lifecycle Completeness & Eval Science
-status: Roadmap approved - ready to plan Phase 34
-stopped_at: Phase 34 pending plan-phase
-last_updated: "2026-04-20T00:00:00.000Z"
-last_activity: "2026-04-20 - V3.0 roadmap created (10 phases, 74/74 requirements mapped). V4.0/V5.0 renumbered."
+milestone: v0.3
+milestone_name: milestone
+status: "Phase 34 in progress - Plan 01 complete (Wave 0 infrastructure shipped)"
+stopped_at: Completed 34-01-PLAN.md
+last_updated: "2026-04-20T14:02:18.971Z"
+last_activity: 2026-04-20 — Phase 34 Plan 01 complete: lint-skills.sh + check-protected-pipelines.sh + 3 golden baselines
 progress:
   total_phases: 10
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 5
+  completed_plans: 1
 ---
 
 # Project State
@@ -25,16 +25,18 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 34 - Skill Structure & Format Foundation (next active)
-Plan: —
-Status: Awaiting `/gsd:plan-phase 34`
-Last activity: 2026-04-20 — V3.0 roadmap created (10 phases, 74/74 requirements mapped)
+Phase: 34 - Skill Structure & Format Foundation (in progress)
+Plan: 01 complete (1 of 5) — Wave 0 validation infrastructure shipped
+Status: Ready for Plan 02 (skill-body format migration)
+Last activity: 2026-04-20 — Plan 01 complete: lint-skills.sh + check-protected-pipelines.sh + 3 golden baselines
 
-Progress: V2.1 complete. V3.0 roadmapped with 10 phases (34-43). V4.0 renumbered to 44-48. V5.0 renumbered to 49-52.
+Progress: V3.0 Phase 34 kicked off. Wave 0 done: POSIX lint + protected-pipeline verifier + pre-migration golden hashes.
 
 ## Performance Metrics
 
-No active phase metrics. V3.0 Phase 34 not yet started.
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 34-skill-structure-format-foundation | 01 | 3 min | 3 | 6 |
 
 ## Accumulated Context
 
@@ -59,6 +61,8 @@ Recent decisions affecting current work:
 - GitHub raw URL for .md file fetching with PIPELINE_REPO_RAW_URL env var -- runtime fetching per user decision
 - Vitest for test framework -- ESM-native, fast, TypeScript out of the box
 - [Phase quick-260326-ann]: evaluatorq is NOT legacy -- use with caution for local custom scoring; REST is primary experiment path
+- [Phase 34-skill-structure-format-foundation]: Golden baselines hash <pipeline> block only (not whole file) — operationalizes ROADMAP #5 'byte-identical in behavior' (2026-04-20)
+- [Phase 34-skill-structure-format-foundation]: POSIX bash + grep/awk/shasum only for Wave-0 validation scripts — zero runtime deps, CI-ready by default for Phase 43 (2026-04-20)
 
 ### Blockers/Concerns
 
@@ -83,7 +87,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T00:00:00.000Z
-Stopped at: V3.0 roadmap created (10 phases). Phase 34 (Skill Structure & Format Foundation) is next active.
-Resume with: `/gsd:plan-phase 34` to start Phase 34 planning, or run `/gsd:autonomous` for continuous execution.
+Last session: 2026-04-20T14:02:18.969Z
+Stopped at: Completed 34-01-PLAN.md
+Resume with: `/gsd:execute-phase 34` to continue with Plan 02 (skill-body format migration).
 Resume file: None

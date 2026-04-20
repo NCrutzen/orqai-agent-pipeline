@@ -123,16 +123,16 @@ Researcher and spec-generator discipline around model choice.
 
 Structural conventions aligned with the Agent Skills standard.
 
-- [ ] **SKST-01**: Every skill file (top-level and subagent) declares `allowed-tools` in YAML frontmatter (e.g., `Bash, Read, Write, Edit, Grep, Glob, WebFetch, Task, AskUserQuestion, orq*`)
-- [ ] **SKST-02**: Skill-specific long-form docs live under `<skill>/resources/` co-located with the skill, not in the flat root `references/` directory
-- [ ] **SKST-03**: Every skill includes "When to use" and "When NOT to use" sections with explicit trigger phrases and anti-triggers
-- [ ] **SKST-04**: Every skill lists Companion Skills with directional handoffs (e.g., "→ build-evaluator after taxonomy")
-- [ ] **SKST-05**: Every skill declares a "Done When" checklist with falsifiable criteria
-- [ ] **SKST-06**: Every skill opens with a Constraints block (NEVER/ALWAYS rules) followed by a "Why these constraints:" paragraph
-- [ ] **SKST-07**: Every skill includes an Anti-Patterns table at the bottom (pattern → what to do instead)
-- [ ] **SKST-08**: Every skill declares a Destructive Actions list that requires `AskUserQuestion` confirmation (e.g., overwriting configs, deleting resources)
-- [ ] **SKST-09**: Every skill includes a Documentation & Resolution footer that establishes trust order (MCP tools > docs MCP > docs.orq.ai > skill file)
-- [ ] **SKST-10**: Every skill includes an "Open in orq.ai" section with deep links to Experiments/Traces/Agent Studio
+- [x] **SKST-01**: Every skill file (top-level and subagent) declares `allowed-tools` in YAML frontmatter (e.g., `Bash, Read, Write, Edit, Grep, Glob, WebFetch, Task, AskUserQuestion, orq*`)
+- [x] **SKST-02**: Skill-specific long-form docs live under `<skill>/resources/` co-located with the skill, not in the flat root `references/` directory
+- [x] **SKST-03**: Every skill includes "When to use" and "When NOT to use" sections with explicit trigger phrases and anti-triggers
+- [x] **SKST-04**: Every skill lists Companion Skills with directional handoffs (e.g., "→ build-evaluator after taxonomy")
+- [x] **SKST-05**: Every skill declares a "Done When" checklist with falsifiable criteria
+- [x] **SKST-06**: Every skill opens with a Constraints block (NEVER/ALWAYS rules) followed by a "Why these constraints:" paragraph
+- [x] **SKST-07**: Every skill includes an Anti-Patterns table at the bottom (pattern → what to do instead)
+- [x] **SKST-08**: Every skill declares a Destructive Actions list that requires `AskUserQuestion` confirmation (e.g., overwriting configs, deleting resources)
+- [x] **SKST-09**: Every skill includes a Documentation & Resolution footer that establishes trust order (MCP tools > docs MCP > docs.orq.ai > skill file)
+- [x] **SKST-10**: Every skill includes an "Open in orq.ai" section with deep links to Experiments/Traces/Agent Studio
 
 ### Distribution — Cross-IDE (DIST)
 
@@ -265,16 +265,16 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | MSEL-01 | 35 | Pending |
 | MSEL-02 | 35 | Pending |
 | MSEL-03 | 35 | Pending |
-| SKST-01 | 34 | Pending |
-| SKST-02 | 34 | Pending |
-| SKST-03 | 34 | Pending |
-| SKST-04 | 34 | Pending |
-| SKST-05 | 34 | Pending |
-| SKST-06 | 34 | Pending |
-| SKST-07 | 34 | Pending |
-| SKST-08 | 34 | Pending |
-| SKST-09 | 34 | Pending |
-| SKST-10 | 34 | Pending |
+| SKST-01 | 34 | Complete |
+| SKST-02 | 34 | Complete |
+| SKST-03 | 34 | Complete |
+| SKST-04 | 34 | Complete |
+| SKST-05 | 34 | Complete |
+| SKST-06 | 34 | Complete |
+| SKST-07 | 34 | Complete |
+| SKST-08 | 34 | Complete |
+| SKST-09 | 34 | Complete |
+| SKST-10 | 34 | Complete |
 | DIST-01 | 43 | Pending |
 | DIST-02 | 43 | Pending |
 | DIST-03 | 43 | Pending |

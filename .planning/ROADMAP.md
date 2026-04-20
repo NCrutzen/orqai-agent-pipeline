@@ -123,7 +123,12 @@ Build a Claude Code skill that transforms natural language use case descriptions
   3. Skill-specific long-form docs are moved from flat `references/` to per-skill `<skill>/resources/` directories without breaking existing file reads (links updated in every consumer).
   4. A lint/validation check confirms all skills pass the new format (no skill missing any required section).
   5. The three protected entry points (`/orq-agent`, `/orq-agent:prompt`, `/orq-agent:architect`) remain byte-identical in behavior when invoked with the same input.
-**Plans**: TBD
+**Plans**: 5 plans
+  - [ ] 34-01-PLAN.md — Wave 0 infra: build lint-skills.sh + check-protected-pipelines.sh + scripts/README.md; capture 3 golden SHA-256 baselines for protected <pipeline> blocks
+  - [ ] 34-02-PLAN.md — Wave 1 commands: add 9 SKST sections to all 15 files under orq-agent/commands/ (protected entry points get new sections OUTSIDE <pipeline>)
+  - [ ] 34-03-PLAN.md — Wave 1 subagents: add 9 SKST sections to all 17 files under orq-agent/agents/ (uses tools: key not allowed-tools: key per Claude Code subagent schema)
+  - [ ] 34-04-PLAN.md — Wave 2 SKILL.md: add allowed-tools frontmatter + 9 SKST sections + Resources Policy subsection + references-multi-consumer invariant docs
+  - [ ] 34-05-PLAN.md — Wave 3 verify: run full lint + protected-pipeline hash check; produce 34-05-VERIFICATION.md with SKST-01..10 traceability table and ROADMAP success-criteria checklist
 
 ### Phase 35: Model Selection Discipline
 **Goal**: Researcher and spec-generator recommend models using a capable-first, snapshot-pinned, cascade-aware policy so generated swarms start from a quality baseline instead of a cost floor.
@@ -253,7 +258,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | v0.3 | 1-05.2 (11 phases) | 28/28 | **Shipped** | 2026-03-01 |
 | V2.0 | 6-11 (7 phases) | 11/11 | **Shipped** | 2026-03-02 |
 | V2.1 | 26-33 (8 phases) | 9/9 | **Shipped** | 2026-03-13 |
-| V3.0 | 34. Skill Structure & Format Foundation | 0/TBD | Not started | - |
+| V3.0 | 34. Skill Structure & Format Foundation | 0/5 | Planned (2026-04-20) | - |
 | V3.0 | 35. Model Selection Discipline | 0/TBD | Not started | - |
 | V3.0 | 36. Lifecycle Slash Commands | 0/TBD | Not started | - |
 | V3.0 | 37. Observability Setup Skill | 0/TBD | Not started | - |
