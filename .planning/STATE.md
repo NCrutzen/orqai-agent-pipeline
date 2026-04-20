@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: executing
-stopped_at: Completed 35-04-PLAN.md
-last_updated: "2026-04-20T15:24:25.512Z"
-last_activity: "2026-04-20 — Phase 35 Plan 02 complete: researcher.md Model Selection Policy section inserted (capable-first ordering, after-quality-baseline-run budget tag, cascade-candidate flag, quality-equivalence experiment gate; 4 grep-anchored verbatim phrases present; full-suite lint + protected pipelines still green)"
+status: Phase 35 mechanically closed — 35-05-VERIFICATION.md captures full-suite green evidence (5 rules × 33 files), snapshot-pinned-models fixture contract (positive exit 0 + negative exit 1 intentional), protected-pipelines SHA-256 3/3 matches, 16/16 MSEL phrase anchors present; MSEL-01/02/03 complete; manual LLM smokes deferred to /gsd:verify-work 35
+stopped_at: Completed 35-05-PLAN.md — Phase 35 closed
+last_updated: "2026-04-20T15:31:12.649Z"
+last_activity: "2026-04-20 — Phase 35 Plan 05 complete: full verification sweep executed and captured in 35-05-VERIFICATION.md with 3-row MSEL-{01,02,03} traceability + 4-row ROADMAP success-criteria checklist; all 9 exit codes as expected (6+ exit 0, 1 intentional exit 1 on negative fixture); Phase 35 mechanically COMPLETE"
 progress:
   total_phases: 10
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -20,17 +20,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-20)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through an automated pipeline with real-time visibility and HITL approvals -- without needing to understand the underlying AI platform.
-**Current focus:** V3.0 Lifecycle Completeness & Eval Science — Phase 35 Model Selection Discipline in progress (Plan 01 of 05 complete)
+**Current focus:** V3.0 Lifecycle Completeness & Eval Science — Phase 35 Model Selection Discipline mechanically COMPLETE (5/5 plans); next: /gsd:verify-work 35 (2 LLM smokes) then /gsd:plan-phase 36 (Lifecycle Slash Commands)
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V2.1 shipped 2026-03-13 (8 phases, 9 plans)
 
 ## Current Position
 
-Phase: 35 - Model Selection Discipline (IN PROGRESS)
-Plan: 04 complete — Capable Tier Lookup seeded in orqai-model-catalog.md; Wave 2 nearing completion (02, 03, 04 of 5 done); Plan 05 verification sweep remains
-Status: Wave 2 green — MSEL-01 reinforced by catalog seed table; full-suite lint + protected pipelines still green on catalog edit
-Last activity: 2026-04-20 — Phase 35 Plan 04 complete: ## Capable Tier Lookup H2 inserted into orqai-model-catalog.md (4 task categories x dated-snapshot primaries, MSEL-01/02 audit comments, existing FORMAT REFERENCE ONLY WARNING preserved verbatim)
+Phase: 35 - Model Selection Discipline (MECHANICALLY COMPLETE — 5/5 plans closed)
+Plan: 05 complete — full verification sweep captured in 35-05-VERIFICATION.md (220 lines) with 3-row MSEL-{01,02,03} traceability table + 4-row ROADMAP success-criteria checklist; all 9 verification commands green (6+ exit 0, 1 intentional exit 1 on negative fixture); manual LLM smokes deferred to /gsd:verify-work 35 per 35-VALIDATION.md §Manual-Only Verifications
+Status: Phase 35 mechanically COMPLETE — MSEL-01/02/03 all grep/lint verified; protected pipelines still byte-identical (3/3 SHA-256 matches); ready for /gsd:verify-work 35 (2 LLM smokes) and then /gsd:plan-phase 36 (Lifecycle Slash Commands, LCMD)
+Last activity: 2026-04-20 — Phase 35 Plan 05 complete: full-suite verification sweep executed and 35-05-VERIFICATION.md produced as /gsd:verify-work evidence trail; all gates green, Phase 35 mechanically COMPLETE
 
-Progress: V3.0 Phase 34 COMPLETE. Phase 35 Plans 01 + 02 + 03 + 04 COMPLETE. Remaining Phase 35 plan: 05 verification sweep.
+Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5). Next V3.0 phases (36-43) inherit the snapshot-pinning invariant.
 
 ## Performance Metrics
 
@@ -46,6 +46,7 @@ Progress: V3.0 Phase 34 COMPLETE. Phase 35 Plans 01 + 02 + 03 + 04 COMPLETE. Rem
 | Phase 35-model-selection-discipline P03 | 2 min | 1 tasks | 1 files |
 | Phase 35-model-selection-discipline P02 | 2 min | 1 tasks | 1 files |
 | Phase 35-model-selection-discipline P04 | 1 min | 1 tasks | 1 files |
+| Phase 35-model-selection-discipline P05 | 2 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,8 @@ Recent decisions affecting current work:
 - [Phase 35-model-selection-discipline]: Default quality-equivalence tolerance is 5 percentage points Pass-rate delta — concrete default prevents vague downstream spec-generator instructions; user-overridable during discussion
 - [Phase 35-model-selection-discipline]: Separation of concerns across MSEL-01/02/03: researcher owns recommendation ORDERING + CASCADE DISCIPLINE, spec-generator owns SNAPSHOT PINNING — each skill enforces exactly one layer
 - [Phase 35-model-selection-discipline]: Capable Tier Lookup seeded in orqai-model-catalog.md (MSEL-01) with static 4-row table + MCP models-list live-validation gate; WARNING preserved verbatim
+- [Phase 35-model-selection-discipline]: Phase 35 mechanically verified COMPLETE: full-suite lint green across 5 rules × 33 skill files, snapshot-pinned-models rule differentiates positive/negative fixtures, protected-pipeline SHA-256 check 3/3 matches, 16/16 MSEL policy-text phrase anchors present, 35-05-VERIFICATION.md captures full evidence trail with 3-row MSEL traceability + 4-row ROADMAP criteria checklist
+- [Phase 35-model-selection-discipline]: Phase-close VERIFICATION.md pattern (from 34-05) reused: captured silent-on-success lint output + negative-fixture intentional FAIL captured verbatim + ROADMAP success-criteria checklist marks LLM-behavior criteria (1+3) as 'file-level ✓ with manual LLM smoke deferred to /gsd:verify-work' rather than overstating mechanical proof
 
 ### Blockers/Concerns
 
@@ -117,7 +120,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T15:24:25.508Z
-Stopped at: Completed 35-04-PLAN.md
+Last session: 2026-04-20T15:31:12.644Z
+Stopped at: Completed 35-05-PLAN.md — Phase 35 closed
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
