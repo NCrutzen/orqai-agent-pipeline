@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 35-01-PLAN.md
-last_updated: "2026-04-20T15:17:34.578Z"
+status: Wave 1 green; ready to proceed with Plan 02
+stopped_at: Completed 35-04-PLAN.md
+last_updated: "2026-04-20T15:23:18.060Z"
 last_activity: "2026-04-20 — Phase 35 Plan 01 complete: snapshot-pinned-models lint rule added to lint-skills.sh (MSEL-02 enforcement live, 2 fixtures proving both exit paths, full suite + protected pipelines still green)"
 progress:
   total_phases: 10
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
+  completed_plans: 9
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 35 - Model Selection Discipline (IN PROGRESS)
-Plan: 01 complete (1 of 5) — snapshot-pinned-models lint rule shipped; Plan 02 (researcher capable-first policy) is next
-Status: Wave 1 green; ready to proceed with Plan 02
-Last activity: 2026-04-20 — Phase 35 Plan 01 complete: snapshot-pinned-models lint rule added to lint-skills.sh (MSEL-02 enforcement live, 2 fixtures proving both exit paths, full suite + protected pipelines still green)
+Plan: 02 complete — Wave 2 researcher capable-first + cascade-aware policy shipped; Wave 2 sibling plans (03 spec-generator, 04 catalog) running in parallel; Plan 05 verification sweep remains
+Status: Wave 2 in progress — MSEL-01 + MSEL-03 requirements marked complete via Plan 02
+Last activity: 2026-04-20 — Phase 35 Plan 02 complete: researcher.md Model Selection Policy section inserted (capable-first ordering, after-quality-baseline-run budget tag, cascade-candidate flag, quality-equivalence experiment gate; 4 grep-anchored verbatim phrases present; full-suite lint + protected pipelines still green)
 
-Progress: V3.0 Phase 34 COMPLETE. Phase 35 Plan 01 COMPLETE (MSEL-02 mechanical enforcement). Remaining Phase 35 plans: 02 researcher policy, 03 spec-generator policy, 04 capable-tier table, 05 verification sweep.
+Progress: V3.0 Phase 34 COMPLETE. Phase 35 Plans 01 + 02 COMPLETE (MSEL-02 lint mechanical + MSEL-01/03 researcher policy). Remaining Phase 35 plans: 03 spec-generator policy (Wave 2, parallel), 04 capable-tier table (Wave 2, parallel), 05 verification sweep.
 
 ## Performance Metrics
 
@@ -43,6 +43,9 @@ Progress: V3.0 Phase 34 COMPLETE. Phase 35 Plan 01 COMPLETE (MSEL-02 mechanical 
 | 34-skill-structure-format-foundation | 05 | 3 min | 1 | 1 |
 | Phase 34-skill-structure-format-foundation P05 | 3 min | 1 tasks | 1 files |
 | Phase 35-model-selection-discipline P01 | 2 min | 2 tasks | 3 files |
+| Phase 35-model-selection-discipline P03 | 2 min | 1 tasks | 1 files |
+| Phase 35-model-selection-discipline P02 | 2 min | 1 tasks | 1 files |
+| Phase 35-model-selection-discipline P04 | 1 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -83,6 +86,13 @@ Recent decisions affecting current work:
 - [Phase 35-model-selection-discipline]: MSEL-02 enforcement via extending lint-skills.sh (not new script) — one CI entry point, reuses extensible-rule pattern from 34-01
 - [Phase 35-model-selection-discipline]: Fixtures live outside default_file_set() under tests/fixtures/ so full-suite green baseline stays stable; rule tested via explicit --file invocation
 - [Phase 35-model-selection-discipline]: YAGNI on embedding/speech alias allow-list — no such model currently in skill set; documented inline as bash comment with the # alias-only -- pinning unavailable <date> convention spec-generator will use in Plan 03
+- [Phase 35-model-selection-discipline]: Spec-generator embeds the lint regex verbatim rather than paraphrasing — same floating-suffix alternation (-latest|:latest|-beta) in subagent self-check AND in lint-skills.sh, giving emission-time + review-time double guard against MSEL-02 violations
+- [Phase 35-model-selection-discipline]: Snapshot Pinning + Cascade Emission land as H4 subsections under the existing ### Model H3 (not as new H3 sections and not in Constraints) — positions pinning adjacent to model format guidance so the LLM reads them as extensions of the Model rule
+- [Phase 35-model-selection-discipline]: Cascade block template uses literal `DATED-SNAPSHOT` placeholder — substituted at generation time; the placeholder string itself does NOT carry any of the three rejected suffixes so it stays lint-clean while instructing the LLM to replace with real dated IDs
+- [Phase 35-model-selection-discipline]: Researcher Model Selection Policy: capable-first primary, budget alternatives tagged 'after quality baseline run', cascade-candidate flag emitted only on explicit cost-optimization requests, quality-equivalence experiment mandatory with approved: false default until Phase 42 runtime
+- [Phase 35-model-selection-discipline]: Default quality-equivalence tolerance is 5 percentage points Pass-rate delta — concrete default prevents vague downstream spec-generator instructions; user-overridable during discussion
+- [Phase 35-model-selection-discipline]: Separation of concerns across MSEL-01/02/03: researcher owns recommendation ORDERING + CASCADE DISCIPLINE, spec-generator owns SNAPSHOT PINNING — each skill enforces exactly one layer
+- [Phase 35-model-selection-discipline]: Capable Tier Lookup seeded in orqai-model-catalog.md (MSEL-01) with static 4-row table + MCP models-list live-validation gate; WARNING preserved verbatim
 
 ### Blockers/Concerns
 
@@ -107,7 +117,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T15:17:34.575Z
-Stopped at: Completed 35-01-PLAN.md
+Last session: 2026-04-20T15:23:18.056Z
+Stopped at: Completed 35-04-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None

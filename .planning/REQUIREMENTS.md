@@ -115,9 +115,9 @@ Improvements to `/orq-agent:kb` plus a new memory-store generator.
 
 Researcher and spec-generator discipline around model choice.
 
-- [ ] **MSEL-01**: Researcher starts recommendations with the most capable tier model for the task; budget-profile-driven downgrades only trigger after a quality baseline run
+- [x] **MSEL-01**: Researcher starts recommendations with the most capable tier model for the task; budget-profile-driven downgrades only trigger after a quality baseline run
 - [x] **MSEL-02**: Spec-generator pins production model references to a specific snapshot/version (e.g., `claude-sonnet-4-5-20250929`), not a floating alias
-- [ ] **MSEL-03**: Researcher supports a model-cascade pattern (cheap-first with escalation on low confidence) with mandatory quality-equivalence experiment before the cascade is approved
+- [x] **MSEL-03**: Researcher supports a model-cascade pattern (cheap-first with escalation on low confidence) with mandatory quality-equivalence experiment before the cascade is approved
 
 ### Skill Structure & Agent Skills Format (SKST)
 
@@ -262,9 +262,9 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | KBM-03 | 40 | Pending |
 | KBM-04 | 40 | Pending |
 | KBM-05 | 40 | Pending |
-| MSEL-01 | 35 | Pending |
+| MSEL-01 | 35 | Complete |
 | MSEL-02 | 35 | Complete |
-| MSEL-03 | 35 | Pending |
+| MSEL-03 | 35 | Complete |
 | SKST-01 | 34 | Complete |
 | SKST-02 | 34 | Complete |
 | SKST-03 | 34 | Complete |
