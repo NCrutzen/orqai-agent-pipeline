@@ -2,7 +2,7 @@
 
 ## Overview
 
-Build a Claude Code skill that transforms natural language use case descriptions into complete Orq.ai agent swarm specifications, then autonomously deploys, tests, iterates, and hardens them via the Orq.ai MCP server and API. V4.0 adds cross-swarm intelligence so that agent swarms don't operate in silos -- overlaps are surfaced, missing coordination is identified, and fixes are proposed across the entire ecosystem. V5.0 extends the pipeline to detect browser automation needs, generate deterministic Playwright scripts, deploy them to a VPS-hosted MCP server, and wire agent specs with the right MCP tools.
+Build a Claude Code skill that transforms natural language use case descriptions into complete Orq.ai agent swarm specifications, then autonomously deploys, tests, iterates, and hardens them via the Orq.ai MCP server and API. V3.0 promotes the pipeline from a spec-generator into a complete Build → Evaluate → Optimize lifecycle tool by absorbing observability, trace-failure analysis, evaluator validation science, prompt optimization, and cross-IDE distribution patterns — without breaking the existing generation loop. V4.0 adds cross-swarm intelligence so that agent swarms don't operate in silos -- overlaps are surfaced, missing coordination is identified, and fixes are proposed across the entire ecosystem. V5.0 extends the pipeline to detect browser automation needs, generate deterministic Playwright scripts, deploy them to a VPS-hosted MCP server, and wire agent specs with the right MCP tools.
 
 ## Milestones
 
@@ -11,6 +11,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 | **v0.3** | Core Pipeline + V2.0 Foundation -- V1.0 spec generation + V2.0 install infrastructure | **Shipped 2026-03-01** |
 | **V2.0** | Autonomous Orq.ai Pipeline -- deploy, test, iterate, and harden agent swarms via MCP/API | **Shipped 2026-03-02** |
 | **V2.1** | Experiment Pipeline Restructure -- rewrite test/iterate with native MCP, smaller subagents | **Shipped 2026-03-13** |
+| **V3.0** | Lifecycle Completeness & Eval Science -- observability, trace analysis, evaluator validation, prompt optimization, cross-IDE | **Active (2026-04-20)** |
 | **V4.0** | Cross-Swarm Intelligence -- ecosystem mapping, drift detection, overlap analysis, and fix proposals | **Defined** |
 | **V5.0** | Browser Automation -- Playwright script generation, VPS MCP server, automated deployment, agent spec wiring | **Defined** |
 
@@ -73,33 +74,177 @@ Build a Claude Code skill that transforms natural language use case descriptions
 
 ## Phases
 
-<details>
-<summary>V4.0 Cross-Swarm Intelligence (Phases 39-43) -- DEFINED</summary>
+### V3.0 Lifecycle Completeness & Eval Science (Phases 34-43)
 
-- [ ] Phase 39: Ecosystem Foundation -- Unified inventory of all swarms from local specs and live Orq.ai state
-- [ ] Phase 40: Drift Detection -- Field-by-field comparison between spec and deployed state
-- [ ] Phase 41: Overlap & Gap Analysis -- Semantic role overlap, tool duplication, blind spot identification
-- [ ] Phase 42: Fix Proposals -- Structured fix proposals with diff previews, risk classification, HITL approval
-- [ ] Phase 43: Command Integration & Auto-Trigger -- On-demand audit command and auto-trigger after new swarm designs
+- [ ] **Phase 34: Skill Structure & Format Foundation** -- Agent Skills format conventions (SKST) applied across all existing and new skills
+- [ ] **Phase 35: Model Selection Discipline** -- Capable-first recommendations, snapshot pinning, cascade pattern (MSEL)
+- [ ] **Phase 36: Lifecycle Slash Commands** -- Thin MCP-backed workspace/traces/analytics/models/quickstart commands (LCMD)
+- [ ] **Phase 37: Observability Setup Skill** -- Framework detection, integration codegen, baseline verification, @traced guidance (OBSV)
+- [ ] **Phase 38: Trace Failure Analysis Skill** -- Mixed sampling, open/axial coding, first-upstream-failure, transition matrix, taxonomy report (TFAIL)
+- [ ] **Phase 39: Dataset Generator Enhancements** -- Dimensions→tuples→NL mode, adversarial catalog, coverage rules, curation, multi-turn, RAG shape (DSET)
+- [ ] **Phase 40: KB & Memory Lifecycle** -- Retrieval testing, embedding activation, chunking picker, KB-vs-memory rule, memory-store generator (KBM)
+- [ ] **Phase 41: Prompt Optimization & Cross-Framework Comparison** -- 11-guideline prompt review skill + evaluatorq cross-framework benchmarking (POPT, XFRM)
+- [ ] **Phase 42: Evaluator Validation & Iterator Enrichments** -- Binary-first judges, TPR/TNR validation, prevalence correction, P0/P1/P2 plans, run comparisons, no-repeat rule (EVLD, ESCI, ITRX)
+- [ ] **Phase 43: Cross-IDE Distribution & Manifests** -- .claude-plugin / .cursor-plugin / .codex-plugin manifests, root mcp.json, npx skills, validation scripts (DIST)
+
+<details>
+<summary>V4.0 Cross-Swarm Intelligence (Phases 44-48) -- DEFINED</summary>
+
+- [ ] Phase 44: Ecosystem Foundation -- Unified inventory of all swarms from local specs and live Orq.ai state
+- [ ] Phase 45: Drift Detection -- Field-by-field comparison between spec and deployed state
+- [ ] Phase 46: Overlap & Gap Analysis -- Semantic role overlap, tool duplication, blind spot identification
+- [ ] Phase 47: Fix Proposals -- Structured fix proposals with diff previews, risk classification, HITL approval
+- [ ] Phase 48: Command Integration & Auto-Trigger -- On-demand audit command and auto-trigger after new swarm designs
 
 </details>
 
 <details>
-<summary>V5.0 Browser Automation (Phases 44-47) -- DEFINED</summary>
+<summary>V5.0 Browser Automation (Phases 49-52) -- DEFINED</summary>
 
-- [ ] Phase 44: Capabilities Config & VPS Scaffold -- Application capabilities config file, VPS MCP server setup
-- [ ] Phase 45: Script Generation & Pipeline Integration -- Playwright script generator, pipeline browser-use detection
-- [ ] Phase 46: Deployment, Wiring & NXT Validation -- Automated script deployment to VPS, agent spec wiring
-- [ ] Phase 47: Hardening & Second System -- Script health monitoring, iController validation
+- [ ] Phase 49: Capabilities Config & VPS Scaffold -- Application capabilities config file, VPS MCP server setup
+- [ ] Phase 50: Script Generation & Pipeline Integration -- Playwright script generator, pipeline browser-use detection
+- [ ] Phase 51: Deployment, Wiring & NXT Validation -- Automated script deployment to VPS, agent spec wiring
+- [ ] Phase 52: Hardening & Second System -- Script health monitoring, iController validation
 
 </details>
+
+---
+
+## Phase Details
+
+### Phase 34: Skill Structure & Format Foundation
+**Goal**: Every existing and new skill conforms to the Agent Skills format so downstream V3.0 skills have a consistent structural substrate to build on.
+**Depends on**: V2.1 complete
+**Tier**: core
+**Requirements**: SKST-01, SKST-02, SKST-03, SKST-04, SKST-05, SKST-06, SKST-07, SKST-08, SKST-09, SKST-10
+**Success Criteria** (what must be TRUE):
+  1. Every skill file (top-level command + every subagent) has `allowed-tools` declared in YAML frontmatter and a Constraints block opening with NEVER/ALWAYS rules plus a "Why these constraints" paragraph.
+  2. Every skill declares "When to use", "When NOT to use", Companion Skills with directional handoffs, a falsifiable "Done When" checklist, an Anti-Patterns table, a Destructive Actions list requiring `AskUserQuestion` confirmation, a Documentation & Resolution footer, and an "Open in orq.ai" deep-link section.
+  3. Skill-specific long-form docs are moved from flat `references/` to per-skill `<skill>/resources/` directories without breaking existing file reads (links updated in every consumer).
+  4. A lint/validation check confirms all skills pass the new format (no skill missing any required section).
+  5. The three protected entry points (`/orq-agent`, `/orq-agent:prompt`, `/orq-agent:architect`) remain byte-identical in behavior when invoked with the same input.
+**Plans**: TBD
+
+### Phase 35: Model Selection Discipline
+**Goal**: Researcher and spec-generator recommend models using a capable-first, snapshot-pinned, cascade-aware policy so generated swarms start from a quality baseline instead of a cost floor.
+**Depends on**: Phase 34
+**Tier**: core
+**Requirements**: MSEL-01, MSEL-02, MSEL-03
+**Success Criteria** (what must be TRUE):
+  1. Running the researcher on a sample use case returns the most capable tier model for the task as the primary recommendation; budget-profile downgrades only appear as an alternative tagged "after quality baseline run."
+  2. Every generated agent spec contains a snapshot-pinned model reference (e.g., `claude-sonnet-4-5-20250929`), never a floating alias.
+  3. When a user requests cost optimization, the researcher proposes a model-cascade pattern (cheap-first + escalation) together with a mandatory quality-equivalence experiment step before the cascade is marked approved.
+  4. Existing `/orq-agent`, `/orq-agent:prompt`, `/orq-agent:architect` produce functionally equivalent output with the new policy applied (no regressions on the generator loop).
+**Plans**: TBD
+
+### Phase 36: Lifecycle Slash Commands
+**Goal**: Users can inspect workspace, traces, analytics, models, and onboarding directly from Claude Code via thin MCP-backed slash commands without opening the Orq.ai dashboard.
+**Depends on**: Phase 34
+**Tier**: core
+**Requirements**: LCMD-01, LCMD-02, LCMD-03, LCMD-04, LCMD-05
+**Success Criteria** (what must be TRUE):
+  1. `/orq-agent:workspace [section]` prints a single-screen overview of agents, deployments, prompts, datasets, experiments, projects, KBs, and evaluators with an analytics summary line, with optional section filter.
+  2. `/orq-agent:traces` supports `--deployment`, `--status`, `--last`, `--limit` flags and lists errors first with full trace IDs.
+  3. `/orq-agent:analytics` reports requests, cost, tokens, and error rate with optional `--last` and `--group-by` (model/deployment/agent/status) drill-down.
+  4. `/orq-agent:models [search-term]` lists Model Garden models grouped by provider, broken out by type (chat/embedding/image/rerank/etc.).
+  5. `/orq-agent:quickstart` interactively checks API key, registers the MCP server, and routes the user to the right first-skill for their goal.
+**Plans**: TBD
+
+### Phase 37: Observability Setup Skill
+**Goal**: Users can instrument their LLM application with correct framework integration, baseline trace verification, and rich metadata so downstream trace-analysis and eval skills have signal to work with.
+**Depends on**: Phase 34
+**Tier**: core
+**Requirements**: OBSV-01, OBSV-02, OBSV-03, OBSV-04, OBSV-05, OBSV-06
+**Success Criteria** (what must be TRUE):
+  1. Skill detects the user's LLM framework (OpenAI SDK, LangChain, CrewAI, Vercel AI, etc.) and reports whether instrumentation is already present.
+  2. Skill recommends an integration mode (AI Router / OTEL-only / both) with a written rationale tied to the detection result.
+  3. Skill emits framework-specific integration code with instrumentors imported before SDK clients; user can paste it and see traces in Orq.ai.
+  4. Skill runs a baseline verification step confirming traces appear, model + tokens captured, span hierarchy present, and no PII leaking.
+  5. Skill enriches traces with `session_id`, `user_id`, feature tags, and `customer_id` when inferable, and guides `@traced` decorator placement across agent/llm/tool/retrieval/embedding/function spans.
+**Plans**: TBD
+
+### Phase 38: Trace Failure Analysis Skill
+**Goal**: Users can turn a pile of production traces into a 4-8 mode failure taxonomy with rates, examples, and a recommended next-skill handoff using grounded-theory methodology.
+**Depends on**: Phase 37
+**Tier**: deploy+
+**Requirements**: TFAIL-01, TFAIL-02, TFAIL-03, TFAIL-04, TFAIL-05, TFAIL-06
+**Success Criteria** (what must be TRUE):
+  1. Skill samples ~100 traces using the 50% random / 30% failure-driven / 20% outlier mix and records the sampling plan in the output.
+  2. Skill supports an open-coding phase (freeform per-trace annotations) followed by an axial-coding phase that clusters annotations into 4-8 non-overlapping failure modes.
+  3. For every trace, the skill labels only the first upstream failure and explicitly never labels downstream cascading effects; pipelines with multi-step flows get a transition failure matrix (rows = last success, columns = first failure).
+  4. Every failure mode is classified as specification / generalization-code-checkable / generalization-subjective / trivial-bug.
+  5. Skill writes an error-analysis report containing the taxonomy, rates, example trace IDs, and a recommended next step (handoff to build-evaluator / optimize-prompt / etc.).
+**Plans**: TBD
+
+### Phase 39: Dataset Generator Enhancements
+**Goal**: Dataset-generator and `/orq-agent:datasets` produce structurally sound, adversarially hardened, slice-analyzable datasets including multi-turn and RAG shapes.
+**Depends on**: Phase 34
+**Tier**: deploy+
+**Requirements**: DSET-01, DSET-02, DSET-03, DSET-04, DSET-05, DSET-06, DSET-07
+**Success Criteria** (what must be TRUE):
+  1. Two-step generation mode produces dimensions (3-6) → tuples (manual seed, LLM-scaled) → natural-language inputs in separate passes, with the intermediate artifacts inspectable.
+  2. Generated datasets include 15-20% adversarial cases drawn from the 8-vector catalog (persona-breaking, instruction override, language switching, formality mismatch, refusal, format forcing, multi-turn manipulation, contradiction) with ≥3 per relevant vector.
+  3. Coverage rules are enforced: every dimension value appears in ≥2 datapoints and no single value dominates >30%; violations block dataset upload with a clear remediation message.
+  4. Mode 4 curation deduplicates, rebalances, fills gaps, and resolves contradictions on an existing dataset, requiring explicit user confirmation before any deletion.
+  5. Every datapoint is tagged by category AND dimension so results-analyzer can slice scores; the generator also emits a multi-turn shape (Messages + perturbation scenarios) and a RAG shape (expected source chunk IDs) when the agent profile requests it.
+**Plans**: TBD
+
+### Phase 40: KB & Memory Lifecycle
+**Goal**: `/orq-agent:kb` and a new memory-store generator apply KB-vs-memory discipline, verified chunking, retrieval quality testing, and full memory read/write/recall wiring before a deployment uses them.
+**Depends on**: Phase 34
+**Tier**: deploy+
+**Requirements**: KBM-01, KBM-02, KBM-03, KBM-04, KBM-05
+**Success Criteria** (what must be TRUE):
+  1. KB command tests retrieval quality with sample queries after chunking and refuses to wire the KB to a deployment if relevant chunks are not returned.
+  2. KB command verifies the embedding model is activated in AI Router before any KB creation attempt; missing activation produces a clear remediation step.
+  3. KB command picks chunking strategy from content type (sentence for prose, recursive for structured docs) and records the choice in the KB metadata.
+  4. Pipeline enforces a documented KB-vs-Memory decision rule; attempts to use memory for docs/FAQs or KBs for conversation context are blocked with guidance.
+  5. Memory-store generator creates memory stores with descriptive keys, wires agents with the right memory instructions, and runs a read/write/recall round-trip test before handoff.
+**Plans**: TBD
+
+### Phase 41: Prompt Optimization & Cross-Framework Comparison
+**Goal**: Users can proactively improve a single prompt against the 11-guideline framework and benchmark the same agent across frameworks with fair comparison semantics.
+**Depends on**: Phase 34
+**Tier**: deploy+
+**Requirements**: POPT-01, POPT-02, POPT-03, POPT-04, XFRM-01, XFRM-02, XFRM-03
+**Success Criteria** (what must be TRUE):
+  1. Prompt-optimization skill fetches a target prompt (inline text or orq.ai prompt key), preserves `{{variable}}` placeholders literally, and produces up to 5 actionable suggestions mapped to the 11-guideline framework (role, task, stress, guidelines, output format, tool calling, reasoning, examples, unnecessary content, variable usage, recap).
+  2. Skill rewrites the prompt from accepted suggestions, presents a diff, and only applies the change after explicit user approval; the rewritten prompt is created as a new version on orq.ai preserving the original for rollback, and `run-experiment` / A/B validation is recommended.
+  3. Cross-framework skill generates an `evaluatorq` comparison script (Python or TypeScript) with one job per agent across orq.ai, LangGraph, CrewAI, OpenAI Agents SDK, and Vercel AI SDK.
+  4. Script enforces fairness — same dataset, same evaluator(s), same model unless model isolation is the explicit goal — and verifies each agent is independently invocable before running the full experiment.
+  5. Comparison results surface side-by-side in the orq.ai Experiment UI.
+**Plans**: TBD
+
+### Phase 42: Evaluator Validation & Iterator Enrichments
+**Goal**: Tester, failure-diagnoser, iterator, and hardener enforce eval-science methodology — binary-first judges with measured TPR/TNR, prevalence correction, outcome-based grading, P0/P1/P2 action plans, and regression flagging — so quality signals stay trustworthy.
+**Depends on**: Phase 38, Phase 39
+**Tier**: full
+**Requirements**: EVLD-01, EVLD-02, EVLD-03, EVLD-04, EVLD-05, EVLD-06, EVLD-07, EVLD-08, ESCI-01, ESCI-02, ESCI-03, ESCI-04, ESCI-05, ESCI-06, ITRX-01, ITRX-02, ITRX-03, ITRX-04, ITRX-05, ITRX-06, ITRX-07
+**Success Criteria** (what must be TRUE):
+  1. All new LLM-as-judge evaluators default to binary Pass/Fail; continuous scales require explicit justification; bundled criteria are split one-evaluator-per-failure-mode; judge prompts follow the 4-component template (role, task, criterion + pass/fail definitions, examples, chain-of-thought-before-answer JSON).
+  2. System guides collection of 100+ balanced human labels via orq.ai Annotation Queues, splits into disjoint train/dev/test (10-20% / 40-45% / 40-45%) with no dev/test leakage into few-shot, measures TPR and TNR on a held-out set with ≥30 Pass / ≥30 Fail, and stores results with the evaluator; prevalence correction is applied when reporting estimated true success rates.
+  3. Hardener refuses to promote any evaluator to a runtime guardrail unless TPR ≥ 90% AND TNR ≥ 90% on the test set; a configurable, tier-gated human-review-queue hook can require a minimum number of human-reviewed spans before promotion.
+  4. Failure-diagnoser classifies every failure as specification / generalization / dataset / evaluator before proposing fixes, grades outcomes not paths (no evaluator encodes exact tool-call sequences), and iterator publishes inspectable decision trees ("prompt fix vs evaluator," "upgrade model?," "eval good enough?").
+  5. Iterator produces P0/P1/P2-prioritized Action Plans with Evidence (datapoints affected, current scores, run ID) and Success Criteria (target re-run score); tester emits a run-comparison table (Run | Date | Model | Avg Score | Cost | Key Changes); results-analyzer flags regressions when any score drops with a ⚠️ marker; iterator refuses to re-run the same optimizer on the same prompt without an explicit user override; tester tracks capability suites separately from regression suites and warns when average pass rate ≥ 95%.
+**Plans**: TBD
+
+### Phase 43: Cross-IDE Distribution & Manifests
+**Goal**: The repo installs cleanly across Claude Code, Cursor, Codex, and skills-only IDEs with validated plugin manifests and a single-source MCP registration, so V3.0 capabilities reach users outside Claude Code without rework.
+**Depends on**: Phase 34
+**Tier**: core
+**Requirements**: DIST-01, DIST-02, DIST-03, DIST-04, DIST-05, DIST-06
+**Success Criteria** (what must be TRUE):
+  1. Repo ships `.claude-plugin/plugin.json` enabling one-line install via `/plugin install github:NCrutzen/orqai-agent-pipeline`.
+  2. Repo ships `.cursor-plugin/plugin.json` referencing `./skills/` and `./.mcp.json`, loadable from `~/.cursor/plugins/local/`, and `.codex-plugin/plugin.json` at `plugins/orq/` with a repo-level `.agents/plugins/marketplace.json`.
+  3. Repo ships root `mcp.json` / `.mcp.json` registering the `orq-workspace` MCP server with `${ORQ_API_KEY}` expansion.
+  4. Repo is installable via `npx skills add NCrutzen/orqai-agent-pipeline` for Cursor/Gemini/Cline/Copilot/Windsurf users who only want the skills layer.
+  5. `tests/scripts/validate-plugin-manifests.sh` plus `tests/commands.md`, `tests/skills.md`, `tests/mcp-tools.md` exist and pass in CI, specifying expected behavior per capability.
+**Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Next active milestone: V4.0 (Phases 39-43).
-
-(No active phases -- V4.0 not yet started)
+Next active phase: Phase 34 (V3.0 milestone).
 
 ## Progress Summary
 
@@ -108,5 +253,15 @@ Next active milestone: V4.0 (Phases 39-43).
 | v0.3 | 1-05.2 (11 phases) | 28/28 | **Shipped** | 2026-03-01 |
 | V2.0 | 6-11 (7 phases) | 11/11 | **Shipped** | 2026-03-02 |
 | V2.1 | 26-33 (8 phases) | 9/9 | **Shipped** | 2026-03-13 |
-| V4.0 | 39-43 (5 phases) | 0/TBD | **Defined** | - |
-| V5.0 | 44-47 (4 phases) | 0/TBD | **Defined** | - |
+| V3.0 | 34. Skill Structure & Format Foundation | 0/TBD | Not started | - |
+| V3.0 | 35. Model Selection Discipline | 0/TBD | Not started | - |
+| V3.0 | 36. Lifecycle Slash Commands | 0/TBD | Not started | - |
+| V3.0 | 37. Observability Setup Skill | 0/TBD | Not started | - |
+| V3.0 | 38. Trace Failure Analysis Skill | 0/TBD | Not started | - |
+| V3.0 | 39. Dataset Generator Enhancements | 0/TBD | Not started | - |
+| V3.0 | 40. KB & Memory Lifecycle | 0/TBD | Not started | - |
+| V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 0/TBD | Not started | - |
+| V3.0 | 42. Evaluator Validation & Iterator Enrichments | 0/TBD | Not started | - |
+| V3.0 | 43. Cross-IDE Distribution & Manifests | 0/TBD | Not started | - |
+| V4.0 | 44-48 (5 phases) | 0/TBD | **Defined** | - |
+| V5.0 | 49-52 (4 phases) | 0/TBD | **Defined** | - |

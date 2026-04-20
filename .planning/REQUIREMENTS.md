@@ -187,92 +187,92 @@ V3.0 respects existing tier semantics. Mapping:
 
 ## Traceability
 
-Populated during roadmap creation.
+Populated during roadmap creation (2026-04-20). All 74 V3.0 requirements mapped across 10 phases (34-43).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LCMD-01 | TBD | Pending |
-| LCMD-02 | TBD | Pending |
-| LCMD-03 | TBD | Pending |
-| LCMD-04 | TBD | Pending |
-| LCMD-05 | TBD | Pending |
-| OBSV-01 | TBD | Pending |
-| OBSV-02 | TBD | Pending |
-| OBSV-03 | TBD | Pending |
-| OBSV-04 | TBD | Pending |
-| OBSV-05 | TBD | Pending |
-| OBSV-06 | TBD | Pending |
-| TFAIL-01 | TBD | Pending |
-| TFAIL-02 | TBD | Pending |
-| TFAIL-03 | TBD | Pending |
-| TFAIL-04 | TBD | Pending |
-| TFAIL-05 | TBD | Pending |
-| TFAIL-06 | TBD | Pending |
-| EVLD-01 | TBD | Pending |
-| EVLD-02 | TBD | Pending |
-| EVLD-03 | TBD | Pending |
-| EVLD-04 | TBD | Pending |
-| EVLD-05 | TBD | Pending |
-| EVLD-06 | TBD | Pending |
-| EVLD-07 | TBD | Pending |
-| EVLD-08 | TBD | Pending |
-| POPT-01 | TBD | Pending |
-| POPT-02 | TBD | Pending |
-| POPT-03 | TBD | Pending |
-| POPT-04 | TBD | Pending |
-| XFRM-01 | TBD | Pending |
-| XFRM-02 | TBD | Pending |
-| XFRM-03 | TBD | Pending |
-| ESCI-01 | TBD | Pending |
-| ESCI-02 | TBD | Pending |
-| ESCI-03 | TBD | Pending |
-| ESCI-04 | TBD | Pending |
-| ESCI-05 | TBD | Pending |
-| ESCI-06 | TBD | Pending |
-| DSET-01 | TBD | Pending |
-| DSET-02 | TBD | Pending |
-| DSET-03 | TBD | Pending |
-| DSET-04 | TBD | Pending |
-| DSET-05 | TBD | Pending |
-| DSET-06 | TBD | Pending |
-| DSET-07 | TBD | Pending |
-| KBM-01 | TBD | Pending |
-| KBM-02 | TBD | Pending |
-| KBM-03 | TBD | Pending |
-| KBM-04 | TBD | Pending |
-| KBM-05 | TBD | Pending |
-| MSEL-01 | TBD | Pending |
-| MSEL-02 | TBD | Pending |
-| MSEL-03 | TBD | Pending |
-| SKST-01 | TBD | Pending |
-| SKST-02 | TBD | Pending |
-| SKST-03 | TBD | Pending |
-| SKST-04 | TBD | Pending |
-| SKST-05 | TBD | Pending |
-| SKST-06 | TBD | Pending |
-| SKST-07 | TBD | Pending |
-| SKST-08 | TBD | Pending |
-| SKST-09 | TBD | Pending |
-| SKST-10 | TBD | Pending |
-| DIST-01 | TBD | Pending |
-| DIST-02 | TBD | Pending |
-| DIST-03 | TBD | Pending |
-| DIST-04 | TBD | Pending |
-| DIST-05 | TBD | Pending |
-| DIST-06 | TBD | Pending |
-| ITRX-01 | TBD | Pending |
-| ITRX-02 | TBD | Pending |
-| ITRX-03 | TBD | Pending |
-| ITRX-04 | TBD | Pending |
-| ITRX-05 | TBD | Pending |
-| ITRX-06 | TBD | Pending |
-| ITRX-07 | TBD | Pending |
+| LCMD-01 | 36 | Pending |
+| LCMD-02 | 36 | Pending |
+| LCMD-03 | 36 | Pending |
+| LCMD-04 | 36 | Pending |
+| LCMD-05 | 36 | Pending |
+| OBSV-01 | 37 | Pending |
+| OBSV-02 | 37 | Pending |
+| OBSV-03 | 37 | Pending |
+| OBSV-04 | 37 | Pending |
+| OBSV-05 | 37 | Pending |
+| OBSV-06 | 37 | Pending |
+| TFAIL-01 | 38 | Pending |
+| TFAIL-02 | 38 | Pending |
+| TFAIL-03 | 38 | Pending |
+| TFAIL-04 | 38 | Pending |
+| TFAIL-05 | 38 | Pending |
+| TFAIL-06 | 38 | Pending |
+| EVLD-01 | 42 | Pending |
+| EVLD-02 | 42 | Pending |
+| EVLD-03 | 42 | Pending |
+| EVLD-04 | 42 | Pending |
+| EVLD-05 | 42 | Pending |
+| EVLD-06 | 42 | Pending |
+| EVLD-07 | 42 | Pending |
+| EVLD-08 | 42 | Pending |
+| POPT-01 | 41 | Pending |
+| POPT-02 | 41 | Pending |
+| POPT-03 | 41 | Pending |
+| POPT-04 | 41 | Pending |
+| XFRM-01 | 41 | Pending |
+| XFRM-02 | 41 | Pending |
+| XFRM-03 | 41 | Pending |
+| ESCI-01 | 42 | Pending |
+| ESCI-02 | 42 | Pending |
+| ESCI-03 | 42 | Pending |
+| ESCI-04 | 42 | Pending |
+| ESCI-05 | 42 | Pending |
+| ESCI-06 | 42 | Pending |
+| DSET-01 | 39 | Pending |
+| DSET-02 | 39 | Pending |
+| DSET-03 | 39 | Pending |
+| DSET-04 | 39 | Pending |
+| DSET-05 | 39 | Pending |
+| DSET-06 | 39 | Pending |
+| DSET-07 | 39 | Pending |
+| KBM-01 | 40 | Pending |
+| KBM-02 | 40 | Pending |
+| KBM-03 | 40 | Pending |
+| KBM-04 | 40 | Pending |
+| KBM-05 | 40 | Pending |
+| MSEL-01 | 35 | Pending |
+| MSEL-02 | 35 | Pending |
+| MSEL-03 | 35 | Pending |
+| SKST-01 | 34 | Pending |
+| SKST-02 | 34 | Pending |
+| SKST-03 | 34 | Pending |
+| SKST-04 | 34 | Pending |
+| SKST-05 | 34 | Pending |
+| SKST-06 | 34 | Pending |
+| SKST-07 | 34 | Pending |
+| SKST-08 | 34 | Pending |
+| SKST-09 | 34 | Pending |
+| SKST-10 | 34 | Pending |
+| DIST-01 | 43 | Pending |
+| DIST-02 | 43 | Pending |
+| DIST-03 | 43 | Pending |
+| DIST-04 | 43 | Pending |
+| DIST-05 | 43 | Pending |
+| DIST-06 | 43 | Pending |
+| ITRX-01 | 42 | Pending |
+| ITRX-02 | 42 | Pending |
+| ITRX-03 | 42 | Pending |
+| ITRX-04 | 42 | Pending |
+| ITRX-05 | 42 | Pending |
+| ITRX-06 | 42 | Pending |
+| ITRX-07 | 42 | Pending |
 
 **Coverage:**
 - V3.0 requirements: 74 total
-- Mapped to phases: 0 (pre-roadmap)
-- Unmapped: 74 ⚠️ (expected — roadmapper will fill traceability)
+- Mapped to phases: 74 (100%)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15 (earlier milestones)*
-*Last updated: 2026-04-20 — V3.0 requirements added after gap analysis vs orq-ai/assistant-plugins*
+*Last updated: 2026-04-20 — V3.0 traceability populated (10 phases, 34-43)*
