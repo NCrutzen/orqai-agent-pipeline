@@ -176,11 +176,9 @@ function exportExcel(rows: SummaryRow[], datum: string) {
     r.aankomst, r.opslag, r.werktijd, r.rijtijd,
     r.gemaakteUren, r.afstandKm, r.kmPerUur,
   ]);
-  const ws = XLSX.utils.aoa_to_sheet([[`Datum: ${datum}`], [], [headers], ...data.map(r => [r])].flat() as unknown[][]);
-  // Simpler approach
-  const ws2 = XLSX.utils.aoa_to_sheet([headers, ...data]);
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
   const wbOut = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wbOut, ws2, "Rijtijden");
+  XLSX.utils.book_append_sheet(wbOut, ws, "Rijtijden");
   XLSX.writeFile(wbOut, `rijtijden-${datum.replace(/ /g, "-")}.xlsx`);
 }
 
