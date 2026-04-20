@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 36-07-PLAN.md — SKILL.md + help.md index wiring for 6 new Phase 36 commands (LCMD-01..07 discoverability)
-last_updated: "2026-04-20T16:06:33.062Z"
-last_activity: "2026-04-20 — Phase 35 Plan 05 complete: full-suite verification sweep executed and 35-05-VERIFICATION.md produced as /gsd:verify-work evidence trail; all gates green, Phase 35 mechanically COMPLETE"
+stopped_at: "Completed 36-08-PLAN.md — Phase 36 mechanically COMPLETE; full-suite verification sweep captured in 36-08-VERIFICATION.md; ready for /gsd:verify-work 36"
+last_updated: "2026-04-20T16:11:45.390Z"
+last_activity: "2026-04-20 — Phase 36 Plan 08 complete: full-suite verification sweep captured in 36-08-VERIFICATION.md (7-row LCMD-01..07 traceability + 5-row ROADMAP Phase 36 criteria checklist); full-suite lint green, protected-pipelines 3/3 match, 16/16 LCMD phrase anchors PASS; Phase 36 mechanically COMPLETE (8/8 plans)"
 progress:
   total_phases: 10
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 18
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -20,17 +20,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-20)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through an automated pipeline with real-time visibility and HITL approvals -- without needing to understand the underlying AI platform.
-**Current focus:** V3.0 Lifecycle Completeness & Eval Science — Phase 35 Model Selection Discipline mechanically COMPLETE (5/5 plans); next: /gsd:verify-work 35 (2 LLM smokes) then /gsd:plan-phase 36 (Lifecycle Slash Commands)
+**Current focus:** V3.0 Lifecycle Completeness & Eval Science — Phase 36 Lifecycle Slash Commands mechanically COMPLETE (8/8 plans, 7/7 LCMD reqs); next: /gsd:verify-work 36 (3 manual smokes: MCP round-trip, UX flow, POST /v2/trace-automations) then /gsd:plan-phase 37 (Observability Setup, OBSV)
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V2.1 shipped 2026-03-13 (8 phases, 9 plans)
 
 ## Current Position
 
-Phase: 35 - Model Selection Discipline (MECHANICALLY COMPLETE — 5/5 plans closed)
-Plan: 05 complete — full verification sweep captured in 35-05-VERIFICATION.md (220 lines) with 3-row MSEL-{01,02,03} traceability table + 4-row ROADMAP success-criteria checklist; all 9 verification commands green (6+ exit 0, 1 intentional exit 1 on negative fixture); manual LLM smokes deferred to /gsd:verify-work 35 per 35-VALIDATION.md §Manual-Only Verifications
-Status: Phase 35 mechanically COMPLETE — MSEL-01/02/03 all grep/lint verified; protected pipelines still byte-identical (3/3 SHA-256 matches); ready for /gsd:verify-work 35 (2 LLM smokes) and then /gsd:plan-phase 36 (Lifecycle Slash Commands, LCMD)
-Last activity: 2026-04-20 — Phase 35 Plan 05 complete: full-suite verification sweep executed and 35-05-VERIFICATION.md produced as /gsd:verify-work evidence trail; all gates green, Phase 35 mechanically COMPLETE
+Phase: 36 - Lifecycle Slash Commands (MECHANICALLY COMPLETE — 8/8 plans closed)
+Plan: 08 complete — full verification sweep captured in 36-08-VERIFICATION.md (203 lines) with 7-row LCMD-01..07 traceability + 5-row ROADMAP Phase 36 success-criteria checklist; captured green output: full-suite lint exit 0, protected-pipelines 3/3 SHA-256 matches, 6/6 per-file lints exit 0, 16/16 LCMD phrase anchors PASS; manual smokes deferred to /gsd:verify-work 36 per 36-VALIDATION.md §Manual-Only Verifications (MCP round-trip, UX flow, POST /v2/trace-automations)
+Status: Phase 36 mechanically COMPLETE — LCMD-01..07 all grep/lint verified across 6 new command files; protected pipelines still byte-identical (3/3 SHA-256 matches); SKILL.md + help.md cross-wiring verified; ready for /gsd:verify-work 36 (3 manual smokes) and then /gsd:plan-phase 37 (Observability Setup, OBSV)
+Last activity: 2026-04-20 — Phase 36 Plan 08 complete: full-suite verification sweep executed and 36-08-VERIFICATION.md produced as /gsd:verify-work evidence trail; all gates green, Phase 36 mechanically COMPLETE (third consecutive V3.0 phase to close mechanically)
 
-Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5). Next V3.0 phases (36-43) inherit the snapshot-pinning invariant.
+Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5). V3.0 Phase 36 mechanically COMPLETE (8/8). Next V3.0 phases (37-43) inherit SKST + MSEL-02 + protected-pipeline invariants.
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 36-lifecycle-slash-commands P05 | 3 min | 1 tasks | 1 files |
 | Phase 36-lifecycle-slash-commands P01 | 3 min | 1 tasks | 1 files |
 | Phase 36-lifecycle-slash-commands P07 | 1 min | 1 tasks | 2 files |
+| Phase 36-lifecycle-slash-commands P08 | 2 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,8 @@ Recent decisions affecting current work:
 - [Phase 36-lifecycle-slash-commands]: Phase 36 commands grouped under a new H3 '### Phase 36 (Lifecycle Slash Commands)' placed AFTER the existing V2.0 Commands table — keeps historical phase grouping pattern and avoids reshuffling legacy rows
 - [Phase 36-lifecycle-slash-commands]: help.md pipeline-order = discovery/monitoring first (workspace/traces/analytics/models) then onboarding (quickstart) then governance (automations), with /orq-agent:help terminal — alphabetical ordering would lose the mental-model signal
 - [Phase 36-lifecycle-slash-commands]: Index-wiring recipe locked: when adding N new commands, touch exactly two files (SKILL.md + help.md) and never the 3 protected entry points (orq-agent.md/prompt.md/architect.md) — reusable for every future V3.0 phase that adds commands
+- [Phase 36-lifecycle-slash-commands]: Phase 36 mechanically COMPLETE: 8/8 plans closed, 7/7 LCMD-01..07 requirements file-level verified via SKST lint + protected-pipeline SHA-256 + 16 phrase anchors; 36-08-VERIFICATION.md captures full evidence trail with LCMD traceability and ROADMAP criteria checklist; ready for /gsd:verify-work 36 (3 manual smokes: MCP round-trip, UX flow, POST /v2/trace-automations)
+- [Phase 36-lifecycle-slash-commands]: Phase-close VERIFICATION.md pattern (from 34-05 and 35-05) reused verbatim for 36-08 — captured green output + requirement traceability + ROADMAP criteria checklist + inventory + deferred items + sign-off; third consecutive V3.0 phase to close mechanically, establishing the pattern as canonical for phases 37-43
 
 ### Blockers/Concerns
 
@@ -147,7 +150,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T16:06:22.044Z
-Stopped at: Completed 36-07-PLAN.md — SKILL.md + help.md index wiring for 6 new Phase 36 commands (LCMD-01..07 discoverability)
+Last session: 2026-04-20T16:11:36.008Z
+Stopped at: Completed 36-08-PLAN.md — Phase 36 mechanically COMPLETE; full-suite verification sweep captured in 36-08-VERIFICATION.md; ready for /gsd:verify-work 36
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
