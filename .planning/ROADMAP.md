@@ -140,7 +140,12 @@ Build a Claude Code skill that transforms natural language use case descriptions
   2. Every generated agent spec contains a snapshot-pinned model reference (e.g., `claude-sonnet-4-5-20250929`), never a floating alias.
   3. When a user requests cost optimization, the researcher proposes a model-cascade pattern (cheap-first + escalation) together with a mandatory quality-equivalence experiment step before the cascade is marked approved.
   4. Existing `/orq-agent`, `/orq-agent:prompt`, `/orq-agent:architect` produce functionally equivalent output with the new policy applied (no regressions on the generator loop).
-**Plans**: TBD
+**Plans**: 5 plans
+  - [ ] 35-01-PLAN.md — Wave 1 lint infra: extend lint-skills.sh with snapshot-pinned-models rule; fixtures at tests/fixtures/35-{bad,good}-pin.md (MSEL-02)
+  - [ ] 35-02-PLAN.md — Wave 2 researcher policy: insert Model Selection Policy section (capable-first + cascade-candidate + quality-equivalence experiment) in orq-agent/agents/researcher.md (MSEL-01, MSEL-03)
+  - [ ] 35-03-PLAN.md — Wave 2 spec-generator policy: insert Snapshot Pinning Rule + Cascade Block Emission subsections in orq-agent/agents/spec-generator.md; embed lint regex + alias-only exception (MSEL-02)
+  - [ ] 35-04-PLAN.md — Wave 2 Capable Tier lookup: add `## Capable Tier Lookup` section to orq-agent/references/orqai-model-catalog.md with dated-snapshot seed table (MSEL-01)
+  - [ ] 35-05-PLAN.md — Wave 3 verify: full lint + snapshot-pinned-models fixture sweep + protected-pipeline hash check + phrase-presence greps; produce 35-05-VERIFICATION.md with MSEL-{01,02,03} traceability table and ROADMAP success-criteria checklist
 
 ### Phase 36: Lifecycle Slash Commands
 **Goal**: Users can inspect workspace, traces, analytics, models, onboarding, and trace-automation rules directly from Claude Code via thin MCP-backed slash commands without opening the Orq.ai dashboard.
@@ -259,7 +264,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | V2.0 | 6-11 (7 phases) | 11/11 | **Shipped** | 2026-03-02 |
 | V2.1 | 26-33 (8 phases) | 9/9 | **Shipped** | 2026-03-13 |
 | V3.0 | 34. Skill Structure & Format Foundation | 5/5 | Complete    | 2026-04-20 |
-| V3.0 | 35. Model Selection Discipline | 0/TBD | Not started | - |
+| V3.0 | 35. Model Selection Discipline | 0/5 | Planned | - |
 | V3.0 | 36. Lifecycle Slash Commands | 0/TBD | Not started | - |
 | V3.0 | 37. Observability Setup Skill | 0/TBD | Not started | - |
 | V3.0 | 38. Trace Failure Analysis Skill | 0/TBD | Not started | - |
