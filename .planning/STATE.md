@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 34-05-PLAN.md
-last_updated: "2026-04-20T14:54:37.464Z"
-last_activity: "2026-04-20 — Plan 05 complete: Phase 34 mechanically verified (full lint green on 33 files, 3 protected pipelines byte-identical, 10-row SKST traceability table and 5-row ROADMAP criteria checklist in VERIFICATION.md)"
+stopped_at: Completed 35-01-PLAN.md
+last_updated: "2026-04-20T15:17:34.578Z"
+last_activity: "2026-04-20 — Phase 35 Plan 01 complete: snapshot-pinned-models lint rule added to lint-skills.sh (MSEL-02 enforcement live, 2 fixtures proving both exit paths, full suite + protected pipelines still green)"
 progress:
   total_phases: 10
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 10
+  completed_plans: 6
 ---
 
 # Project State
@@ -20,17 +20,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-20)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through an automated pipeline with real-time visibility and HITL approvals -- without needing to understand the underlying AI platform.
-**Current focus:** V3.0 Lifecycle Completeness & Eval Science — roadmap approved, Phase 34 next
+**Current focus:** V3.0 Lifecycle Completeness & Eval Science — Phase 35 Model Selection Discipline in progress (Plan 01 of 05 complete)
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V2.1 shipped 2026-03-13 (8 phases, 9 plans)
 
 ## Current Position
 
-Phase: 34 - Skill Structure & Format Foundation (COMPLETE, awaiting /gsd:verify-work)
-Plan: 05 complete (5 of 5) — full verification sweep produced 34-05-VERIFICATION.md with all 10 SKST requirements traceable and all 5 ROADMAP success criteria satisfied
-Status: Ready for /gsd:verify-work → Phase 35 (Model Selection Discipline)
-Last activity: 2026-04-20 — Plan 05 complete: Phase 34 mechanically verified (full lint green on 33 files, 3 protected pipelines byte-identical, 10-row SKST traceability table and 5-row ROADMAP criteria checklist in VERIFICATION.md)
+Phase: 35 - Model Selection Discipline (IN PROGRESS)
+Plan: 01 complete (1 of 5) — snapshot-pinned-models lint rule shipped; Plan 02 (researcher capable-first policy) is next
+Status: Wave 1 green; ready to proceed with Plan 02
+Last activity: 2026-04-20 — Phase 35 Plan 01 complete: snapshot-pinned-models lint rule added to lint-skills.sh (MSEL-02 enforcement live, 2 fixtures proving both exit paths, full suite + protected pipelines still green)
 
-Progress: V3.0 Phase 34 COMPLETE. All 5 plans done (infra + commands + subagents + SKILL.md + verification). SKST-01..10 all marked complete. Phase 35 (Model Selection Discipline) is next.
+Progress: V3.0 Phase 34 COMPLETE. Phase 35 Plan 01 COMPLETE (MSEL-02 mechanical enforcement). Remaining Phase 35 plans: 02 researcher policy, 03 spec-generator policy, 04 capable-tier table, 05 verification sweep.
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Progress: V3.0 Phase 34 COMPLETE. All 5 plans done (infra + commands + subagents
 | 34-skill-structure-format-foundation | 04 | 2 min | 1 | 1 |
 | 34-skill-structure-format-foundation | 05 | 3 min | 1 | 1 |
 | Phase 34-skill-structure-format-foundation P05 | 3 min | 1 tasks | 1 files |
+| Phase 35-model-selection-discipline P01 | 2 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 34-skill-structure-format-foundation]: Phase-close VERIFICATION.md pattern established — structured evidence document (captured output + 10-row traceability table + 5-row ROADMAP criteria checklist + inventory + deferred items) sits next to SUMMARY.md and feeds /gsd:verify-work (2026-04-20)
 - [Phase 34-skill-structure-format-foundation]: TODO(SKST-10) inferred-URL marker count is 2 (datasets.md + dataset-generator.md Annotation Queues URL) — resolution deferred to Phase 37+ when live MCP surfaces canonical my.orq.ai/annotation-queues path (2026-04-20)
 - [Phase 34-skill-structure-format-foundation]: Lateral lint enforcement for downstream phases — each V3.0 phase (36-43) must call bash orq-agent/scripts/lint-skills.sh on its new skill files before marking plans complete; CI wiring owned by Phase 43 DIST (2026-04-20)
+- [Phase 35-model-selection-discipline]: MSEL-02 enforcement via extending lint-skills.sh (not new script) — one CI entry point, reuses extensible-rule pattern from 34-01
+- [Phase 35-model-selection-discipline]: Fixtures live outside default_file_set() under tests/fixtures/ so full-suite green baseline stays stable; rule tested via explicit --file invocation
+- [Phase 35-model-selection-discipline]: YAGNI on embedding/speech alias allow-list — no such model currently in skill set; documented inline as bash comment with the # alias-only -- pinning unavailable <date> convention spec-generator will use in Plan 03
 
 ### Blockers/Concerns
 
@@ -103,7 +107,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T14:49:46.093Z
-Stopped at: Completed 34-05-PLAN.md
+Last session: 2026-04-20T15:17:34.575Z
+Stopped at: Completed 35-01-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
