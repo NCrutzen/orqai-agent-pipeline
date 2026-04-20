@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: verifying
-stopped_at: "Completed 36-04-PLAN.md — /orq-agent:models (LCMD-04) authored"
-last_updated: "2026-04-20T16:01:48.669Z"
+stopped_at: Completed 36-07-PLAN.md — SKILL.md + help.md index wiring for 6 new Phase 36 commands (LCMD-01..07 discoverability)
+last_updated: "2026-04-20T16:06:33.062Z"
 last_activity: "2026-04-20 — Phase 35 Plan 05 complete: full-suite verification sweep executed and 35-05-VERIFICATION.md produced as /gsd:verify-work evidence trail; all gates green, Phase 35 mechanically COMPLETE"
 progress:
   total_phases: 10
   completed_phases: 2
   total_plans: 18
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -53,6 +53,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 36-lifecycle-slash-commands P04 | 2 min | 1 tasks | 1 files |
 | Phase 36-lifecycle-slash-commands P05 | 3 min | 1 tasks | 1 files |
 | Phase 36-lifecycle-slash-commands P01 | 3 min | 1 tasks | 1 files |
+| Phase 36-lifecycle-slash-commands P07 | 1 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,9 @@ Recent decisions affecting current work:
 - [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: /orq-agent:workspace analytics window is fixed at 24h — drill-down (7d/30d, group-by) deferred to /orq-agent:analytics command
 - [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: Read-only MCP commands use no subagent — inline execution matches help.md pattern (MCP calls + deterministic table rendering, no multi-step reasoning to isolate)
 - [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: Zero-entities render rule — empty section prints H3 with (0) and single em-dash row | — | — | — | — |, so "empty" is visually distinct from "filter-omitted"
+- [Phase 36-lifecycle-slash-commands]: Phase 36 commands grouped under a new H3 '### Phase 36 (Lifecycle Slash Commands)' placed AFTER the existing V2.0 Commands table — keeps historical phase grouping pattern and avoids reshuffling legacy rows
+- [Phase 36-lifecycle-slash-commands]: help.md pipeline-order = discovery/monitoring first (workspace/traces/analytics/models) then onboarding (quickstart) then governance (automations), with /orq-agent:help terminal — alphabetical ordering would lose the mental-model signal
+- [Phase 36-lifecycle-slash-commands]: Index-wiring recipe locked: when adding N new commands, touch exactly two files (SKILL.md + help.md) and never the 3 protected entry points (orq-agent.md/prompt.md/architect.md) — reusable for every future V3.0 phase that adds commands
 
 ### Blockers/Concerns
 
@@ -143,7 +147,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T16:01:39.939Z
-Stopped at: Completed 36-04-PLAN.md — /orq-agent:models (LCMD-04) authored
+Last session: 2026-04-20T16:06:22.044Z
+Stopped at: Completed 36-07-PLAN.md — SKILL.md + help.md index wiring for 6 new Phase 36 commands (LCMD-01..07 discoverability)
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
