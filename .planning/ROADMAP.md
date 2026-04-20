@@ -162,7 +162,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
   - [ ] 36-01-PLAN.md — Wave 1: create orq-agent/commands/workspace.md (LCMD-01) — single-screen workspace overview
   - [ ] 36-02-PLAN.md — Wave 1: create orq-agent/commands/traces.md (LCMD-02) — traces query with --deployment/--status/--last/--limit + --identity stub
   - [ ] 36-03-PLAN.md — Wave 1: create orq-agent/commands/analytics.md (LCMD-03) — analytics summary with --last + --group-by
-  - [ ] 36-04-PLAN.md — Wave 1: create orq-agent/commands/models.md (LCMD-04) — Model Garden listing grouped by provider × type
+  - [x] 36-04-PLAN.md — Wave 1: create orq-agent/commands/models.md (LCMD-04) — Model Garden listing grouped by provider × type
   - [ ] 36-05-PLAN.md — Wave 1: create orq-agent/commands/quickstart.md (LCMD-05 + LCMD-07) — 12-step onboarding tour
   - [ ] 36-06-PLAN.md — Wave 1: create orq-agent/commands/automations.md (LCMD-06) — Trace Automations list + --create with AskUserQuestion
   - [ ] 36-07-PLAN.md — Wave 2: wire 6 new commands into orq-agent/SKILL.md index + orq-agent/commands/help.md pipeline-order block

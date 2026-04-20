@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: verifying
-stopped_at: "Completed 36-01-PLAN.md — /orq-agent:workspace (LCMD-01) shipped"
-last_updated: "2026-04-20T16:01:35.467Z"
+stopped_at: "Completed 36-04-PLAN.md — /orq-agent:models (LCMD-04) authored"
+last_updated: "2026-04-20T16:01:48.669Z"
 last_activity: "2026-04-20 — Phase 35 Plan 05 complete: full-suite verification sweep executed and 35-05-VERIFICATION.md produced as /gsd:verify-work evidence trail; all gates green, Phase 35 mechanically COMPLETE"
 progress:
   total_phases: 10
@@ -115,6 +115,10 @@ Recent decisions affecting current work:
 - [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: LCMD-04 /orq-agent:models renders types in fixed order (chat > embedding > image > rerank > speech > completion > Other); rare/future types bucket under single 'Other' H4 rather than spawning sparse subsections
 - [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: LCMD-04 keeps Activated column rendered even when payload lacks activation state (shows '?'); prevents silent 'yes' assumption when MCP list_models response omits the field
 - [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: LCMD read-only lookup commands (models) use single positional [search-term] with no flags; dynamic 'MCP tools used:' footer reflects actual path(s) taken (list_models / search_entities / REST fallback) for debuggability
+- [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: MSEL-02 snapshot-pinning discipline extended from YAML model: lines (lint-enforced) to prose table examples (consistency-only); LCMD-04 models.md emits dated snapshots like claude-sonnet-4-5-20250929 and gpt-4o-2024-11-20 in illustrative tables even though lint regex does not fire on prose
+- [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: /orq-agent:workspace analytics window is fixed at 24h — drill-down (7d/30d, group-by) deferred to /orq-agent:analytics command
+- [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: Read-only MCP commands use no subagent — inline execution matches help.md pattern (MCP calls + deterministic table rendering, no multi-step reasoning to isolate)
+- [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: Zero-entities render rule — empty section prints H3 with (0) and single em-dash row | — | — | — | — |, so "empty" is visually distinct from "filter-omitted"
 
 ### Blockers/Concerns
 
@@ -139,7 +143,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T16:01:33.564Z
-Stopped at: Completed 36-01-PLAN.md — /orq-agent:workspace (LCMD-01) shipped
+Last session: 2026-04-20T16:01:39.939Z
+Stopped at: Completed 36-04-PLAN.md — /orq-agent:models (LCMD-04) authored
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
