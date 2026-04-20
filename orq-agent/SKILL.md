@@ -1,11 +1,52 @@
 ---
 name: orq-agent
 description: Generate complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic from use case descriptions
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch, WebFetch, Task
 ---
 
 # orq-agent
 
 Generate complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic from use case descriptions.
+
+## Constraints
+
+- **NEVER** rename this file, any command file, or any subagent file — slash-command routing depends on these exact paths
+- **NEVER** add files to `orq-agent/references/` with fewer than 2 consumer skills — single-consumer docs go in `<skill>/resources/`
+- **ALWAYS** load this SKILL.md when any `/orq-agent*` command runs (it declares the skill suite's directory layout, profile rules, and shared conventions)
+- **ALWAYS** cross-check new skill files against `orq-agent/scripts/lint-skills.sh` before committing — the lint is the SKST-01..10 acceptance test
+
+**Why these constraints:** The skill suite depends on fixed file paths for slash-command routing; misplacing shared vs single-consumer references breaks the invariant the lint enforces; not running lint lets drift accumulate silently; skipping SKILL.md as context makes every command behave as if the suite's conventions don't exist.
+
+## When to use
+
+- Claude loads this file as context for every `/orq-agent*` command (the suite's entry point)
+- Users want to understand the skill suite's scope, command inventory, or directory layout
+- Contributors to Phases 36-43 need to confirm the SKST format conventions before adding new skills
+
+## When NOT to use
+
+- User wants to use a non-Orq.ai agent platform → no orq-agent skill applies
+- User wants to invoke a specific command → use that command's SKILL file (`orq-agent/commands/<name>.md`) directly, not this index
+- User wants to read a shared reference → use `orq-agent/references/<name>.md` directly
+
+## Companion Skills
+
+Directional pipeline (→ means "typical next step"):
+
+- → `/orq-agent:architect` (blueprint creation) → `/orq-agent:tools` (tool resolution) → `/orq-agent:research` (model + pattern research) → `/orq-agent` (full pipeline: specs + orchestration + datasets + README) → `/orq-agent:deploy` → `/orq-agent:test` → `/orq-agent:iterate` → `/orq-agent:harden`
+- Lateral entry points: `/orq-agent:prompt` (single-agent fast path), `/orq-agent:architect` (blueprint-only), `/orq-agent:datasets`, `/orq-agent:kb`, `/orq-agent:research`, `/orq-agent:tools`
+- Meta-commands: `/orq-agent:systems`, `/orq-agent:set-profile`, `/orq-agent:update`, `/orq-agent:help`
+
+## Done When
+
+- [ ] All 15 slash commands under `orq-agent/commands/` match the commands listed in the body below
+- [ ] All 17 subagents under `orq-agent/agents/` match the subagents listed in the body below
+- [ ] All 8 shared references under `orq-agent/references/` have ≥2 consumer skills (verified by `bash orq-agent/scripts/lint-skills.sh --rule references-multi-consumer`)
+- [ ] `bash orq-agent/scripts/lint-skills.sh` exits 0 across the full suite
+
+## Destructive Actions
+
+- **N/A at the suite level** — individual commands and subagents declare their own Destructive Actions sections. This index file makes no mutations; it is loaded as context only.
 
 ## Directory Structure
 
@@ -239,3 +280,41 @@ Packages required by V2.0 subagents at runtime. Not installed by `install.sh` (w
 |------|---------|------------|
 | `systems.md` | IT systems your agents interact with (integration methods, URLs, auth) | User |
 | `.orq-agent/config.json` | Capability tier, model profile, API key | Installer |
+
+## Resources Policy
+
+Skill documentation lives in two places. The placement rule is driven by consumer count:
+
+- **`orq-agent/references/`** — Shared references consumed by 2+ skills. All 8 current files (`agentic-patterns.md`, `naming-conventions.md`, `orchestration-patterns.md`, `orqai-agent-fields.md`, `orqai-api-endpoints.md`, `orqai-evaluator-types.md`, `orqai-model-catalog.md`, `tool-catalog.md`) are multi-consumer (verified 2026-04-20 — see `.planning/phases/34-skill-structure-format-foundation/34-RESEARCH.md` Reference Consumer Graph).
+
+- **`<skill>/resources/`** — Single-consumer long-form docs. When a V3.0 skill (Phases 36-43) has reference content used by exactly one skill, that skill creates its own `resources/` subdirectory instead of adding to the flat `references/` directory.
+
+**Invariant (enforced by lint):** Every file under `orq-agent/references/` MUST be consumed by ≥2 skills. The `references-multi-consumer` rule in `orq-agent/scripts/lint-skills.sh` enforces this. If a file drops to 1 consumer, the lint fails and the file must move to that consumer's `<skill>/resources/`.
+
+**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phases 36-43 will create per-skill `resources/` directories on demand when single-consumer content appears.
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Treating `orq-agent/` as loose scripts | Every command and subagent is a skill — follow the SKILL.md format conventions |
+| Pre-creating empty `<skill>/resources/` directories | YAGNI — create on demand when single-consumer content actually appears |
+| Adding a new file to `orq-agent/references/` without ≥2 consumers | Place it in the single consumer's `<skill>/resources/` instead; lint enforces this |
+| Duplicating content between `references/` and a skill body | Reference the shared file via `orq-agent/references/<name>.md` — do not inline |
+| Writing `allowed-tools:` into subagent frontmatter | Subagents use `tools:` (Claude Code schema); `allowed-tools:` is a no-op on subagents |
+
+## Open in orq.ai
+
+- **Agent Studio:** https://my.orq.ai/agents
+- **Deployments:** https://my.orq.ai/deployments
+- **Experiments:** https://my.orq.ai/experiments
+- **Traces:** https://my.orq.ai/traces
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.
