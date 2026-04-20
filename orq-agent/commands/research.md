@@ -18,6 +18,50 @@ Follow each step in order. Do not skip steps.
 - orq-agent/SKILL.md
 </files_to_read>
 
+## Constraints
+
+- **NEVER** recommend a model from outside the AI Router without flagging activation requirements.
+- **NEVER** start with the cheapest model — Phase 35 MSEL-01 requires capable-first.
+- **ALWAYS** pin model snapshots in the research brief (Phase 35 MSEL-02).
+- **ALWAYS** cross-reference `orq-agent/references/orqai-model-catalog.md` before recommending a model.
+
+**Why these constraints:** Floating aliases silently upgrade; non-activated models fail at deploy time; starting cheap produces biased quality baselines.
+
+## When to use
+
+- User wants domain best-practices research for an agent role without running the full pipeline.
+- User is iterating on prompts / guardrails for an existing agent and wants a fresh brief.
+- User needs model recommendations grounded in AI Router availability.
+
+## When NOT to use
+
+- User is running `/orq-agent` — the full pipeline invokes the researcher in Wave 1 already.
+- User only needs a blueprint → use `/orq-agent:architect`.
+- User only needs tools → use `/orq-agent:tools`.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- → `researcher` subagent — produces `research-brief.md`
+- ← `/orq-agent` — Wave 1 invoker (for a full swarm)
+- ← standalone invocation — single-agent role research
+- → `/orq-agent:prompt` or `/orq-agent` — typical downstream consumers of the research brief
+
+## Done When
+
+- [ ] `research-brief.md` written to `{OUTPUT_DIR}/[agent-name]/`
+- [ ] Every agent in scope has a model recommendation with capable-first rationale
+- [ ] Alternative models listed with tradeoff paragraph
+- [ ] Prompt strategy, guardrails, and tool recommendations cover the focus areas selected in Step 2
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Overwrite an existing `research-brief.md`** — confirm before writing when the file already exists in the (auto-versioned) directory.
+- **Write `blueprint.md`** — only when constructed inline; overwrites an existing blueprint in the auto-versioned directory.
+
 <pipeline>
 
 ---
@@ -201,3 +245,25 @@ Next steps:
 ```
 
 </pipeline>
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Recommending a model not present in the AI Router catalog | Cross-reference `orqai-model-catalog.md`; flag activation requirements if the model needs user action |
+| Using a floating alias in the brief to "leave room to upgrade" | Pin the snapshot; upgrades are a deliberate later decision, not a hidden default |
+| Skipping the tradeoff paragraph for alternative models | Alternatives without tradeoffs are not alternatives — readers need the "why pick one" rationale |
+| Researching only the happy path | Include guardrail + failure-mode recommendations; Phase 42 EVLD-08 starts here |
+
+## Open in orq.ai
+
+- **AI Router / Models:** https://my.orq.ai/models
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

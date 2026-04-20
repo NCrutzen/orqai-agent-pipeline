@@ -10,6 +10,48 @@ You are running the `/orq-agent:systems` command. This command manages the IT sy
 
 Follow these steps in order.
 
+## Constraints
+
+- **NEVER** add systems without documenting their integration method (MCP / REST / manual).
+- **NEVER** remove systems that are referenced by existing swarms without `AskUserQuestion` confirmation.
+- **ALWAYS** confirm via `AskUserQuestion` before editing `systems.md`.
+- **ALWAYS** keep system entries alphabetical.
+
+**Why these constraints:** Systems registry is consumed by architect and tool-resolver — silent edits break downstream blueprints. Alphabetical ordering minimizes merge conflicts.
+
+## When to use
+
+- User wants to list the registered IT systems for the current install.
+- User wants to add a new system so architect / tool-resolver know about it.
+- User wants to remove an outdated or example system.
+
+## When NOT to use
+
+- User wants to configure agents for a system that doesn't exist yet → run `/orq-agent` to design the swarm first; adding the system here is a pre-step.
+- User wants to connect to an Orq.ai entity → use `/orq-agent:deploy` or `/orq-agent:kb`; this command only edits the local registry.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- No subagent — this command edits `orq-agent/systems.md` directly.
+- ← referenced by `architect`, `deployer`, `tool-resolver` subagents via `<files_to_read>`
+- ← user invocation — local-only registry edit
+
+## Done When
+
+- [ ] List mode: every registered user system appears in the banner table with its integration method
+- [ ] Add mode: new `### [System Name]` block appended to `systems.md` with required `**Integration method:**` bullet
+- [ ] Remove mode: system block removed cleanly (no stray blank lines) and count of remaining systems displayed
+- [ ] `systems.md` file unchanged on any STOP-before-write path
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Edit `orq-agent/systems.md`** — add or remove operations modify local config consumed by multiple skills; confirm before write.
+- **Remove a user-added system** — the block and all its fields are dropped; confirm before removing since downstream blueprints may already reference it.
+
 ## Step 1: Locate systems.md
 
 Read the systems registry file:
@@ -229,3 +271,25 @@ Removed: [System Name]
 ```
 
 STOP.
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Adding a system without an integration method | Always record MCP / REST / manual — downstream subagents depend on the method field |
+| Removing an example entry silently to "clean up" | The example entries are discoverable documentation; remove only if the user explicitly asks |
+| Editing `systems.md` by hand without going through this command | Loses the validation, ordering, and confirm step; use the command |
+| Listing systems without user entries and showing an empty screen | Always surface the example entries + next-step hint when no user entries exist |
+
+## Open in orq.ai
+
+- **N/A** — this skill manages local configuration only (no Orq.ai entities involved)
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

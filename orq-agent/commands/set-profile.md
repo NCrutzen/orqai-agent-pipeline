@@ -10,6 +10,48 @@ You are running the `/orq-agent:set-profile` command. This command views or chan
 
 Follow these steps in order.
 
+## Constraints
+
+- **NEVER** overwrite `.orq-agent/config.json` without `AskUserQuestion` confirmation.
+- **NEVER** accept a profile that doesn't exist in the documented set (`quality`, `balanced`, `budget`).
+- **ALWAYS** confirm the target profile before writing.
+- **ALWAYS** print the resulting profile contents after write.
+
+**Why these constraints:** Profile changes gate which commands are available; silent changes confuse users who invoke a command expecting an older profile's tooling.
+
+## When to use
+
+- User wants to view the current model profile and the per-agent model table.
+- User wants to switch to a different cost/quality tradeoff profile.
+- User is preparing a batch run and wants to lower cost ahead of time.
+
+## When NOT to use
+
+- User wants to change the install tier (core / deploy / test / full) → re-run the installer with `--reconfigure`.
+- User wants to change a per-agent model for a specific spec → edit the agent spec file directly.
+- User wants to change the API key → re-run the installer.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- No subagent — this command edits `.orq-agent/config.json` directly.
+- ← read by every command via `orq-agent/SKILL.md` context (profile dictates which models each subagent uses)
+- ← user invocation — local-only config edit
+
+## Done When
+
+- [ ] No-arg: current profile displayed + comparison table shown
+- [ ] Argument mode: `config.json` updated in place with the new `model_profile` value
+- [ ] Terminal shows `OLD_PROFILE --> NEW_PROFILE`
+- [ ] Invalid profile: clear error + valid profile list printed; config unchanged
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Overwrite `.orq-agent/config.json`** — destructive to any uncommitted local edits in the config; confirm before writing the new `model_profile` field.
+
 ## Step 1: Read Current Config
 
 Read the config file:
@@ -108,3 +150,25 @@ Replace `[NEW_PROFILE]` with the argument value.
 
 Profile updated: [OLD_PROFILE] --> [NEW_PROFILE]
 ```
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Switching profile mid-swarm generation | Finish the current run; profile change takes effect on next invocation |
+| Editing `config.json` by hand | Use this command — JSON edits bypass validation and confirmation |
+| Picking `budget` for a production-bound swarm | Budget is tuned for exploration; production swarms should stay on `quality` or `balanced` |
+| Assuming profile affects already-deployed agents | Profile only changes which models downstream generator subagents pick; already-deployed agents are unchanged |
+
+## Open in orq.ai
+
+- **N/A** — this skill manages local configuration only (no Orq.ai entities involved)
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

@@ -9,6 +9,49 @@ You are running the `/orq-agent:update` command. Check for updates and install t
 
 Follow these steps **exactly** in order. Do NOT skip steps, improvise, or add extra logic. Stop at any step that indicates a terminal condition.
 
+## Constraints
+
+- **NEVER** overwrite local skill edits without `AskUserQuestion` confirmation showing the diff.
+- **NEVER** update when there are uncommitted changes in `orq-agent/`.
+- **ALWAYS** show a summary of files to be overwritten before proceeding.
+- **ALWAYS** print the GitHub commit/tag being pulled.
+
+**Why these constraints:** Users often make local skill edits for their deployment — silent overwrite loses that work. Confirming keeps the safety rail.
+
+## When to use
+
+- User wants to check for a newer version of the skill pack.
+- User wants to install the latest version when one is available.
+- User has been prompted by another command that a new version exists.
+
+## When NOT to use
+
+- User only wants to reconfigure tier / API key → re-run the installer with `--reconfigure` flag (shown in the help output).
+- User has uncommitted local skill edits they want to keep → commit or stash first; this command overwrites.
+- User wants to pin to a specific version → this command always pulls `main`; use git directly for version pinning.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- No subagent — this command shells out to `curl` + `tar` directly.
+- Meta-command — no pipeline linkage. Not invoked by any other command.
+- ← user invocation — run periodically or after a changelog mention.
+
+## Done When
+
+- [ ] Up-to-date path: "Already up to date" message displayed; no files changed
+- [ ] Update path: new VERSION on disk matches `REMOTE_VERSION` and message says "Updated to v…"
+- [ ] Config preserved: `.orq-agent/config.json` still contains the pre-update tier, API key, and model_profile values
+- [ ] Slash command files refreshed under `~/.claude/commands/orq-agent/`
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Overwrite local skill files with GitHub versions** — destructive to any uncommitted local edits under `orq-agent/`; confirm before proceeding with the download + copy step.
+- **Overwrite slash command files under `~/.claude/commands/orq-agent/`** — refreshes command discovery files; confirm before overwriting.
+
 ## Step 1: Determine Install Location
 
 ```bash
@@ -170,3 +213,25 @@ Update may have failed -- version is still vLOCAL_VERSION.
 Try updating manually from your terminal:
   curl -sL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
 ```
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Updating without reading the changelog | Always surface the changelog entries between local and remote before proceeding |
+| Running the interactive `install.sh` from inside Claude Code | Use this command's direct download path; install.sh requires a real TTY |
+| Overwriting local skill edits without backup | Commit or stash local edits first; this command will not preserve them |
+| Assuming config is auto-preserved after update | The command explicitly backs up + restores `.orq-agent/config.json`; verify after update |
+
+## Open in orq.ai
+
+- **N/A** — this skill manages local configuration only (no Orq.ai entities involved)
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

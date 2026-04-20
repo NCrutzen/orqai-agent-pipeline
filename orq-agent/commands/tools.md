@@ -18,6 +18,50 @@ Follow each step in order. Do not skip steps.
 - orq-agent/SKILL.md
 </files_to_read>
 
+## Constraints
+
+- **NEVER** invent tool names not present in `orq-agent/references/tool-catalog.md`.
+- **NEVER** attach tools without verifying schema compatibility with the agent's input/output shape.
+- **ALWAYS** use canonical tool IDs from the catalog.
+- **ALWAYS** document each tool's rationale in TOOLS.md.
+
+**Why these constraints:** Non-catalog tools fail at deploy with opaque MCP errors; unjustified tool attachments bloat agent context.
+
+## When to use
+
+- A blueprint exists and user wants a standalone tool-resolution pass.
+- User has a use case description and wants to know which tools the agents will need before running the full pipeline.
+- Tool changes (new MCP server, new API) require a refreshed TOOLS.md.
+
+## When NOT to use
+
+- User is running `/orq-agent` — tool resolution is Step 5 of that pipeline already.
+- User needs only a blueprint → use `/orq-agent:architect`.
+- User already has TOOLS.md and wants to edit it → edit the file directly; no subagent needed.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- → `tool-resolver` subagent — produces `TOOLS.md`
+- ← `/orq-agent` — Step 5 invoker (for a full swarm)
+- ← standalone invocation — blueprint-based or description-based tool resolution
+- → `/orq-agent:research`, `/orq-agent:deploy` — typical downstream consumers of TOOLS.md
+
+## Done When
+
+- [ ] `TOOLS.md` written to `{OUTPUT_DIR}/[swarm-name]/`
+- [ ] Every tool entry cites a canonical tool from `orq-agent/references/tool-catalog.md`
+- [ ] Per-agent tool assignments match the blueprint's agent list
+- [ ] Rationale paragraph present for each tool
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Overwrite an existing `TOOLS.md`** — confirm before writing when the file already exists in the (auto-versioned) directory.
+- **Write `blueprint.md`** — only when constructed inline (no `--blueprint` flag); overwrites an existing blueprint in the auto-versioned directory.
+
 <pipeline>
 
 ---
@@ -197,3 +241,25 @@ Next steps:
 ```
 
 </pipeline>
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Inventing a plausibly-named tool that isn't in the catalog | Always pick from `orq-agent/references/tool-catalog.md`; if the tool genuinely doesn't exist, escalate to the user |
+| Attaching every tool the agent "might" use | Attach only tools justified by the use case — context bloat degrades reasoning quality |
+| Skipping the per-tool rationale paragraph | Downstream readers (deployer, spec-generator) depend on the rationale to wire correctly |
+| Ignoring schema compatibility between tools and agent I/O | Mismatched schemas fail at deploy or at runtime with opaque errors |
+
+## Open in orq.ai
+
+- **Agent Studio (tools tab):** https://my.orq.ai/agents
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.
