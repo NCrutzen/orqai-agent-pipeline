@@ -17,6 +17,55 @@ Follow each step in order. Do not skip steps. Do not proceed past a checkpoint u
 - orq-agent/systems.md
 </files_to_read>
 
+## Constraints
+
+- **NEVER** generate more than 5 agents in a single swarm — decompose into sub-swarms.
+- **NEVER** skip the Blueprint → Specs → Tests → Iterate → Harden pipeline order.
+- **ALWAYS** default to single-agent; multi-agent must be justified via one of the 5 complexity gates.
+- **ALWAYS** write output to an auto-versioned `{OUTPUT_DIR}/[swarm-name]/` directory.
+
+**Why these constraints:** Over-engineered swarms cost more to maintain than a well-configured single agent. Skipping pipeline order skips validation gates (tool-resolver, researcher) that catch bad blueprints before specs are written.
+
+## When to use
+
+- User types `/orq-agent "build a ..."` to get a complete swarm from a use case description.
+- User wants the full Build → Deploy → Test → Iterate → Harden loop.
+- User has a use case that may require multi-agent decomposition and wants architect guidance.
+
+## When NOT to use
+
+- User wants only a blueprint → use `/orq-agent:architect` instead.
+- User wants only a single agent spec → use `/orq-agent:prompt` instead.
+- User wants to deploy an existing spec → use `/orq-agent:deploy` directly.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- → `architect` subagent — Step 3 produces `blueprint.md`
+- → `tool-resolver` — Step 5 produces `TOOLS.md`
+- → `researcher` — Wave 1 produces `research-brief.md` (when not skipped)
+- → `spec-generator` — Wave 2 produces per-agent specs
+- → `orchestration-generator` — Wave 3 produces `ORCHESTRATION.md` (multi-agent only)
+- → `dataset-generator` — Wave 3 produces per-agent dataset files
+- → `readme-generator` — Wave 3 produces `README.md`
+- ← user invocation — entry point for the full pipeline
+
+## Done When
+
+- [ ] `blueprint.md`, `TOOLS.md`, `research-brief.md`, all agent specs, `ORCHESTRATION.md` (if multi-agent), dataset files, `README.md` exist in `{OUTPUT_DIR}/[swarm-name]/`
+- [ ] Every agent spec has a snapshot-pinned model reference
+- [ ] `README.md` documents how to invoke the deployed swarm
+- [ ] `pipeline-run.json` captures the full pipeline run metadata
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Create `{OUTPUT_DIR}/[swarm-name]/` directory** — auto-versions to `-v2`, `-v3`, ... on collision; no `AskUserQuestion` needed because auto-versioning is non-destructive.
+- **Write blueprint, specs, datasets, orchestration doc, README** — into the (auto-versioned) directory. No deletions occur.
+- No destructive operations on Orq.ai happen in this command; deployment happens separately via `/orq-agent:deploy`.
+
 <pipeline>
 
 ---
@@ -742,3 +791,26 @@ Write `pipeline-run.json` to the output directory root using the Write tool:
 This metadata file captures the full pipeline run for debugging, reproducibility, and audit purposes.
 
 </pipeline>
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Skipping the architect step to get specs faster | The architect produces the orchestration rationale that specs reference — always run it |
+| Using floating model aliases (`claude-sonnet-4-5`) in specs | Pin to snapshot (`claude-sonnet-4-5-20250929`) per Phase 35 MSEL-02 |
+| Generating datasets before tool-resolver runs | Tool presence affects dataset shape — honor the pipeline order |
+| Merging multiple use cases into one mega-swarm | Decompose into separate `/orq-agent` invocations; each swarm should own one domain |
+
+## Open in orq.ai
+
+- **Agent Studio:** https://my.orq.ai/agents
+- **Deployments:** https://my.orq.ai/deployments
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

@@ -18,6 +18,48 @@ Follow each step in order. Do not skip steps.
 - orq-agent/SKILL.md
 </files_to_read>
 
+## Constraints
+
+- **NEVER** design multi-agent swarms — this is the single-agent fast path.
+- **NEVER** skip model pinning even on the fast path.
+- **ALWAYS** produce a single agent spec matching the use case.
+- **ALWAYS** use a snapshot-pinned model reference (e.g. `claude-sonnet-4-5-20250929`).
+
+**Why these constraints:** The fast path exists for one-off agents where full pipeline overhead is not justified. Multi-agent intent belongs in `/orq-agent`. Pinning models prevents silent model upgrades from breaking production prompts.
+
+## When to use
+
+- User types `/orq-agent:prompt "build a single X agent"` and explicitly wants fast iteration without the full pipeline.
+- Use case is clearly a single-agent task (extraction, classification, summarization).
+- User is prototyping and does not need datasets, orchestration docs, or a README.
+
+## When NOT to use
+
+- Use case implies multiple roles / tools / KBs → use `/orq-agent` instead.
+- User needs deployment + testing → use `/orq-agent` (full pipeline) or `/orq-agent:deploy` after this command.
+- User wants a blueprint only (no spec) → use `/orq-agent:architect`.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- → `spec-generator` — the only subagent this command spawns
+- ← user invocation — fast-path entry point; skips the full pipeline
+- → `/orq-agent:deploy` — typical next step once the spec is reviewed
+
+## Done When
+
+- [ ] Single agent spec file exists at `{OUTPUT_DIR}/[agent-name]/agents/[agent-key].md`
+- [ ] Spec has `model`, `instructions`, `tools` (if any), and a snapshot-pinned model reference
+- [ ] Blueprint file at `{OUTPUT_DIR}/[agent-name]/blueprint.md` records the agent key and user answers
+
+## Destructive Actions
+
+The following actions MUST confirm via `AskUserQuestion` before proceeding:
+
+- **Create `{OUTPUT_DIR}/[agent-name]/` directory** — auto-versions to `-v2`, `-v3`, ... on collision (no `AskUserQuestion` needed; auto-versioning is non-destructive).
+- **Write `blueprint.md` and the agent spec file** — into the (auto-versioned) directory. No deletions.
+
 <pipeline>
 
 ---
@@ -219,3 +261,26 @@ Next steps:
 ```
 
 </pipeline>
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Using `/orq-agent:prompt` for a swarm of 2+ agents | Use `/orq-agent` for multi-agent — this command is single-agent only |
+| Skipping tool resolution when the agent needs tools | Even fast-path specs should cite the canonical tool from `orq-agent/references/tool-catalog.md` |
+| Accepting a floating model alias because "it's just a prototype" | Pin to a snapshot model reference — Phase 35 MSEL-02 applies to every spec, not just production |
+| Discarding `blueprint.md` after generation | Keep it — downstream `/orq-agent:deploy` + `/orq-agent:test` rely on it for context |
+
+## Open in orq.ai
+
+- **Agent Studio:** https://my.orq.ai/agents
+- **Prompts:** https://my.orq.ai/prompts
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.
