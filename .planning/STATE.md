@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: Wave 1 green; ready to proceed with Plan 02
+status: executing
 stopped_at: Completed 35-04-PLAN.md
-last_updated: "2026-04-20T15:23:18.060Z"
-last_activity: "2026-04-20 — Phase 35 Plan 01 complete: snapshot-pinned-models lint rule added to lint-skills.sh (MSEL-02 enforcement live, 2 fixtures proving both exit paths, full suite + protected pipelines still green)"
+last_updated: "2026-04-20T15:24:25.512Z"
+last_activity: "2026-04-20 — Phase 35 Plan 02 complete: researcher.md Model Selection Policy section inserted (capable-first ordering, after-quality-baseline-run budget tag, cascade-candidate flag, quality-equivalence experiment gate; 4 grep-anchored verbatim phrases present; full-suite lint + protected pipelines still green)"
 progress:
   total_phases: 10
   completed_phases: 1
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 35 - Model Selection Discipline (IN PROGRESS)
-Plan: 02 complete — Wave 2 researcher capable-first + cascade-aware policy shipped; Wave 2 sibling plans (03 spec-generator, 04 catalog) running in parallel; Plan 05 verification sweep remains
-Status: Wave 2 in progress — MSEL-01 + MSEL-03 requirements marked complete via Plan 02
-Last activity: 2026-04-20 — Phase 35 Plan 02 complete: researcher.md Model Selection Policy section inserted (capable-first ordering, after-quality-baseline-run budget tag, cascade-candidate flag, quality-equivalence experiment gate; 4 grep-anchored verbatim phrases present; full-suite lint + protected pipelines still green)
+Plan: 04 complete — Capable Tier Lookup seeded in orqai-model-catalog.md; Wave 2 nearing completion (02, 03, 04 of 5 done); Plan 05 verification sweep remains
+Status: Wave 2 green — MSEL-01 reinforced by catalog seed table; full-suite lint + protected pipelines still green on catalog edit
+Last activity: 2026-04-20 — Phase 35 Plan 04 complete: ## Capable Tier Lookup H2 inserted into orqai-model-catalog.md (4 task categories x dated-snapshot primaries, MSEL-01/02 audit comments, existing FORMAT REFERENCE ONLY WARNING preserved verbatim)
 
-Progress: V3.0 Phase 34 COMPLETE. Phase 35 Plans 01 + 02 COMPLETE (MSEL-02 lint mechanical + MSEL-01/03 researcher policy). Remaining Phase 35 plans: 03 spec-generator policy (Wave 2, parallel), 04 capable-tier table (Wave 2, parallel), 05 verification sweep.
+Progress: V3.0 Phase 34 COMPLETE. Phase 35 Plans 01 + 02 + 03 + 04 COMPLETE. Remaining Phase 35 plan: 05 verification sweep.
 
 ## Performance Metrics
 
@@ -117,7 +117,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T15:23:18.056Z
+Last session: 2026-04-20T15:24:25.508Z
 Stopped at: Completed 35-04-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
