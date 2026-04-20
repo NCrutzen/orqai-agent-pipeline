@@ -9,9 +9,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json().catch(() => null);
+  const rawText = await request.text().catch(() => "");
+  console.log("[smeba/write-analysis] raw body:", rawText.slice(0, 500));
+  let body: any = null;
+  try { body = JSON.parse(rawText); } catch {}
   if (!body?.email_id) {
-    return NextResponse.json({ error: "Missing email_id" }, { status: 400 });
+    console.log("[smeba/write-analysis] missing email_id, body keys:", body ? Object.keys(body) : "null");
+    return NextResponse.json({ error: "Missing email_id", received: body }, { status: 400 });
   }
 
   const supabase = createAdminClient();
