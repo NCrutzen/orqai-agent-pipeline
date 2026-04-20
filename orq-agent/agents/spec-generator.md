@@ -320,7 +320,62 @@ This is only 35 words. It has no XML structure, no heuristic task handling, no c
 
 Use `provider/model-name` format. Use the research brief's primary model recommendation. Validate that the model ID exists by calling the `models-list` MCP tool to get the current list of enabled models in the workspace. If the recommended model is not in the live list, flag it as a warning and suggest the closest available alternative from the live list. If MCP is unavailable, flag the model validation as SKIPPED and note "MCP required for model validation" — do not fall back to the static catalog.
 
-Examples of valid format: `anthropic/claude-sonnet-4-5`, `openai/gpt-4o`, `google-ai/gemini-2.5-pro`
+Examples of valid format: `anthropic/claude-sonnet-4-5-20250929`, `openai/gpt-4o-2024-11-20`, `google-ai/gemini-2.5-pro` (use `models-list` MCP tool to get current dated snapshots).
+
+#### Snapshot Pinning Rule (MSEL-02)
+
+Every `model:` field you emit MUST pin to a dated snapshot (or an equivalently stable, non-floating identifier). This is the spec-generator's most critical single-rule responsibility for model hygiene — researcher.md picks WHICH model, spec-generator.md guarantees it is snapshot-pinned.
+
+**Rule:** A model ID is snapshot-pinned if its final suffix is NOT one of `-latest`, `:latest`, `-beta`. Use this regex to self-check every emitted `model:` line before finalizing the spec:
+
+```bash
+# regex reject: any model: line ending with a floating alias
+model:[[:space:]]*[^[:space:]]+(-latest|:latest|-beta)[[:space:]]*$
+```
+
+This regex is identical to the `snapshot-pinned-models` rule in `orq-agent/scripts/lint-skills.sh`. Enforcing it at emission time (inside this subagent's self-check) AND at review time (lint) gives two independent guards against floating-alias regressions.
+
+**Self-check before emitting:**
+
+1. Draft the spec as usual, filling in `model: <recommended-from-research-brief>`.
+2. Before writing the final output, run the regex mentally (or literally, if you are using tools) against every `model:` line in your draft.
+3. If any line matches the regex, REWRITE that line with a dated snapshot equivalent. Use the MCP `models-list` tool to find the current dated snapshot ID for the provider+model family (e.g., `anthropic/claude-sonnet-4-5` → `anthropic/claude-sonnet-4-5-20250929`).
+4. Only after zero matches does the spec pass self-check.
+
+**Embedding/speech alias exception:**
+
+Some Orq.ai embedding models and speech models are exposed ONLY as aliases — the platform does not publish dated snapshots for them. For these legitimate alias-only cases, emit the alias and append an inline YAML comment with the EXACT shape `# alias-only -- pinning unavailable <YYYY-MM-DD>`, where `<YYYY-MM-DD>` is the date you verified via `models-list` that no dated snapshot existed:
+
+```yaml
+model: some-provider/some-embedding-model  # alias-only -- pinning unavailable 2026-04-20
+```
+
+This exception applies to embedding + speech models ONLY. Chat, tool-calling, code, and vision models ALWAYS have dated snapshots available; there is no alias-only exception path for those categories.
+
+#### Cascade Block Emission (MSEL-03)
+
+When the research brief's Model Recommendation carries `cascade-candidate: true`, do NOT collapse it into a single `model:` line. Instead, emit a full Cascade block in the agent spec's `## Model` section. The block includes the cheap primary, the capable escalation target, the trigger condition, and the quality-equivalence experiment instructions verbatim from the research brief.
+
+**Cascade block template** (render into the generated spec when `cascade-candidate: true`):
+
+```yaml
+# Model configuration -- cascade pattern per Phase 35 MSEL-03
+# cascade-candidate: true
+# approved: false  -- flips true after the quality-equivalence experiment (Phase 42 runtime)
+model:
+  primary_cheap: provider/cheap-model-DATED-SNAPSHOT
+  escalation_capable: provider/capable-model-DATED-SNAPSHOT
+  trigger: "escalate when cheap-tier confidence < 0.7"
+  quality_equivalence_experiment:
+    dataset: "{{swarm_test_dataset_id}}"
+    evaluator_suite: "{{swarm_evaluator_set}}"
+    tolerance_percentage_points: 5
+    rule: "cascade approved only if (capable_pass_rate - cheap_pass_rate) <= tolerance"
+```
+
+The `DATED-SNAPSHOT` placeholders above MUST be replaced with real dated snapshots from the research brief at generation time — they are literal markers that trigger the Snapshot Pinning Rule self-check above.
+
+When `cascade-candidate: false` (the default for normal use cases), emit a single `model: provider/capable-model-DATED-SNAPSHOT` line and populate `fallback_models:` from the research brief's Alternatives list (skip alternatives tagged `after quality baseline run` — those are cost-tier downgrades the user has not opted into yet; they belong in the research brief's audit trail, not in the production spec).
 
 ### Response Format
 
@@ -599,6 +654,7 @@ Before producing your final output, verify ALL of the following. Do NOT skip thi
 
 - [ ] Agent key follows `[domain]-[role]-agent` kebab-case pattern
 - [ ] Model uses `provider/model-name` format and is confirmed available via MCP models-list (or flagged as SKIPPED if MCP unavailable)
+- [ ] Every `model:` line passes the `regex reject: (-latest|:latest|-beta)$` self-check (MSEL-02 snapshot-pinned). Embedding/speech alias-only exceptions carry the comment `# alias-only -- pinning unavailable <YYYY-MM-DD>`.
 - [ ] Fallback models are from different providers than primary
 - [ ] Fallback models list has at least 2 entries
 - [ ] All tool types are valid Orq.ai types from the reference (15 types only)
@@ -896,7 +952,7 @@ End of example. Match this level of completeness for every agent you generate.
 
 ## Constraints
 
-- **NEVER** use floating model aliases (`claude-sonnet-4-5`) — pin to snapshot (`claude-sonnet-4-5-20250929`) per Phase 35 MSEL-02.
+- **NEVER** use floating model aliases (`claude-sonnet-4-5`) — pin to snapshot (`claude-sonnet-4-5-20250929`) per Phase 35 MSEL-02. See `#### Snapshot Pinning Rule (MSEL-02)` subsection in `### Model` above for the self-check regex and the `alias-only -- pinning unavailable <date>` embedding/speech exception shape.
 - **NEVER** reference tools not in `orq-agent/references/tool-catalog.md`.
 - **ALWAYS** emit the full Orq.ai Agent schema (key, description, instructions, model, tools, memory, deployment variants).
 - **ALWAYS** cross-reference `orq-agent/references/orqai-agent-fields.md` for every field.
