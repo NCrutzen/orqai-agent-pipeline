@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: Phase 35 mechanically closed — 35-05-VERIFICATION.md captures full-suite green evidence (5 rules × 33 files), snapshot-pinned-models fixture contract (positive exit 0 + negative exit 1 intentional), protected-pipelines SHA-256 3/3 matches, 16/16 MSEL phrase anchors present; MSEL-01/02/03 complete; manual LLM smokes deferred to /gsd:verify-work 35
+status: verifying
 stopped_at: Completed 35-05-PLAN.md — Phase 35 closed
-last_updated: "2026-04-20T15:31:12.649Z"
-last_activity: "2026-04-20 — Phase 35 Plan 05 complete: full verification sweep executed and captured in 35-05-VERIFICATION.md with 3-row MSEL-{01,02,03} traceability + 4-row ROADMAP success-criteria checklist; all 9 exit codes as expected (6+ exit 0, 1 intentional exit 1 on negative fixture); Phase 35 mechanically COMPLETE"
+last_updated: "2026-04-20T15:41:07.141Z"
+last_activity: "2026-04-20 — Phase 35 Plan 05 complete: full-suite verification sweep executed and 35-05-VERIFICATION.md produced as /gsd:verify-work evidence trail; all gates green, Phase 35 mechanically COMPLETE"
 progress:
   total_phases: 10
   completed_phases: 2
