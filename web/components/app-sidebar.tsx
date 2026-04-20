@@ -8,6 +8,7 @@ import {
   Play,
   Settings,
   LogOut,
+  Clock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -35,6 +36,7 @@ const navItems = [
   { title: "Executive", href: "/executive", icon: BarChart3 },
   { title: "Projects", href: "/", icon: FolderOpen },
   { title: "Creations", href: "/runs", icon: Play },
+  { title: "Rijtijden", href: "/rijtijden", icon: Clock },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 

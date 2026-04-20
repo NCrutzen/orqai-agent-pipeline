@@ -8,6 +8,7 @@ import { processProliusReport } from "@/lib/inngest/functions/prolius-report";
 import { aggregateDashboard } from "@/lib/inngest/functions/dashboard-aggregator";
 import { processUrenControle } from "@/lib/inngest/functions/uren-controle-process";
 import { syncOrqaiTraces } from "@/lib/inngest/functions/orqai-trace-sync";
+import { processHeerenOefening } from "@/lib/inngest/functions/heeren-oefeningen";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -20,5 +21,6 @@ export const { GET, POST, PUT } = serve({
     aggregateDashboard,
     processUrenControle,
     syncOrqaiTraces,
+    processHeerenOefening,
   ],
 });

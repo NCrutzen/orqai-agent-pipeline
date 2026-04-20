@@ -99,6 +99,18 @@ export type Events = {
     };
   };
 
+  // Heeren Oefeningen facturatie automation
+  "automation/heeren-oefeningen.triggered": {
+    data: {
+      triggeredBy: string;
+      billingOrderCode: string;
+      billingOrderId: string;
+      billingOrderLineId: string;
+      billingItemId: string;
+      courseId: string;
+    };
+  };
+
   // Dashboard aggregation events (Phase 45)
   "dashboard/aggregate.completed": {
     data: {
