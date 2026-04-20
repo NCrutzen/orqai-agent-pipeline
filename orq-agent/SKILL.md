@@ -67,6 +67,12 @@ orq-agent/
     iterate.md                   # Phase 5: Prompt iteration (requires full tier)
     harden.md                    # Phase 9: Guardrails and quality gates (requires full tier)
     set-profile.md               # Phase 5: Model profile management
+    workspace.md                 # Phase 36: Single-screen workspace overview (LCMD-01)
+    traces.md                    # Phase 36: Production traces query (LCMD-02)
+    analytics.md                 # Phase 36: Analytics summary (LCMD-03)
+    models.md                    # Phase 36: Model Garden lookup (LCMD-04)
+    quickstart.md                # Phase 36: 12-step onboarding tour (LCMD-05 + LCMD-07)
+    automations.md               # Phase 36: Trace Automations list + create (LCMD-06)
   agents/
     architect.md                 # Phase 1: Architect subagent
     tool-resolver.md             # Phase 4.2: Tool resolver subagent
@@ -143,6 +149,17 @@ Agents/[swarm-name]/
 | `/orq-agent:harden` | `commands/harden.md` | full | Set up guardrails and quality gates from test results |
 | `/orq-agent:set-profile` | `commands/set-profile.md` | any | View or change model profile (quality/balanced/budget) |
 | `/orq-agent:systems` | `commands/systems.md` | any | Manage IT systems registry (list, add, remove) |
+
+### Phase 36 (Lifecycle Slash Commands)
+
+| Command | File | Tier Required | Purpose |
+|---------|------|---------------|---------|
+| `/orq-agent:workspace` | `commands/workspace.md` | any | Single-screen Orq.ai workspace overview -- agents / deployments / prompts / datasets / experiments / projects / KBs / evaluators + analytics summary |
+| `/orq-agent:traces` | `commands/traces.md` | any | Query production traces; errors first; supports `--deployment / --status / --last / --limit` + `--identity` stub (Phase 37) |
+| `/orq-agent:analytics` | `commands/analytics.md` | any | Requests / cost / tokens / error-rate summary with `--last` and `--group-by model\|deployment\|agent\|status` |
+| `/orq-agent:models` | `commands/models.md` | any | List Model Garden models grouped by provider × type (chat / embedding / image / rerank / speech / completion) |
+| `/orq-agent:quickstart` | `commands/quickstart.md` | any | 12-step interactive onboarding tour covering the full Build → Evaluate → Optimize lifecycle |
+| `/orq-agent:automations` | `commands/automations.md` | any | List / create Orq.ai Trace Automation rules (auto-kick-off experiments on matching traces) |
 
 **Invocation:** `/orq-agent "description"` | `/orq-agent` (interactive) | `--gsd` flag | `--output <path>`
 

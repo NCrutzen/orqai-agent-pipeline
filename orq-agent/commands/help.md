@@ -80,6 +80,12 @@ Commands:
   /orq-agent:set-profile       Switch model profile
   /orq-agent:systems           Manage IT systems registry
   /orq-agent:update            Check for and install updates
+  /orq-agent:workspace         Single-screen workspace overview
+  /orq-agent:traces            Query production traces (errors first)
+  /orq-agent:analytics         Requests/cost/tokens/error-rate summary
+  /orq-agent:models            List Model Garden models by provider & type
+  /orq-agent:quickstart        12-step onboarding tour
+  /orq-agent:automations       Trace Automation rules (list / --create)
   /orq-agent:help              Show this help
 
 Usage examples:
