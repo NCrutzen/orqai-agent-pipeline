@@ -894,6 +894,55 @@ Conversation history: {{conversation_history}}
 
 End of example. Match this level of completeness for every agent you generate.
 
+## Constraints
+
+- **NEVER** use floating model aliases (`claude-sonnet-4-5`) — pin to snapshot (`claude-sonnet-4-5-20250929`) per Phase 35 MSEL-02.
+- **NEVER** reference tools not in `orq-agent/references/tool-catalog.md`.
+- **ALWAYS** emit the full Orq.ai Agent schema (key, description, instructions, model, tools, memory, deployment variants).
+- **ALWAYS** cross-reference `orq-agent/references/orqai-agent-fields.md` for every field.
+
+**Why these constraints:** Incomplete specs fail at deploy-time; floating aliases silently upgrade; non-catalog tools fail with opaque MCP errors.
+
+## When to use
+
+- After `architect` produces a blueprint and `researcher` produces a research brief for ONE agent.
+- `/orq-agent:prompt` fast-path spawns spec-generator as its only subagent.
+- `/orq-agent` full pipeline invokes spec-generator per agent after research is complete.
+
+## When NOT to use
+
+- User wants a full swarm topology decision → use `architect` first.
+- User wants tool research only → use `tool-resolver` instead.
+- Spec file already exists and user wants targeted prompt edits → use `prompt-editor` instead.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `architect` — receives blueprint with agent keys, roles, model recommendations, tool lists, KB classification
+- ← `tool-resolver` — receives TOOLS.md (authoritative tool landscape and per-agent assignments)
+- ← `researcher` — receives research-brief.md with domain-specific prompt strategy, context needs, evaluator recommendations
+- → `orchestration-generator` — consumes generated specs for multi-agent orchestration
+- → `dataset-generator` — consumes generated specs for per-agent test datasets
+- → `readme-generator` — consumes generated specs for user-facing README
+- → `kb-generator` — consumes generated specs when agent has KB classified in blueprint
+- ← `/orq-agent:prompt` — this command's only subagent
+
+## Done When
+
+- [ ] One agent spec file written at `{OUTPUT_DIR}/[swarm-name]/agents/[agent-key].md`
+- [ ] Every field in the agent-spec template is filled or explicitly marked "Not applicable for this agent"
+- [ ] Instructions field is 500+ words with XML-tagged structure (`<instructions>`, `<task_handling>`, `<constraints>`, `<output_format>`, `<context_management>`, `<examples>`)
+- [ ] At least 2 examples in `<example>` tags with `<input>` and `<output>` pairs
+- [ ] Model uses `provider/model-name` format validated against MCP models-list (or flagged SKIPPED if MCP unavailable)
+- [ ] At least 2 fallback models from providers different from the primary
+- [ ] Response format uses `json_schema` with `strict: true` (never `json_object`) when agent produces structured output
+- [ ] Runtime constraints set with specific numeric values (not ranges)
+
+## Destructive Actions
+
+Creates agent spec files under `{OUTPUT_DIR}/[swarm-name]/agents/*.md`. **AskUserQuestion confirm required before** overwriting existing spec files.
+
 ## Anti-Patterns to Avoid
 
 **Orq.ai format rules** (keep as explicit rules -- these are structural requirements):
@@ -914,3 +963,17 @@ End of example. Match this level of completeness for every agent you generate.
 - Every agent must have a `<context_management>` section.
 - Do NOT use `json_object` for response_format -- always use `json_schema` with `strict: true`. The `json_object` type causes hallucinated field names and missing required fields.
 - Do NOT rely on the LLM for numeric calculations -- always use code tools for math. LLMs produce incorrect arithmetic, percentages, and totals. Use the portionOptimizer pattern: LLM for selection/reasoning, code tool for computation.
+
+## Open in orq.ai
+
+- **Agent Studio:** https://my.orq.ai/agents
+- **Prompts:** https://my.orq.ai/prompts
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

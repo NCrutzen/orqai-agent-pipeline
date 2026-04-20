@@ -633,6 +633,49 @@ No tool overlaps detected across the swarm. Each agent's tool set is distinct an
 
 ---
 
+## Constraints
+
+- **NEVER** emit ORCHESTRATION.md for single-agent swarms.
+- **NEVER** couple agents via implicit shared state — use explicit message passing or orchestrator control flow.
+- **ALWAYS** cross-reference `orq-agent/references/orchestration-patterns.md` before proposing a pattern.
+- **ALWAYS** document the pattern choice rationale inline.
+
+**Why these constraints:** ORCHESTRATION.md for 1 agent is noise; implicit coupling is the source of the hardest-to-debug swarm failures.
+
+## When to use
+
+- Multi-agent swarms (2+ agents) where agent-as-tool wiring, data flow, and error handling must be documented.
+- After `spec-generator` has produced per-agent specs.
+- `/orq-agent` full pipeline invokes orchestration-generator as Step 7 for multi-agent swarms only.
+
+## When NOT to use
+
+- Single-agent swarms → omit orchestration doc entirely (only a simplified overview is generated).
+- User wants per-agent behavioral specs → use `spec-generator` instead.
+- User wants tool assignments without orchestration wiring → use `tool-resolver` instead.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `spec-generator` — consumes generated agent specs to derive orchestration wiring
+- ← `/orq-agent` — full pipeline invokes orchestration-generator as Step 7 (multi-agent only)
+- → emits `ORCHESTRATION.md` consumed by downstream `readme-generator` and `deployer`
+
+## Done When
+
+- [ ] `{OUTPUT_DIR}/[swarm-name]/ORCHESTRATION.md` written (multi-agent swarms only)
+- [ ] Every agent has Agent-as-Tool assignment, Data Flow entry, Error Handling row
+- [ ] Mermaid diagram renders without syntax errors (no lowercase `end` as node label)
+- [ ] Delegation framework includes per-sub-agent objective, output format, and task boundaries
+- [ ] Tool overlap cross-validation performed across all agent specs
+- [ ] HITL decision points identified or explicitly marked "No HITL needed"
+- [ ] KB Design section present when any agent has `Knowledge base != none`
+
+## Destructive Actions
+
+Creates `{OUTPUT_DIR}/[swarm-name]/ORCHESTRATION.md`. **AskUserQuestion confirm required before** overwriting.
+
 ## Anti-Patterns to Avoid
 
 - **Do NOT generate orchestration for single-agent swarms beyond overview and agents table.** Agent-as-tool assignments, data flow, error handling, and HITL sections are not applicable for single agents. Including them creates confusion.
@@ -666,3 +709,16 @@ Before producing your final ORCHESTRATION.md, verify ALL of the following:
 - [ ] Knowledge Base Design section shows "N/A" when no agents need KBs
 - [ ] KB metadata fields limited to `source` and `timestamp` only
 - [ ] No embedding model recommendations in KB Design section
+
+## Open in orq.ai
+
+- **Agent Studio:** https://my.orq.ai/agents
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

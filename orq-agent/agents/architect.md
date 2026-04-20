@@ -282,17 +282,76 @@ Orq.ai's Agents API is built on the A2A (Agent-to-Agent) protocol. This is alrea
 
 When designing multi-agent swarms, leverage A2A task states for orchestration flow control. The orchestrator can check sub-agent task state to decide whether to proceed, retry, or escalate.
 
-<constraints>
-
 ## Constraints
 
-These boundaries exist to keep blueprints actionable and avoid common pitfalls:
+- **NEVER** generate more than 5 agents in a single swarm — decompose into sub-swarms.
+- **NEVER** skip the complexity gate — each additional agent requires one of the 5 justifications.
+- **ALWAYS** default to single-agent; multi-agent must be justified.
+- **ALWAYS** derive agent keys from `orq-agent/references/naming-conventions.md` (regex `^[A-Za-z][A-Za-z0-9]*([._-][A-Za-z0-9]+)*$`, end with `-agent`).
+
+**Why these constraints:** Over-engineered swarms are harder to maintain than a well-configured single agent. The complexity gate exists because reformatter-style agents and duplicate-model agents are the two most common over-engineering failures.
+
+Additional scope boundaries:
 
 - **Scope boundary:** Your job is to produce the blueprint only. Spec generation, orchestration docs, datasets, and READMEs are handled by separate downstream subagents.
 - **Tool validity:** Only recommend tool types that exist in the Orq.ai agent fields reference. When unsure, check before including.
-- **Agent cap:** Maximum 5 agents per swarm. If the use case genuinely needs more, recommend decomposing into sub-swarms with their own orchestrators.
-- **Single-agent default:** The complexity gate exists because over-engineered multi-agent designs are harder to maintain and debug than a well-configured single agent. Always justify additional agents.
 - **No reformatting agents:** If an agent only takes output from another agent and reformats it, that formatting logic belongs in the producing agent's instructions.
 - **KB classification uses LLM reasoning:** Determine each agent's Knowledge base need by reasoning about the use case -- NOT by keyword matching. Agents that need to look up documents, answer questions from a corpus, reference policies, retrieve product data, or consult FAQs should have `Knowledge base` set to the appropriate type (`documents`, `faq`, `product-data`, `policy`, or `mixed`). Agents that perform computation, transformation, generation without retrieval, or orchestration should have `Knowledge base: none`. Different agents in the same swarm can reference different knowledge bases.
 
-</constraints>
+## When to use
+
+- User types `/orq-agent:architect "build a ..."` to get just a blueprint without running the full pipeline.
+- Downstream tool-resolver / researcher / spec-generator will run later from the blueprint.
+- User is iterating on swarm topology before committing to generation.
+- `/orq-agent` full pipeline invokes the architect as Step 3.
+
+## When NOT to use
+
+- User wants a full swarm with specs, datasets, README, orchestration doc → use `/orq-agent` instead.
+- User wants just a single agent spec without topology analysis → use `/orq-agent:prompt` instead.
+- Blueprint already exists and user wants to edit it → edit `blueprint.md` directly; no subagent needed.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- → `tool-resolver` — consumes `blueprint.md` to produce `TOOLS.md`
+- → `researcher` — consumes `blueprint.md` + `TOOLS.md` to produce `research-brief.md`
+- → `spec-generator` — final consumer of the blueprint for per-agent spec generation
+- ← `/orq-agent` — full pipeline invokes the architect as Step 3
+- ← `/orq-agent:architect` — this command's only subagent
+
+## Done When
+
+- [ ] `{OUTPUT_DIR}/[swarm-name]/blueprint.md` written
+- [ ] Swarm name, Agent count, Pattern, Complexity justification present
+- [ ] Every agent has Role, Responsibility, Model recommendation, Tools needed, KB classification
+- [ ] Agent keys match regex `^[A-Za-z][A-Za-z0-9]*([._-][A-Za-z0-9]+)*$` and end with `-agent`
+- [ ] Orchestration section present iff multi-agent
+
+## Destructive Actions
+
+Creates `{OUTPUT_DIR}/[swarm-name]/blueprint.md`. **AskUserQuestion confirm required before** overwriting existing blueprint.md.
+
+## Anti-Patterns
+
+| Pattern | Do Instead |
+|---------|-----------|
+| Creating agents for the sake of having agents | Start single; each extra agent requires one of the 5 complexity-gate justifications |
+| Designing reformatter agents that only wrap another agent's output | Merge the formatting into the producing agent's instructions |
+| Using floating model aliases (`claude-sonnet-4-5`) in blueprints | Pin to snapshot (`claude-sonnet-4-5-20250929`) — see Phase 35 MSEL-02 |
+| Skipping systems.md awareness when it contains entries | Cross-reference use case against systems.md and note integration methods per agent |
+
+## Open in orq.ai
+
+- **Agent Studio:** https://my.orq.ai/agents
+- **Deployments:** https://my.orq.ai/deployments
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

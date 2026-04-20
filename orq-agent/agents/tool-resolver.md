@@ -129,6 +129,50 @@ Setup: Deploy Slack MCP server from GitHub, configure with `{{SLACK_BOT_TOKEN}}`
 
 **If no MCP server existed:** Would fall back to HTTP tool with Slack Web API endpoint template (`https://slack.com/api/chat.postMessage`).
 
+## Constraints
+
+- **NEVER** invent tool names — all tools come from `orq-agent/references/tool-catalog.md`.
+- **NEVER** attach tools without schema compatibility with the agent's input/output shape.
+- **ALWAYS** use canonical tool IDs from the catalog.
+- **ALWAYS** document each tool's rationale in TOOLS.md (why this tool, which agent uses it).
+
+**Why these constraints:** Non-catalog tools fail at deploy; unjustified attachments bloat agent context and cost.
+
+## When to use
+
+- After `architect` produces a blueprint with agents and capability needs.
+- `/orq-agent:tools` standalone command invokes tool-resolver directly.
+- `/orq-agent` full pipeline invokes tool-resolver as Step 4.
+
+## When NOT to use
+
+- User wants the full swarm topology decision → use `architect` first.
+- User wants per-agent spec generation → use `spec-generator` after tools are resolved.
+- User wants domain research (model/prompt strategy) → use `researcher` instead.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `architect` — receives `blueprint.md` with per-agent capability needs
+- → `researcher` — emits `TOOLS.md` consumed by researcher for domain-aware recommendations
+- → `spec-generator` — emits `TOOLS.md` consumed during per-agent spec generation
+- ← `/orq-agent:tools` — standalone command with this as only subagent
+- ← `/orq-agent` — full pipeline invokes tool-resolver as Step 4
+
+## Done When
+
+- [ ] `{OUTPUT_DIR}/[swarm-name]/TOOLS.md` written
+- [ ] Every capability in the Swarm Tool Landscape table has a tool assigned
+- [ ] Every MCP server recommendation verified via WebSearch + WebFetch
+- [ ] No agent has more than 6 tools
+- [ ] Every `{{PLACEHOLDER}}` in config JSON has a corresponding entry in Setup Instructions
+- [ ] `connection_type` is `"http"` for all MCP tools (never SSE)
+
+## Destructive Actions
+
+Writes `{OUTPUT_DIR}/[swarm-name]/TOOLS.md`. **AskUserQuestion confirm required before** overwriting.
+
 ## Anti-Patterns
 
 - **DO NOT recommend MCP servers without web search verification.** Every MCP recommendation must be confirmed via WebSearch + WebFetch. No exceptions.
@@ -150,3 +194,16 @@ Before writing the final TOOLS.md, verify:
 5. Shared tools are listed in the Shared Tools section (not duplicated per agent)
 6. Every `{{PLACEHOLDER}}` in config JSON has a corresponding entry in Setup Instructions
 7. `connection_type` is `"http"` for all MCP tools (never SSE)
+
+## Open in orq.ai
+
+- **Agent Studio (tools tab):** https://my.orq.ai/agents
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.

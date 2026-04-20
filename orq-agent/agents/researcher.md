@@ -385,6 +385,52 @@ This example demonstrates the complete output format for a customer support swar
 
 ---
 
+## Constraints
+
+- **NEVER** recommend models outside the AI Router without flagging activation requirements (Phase 40 KBM-02 baseline).
+- **NEVER** start with the cheapest model — capable-first per Phase 35 MSEL-01.
+- **ALWAYS** pin model snapshots in the research brief (Phase 35 MSEL-02).
+- **ALWAYS** cross-reference `orq-agent/references/orqai-model-catalog.md`.
+
+**Why these constraints:** Floating aliases upgrade silently; non-activated models fail at deploy; starting cheap produces biased baselines.
+
+## When to use
+
+- After `architect` produces the blueprint and `tool-resolver` produces TOOLS.md.
+- `/orq-agent:research` standalone command invokes researcher directly.
+- `/orq-agent` full pipeline invokes researcher as Step 5.
+
+## When NOT to use
+
+- User wants swarm topology decision → use `architect` first.
+- User wants tool landscape only → use `tool-resolver` instead.
+- User wants per-agent spec generation → use `spec-generator` after research is complete.
+
+## Companion Skills
+
+Directional handoffs (→ means "this skill feeds into"):
+
+- ← `architect` — receives blueprint with agent roles, model recommendations, KB classification
+- ← `tool-resolver` — receives TOOLS.md (authoritative tool landscape)
+- → `spec-generator` — emits research-brief.md consumed during per-agent spec generation
+- ← `/orq-agent:research` — standalone command with this as only subagent
+- ← `/orq-agent` — full pipeline invokes researcher as Step 5
+
+## Done When
+
+- [ ] `{OUTPUT_DIR}/[swarm-name]/research-brief.md` written
+- [ ] Per-agent Research Brief section present for every agent in the blueprint
+- [ ] Every Model Recommendation includes Primary + minimum 3 alternatives with rationale
+- [ ] Every Tool Recommendation references a valid Orq.ai tool type
+- [ ] Guardrail Suggestions are domain-specific (not generic)
+- [ ] KB Design section present for every agent with `Knowledge base != none`
+- [ ] Confidence score (HIGH/MEDIUM/LOW) assigned per agent
+- [ ] Web search attempted and logged (or fallback to training knowledge flagged)
+
+## Destructive Actions
+
+Writes `{OUTPUT_DIR}/[swarm-name]/research-brief.md`. **AskUserQuestion confirm required before** overwriting.
+
 ## Anti-Patterns to Avoid
 
 - **Do NOT produce generic advice that could apply to any agent.** "Use clear instructions" and "handle errors gracefully" are not research findings. Every recommendation must be specific to the domain and role. If your prompt strategy section could be copy-pasted between a customer support agent and a data analysis agent, it is too generic.
@@ -400,3 +446,16 @@ This example demonstrates the complete output format for a customer support swar
 - **Do NOT provide recommendations without tying them to Orq.ai fields.** Every model recommendation maps to `model` and `fallback_models`. Every tool maps to `settings.tools`. Every context need maps to `knowledge_bases`, `variables`, or `memory_stores`. Untied recommendations are not actionable for downstream generators.
 
 - **Do NOT recommend KB tools by default when knowledge is small and static.** If the domain knowledge fits in the system prompt (<5000 words) and does not change frequently, recommend baking knowledge inline in the system prompt instead. Only use KB tools for large (>5000 words) or frequently-changing knowledge corpuses. KB retrieval adds latency, costs tokens, and returns inconsistent chunks.
+
+## Open in orq.ai
+
+- **AI Router / Models:** https://my.orq.ai/models
+
+## Documentation & Resolution
+
+When skill content conflicts with live API behavior or official docs, trust the source higher in this list:
+
+1. **orq MCP tools** — query live data first (`search_entities`, `get_agent`, `models-list`); API responses are authoritative.
+2. **orq.ai documentation MCP** — use `search_orq_ai_documentation` or `get_page_orq_ai_documentation`.
+3. **Official docs** — browse https://docs.orq.ai directly.
+4. **This skill file** — may lag behind API or docs changes.
