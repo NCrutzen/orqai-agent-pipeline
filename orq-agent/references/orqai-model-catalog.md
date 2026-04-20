@@ -80,6 +80,39 @@ For tasks involving images, screenshots, or visual content.
 | `google-ai/gemini-2.5-flash` | Fast multimodal processing |
 | `anthropic/claude-sonnet-4-5` | Strong visual reasoning |
 
+## Capable Tier Lookup
+
+<!-- Phase 35 MSEL-01: capable-first seed table for researcher.md §Model Selection Policy. -->
+<!-- This is a STATIC SEED. Live model availability MUST be validated via MCP `models-list` -->
+<!-- before any spec is deployed. See the WARNING at the top of this file. -->
+
+Researcher starts every Model Recommendation with the capable-tier primary for the task category. Use this table as the default lookup; override via `--model` flag, discussion input, or MCP `models-list` output when the listed snapshot is not enabled in the user's workspace.
+
+| Task category | Capable-tier Primary (illustrative; validate via MCP `models-list`) | Alternative Primary (same tier, different provider) |
+|---|---|---|
+| Chat-heavy / conversational | `anthropic/claude-sonnet-4-5-20250929` | `openai/gpt-4o-2024-11-20` |
+| Tool-calling / agentic | `anthropic/claude-sonnet-4-5-20250929` | `openai/gpt-4o-2024-11-20` |
+| Code / RAG synthesis | `anthropic/claude-opus-4-20250514` | `openai/gpt-4o-2024-11-20` |
+| Fast triage (NOT a default — only cascade cheap tier) | `anthropic/claude-haiku-4-5-20251001` | `google-ai/gemini-2-5-flash` |
+
+**Why these IDs are dated snapshots:** Phase 35 MSEL-02 (snapshot-pinning) requires every emitted `model:` field to pin to a dated snapshot. The lookup table therefore seeds dated snapshots; floating aliases (`claude-sonnet-4-5`, `gpt-4o`) appear elsewhere in this file ONLY as provider/format-pattern examples, NOT as recommendations.
+
+**How to use the table:**
+
+1. Read the agent's role from the architect blueprint.
+2. Map the role to one of the four task categories above (Chat-heavy, Tool-calling, Code/RAG, Fast triage).
+3. Pick the Capable-tier Primary as your recommendation starting point.
+4. Call MCP `models-list` to confirm the dated snapshot is enabled in the workspace.
+   - If enabled → use it as Primary.
+   - If not enabled → use the Alternative Primary column; if that is also not enabled, pick the closest capable-tier option from the MCP output and flag `Confidence: MEDIUM — capable-tier substitute applied`.
+5. NEVER substitute a Fast-triage model as the Primary unless the discussion explicitly requested a cost cascade (see researcher.md §Cascade Pattern for when Fast triage is a legitimate choice).
+
+**Relationship to this file's other sections:**
+
+- `## Recommended Models by Use Case` (above) is a broader listing of options by strength.
+- `## Capable Tier Lookup` (this section) is the prescriptive subset enforcing MSEL-01 capable-first ordering.
+- `## Fallback Model Strategy` (below) handles the `fallback_models` array shape; use the Alternative Primary column from this table as the first fallback entry when the Primary is chosen.
+
 ## How to Choose
 
 1. **Start with task complexity.** Simple classification does not need a reasoning model. Complex analysis does not belong on a fast/cheap model.
