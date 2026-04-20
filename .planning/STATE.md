@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: "Phase 34 in progress - Plan 03 complete (17 subagent files migrated to SKST)"
-stopped_at: Completed 34-03-PLAN.md
-last_updated: "2026-04-20T14:35:21.135Z"
-last_activity: "2026-04-20 — Plan 03 complete: 9 SKST sections applied to all 17 subagent files; AskUserQuestion gates wired per Destructive Action Inventory"
+status: "Phase 34 in progress - Plan 04 complete (SKILL.md migrated to SKST with allowed-tools + Resources Policy)"
+stopped_at: Completed 34-04-PLAN.md
+last_updated: "2026-04-20T14:42:03.205Z"
+last_activity: "2026-04-20 — Plan 04 complete: SKILL.md gains 9 SKST sections + allowed-tools frontmatter + Resources Policy subsection pinned to references-multi-consumer lint rule"
 progress:
   total_phases: 10
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 34 - Skill Structure & Format Foundation (in progress)
-Plan: 03 complete (3 of 5) — 17 subagent files migrated to SKST
-Status: Ready for Plan 04 (SKILL.md + references convention note in Wave 2)
-Last activity: 2026-04-20 — Plan 03 complete: 9 SKST sections applied to all 17 subagent files; AskUserQuestion gates wired per Destructive Action Inventory
+Plan: 04 complete (4 of 5) — orq-agent/SKILL.md now conforms to SKST (allowed-tools + 9 sections + Resources Policy)
+Status: Ready for Plan 05 (final verification sweep)
+Last activity: 2026-04-20 — Plan 04 complete: SKILL.md gains 9 SKST sections + allowed-tools frontmatter + Resources Policy subsection pinned to references-multi-consumer lint rule
 
-Progress: V3.0 Phase 34 Wave 1 complete. All 15 commands + 17 subagents conform to SKST. Plan 04 (SKILL.md) can run in Wave 2 now that Plans 02 and 03 are both done.
+Progress: V3.0 Phase 34 Wave 2 complete. SKILL.md + all 15 commands + all 17 subagents conform to SKST. Plan 05 (final verification sweep) is the last plan in this phase.
 
 ## Performance Metrics
 
@@ -39,6 +39,7 @@ Progress: V3.0 Phase 34 Wave 1 complete. All 15 commands + 17 subagents conform 
 | 34-skill-structure-format-foundation | 01 | 3 min | 3 | 6 |
 | 34-skill-structure-format-foundation | 02 | 13 min | 3 | 15 |
 | 34-skill-structure-format-foundation | 03 | 13 min | 3 | 17 |
+| 34-skill-structure-format-foundation | 04 | 2 min | 1 | 1 |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Recent decisions affecting current work:
 - [Phase 34-skill-structure-format-foundation]: SKST-01 satisfied for subagents by existing tools: frontmatter — allowed-tools: is a no-op on subagents per Claude Code schema (RESEARCH.md Pitfall 2); zero frontmatter edits made on 17 subagent files
 - [Phase 34-skill-structure-format-foundation]: Non-destructive subagents use explicit Non-destructive wording in Destructive Actions; failure-diagnoser documents downstream AskUserQuestion HITL gate (it collects approval but does not mutate itself)
 - [Phase 34-skill-structure-format-foundation]: Forward-link graph to future-phase requirement IDs established across subagents (TFAIL-03, ITRX-01/05/07/08, EVLD-08, KBM-01-04, ESCI-01/08, DSET-02-05, MSEL-01/02); Phases 35/38/39/40/42 can grep for these IDs to find entry points
+- [Phase 34-skill-structure-format-foundation]: SKILL.md receives full 9-section SKST superset with meta-framing per RESEARCH.md Open Question #2 — suite-level Destructive Actions explicitly N/A (index file makes no mutations); allowed-tools: union of tools across 15 commands
+- [Phase 34-skill-structure-format-foundation]: Resources Policy pinned to a lint rule (references-multi-consumer) instead of a migration action — zero files moved because zero files qualified (all 8 refs have >=2 consumers, verified 2026-04-20)
 
 ### Blockers/Concerns
 
@@ -95,7 +98,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T14:35:21.131Z
-Stopped at: Completed 34-03-PLAN.md
+Last session: 2026-04-20T14:42:03.201Z
+Stopped at: Completed 34-04-PLAN.md
 Resume with: `/gsd:execute-phase 34` to continue with Plan 04 (SKILL.md + references convention note in Wave 2).
 Resume file: None
