@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: verifying
-stopped_at: "Completed 36-03-PLAN.md — /orq-agent:analytics (LCMD-03) authored"
-last_updated: "2026-04-20T16:01:12.609Z"
+stopped_at: "Completed 36-01-PLAN.md — /orq-agent:workspace (LCMD-01) shipped"
+last_updated: "2026-04-20T16:01:35.467Z"
 last_activity: "2026-04-20 — Phase 35 Plan 05 complete: full-suite verification sweep executed and 35-05-VERIFICATION.md produced as /gsd:verify-work evidence trail; all gates green, Phase 35 mechanically COMPLETE"
 progress:
   total_phases: 10
@@ -52,6 +52,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 36-lifecycle-slash-commands P06 | 2 min | 1 tasks | 1 files |
 | Phase 36-lifecycle-slash-commands P04 | 2 min | 1 tasks | 1 files |
 | Phase 36-lifecycle-slash-commands P05 | 3 min | 1 tasks | 1 files |
+| Phase 36-lifecycle-slash-commands P01 | 3 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,12 @@ Recent decisions affecting current work:
 - [Phase 36-lifecycle-slash-commands]: MCP-first with verbatim REST curl fallback on error — never fabricate an analytics table when MCP fails; surface the fallback command inline so the user can retry out-of-band
 - [Phase 36-lifecycle-slash-commands]: Cost output always prefixed with USD $ symbol and 2-decimal precision; error rate always suffixed with % and 1-decimal precision — prevents unit confusion on operator-facing metrics
 - [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands P06] automations.md two-mode split: list (read-only) + --create (AskUserQuestion 4-field collect → yes/no confirm → MCP-first-with-REST-fallback POST). Pattern reusable for any future list+mutate slash command.
+- [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: Stateless quickstart — no .quickstart-progress sidecar file; users own their progress so there is no drift risk between repo state and tour state (confirms 36-CONTEXT.md Claude's Discretion)
+- [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: 12 Step sections rendered as H2 with exact prefix '## Step N:' so VALIDATION grep anchor passes structurally without a custom lint rule
+- [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: LCMD-05 + LCMD-07 consolidated into a single quickstart.md (not two files) — overlapping deliverables (onboarding + 12-step tour) share one first-impression surface
+- [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: LCMD-04 /orq-agent:models renders types in fixed order (chat > embedding > image > rerank > speech > completion > Other); rare/future types bucket under single 'Other' H4 rather than spawning sparse subsections
+- [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: LCMD-04 keeps Activated column rendered even when payload lacks activation state (shows '?'); prevents silent 'yes' assumption when MCP list_models response omits the field
+- [Phase 36-lifecycle-slash-commands]: [Phase 36-lifecycle-slash-commands]: LCMD read-only lookup commands (models) use single positional [search-term] with no flags; dynamic 'MCP tools used:' footer reflects actual path(s) taken (list_models / search_entities / REST fallback) for debuggability
 
 ### Blockers/Concerns
 
@@ -132,7 +139,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T16:01:00.986Z
-Stopped at: Completed 36-03-PLAN.md — /orq-agent:analytics (LCMD-03) authored
+Last session: 2026-04-20T16:01:33.564Z
+Stopped at: Completed 36-01-PLAN.md — /orq-agent:workspace (LCMD-01) shipped
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
