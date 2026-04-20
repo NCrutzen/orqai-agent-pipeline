@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.3
-milestone_name: milestone
-status: Between milestones
-stopped_at: Completed quick-260326-ann-04-PLAN.md (deploy/harden agents)
-last_updated: "2026-03-26T17:30:42.560Z"
-last_activity: "2026-03-26 - Completed quick task 260326-ann: Apply all 21 pipeline optimizations (evaluators, deploy, testing, specs, architecture)"
+milestone: V3.0
+milestone_name: Lifecycle Completeness & Eval Science
+status: Defining requirements
+stopped_at: Milestone V3.0 started
+last_updated: "2026-04-20T00:00:00.000Z"
+last_activity: "2026-04-20 - Milestone V3.0 started after gap analysis vs orq-ai/assistant-plugins"
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -20,17 +20,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through an automated pipeline with real-time visibility and HITL approvals -- without needing to understand the underlying AI platform.
-**Current focus:** Between milestones -- V4.0 not yet started
+**Current focus:** V3.0 Lifecycle Completeness & Eval Science — defining requirements
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V2.1 shipped 2026-03-13 (8 phases, 9 plans)
 
 ## Current Position
 
-Phase: No active phase (V4.0 not started)
-Plan: N/A
-Status: Between milestones
-Last activity: 2026-03-26 - Completed quick task 260326-ann-01: Update 4 reference files with complete Orq.ai API surface
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-20 — Milestone V3.0 started
 
-Progress: V2.1 complete. V4.0 next.
+Progress: V2.1 complete. V3.0 milestone being defined. V4.0/V5.0 deferred behind V3.0.
 
 ## Performance Metrics
 

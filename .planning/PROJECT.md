@@ -53,11 +53,24 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 - Auto-update on launch — updates are manual via `/orq-agent:update`
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone
+## Current Milestone: V3.0 Lifecycle Completeness & Eval Science
 
-Next milestone: V4.0 Cross-Swarm Intelligence.
+**Goal:** Promote the pipeline from a spec-generator into a complete Build → Evaluate → Optimize lifecycle tool by absorbing observability, trace-failure analysis, evaluator validation science (TPR/TNR), prompt optimization, and cross-IDE distribution patterns from the orq-ai/assistant-plugins reference — without breaking the existing generation loop.
 
-**V4.0 Goal:** As swarms multiply across business processes, they develop blind spots -- overlapping work, missing handoffs, conflicting actions. The ultra architect layer provides cross-swarm awareness with ecosystem mapping, drift detection, overlap analysis, and fix proposals.
+**Target features:**
+- Lifecycle commands: `/orq-agent:workspace`, `/orq-agent:traces`, `/orq-agent:analytics`, `/orq-agent:models`, `/orq-agent:quickstart`
+- New skills: observability-setup, trace-failure-analysis, evaluator-validation, prompt-optimization, cross-framework comparison
+- Eval-science methodology: binary Pass/Fail default, TPR/TNR validation, prevalence correction, one-evaluator-per-failure-mode, failure classification, transition failure matrix, outcome-based grading
+- Dataset generation: dimensions→tuples→NL, 8-vector adversarial catalog, coverage rules, curation mode, RAG-specific shape
+- KB/Memory: retrieval testing, embedding-model activation check, chunking picker, KB-vs-memory disambiguation, memory-store generator
+- Model discipline: start-capable-optimize-cost-later, snapshot pinning, model-cascade pattern
+- Skill-file structure: Agent Skills format with allowed-tools, per-skill resources/, When-NOT-to-use, Companion Skills, Done-When, Constraints blocks, Anti-Patterns, Destructive Actions, Documentation Resolution footers
+- Iterator/hardener: P0/P1/P2 hierarchy, action-plan template, run-comparison tables, regression flagging, failure classification, no-repeat-optimize rule
+- Distribution: .claude-plugin / .cursor-plugin / .codex-plugin manifests, root mcp.json, marketplace manifest
+
+**Future milestones (unchanged):**
+- V4.0 Cross-Swarm Intelligence — ecosystem mapping, drift detection, overlap analysis, fix proposals (phases renumber after V3.0)
+- V5.0 Browser Automation — Playwright scripts, VPS MCP server, agent spec wiring (phases renumber after V4.0)
 
 ## Context
 
@@ -69,7 +82,8 @@ Next milestone: V4.0 Cross-Swarm Intelligence.
 - **Distribution model:** Claude Code skill (`/orq-agent`) distributed via GitHub install script.
 - **Users:** 5-15 Moyne Roberts employees. Claude Code skill is the primary interface for agent pipeline operations.
 - **Codebase:** 10,628 lines across orq-agent/ (markdown + JSON). 43 files: 11 agents, 5 commands, 8 references, 7 templates, SKILL.md, install script
-- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements), V2.1 (2026-03-13, 24 requirements). V4.0-V5.0 defined, not yet started
+- **Shipped:** v0.3 (2026-03-01, 50 requirements), V2.0 (2026-03-02, 23 requirements), V2.1 (2026-03-13, 24 requirements). V4.0-V5.0 defined but deferred behind V3.0
+- **V3.0 driver (2026-04-20):** Gap analysis against orq-ai/assistant-plugins reference produced a 60-item improvements list across 9 categories (A–I). The reference plugin ships a broader Build→Evaluate→Optimize lifecycle (observability, trace analysis, evaluator validation with TPR/TNR, prompt optimization, cross-framework comparison) while our pipeline ends at test-results.json. V3.0 absorbs these capabilities under our tier system so core-tier users stay on the fast generator loop
 
 ## Constraints
 
@@ -94,6 +108,10 @@ Next milestone: V4.0 Cross-Swarm Intelligence.
 | Native `settings.guardrails` API for guardrail attachment | Direct Orq.ai integration, no application-layer workarounds | ✓ Good |
 | Holdout dataset for re-test | Clean isolation between training and iteration testing | ✓ Good |
 | HITL approval before any prompt change | Non-technical users maintain trust and control | ✓ Good |
+| V3.0 before V4.0/V5.0 | Lifecycle gaps (observability, eval science, optimization) matter before cross-swarm work and browser automation — without production traces there's no signal for V4.0 to detect drift against | — Pending |
+| Tier-gate human-label dependencies | TPR/TNR evaluator validation requires human annotation effort, which breaks our "autonomous from a use case" loop — placed under 'full' tier so core/deploy/test users never hit it | — Pending |
+| Preserve generator loop through V3.0 | New lifecycle commands are additive; existing `/orq-agent`, `/orq-agent:prompt`, `/orq-agent:architect` must remain byte-identical in behavior | — Pending |
+| Binary Pass/Fail default for LLM evaluators | Reference's rule that Likert scales introduce subjectivity and require more data; we'll decompose existing bundled evaluators into per-failure-mode binary judges | — Pending |
 | Cross-swarm intelligence layer | Swarms grow siloed; need ecosystem-level awareness to prevent overlaps and missing handoffs | — Pending |
 | Dual source of truth (specs + Orq.ai) | Drift detection requires reading both local specs and live deployed state | — Pending |
 | Auto-apply low-risk, escalate structural | Shared context additions are safe; rewiring agent relationships needs human judgment | — Pending |
@@ -102,4 +120,4 @@ Next milestone: V4.0 Cross-Swarm Intelligence.
 | Application capabilities config file | Pipeline reads per-system integration method from config; discussion step fills gaps for unknown systems | — Pending |
 
 ---
-*Last updated: 2026-03-23*
+*Last updated: 2026-04-20 — V3.0 milestone defined*
