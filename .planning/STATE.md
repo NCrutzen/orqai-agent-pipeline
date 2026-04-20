@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: "Phase 34 in progress - Plan 04 complete (SKILL.md migrated to SKST with allowed-tools + Resources Policy)"
-stopped_at: Completed 34-04-PLAN.md
-last_updated: "2026-04-20T14:42:03.205Z"
-last_activity: "2026-04-20 — Plan 04 complete: SKILL.md gains 9 SKST sections + allowed-tools frontmatter + Resources Policy subsection pinned to references-multi-consumer lint rule"
+status: verifying
+stopped_at: Completed 34-05-PLAN.md
+last_updated: "2026-04-20T14:49:52.662Z"
+last_activity: "2026-04-20 — Plan 05 complete: Phase 34 mechanically verified (full lint green on 33 files, 3 protected pipelines byte-identical, 10-row SKST traceability table and 5-row ROADMAP criteria checklist in VERIFICATION.md)"
 progress:
   total_phases: 10
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 34 - Skill Structure & Format Foundation (in progress)
-Plan: 04 complete (4 of 5) — orq-agent/SKILL.md now conforms to SKST (allowed-tools + 9 sections + Resources Policy)
-Status: Ready for Plan 05 (final verification sweep)
-Last activity: 2026-04-20 — Plan 04 complete: SKILL.md gains 9 SKST sections + allowed-tools frontmatter + Resources Policy subsection pinned to references-multi-consumer lint rule
+Phase: 34 - Skill Structure & Format Foundation (COMPLETE, awaiting /gsd:verify-work)
+Plan: 05 complete (5 of 5) — full verification sweep produced 34-05-VERIFICATION.md with all 10 SKST requirements traceable and all 5 ROADMAP success criteria satisfied
+Status: Ready for /gsd:verify-work → Phase 35 (Model Selection Discipline)
+Last activity: 2026-04-20 — Plan 05 complete: Phase 34 mechanically verified (full lint green on 33 files, 3 protected pipelines byte-identical, 10-row SKST traceability table and 5-row ROADMAP criteria checklist in VERIFICATION.md)
 
-Progress: V3.0 Phase 34 Wave 2 complete. SKILL.md + all 15 commands + all 17 subagents conform to SKST. Plan 05 (final verification sweep) is the last plan in this phase.
+Progress: V3.0 Phase 34 COMPLETE. All 5 plans done (infra + commands + subagents + SKILL.md + verification). SKST-01..10 all marked complete. Phase 35 (Model Selection Discipline) is next.
 
 ## Performance Metrics
 
@@ -40,6 +40,8 @@ Progress: V3.0 Phase 34 Wave 2 complete. SKILL.md + all 15 commands + all 17 sub
 | 34-skill-structure-format-foundation | 02 | 13 min | 3 | 15 |
 | 34-skill-structure-format-foundation | 03 | 13 min | 3 | 17 |
 | 34-skill-structure-format-foundation | 04 | 2 min | 1 | 1 |
+| 34-skill-structure-format-foundation | 05 | 3 min | 1 | 1 |
+| Phase 34-skill-structure-format-foundation P05 | 3 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -74,6 +76,9 @@ Recent decisions affecting current work:
 - [Phase 34-skill-structure-format-foundation]: Forward-link graph to future-phase requirement IDs established across subagents (TFAIL-03, ITRX-01/05/07/08, EVLD-08, KBM-01-04, ESCI-01/08, DSET-02-05, MSEL-01/02); Phases 35/38/39/40/42 can grep for these IDs to find entry points
 - [Phase 34-skill-structure-format-foundation]: SKILL.md receives full 9-section SKST superset with meta-framing per RESEARCH.md Open Question #2 — suite-level Destructive Actions explicitly N/A (index file makes no mutations); allowed-tools: union of tools across 15 commands
 - [Phase 34-skill-structure-format-foundation]: Resources Policy pinned to a lint rule (references-multi-consumer) instead of a migration action — zero files moved because zero files qualified (all 8 refs have >=2 consumers, verified 2026-04-20)
+- [Phase 34-skill-structure-format-foundation]: Phase-close VERIFICATION.md pattern established — structured evidence document (captured output + 10-row traceability table + 5-row ROADMAP criteria checklist + inventory + deferred items) sits next to SUMMARY.md and feeds /gsd:verify-work (2026-04-20)
+- [Phase 34-skill-structure-format-foundation]: TODO(SKST-10) inferred-URL marker count is 2 (datasets.md + dataset-generator.md Annotation Queues URL) — resolution deferred to Phase 37+ when live MCP surfaces canonical my.orq.ai/annotation-queues path (2026-04-20)
+- [Phase 34-skill-structure-format-foundation]: Lateral lint enforcement for downstream phases — each V3.0 phase (36-43) must call bash orq-agent/scripts/lint-skills.sh on its new skill files before marking plans complete; CI wiring owned by Phase 43 DIST (2026-04-20)
 
 ### Blockers/Concerns
 
@@ -98,7 +103,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T14:42:03.201Z
-Stopped at: Completed 34-04-PLAN.md
-Resume with: `/gsd:execute-phase 34` to continue with Plan 04 (SKILL.md + references convention note in Wave 2).
+Last session: 2026-04-20T14:49:46.093Z
+Stopped at: Completed 34-05-PLAN.md
+Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
