@@ -138,29 +138,29 @@ Build a Claude Code skill that transforms natural language use case descriptions
 **Plans**: TBD
 
 ### Phase 36: Lifecycle Slash Commands
-**Goal**: Users can inspect workspace, traces, analytics, models, and onboarding directly from Claude Code via thin MCP-backed slash commands without opening the Orq.ai dashboard.
+**Goal**: Users can inspect workspace, traces, analytics, models, onboarding, and trace-automation rules directly from Claude Code via thin MCP-backed slash commands without opening the Orq.ai dashboard.
 **Depends on**: Phase 34
 **Tier**: core
-**Requirements**: LCMD-01, LCMD-02, LCMD-03, LCMD-04, LCMD-05
+**Requirements**: LCMD-01, LCMD-02, LCMD-03, LCMD-04, LCMD-05, LCMD-06, LCMD-07
 **Success Criteria** (what must be TRUE):
   1. `/orq-agent:workspace [section]` prints a single-screen overview of agents, deployments, prompts, datasets, experiments, projects, KBs, and evaluators with an analytics summary line, with optional section filter.
   2. `/orq-agent:traces` supports `--deployment`, `--status`, `--last`, `--limit` flags and lists errors first with full trace IDs.
   3. `/orq-agent:analytics` reports requests, cost, tokens, and error rate with optional `--last` and `--group-by` (model/deployment/agent/status) drill-down.
   4. `/orq-agent:models [search-term]` lists Model Garden models grouped by provider, broken out by type (chat/embedding/image/rerank/etc.).
-  5. `/orq-agent:quickstart` interactively checks API key, registers the MCP server, and routes the user to the right first-skill for their goal.
+  5. `/orq-agent:quickstart` delivers a 12-step interactive tour (MCP connect → enable models → create project → build agent → invoke → analyze traces → build evaluator → build dataset → run experiment → human review → annotation analysis → promote evaluator), and `/orq-agent:automations` lists/creates Orq.ai Trace Automation rules that auto-trigger experiments on new matching traces.
 **Plans**: TBD
 
 ### Phase 37: Observability Setup Skill
-**Goal**: Users can instrument their LLM application with correct framework integration, baseline trace verification, and rich metadata so downstream trace-analysis and eval skills have signal to work with.
+**Goal**: Users can instrument their LLM application with correct framework integration, baseline trace verification, and rich metadata (including per-tenant `identity` attribution) so downstream trace-analysis and eval skills have signal to work with.
 **Depends on**: Phase 34
 **Tier**: core
-**Requirements**: OBSV-01, OBSV-02, OBSV-03, OBSV-04, OBSV-05, OBSV-06
+**Requirements**: OBSV-01, OBSV-02, OBSV-03, OBSV-04, OBSV-05, OBSV-06, OBSV-07
 **Success Criteria** (what must be TRUE):
   1. Skill detects the user's LLM framework (OpenAI SDK, LangChain, CrewAI, Vercel AI, etc.) and reports whether instrumentation is already present.
   2. Skill recommends an integration mode (AI Router / OTEL-only / both) with a written rationale tied to the detection result.
   3. Skill emits framework-specific integration code with instrumentors imported before SDK clients; user can paste it and see traces in Orq.ai.
   4. Skill runs a baseline verification step confirming traces appear, model + tokens captured, span hierarchy present, and no PII leaking.
-  5. Skill enriches traces with `session_id`, `user_id`, feature tags, and `customer_id` when inferable, and guides `@traced` decorator placement across agent/llm/tool/retrieval/embedding/function spans.
+  5. Skill enriches traces with `session_id`, `user_id`, feature tags, `customer_id`, and `identity` attributes (per-customer/per-tenant attribution) when inferable, guides `@traced` decorator placement across agent/llm/tool/retrieval/embedding/function spans, and documents filtering by identity via `/orq-agent:traces`.
 **Plans**: TBD
 
 ### Phase 38: Trace Failure Analysis Skill
@@ -177,16 +177,16 @@ Build a Claude Code skill that transforms natural language use case descriptions
 **Plans**: TBD
 
 ### Phase 39: Dataset Generator Enhancements
-**Goal**: Dataset-generator and `/orq-agent:datasets` produce structurally sound, adversarially hardened, slice-analyzable datasets including multi-turn and RAG shapes.
+**Goal**: Dataset-generator and `/orq-agent:datasets` produce structurally sound, adversarially hardened, slice-analyzable datasets including multi-turn and RAG shapes, and support promoting production traces directly into datasets as regression cases.
 **Depends on**: Phase 34
 **Tier**: deploy+
-**Requirements**: DSET-01, DSET-02, DSET-03, DSET-04, DSET-05, DSET-06, DSET-07
+**Requirements**: DSET-01, DSET-02, DSET-03, DSET-04, DSET-05, DSET-06, DSET-07, DSET-08
 **Success Criteria** (what must be TRUE):
   1. Two-step generation mode produces dimensions (3-6) → tuples (manual seed, LLM-scaled) → natural-language inputs in separate passes, with the intermediate artifacts inspectable.
   2. Generated datasets include 15-20% adversarial cases drawn from the 8-vector catalog (persona-breaking, instruction override, language switching, formality mismatch, refusal, format forcing, multi-turn manipulation, contradiction) with ≥3 per relevant vector.
   3. Coverage rules are enforced: every dimension value appears in ≥2 datapoints and no single value dominates >30%; violations block dataset upload with a clear remediation message.
   4. Mode 4 curation deduplicates, rebalances, fills gaps, and resolves contradictions on an existing dataset, requiring explicit user confirmation before any deletion.
-  5. Every datapoint is tagged by category AND dimension so results-analyzer can slice scores; the generator also emits a multi-turn shape (Messages + perturbation scenarios) and a RAG shape (expected source chunk IDs) when the agent profile requests it.
+  5. Every datapoint is tagged by category AND dimension so results-analyzer can slice scores; the generator emits a multi-turn shape (Messages + perturbation scenarios) and a RAG shape (expected source chunk IDs) when the agent profile requests it; and a production trace can be promoted directly into a dataset as a regression case, preserving input, output, intermediate steps, and metadata.
 **Plans**: TBD
 
 ### Phase 40: KB & Memory Lifecycle
@@ -216,29 +216,29 @@ Build a Claude Code skill that transforms natural language use case descriptions
 **Plans**: TBD
 
 ### Phase 42: Evaluator Validation & Iterator Enrichments
-**Goal**: Tester, failure-diagnoser, iterator, and hardener enforce eval-science methodology — binary-first judges with measured TPR/TNR, prevalence correction, outcome-based grading, P0/P1/P2 action plans, and regression flagging — so quality signals stay trustworthy.
+**Goal**: Tester, failure-diagnoser, iterator, and hardener enforce eval-science methodology — binary-first judges with measured TPR/TNR, prevalence correction, outcome-based grading, P0/P1/P2 action plans, regression flagging, evaluator-version A/B, inter-annotator agreement, overfitting detection, and sample-rate-aware guardrail promotion — so quality signals stay trustworthy at production scale.
 **Depends on**: Phase 38, Phase 39
 **Tier**: full
-**Requirements**: EVLD-01, EVLD-02, EVLD-03, EVLD-04, EVLD-05, EVLD-06, EVLD-07, EVLD-08, ESCI-01, ESCI-02, ESCI-03, ESCI-04, ESCI-05, ESCI-06, ITRX-01, ITRX-02, ITRX-03, ITRX-04, ITRX-05, ITRX-06, ITRX-07
+**Requirements**: EVLD-01, EVLD-02, EVLD-03, EVLD-04, EVLD-05, EVLD-06, EVLD-07, EVLD-08, EVLD-09, EVLD-10, EVLD-11, ESCI-01, ESCI-02, ESCI-03, ESCI-04, ESCI-05, ESCI-06, ESCI-07, ESCI-08, ITRX-01, ITRX-02, ITRX-03, ITRX-04, ITRX-05, ITRX-06, ITRX-07, ITRX-08, ITRX-09
 **Success Criteria** (what must be TRUE):
   1. All new LLM-as-judge evaluators default to binary Pass/Fail; continuous scales require explicit justification; bundled criteria are split one-evaluator-per-failure-mode; judge prompts follow the 4-component template (role, task, criterion + pass/fail definitions, examples, chain-of-thought-before-answer JSON).
-  2. System guides collection of 100+ balanced human labels via orq.ai Annotation Queues, splits into disjoint train/dev/test (10-20% / 40-45% / 40-45%) with no dev/test leakage into few-shot, measures TPR and TNR on a held-out set with ≥30 Pass / ≥30 Fail, and stores results with the evaluator; prevalence correction is applied when reporting estimated true success rates.
-  3. Hardener refuses to promote any evaluator to a runtime guardrail unless TPR ≥ 90% AND TNR ≥ 90% on the test set; a configurable, tier-gated human-review-queue hook can require a minimum number of human-reviewed spans before promotion.
-  4. Failure-diagnoser classifies every failure as specification / generalization / dataset / evaluator before proposing fixes, grades outcomes not paths (no evaluator encodes exact tool-call sequences), and iterator publishes inspectable decision trees ("prompt fix vs evaluator," "upgrade model?," "eval good enough?").
-  5. Iterator produces P0/P1/P2-prioritized Action Plans with Evidence (datapoints affected, current scores, run ID) and Success Criteria (target re-run score); tester emits a run-comparison table (Run | Date | Model | Avg Score | Cost | Key Changes); results-analyzer flags regressions when any score drops with a ⚠️ marker; iterator refuses to re-run the same optimizer on the same prompt without an explicit user override; tester tracks capability suites separately from regression suites and warns when average pass rate ≥ 95%.
+  2. System programmatically creates orq.ai Annotation Queue / Human Review entities (via MCP or REST) — name, description, categorical Pass/Fail + sentiment OR numeric range OR free text — guides collection of 100+ balanced human labels, splits into disjoint train/dev/test (10-20% / 40-45% / 40-45%) with no dev/test leakage into few-shot, measures TPR and TNR on a held-out set with ≥30 Pass / ≥30 Fail, and stores results with the evaluator; prevalence correction is applied when reporting estimated true success rates; inter-annotator agreement is computed whenever ≥2 humans label the same item and flagged < 85% for re-calibration.
+  3. Hardener refuses to promote any evaluator to a runtime guardrail unless TPR ≥ 90% AND TNR ≥ 90% on the test set; a configurable, tier-gated human-review-queue hook can require a minimum number of human-reviewed spans before promotion; promotion also sets an evaluator `sample_rate` with volume-based defaults (100% for <1K/day, 30% for 1K–100K/day, 10% for ≥100K/day) so high-volume agents do not pay full LLM-judge cost on every invocation.
+  4. Failure-diagnoser classifies every failure as specification / generalization / dataset / evaluator before proposing fixes, grades outcomes not paths (no evaluator encodes exact tool-call sequences), separates dataset-quality issues (mislabeled data, missing references, contradictions) from evaluator-quality issues in its output, and iterator publishes inspectable decision trees ("prompt fix vs evaluator," "upgrade model?," "eval good enough?").
+  5. Iterator produces P0/P1/P2-prioritized Action Plans with Evidence and Success Criteria, supports evaluator-version A/B (both the current and proposed evaluator prompt attached to the same experiment as separate columns for per-datapoint comparison), absorbs free-text human-annotation comments into diff proposal reasoning, refuses to re-run the same optimizer on the same prompt without explicit override; tester emits a run-comparison table, flags suspected overfitting when a newly-iterated evaluator scores ≥ 98% on a dataset < 100 datapoints, tracks capability suites separately from regression suites, and warns when average pass rate ≥ 95%; results-analyzer flags regressions when any score drops with a ⚠️ marker.
 **Plans**: TBD
 
 ### Phase 43: Cross-IDE Distribution & Manifests
-**Goal**: The repo installs cleanly across Claude Code, Cursor, Codex, and skills-only IDEs with validated plugin manifests and a single-source MCP registration, so V3.0 capabilities reach users outside Claude Code without rework.
+**Goal**: The repo installs cleanly across Claude Code, Cursor, Codex, and skills-only IDEs with validated plugin manifests, a single-source MCP registration, and CI/CD scaffolds — so V3.0 capabilities reach users outside Claude Code and can run unattended in a pipeline.
 **Depends on**: Phase 34
 **Tier**: core
-**Requirements**: DIST-01, DIST-02, DIST-03, DIST-04, DIST-05, DIST-06
+**Requirements**: DIST-01, DIST-02, DIST-03, DIST-04, DIST-05, DIST-06, DIST-07
 **Success Criteria** (what must be TRUE):
   1. Repo ships `.claude-plugin/plugin.json` enabling one-line install via `/plugin install github:NCrutzen/orqai-agent-pipeline`.
   2. Repo ships `.cursor-plugin/plugin.json` referencing `./skills/` and `./.mcp.json`, loadable from `~/.cursor/plugins/local/`, and `.codex-plugin/plugin.json` at `plugins/orq/` with a repo-level `.agents/plugins/marketplace.json`.
   3. Repo ships root `mcp.json` / `.mcp.json` registering the `orq-workspace` MCP server with `${ORQ_API_KEY}` expansion.
   4. Repo is installable via `npx skills add NCrutzen/orqai-agent-pipeline` for Cursor/Gemini/Cline/Copilot/Windsurf users who only want the skills layer.
-  5. `tests/scripts/validate-plugin-manifests.sh` plus `tests/commands.md`, `tests/skills.md`, `tests/mcp-tools.md` exist and pass in CI, specifying expected behavior per capability.
+  5. `tests/scripts/validate-plugin-manifests.sh` plus `tests/commands.md`, `tests/skills.md`, `tests/mcp-tools.md` exist and pass in CI; a GitHub Actions workflow and a GitLab CI template run `/orq-agent:test` on a deployed agent and fail the build when results-analyzer (ITRX-04) detects a regression.
 **Plans**: TBD
 
 ## Progress

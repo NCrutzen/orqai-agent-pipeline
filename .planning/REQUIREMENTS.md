@@ -16,6 +16,8 @@ Thin MCP-backed slash commands that give users direct visibility into their work
 - [ ] **LCMD-03**: User can run `/orq-agent:analytics [--last] [--group-by]` to view requests/cost/tokens/error rate with optional model/deployment/agent/status drill-down
 - [ ] **LCMD-04**: User can run `/orq-agent:models [search-term]` to list Model Garden models by type (chat/embedding/image/rerank/etc.) with provider grouping
 - [ ] **LCMD-05**: User can run `/orq-agent:quickstart` for interactive onboarding — API-key check, MCP registration, first-skill routing
+- [ ] **LCMD-06**: User can run `/orq-agent:automations` to list/create Orq.ai Trace Automation rules that auto-kick-off an experiment when new traces match a filter, closing the production-monitoring loop without leaving Claude Code
+- [ ] **LCMD-07**: `/orq-agent:quickstart` delivers a 12-step interactive tour modeled on the orq.ai webinar flow — connect MCP → enable models → create project → build agent → invoke → analyze traces → build evaluator → build dataset → run experiment → human review → annotation analysis → promote evaluator (each step has a copy-paste prompt the user runs sequentially)
 
 ### Observability Setup (OBSV)
 
@@ -27,6 +29,7 @@ New skill for instrumenting LLM applications so downstream trace-analysis and ev
 - [ ] **OBSV-04**: Skill verifies baseline trace quality — traces appearing, model/tokens captured, span hierarchy, no PII
 - [ ] **OBSV-05**: Skill enriches traces with session_id, user_id, feature tags, customer_id when inferred from code
 - [ ] **OBSV-06**: Skill guides `@traced` decorator placement for custom spans (agent/llm/tool/retrieval/embedding/function types)
+- [ ] **OBSV-07**: Skill documents attaching `identity` attributes to traces (per-customer / per-tenant attribution) and guides filtering traces by identity via `/orq-agent:traces` — enables per-client cost/quality reporting with billing margins
 
 ### Trace Failure Analysis (TFAIL)
 
@@ -51,6 +54,9 @@ Extends our tester/hardener with the validation protocol the reference enforces:
 - [ ] **EVLD-06**: System measures TPR and TNR on held-out test set (≥30 Pass / ≥30 Fail) before evaluator is marked validated; stores results with evaluator
 - [ ] **EVLD-07**: System applies prevalence correction (`theta_hat = (p_observed + TNR - 1) / (TPR + TNR - 1)`) when reporting estimated true success rates from imperfect judges
 - [ ] **EVLD-08**: Hardener rejects promotion of any evaluator to a runtime guardrail unless TPR ≥ 90% AND TNR ≥ 90% on the test set
+- [ ] **EVLD-09**: System creates orq.ai Annotation Queue / Human Review entities programmatically (via MCP or REST) — name, description, categorical Pass/Fail + sentiment OR numeric range OR free-text field — rather than only suggesting users create them in the Studio UI
+- [ ] **EVLD-10**: Results-analyzer computes inter-annotator agreement when ≥2 humans label the same trace/datapoint; flags criteria with IAA < 85% for re-calibration before they feed evaluator validation
+- [ ] **EVLD-11**: Iterator supports evaluator-version A/B by attaching both the current and proposed evaluator prompt as separate columns in the same experiment, enabling per-datapoint judgment comparison (not just score averages)
 
 ### Prompt Optimization (POPT)
 
@@ -79,6 +85,8 @@ Cross-cutting rules applied across tester, failure-diagnoser, iterator, hardener
 - [ ] **ESCI-04**: Tester tracks capability suites (expect low pass-rate initially) separately from regression suites (expect near-100% pass-rate); graduates items on sustained success
 - [ ] **ESCI-05**: Tester surfaces a warning when average pass rate ≥ 95% — flagged as "eval may be too easy," targets 70-85%
 - [ ] **ESCI-06**: Iterator publishes explicit decision trees users can inspect: "prompt fix vs evaluator," "upgrade model?," "eval good enough?"
+- [ ] **ESCI-07**: Tester flags suspected overfitting when a newly-iterated evaluator scores ≥ 98% on a dataset smaller than 100 datapoints; recommends dataset expansion before the evaluator is marked validated
+- [ ] **ESCI-08**: Failure-diagnoser separates dataset-quality issues (mislabeled data, missing reference outputs, contradictory cases) from evaluator-quality issues in its output — each gets its own action-plan section rather than being conflated
 
 ### Dataset Generation (DSET)
 
@@ -91,6 +99,7 @@ Enhancements to dataset-generator and the standalone `/orq-agent:datasets` comma
 - [ ] **DSET-05**: Every datapoint is tagged by category AND dimension to enable slice analysis in results-analyzer
 - [ ] **DSET-06**: Dataset-generator produces a multi-turn shape (Messages column + perturbation scenarios) for conversational agents
 - [ ] **DSET-07**: Dataset-generator produces a RAG-specific shape (expected source chunk IDs in reference) for agents with KBs
+- [ ] **DSET-08**: User can promote a production trace directly into a dataset as a regression test case, preserving the trace's input, output, intermediate steps, and metadata — enables continuous dataset curation from real traffic
 
 ### Knowledge Base & Memory (KBM)
 
@@ -135,6 +144,7 @@ Optional multi-IDE plugin support. Lower priority than lifecycle capabilities.
 - [ ] **DIST-04**: Repo ships root `mcp.json` / `.mcp.json` registering the `orq-workspace` MCP server with `${ORQ_API_KEY}` expansion
 - [ ] **DIST-05**: Repo is installable via `npx skills add NCrutzen/orqai-agent-pipeline` (skills-only path for Cursor/Gemini/Cline/Copilot/Windsurf)
 - [ ] **DIST-06**: Repo includes `tests/scripts/validate-plugin-manifests.sh` plus `tests/commands.md`, `tests/skills.md`, `tests/mcp-tools.md` specifying expected behavior per capability
+- [ ] **DIST-07**: Repo ships CI/CD scaffolds — GitHub Actions workflow + GitLab CI template — that run `/orq-agent:test` on a deployed agent and fail the build on regression detected by results-analyzer (ITRX-04)
 
 ### Iterator/Hardener Enrichments (ITRX)
 
@@ -147,6 +157,8 @@ Upgrades to existing iterator and hardener subagents with methodology from the r
 - [ ] **ITRX-05**: Iterator refuses to re-run the same optimizer on the same prompt without an explicit user override (no-drift rule)
 - [ ] **ITRX-06**: Hardener exposes a human-review-queue hook — promoting an evaluator to a guardrail can require a minimum number of human-reviewed spans (configurable, tier-gated)
 - [ ] **ITRX-07**: Iterator ticket output includes Evidence (datapoints affected, current scores, run ID) and Success Criteria (target re-run score), not just the proposed diff
+- [ ] **ITRX-08**: Hardener sets an evaluator `sample_rate` when promoting to a runtime guardrail — configurable percentage with volume-based defaults (e.g., 100% for <1K/day, 30% for 1K–100K/day, 10% for ≥100K/day) so high-volume agents do not pay full LLM-judge cost on every invocation
+- [ ] **ITRX-09**: Iterator absorbs free-text human-annotation comments as signal when proposing prompt diffs; each diff proposal cites the relevant annotator reasoning inline, not just the Pass/Fail label
 
 ## Tier-Gating (cross-cutting)
 
@@ -187,7 +199,7 @@ V3.0 respects existing tier semantics. Mapping:
 
 ## Traceability
 
-Populated during roadmap creation (2026-04-20). All 74 V3.0 requirements mapped across 10 phases (34-43).
+Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped across 10 phases (34-43). 12 amendments added 2026-04-20 from orq.ai webinar review (LCMD-06, LCMD-07, OBSV-07, DSET-08, EVLD-09, EVLD-10, EVLD-11, ESCI-07, ESCI-08, ITRX-08, ITRX-09, DIST-07).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -196,12 +208,15 @@ Populated during roadmap creation (2026-04-20). All 74 V3.0 requirements mapped 
 | LCMD-03 | 36 | Pending |
 | LCMD-04 | 36 | Pending |
 | LCMD-05 | 36 | Pending |
+| LCMD-06 | 36 | Pending |
+| LCMD-07 | 36 | Pending |
 | OBSV-01 | 37 | Pending |
 | OBSV-02 | 37 | Pending |
 | OBSV-03 | 37 | Pending |
 | OBSV-04 | 37 | Pending |
 | OBSV-05 | 37 | Pending |
 | OBSV-06 | 37 | Pending |
+| OBSV-07 | 37 | Pending |
 | TFAIL-01 | 38 | Pending |
 | TFAIL-02 | 38 | Pending |
 | TFAIL-03 | 38 | Pending |
@@ -216,6 +231,9 @@ Populated during roadmap creation (2026-04-20). All 74 V3.0 requirements mapped 
 | EVLD-06 | 42 | Pending |
 | EVLD-07 | 42 | Pending |
 | EVLD-08 | 42 | Pending |
+| EVLD-09 | 42 | Pending |
+| EVLD-10 | 42 | Pending |
+| EVLD-11 | 42 | Pending |
 | POPT-01 | 41 | Pending |
 | POPT-02 | 41 | Pending |
 | POPT-03 | 41 | Pending |
@@ -229,6 +247,8 @@ Populated during roadmap creation (2026-04-20). All 74 V3.0 requirements mapped 
 | ESCI-04 | 42 | Pending |
 | ESCI-05 | 42 | Pending |
 | ESCI-06 | 42 | Pending |
+| ESCI-07 | 42 | Pending |
+| ESCI-08 | 42 | Pending |
 | DSET-01 | 39 | Pending |
 | DSET-02 | 39 | Pending |
 | DSET-03 | 39 | Pending |
@@ -236,6 +256,7 @@ Populated during roadmap creation (2026-04-20). All 74 V3.0 requirements mapped 
 | DSET-05 | 39 | Pending |
 | DSET-06 | 39 | Pending |
 | DSET-07 | 39 | Pending |
+| DSET-08 | 39 | Pending |
 | KBM-01 | 40 | Pending |
 | KBM-02 | 40 | Pending |
 | KBM-03 | 40 | Pending |
@@ -260,6 +281,7 @@ Populated during roadmap creation (2026-04-20). All 74 V3.0 requirements mapped 
 | DIST-04 | 43 | Pending |
 | DIST-05 | 43 | Pending |
 | DIST-06 | 43 | Pending |
+| DIST-07 | 43 | Pending |
 | ITRX-01 | 42 | Pending |
 | ITRX-02 | 42 | Pending |
 | ITRX-03 | 42 | Pending |
@@ -267,12 +289,14 @@ Populated during roadmap creation (2026-04-20). All 74 V3.0 requirements mapped 
 | ITRX-05 | 42 | Pending |
 | ITRX-06 | 42 | Pending |
 | ITRX-07 | 42 | Pending |
+| ITRX-08 | 42 | Pending |
+| ITRX-09 | 42 | Pending |
 
 **Coverage:**
-- V3.0 requirements: 74 total
-- Mapped to phases: 74 (100%)
+- V3.0 requirements: 86 total
+- Mapped to phases: 86 (100%)
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15 (earlier milestones)*
-*Last updated: 2026-04-20 — V3.0 traceability populated (10 phases, 34-43)*
+*Last updated: 2026-04-20 — V3.0 traceability populated (10 phases, 34-43) + 12 webinar-derived amendments*
