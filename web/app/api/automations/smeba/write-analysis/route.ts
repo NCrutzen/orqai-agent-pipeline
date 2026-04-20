@@ -10,12 +10,17 @@ export async function POST(request: NextRequest) {
   }
 
   const rawText = await request.text().catch(() => "");
-  console.log("[smeba/write-analysis] raw body:", rawText.slice(0, 500));
-  let body: any = null;
-  try { body = JSON.parse(rawText); } catch {}
-  if (!body?.email_id) {
-    console.log("[smeba/write-analysis] missing email_id, body keys:", body ? Object.keys(body) : "null");
-    return NextResponse.json({ error: "Missing email_id", received: body }, { status: 400 });
+  console.log("[smeba/write-analysis] raw body:", rawText.slice(0, 800));
+  let parsed: any = null;
+  try { parsed = JSON.parse(rawText); } catch {}
+
+  // Orq.ai may wrap arguments: { arguments: {...} } or { input: {...} } or flat
+  const body = parsed?.arguments ?? parsed?.input ?? parsed ?? {};
+  const emailId = body?.email_id ?? body?.emailId;
+
+  if (!emailId) {
+    console.log("[smeba/write-analysis] missing email_id. parsed:", JSON.stringify(parsed)?.slice(0, 400));
+    return NextResponse.json({ error: "Missing email_id", received: parsed }, { status: 400 });
   }
 
   const supabase = createAdminClient();
@@ -24,7 +29,7 @@ export async function POST(request: NextRequest) {
     .from("email_analysis")
     .upsert(
       {
-        email_id: body.email_id,
+        email_id: emailId,
         category: body.category ?? null,
         email_intent: body.email_intent ?? null,
         ai_summary: body.ai_summary ?? null,
@@ -41,5 +46,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, email_id: body.email_id });
+  return NextResponse.json({ ok: true, email_id: emailId });
 }
