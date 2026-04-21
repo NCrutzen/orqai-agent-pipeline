@@ -40,7 +40,7 @@ Directional pipeline (→ means "typical next step"):
 ## Done When
 
 - [ ] All 15 slash commands under `orq-agent/commands/` match the commands listed in the body below
-- [ ] All 18 subagents under `orq-agent/agents/` match the subagents listed in the body below
+- [ ] All 19 subagents under `orq-agent/agents/` match the subagents listed in the body below
 - [ ] All 8 shared references under `orq-agent/references/` have ≥2 consumer skills (verified by `bash orq-agent/scripts/lint-skills.sh --rule references-multi-consumer`)
 - [ ] `bash orq-agent/scripts/lint-skills.sh` exits 0 across the full suite
 
@@ -117,6 +117,20 @@ orq-agent/
     readme-generator.md          # Phase 2: README generator subagent
     kb-generator.md              # KB content generation from pipeline context
     hardener.md                  # Phase 9: Guardrails promotion and quality gates
+    hardener/
+      resources/
+        sample-rate-volume-defaults.md  # Phase 42: Volume-based sample_rate defaults (ITRX-08)
+        prevalence-correction.md        # Phase 42: theta_hat formula + worked example (EVLD-07)
+    iterator/
+      resources/
+        action-plan-template.md  # Phase 42: Action Plan template (ITRX-02, ITRX-07)
+        decision-trees.md        # Phase 42: 3 decision trees (ESCI-06)
+    evaluator-validator.md       # Phase 42: Evaluator validation subagent (EVLD-01..06, 09, 10)
+    evaluator-validator/
+      resources/
+        tpr-tnr-methodology.md         # Phase 42: TPR/TNR confusion matrix methodology (EVLD-06)
+        annotation-queue-setup.md      # Phase 42: Annotation Queue / Human Review creation (EVLD-09)
+        4-component-judge-template.md  # Phase 42: 4-component judge prompt (EVLD-03)
   templates/
     agent-spec.md                # Template: individual agent specification
     orchestration.md             # Template: swarm orchestration document
@@ -287,6 +301,31 @@ Resource docs under `orq-agent/commands/kb/resources/` (chunking-strategies, kb-
 
 Resource docs under `orq-agent/commands/prompt-optimization/resources/` (11-guidelines, rewrite-examples) are consumed only by `commands/prompt-optimization.md`; resource docs under `orq-agent/commands/compare-frameworks/resources/` (evaluatorq-script-templates, framework-adapters) are consumed only by `commands/compare-frameworks.md` (single-consumer per Resources Policy below).
 
+### Phase 42 (Evaluator Validation & Iterator Enrichments)
+
+| Skill | Path | Tier | Purpose |
+|-------|------|------|---------|
+| Evaluator Validator subagent | `agents/evaluator-validator.md` | full | TPR/TNR validation pipeline (EVLD-01..06, 09, 10) |
+| Tester enrichments | `agents/tester.md` | full | Run-comparison table (ITRX-03), overfitting warning (ESCI-07), capability vs regression suites (ESCI-04), ≥95% pass-rate warn (ESCI-05), isolated graders (ESCI-03) |
+| Failure-diagnoser enrichments | `agents/failure-diagnoser.md` | full | 4-category classification (ESCI-01), outcome-based grading (ESCI-02), dataset-quality vs evaluator-quality separation (ESCI-08) |
+| Iterator enrichments | `agents/iterator.md` | full | P0/P1/P2 priority (ITRX-01), Action Plan + Evidence + Success Criteria (ITRX-02, ITRX-07), evaluator-version A/B (EVLD-11), annotation-comment absorption (ITRX-09), no-repeat rule (ITRX-05), decision trees (ESCI-06) |
+| Hardener enrichments | `agents/hardener.md` | full | TPR/TNR ≥ 90% promotion gate (EVLD-08), volume-based sample_rate (ITRX-08), human-review-queue hook (ITRX-06), prevalence correction (EVLD-07) |
+| Results-analyzer enrichments | `agents/results-analyzer.md` | full | ⚠️ regression flag on any score drop (ITRX-04) |
+
+**Phase 42 requirement coverage (28 IDs total):**
+
+- **EVLD-01..06, 09, 10** — evaluator-validator subagent (binary default, one-per-mode split, 4-component template, 100+ labels, train/dev/test, TPR/TNR, Annotation Queue, IAA)
+- **EVLD-07** — hardener prevalence correction (`theta_hat` formula in quality-report.md)
+- **EVLD-08** — hardener TPR/TNR ≥ 90% promotion gate
+- **EVLD-11** — iterator evaluator-version A/B (two evaluator columns on same experiment)
+- **ESCI-01..02, 08** — failure-diagnoser (classification, outcome-based grading, dataset/evaluator-quality separation)
+- **ESCI-03..05, 07** — tester (isolated graders, capability/regression suites, ≥95% warn, overfitting warning)
+- **ESCI-06** — iterator decision trees (prompt fix vs evaluator / upgrade model / eval good enough)
+- **ITRX-01..02, 05, 07, 09** — iterator (P0/P1/P2, Action Plan, no-repeat, Evidence + Success Criteria, annotation comments)
+- **ITRX-03** — tester run-comparison table
+- **ITRX-04** — results-analyzer ⚠️ regression flag
+- **ITRX-06, 08** — hardener (human-review-queue hook, volume-based sample_rate)
+
 **Invocation:** `/orq-agent "description"` | `/orq-agent` (interactive) | `--gsd` flag | `--output <path>`
 
 ## Command Flags
@@ -345,6 +384,12 @@ Resource docs under `orq-agent/commands/prompt-optimization/resources/` (11-guid
 | Agent | File | Purpose |
 |-------|------|---------|
 | Memory Store Generator | `agents/memory-store-generator.md` | Creates Orq.ai memory stores with descriptive keys (session_history / user_preferences / conversation_context), wires agents with memory instructions (`settings.memory_stores` + system prompt injection), and runs a read/write/recall round-trip test with cleanup before handoff (KBM-05) |
+
+### Phase 42 (Evaluator Validation & Iterator Enrichments)
+
+| Subagent | Path | Purpose |
+|----------|------|---------|
+| Evaluator Validator | `agents/evaluator-validator.md` | Validates LLM-as-judge evaluators via Annotation Queue label collection (EVLD-09), train/dev/test split (EVLD-05), TPR/TNR measurement on held-out test (EVLD-06), inter-annotator agreement (EVLD-10), one-evaluator-per-failure-mode splitting (EVLD-02), binary Pass/Fail default (EVLD-01), and 4-component judge template (EVLD-03) — emits `evaluator-validations/{name}.json` consumed by hardener promotion gate |
 
 ## References
 
@@ -440,7 +485,7 @@ Skill documentation lives in two places. The placement rule is driven by consume
 
 **Invariant (enforced by lint):** Every file under `orq-agent/references/` MUST be consumed by ≥2 skills. The `references-multi-consumer` rule in `orq-agent/scripts/lint-skills.sh` enforces this. If a file drops to 1 consumer, the lint fails and the file must move to that consumer's `<skill>/resources/`.
 
-**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phase 37 established the first live per-skill resources directory at `orq-agent/commands/observability/resources/` (5 framework snippets consumed only by `observability.md`). Phase 38 adds a second at `orq-agent/commands/trace-failure-analysis/resources/` (3 files: grounded-theory-methodology, failure-mode-classification, handoff-matrix — consumed only by `trace-failure-analysis.md`). Phase 39 adds a third per-skill resources directory at `orq-agent/agents/dataset-generator/resources/` (3 files: adversarial-vectors, coverage-rules, shapes — consumed only by `dataset-generator.md`). Phase 40 adds a fourth per-skill resources directory at `orq-agent/commands/kb/resources/` (3 files: chunking-strategies, kb-vs-memory, retrieval-test-template — consumed only by `commands/kb.md`, `agents/kb-generator.md`, and `agents/memory-store-generator.md` under the kb skill umbrella). Phase 41 adds the fifth and sixth per-skill resources directories at `orq-agent/commands/prompt-optimization/resources/` (2 files: 11-guidelines, rewrite-examples — consumed only by `commands/prompt-optimization.md`) and `orq-agent/commands/compare-frameworks/resources/` (2 files: evaluatorq-script-templates, framework-adapters — consumed only by `commands/compare-frameworks.md`). Phases 42-43 will create additional per-skill `resources/` directories on demand when single-consumer content appears.
+**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phase 37 established the first live per-skill resources directory at `orq-agent/commands/observability/resources/` (5 framework snippets consumed only by `observability.md`). Phase 38 adds a second at `orq-agent/commands/trace-failure-analysis/resources/` (3 files: grounded-theory-methodology, failure-mode-classification, handoff-matrix — consumed only by `trace-failure-analysis.md`). Phase 39 adds a third per-skill resources directory at `orq-agent/agents/dataset-generator/resources/` (3 files: adversarial-vectors, coverage-rules, shapes — consumed only by `dataset-generator.md`). Phase 40 adds a fourth per-skill resources directory at `orq-agent/commands/kb/resources/` (3 files: chunking-strategies, kb-vs-memory, retrieval-test-template — consumed only by `commands/kb.md`, `agents/kb-generator.md`, and `agents/memory-store-generator.md` under the kb skill umbrella). Phase 41 adds the fifth and sixth per-skill resources directories at `orq-agent/commands/prompt-optimization/resources/` (2 files: 11-guidelines, rewrite-examples — consumed only by `commands/prompt-optimization.md`) and `orq-agent/commands/compare-frameworks/resources/` (2 files: evaluatorq-script-templates, framework-adapters — consumed only by `commands/compare-frameworks.md`). Phase 42 adds the seventh, eighth, and ninth per-skill resources directories at `orq-agent/agents/iterator/resources/` (2 files: action-plan-template, decision-trees — consumed only by `agents/iterator.md`), `orq-agent/agents/hardener/resources/` (2 files: sample-rate-volume-defaults, prevalence-correction — consumed only by `agents/hardener.md`), and `orq-agent/agents/evaluator-validator/resources/` (3 files: tpr-tnr-methodology, annotation-queue-setup, 4-component-judge-template — consumed only by `agents/evaluator-validator.md`). Phase 43 will create additional per-skill `resources/` directories on demand when single-consumer content appears.
 
 ## Anti-Patterns
 
