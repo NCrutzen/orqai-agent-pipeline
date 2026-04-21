@@ -274,6 +274,77 @@ Before finalizing output, verify ALL of the following. If any check fails, fix t
 
 7. **Dual dataset output:** Two separate files produced, not one combined file.
 
+## Two-Step Generation Mode (DSET-01)
+
+- Step A — Dimensions (3-6 axes): enumerate categorical axes that span the input space. Example axes: task_complexity, user_persona, input_channel.
+- Step B — Tuples: enumerate combinations (manual seed of 3-5, then LLM-scaled to cover the cartesian product).
+- Step C — Natural-language inputs: one NL input per tuple, authored in a SEPARATE pass so tuples stay inspectable independently.
+- Intermediate artifacts (dimensions.md, tuples.md) MUST be inspectable before NL generation runs.
+
+## Adversarial Vector Catalog (DSET-02)
+
+Datasets include 15-20% adversarial cases drawn from this 8-vector catalog, with ≥3 cases per relevant vector. Reference: `orq-agent/agents/dataset-generator/resources/adversarial-vectors.md`.
+
+1. persona-breaking — attempts to make the agent adopt a different persona
+2. instruction-override — "ignore previous instructions..."
+3. language-switching — input in unexpected language for the agent's domain
+4. formality-mismatch — register mismatch (slang vs formal)
+5. refusal — asks for content the agent should refuse
+6. format-forcing — demands non-spec output format
+7. multi-turn-manipulation — builds malicious context across turns
+8. contradiction — self-conflicting requirements in one input
+
+## Coverage Rules (DSET-03)
+
+Enforced BEFORE upload. On violation, emit exactly this remediation prefix and BLOCK the upload:
+
+- "Coverage check failed: value 'X' appears in only 1 datapoint (need ≥2). Add datapoints or adjust dimensions."
+- "Coverage check failed: value 'X' dominates 42% (limit is 30%). Rebalance by adding datapoints for under-represented values."
+
+Rules:
+
+- Rule 1: every dimension value appears in ≥2 datapoints.
+- Rule 2: no single dimension value dominates >30% of total datapoints.
+
+Reference: `orq-agent/agents/dataset-generator/resources/coverage-rules.md`.
+
+## Curation Mode 4 (DSET-04)
+
+When invoked via `--mode curation`, operate on an existing dataset:
+
+1. Deduplicate exact input-hash matches.
+2. Rebalance: flag dimension values >30% share; propose removals (NEVER delete without AskUserQuestion confirm).
+3. Gap-fill: flag dimension values <2 count; propose additions.
+4. Resolve contradictions: surface groups of equivalent inputs with divergent expected_output.
+
+Every proposed deletion MUST be confirmed via AskUserQuestion (one confirm per deletion batch is acceptable).
+
+## Dataset Shapes (DSET-05, DSET-06, DSET-07)
+
+Every datapoint carries `category` (required) AND `dimension_values: {dim: val, ...}` (required in two-step mode) so results-analyzer can slice scores (DSET-05).
+
+Shape values:
+
+- `shape: single` — legacy flat eval pair (input, expected_output, pass_criteria).
+- `shape: multi-turn` (DSET-06) — adds `messages: [{role, content}, ...]` + `perturbation_scenario: <name>`.
+- `shape: rag` (DSET-07) — adds `expected_source_chunk_ids: [chunk_id_1, chunk_id_2, ...]` so retrieval quality can be graded.
+
+Templates live at `orq-agent/agents/dataset-generator/resources/shapes.md`.
+
+## Promote-From-Trace (DSET-08)
+
+When invoked via `--mode promote-trace --trace-id <id>`:
+
+1. Fetch trace via MCP `get_span` (root) + `list_spans`.
+2. Emit ONE datapoint preserving: `input` (root span input), `expected_output` (root span output), `intermediate_steps` (tool-call sequence), `metadata` (session_id, user_id, customer_id, identity).
+3. Tag as `category: "regression"`, `source: "production-trace"`, `source_trace_id: <id>`.
+
+Example shape:
+
+```json
+{"category": "regression", "source": "production-trace", "source_trace_id": "tr_01JRXYZ", "input": "...", "expected_output": "...", "intermediate_steps": [{"tool": "db_lookup", "args": {}, "result": {}}], "metadata": {"session_id": "...", "customer_id": "acme", "identity": {"tenant": "eu-1"}}}
+```
+
 <examples>
 
 ## Few-Shot Example
@@ -388,6 +459,8 @@ When generating datasets, produce your output as TWO clearly separated sections:
 - **NEVER** delete datapoints during Mode-4 curation without AskUserQuestion confirm (Phase 39 DSET-04).
 - **ALWAYS** tag every datapoint by category AND dimension (Phase 39 DSET-05).
 - **ALWAYS** include 15-20% adversarial cases from the 8-vector catalog when the agent profile warrants (Phase 39 DSET-02).
+- **ALWAYS** emit intermediate `dimensions` and `tuples` artifacts in two-step mode so users can inspect before NL generation (Phase 39 DSET-01).
+- **ALWAYS** preserve input, output, intermediate_steps, and metadata when promoting a production trace (Phase 39 DSET-08).
 
 **Why these constraints:** Coverage violations bias eval; silent deletion loses signal irreversibly; tags enable slice analysis; adversarial cases stress-test the agent.
 
