@@ -40,7 +40,9 @@ export default async function DashboardLayout({
         initialJobs={initialJobs}
         initialAgents={initialAgents}
       />
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-auto bg-[var(--v7-bg)] text-[var(--v7-text)] min-h-screen">
+        {children}
+      </main>
     </SidebarProvider>
   );
 }
