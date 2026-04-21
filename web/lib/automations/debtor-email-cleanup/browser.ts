@@ -168,6 +168,126 @@ async function findEmail(page: Page, email: EmailIdentifiers, maxPages = 10): Pr
 }
 
 /**
+ * Find a specific email via iController's search box, independent of the
+ * sidebar (company) filter.
+ *
+ * Why: the sidebar scopes the list to one Account label, but the same
+ * debiteuren@smeba.nl mailbox is shared across many accounts (Hans Anders,
+ * Holland & Barrett, HEMA T.a.v., smebabrandbeveiliging, …). Filtering by a
+ * single sidebar item makes cross-account items invisible and findEmail
+ * would return -1 even when the message exists.
+ *
+ * Match rule:
+ *   sender email in search box → for each result row, require FULL subject
+ *   equality AND received_at within ±60 s of ours (covers 3–5 s delivery
+ *   drift between Outlook and iController's timestamp). Multiple rows that
+ *   satisfy both → ambiguous, return -2 so the caller can log and skip.
+ */
+async function findEmailViaSearch(
+  page: Page,
+  email: EmailIdentifiers,
+  maxPages = 10,
+): Promise<number> {
+  // Try a few common placeholders / selectors for the search input. The
+  // "Search in mails..." placeholder was observed in production.
+  const searchSelectors = [
+    'input[placeholder="Search in mails..."]',
+    'input[placeholder*="Search in mails"]',
+    'input[placeholder*="Search"]',
+    '.dataTables_filter input',
+    '#messages-list_filter input',
+    'input[type="search"]',
+  ];
+  let typed = false;
+  for (const sel of searchSelectors) {
+    const input = page.locator(sel).first();
+    if (await input.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await input.fill("");
+      await input.fill(email.from);
+      await input.press("Enter").catch(() => null);
+      typed = true;
+      break;
+    }
+  }
+  if (!typed) return -1;
+
+  // Wait for the table to settle after the search filter applies.
+  await page.waitForTimeout(1500);
+
+  const targetMs = new Date(email.receivedAt).getTime();
+  if (Number.isNaN(targetMs)) return -1;
+
+  for (let pg = 0; pg < maxPages; pg++) {
+    await page.waitForSelector("#messages-list", { timeout: 5000 }).catch(() => null);
+    const isEmpty = await page
+      .locator(".dataTables_empty")
+      .isVisible({ timeout: 1000 })
+      .catch(() => false);
+    if (isEmpty) return -1;
+
+    const matched = await page.evaluate(
+      ({ wantSubject, targetMs, toleranceMs }) => {
+        // Extract a YYYY-MM-DD HH:MM:SS timestamp from a cell's text.
+        const reTs = /(\d{4})-(\d{2})-(\d{2})[T\s]+(\d{2}):(\d{2}):(\d{2})/;
+        const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+
+        const rows = Array.from(
+          document.querySelectorAll<HTMLTableRowElement>(
+            "#messages-list tbody tr",
+          ),
+        );
+        const hits: number[] = [];
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const txt = row.textContent ?? "";
+          if (txt.includes("No data available")) continue;
+
+          // Full subject is in the DOM even when CSS truncates visually.
+          // Pull the subject-cell anchor text + any title attribute as fallback.
+          const subjCell = row.querySelector<HTMLElement>(
+            "td a, td.subject, td:nth-child(3)",
+          );
+          const subjectText = subjCell
+            ? norm(subjCell.getAttribute("title") || subjCell.textContent || "")
+            : "";
+
+          const tsMatch = txt.match(reTs);
+          if (!tsMatch) continue;
+          const [, y, mo, d, hh, mm, ss] = tsMatch;
+          const rowMs = new Date(
+            `${y}-${mo}-${d}T${hh}:${mm}:${ss}`,
+          ).getTime();
+          if (Number.isNaN(rowMs)) continue;
+
+          const dt = Math.abs(rowMs - targetMs);
+          const subjectOk = subjectText === norm(wantSubject);
+
+          if (subjectOk && dt <= toleranceMs) hits.push(i);
+        }
+        return hits;
+      },
+      { wantSubject: email.subject, targetMs, toleranceMs: 60_000 },
+    );
+
+    if (matched.length === 1) return matched[0];
+    if (matched.length > 1) return -2; // ambiguous
+
+    // Try to advance to the next page (search results can still paginate).
+    const advanced = await page.evaluate(() => {
+      const btn = document.querySelector<HTMLElement>(
+        "#messages-list_paginate .paginate_button.next:not(.disabled), .dataTables_paginate .paginate_button.next:not(.disabled)",
+      );
+      if (!btn) return false;
+      btn.click();
+      return true;
+    });
+    if (!advanced) return -1;
+    await page.waitForTimeout(1500);
+  }
+  return -1;
+}
+
+/**
  * Scroll matched row into view and apply red outline + pink background
  * so screenshots visually point to the target.
  */
@@ -252,11 +372,14 @@ export async function findAndPreviewEmail(
     await login(page, cfg);
     await navigateToMessages(page, cfg);
 
-    const found = await selectCompanyMailbox(page, cfg, email.company);
-    if (!found) {
+    // Stay on the all-accounts view — sidebar filtering is the wrong
+    // mental model (same mailbox, many Account labels).
+
+    const rowIndex = await findEmailViaSearch(page, email);
+    if (rowIndex === -2) {
       const shot = await captureScreenshot(page, {
         automation: AUTOMATION_NAME,
-        label: `preview-company-not-found-${email.company}`,
+        label: `preview-ambiguous`,
       });
       return {
         success: false,
@@ -264,11 +387,9 @@ export async function findAndPreviewEmail(
         rowIndex: -1,
         rowPreview: null,
         screenshot: shot,
-        error: `Company "${email.company}" not found in iController sidebar`,
+        error: `Ambiguous match: multiple rows with subject "${email.subject}" within ±60s of ${email.receivedAt}`,
       };
     }
-
-    const rowIndex = await findEmail(page, email);
     if (rowIndex === -1) {
       const shot = await captureScreenshot(page, {
         automation: AUTOMATION_NAME,
@@ -337,22 +458,22 @@ export async function deleteEmailFromIController(
     await login(page, cfg);
     await navigateToMessages(page, cfg);
 
-    const found = await selectCompanyMailbox(page, cfg, email.company);
-    if (!found) {
+    // Stay on the all-accounts view — sidebar filtering is the wrong
+    // mental model (same mailbox, many Account labels).
+
+    const rowIndex = await findEmailViaSearch(page, email);
+    if (rowIndex === -2) {
       const errorScreenshot = await captureScreenshot(page, {
         automation: AUTOMATION_NAME,
-        label: `company-not-found-${email.company}`,
+        label: "ambiguous-match",
       });
       return {
         success: false,
         emailFound: false,
         screenshots: { before: errorScreenshot, after: null },
-        error: `Company "${email.company}" not found in iController sidebar`,
+        error: `Ambiguous match: multiple rows with subject "${email.subject}" within ±60s of ${email.receivedAt}`,
       };
     }
-
-    // Find the specific email
-    const rowIndex = await findEmail(page, email);
     if (rowIndex === -1) {
       const errorScreenshot = await captureScreenshot(page, {
         automation: AUTOMATION_NAME,

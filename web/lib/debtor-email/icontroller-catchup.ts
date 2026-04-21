@@ -38,6 +38,7 @@ interface CategorizeResult {
 interface ICResult {
   stage: string;
   message_id: string;
+  icontroller?: "deleted" | "not_found" | "failed";
 }
 
 interface Row<T> {
@@ -69,7 +70,10 @@ async function supaInsert(path: string, row: unknown): Promise<void> {
 
 async function main() {
   const execute = process.argv.includes("--execute");
-  console.log(`[catchup] mode=${execute ? "EXECUTE" : "DRY-RUN"}`);
+  const retryNotFound = process.argv.includes("--retry-not-found");
+  console.log(
+    `[catchup] mode=${execute ? "EXECUTE" : "DRY-RUN"}${retryNotFound ? " (retry not_found)" : ""}`,
+  );
 
   const feedback = await supaGet<Row<FeedbackResult>>(
     "automation_runs?automation=eq.debtor-email-review&status=eq.feedback&order=completed_at.desc&limit=1000",
@@ -100,13 +104,19 @@ async function main() {
     }
   }
 
-  // message_ids already processed on the iController side
+  // message_ids already processed on the iController side.
+  // `failed` rows are NOT counted as done — transient errors
+  // (Browserless hiccup, token issue, selector break) should retry.
+  // `not_found` rows are counted as done UNLESS --retry-not-found is
+  // passed — after a findEmail improvement (v2: search-box + ±60s
+  // tolerance) prior not_found rulings need re-evaluation.
   const alreadyDone = new Set<string>();
   for (const r of icRows) {
     const res = r.result;
-    if (res && res.stage === "icontroller_delete" && res.message_id) {
-      alreadyDone.add(res.message_id);
-    }
+    if (!res || res.stage !== "icontroller_delete" || !res.message_id) continue;
+    if (res.icontroller === "failed") continue;
+    if (res.icontroller === "not_found" && retryNotFound) continue;
+    alreadyDone.add(res.message_id);
   }
 
   const todo: FeedbackResult[] = [];
