@@ -62,10 +62,10 @@ Extends our tester/hardener with the validation protocol the reference enforces:
 
 New skill for proactive prompt review using the 11-point prompting guidelines framework.
 
-- [ ] **POPT-01**: Skill fetches a target prompt (inline text or orq.ai prompt key) and preserves template variables (`{{variable}}`) literally
-- [ ] **POPT-02**: Skill analyzes the prompt against the 11-guideline framework (role, task, stress, guidelines, output format, tool calling, reasoning, examples, unnecessary content, variable usage, recap) and produces up to 5 actionable suggestions
-- [ ] **POPT-03**: Skill rewrites the prompt from accepted suggestions, presents a diff, and only applies after explicit user approval
-- [ ] **POPT-04**: Skill creates the rewritten prompt as a new version on orq.ai, preserving the original for rollback, and recommends `run-experiment` / A/B validation
+- [x] **POPT-01**: Skill fetches a target prompt (inline text or orq.ai prompt key) and preserves template variables (`{{variable}}`) literally
+- [x] **POPT-02**: Skill analyzes the prompt against the 11-guideline framework (role, task, stress, guidelines, output format, tool calling, reasoning, examples, unnecessary content, variable usage, recap) and produces up to 5 actionable suggestions
+- [x] **POPT-03**: Skill rewrites the prompt from accepted suggestions, presents a diff, and only applies after explicit user approval
+- [x] **POPT-04**: Skill creates the rewritten prompt as a new version on orq.ai, preserving the original for rollback, and recommends `run-experiment` / A/B validation
 
 ### Cross-Framework Comparison (XFRM)
 
@@ -234,10 +234,10 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | EVLD-09 | 42 | Pending |
 | EVLD-10 | 42 | Pending |
 | EVLD-11 | 42 | Pending |
-| POPT-01 | 41 | Pending |
-| POPT-02 | 41 | Pending |
-| POPT-03 | 41 | Pending |
-| POPT-04 | 41 | Pending |
+| POPT-01 | 41 | Complete |
+| POPT-02 | 41 | Complete |
+| POPT-03 | 41 | Complete |
+| POPT-04 | 41 | Complete |
 | XFRM-01 | 41 | Complete |
 | XFRM-02 | 41 | Complete |
 | XFRM-03 | 41 | Complete |
