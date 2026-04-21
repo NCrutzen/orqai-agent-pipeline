@@ -40,7 +40,7 @@ Directional pipeline (→ means "typical next step"):
 ## Done When
 
 - [ ] All 15 slash commands under `orq-agent/commands/` match the commands listed in the body below
-- [ ] All 17 subagents under `orq-agent/agents/` match the subagents listed in the body below
+- [ ] All 18 subagents under `orq-agent/agents/` match the subagents listed in the body below
 - [ ] All 8 shared references under `orq-agent/references/` have ≥2 consumer skills (verified by `bash orq-agent/scripts/lint-skills.sh --rule references-multi-consumer`)
 - [ ] `bash orq-agent/scripts/lint-skills.sh` exits 0 across the full suite
 
@@ -63,6 +63,11 @@ orq-agent/
     datasets.md                  # Standalone dataset generator command
     deploy.md                    # Phase 5: Deploy to Orq.ai (requires deploy+ tier)
     kb.md                        # KB management: generate, provision, upload
+    kb/
+      resources/
+        chunking-strategies.md  # Phase 40: sentence vs recursive decision rules (KBM-03)
+        kb-vs-memory.md         # Phase 40: KB-vs-Memory decision rule + anti-patterns (KBM-04)
+        retrieval-test-template.md  # Phase 40: retrieval test queries + pass criteria (KBM-01)
     test.md                      # Phase 5: Automated testing (requires test+ tier)
     iterate.md                   # Phase 5: Prompt iteration (requires full tier)
     harden.md                    # Phase 9: Guardrails and quality gates (requires full tier)
@@ -162,7 +167,7 @@ Agents/[swarm-name]/
 | Command | File | Tier Required | Purpose |
 |---------|------|---------------|---------|
 | `/orq-agent:deploy` | `commands/deploy.md` | deploy+ | Deploy agent specs to Orq.ai via MCP (V1.0 fallback: copy-paste steps) |
-| `/orq-agent:kb` | `commands/kb.md` | deploy+ | Manage KBs -- generate content, provision, upload files |
+| `/orq-agent:kb` | `commands/kb.md` | deploy+ | Manage KBs + memory stores -- generate content, provision, upload, retrieval-quality test (KBM-01), embedding activation check (KBM-02), chunking picker (KBM-03), KB-vs-Memory gate (KBM-04); `--mode memory` dispatches to memory-store-generator (KBM-05) |
 | `/orq-agent:test` | `commands/test.md` | test+ | Run automated tests against deployed agents (V1.0 fallback: manual steps) |
 | `/orq-agent:iterate` | `commands/iterate.md` | full | Iterate on prompts using evaluator feedback (V1.0 fallback: manual steps) |
 | `/orq-agent:harden` | `commands/harden.md` | full | Set up guardrails and quality gates from test results |
@@ -234,6 +239,22 @@ Resource docs under `orq-agent/commands/trace-failure-analysis/resources/` (grou
 
 Resource docs under `orq-agent/agents/dataset-generator/resources/` (adversarial-vectors, coverage-rules, shapes) are consumed only by `agents/dataset-generator.md` (single-consumer; see Resources Policy below).
 
+### Phase 40 (KB & Memory Lifecycle)
+
+| Command | File | Tier Required | Purpose |
+|---------|------|---------------|---------|
+| `/orq-agent:kb` | `commands/kb.md` | deploy+ | Enhanced KB command — embedding model activation check (KBM-02), content-type-driven chunking picker (KBM-03), retrieval quality test with configurable threshold (KBM-01), KB-vs-Memory decision rule gate (KBM-04), and `--mode memory` dispatch to memory-store-generator (KBM-05) |
+
+**`/orq-agent:kb` Phase 40 requirement coverage:**
+
+- KBM-01 — Retrieval quality test with 5-10 LLM-synthesized sample queries after chunking; refuses deployment wire-up if pass rate < 70% (configurable via `--retrieval-threshold <N>`); see `commands/kb.md` Step 7.6 and `commands/kb/resources/retrieval-test-template.md`.
+- KBM-02 — Embedding model activation check via MCP `list_models --type embedding` with REST fallback; surfaces remediation (activate in AI Router → Models → Embeddings) before any `POST /v2/knowledge` call; see `commands/kb.md` Step 7.0.
+- KBM-03 — Content-type detection (prose vs structured) drives chunking strategy choice (sentence 512/50 vs recursive 1024/100); recorded in KB metadata + emitted by kb-generator in `manifest.json`; see `commands/kb/resources/chunking-strategies.md`.
+- KBM-04 — Lint-anchored KB-vs-Memory decision rule block ("static reference data" vs "dynamic user context") present verbatim in kb.md, memory-store-generator.md, and `commands/kb/resources/kb-vs-memory.md`; blocked patterns (memory for docs/FAQs, KB for conversation context) trigger STOP + redirect.
+- KBM-05 — New `agents/memory-store-generator.md` subagent creates memory stores, wires agents with `settings.memory_stores` + system prompt instruction, runs read/write/recall round-trip test with `test_write_<uuid>` value cleanup; invoked via `/orq-agent:kb --mode memory`.
+
+Resource docs under `orq-agent/commands/kb/resources/` (chunking-strategies, kb-vs-memory, retrieval-test-template) are consumed only by `commands/kb.md`, `agents/kb-generator.md`, and `agents/memory-store-generator.md` (all under the kb skill umbrella — single-consumer per Resources Policy below).
+
 **Invocation:** `/orq-agent "description"` | `/orq-agent` (interactive) | `--gsd` flag | `--output <path>`
 
 ## Command Flags
@@ -286,6 +307,12 @@ Resource docs under `orq-agent/agents/dataset-generator/resources/` (adversarial
 | Agent | File | Purpose |
 |-------|------|---------|
 | Hardener | `agents/hardener.md` | Analyzes test results, suggests guardrails for promotion, collects approval, attaches to deployed agents, generates quality gate reports |
+
+### Phase 40 (KB & Memory Lifecycle)
+
+| Agent | File | Purpose |
+|-------|------|---------|
+| Memory Store Generator | `agents/memory-store-generator.md` | Creates Orq.ai memory stores with descriptive keys (session_history / user_preferences / conversation_context), wires agents with memory instructions (`settings.memory_stores` + system prompt injection), and runs a read/write/recall round-trip test with cleanup before handoff (KBM-05) |
 
 ## References
 
@@ -381,7 +408,7 @@ Skill documentation lives in two places. The placement rule is driven by consume
 
 **Invariant (enforced by lint):** Every file under `orq-agent/references/` MUST be consumed by ≥2 skills. The `references-multi-consumer` rule in `orq-agent/scripts/lint-skills.sh` enforces this. If a file drops to 1 consumer, the lint fails and the file must move to that consumer's `<skill>/resources/`.
 
-**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phase 37 established the first live per-skill resources directory at `orq-agent/commands/observability/resources/` (5 framework snippets consumed only by `observability.md`). Phase 38 adds a second at `orq-agent/commands/trace-failure-analysis/resources/` (3 files: grounded-theory-methodology, failure-mode-classification, handoff-matrix — consumed only by `trace-failure-analysis.md`). Phase 39 adds a third per-skill resources directory at `orq-agent/agents/dataset-generator/resources/` (3 files: adversarial-vectors, coverage-rules, shapes — consumed only by `dataset-generator.md`). Phases 40-43 will create additional per-skill `resources/` directories on demand when single-consumer content appears.
+**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phase 37 established the first live per-skill resources directory at `orq-agent/commands/observability/resources/` (5 framework snippets consumed only by `observability.md`). Phase 38 adds a second at `orq-agent/commands/trace-failure-analysis/resources/` (3 files: grounded-theory-methodology, failure-mode-classification, handoff-matrix — consumed only by `trace-failure-analysis.md`). Phase 39 adds a third per-skill resources directory at `orq-agent/agents/dataset-generator/resources/` (3 files: adversarial-vectors, coverage-rules, shapes — consumed only by `dataset-generator.md`). Phase 40 adds a fourth per-skill resources directory at `orq-agent/commands/kb/resources/` (3 files: chunking-strategies, kb-vs-memory, retrieval-test-template — consumed only by `commands/kb.md`, `agents/kb-generator.md`, and `agents/memory-store-generator.md` under the kb skill umbrella). Phases 41-43 will create additional per-skill `resources/` directories on demand when single-consumer content appears.
 
 ## Anti-Patterns
 

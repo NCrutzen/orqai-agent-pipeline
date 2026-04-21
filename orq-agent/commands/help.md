@@ -74,7 +74,8 @@ Commands:
   /orq-agent:datasets          Test dataset generation
                                (--mode two-step|flat|curation|promote-trace, --trace-id, --shape single|multi-turn|rag)
   /orq-agent:deploy            Deploy specs to Orq.ai (deploy+ tier)
-  /orq-agent:kb                KB management (deploy+ tier)
+  /orq-agent:kb                KB + memory management (deploy+ tier)
+                               (--mode kb|memory, --retrieval-threshold <N>)
   /orq-agent:test              Automated evaluation (test+ tier)
   /orq-agent:iterate           Prompt iteration with HITL (full tier)
   /orq-agent:harden            Guardrails & quality gates (full tier)
