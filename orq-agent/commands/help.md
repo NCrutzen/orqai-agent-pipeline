@@ -90,6 +90,10 @@ Commands:
   /orq-agent:observability     Instrument LLM app for trace capture (framework detect + codegen)
   /orq-agent:trace-failure-analysis  Grounded-theory failure taxonomy from ~100 traces (deploy+ tier)
   /orq-agent:automations       Trace Automation rules (list / --create)
+  /orq-agent:prompt-optimization      Optimize a prompt against 11-guideline framework (deploy+ tier)
+                                      (fetches prompt, preserves {{variable}}, max 5 suggestions, diff + approval, new version)
+  /orq-agent:compare-frameworks       Cross-framework benchmark via evaluatorq (deploy+ tier)
+                                      (--lang python|ts, --isolate-model, --dataset, --evaluators, --model)
   /orq-agent:help              Show this help
 
 Usage examples:
