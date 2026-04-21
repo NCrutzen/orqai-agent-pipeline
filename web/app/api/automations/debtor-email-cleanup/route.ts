@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { deleteEmailFromIController, type EmailIdentifiers } from "@/lib/automations/debtor-email-cleanup/browser";
+import {
+  deleteEmailFromIController,
+  findAndPreviewEmail,
+  type EmailIdentifiers,
+  type IControllerEnv,
+} from "@/lib/automations/debtor-email-cleanup/browser";
 
 const WEBHOOK_SECRET = process.env.AUTOMATION_WEBHOOK_SECRET!;
+
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-automation-secret");
@@ -11,7 +18,8 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null);
-  if (!body?.company || !body?.from || !body?.subject) {
+  const payload = body?.email ?? body;
+  if (!payload?.company || !payload?.from || !payload?.subject) {
     return NextResponse.json(
       { error: "Missing required fields: company, from, subject" },
       { status: 400 },
@@ -19,20 +27,45 @@ export async function POST(request: NextRequest) {
   }
 
   const email: EmailIdentifiers = {
-    company: body.company,
-    from: body.from,
-    subject: body.subject,
-    receivedAt: body.receivedAt || new Date().toISOString(),
+    company: payload.company,
+    from: payload.from,
+    subject: payload.subject,
+    receivedAt: payload.receivedAt || new Date().toISOString(),
   };
 
-  const result = await deleteEmailFromIController(email);
+  const mode: "preview" | "delete" = body?.mode === "preview" ? "preview" : "delete";
+  const env: IControllerEnv = body?.env === "production" ? "production" : "acceptance";
 
-  // Log to automation_runs for audit trail
   const admin = createAdminClient();
+
+  if (mode === "preview") {
+    const result = await findAndPreviewEmail(email, env);
+    await admin.from("automation_runs").insert({
+      automation: "debtor-email-cleanup",
+      status: result.success ? "completed" : "failed",
+      result: {
+        mode,
+        env,
+        email,
+        emailFound: result.emailFound,
+        rowIndex: result.rowIndex,
+        rowPreview: result.rowPreview,
+        screenshot: result.screenshot?.path ?? null,
+      },
+      error_message: result.error ?? null,
+      triggered_by: `preview:${body?.category ?? "manual"}`,
+      completed_at: new Date().toISOString(),
+    });
+    return NextResponse.json(result, { status: result.success ? 200 : 422 });
+  }
+
+  const result = await deleteEmailFromIController(email, env);
   await admin.from("automation_runs").insert({
     automation: "debtor-email-cleanup",
     status: result.success ? "completed" : "failed",
     result: {
+      mode,
+      env,
       email,
       emailFound: result.emailFound,
       screenshots: {
@@ -41,9 +74,8 @@ export async function POST(request: NextRequest) {
       },
     },
     error_message: result.error ?? null,
-    triggered_by: `zapier-webhook:${body.category ?? "unknown"}`,
+    triggered_by: `zapier-webhook:${body?.category ?? "unknown"}`,
     completed_at: new Date().toISOString(),
   });
-
   return NextResponse.json(result, { status: result.success ? 200 : 422 });
 }

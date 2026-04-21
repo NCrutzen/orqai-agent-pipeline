@@ -2,10 +2,32 @@ import { type Page } from "playwright-core";
 import { connectWithSession, saveSession, captureBeforeAfter, captureScreenshot } from "@/lib/browser";
 import { resolveCredentials } from "@/lib/credentials/proxy";
 
-const ICONTROLLER_CREDENTIAL_ID = "e9a9570e-5f0d-4d50-8b41-212fc6bdb78a";
-const SESSION_KEY = "icontroller_session";
-const ICONTROLLER_URL = "https://test-walkerfire-testing.icontroller.billtrust.com";
 const AUTOMATION_NAME = "debtor-email-cleanup";
+
+export type IControllerEnv = "acceptance" | "production";
+
+interface EnvConfig {
+  url: string;
+  credentialId: string;
+  sessionKey: string;
+}
+
+function resolveEnv(env: IControllerEnv | undefined): EnvConfig {
+  const resolved: IControllerEnv =
+    env ?? (process.env.ICONTROLLER_ENV === "production" ? "production" : "acceptance");
+  if (resolved === "production") {
+    return {
+      url: "https://walkerfire.icontroller.eu",
+      credentialId: "dfae6b50-59dd-44e6-81ac-79d4f3511c3f",
+      sessionKey: "icontroller_session_prod",
+    };
+  }
+  return {
+    url: "https://test-walkerfire-testing.icontroller.billtrust.com",
+    credentialId: "e9a9570e-5f0d-4d50-8b41-212fc6bdb78a",
+    sessionKey: "icontroller_session",
+  };
+}
 
 export interface EmailIdentifiers {
   /** Company name as shown in iController sidebar */
@@ -32,8 +54,8 @@ export interface CleanupResult {
  * Login to iController. Skips if already logged in via session reuse.
  * Selectors: #login-username (type=text), #login-password, #login-submit
  */
-async function login(page: Page): Promise<void> {
-  await page.goto(ICONTROLLER_URL, { waitUntil: "domcontentloaded" });
+async function login(page: Page, cfg: EnvConfig): Promise<void> {
+  await page.goto(cfg.url, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2000);
 
   const hasLoginForm = await page.locator('#login-username')
@@ -42,7 +64,7 @@ async function login(page: Page): Promise<void> {
 
   if (!hasLoginForm) return; // Already logged in via session
 
-  const creds = await resolveCredentials(ICONTROLLER_CREDENTIAL_ID);
+  const creds = await resolveCredentials(cfg.credentialId);
 
   await page.fill('#login-username', creds.username);
   await page.fill('#login-password', creds.password);
@@ -56,8 +78,8 @@ async function login(page: Page): Promise<void> {
  * Navigate directly to Messages inbox via URL.
  * Collections is already the active section after login.
  */
-async function navigateToMessages(page: Page): Promise<void> {
-  await page.goto(`${ICONTROLLER_URL}/messages`, { waitUntil: "domcontentloaded" });
+async function navigateToMessages(page: Page, cfg: EnvConfig): Promise<void> {
+  await page.goto(`${cfg.url}/messages`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2000);
 }
 
@@ -66,16 +88,13 @@ async function navigateToMessages(page: Page): Promise<void> {
  * Sidebar is a <ul> with <a> links, format "» CompanyName",
  * href = /messages/index/mailbox/{id}. Navigate directly via URL for reliability.
  */
-async function selectCompanyMailbox(page: Page, company: string): Promise<boolean> {
-  // Find the mailbox link by matching company name in the sidebar
+async function selectCompanyMailbox(page: Page, cfg: EnvConfig, company: string): Promise<boolean> {
   const mailboxHref = await page.evaluate((name) => {
     const links = Array.from(document.querySelectorAll('a'));
-    // Try exact match first (sidebar shows "» CompanyName")
     for (const a of links) {
       const text = a.textContent?.trim().replace(/^»\s*/, '') || '';
       if (text.toLowerCase() === name.toLowerCase()) return a.getAttribute('href');
     }
-    // Try partial match
     for (const a of links) {
       const text = a.textContent?.trim().toLowerCase() || '';
       if (text.includes(name.toLowerCase())) return a.getAttribute('href');
@@ -85,76 +104,219 @@ async function selectCompanyMailbox(page: Page, company: string): Promise<boolea
 
   if (!mailboxHref) return false;
 
-  // Navigate directly to the mailbox URL
-  await page.goto(`${ICONTROLLER_URL}${mailboxHref}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${cfg.url}${mailboxHref}`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2000);
   return true;
 }
 
 /**
- * Find a specific email in the messages table (#messages-list).
- * Uses the "Search in mails..." box first, then matches on from + subject.
- * Returns the row index (0-based) or -1 if not found.
+ * Find a specific email in the messages table, paginating forward.
+ * Primary match: timestamp (HH:MM + date parts from receivedAt).
+ * Fallback: from + subject substring. Walks up to maxPages (default 10).
+ * Returns row index within the page it was found on, or -1.
+ * (The caller stays on that page so selectAndDelete's nth-child works.)
  */
-async function findEmail(page: Page, email: EmailIdentifiers): Promise<number> {
-  // Wait for table to be present
-  await page.waitForSelector('#messages-list', { timeout: 5000 }).catch(() => null);
+async function findEmail(page: Page, email: EmailIdentifiers, maxPages = 10): Promise<number> {
+  for (let pg = 0; pg < maxPages; pg++) {
+    await page.waitForSelector('#messages-list', { timeout: 5000 }).catch(() => null);
+    const isEmpty = await page.locator('.dataTables_empty').isVisible({ timeout: 1500 }).catch(() => false);
+    if (isEmpty) return -1;
 
-  // Check if table has data
-  const isEmpty = await page.locator('.dataTables_empty').isVisible({ timeout: 2000 }).catch(() => false);
-  if (isEmpty) return -1;
+    const rowIndex = await page.evaluate(({ from, subject, receivedAt }) => {
+      const tsParts = receivedAt.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+      const [, year, month, day, hh, mm] = tsParts ?? [];
+      const hm = hh && mm ? `${hh}:${mm}` : "";
 
-  // Use the "Search in mails..." input if available
-  const searchBox = page.locator('input[placeholder*="Search in mails"]').first();
-  const hasSearch = await searchBox.isVisible({ timeout: 2000 }).catch(() => false);
+      const rows = document.querySelectorAll('#messages-list tbody tr');
+      for (let i = 0; i < rows.length; i++) {
+        const text = rows[i].textContent || "";
+        if (text.includes("No data available")) continue;
 
-  if (hasSearch) {
-    await searchBox.fill(email.subject.substring(0, 50));
-    await page.waitForTimeout(2000);
+        const timeMatch = hm !== "" && text.includes(hm);
+        const dateMatch =
+          tsParts !== null && (
+            text.includes(`${year}-${month}-${day}`) ||
+            text.includes(`${day}-${month}-${year}`) ||
+            text.includes(`${day}/${month}/${year}`) ||
+            text.includes(`${day}.${month}.${year}`)
+          );
+
+        if (timeMatch && dateMatch) return i;
+
+        const fromMatch = from && text.toLowerCase().includes(from.toLowerCase());
+        const subjectMatch =
+          subject && text.toLowerCase().includes(subject.substring(0, 30).toLowerCase());
+        if (fromMatch && subjectMatch) return i;
+      }
+      return -1;
+    }, email);
+
+    if (rowIndex !== -1) return rowIndex;
+
+    const advanced = await page.evaluate(() => {
+      const btn = document.querySelector<HTMLElement>(
+        '#messages-list_paginate .paginate_button.next:not(.disabled), .dataTables_paginate .paginate_button.next:not(.disabled)',
+      );
+      if (!btn) return false;
+      btn.click();
+      return true;
+    });
+    if (!advanced) return -1;
+    await page.waitForTimeout(1500);
   }
-
-  // Find the matching row in #messages-list tbody
-  const rowIndex = await page.evaluate(({ from, subject }) => {
-    const rows = document.querySelectorAll('#messages-list tbody tr');
-    for (let i = 0; i < rows.length; i++) {
-      const rowText = rows[i].textContent || '';
-      if (rowText.includes('No data available')) continue;
-
-      const fromMatch = rowText.toLowerCase().includes(from.toLowerCase());
-      const subjectMatch = rowText.toLowerCase().includes(subject.substring(0, 30).toLowerCase());
-
-      if (fromMatch && subjectMatch) return i;
-    }
-    return -1;
-  }, { from: email.from, subject: email.subject });
-
-  return rowIndex;
+  return -1;
 }
 
 /**
- * Select a row by index and click the delete button.
- * Table: #messages-list. Rows have a checkbox in the select column.
- * Delete button: div.delete-bulk.bulk-action in the toolbar.
+ * Scroll matched row into view and apply red outline + pink background
+ * so screenshots visually point to the target.
+ */
+async function highlightRow(page: Page, rowIndex: number): Promise<string | null> {
+  return page.evaluate((i) => {
+    const row = document.querySelectorAll("#messages-list tbody tr")[i] as HTMLElement | undefined;
+    if (!row) return null;
+    row.scrollIntoView({ block: "center" });
+    row.style.outline = "3px solid #ff0033";
+    row.style.outlineOffset = "-3px";
+    row.style.background = "#ffe5ec";
+    return Array.from(row.querySelectorAll("td"))
+      .map((td) => td.textContent?.trim() || "")
+      .join(" | ");
+  }, rowIndex);
+}
+
+/**
+ * Select a row's checkbox and click the bulk delete button.
+ * Verifies the checkbox is actually :checked before clicking delete; falls
+ * back to clicking the select-column td (DataTables row-click toggle) if
+ * the direct input click doesn't register.
  */
 async function selectAndDelete(page: Page, rowIndex: number): Promise<void> {
-  // Click the checkbox on the row (column with class "column-select")
-  const checkbox = page.locator(`#messages-list tbody tr:nth-child(${rowIndex + 1}) .column-select input[type="checkbox"], #messages-list tbody tr:nth-child(${rowIndex + 1}) td:nth-child(2)`).first();
-  await checkbox.click();
-  await page.waitForTimeout(500);
+  const rowSelector = `#messages-list tbody tr:nth-child(${rowIndex + 1})`;
+  const row = page.locator(rowSelector);
+  const checkbox = row.locator('input[type="checkbox"]').first();
 
-  // Click the delete button (div.delete-bulk.bulk-action)
+  await checkbox.scrollIntoViewIfNeeded();
+  await checkbox.click();
+  await page.waitForTimeout(400);
+
+  let checked = await checkbox.isChecked().catch(() => false);
+  if (!checked) {
+    // Fallback: click the first cell (select column) — many DataTables
+    // implementations toggle the checkbox when the cell is clicked.
+    await row.locator("td").first().click();
+    await page.waitForTimeout(400);
+    checked = await checkbox.isChecked().catch(() => false);
+  }
+  if (!checked) {
+    throw new Error(`Checkbox on row ${rowIndex} could not be checked`);
+  }
+
   const deleteButton = page.locator('.delete-bulk.bulk-action').first();
   await deleteButton.click();
   await page.waitForTimeout(1000);
 
-  // Handle potential confirmation dialog
-  const confirmButton = page.locator('button:has-text("OK"), button:has-text("Yes"), button:has-text("Confirm"), button:has-text("Delete"), .modal button.call-to-action');
+  const confirmButton = page.locator(
+    'button:has-text("OK"), button:has-text("Yes"), button:has-text("Confirm"), button:has-text("Delete"), .modal button.call-to-action',
+  );
   const hasConfirm = await confirmButton.first().isVisible({ timeout: 3000 }).catch(() => false);
   if (hasConfirm) {
     await confirmButton.first().click();
   }
 
   await page.waitForTimeout(2000);
+}
+
+export interface PreviewResult {
+  success: boolean;
+  emailFound: boolean;
+  rowIndex: number;
+  rowPreview: string | null;
+  screenshot: { path: string; url: string | null } | null;
+  error?: string;
+}
+
+/**
+ * Dry-run: login, navigate, find the email, capture a before-screenshot.
+ * Does NOT delete. For production safety gate — user inspects screenshot
+ * before we re-run with the delete path.
+ */
+export async function findAndPreviewEmail(
+  email: EmailIdentifiers,
+  env?: IControllerEnv,
+): Promise<PreviewResult> {
+  const cfg = resolveEnv(env);
+  const { browser, context, page } = await connectWithSession(cfg.sessionKey);
+
+  try {
+    await login(page, cfg);
+    await navigateToMessages(page, cfg);
+
+    const found = await selectCompanyMailbox(page, cfg, email.company);
+    if (!found) {
+      const shot = await captureScreenshot(page, {
+        automation: AUTOMATION_NAME,
+        label: `preview-company-not-found-${email.company}`,
+      });
+      return {
+        success: false,
+        emailFound: false,
+        rowIndex: -1,
+        rowPreview: null,
+        screenshot: shot,
+        error: `Company "${email.company}" not found in iController sidebar`,
+      };
+    }
+
+    const rowIndex = await findEmail(page, email);
+    if (rowIndex === -1) {
+      const shot = await captureScreenshot(page, {
+        automation: AUTOMATION_NAME,
+        label: `preview-email-not-found`,
+      });
+      return {
+        success: false,
+        emailFound: false,
+        rowIndex: -1,
+        rowPreview: null,
+        screenshot: shot,
+        error: `Email not found: "${email.subject}" from ${email.from}`,
+      };
+    }
+
+    const rowPreview = await highlightRow(page, rowIndex);
+    await page.waitForTimeout(400);
+
+    const shot = await captureScreenshot(page, {
+      automation: AUTOMATION_NAME,
+      label: `preview-before-delete-${email.company}`,
+    });
+
+    await saveSession(context, cfg.sessionKey);
+
+    return {
+      success: true,
+      emailFound: true,
+      rowIndex,
+      rowPreview,
+      screenshot: shot,
+    };
+  } catch (error) {
+    const shot = await captureScreenshot(page, {
+      automation: AUTOMATION_NAME,
+      label: "preview-error",
+    }).catch(() => null);
+    return {
+      success: false,
+      emailFound: false,
+      rowIndex: -1,
+      rowPreview: null,
+      screenshot: shot,
+      error: String(error),
+    };
+  } finally {
+    await browser.close();
+  }
 }
 
 /**
@@ -164,15 +326,18 @@ async function selectAndDelete(page: Page, rowIndex: number): Promise<void> {
  * Input: email identifiers from Zapier (company, from, subject, receivedAt)
  * Output: success status + before/after screenshot paths for audit trail
  */
-export async function deleteEmailFromIController(email: EmailIdentifiers): Promise<CleanupResult> {
-  const { browser, context, page } = await connectWithSession(SESSION_KEY);
+export async function deleteEmailFromIController(
+  email: EmailIdentifiers,
+  env?: IControllerEnv,
+): Promise<CleanupResult> {
+  const cfg = resolveEnv(env);
+  const { browser, context, page } = await connectWithSession(cfg.sessionKey);
 
   try {
-    await login(page);
-    await navigateToMessages(page);
+    await login(page, cfg);
+    await navigateToMessages(page, cfg);
 
-    // Find the company mailbox
-    const found = await selectCompanyMailbox(page, email.company);
+    const found = await selectCompanyMailbox(page, cfg, email.company);
     if (!found) {
       const errorScreenshot = await captureScreenshot(page, {
         automation: AUTOMATION_NAME,
@@ -201,7 +366,10 @@ export async function deleteEmailFromIController(email: EmailIdentifiers): Promi
       };
     }
 
-    // Delete with before/after screenshots
+    // Highlight the target row so before/after screenshots clearly point to it.
+    await highlightRow(page, rowIndex);
+    await page.waitForTimeout(400);
+
     const audit = await captureBeforeAfter(
       page,
       AUTOMATION_NAME,
@@ -211,7 +379,7 @@ export async function deleteEmailFromIController(email: EmailIdentifiers): Promi
       },
     );
 
-    await saveSession(context, SESSION_KEY);
+    await saveSession(context, cfg.sessionKey);
 
     return {
       success: true,
