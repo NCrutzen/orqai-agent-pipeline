@@ -255,6 +255,15 @@ Log split counts per agent:
 Agent {agent-key}: {total} total -> {train} train / {test} test / {holdout} holdout
 ```
 
+### Capability Suites vs Regression Suites
+
+Track evaluation items in two distinct suites so iteration signal stays interpretable (Phase 42 ESCI-04):
+
+- **capability suite** — new-behavior probing. Expect low pass-rate initially; this is where failures are informative and drive iteration. Newly authored eval pairs land here by default.
+- **regression suite** — expect near-100% pass-rate. Items graduate from the capability suite into the regression suite after 2 consecutive green runs (pass rate = 100% for the item across two full `/orq-agent:test` cycles without intervening prompt changes).
+
+**Graduation rule (LOCKED):** Only capability items with 2 consecutive green runs move to the regression suite. Any failing regression item is demoted back to the capability suite and flagged for root-cause analysis. Never mix suite provenance in aggregate pass-rate reporting — always report capability pass-rate and regression pass-rate as separate numbers.
+
 ---
 
 ## Phase 5: Upload Datasets to Orq.ai
@@ -434,6 +443,16 @@ Agent {agent-key}:
     edge-case: [toxicity, harmfulness]
 ```
 
+### Isolated Graders per Quality Dimension
+
+Use an **isolated grader** per quality dimension — never a single omnibus grader that tries to score everything at once (Phase 42 ESCI-03). Scoring must be decomposed so each grader reasons about exactly one axis:
+
+- **Tool selection** — scored by its own isolated grader. Did the agent pick the right tool(s) for the input? This grader sees only the tool-call trace and the input, not the final output.
+- **Argument quality** — scored by a separate isolated grader. Given the chosen tool, are the arguments well-formed, complete, and semantically correct? This grader sees only the tool name and argument payload.
+- **Output interpretation** — scored by a third isolated grader. Given the tool response, did the agent interpret and present the result faithfully? This grader sees only the tool response and the agent's final output.
+
+**Why:** An omnibus grader conflates failure modes. When the score drops, you cannot tell whether the agent picked the wrong tool, picked the right tool with wrong arguments, or mis-interpreted a correct response. Isolated graders localise the defect and feed precise signal into failure-diagnoser and iterator.
+
 ---
 
 ## Phase 7: Execute Experiments (3x per Agent)
@@ -586,6 +605,14 @@ Record pass/fail status per evaluator per agent:
 }
 ```
 
+### Overfitting Warning for Small Datasets
+
+Guard against **overfitting** when a newly-iterated evaluator produces suspiciously strong scores on a dataset that is too small to trust (Phase 42 ESCI-07):
+
+- If the newly-iterated evaluator's median score is ≥98% AND the dataset size is <100 datapoints, emit the warning: `"Suspected overfitting: evaluator scored ≥98% on <100 datapoints. Expand dataset before validating."`
+- Flag the run in `test-results.json` with `overfitting_warning: true` so downstream tooling (iterator, evaluator-validator) can block promotion until the dataset is expanded.
+- Do NOT treat ≥98% on <100 datapoints as green; route it through the expand-dataset workflow before any evaluator graduates.
+
 ### Step 8.3: Category-Sliced Scoring
 
 Group examples by category and compute per-evaluator scores within each category:
@@ -691,6 +718,26 @@ Generate a markdown report at `test-results.md` in the swarm output directory:
 **Agents tested:** {total}
 **Passing:** {count} | **Failing:** {count} | **Errors:** {count}
 ```
+
+### Run-Comparison Table (Iteration Trend)
+
+After writing `test-results.md`, append (or update) a run-comparison table so humans can see trend-over-iterations at a glance (Phase 42 ITRX-03). The tester emits the table under the H2 `## Run-Comparison Trend` at the bottom of `test-results.md`; the iteration-runner inserts one new row per `/orq-agent:iterate` cycle, keyed by run ordinal.
+
+Canonical 6-column run-comparison table:
+
+```
+| Run | Date | Model | Avg Score | Cost | Key Changes |
+|-----|------|-------|-----------|------|-------------|
+| 1 | 2026-01-15 | claude-sonnet-4-5-20250929 | 0.72 | $0.14 | baseline |
+| 2 | 2026-01-16 | claude-sonnet-4-5-20250929 | 0.81 | $0.15 | tightened <constraints> |
+```
+
+**Rules:**
+- One row per `/orq-agent:iterate` cycle; never overwrite prior rows.
+- `Run` ordinal is monotonic per swarm; `Date` is ISO `YYYY-MM-DD`; `Model` records the primary model under test.
+- `Avg Score` is the cross-evaluator median aggregated to a single 0-1 number (normalise continuous-15 scales before averaging).
+- `Cost` is the total run cost in USD as reported by Orq.ai analytics for the experiment.
+- `Key Changes` is a short human-readable note (prompt diff, evaluator swap, temperature change). Empty-string is not allowed — use `baseline` on Run 1.
 
 ### Step 8.7: Output Channel 3 -- Terminal Summary Table
 
@@ -812,6 +859,10 @@ Directional handoffs (→ means "this skill feeds into"):
 - [ ] Pass/fail determined per agent per evaluator with role-based thresholds
 - [ ] Next-step recommendation emitted (`/orq-agent:harden` when all pass; `/orq-agent:iterate` when any fail)
 - [ ] ≥95% pass-rate warning emitted when applicable (Phase 42 ESCI-05)
+- [ ] Isolated graders described — tool selection, argument quality, output interpretation (Phase 42 ESCI-03)
+- [ ] Capability suites tracked separately from regression suites (Phase 42 ESCI-04)
+- [ ] Overfitting warning rule documented (≥98% on <100 datapoints) (Phase 42 ESCI-07)
+- [ ] Run-comparison table emitted per iteration (Phase 42 ITRX-03)
 
 ## Destructive Actions
 
