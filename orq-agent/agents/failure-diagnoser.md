@@ -59,6 +59,35 @@ Build a list of failing agents sorted by bottleneck score (lowest evaluator medi
 
 ---
 
+## Phase 2.0: Classify Failure Mode (ESCI-01)
+
+Before diagnosing WHICH prompt section to change, classify WHY the failure occurred. Every failure MUST fall into one of 4 classes.
+
+| Class | Definition | Typical Fix Owner |
+|-------|------------|-------------------|
+| `specification` | Prompt/instructions incomplete or ambiguous | prompt-editor |
+| `generalization` | Prompt correct but agent fails on unseen distribution | dataset-generator + prompt-editor |
+| `dataset` | Labels wrong, missing references, contradictions in expected outputs | dataset-generator curation mode |
+| `evaluator` | Judge prompt wrong, threshold misaligned, TPR/TNR below 90% | evaluator-validator subagent |
+
+### Tiebreaker Rules
+
+- **Upstream-fix-first:** If multiple classes apply, fix the most upstream layer first (dataset → evaluator → specification → generalization).
+- **Specification vs generalization:** If BOTH `specification` and `generalization` plausibly apply, pick `specification` — an ambiguous prompt masquerades as a generalization failure.
+- **Dataset vs evaluator:** If expected outputs look wrong AND the judge prompt looks ambiguous, classify as `dataset` first — correct labels before tuning the judge.
+
+### Recording Classification
+
+Record the class on every `per_agent[].changes[]` entry (Phase 5 schema) as:
+
+```json
+"classification": "specification" | "generalization" | "dataset" | "evaluator"
+```
+
+This field is MANDATORY. Unclassified failures MUST NOT appear in `iteration-proposals.json`.
+
+---
+
 ## Phase 2: Diagnose Failure Patterns
 
 For each failing agent, produce a plain-language diagnosis by mapping evaluator failures to XML-tagged prompt sections.
@@ -132,6 +161,22 @@ For each failing agent:
 
 For each diagnosed failure pattern, generate a targeted prompt modification as a diff against the specific XML-tagged section.
 
+### Outcome-Based Grading Rule (ESCI-02)
+
+Proposed evaluators MUST grade OUTCOMES (did the final output satisfy the user intent?) not PATHS (did the agent call tool X before tool Y?). Do not encode exact tool-call sequences in evaluator logic.
+
+This is an **outcome-based** grading discipline with **no path grading** — evaluators must be tolerant of multiple valid execution paths as long as the final artifact meets the criterion.
+
+| ❌ Path grading (forbidden) | ✅ Outcome-based grading (required) |
+|-----------------------------|--------------------------------------|
+| Evaluator checks `tool_calls[0] == 'search'` | Evaluator checks `output mentions source URL` |
+| Evaluator checks `len(tool_calls) == 3` | Evaluator checks `final answer cites ≥1 retrieved fact` |
+| Evaluator checks `tool_calls contains 'sql_query'` | Evaluator checks `response contains correct aggregate value` |
+
+**Why:** Path grading over-constrains the agent, punishes valid alternative strategies, and couples evaluator stability to tool-name churn. Grade what the user sees, not how the agent got there.
+
+(Phase 42 ESCI-02)
+
 ### Step 3.1: Proposal Generation Rules
 
 1. Modify ONLY the implicated section(s) -- never replace the entire prompt
@@ -202,6 +247,14 @@ Never apply changes without explicit user approval. This is a locked HITL decisi
 
 Write `{swarm_dir}/iteration-proposals.json` with the following schema. Include ALL agents (approved AND rejected) so prompt-editor can skip rejected ones and the iterate command has a complete record.
 
+The schema has **three separate action-plan arrays** per agent (ESCI-08):
+
+- `changes[]` — prompt-section edits (specification / generalization fixes). Consumed by prompt-editor.
+- `dataset_quality_issues[]` — **dataset-quality** problems (mislabeled rows, missing references, contradictions). Consumed by dataset-generator in curation mode.
+- `evaluator_quality_issues[]` — **evaluator-quality** problems (ambiguous judge prompt, misaligned threshold, TPR/TNR below 90%). Consumed by evaluator-validator.
+
+**Separation rule:** dataset-quality and evaluator-quality issues MUST be in separate arrays — never conflated into changes[]. Mixing them proposes fixes at the wrong layer.
+
 ```json
 {
   "iteration": {iteration_number},
@@ -214,15 +267,34 @@ Write `{swarm_dir}/iteration-proposals.json` with the following schema. Include 
       "changes": [
         {
           "section": "<{xml_tag}>",
+          "classification": "specification|generalization|dataset|evaluator",
           "reason": "{evaluator}={score} (threshold {threshold}). {explanation}",
           "before": "{existing section content}",
           "after": "{modified section content}"
+        }
+      ],
+      "dataset_quality_issues": [
+        {
+          "issue": "mislabeled|missing-reference|contradiction",
+          "eval_ids": ["{datapoint-id-1}", "{datapoint-id-2}"],
+          "evidence": "{plain-language description citing specific rows}",
+          "recommended_action": "invoke dataset-generator --mode curation"
+        }
+      ],
+      "evaluator_quality_issues": [
+        {
+          "issue": "judge-prompt-ambiguous|threshold-misaligned|TPR-below-90",
+          "evaluator_name": "{evaluator-key}",
+          "evidence": "{plain-language description citing TPR/TNR or failing labels}",
+          "recommended_action": "invoke evaluator-validator"
         }
       ]
     }
   ]
 }
 ```
+
+**Backwards-compat note:** `changes[]` is preserved for existing prompt-editor consumers. New `classification` field on each change is REQUIRED going forward (Phase 42 ESCI-01). The two new arrays (`dataset_quality_issues[]`, `evaluator_quality_issues[]`) MAY be empty but MUST be present.
 
 ---
 
@@ -292,6 +364,9 @@ Directional handoffs (→ means "this skill feeds into"):
 - [ ] Section-level diff proposals produced with plain-language rationale
 - [ ] Per-agent HITL approval collected and recorded
 - [ ] Dataset-quality issues separated from evaluator-quality issues (Phase 42 ESCI-08)
+- [ ] Every failure classified as specification / generalization / dataset / evaluator (ESCI-01)
+- [ ] Outcome-based grading rule documented (ESCI-02, no path grading)
+- [ ] iteration-proposals.json separates dataset-quality from evaluator-quality (ESCI-08)
 - [ ] Zero Orq.ai API calls made (pure disk analysis)
 
 ## Destructive Actions
