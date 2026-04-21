@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         email_intent: body.email_intent ?? null,
         ai_summary: body.ai_summary ?? null,
         urgency: body.urgency ?? null,
-        requires_action: body.requires_human_review ?? false,
+        requires_action: body.requires_action ?? body.requires_human_review ?? false,
         draft_response: body.draft_response ?? null,
         draft_status: body.draft_status ?? "skipped",
       },
