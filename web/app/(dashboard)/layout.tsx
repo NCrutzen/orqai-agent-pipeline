@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { SidebarChooser } from "@/components/v7/sidebar-chooser";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SwarmSidebar } from "@/components/v7/swarm-sidebar";
 import { fetchSwarmsWithCounts } from "@/lib/v7/swarm-data";
 
 export default async function DashboardLayout({
@@ -23,8 +22,8 @@ export default async function DashboardLayout({
   const { swarms, initialJobs, initialAgents } = await fetchSwarmsWithCounts();
 
   return (
-    <SidebarProvider>
-      <SidebarChooser
+    <div className="flex min-h-screen">
+      <SwarmSidebar
         user={user}
         swarms={swarms}
         initialJobs={initialJobs}
@@ -33,6 +32,6 @@ export default async function DashboardLayout({
       <main className="flex-1 overflow-auto bg-[var(--v7-bg)] text-[var(--v7-text)] min-h-screen">
         {children}
       </main>
-    </SidebarProvider>
+    </div>
   );
 }
