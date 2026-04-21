@@ -52,8 +52,8 @@ Extends our tester/hardener with the validation protocol the reference enforces:
 - [ ] **EVLD-04**: System guides collection of 100+ human labels per criterion via orq.ai Annotation Queues or Human Review, balanced ~50 Pass / ~50 Fail
 - [ ] **EVLD-05**: System splits labeled data into disjoint train/dev/test (10-20% / 40-45% / 40-45%) and enforces no dev/test leakage into few-shot examples
 - [ ] **EVLD-06**: System measures TPR and TNR on held-out test set (≥30 Pass / ≥30 Fail) before evaluator is marked validated; stores results with evaluator
-- [ ] **EVLD-07**: System applies prevalence correction (`theta_hat = (p_observed + TNR - 1) / (TPR + TNR - 1)`) when reporting estimated true success rates from imperfect judges
-- [ ] **EVLD-08**: Hardener rejects promotion of any evaluator to a runtime guardrail unless TPR ≥ 90% AND TNR ≥ 90% on the test set
+- [x] **EVLD-07**: System applies prevalence correction (`theta_hat = (p_observed + TNR - 1) / (TPR + TNR - 1)`) when reporting estimated true success rates from imperfect judges
+- [x] **EVLD-08**: Hardener rejects promotion of any evaluator to a runtime guardrail unless TPR ≥ 90% AND TNR ≥ 90% on the test set
 - [ ] **EVLD-09**: System creates orq.ai Annotation Queue / Human Review entities programmatically (via MCP or REST) — name, description, categorical Pass/Fail + sentiment OR numeric range OR free-text field — rather than only suggesting users create them in the Studio UI
 - [ ] **EVLD-10**: Results-analyzer computes inter-annotator agreement when ≥2 humans label the same trace/datapoint; flags criteria with IAA < 85% for re-calibration before they feed evaluator validation
 - [x] **EVLD-11**: Iterator supports evaluator-version A/B by attaching both the current and proposed evaluator prompt as separate columns in the same experiment, enabling per-datapoint judgment comparison (not just score averages)
@@ -155,9 +155,9 @@ Upgrades to existing iterator and hardener subagents with methodology from the r
 - [x] **ITRX-03**: Tester produces a run-comparison table across iterations (Run | Date | Model | Avg Score | Cost | Key Changes) for trend tracking
 - [x] **ITRX-04**: Results-analyzer flags regressions when any score drops vs the previous run (⚠️ marker in output)
 - [x] **ITRX-05**: Iterator refuses to re-run the same optimizer on the same prompt without an explicit user override (no-drift rule)
-- [ ] **ITRX-06**: Hardener exposes a human-review-queue hook — promoting an evaluator to a guardrail can require a minimum number of human-reviewed spans (configurable, tier-gated)
+- [x] **ITRX-06**: Hardener exposes a human-review-queue hook — promoting an evaluator to a guardrail can require a minimum number of human-reviewed spans (configurable, tier-gated)
 - [x] **ITRX-07**: Iterator ticket output includes Evidence (datapoints affected, current scores, run ID) and Success Criteria (target re-run score), not just the proposed diff
-- [ ] **ITRX-08**: Hardener sets an evaluator `sample_rate` when promoting to a runtime guardrail — configurable percentage with volume-based defaults (e.g., 100% for <1K/day, 30% for 1K–100K/day, 10% for ≥100K/day) so high-volume agents do not pay full LLM-judge cost on every invocation
+- [x] **ITRX-08**: Hardener sets an evaluator `sample_rate` when promoting to a runtime guardrail — configurable percentage with volume-based defaults (e.g., 100% for <1K/day, 30% for 1K–100K/day, 10% for ≥100K/day) so high-volume agents do not pay full LLM-judge cost on every invocation
 - [x] **ITRX-09**: Iterator absorbs free-text human-annotation comments as signal when proposing prompt diffs; each diff proposal cites the relevant annotator reasoning inline, not just the Pass/Fail label
 
 ## Tier-Gating (cross-cutting)
@@ -229,8 +229,8 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | EVLD-04 | 42 | Pending |
 | EVLD-05 | 42 | Pending |
 | EVLD-06 | 42 | Pending |
-| EVLD-07 | 42 | Pending |
-| EVLD-08 | 42 | Pending |
+| EVLD-07 | 42 | Complete |
+| EVLD-08 | 42 | Complete |
 | EVLD-09 | 42 | Pending |
 | EVLD-10 | 42 | Pending |
 | EVLD-11 | 42 | Complete |
@@ -287,9 +287,9 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | ITRX-03 | 42 | Complete |
 | ITRX-04 | 42 | Complete |
 | ITRX-05 | 42 | Complete |
-| ITRX-06 | 42 | Pending |
+| ITRX-06 | 42 | Complete |
 | ITRX-07 | 42 | Complete |
-| ITRX-08 | 42 | Pending |
+| ITRX-08 | 42 | Complete |
 | ITRX-09 | 42 | Complete |
 
 **Coverage:**
