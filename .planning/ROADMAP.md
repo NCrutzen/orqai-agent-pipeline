@@ -197,7 +197,11 @@ Build a Claude Code skill that transforms natural language use case descriptions
   3. For every trace, the skill labels only the first upstream failure and explicitly never labels downstream cascading effects; pipelines with multi-step flows get a transition failure matrix (rows = last success, columns = first failure).
   4. Every failure mode is classified as specification / generalization-code-checkable / generalization-subjective / trivial-bug.
   5. Skill writes an error-analysis report containing the taxonomy, rates, example trace IDs, and a recommended next step (handoff to build-evaluator / optimize-prompt / etc.).
-**Plans**: TBD
+**Plans**: 4 plans
+  - [ ] 38-01-PLAN.md — Wave 1: create orq-agent/commands/trace-failure-analysis.md with 9 SKST sections + 7 Steps covering TFAIL-01..06
+  - [ ] 38-02-PLAN.md — Wave 1: create 3 resources under orq-agent/commands/trace-failure-analysis/resources/ (grounded-theory-methodology, failure-mode-classification, handoff-matrix)
+  - [ ] 38-03-PLAN.md — Wave 2: index-wire into SKILL.md + help.md (pipeline-order) + traces.md Companion Skills (resolve TODO(TFAIL))
+  - [ ] 38-04-PLAN.md — Wave 3: full lint + protected-pipeline + 6 TFAIL anchors; write 38-04-VERIFICATION.md with TFAIL-01..06 traceability + 5-row ROADMAP criteria checklist
 
 ### Phase 39: Dataset Generator Enhancements
 **Goal**: Dataset-generator and `/orq-agent:datasets` produce structurally sound, adversarially hardened, slice-analyzable datasets including multi-turn and RAG shapes, and support promoting production traces directly into datasets as regression cases.
@@ -280,7 +284,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | V3.0 | 35. Model Selection Discipline | 5/5 | Complete    | 2026-04-20 |
 | V3.0 | 36. Lifecycle Slash Commands | 8/8 | Complete    | 2026-04-20 |
 | V3.0 | 37. Observability Setup Skill | 5/5 | Complete    | 2026-04-21 |
-| V3.0 | 38. Trace Failure Analysis Skill | 0/TBD | Not started | - |
+| V3.0 | 38. Trace Failure Analysis Skill | 0/4 | Not started | - |
 | V3.0 | 39. Dataset Generator Enhancements | 0/TBD | Not started | - |
 | V3.0 | 40. KB & Memory Lifecycle | 0/TBD | Not started | - |
 | V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 0/TBD | Not started | - |
