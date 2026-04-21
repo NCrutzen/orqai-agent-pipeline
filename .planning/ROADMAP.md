@@ -237,7 +237,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
   - [ ] 40-02-PLAN.md — Wave 1: enhance orq-agent/agents/kb-generator.md with Chunking Strategy Policy + manifest.json emission (KBM-01, KBM-02, KBM-03)
   - [ ] 40-03-PLAN.md — Wave 1: create orq-agent/agents/memory-store-generator.md subagent with full 9 SKST + read/write/recall round-trip test (KBM-05)
   - [ ] 40-04-PLAN.md — Wave 1: create 3 resources under orq-agent/commands/kb/resources/ (chunking-strategies, kb-vs-memory, retrieval-test-template) (KBM-01, KBM-03, KBM-04)
-  - [ ] 40-05-PLAN.md — Wave 2: index-wire into SKILL.md (Phase 40 H3 block + subagent row + Directory Structure + Resources Policy) + help.md (/orq-agent:kb flag summary)
+  - [x] 40-05-PLAN.md — Wave 2: index-wire into SKILL.md (Phase 40 H3 block + subagent row + Directory Structure + Resources Policy) + help.md (/orq-agent:kb flag summary) (completed 2026-04-21)
   - [ ] 40-06-PLAN.md — Wave 3: full lint + protected-pipeline + KBM-01..05 anchor sweep; produce 40-06-VERIFICATION.md with KBM traceability + 5-row ROADMAP criteria checklist
 
 ### Phase 41: Prompt Optimization & Cross-Framework Comparison
@@ -297,7 +297,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | V3.0 | 37. Observability Setup Skill | 5/5 | Complete    | 2026-04-21 |
 | V3.0 | 38. Trace Failure Analysis Skill | 4/4 | Complete    | 2026-04-21 |
 | V3.0 | 39. Dataset Generator Enhancements | 0/5 | Complete    | 2026-04-21 |
-| V3.0 | 40. KB & Memory Lifecycle | 4/6 | In Progress|  |
+| V3.0 | 40. KB & Memory Lifecycle | 6/6 | Complete   | 2026-04-21 |
 | V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 0/TBD | Not started | - |
 | V3.0 | 42. Evaluator Validation & Iterator Enrichments | 0/TBD | Not started | - |
 | V3.0 | 43. Cross-IDE Distribution & Manifests | 0/TBD | Not started | - |
