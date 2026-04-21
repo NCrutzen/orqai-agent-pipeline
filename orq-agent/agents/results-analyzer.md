@@ -32,6 +32,7 @@ This is a pure computation subagent -- NO Orq.ai API calls. All data comes from 
 |-----------|------|---------|-------------|
 | `verbose` | boolean | false | When true, terminal summary includes per-evaluator median scores |
 | `holdout` | boolean | false | When true, reads `experiment-raw-holdout.json` instead of `experiment-raw.json` |
+| `previous_test_results_path` | string | null | When provided, results-analyzer compares current medians against previous to detect regressions per ITRX-04 |
 
 ---
 
@@ -150,6 +151,54 @@ Per evaluator, store:
   "runs": [0.93, 0.95, 0.97]
 }
 ```
+
+---
+
+## Phase 2.5: Detect Regressions Against Previous Run (ITRX-04)
+
+Compare the current run's per-agent per-evaluator medians against a previous run to flag regressions. This is how iterator and hardener detect drift across re-tests.
+
+### Step 2.5.1: Load Previous Run
+
+If `previous_test_results_path` parameter is null or the file does not exist, skip regression detection entirely and set `regressions: []` in test-results.json. Continue to Phase 3.
+
+If `previous_test_results_path` is non-null AND the file exists:
+1. Read the previous `test-results.json` file
+2. Extract `test_run_id` (used as `previous_run_id`) and per-agent per-evaluator medians from `results.per_agent[].scores.{evaluator}.median`
+3. Keep the previous medians in memory, keyed by `(agent_key, evaluator)`
+
+### Step 2.5.2: Compute Deltas Per Evaluator
+
+For each `(agent_key, evaluator)` pair present in BOTH the current run and the previous run:
+```
+delta = current_median - previous_median
+```
+
+If `delta < 0` (ANY score drop, no tolerance), this is a regression. Record it in the `regressions[]` top-level array of test-results.json:
+
+```json
+{
+  "agent_key": "...",
+  "evaluator": "...",
+  "previous_median": 0.84,
+  "current_median": 0.78,
+  "delta": -0.06,
+  "previous_run_id": "...",
+  "current_run_id": "..."
+}
+```
+
+If `delta >= 0`: do NOT record (no regression). Do not record "improvements" in this array -- `regressions[]` is regression-only.
+
+### Step 2.5.3: Handle New/Missing Evaluators
+
+- Evaluator present in current run but NOT in previous run: skip (no comparison possible, not a regression).
+- Evaluator present in previous run but NOT in current run: skip (out of scope for this array; note it elsewhere if needed).
+- Agent present in current run but NOT in previous run: skip all evaluators for that agent (first appearance, no baseline).
+
+### Step 2.5.4: Grounding Requirement
+
+NEVER synthesize a regression entry without citing both `previous_median` and `previous_run_id` from the loaded previous run file. Ungrounded regression claims violate the Constraints block. If either value is missing or unparseable, skip that evaluator rather than emit a partial entry.
 
 ---
 
@@ -352,6 +401,7 @@ Use jq or structured JSON assembly (NOT manual string concatenation) to build th
     "overall_pass": false,
     "per_agent": []
   },
+  "regressions": [],
   "summary": ""
 }
 ```
@@ -422,6 +472,15 @@ For each agent, build:
 - `results.overall_pass`
 - `evaluators[]` top-level array with name, type, threshold, scale, orqai_evaluator_id
 
+### Step 6.4b: Populate regressions Array (ITRX-04)
+
+Populate the top-level `regressions[]` array from Phase 2.5 output:
+
+- If Phase 2.5 was skipped (no `previous_test_results_path` or file missing): set `regressions: []`.
+- Otherwise: emit one entry per `(agent_key, evaluator)` pair where `delta < 0`, each with `agent_key`, `evaluator`, `previous_median`, `current_median`, `delta`, `previous_run_id`, `current_run_id`.
+
+This array is ADDITIVE -- it sits alongside existing `results` and `summary` keys. Do NOT rename or remove any existing field; hardener parses this file and breaks on schema drift.
+
 ### Step 6.5: Populate summary
 
 ```
@@ -467,11 +526,16 @@ For each agent:
 
 ### Evaluator Scores
 
-| Evaluator | Median | Variance | 95% CI | Pass/Fail | Threshold |
-|-----------|--------|----------|--------|-----------|-----------|
-| json_validity | 0.95 | 0.001 | [0.82, 1.00] | PASS | 0.80 |
-| exactness | 0.72 | 0.015 | [0.38, 1.00] | FAIL | 0.80 |
+| Evaluator | Median | Variance | 95% CI | Pass/Fail | Threshold | Δ vs Prev |
+|-----------|--------|----------|--------|-----------|-----------|-----------|
+| json_validity | 0.95 | 0.001 | [0.82, 1.00] | PASS | 0.80 | +0.02 |
+| ⚠️ exactness | 0.78 | 0.015 | [0.38, 1.00] | FAIL | 0.80 | -0.06 |
 ```
+
+**Δ vs Prev column rules (ITRX-04):**
+- When a regression was recorded for this evaluator in Phase 2.5: prefix the Evaluator cell with `⚠️ ` and show `delta` as a signed number (e.g., `-0.06`). The `⚠️` emoji MUST appear literally in the rendered markdown.
+- When no regression (delta >= 0 and previous run exists): show `+X.XX` with sign.
+- When no previous run was provided (regression detection skipped): show `—` (em-dash) in the Δ column and do NOT prefix the evaluator.
 
 ### Step 7.3: Category Breakdown (if available)
 
@@ -509,6 +573,18 @@ For each agent's top 3 worst cases:
 
 ### Step 7.5: Summary Section
 
+If the `regressions[]` array is non-empty, insert a dedicated H3 block ABOVE the `## Summary` heading. The literal `⚠️` emoji MUST appear in the header:
+
+```markdown
+### ⚠️ Regressions Detected
+
+| Agent | Evaluator | Previous | Current | Δ | Previous Run |
+|-------|-----------|----------|---------|-----|--------------|
+| sales-bot | exactness | 0.84 | 0.78 | -0.06 | run-2026-04-10 |
+```
+
+One row per entry in `regressions[]`. If `regressions[]` is empty, omit this H3 entirely (do NOT render an empty table).
+
 ```markdown
 ## Summary
 
@@ -541,10 +617,12 @@ Results: {swarm_name}
 Agent              | Role         | Bottleneck | Status
 -------------------|--------------|------------|-------
 {agent-key}        | structural   | 0.95       | PASS
-{agent-key}        | conversational| 0.68      | FAIL
+{agent-key}        | conversational| 0.68      | ⚠️ FAIL
 ═══════════════════════════════════════════════════
 Overall: {passing}/{total} agents passing
 ```
+
+**Status column regression marker (ITRX-04):** If the agent has ANY entry in `regressions[]` (any evaluator dropped vs the previous run), prefix the Status cell with `⚠️ ` literally (e.g., `⚠️ PASS` or `⚠️ FAIL`). This applies independently of pass/fail -- a passing agent that regressed still gets the marker. Agents with no regressions (or when no previous run was supplied) render Status without the prefix.
 
 **Bottleneck score** = lowest evaluator median per agent, normalized to 0-1:
 - Binary / continuous-01: use median as-is
@@ -612,6 +690,8 @@ Directional handoffs (→ means "this skill feeds into"):
 - [ ] Median, sample variance, 95% CI (Student's t, df=2) computed per evaluator per agent
 - [ ] Worst 3 examples identified per agent (normalized to 0-1 scale for ranking)
 - [ ] Next-step recommendation printed (`/orq-agent:harden` when all pass; `/orq-agent:iterate` when any fail)
+- [ ] Regressions detected against previous run (when provided) and stored in test-results.json `regressions[]` (ITRX-04)
+- [ ] ⚠️ marker rendered in test-results.md Δ column and terminal Status column on any score drop
 
 ## Destructive Actions
 
