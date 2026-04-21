@@ -18,11 +18,16 @@ import {
   Sparkles,
   Home,
   BarChart3,
-  FolderOpen,
   Play,
   Clock,
   Settings,
   LogOut,
+  Mail,
+  Timer,
+  Tag,
+  Wrench,
+  ChevronDown,
+  Search,
 } from "lucide-react";
 import type {
   RealtimeChannel,
@@ -52,12 +57,17 @@ interface SwarmSidebarProps {
 }
 
 const WORKSPACE_ITEMS = [
-  { title: "Dashboard", href: "/", icon: Home, match: (p: string) => p === "/" },
+  { title: "Dashboard", href: "/", icon: Home, match: (p: string) => p === "/" || p.startsWith("/projects") },
   { title: "Executive", href: "/executive", icon: BarChart3, match: (p: string) => p.startsWith("/executive") },
-  { title: "Projects", href: "/", icon: FolderOpen, match: (p: string) => p.startsWith("/projects") },
   { title: "Creations", href: "/runs", icon: Play, match: (p: string) => p.startsWith("/runs") },
-  { title: "Rijtijden", href: "/rijtijden", icon: Clock, match: (p: string) => p.startsWith("/rijtijden") },
   { title: "Settings", href: "/settings", icon: Settings, match: (p: string) => p.startsWith("/settings") },
+];
+
+const AUTOMATIONS_ITEMS = [
+  { title: "Debtor Review", href: "/automations/debtor-email-review", icon: Mail, match: (p: string) => p.startsWith("/automations/debtor-email-review") },
+  { title: "Uren Controle", href: "/automations/uren-controle", icon: Timer, match: (p: string) => p.startsWith("/automations/uren-controle") },
+  { title: "Agent Namer", href: "/automations/agent-namer", icon: Tag, match: (p: string) => p.startsWith("/automations/agent-namer") },
+  { title: "Rijtijden", href: "/rijtijden", icon: Clock, match: (p: string) => p.startsWith("/rijtijden") },
 ];
 
 function applyRowMutation<T extends { id: string }>(
@@ -86,6 +96,55 @@ function applyRowMutation<T extends { id: string }>(
 
 const ACTIVE_STAGE_SET = new Set<string>(ACTIVE_JOB_STAGES);
 
+type NavItem = {
+  title: string;
+  href: string;
+  icon: typeof Home;
+  match: (pathname: string) => boolean;
+};
+
+function NavGroup({
+  label,
+  items,
+  pathname,
+  icon: LabelIcon,
+}: {
+  label: string;
+  items: NavItem[];
+  pathname: string | null;
+  icon?: typeof Home;
+}) {
+  return (
+    <nav className="flex flex-col gap-1" aria-label={label}>
+      <span className="mb-1 flex items-center gap-1.5 text-[11px] leading-[1.3] tracking-[0.12em] uppercase text-[var(--v7-faint)]">
+        {LabelIcon && <LabelIcon size={12} />}
+        {label}
+      </span>
+      {items.map((item) => {
+        const isActive = pathname ? item.match(pathname) : false;
+        const Icon = item.icon;
+        return (
+          <Link
+            key={item.title}
+            href={item.href}
+            className={`flex items-center gap-3 rounded-[var(--v7-radius-sm)] px-3 py-2 text-[14px] transition-colors ${
+              isActive
+                ? "bg-[var(--v7-brand-primary-soft)] text-[var(--v7-text)]"
+                : "text-[var(--v7-muted)] hover:bg-[var(--v7-panel-2)] hover:text-[var(--v7-text)]"
+            }`}
+          >
+            <Icon
+              size={16}
+              className={isActive ? "text-[var(--v7-brand-primary)]" : ""}
+            />
+            <span>{item.title}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function SwarmSidebar({
   user,
   swarms,
@@ -101,6 +160,16 @@ export function SwarmSidebar({
     if (!pathname || !pathname.startsWith("/swarm/")) return null;
     return pathname.split("/")[2] ?? null;
   }, [pathname]);
+
+  // Collapse swarms by default when list is long; keep open if user is on a swarm route.
+  const [swarmsOpen, setSwarmsOpen] = useState(() => swarms.length <= 10 || !!activeId);
+  const [swarmFilter, setSwarmFilter] = useState("");
+
+  const filteredSwarms = useMemo(() => {
+    const q = swarmFilter.trim().toLowerCase();
+    if (!q) return swarms;
+    return swarms.filter((s) => s.name.toLowerCase().includes(q));
+  }, [swarms, swarmFilter]);
 
   const displayName =
     user.user_metadata?.full_name ||
@@ -203,63 +272,88 @@ export function SwarmSidebar({
         </div>
       </div>
 
-      <nav className="flex flex-col gap-1" aria-label="Workspace">
-        <span className="mb-1 text-[11px] leading-[1.3] tracking-[0.12em] uppercase text-[var(--v7-faint)]">
-          Workspace
-        </span>
-        {WORKSPACE_ITEMS.map((item) => {
-          const isActive = pathname ? item.match(pathname) : false;
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.title}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-[var(--v7-radius-sm)] px-3 py-2 text-[14px] transition-colors ${
-                isActive
-                  ? "bg-[var(--v7-brand-primary-soft)] text-[var(--v7-text)]"
-                  : "text-[var(--v7-muted)] hover:bg-[var(--v7-panel-2)] hover:text-[var(--v7-text)]"
-              }`}
-            >
-              <Icon size={16} className={isActive ? "text-[var(--v7-brand-primary)]" : ""} />
-              <span>{item.title}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      <NavGroup label="Workspace" items={WORKSPACE_ITEMS} pathname={pathname} />
 
-      <div className="flex flex-col gap-3 min-h-0 flex-1">
-        <span className="text-[12px] leading-[1.3] tracking-[0.1em] uppercase text-[var(--v7-faint)]">
-          Swarms
-        </span>
+      <NavGroup
+        label="Automations"
+        items={AUTOMATIONS_ITEMS}
+        pathname={pathname}
+        icon={Wrench}
+      />
 
-        {swarms.length === 0 ? (
-          <div className="flex flex-col gap-1 px-1">
-            <span className="text-[16px] leading-[1.3] text-[var(--v7-text)]">
-              No swarms configured
-            </span>
-            <span className="text-[12px] leading-[1.3] text-[var(--v7-muted)]">
-              Create your first agent swarm in the projects page to see it
-              appear here.
-            </span>
-          </div>
-        ) : (
-          <nav className="flex flex-col gap-2 overflow-y-auto pr-1">
-            {swarms.map((swarm) => {
-              const stats = statsBySwarm.get(swarm.id) ?? {
-                active: 0,
-                agents: 0,
-              };
-              return (
-                <SwarmListItem
-                  key={swarm.id}
-                  swarm={swarm}
-                  activeJobs={stats.active}
-                  agentCount={stats.agents}
-                  isActive={swarm.id === activeId}
-                />
-              );
-            })}
-          </nav>
+      <div className="flex flex-col gap-2 min-h-0 flex-1">
+        <button
+          type="button"
+          onClick={() => setSwarmsOpen((v) => !v)}
+          className="group flex items-center gap-2 text-left"
+          aria-expanded={swarmsOpen}
+        >
+          <ChevronDown
+            size={14}
+            className={`text-[var(--v7-faint)] transition-transform ${swarmsOpen ? "" : "-rotate-90"}`}
+          />
+          <span className="text-[11px] leading-[1.3] tracking-[0.12em] uppercase text-[var(--v7-faint)] group-hover:text-[var(--v7-text)]">
+            Swarms
+          </span>
+          <span className="ml-auto rounded-full bg-[var(--v7-panel-2)] px-2 py-0.5 text-[10px] font-semibold text-[var(--v7-muted)]">
+            {swarms.length}
+          </span>
+        </button>
+
+        {swarmsOpen && (
+          <>
+            {swarms.length === 0 ? (
+              <div className="flex flex-col gap-1 px-1">
+                <span className="text-[14px] leading-[1.3] text-[var(--v7-text)]">
+                  No swarms configured
+                </span>
+                <span className="text-[12px] leading-[1.3] text-[var(--v7-muted)]">
+                  Create your first agent swarm to see it appear here.
+                </span>
+              </div>
+            ) : (
+              <>
+                {swarms.length > 6 && (
+                  <div className="relative">
+                    <Search
+                      size={13}
+                      className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--v7-faint)]"
+                    />
+                    <input
+                      type="text"
+                      value={swarmFilter}
+                      onChange={(e) => setSwarmFilter(e.target.value)}
+                      placeholder="Filter swarms"
+                      className="w-full rounded-[var(--v7-radius-sm)] border border-[var(--v7-line)] bg-[var(--v7-panel-2)]/60 py-1.5 pl-7 pr-2 text-[12px] text-[var(--v7-text)] placeholder:text-[var(--v7-faint)] focus:border-[var(--v7-brand-primary)] focus:outline-none"
+                    />
+                  </div>
+                )}
+                <nav className="flex flex-col gap-2 overflow-y-auto pr-1">
+                  {filteredSwarms.length === 0 ? (
+                    <span className="px-1 text-[12px] text-[var(--v7-faint)]">
+                      No matches
+                    </span>
+                  ) : (
+                    filteredSwarms.map((swarm) => {
+                      const stats = statsBySwarm.get(swarm.id) ?? {
+                        active: 0,
+                        agents: 0,
+                      };
+                      return (
+                        <SwarmListItem
+                          key={swarm.id}
+                          swarm={swarm}
+                          activeJobs={stats.active}
+                          agentCount={stats.agents}
+                          isActive={swarm.id === activeId}
+                        />
+                      );
+                    })
+                  )}
+                </nav>
+              </>
+            )}
+          </>
         )}
       </div>
 
