@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: "Ready for `/gsd:execute-phase 42` to continue with 42-02-PLAN.md (failure-diagnoser enrichments)"
-stopped_at: Completed 42-03-PLAN.md
-last_updated: "2026-04-21T05:57:59.566Z"
+stopped_at: Completed 42-05-PLAN.md
+last_updated: "2026-04-21T05:58:16.863Z"
 last_activity: "2026-04-21 — Phase 42 Plan 01 complete: tester.md eval-science enrichments; commit e6718da"
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 52
-  completed_plans: 47
+  completed_plans: 48
 ---
 
 # Project State
@@ -82,6 +82,8 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 42 P01 | 2 min | 1 tasks | 1 files |
 | Phase 42 P02 | 2 min | 1 tasks | 1 files |
 | Phase 42-evaluator-validation-iterator-enrichments P03 | 2 min | 1 tasks | 1 files |
+| Phase 42-evaluator-validation-iterator-enrichments P04 | 2 min | 1 tasks | 1 files |
+| Phase 42 P05 | 2 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -189,6 +191,7 @@ Recent decisions affecting current work:
 - [Phase 41-prompt-optimization-cross-framework-comparison]: Deferred POPT-04 live version creation and XFRM-03 end-to-end cross-framework run to /gsd:verify-work 41 manual-smoke batch
 - [Phase 42]: Phase 42 Plan 02: failure-diagnoser classifies every failure into specification/generalization/dataset/evaluator BEFORE diagnosis; enforces outcome-based grading (no path grading); splits iteration-proposals.json into changes[] + dataset_quality_issues[] + evaluator_quality_issues[] — Closes ESCI-01/02/08; layer-separated action arrays route fixes to correct consumer (prompt-editor vs dataset-generator vs evaluator-validator)
 - [Phase 42]: Tester.md gains isolated graders (tool selection / argument quality / output interpretation), capability-to-regression graduation after 2 green runs, overfitting guard at ≥98% on <100 datapoints, and per-iteration run-comparison table
+- [Phase 42-evaluator-validation-iterator-enrichments]: Hardener TPR/TNR gate reads evaluator-validator JSON; unvalidated custom evaluators downgraded to settings.evaluators (monitoring-only) instead of hard-fail — Preserves visibility without blocking production on unvalidated judges; concerns separated between data collection (evaluator-validator) and enforcement (hardener)
 
 ### Blockers/Concerns
 
@@ -213,7 +216,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T05:57:58.446Z
-Stopped at: Completed 42-03-PLAN.md
+Last session: 2026-04-21T05:58:12.904Z
+Stopped at: Completed 42-05-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
