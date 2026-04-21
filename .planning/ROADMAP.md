@@ -179,7 +179,12 @@ Build a Claude Code skill that transforms natural language use case descriptions
   3. Skill emits framework-specific integration code with instrumentors imported before SDK clients; user can paste it and see traces in Orq.ai.
   4. Skill runs a baseline verification step confirming traces appear, model + tokens captured, span hierarchy present, and no PII leaking.
   5. Skill enriches traces with `session_id`, `user_id`, feature tags, `customer_id`, and `identity` attributes (per-customer/per-tenant attribution) when inferable, guides `@traced` decorator placement across agent/llm/tool/retrieval/embedding/function spans, and documents filtering by identity via `/orq-agent:traces`.
-**Plans**: TBD
+**Plans**: 5 plans
+  - [ ] 37-01-PLAN.md — Wave 1: create orq-agent/commands/observability.md with all 9 SKST sections + OBSV-01/02/04/05/06/07 content
+  - [ ] 37-02-PLAN.md — Wave 1: create orq-agent/commands/observability/resources/ with 5 framework snippets (openai-sdk, langchain, crewai, vercel-ai, generic-otel) enforcing instrumentors-BEFORE-SDK order (OBSV-03)
+  - [ ] 37-03-PLAN.md — Wave 2: replace TODO(OBSV-07) stub in orq-agent/commands/traces.md with live --identity MCP pass-through + client-side fallback (OBSV-07)
+  - [ ] 37-04-PLAN.md — Wave 2: wire /orq-agent:observability into orq-agent/SKILL.md index + orq-agent/commands/help.md pipeline-order block
+  - [ ] 37-05-PLAN.md — Wave 3: full lint + protected-pipeline SHA-256 + 7 OBSV grep anchors; write 37-05-VERIFICATION.md with OBSV-{01..07} traceability + ROADMAP criteria checklist
 
 ### Phase 38: Trace Failure Analysis Skill
 **Goal**: Users can turn a pile of production traces into a 4-8 mode failure taxonomy with rates, examples, and a recommended next-skill handoff using grounded-theory methodology.
@@ -274,7 +279,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | V3.0 | 34. Skill Structure & Format Foundation | 5/5 | Complete    | 2026-04-20 |
 | V3.0 | 35. Model Selection Discipline | 5/5 | Complete    | 2026-04-20 |
 | V3.0 | 36. Lifecycle Slash Commands | 8/8 | Complete    | 2026-04-20 |
-| V3.0 | 37. Observability Setup Skill | 0/TBD | Not started | - |
+| V3.0 | 37. Observability Setup Skill | 1/5 | In Progress|  |
 | V3.0 | 38. Trace Failure Analysis Skill | 0/TBD | Not started | - |
 | V3.0 | 39. Dataset Generator Enhancements | 0/TBD | Not started | - |
 | V3.0 | 40. KB & Memory Lifecycle | 0/TBD | Not started | - |

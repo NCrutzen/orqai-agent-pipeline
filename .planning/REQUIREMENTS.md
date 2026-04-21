@@ -25,7 +25,7 @@ New skill for instrumenting LLM applications so downstream trace-analysis and ev
 
 - [ ] **OBSV-01**: Skill detects user's LLM framework (OpenAI SDK, LangChain, CrewAI, Vercel AI, etc.) and existing instrumentation state
 - [ ] **OBSV-02**: Skill recommends integration mode — AI Router (zero-code), OTEL-only, or both — based on detection
-- [ ] **OBSV-03**: Skill generates framework-specific integration code with correct import order (instrumentors before SDK clients)
+- [x] **OBSV-03**: Skill generates framework-specific integration code with correct import order (instrumentors before SDK clients)
 - [ ] **OBSV-04**: Skill verifies baseline trace quality — traces appearing, model/tokens captured, span hierarchy, no PII
 - [ ] **OBSV-05**: Skill enriches traces with session_id, user_id, feature tags, customer_id when inferred from code
 - [ ] **OBSV-06**: Skill guides `@traced` decorator placement for custom spans (agent/llm/tool/retrieval/embedding/function types)
@@ -212,7 +212,7 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | LCMD-07 | 36 | Complete |
 | OBSV-01 | 37 | Pending |
 | OBSV-02 | 37 | Pending |
-| OBSV-03 | 37 | Pending |
+| OBSV-03 | 37 | Complete |
 | OBSV-04 | 37 | Pending |
 | OBSV-05 | 37 | Pending |
 | OBSV-06 | 37 | Pending |

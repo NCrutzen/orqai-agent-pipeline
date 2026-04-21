@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: verifying
-stopped_at: "Completed 36-08-PLAN.md — Phase 36 mechanically COMPLETE; full-suite verification sweep captured in 36-08-VERIFICATION.md; ready for /gsd:verify-work 36"
-last_updated: "2026-04-20T16:15:02.425Z"
+stopped_at: Completed 37-02-PLAN.md — 5 framework integration snippets shipped under observability/resources/
+last_updated: "2026-04-21T03:59:49.159Z"
 last_activity: "2026-04-20 — Phase 36 Plan 08 complete: full-suite verification sweep executed and 36-08-VERIFICATION.md produced as /gsd:verify-work evidence trail; all gates green, Phase 36 mechanically COMPLETE (third consecutive V3.0 phase to close mechanically)"
 progress:
   total_phases: 10
   completed_phases: 3
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 23
+  completed_plans: 19
 ---
 
 # Project State
@@ -55,6 +55,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 36-lifecycle-slash-commands P01 | 3 min | 1 tasks | 1 files |
 | Phase 36-lifecycle-slash-commands P07 | 1 min | 1 tasks | 2 files |
 | Phase 36-lifecycle-slash-commands P08 | 2 min | 1 tasks | 1 files |
+| Phase 37-observability-setup-skill P02 | 4 min | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,8 @@ Recent decisions affecting current work:
 - [Phase 36-lifecycle-slash-commands]: Index-wiring recipe locked: when adding N new commands, touch exactly two files (SKILL.md + help.md) and never the 3 protected entry points (orq-agent.md/prompt.md/architect.md) — reusable for every future V3.0 phase that adds commands
 - [Phase 36-lifecycle-slash-commands]: Phase 36 mechanically COMPLETE: 8/8 plans closed, 7/7 LCMD-01..07 requirements file-level verified via SKST lint + protected-pipeline SHA-256 + 16 phrase anchors; 36-08-VERIFICATION.md captures full evidence trail with LCMD traceability and ROADMAP criteria checklist; ready for /gsd:verify-work 36 (3 manual smokes: MCP round-trip, UX flow, POST /v2/trace-automations)
 - [Phase 36-lifecycle-slash-commands]: Phase-close VERIFICATION.md pattern (from 34-05 and 35-05) reused verbatim for 36-08 — captured green output + requirement traceability + ROADMAP criteria checklist + inventory + deferred items + sign-off; third consecutive V3.0 phase to close mechanically, establishing the pattern as canonical for phases 37-43
+- [Phase 37-observability-setup-skill]: Per-skill resources/ subdirectory for observability uses single-level commands/*.md glob in lint-skills.sh — no exclusion rule needed, resources/ auto-excluded (OBSV-03, SKST-02)
+- [Phase 37-observability-setup-skill]: Every framework snippet enforces instrumentors-BEFORE-SDK ordering via CRITICAL code comment — grep anchor 'BEFORE' becomes the OBSV-03 verification surface
 
 ### Blockers/Concerns
 
@@ -150,7 +153,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20T16:11:36.008Z
-Stopped at: Completed 36-08-PLAN.md — Phase 36 mechanically COMPLETE; full-suite verification sweep captured in 36-08-VERIFICATION.md; ready for /gsd:verify-work 36
+Last session: 2026-04-21T03:59:49.156Z
+Stopped at: Completed 37-02-PLAN.md — 5 framework integration snippets shipped under observability/resources/
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
