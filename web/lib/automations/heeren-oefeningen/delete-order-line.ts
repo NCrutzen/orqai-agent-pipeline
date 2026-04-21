@@ -126,11 +126,8 @@ async function deleteOrderLine(page: Page, orderCode: string, articleId: string)
   await page.evaluate(() => window.scrollTo(0, 800));
   await page.waitForTimeout(500);
 
-  // Screenshot VOOR verwijdering
-  const beforePath = await saveScreenshot(page, "before-delete", orderCode);
-
-  // Zoek de orderregel met het juiste artikelnummer
-  // Artikelnummer wordt getoond als "#6410005107"
+  // Zoek de orderregel met het juiste artikelnummer (nodig vóór screenshot
+  // zodat we de target-row kunnen markeren)
   const articleSelector = `small:has-text("#${articleId}")`;
   const articleEl = page.locator(articleSelector);
   const articleCount = await articleEl.count();
@@ -146,6 +143,21 @@ async function deleteOrderLine(page: Page, orderCode: string, articleId: string)
     'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " row ")][1]',
   );
   const deleteBtn = orderLineRow.locator('md-icon[ng-click*="onRemove"]').first();
+
+  // Markeer de target-row visueel vóór we de "before" screenshot maken
+  // zodat de reviewer direct ziet welke regel wordt verwijderd.
+  await orderLineRow.evaluate((el: Element) => {
+    const h = el as HTMLElement;
+    h.style.outline = "3px solid #e53935";
+    h.style.outlineOffset = "4px";
+    h.style.backgroundColor = "rgba(229, 57, 53, 0.08)";
+    h.style.borderRadius = "6px";
+    h.setAttribute("data-target-marked", "1");
+  });
+  await page.waitForTimeout(200);
+
+  // Screenshot VOOR verwijdering (met highlight)
+  const beforePath = await saveScreenshot(page, "before-delete", orderCode);
 
   if ((await deleteBtn.count()) === 0) {
     throw new Error(
