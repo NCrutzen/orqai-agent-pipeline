@@ -9,7 +9,7 @@ import { TerminalSOPPreview } from "./terminal-sop-preview";
 import { TerminalScreenshotUpload } from "./terminal-screenshot-upload";
 import { AnnotationOverlay } from "@/components/annotation/annotation-overlay";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { submitSOPUpload } from "@/lib/systems/actions";
@@ -102,7 +102,7 @@ export function EntryInteraction({ entry }: EntryInteractionProps) {
 
       if (!taskId || !runId || !analysisResult || !sopText || !screenshotUrls) {
         return (
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-[14px] text-[var(--v7-muted)]">
             Waiting for AI analysis to complete...
           </p>
         );
@@ -211,7 +211,7 @@ function SOPUploadInteraction({
   // Input phase: tabs for upload file or paste markdown
   return (
     <div className="mt-3">
-      <p className="mb-2 text-sm text-muted-foreground">
+      <p className="mb-2 text-[14px] text-[var(--v7-muted)]">
         Upload your SOP document (.md) or paste the markdown content directly
         below.
       </p>
@@ -230,7 +230,7 @@ function SOPUploadInteraction({
 
         <TabsContent value="upload" className="mt-3">
           <div
-            className="flex min-h-[96px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 transition-colors hover:border-muted-foreground/50"
+            className="flex min-h-[96px] cursor-pointer flex-col items-center justify-center gap-2 rounded-[var(--v7-radius-inner)] border-2 border-dashed border-[var(--v7-glass-border)] p-4 transition-colors hover:border-[var(--v7-muted)]"
             onClick={() => fileInputRef.current?.click()}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -242,8 +242,8 @@ function SOPUploadInteraction({
             role="button"
             aria-label="Drop .md file here or click to browse"
           >
-            <Upload className="size-5 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
+            <Upload className="size-5 text-[var(--v7-muted)]" />
+            <p className="text-[14px] text-[var(--v7-muted)]">
               Drop .md file here or click to browse
             </p>
             <input
@@ -255,7 +255,7 @@ function SOPUploadInteraction({
             />
           </div>
           {sopContent && (
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="mt-2 text-[12px] text-[var(--v7-faint)]">
               File loaded ({sopContent.length} characters)
             </p>
           )}
@@ -338,19 +338,17 @@ function AnnotationReviewInteraction({
 
   return (
     <div className="mt-2">
-      <Card>
-        <CardContent className="p-3">
-          <p className="text-sm">
-            AI has analyzed your SOP and screenshots. Review the identified
-            automation steps.
-          </p>
-          <div className="mt-2">
-            <Button size="sm" onClick={() => setOverlayOpen(true)}>
-              Review Steps
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <GlassCard className="p-3">
+        <p className="text-[14px] text-[var(--v7-text)]">
+          AI has analyzed your SOP and screenshots. Review the identified
+          automation steps.
+        </p>
+        <div className="mt-2">
+          <Button size="sm" onClick={() => setOverlayOpen(true)}>
+            Review Steps
+          </Button>
+        </div>
+      </GlassCard>
 
       <AnnotationOverlay
         open={overlayOpen}
