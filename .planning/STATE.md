@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: Ready for Plan 02 (Phase 41 — build prompt-optimization/resources/11-guidelines.md rubric)
-stopped_at: Completed 41-01-PLAN.md
-last_updated: "2026-04-21T05:30:15.735Z"
+status: Ready for Plan 04 (Phase 41 — compare-frameworks skill body consuming 41-03 resources)
+stopped_at: Completed 41-03-PLAN.md
+last_updated: "2026-04-21T05:32:42.248Z"
 last_activity: "2026-04-20 — Phase 41 Plan 01 complete: prompt-optimization skill shipped with 11-anchor grammar + rollback-safe new-version publish pattern; commit 8247a10"
 progress:
   total_phases: 10
   completed_phases: 7
   total_plans: 43
-  completed_plans: 40
+  completed_plans: 41
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 41 - Prompt Optimization & Cross-Framework Comparison (Plan 1 of 5)
-Plan: 01 complete — created orq-agent/commands/prompt-optimization.md (SKST-compliant: 9 sections, 11 guideline anchors verbatim, {{variable}} preservation regex scan, 5-suggestion hard cap, AskUserQuestion three-way approval gate yes/no/edit-first, MCP create_prompt_version + REST POST /v2/prompts/{key}/versions fallback with never-fabricate discipline, /orq-agent:test A/B recommendation); POPT-01..04 marked complete; SKST lint + protected-pipeline 3/3 SHA-256 green; commit 8247a10
-Status: Ready for Plan 02 (Phase 41 — build prompt-optimization/resources/11-guidelines.md rubric)
-Last activity: 2026-04-20 — Phase 41 Plan 01 complete: prompt-optimization skill shipped with 11-anchor grammar + rollback-safe new-version publish pattern; commit 8247a10
+Phase: 41 - Prompt Optimization & Cross-Framework Comparison (Plan 3 of 5)
+Plan: 03 complete — created 4 single-consumer resources: 11-guidelines.md (11 lint-anchor H2s role..recap), rewrite-examples.md (5 before/after patterns with preserved {{variable}} tokens), evaluatorq-script-templates.md (runnable TS + Python scaffolds with baseline + --isolate-model variants), framework-adapters.md (5 H2s: orq.ai, LangGraph, CrewAI, OpenAI Agents SDK, Vercel AI SDK with instrumentors-before-SDK notes); lint exit 0; protected-pipeline 3/3 SHA-256 green; POPT-02, POPT-03, XFRM-01, XFRM-02 already marked complete in REQUIREMENTS.md; commit 7b7ecb2
+Status: Ready for Plan 04 (Phase 41 — compare-frameworks skill body consuming 41-03 resources)
+Last activity: 2026-04-21 — Phase 41 Plan 03 complete: 4 resource files wired for prompt-optimization + compare-frameworks skills; commit 7b7ecb2
 
 Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5). V3.0 Phase 36 mechanically COMPLETE (8/8). V3.0 Phase 37 mechanically COMPLETE (5/5). V3.0 Phase 38 mechanically COMPLETE (4/4). 5-in-a-row V3.0 phases closed under canonical VERIFICATION.md pattern (34/35/36/37/38). Next V3.0 phases (39-43) inherit SKST + MSEL-02 + protected-pipeline invariants.
 
@@ -76,6 +76,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 40-kb-memory-lifecycle P06 | 3min | 1 tasks | 1 files |
 | Phase 41 P02 | 6min | 1 tasks | 1 files |
 | Phase 41-prompt-optimization-cross-framework-comparison P01 | 8 min | 1 tasks | 1 files |
+| Phase 41-prompt-optimization-cross-framework-comparison P03 | 5 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -177,6 +178,8 @@ Recent decisions affecting current work:
 - [Phase 40-kb-memory-lifecycle]: kb/resources/ single-consumer subdir parks 3 long-form policy docs (chunking, KB-vs-Memory, retrieval test) per Phase 34 Resources Policy — freeform prose, auto-excluded from SKST lint by commands/*.md single-level glob
 - [Phase 40-kb-memory-lifecycle]: Applied V3.0 index-wiring recipe for Phase 40 — only SKILL.md + help.md touched, protected pipelines 3/3 intact, subagent count 17 -> 18, 4th per-skill resources dir registered under kb skill umbrella
 - [Phase 40-kb-memory-lifecycle]: Phase 40 closed with 6th consecutive canonical-phase-close VERIFICATION.md; 4 manual smokes deferred to /gsd:verify-work 40
+- [Phase 41-prompt-optimization-cross-framework-comparison]: Fixed lowercase kebab-case lint-anchor slugs (role..recap) verbatim in 11-guidelines.md so skill output + /orq-agent:analytics can join on exact strings.
+- [Phase 41-prompt-optimization-cross-framework-comparison]: Included both baseline and --isolate-model evaluatorq variants in TS + Python templates to document fairness-check relaxation in-template.
 
 ### Blockers/Concerns
 
@@ -201,7 +204,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T05:29:44.508Z
-Stopped at: Completed 41-01-PLAN.md
+Last session: 2026-04-21T05:32:42.245Z
+Stopped at: Completed 41-03-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None

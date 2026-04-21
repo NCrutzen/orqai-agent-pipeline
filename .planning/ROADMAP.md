@@ -303,7 +303,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | V3.0 | 38. Trace Failure Analysis Skill | 4/4 | Complete    | 2026-04-21 |
 | V3.0 | 39. Dataset Generator Enhancements | 0/5 | Complete    | 2026-04-21 |
 | V3.0 | 40. KB & Memory Lifecycle | 6/6 | Complete    | 2026-04-21 |
-| V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 1/5 | In Progress|  |
+| V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 3/5 | In Progress|  |
 | V3.0 | 42. Evaluator Validation & Iterator Enrichments | 0/TBD | Not started | - |
 | V3.0 | 43. Cross-IDE Distribution & Manifests | 0/TBD | Not started | - |
 | V4.0 | 44-48 (5 phases) | 0/TBD | **Defined** | - |
