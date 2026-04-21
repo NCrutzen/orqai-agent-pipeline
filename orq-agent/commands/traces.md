@@ -36,7 +36,7 @@ You are running the `/orq-agent:traces` command. This command queries Orq.ai pro
 Directional handoffs (→ means "this skill feeds into"):
 
 - → `/orq-agent:analytics` — when the user asks for aggregates, hand off rather than paginate traces.
-- → Phase 38 trace-failure analysis skill (forward link `TODO(TFAIL)`) — once error rows surface here, that skill will consume the IDs for systematic failure triage.
+- → `/orq-agent:trace-failure-analysis` — once error rows surface here, that skill consumes the trace IDs for grounded-theory taxonomy building (4-8 modes, first-upstream-failure labeling, handoff report).
 - ← user invocation — post-deploy spot-check or incident response entry point.
 - ← `/orq-agent:deploy` — users naturally run this right after deploying to confirm nothing broke.
 - ← `/orq-agent:observability` — producer of identity-tagged traces; once that skill has attached `identity` attributes via `setIdentity()` / `set_identity()`, this command filters the resulting traces per-tenant.

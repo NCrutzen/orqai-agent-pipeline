@@ -86,6 +86,7 @@ Commands:
   /orq-agent:models            List Model Garden models by provider & type
   /orq-agent:quickstart        12-step onboarding tour
   /orq-agent:observability     Instrument LLM app for trace capture (framework detect + codegen)
+  /orq-agent:trace-failure-analysis  Grounded-theory failure taxonomy from ~100 traces (deploy+ tier)
   /orq-agent:automations       Trace Automation rules (list / --create)
   /orq-agent:help              Show this help
 

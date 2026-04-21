@@ -81,6 +81,12 @@ orq-agent/
         crewai.md                # Phase 37: CrewAI integration snippet
         vercel-ai.md             # Phase 37: Vercel AI SDK integration snippet
         generic-otel.md          # Phase 37: Generic OpenTelemetry snippet
+    trace-failure-analysis.md    # Phase 38: Trace failure analysis skill (TFAIL-01..06)
+    trace-failure-analysis/
+      resources/
+        grounded-theory-methodology.md  # Phase 38: Open + axial coding + first-upstream rule
+        failure-mode-classification.md  # Phase 38: 4-category decision rules
+        handoff-matrix.md                # Phase 38: Classification → next skill mapping
   agents/
     architect.md                 # Phase 1: Architect subagent
     tool-resolver.md             # Phase 4.2: Tool resolver subagent
@@ -186,6 +192,23 @@ Agents/[swarm-name]/
 - OBSV-07 — Per-tenant identity attribution (`setIdentity({...})`) + `/orq-agent:traces --identity` filter pass-through (wired live in Plan 03 of Phase 37).
 
 Resource snippets under `orq-agent/commands/observability/resources/` are consumed only by `commands/observability.md` (single-consumer; see Resources Policy below).
+
+### Phase 38 (Trace Failure Analysis)
+
+| Command | File | Tier Required | Purpose |
+|---------|------|---------------|---------|
+| `/orq-agent:trace-failure-analysis` | `commands/trace-failure-analysis.md` | deploy+ | Turn ~100 production traces into a 4-8 mode failure taxonomy via grounded-theory coding — mixed 50/30/20 sampling (TFAIL-01), open + axial coding (TFAIL-02), first-upstream-failure labeling (TFAIL-03), transition matrix for multi-step pipelines (TFAIL-04), 4-category classification specification/generalization-code-checkable/generalization-subjective/trivial-bug (TFAIL-05), error-analysis report with handoff recommendations (TFAIL-06) |
+
+**`/orq-agent:trace-failure-analysis` requirement coverage:**
+
+- TFAIL-01 — Mixed sampling: 50% random + 30% failure-driven + 20% outliers targeting ~100 traces; sampling plan recorded in the final report.
+- TFAIL-02 — Open coding (freeform per-trace annotations) then axial coding clustering annotations into 4-8 non-overlapping failure modes; saturation heuristic stops open coding when two consecutive batches yield no new themes.
+- TFAIL-03 — First-upstream-failure rule: label ONLY the first span in topological order whose output fails its criterion; cascade children carry `cascade-of: <parent_mode>`.
+- TFAIL-04 — Transition failure matrix (rows = last success, columns = first failure) for multi-step pipelines; skipped with explicit note for single-step pipelines.
+- TFAIL-05 — Mutually-exclusive classification of every mode into specification / generalization-code-checkable / generalization-subjective / trivial-bug.
+- TFAIL-06 — `error-analysis-YYYYMMDD-HHMM.md` report with taxonomy, rates, 3 example trace IDs per mode, transition matrix, and per-mode handoff (to `/orq-agent:prompt`, `/orq-agent:harden`, or developer fix).
+
+Resource docs under `orq-agent/commands/trace-failure-analysis/resources/` (grounded-theory methodology, failure-mode classification, handoff matrix) are consumed only by `commands/trace-failure-analysis.md` (single-consumer; see Resources Policy below).
 
 **Invocation:** `/orq-agent "description"` | `/orq-agent` (interactive) | `--gsd` flag | `--output <path>`
 
@@ -334,7 +357,7 @@ Skill documentation lives in two places. The placement rule is driven by consume
 
 **Invariant (enforced by lint):** Every file under `orq-agent/references/` MUST be consumed by ≥2 skills. The `references-multi-consumer` rule in `orq-agent/scripts/lint-skills.sh` enforces this. If a file drops to 1 consumer, the lint fails and the file must move to that consumer's `<skill>/resources/`.
 
-**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phase 37 established the first live per-skill resources directory at `orq-agent/commands/observability/resources/` (5 framework snippets consumed only by `observability.md`). Phases 38-43 will create additional per-skill `resources/` directories on demand when single-consumer content appears.
+**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phase 37 established the first live per-skill resources directory at `orq-agent/commands/observability/resources/` (5 framework snippets consumed only by `observability.md`). Phase 38 adds a second at `orq-agent/commands/trace-failure-analysis/resources/` (3 files: grounded-theory-methodology, failure-mode-classification, handoff-matrix — consumed only by `trace-failure-analysis.md`). Phases 39-43 will create additional per-skill `resources/` directories on demand when single-consumer content appears.
 
 ## Anti-Patterns
 
