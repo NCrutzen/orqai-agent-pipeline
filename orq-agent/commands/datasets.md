@@ -1,7 +1,7 @@
 ---
 description: Generate test datasets for an Orq.ai agent (standalone dataset generator)
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task
-argument-hint: [agent-spec-path] or [agent-description]
+argument-hint: [agent-spec-path|agent-description] [--mode two-step|flat|curation|promote-trace] [--trace-id <id>] [--shape single|multi-turn|rag] [--output <path>]
 ---
 
 <role>
@@ -24,6 +24,8 @@ Follow each step in order. Do not skip steps.
 - **NEVER** delete datapoints during Mode-4 curation without `AskUserQuestion` confirmation.
 - **ALWAYS** tag every datapoint by category AND dimension (Phase 39 DSET-05).
 - **ALWAYS** include 15-20% adversarial cases from the 8-vector catalog when the agent profile warrants it.
+- **ALWAYS** validate `--mode promote-trace` receives `--trace-id <id>` before any MCP call (Phase 39 DSET-08).
+- **ALWAYS** preserve input, output, intermediate_steps, and metadata when promoting a production trace (Phase 39 DSET-08).
 
 **Why these constraints:** Biased coverage produces over-fit evaluators; unconfirmed deletion loses signal irretrievably; tags enable slice analysis in results-analyzer.
 
@@ -71,12 +73,17 @@ Parse `$ARGUMENTS` for flags. Extract configuration flags and determine whether 
 
 **Flag definitions:**
 - `--output <path>`: String flag. Overrides the default output directory. The next token after `--output` is consumed as the path value. If not provided, defaults to `./Agents/`.
+- `--mode <value>`: String flag. Generation mode. Consumes the next token. Accepted values: `two-step`, `flat`, `curation`, `promote-trace`. Default: `flat` (existing V2.0 behavior). Stored as `MODE`.
+- `--trace-id <id>`: String flag. Consumes the next token. REQUIRED when `--mode promote-trace`; if missing with that mode, STOP with message: `"--mode promote-trace requires --trace-id <id>"`. Stored as `TRACE_ID`.
+- `--shape <value>`: String flag. Dataset shape. Consumes the next token. Accepted values: `single`, `multi-turn`, `rag`. Default: `single`. Stored as `SHAPE`.
 
 **Parsing rules:**
-1. Scan `$ARGUMENTS` for `--output <path>` flag
-2. Flag can appear anywhere in the arguments string
-3. `--output` consumes the next whitespace-delimited token as the path value
+1. Scan `$ARGUMENTS` for `--output`, `--mode`, `--trace-id`, `--shape` flags
+2. Flags can appear anywhere in the arguments string
+3. Each flag consumes the next whitespace-delimited token as its value
 4. Everything that is NOT a flag or flag value becomes the input argument
+5. Reject unknown `--mode` / `--shape` values with an explicit error and STOP
+6. If `--mode promote-trace` is set and `--trace-id` is absent, STOP with: `"--mode promote-trace requires --trace-id <id>"` — do NOT make any MCP call (Phase 39 DSET-08)
 
 **Input detection:**
 - If the remaining argument ends in `.md` or contains `/`, treat it as a file path (`SPEC_PATH`)
@@ -86,11 +93,20 @@ Parse `$ARGUMENTS` for flags. Extract configuration flags and determine whether 
 - `SPEC_PATH`: The file path if detected, or empty
 - `AGENT_DESCRIPTION`: The description text if detected, or empty
 - `OUTPUT_DIR`: The path from `--output` flag, or `./Agents/` if not provided
+- `MODE`: `two-step` | `flat` | `curation` | `promote-trace`. Default `flat`.
+- `TRACE_ID`: Trace ID string, required only when `MODE == promote-trace`.
+- `SHAPE`: `single` | `multi-turn` | `rag`. Default `single`.
 
 **Examples:**
-- `./Agents/support/agents/support-triage-agent.md` --> SPEC_PATH=./Agents/support/agents/support-triage-agent.md
+- `./Agents/support/agents/support-triage-agent.md` --> SPEC_PATH=./Agents/support/agents/support-triage-agent.md, MODE=flat, SHAPE=single
 - `--output ./my-agents "A customer FAQ bot that answers common questions"` --> OUTPUT_DIR=./my-agents, AGENT_DESCRIPTION="A customer FAQ bot that answers common questions"
 - `"A customer FAQ bot"` --> OUTPUT_DIR=./Agents/, AGENT_DESCRIPTION="A customer FAQ bot"
+- `--shape single ./Agents/support/agents/triage.md` --> SHAPE=single (default), SPEC_PATH=./Agents/support/agents/triage.md
+- `--mode two-step --shape multi-turn ./Agents/support/agents/triage.md` --> MODE=two-step, SHAPE=multi-turn, SPEC_PATH=./Agents/support/agents/triage.md
+- `--shape rag ./Agents/support/agents/triage.md` --> SHAPE=rag, SPEC_PATH=./Agents/support/agents/triage.md
+- `--mode promote-trace --trace-id tr_01JRXYZ` --> MODE=promote-trace, TRACE_ID=tr_01JRXYZ
+- `--mode curation ./Agents/support/datasets/support-triage-agent-dataset.md` --> MODE=curation, SPEC_PATH=./Agents/support/datasets/support-triage-agent-dataset.md (positional = existing dataset)
+- `--mode promote-trace` (no `--trace-id`) --> STOP: "--mode promote-trace requires --trace-id <id>"
 
 Proceed to Step 1.
 
@@ -112,7 +128,40 @@ If `$ARGUMENTS` is empty, prompt the user:
 Provide a path to an agent spec file, or describe the agent to generate datasets for.
 ```
 
-Wait for the user's response. Once received, detect if it is a file path or description (same rules as Step 0), store the input, and proceed to Step 2.
+Wait for the user's response. Once received, detect if it is a file path or description (same rules as Step 0), store the input, and proceed to Step 1b.
+
+---
+
+## Step 1b: Mode Dispatch
+
+Branch on `MODE` BEFORE running the Step 2 clarification block. Each mode has distinct downstream semantics.
+
+**`MODE == "promote-trace"` (Phase 39 DSET-08):**
+- Skip Steps 2, 3, and 4 entirely — no clarifications, no blueprint construction, no new versioned directory.
+- Precondition: `TRACE_ID` MUST be non-empty (Step 0 already enforced this; re-verify defensively).
+- Call MCP `get_span` on `TRACE_ID` to fetch the root span. Call `list_spans` (or equivalent) to collect children and the full tool-call sequence.
+- Construct a single regression datapoint that preserves ALL of: `input` (root span input), `output` (root span output), `intermediate_steps` (ordered tool-call sequence with tool name + args + result), and `metadata` (session_id, user_id, customer_id, identity — whatever the trace exposes). Tag with `category: regression`, `source: production-trace`, `source_trace_id: {TRACE_ID}`.
+- Derive the agent name from the trace's agent-key attribute (or the spec, if provided positionally). Ensure `{OUTPUT_DIR}/[agent-name]/datasets/` exists.
+- Write the single-datapoint dataset to `{OUTPUT_DIR}/[agent-name]/datasets/trace-promoted-{TRACE_ID}.md`.
+- Jump directly to Step 6 (Summary).
+
+**`MODE == "curation"` (Phase 39 DSET-04):**
+- Require an existing dataset path as the positional argument (use `SPEC_PATH`). If missing, STOP with: `"--mode curation requires an existing dataset path as the positional argument"`.
+- Skip Step 2 clarifications (curation is driven by the existing dataset's content, not by fresh Q&A).
+- Proceed to Step 5 with `MODE=curation` — the subagent performs dedupe (group by input-hash), rebalance (flag any value >30%), gap-fill (flag values with <2 datapoints), and contradiction surfacing (conflicting expected outputs on equivalent inputs).
+- EVERY proposed deletion MUST be confirmed via `AskUserQuestion` before the subagent removes it (Destructive Actions constraint).
+
+**`MODE == "two-step"` (Phase 39 DSET-01):**
+- Proceed through Steps 2-4 normally.
+- In Step 5, instruct the subagent to emit TWO intermediate artifacts BEFORE the final dataset:
+  - `{OUTPUT_DIR}/[agent-name]/datasets/dimensions.md` — 3-6 dimensions with 2-5 values each
+  - `{OUTPUT_DIR}/[agent-name]/datasets/tuples.md` — enumerated (dim-value) tuples that seed the natural-language inputs
+- These artifacts are part of the subagent's output contract for two-step mode and must be written alongside the dataset files.
+
+**`MODE == "flat"` (default, existing V2.0 behavior):**
+- Proceed through Steps 2-6 as written. No behavioral change from pre-Phase 39.
+
+In all modes, `SHAPE` is passed to the subagent in Step 5 so the datapoint emission can honor single / multi-turn / rag shape contracts (Phase 39 DSET-05/06/07).
 
 ---
 
@@ -244,6 +293,8 @@ Spawn the dataset generator subagent using the Task tool:
   4. Dataset size preference from Step 2 Q1
   5. Adversarial focus preference from Step 2 Q2
   6. Specific scenarios from Step 2 Q3
+  7. Mode: `{MODE}` (one of: two-step | flat | curation | promote-trace) — selects the generation branch per Step 1b
+  8. Shape: `{SHAPE}` (one of: single | multi-turn | rag) — governs datapoint shape per Phase 39 DSET-05/06/07
 - The dataset generator reads its own references via `<files_to_read>` -- no need to load them here
 
 Output:
@@ -272,6 +323,26 @@ Next steps:
 2. Use datasets for evaluation in Orq.ai Studio
 3. Run /orq-agent for the full pipeline with built-in dataset generation
 ```
+
+**Mode-conditional summary lines** (append to the completion block based on `MODE`):
+
+- When `MODE == "promote-trace"`, also print:
+  ```
+  Source trace: {TRACE_ID}
+  Datapoint preserved: input, output, intermediate_steps, metadata
+  Output: {OUTPUT_DIR}/[agent-name]/datasets/trace-promoted-{TRACE_ID}.md
+  ```
+- When `MODE == "two-step"`, also print the intermediate artifact paths:
+  ```
+  Intermediate artifacts:
+  - Dimensions: {OUTPUT_DIR}/[agent-name]/datasets/dimensions.md
+  - Tuples:     {OUTPUT_DIR}/[agent-name]/datasets/tuples.md
+  ```
+- When `MODE == "curation"`, also print:
+  ```
+  Deletions confirmed: N
+  ```
+  where `N` is the count of `AskUserQuestion` confirmations honored during curation.
 
 </pipeline>
 
