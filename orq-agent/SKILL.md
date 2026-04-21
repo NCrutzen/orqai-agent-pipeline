@@ -94,6 +94,11 @@ orq-agent/
     spec-generator.md            # Phase 2: Spec generator subagent (includes tool schemas)
     orchestration-generator.md   # Phase 2: Orchestration generator subagent
     dataset-generator.md         # Phase 2: Dataset generator subagent
+    dataset-generator/
+      resources/
+        adversarial-vectors.md   # Phase 39: 8-vector adversarial catalog (DSET-02)
+        coverage-rules.md        # Phase 39: coverage rule definitions + remediation (DSET-03)
+        shapes.md                # Phase 39: multi-turn + RAG shape templates (DSET-05..07)
     readme-generator.md          # Phase 2: README generator subagent
     kb-generator.md              # KB content generation from pipeline context
     hardener.md                  # Phase 9: Guardrails promotion and quality gates
@@ -209,6 +214,25 @@ Resource snippets under `orq-agent/commands/observability/resources/` are consum
 - TFAIL-06 — `error-analysis-YYYYMMDD-HHMM.md` report with taxonomy, rates, 3 example trace IDs per mode, transition matrix, and per-mode handoff (to `/orq-agent:prompt`, `/orq-agent:harden`, or developer fix).
 
 Resource docs under `orq-agent/commands/trace-failure-analysis/resources/` (grounded-theory methodology, failure-mode classification, handoff matrix) are consumed only by `commands/trace-failure-analysis.md` (single-consumer; see Resources Policy below).
+
+### Phase 39 (Dataset Generator Enhancements)
+
+| Command | File | Tier Required | Purpose |
+|---------|------|---------------|---------|
+| `/orq-agent:datasets` | `commands/datasets.md` | deploy+ | Enhanced dataset generator — two-step dimensions→tuples→NL mode (DSET-01), 8-vector adversarial catalog (DSET-02), coverage rules with "Coverage check failed:" block-on-violation (DSET-03), Mode 4 curation with AskUserQuestion-confirmed deletions (DSET-04), category+dimension tagging for slice analysis (DSET-05), multi-turn shape with perturbation scenarios (DSET-06), RAG shape with expected_source_chunk_ids (DSET-07), promote-from-trace preserving input/output/intermediate_steps/metadata (DSET-08) |
+
+**`/orq-agent:datasets` requirement coverage (Phase 39):**
+
+- DSET-01 — Two-step generation mode via `--mode two-step` emits inspectable dimensions.md + tuples.md intermediate artifacts before NL generation.
+- DSET-02 — 8-vector adversarial catalog (persona-breaking, instruction-override, language-switching, formality-mismatch, refusal, format-forcing, multi-turn-manipulation, contradiction); 15-20% coverage, ≥3 per relevant vector; catalog lives in `agents/dataset-generator/resources/adversarial-vectors.md`.
+- DSET-03 — Coverage rules (every dimension value ≥2; no value >30%); violations block upload with "Coverage check failed:" remediation; see `agents/dataset-generator/resources/coverage-rules.md`.
+- DSET-04 — `--mode curation` dedupes, rebalances, fills gaps, resolves contradictions; every deletion requires AskUserQuestion confirm.
+- DSET-05 — Every datapoint tagged with `category` AND `dimension_values` so results-analyzer can slice.
+- DSET-06 — `--shape multi-turn` produces `messages` array + `perturbation_scenario` for conversational agents.
+- DSET-07 — `--shape rag` produces `expected_source_chunk_ids` for KB agents; consumed by RAGAS evaluators.
+- DSET-08 — `--mode promote-trace --trace-id <id>` fetches via MCP get_span/list_spans and preserves input, output, intermediate_steps, metadata (session_id, user_id, customer_id, identity).
+
+Resource docs under `orq-agent/agents/dataset-generator/resources/` (adversarial-vectors, coverage-rules, shapes) are consumed only by `agents/dataset-generator.md` (single-consumer; see Resources Policy below).
 
 **Invocation:** `/orq-agent "description"` | `/orq-agent` (interactive) | `--gsd` flag | `--output <path>`
 
@@ -357,7 +381,7 @@ Skill documentation lives in two places. The placement rule is driven by consume
 
 **Invariant (enforced by lint):** Every file under `orq-agent/references/` MUST be consumed by ≥2 skills. The `references-multi-consumer` rule in `orq-agent/scripts/lint-skills.sh` enforces this. If a file drops to 1 consumer, the lint fails and the file must move to that consumer's `<skill>/resources/`.
 
-**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phase 37 established the first live per-skill resources directory at `orq-agent/commands/observability/resources/` (5 framework snippets consumed only by `observability.md`). Phase 38 adds a second at `orq-agent/commands/trace-failure-analysis/resources/` (3 files: grounded-theory-methodology, failure-mode-classification, handoff-matrix — consumed only by `trace-failure-analysis.md`). Phases 39-43 will create additional per-skill `resources/` directories on demand when single-consumer content appears.
+**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phase 37 established the first live per-skill resources directory at `orq-agent/commands/observability/resources/` (5 framework snippets consumed only by `observability.md`). Phase 38 adds a second at `orq-agent/commands/trace-failure-analysis/resources/` (3 files: grounded-theory-methodology, failure-mode-classification, handoff-matrix — consumed only by `trace-failure-analysis.md`). Phase 39 adds a third per-skill resources directory at `orq-agent/agents/dataset-generator/resources/` (3 files: adversarial-vectors, coverage-rules, shapes — consumed only by `dataset-generator.md`). Phases 40-43 will create additional per-skill `resources/` directories on demand when single-consumer content appears.
 
 ## Anti-Patterns
 
