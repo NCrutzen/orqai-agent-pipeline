@@ -255,7 +255,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
   - [ ] 41-01-PLAN.md — Wave 1: create orq-agent/commands/prompt-optimization.md with 9 SKST sections + 11 guideline anchors + {{variable}} preservation + ≤5 suggestions + diff + AskUserQuestion + new-version creation (POPT-01..04)
   - [ ] 41-02-PLAN.md — Wave 1: create orq-agent/commands/compare-frameworks.md with 9 SKST sections + 5 framework names + evaluatorq Python/TS script + fairness checks + smoke-invocation precheck + --isolate-model + --lang python|ts (XFRM-01..03)
   - [ ] 41-03-PLAN.md — Wave 1: create 4 single-consumer resources under commands/prompt-optimization/resources/ and commands/compare-frameworks/resources/ (11-guidelines, rewrite-examples, evaluatorq-script-templates, framework-adapters)
-  - [ ] 41-04-PLAN.md — Wave 2: index-wire into orq-agent/SKILL.md (Phase 41 H3 block + Directory Structure + Resources Policy migration status) + orq-agent/commands/help.md (banner + flag summaries)
+  - [x] 41-04-PLAN.md — Wave 2: index-wire into orq-agent/SKILL.md (Phase 41 H3 block + Directory Structure + Resources Policy migration status) + orq-agent/commands/help.md (banner + flag summaries) (completed 2026-04-21)
   - [ ] 41-05-PLAN.md — Wave 3: full lint + protected-pipeline SHA-256 + POPT/XFRM anchor sweep; write 41-05-VERIFICATION.md with POPT-01..04 + XFRM-01..03 traceability + 5-row ROADMAP criteria checklist
 
 ### Phase 42: Evaluator Validation & Iterator Enrichments
@@ -303,7 +303,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | V3.0 | 38. Trace Failure Analysis Skill | 4/4 | Complete    | 2026-04-21 |
 | V3.0 | 39. Dataset Generator Enhancements | 0/5 | Complete    | 2026-04-21 |
 | V3.0 | 40. KB & Memory Lifecycle | 6/6 | Complete    | 2026-04-21 |
-| V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 3/5 | In Progress|  |
+| V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 3/5 | Complete    | 2026-04-21 |
 | V3.0 | 42. Evaluator Validation & Iterator Enrichments | 0/TBD | Not started | - |
 | V3.0 | 43. Cross-IDE Distribution & Manifests | 0/TBD | Not started | - |
 | V4.0 | 44-48 (5 phases) | 0/TBD | **Defined** | - |
