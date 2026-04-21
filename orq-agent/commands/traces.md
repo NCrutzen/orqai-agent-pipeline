@@ -39,6 +39,7 @@ Directional handoffs (→ means "this skill feeds into"):
 - → Phase 38 trace-failure analysis skill (forward link `TODO(TFAIL)`) — once error rows surface here, that skill will consume the IDs for systematic failure triage.
 - ← user invocation — post-deploy spot-check or incident response entry point.
 - ← `/orq-agent:deploy` — users naturally run this right after deploying to confirm nothing broke.
+- ← `/orq-agent:observability` — producer of identity-tagged traces; once that skill has attached `identity` attributes via `setIdentity()` / `set_identity()`, this command filters the resulting traces per-tenant.
 
 ## Done When
 
@@ -47,7 +48,7 @@ Directional handoffs (→ means "this skill feeds into"):
 - [ ] Errors-first ordering observable when both `status=error` and `status=ok` classes are present.
 - [ ] `MCP tools used:` footer lists `list_traces` (and `list_spans` if span detail was requested).
 - [ ] `Open in orq.ai:` deep link rendered pointing at `https://my.orq.ai/traces`.
-- [ ] If `--identity <id>` was passed, the one-line `TODO(OBSV-07)` warning was emitted and the filter was ignored (parse-only stub).
+- [ ] If `--identity <id>` was passed, the filter was applied (MCP pass-through or client-side fallback), and result rows match the identity attribute; zero-match prints the helpful `No traces matched --identity <id>` hint.
 
 ## Destructive Actions
 
@@ -63,7 +64,7 @@ Parse `$ARGUMENTS` for the following long-form flags (no short flags — matches
 | `--status <ok\|error>` | optional | none | Filter by trace status. Accepts exactly `ok` or `error`. |
 | `--last <5m\|1h\|24h\|7d\|30d>` | optional | `24h` | Time window. Map to `since=<timestamp>` in the MCP/REST call. |
 | `--limit <N>` | optional | `20` | Integer row cap. |
-| `--identity <id>` | optional | none | **STUB** — parsed but currently a no-op; wiring happens in Phase 37 / OBSV-07. |
+| `--identity <id>` | optional | none | Filter to traces tagged with this per-tenant / per-customer identity attribute. Passed through to MCP `list_traces` as `identity=<id>`. |
 
 Parse rules:
 
@@ -71,11 +72,7 @@ Parse rules:
 - If `--last` is provided but not one of `5m|1h|24h|7d|30d`, STOP with: `--last must be one of 5m, 1h, 24h, 7d, 30d (got: <value>)`.
 - If `--status` is provided but not `ok` or `error`, STOP with: `--status must be 'ok' or 'error' (got: <value>)`.
 - If `--limit` is provided but not a positive integer, STOP with: `--limit must be a positive integer (got: <value>)`.
-- If `--identity <id>` is provided, emit this one-line warning **before** fetching and proceed without filtering:
-
-  ```
-  ⚠ --identity is a stub (TODO(OBSV-07)); filter ignored. Wiring lands in Phase 37.
-  ```
+- If `--identity <id>` is provided, pass it through to the MCP `list_traces` tool as the `identity` parameter (see Step 2). If the MCP response does not expose an `identity` parameter, apply a client-side filter over the returned rows matching `trace.metadata.identity == <id>` OR `trace.attributes.identity == <id>` OR `trace.customer_id == <id>` (identity attribution surface can land on any of these per `/orq-agent:observability` Step 7). If zero rows remain after the client-side filter, print `No traces matched --identity <id> (did you attach identity via /orq-agent:observability?).`
 
 - Unknown flag → STOP and print:
 
@@ -100,7 +97,8 @@ mcp__orqai-mcp__list_traces(
   since: <now - LAST, ISO-8601>,
   limit: $LIMIT,
   deployment_key: $DEPLOYMENT,      # omit if unset
-  status: $STATUS                   # omit if unset
+  status: $STATUS,                  # omit if unset
+  identity: $IDENTITY                # omit if unset -- per-tenant filter (OBSV-07)
 )
 ```
 
@@ -108,12 +106,12 @@ If the MCP tool errors (tool unavailable, auth failure, network timeout), surfac
 
 ```bash
 curl -sS -H "Authorization: Bearer $ORQ_API_KEY" \
-  "https://api.orq.ai/v2/traces?limit=${LIMIT}&since=${SINCE}&deployment_key=${DEPLOYMENT}&status=${STATUS}"
+  "https://api.orq.ai/v2/traces?limit=${LIMIT}&since=${SINCE}&deployment_key=${DEPLOYMENT}&status=${STATUS}&identity=${IDENTITY}"
 ```
 
 Omit any query param whose variable is empty. If the REST fallback also fails, STOP and print the error — do NOT fabricate trace rows.
 
-**Never** apply the `--identity` filter (stub — Phase 37 wires this into either the MCP param or a client-side filter, once identity attributes are attached by Phase 37 OBSV-07).
+When the MCP tool accepts `identity` natively, rely on server-side filtering. When it does not (older MCP versions), apply the client-side filter documented in Step 1 after fetch — never fabricate trace rows, and never silently drop the filter.
 
 ## Step 3: Sort Errors First
 
@@ -169,7 +167,7 @@ If span detail was fetched (e.g. a follow-up `mcp__orqai-mcp__list_spans` call w
 |---------|-----------|
 | Truncating trace IDs to save horizontal space | Full IDs are copy-paste targets for Studio / support — let tables overflow; terminal scroll is free, debugging context is not |
 | Sorting by timestamp only (errors buried below successes) | Errors-first is non-negotiable per LCMD-02 — stable-sort by status (error before ok), then by timestamp desc |
-| Treating `--identity` as implemented | It is a stub — emit the `TODO(OBSV-07)` warning and do not filter; wiring lands in Phase 37 |
+| Silently dropping `--identity` when MCP does not expose it natively | Fall back to client-side filtering over `trace.metadata.identity` / `trace.attributes.identity` / `trace.customer_id` — never return unfiltered rows when the user asked for a tenant-scoped view |
 | Fabricating trace rows when MCP errors | Surface the raw MCP error + the REST fallback attempt inline; never invent trace IDs or timestamps |
 | Silently swallowing `--last` parse errors and defaulting | STOP with a helpful usage hint — the user wrote a typo they want to know about |
 | Using short flags (`-d`, `-s`) to "save keystrokes" | Long-form only matches Phase 34 convention and keeps help text greppable |
