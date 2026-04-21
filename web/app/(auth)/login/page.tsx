@@ -87,7 +87,7 @@ function LoginForm() {
   return (
     <GlassCard className="w-full max-w-md p-8 backdrop-blur-2xl">
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-[var(--v7-radius-sm)] bg-gradient-to-br from-[var(--v7-teal)] to-[var(--v7-blue)] shadow-[var(--v7-glass-shadow)]">
+        <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-[var(--v7-radius-sm)] bg-gradient-to-br from-[#dc4c19] to-[#4a90e2] shadow-[0_10px_30px_rgba(220,76,25,0.35)]">
           <svg
             width="24"
             height="24"
@@ -179,7 +179,7 @@ function LoginForm() {
           />
           <Button
             type="submit"
-            className="w-full bg-gradient-to-r from-[var(--v7-teal)] to-[var(--v7-blue)] text-white shadow-[var(--v7-glass-shadow)] hover:opacity-90"
+            className="w-full bg-gradient-to-r from-[#dc4c19] to-[#4a90e2] text-white shadow-[0_10px_30px_rgba(220,76,25,0.35)] hover:opacity-90"
             disabled={loading}
           >
             {loading ? "Signing in..." : "Sign in"}
