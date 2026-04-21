@@ -137,14 +137,50 @@ After generating all files, display a summary:
 ```
 KB Content Generated:
 
-| KB | Files | Location |
-|----|-------|----------|
-| {kb-name} | {N} files | {swarm-dir}/kb-content/{kb-name}/ |
+| KB | Files | Chunking | Location |
+|----|-------|----------|----------|
+| {kb-name} | {N} files | {sentence|recursive} | {swarm-dir}/kb-content/{kb-name}/ |
 
 Files:
 - {filename.md} ({N} lines)
 - {filename.md} ({N} lines)
 ```
+
+Per-file manifest (written to `{swarm-dir}/kb-content/{kb-name}/manifest.json`):
+
+    {
+      "kb_name": "<kb-name>",
+      "files": [
+        {
+          "path": "returns-and-refunds.md",
+          "lines": 142,
+          "content_type": "prose",
+          "chunking_strategy": "sentence",
+          "chunk_size": 512,
+          "overlap": 50,
+          "reason": "flowing policy paragraphs, H2 density < 5 per 1000 lines"
+        }
+      ]
+    }
+
+This manifest is consumed by `/orq-agent:kb` Step 7.1.5 (chunking picker) and Step 7.6 (retrieval quality test).
+
+## Chunking Strategy Policy (KBM-03)
+
+For every KB document you generate, pick a chunking strategy based on content type and emit it in the file manifest:
+
+- **Prose content type** (flowing text, narrative FAQ answers, policy paragraphs) → chunking strategy **sentence**, chunk_size 512, overlap 50.
+- **Structured content type** (dense heading hierarchy, tabular policy matrices, code snippets, JSON/YAML examples) → chunking strategy **recursive**, chunk_size 1024, overlap 100.
+
+**Heuristic:** Count H2/H3 headings per 1000 lines in your generated file. If density ≥ 5, it is structured; otherwise prose.
+
+**Structure your output to match the chosen strategy:**
+- Sentence strategy → flowing paragraphs with clear sentence boundaries; avoid bullet-heavy blocks that would fragment awkwardly at sentence-splits.
+- Recursive strategy → clear H2/H3 headings every 50-100 lines so the recursive splitter has natural boundaries.
+
+Record the decision in the file manifest (see Output Format above).
+
+**Downstream retrieval quality invariant (KBM-01):** This subagent does NOT run the retrieval quality test itself. However, `/orq-agent:kb` Step 7.6 will block KB wire-up on retrieval quality failure, and it uses the `chunking_strategy` recorded in `manifest.json` as the baseline to reason about chunk boundaries. Emitting accurate metadata here is what makes the downstream retrieval quality test meaningful.
 
 ## Constraints
 
@@ -152,6 +188,7 @@ Files:
 - **NEVER** use memory-style stores for static reference data (Phase 40 KBM-04: KB vs Memory decision rule).
 - **ALWAYS** verify the embedding model is activated in AI Router before KB creation (Phase 40 KBM-02).
 - **ALWAYS** pick the chunking strategy from content type — sentence for prose, recursive for structured docs (Phase 40 KBM-03).
+- **ALWAYS** emit a `manifest.json` recording `chunking_strategy` per file so downstream retrieval quality testing (Phase 40 KBM-01) can reason about chunk boundaries.
 
 **Why these constraints:** Non-tested KBs return irrelevant chunks silently; misused memory-for-docs pattern is a common failure; non-activated models fail at create-time.
 
@@ -183,6 +220,8 @@ Directional handoffs (→ means "this skill feeds into"):
 - [ ] Content is domain-specific (no placeholder / lorem ipsum / generic filler)
 - [ ] Approach A (context synthesis) selected when pipeline outputs exist; Approach B (templates + user questions) only when context is missing
 - [ ] Chunking strategy picked from content type (sentence for prose, recursive for structured docs — Phase 40 KBM-03)
+- [ ] Per-file `manifest.json` written with `chunking_strategy` for every generated file
+- [ ] Retrieval quality downstream test (KBM-01) documented as invariant — this subagent does NOT run the test, but notes that `/orq-agent:kb` Step 7.6 will block wire-up on failure
 
 ## Destructive Actions
 
@@ -199,6 +238,8 @@ Directional handoffs (→ means "this skill feeds into"):
 - **Do NOT use generic content that could apply to any domain.** "Contact us for more information" and "Please refer to our website" are not useful KB content. Every document should contain specific, retrievable knowledge.
 
 - **Do NOT duplicate content across files.** If multiple agents share a KB, the content serves all of them. Do not create agent-specific copies of the same information.
+
+- **Do NOT emit KB content without a `manifest.json`.** The manifest carries the chunking decision; without it, the KB command cannot run KBM-03 picker validation and the retrieval quality test (KBM-01) has no baseline to compare against.
 
 ## Open in orq.ai
 
