@@ -116,6 +116,48 @@ If an agent-key filter was provided:
 
 ---
 
+## Phase 2.0: TPR/TNR Promotion Gate (EVLD-08)
+
+Before suggesting any evaluator as a runtime guardrail, hardener enforces a TPR/TNR validation gate. Unvalidated judges produce false-positive rejections that block production traffic -- the promotion gate is the quality floor.
+
+### Step 2.0.1: Read Evaluator Validation Metadata
+
+For each evaluator used in test-results.json, read its validation metadata from:
+`{swarm_dir}/evaluator-validations/{evaluator_name}.json`
+
+These files are written by the `evaluator-validator` subagent (Phase 42 Plan 06). Required fields:
+- `tpr` (True Positive Rate, 0.0-1.0)
+- `tnr` (True Negative Rate, 0.0-1.0)
+- `test_set_size` (total labeled examples in test split)
+- `validated_at` (ISO 8601 timestamp)
+
+If the validation file is missing, treat the evaluator as unvalidated.
+
+### Step 2.0.2: Apply Promotion Gate
+
+For each evaluator under consideration for `settings.guardrails` (blocking), check:
+
+```
+IF tpr < 0.90 OR tnr < 0.90 OR test_set_size < 60 (≥30 Pass + ≥30 Fail):
+  REFUSE promotion to guardrail
+  EMIT: "Promotion refused: {evaluator} TPR={tpr}, TNR={tnr}. Run evaluator-validator to collect labels before promoting."
+```
+
+Both thresholds must hold simultaneously: **TPR ≥ 90% AND TNR ≥ 90%** on the test set. Test set floor is 60 examples with at least 30 Pass + 30 Fail labels (disjoint from dev/train).
+
+### Step 2.0.3: Exemptions and Downgrade Path
+
+- **Pre-built guardrails exempt:** `orq_pii_detection`, `orq_harmful_moderation`, `orq_sexual_moderation` are platform-maintained and skip the TPR/TNR gate (their internal logic is Orq.ai's responsibility).
+- **Unvalidated custom evaluators:** MAY still be attached as `settings.evaluators` (monitoring-only, non-blocking) but NEVER as `settings.guardrails` (blocking). Downgrade them automatically and note in the suggestion table reason column.
+
+### Step 2.0.4: Record Gate Outcomes
+
+For each evaluator, record in the suggestion report:
+- `promotion_allowed`: boolean
+- `gate_reason`: "validated (TPR={tpr}, TNR={tnr})" | "refused: TPR<90%" | "refused: TNR<90%" | "refused: test_set_size<60" | "exempt: pre-built" | "downgraded to monitoring"
+
+---
+
 ## Phase 2: Suggest Guardrails (GUARD-01 -- data-driven)
 
 For each agent, analyze test results to determine which evaluators should be promoted to runtime guardrails.
@@ -147,25 +189,25 @@ These are platform-maintained guardrails with their own internal logic. They use
 
 ### Step 2.3: Assign Smart Defaults
 
-For each suggested guardrail, assign threshold, severity, and sample_rate from this table:
+For each suggested guardrail, assign threshold and severity from this table. The `sample_rate` column is intentionally omitted here -- sample_rate is derived dynamically from agent volume in Step 2.3 subsection below (ITRX-08).
 
 ```
 # Safety evaluators (strict by default)
-toxicity:               threshold: 0.1,  severity: high, sample_rate: 100
-harmfulness:            threshold: 0.0,  severity: high, sample_rate: 100
-orq_pii_detection:      threshold: --,   severity: high, sample_rate: 100
-orq_harmful_moderation: threshold: --,   severity: high, sample_rate: 100
-orq_sexual_moderation:  threshold: --,   severity: high, sample_rate: 100
+toxicity:               threshold: 0.1,  severity: high
+harmfulness:            threshold: 0.0,  severity: high
+orq_pii_detection:      threshold: --,   severity: high
+orq_harmful_moderation: threshold: --,   severity: high
+orq_sexual_moderation:  threshold: --,   severity: high
 
 # Quality evaluators (advisory by default)
-instruction_following:  threshold: 3.5,  severity: low,  sample_rate: 80
-coherence:              threshold: 3.5,  severity: low,  sample_rate: 80
-helpfulness:            threshold: 3.5,  severity: low,  sample_rate: 80
-relevance:              threshold: 3.5,  severity: low,  sample_rate: 80
+instruction_following:  threshold: 3.5,  severity: low
+coherence:              threshold: 3.5,  severity: low
+helpfulness:            threshold: 3.5,  severity: low
+relevance:              threshold: 3.5,  severity: low
 
 # Structural evaluators (advisory by default)
-json_validity:          threshold: 1.0,  severity: low,  sample_rate: 100
-exactness:              threshold: 0.8,  severity: low,  sample_rate: 100
+json_validity:          threshold: 1.0,  severity: low
+exactness:              threshold: 0.8,  severity: low
 ```
 
 - `severity: high` = strict mode (block deploy). High-severity failures flag an agent as "not production-ready."
@@ -174,9 +216,33 @@ exactness:              threshold: 0.8,  severity: low,  sample_rate: 100
 - Same scoring threshold from testing carries to production (LOCKED decision -- no separate production thresholds).
 
 For evaluators not in the table above, use these defaults:
-- Continuous 0-1 scale: threshold = 0.7, severity = low, sample_rate = 80
-- Continuous 1-5 scale: threshold = 3.5, severity = low, sample_rate = 80
-- Binary scale: threshold = 1.0, severity = low, sample_rate = 100
+- Continuous 0-1 scale: threshold = 0.7, severity = low
+- Continuous 1-5 scale: threshold = 3.5, severity = low
+- Binary scale: threshold = 1.0, severity = low
+
+#### Sample Rate (ITRX-08, Volume-Based Defaults)
+
+The `sample_rate` of each guardrail is NOT a fixed value -- it is derived from the agent's measured traffic volume. High-traffic agents cannot afford 100% LLM-judge evaluation costs; low-traffic agents cannot afford to miss failures. The volume table is the cost/coverage tradeoff.
+
+**Lookup procedure:**
+
+1. Invoke `/orq-agent:analytics --last 7d --group-by deployment` (or MCP `analytics-get`) for the target agent's daily request volume over the last 7 days.
+2. Compute the median daily volume (requests/day) across the 7-day window.
+3. Select `sample_rate` from the volume table:
+
+| Volume (requests/day) | sample_rate |
+|-----------------------|-------------|
+| < 1,000               | 100%        |
+| 1,000 – 100,000       | 30%         |
+| ≥ 100,000             | 10%         |
+
+**Safety override:** Safety evaluators (`toxicity`, `harmfulness`, `orq_pii_detection`, `orq_harmful_moderation`, `orq_sexual_moderation`) ALWAYS use `sample_rate: 100%` regardless of the volume table. Safety is non-negotiable at every volume tier.
+
+**No volume data fallback:** If analytics returns zero traffic (new deployment) or the call fails, default to `sample_rate: 100%` with rationale `"no volume data — default 100%"`.
+
+**Record reasoning:** The `## Guardrails` spec table gains a new column `Volume Rationale` recording the observed volume and selected rate (e.g., `"4.2k/day → 30%"`, `"820/day → 100%"`, `"130k/day → 10%"`, `"safety override → 100%"`).
+
+Reference resource: `orq-agent/agents/hardener/resources/sample-rate-volume-defaults.md`.
 
 ### Step 2.4: Build Suggestion Report
 
@@ -227,6 +293,43 @@ Present and collect approval for each agent one at a time. Record:
 ### Step 3.4: Handle All-Skipped Case
 
 If ALL agents were skipped: Display `All agents skipped. No guardrails to attach.` and STOP. Generate a minimal quality report noting no guardrails were configured.
+
+---
+
+## Phase 3.5: Human-Review-Queue Hook (ITRX-06)
+
+For agents on the `full` tier, hardener exposes an opt-in hook that requires a minimum number of human-reviewed spans before an evaluator is promoted from `pending-human-review` to an active guardrail. This gates high-stakes guardrails behind real human judgment, not just LLM-judge scores.
+
+### Step 3.5.1: Tier Check
+
+- `core` tier: skip Phase 3.5 entirely (the human-review-queue hook is not surfaced).
+- `deploy+` tier: skip Phase 3.5 entirely.
+- `full` tier: surface the hook per evaluator under consideration.
+
+### Step 3.5.2: Ask Opt-In Per Evaluator
+
+For each evaluator approved in Phase 3 (and that passed the TPR/TNR gate), ask via AskUserQuestion:
+
+```
+"Require N human-reviewed spans before promoting {evaluator}?
+ Options: [skip | require-N (default N=30)]"
+```
+
+Users may customize N (e.g., `require-50`, `require-100`). N is configurable per-evaluator; default is **30 human-reviewed spans**.
+
+### Step 3.5.3: Pending Status in Spec
+
+If `require-N` selected for an evaluator, the guardrail is written to the spec file with `status: pending-human-review` instead of `status: active`. A background job (invoked manually via `/orq-agent:harden --promote-pending` or automatically during the next harden run) polls:
+
+```
+annotations-list --queue {evaluator_name} --min-count N
+```
+
+Only when the human-review-queue count reaches N is the guardrail promoted to `status: active` and included in the next `settings.guardrails` PATCH.
+
+### Step 3.5.4: Record Human Review Minimum
+
+The `## Guardrails` spec table gains a new column `Human Review Minimum` recording N per evaluator (e.g., `30`, `50`, `—` for skipped). This makes the tier-gated requirement auditable at the spec level.
 
 ---
 
@@ -404,6 +507,58 @@ orq.feedback.create({
 **Limitation:** Only SDK method is documented for feedback. REST endpoint is not publicly documented. If SDK is unavailable, skip annotations and log: "Feedback annotations skipped -- SDK not available."
 
 This is an advisory feature, not a blocking step. The hardener should offer to annotate low-scoring traces after guardrail attachment is complete.
+
+---
+
+## Phase 6.0: Prevalence Correction (EVLD-07)
+
+When hardener reports a "true success rate" for any evaluator in `quality-report.md`, it MUST apply prevalence correction to account for judge imperfection. The raw observed pass rate `p_observed` from test traces over-counts false positives and under-counts false negatives proportional to the judge's TPR/TNR error. Reporting uncorrected rates overstates (or understates) real agent quality.
+
+### Step 6.0.1: Prevalence Correction Formula
+
+For each evaluator with TPR/TNR validation metadata, compute the corrected estimator `theta_hat`:
+
+```
+theta_hat = (p_observed + TNR − 1) / (TPR + TNR − 1)
+```
+
+Where:
+- `p_observed` = fraction of test traces where the judge returned Pass (raw observed rate).
+- `TPR` = True Positive Rate from the evaluator-validator test set.
+- `TNR` = True Negative Rate from the evaluator-validator test set.
+- `theta_hat` = estimated true success rate (prevalence corrected).
+
+Clamp `theta_hat` to `[0.0, 1.0]` in reporting (the estimator can go slightly out of range on small samples; clamp for display, preserve raw in JSON).
+
+### Step 6.0.2: Correction Range Guard
+
+The formula is only valid when the judge is better than random: `TPR + TNR > 1`.
+
+```
+IF TPR + TNR ≤ 1:
+  DO NOT apply correction
+  REPORT raw p_observed with warning: "Judge TPR+TNR ≤ 1 — worse than random. Raw rate reported; re-calibrate evaluator before trusting this score."
+ELSE:
+  REPORT theta_hat alongside p_observed
+```
+
+### Step 6.0.3: Report Column
+
+The Evaluator Scores table in `quality-report.md` gains a new column `Corrected (θ̂)` next to `Score`:
+
+```markdown
+| Evaluator | Score (p_observed) | Corrected (θ̂) | Threshold | Severity | Status |
+|-----------|--------------------|----------------|-----------|----------|--------|
+| instruction_following | 0.82 | 0.78 | 0.70 | low | PASS |
+```
+
+For pre-built guardrails without TPR/TNR metadata, report `Corrected (θ̂) = —` (not applicable).
+
+### Step 6.0.4: JSON Report Parity
+
+`quality-report.json` also records `theta_hat` and `prevalence_correction_applied: true|false` per evaluator, so downstream tooling can distinguish corrected vs raw rates programmatically.
+
+Reference resource: `orq-agent/agents/hardener/resources/prevalence-correction.md`.
 
 ---
 
@@ -609,6 +764,8 @@ Directional handoffs (→ means "this skill feeds into"):
 - [ ] Guardrails attached to deployed agents via `PATCH /v2/agents/{key}` with `settings.guardrails` array
 - [ ] Every attached guardrail has TPR ≥ 90% and TNR ≥ 90% validation (Phase 42 EVLD-08)
 - [ ] Every guardrail has `sample_rate` set with volume-based rationale (Phase 42 ITRX-08)
+- [ ] Human-review-queue hook exposed on full tier (Phase 42 ITRX-06)
+- [ ] Prevalence correction applied to reported success rates (Phase 42 EVLD-07)
 - [ ] Quality gate report produced (`quality-report.md` in swarm directory)
 - [ ] Deploy log appended with summary of attached guardrails per agent
 
