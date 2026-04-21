@@ -6,7 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { EstimatedBadge } from "./estimated-badge";
 import type { RoiProject } from "@/lib/dashboard/types";
@@ -26,21 +26,21 @@ function getRoiBand(eurImpact: number): {
   if (eurImpact < 500) {
     return {
       label: "Low",
-      variant: "destructive",
-      className: "",
+      variant: "secondary",
+      className: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
     };
   }
   if (eurImpact < 2000) {
     return {
       label: "Medium",
       variant: "secondary",
-      className: "",
+      className: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
     };
   }
   return {
     label: "High",
-    variant: "default",
-    className: "bg-green-500/10 text-green-600 border-green-200 dark:border-green-800 dark:text-green-400",
+    variant: "secondary",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   };
 }
 
@@ -61,40 +61,42 @@ export function RoiTable({
   return (
     <div className="space-y-4">
       {/* Portfolio Summary Card */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-normal flex items-center gap-2">
+      <GlassCard className="p-5">
+        <div className="pb-2">
+          <h3 className="text-[16px] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)] flex items-center gap-2">
             Portfolio ROI Summary
             <EstimatedBadge
               tooltipText={`Based on ${projectsWithBaselines} of ${totalProjects} projects with baselines. Projects without baselines use global defaults (15 min/task, 20 tasks/month, EUR 45/hour).`}
             />
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+          </h3>
+        </div>
+        <div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-[14px] text-[var(--v7-muted)]">
                 Est. Total Hours Saved
               </p>
-              <p className="text-2xl font-bold font-mono">
+              <p className="text-[26.4px] leading-[1.1] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
                 ~{Math.round(totalHours)}h
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-[14px] text-[var(--v7-muted)]">
                 Est. Financial Impact
               </p>
-              <p className="text-2xl font-bold font-mono">
+              <p className="text-[26.4px] leading-[1.1] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
                 ~{formatCurrency(totalEur)}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Projects Tracked</p>
-              <p className="text-2xl font-bold font-mono">{totalProjects}</p>
+              <p className="text-[14px] text-[var(--v7-muted)]">Projects Tracked</p>
+              <p className="text-[26.4px] leading-[1.1] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
+                {totalProjects}
+              </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </GlassCard>
 
       {/* ROI Table */}
       {projects.length > 0 ? (
@@ -114,16 +116,16 @@ export function RoiTable({
                 const band = getRoiBand(p.estimatedEurImpact);
                 return (
                   <TableRow key={p.projectId}>
-                    <TableCell className="text-sm font-medium">
+                    <TableCell className="text-[14px] font-medium">
                       {p.name}
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="text-[14px]">
                       <span className="inline-flex items-center gap-1.5">
                         ~{Math.round(p.estimatedHoursSaved)}h
                         <EstimatedBadge />
                       </span>
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="text-[14px]">
                       <span className="inline-flex items-center gap-1.5">
                         ~{formatCurrency(p.estimatedEurImpact)}
                         <EstimatedBadge />
@@ -131,11 +133,11 @@ export function RoiTable({
                     </TableCell>
                     <TableCell>
                       {p.hasBaseline ? (
-                        <span className="text-sm text-green-600 dark:text-green-400">
+                        <span className="text-[14px] text-emerald-700 dark:text-emerald-300">
                           Custom
                         </span>
                       ) : (
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-[14px] text-[var(--v7-muted)]">
                           Default
                         </span>
                       )}
@@ -153,13 +155,13 @@ export function RoiTable({
               })}
             </TableBody>
           </Table>
-          <p className="text-xs text-muted-foreground mt-2">
+          <p className="text-[12px] text-[var(--v7-faint)] mt-2">
             Based on {projectsWithBaselines} of {totalProjects} projects with
             baselines
           </p>
         </>
       ) : (
-        <p className="text-sm text-muted-foreground py-4 text-center">
+        <p className="text-[14px] text-[var(--v7-muted)] py-4 text-center">
           No ROI data available yet.
         </p>
       )}
