@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: executing
-stopped_at: Completed 37-01-PLAN.md — observability.md SKST skill shipped (OBSV-01/02/04/05/06 + OBSV-07 forward-reference)
-last_updated: "2026-04-21T04:01:28.366Z"
+stopped_at: Completed 37-03-PLAN.md — traces.md --identity wired live, TODO(OBSV-07) removed
+last_updated: "2026-04-21T04:03:57.717Z"
 last_activity: "2026-04-20 — Phase 37 Plan 01 complete: observability.md (242 lines) SKST-conformant, OBSV-01/02/04/05/06 addressed + OBSV-07 prose/forward-reference; commit 2777331; all mechanical gates green"
 progress:
   total_phases: 10
   completed_phases: 3
   total_plans: 23
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Project State
@@ -57,6 +57,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 36-lifecycle-slash-commands P08 | 2 min | 1 tasks | 1 files |
 | Phase 37-observability-setup-skill P02 | 4 min | 1 tasks | 5 files |
 | Phase 37-observability-setup-skill P01 | 4 min | 1 tasks | 1 files |
+| Phase 37-observability-setup-skill P03 | 2 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -131,6 +132,7 @@ Recent decisions affecting current work:
 - [Phase 37-observability-setup-skill]: Per-skill resources/ subdirectory for observability uses single-level commands/*.md glob in lint-skills.sh — no exclusion rule needed, resources/ auto-excluded (OBSV-03, SKST-02)
 - [Phase 37-observability-setup-skill]: Every framework snippet enforces instrumentors-BEFORE-SDK ordering via CRITICAL code comment — grep anchor 'BEFORE' becomes the OBSV-03 verification surface
 - [Phase 37-observability-setup-skill]: observability.md ships as single-file skill (242 lines, under 400-line threshold); no subagent extraction needed for OBSV-01/02/04/05/06 + OBSV-07 forward-reference
+- [Phase 37-observability-setup-skill]: OBSV-07 retrieval surface closed: --identity wired as MCP pass-through + client-side fallback over trace.metadata/attributes/customer_id; zero-match hint links back to /orq-agent:observability Step 7
 
 ### Blockers/Concerns
 
@@ -155,7 +157,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T04:00:51.206Z
-Stopped at: Completed 37-01-PLAN.md — observability.md SKST skill shipped (OBSV-01/02/04/05/06 + OBSV-07 forward-reference)
+Last session: 2026-04-21T04:03:57.714Z
+Stopped at: Completed 37-03-PLAN.md — traces.md --identity wired live, TODO(OBSV-07) removed
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
