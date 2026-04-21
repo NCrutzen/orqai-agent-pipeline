@@ -56,7 +56,7 @@ Extends our tester/hardener with the validation protocol the reference enforces:
 - [ ] **EVLD-08**: Hardener rejects promotion of any evaluator to a runtime guardrail unless TPR ≥ 90% AND TNR ≥ 90% on the test set
 - [ ] **EVLD-09**: System creates orq.ai Annotation Queue / Human Review entities programmatically (via MCP or REST) — name, description, categorical Pass/Fail + sentiment OR numeric range OR free-text field — rather than only suggesting users create them in the Studio UI
 - [ ] **EVLD-10**: Results-analyzer computes inter-annotator agreement when ≥2 humans label the same trace/datapoint; flags criteria with IAA < 85% for re-calibration before they feed evaluator validation
-- [ ] **EVLD-11**: Iterator supports evaluator-version A/B by attaching both the current and proposed evaluator prompt as separate columns in the same experiment, enabling per-datapoint judgment comparison (not just score averages)
+- [x] **EVLD-11**: Iterator supports evaluator-version A/B by attaching both the current and proposed evaluator prompt as separate columns in the same experiment, enabling per-datapoint judgment comparison (not just score averages)
 
 ### Prompt Optimization (POPT)
 
@@ -79,14 +79,14 @@ New skill for benchmarking agents across frameworks using `evaluatorq`.
 
 Cross-cutting rules applied across tester, failure-diagnoser, iterator, hardener, and new evaluator skill.
 
-- [ ] **ESCI-01**: Failure-diagnoser classifies every failure as specification / generalization / dataset / evaluator before proposing fixes
-- [ ] **ESCI-02**: Failure-diagnoser and iterator grade outcomes, not paths — no evaluator encodes exact tool-call sequences
-- [ ] **ESCI-03**: Tester uses isolated graders per quality dimension (tool selection, argument quality, output interpretation) rather than one omnibus grader
-- [ ] **ESCI-04**: Tester tracks capability suites (expect low pass-rate initially) separately from regression suites (expect near-100% pass-rate); graduates items on sustained success
-- [ ] **ESCI-05**: Tester surfaces a warning when average pass rate ≥ 95% — flagged as "eval may be too easy," targets 70-85%
-- [ ] **ESCI-06**: Iterator publishes explicit decision trees users can inspect: "prompt fix vs evaluator," "upgrade model?," "eval good enough?"
-- [ ] **ESCI-07**: Tester flags suspected overfitting when a newly-iterated evaluator scores ≥ 98% on a dataset smaller than 100 datapoints; recommends dataset expansion before the evaluator is marked validated
-- [ ] **ESCI-08**: Failure-diagnoser separates dataset-quality issues (mislabeled data, missing reference outputs, contradictory cases) from evaluator-quality issues in its output — each gets its own action-plan section rather than being conflated
+- [x] **ESCI-01**: Failure-diagnoser classifies every failure as specification / generalization / dataset / evaluator before proposing fixes
+- [x] **ESCI-02**: Failure-diagnoser and iterator grade outcomes, not paths — no evaluator encodes exact tool-call sequences
+- [x] **ESCI-03**: Tester uses isolated graders per quality dimension (tool selection, argument quality, output interpretation) rather than one omnibus grader
+- [x] **ESCI-04**: Tester tracks capability suites (expect low pass-rate initially) separately from regression suites (expect near-100% pass-rate); graduates items on sustained success
+- [x] **ESCI-05**: Tester surfaces a warning when average pass rate ≥ 95% — flagged as "eval may be too easy," targets 70-85%
+- [x] **ESCI-06**: Iterator publishes explicit decision trees users can inspect: "prompt fix vs evaluator," "upgrade model?," "eval good enough?"
+- [x] **ESCI-07**: Tester flags suspected overfitting when a newly-iterated evaluator scores ≥ 98% on a dataset smaller than 100 datapoints; recommends dataset expansion before the evaluator is marked validated
+- [x] **ESCI-08**: Failure-diagnoser separates dataset-quality issues (mislabeled data, missing reference outputs, contradictory cases) from evaluator-quality issues in its output — each gets its own action-plan section rather than being conflated
 
 ### Dataset Generation (DSET)
 
@@ -150,15 +150,15 @@ Optional multi-IDE plugin support. Lower priority than lifecycle capabilities.
 
 Upgrades to existing iterator and hardener subagents with methodology from the reference.
 
-- [ ] **ITRX-01**: Iterator assigns P0/P1/P2 priority to every proposed improvement (P0: prompt wording, few-shot, constraints; P1: decomposition, tool descriptions, RAG tuning; P2: model upgrade, expand eval set, fine-tuning)
-- [ ] **ITRX-02**: Iterator produces a structured Action Plan (Summary + Priority Improvements + Re-run Criteria) per iteration, in addition to the existing iteration-log.json
-- [ ] **ITRX-03**: Tester produces a run-comparison table across iterations (Run | Date | Model | Avg Score | Cost | Key Changes) for trend tracking
+- [x] **ITRX-01**: Iterator assigns P0/P1/P2 priority to every proposed improvement (P0: prompt wording, few-shot, constraints; P1: decomposition, tool descriptions, RAG tuning; P2: model upgrade, expand eval set, fine-tuning)
+- [x] **ITRX-02**: Iterator produces a structured Action Plan (Summary + Priority Improvements + Re-run Criteria) per iteration, in addition to the existing iteration-log.json
+- [x] **ITRX-03**: Tester produces a run-comparison table across iterations (Run | Date | Model | Avg Score | Cost | Key Changes) for trend tracking
 - [ ] **ITRX-04**: Results-analyzer flags regressions when any score drops vs the previous run (⚠️ marker in output)
-- [ ] **ITRX-05**: Iterator refuses to re-run the same optimizer on the same prompt without an explicit user override (no-drift rule)
+- [x] **ITRX-05**: Iterator refuses to re-run the same optimizer on the same prompt without an explicit user override (no-drift rule)
 - [ ] **ITRX-06**: Hardener exposes a human-review-queue hook — promoting an evaluator to a guardrail can require a minimum number of human-reviewed spans (configurable, tier-gated)
-- [ ] **ITRX-07**: Iterator ticket output includes Evidence (datapoints affected, current scores, run ID) and Success Criteria (target re-run score), not just the proposed diff
+- [x] **ITRX-07**: Iterator ticket output includes Evidence (datapoints affected, current scores, run ID) and Success Criteria (target re-run score), not just the proposed diff
 - [ ] **ITRX-08**: Hardener sets an evaluator `sample_rate` when promoting to a runtime guardrail — configurable percentage with volume-based defaults (e.g., 100% for <1K/day, 30% for 1K–100K/day, 10% for ≥100K/day) so high-volume agents do not pay full LLM-judge cost on every invocation
-- [ ] **ITRX-09**: Iterator absorbs free-text human-annotation comments as signal when proposing prompt diffs; each diff proposal cites the relevant annotator reasoning inline, not just the Pass/Fail label
+- [x] **ITRX-09**: Iterator absorbs free-text human-annotation comments as signal when proposing prompt diffs; each diff proposal cites the relevant annotator reasoning inline, not just the Pass/Fail label
 
 ## Tier-Gating (cross-cutting)
 
@@ -233,7 +233,7 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | EVLD-08 | 42 | Pending |
 | EVLD-09 | 42 | Pending |
 | EVLD-10 | 42 | Pending |
-| EVLD-11 | 42 | Pending |
+| EVLD-11 | 42 | Complete |
 | POPT-01 | 41 | Complete |
 | POPT-02 | 41 | Complete |
 | POPT-03 | 41 | Complete |
@@ -241,14 +241,14 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | XFRM-01 | 41 | Complete |
 | XFRM-02 | 41 | Complete |
 | XFRM-03 | 41 | Complete |
-| ESCI-01 | 42 | Pending |
-| ESCI-02 | 42 | Pending |
-| ESCI-03 | 42 | Pending |
-| ESCI-04 | 42 | Pending |
-| ESCI-05 | 42 | Pending |
-| ESCI-06 | 42 | Pending |
-| ESCI-07 | 42 | Pending |
-| ESCI-08 | 42 | Pending |
+| ESCI-01 | 42 | Complete |
+| ESCI-02 | 42 | Complete |
+| ESCI-03 | 42 | Complete |
+| ESCI-04 | 42 | Complete |
+| ESCI-05 | 42 | Complete |
+| ESCI-06 | 42 | Complete |
+| ESCI-07 | 42 | Complete |
+| ESCI-08 | 42 | Complete |
 | DSET-01 | 39 | Complete |
 | DSET-02 | 39 | Complete |
 | DSET-03 | 39 | Complete |
@@ -282,15 +282,15 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | DIST-05 | 43 | Pending |
 | DIST-06 | 43 | Pending |
 | DIST-07 | 43 | Pending |
-| ITRX-01 | 42 | Pending |
-| ITRX-02 | 42 | Pending |
-| ITRX-03 | 42 | Pending |
+| ITRX-01 | 42 | Complete |
+| ITRX-02 | 42 | Complete |
+| ITRX-03 | 42 | Complete |
 | ITRX-04 | 42 | Pending |
-| ITRX-05 | 42 | Pending |
+| ITRX-05 | 42 | Complete |
 | ITRX-06 | 42 | Pending |
-| ITRX-07 | 42 | Pending |
+| ITRX-07 | 42 | Complete |
 | ITRX-08 | 42 | Pending |
-| ITRX-09 | 42 | Pending |
+| ITRX-09 | 42 | Complete |
 
 **Coverage:**
 - V3.0 requirements: 86 total

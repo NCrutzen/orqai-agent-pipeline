@@ -269,7 +269,16 @@ Build a Claude Code skill that transforms natural language use case descriptions
   3. Hardener refuses to promote any evaluator to a runtime guardrail unless TPR ≥ 90% AND TNR ≥ 90% on the test set; a configurable, tier-gated human-review-queue hook can require a minimum number of human-reviewed spans before promotion; promotion also sets an evaluator `sample_rate` with volume-based defaults (100% for <1K/day, 30% for 1K–100K/day, 10% for ≥100K/day) so high-volume agents do not pay full LLM-judge cost on every invocation.
   4. Failure-diagnoser classifies every failure as specification / generalization / dataset / evaluator before proposing fixes, grades outcomes not paths (no evaluator encodes exact tool-call sequences), separates dataset-quality issues (mislabeled data, missing references, contradictions) from evaluator-quality issues in its output, and iterator publishes inspectable decision trees ("prompt fix vs evaluator," "upgrade model?," "eval good enough?").
   5. Iterator produces P0/P1/P2-prioritized Action Plans with Evidence and Success Criteria, supports evaluator-version A/B (both the current and proposed evaluator prompt attached to the same experiment as separate columns for per-datapoint comparison), absorbs free-text human-annotation comments into diff proposal reasoning, refuses to re-run the same optimizer on the same prompt without explicit override; tester emits a run-comparison table, flags suspected overfitting when a newly-iterated evaluator scores ≥ 98% on a dataset < 100 datapoints, tracks capability suites separately from regression suites, and warns when average pass rate ≥ 95%; results-analyzer flags regressions when any score drops with a ⚠️ marker.
-**Plans**: TBD
+**Plans**: 9 plans
+  - [ ] 42-01-PLAN.md — Wave 1: tester.md enrichments (ITRX-03, ESCI-03/04/05/07) — run-comparison table + overfitting + capability/regression + isolated graders
+  - [ ] 42-02-PLAN.md — Wave 1: failure-diagnoser.md (ESCI-01/02/08) — 4-category classification + outcome-based grading + dataset/evaluator-quality separation
+  - [ ] 42-03-PLAN.md — Wave 1: iterator.md (ITRX-01/02/05/07/09, EVLD-11, ESCI-06) — P0/P1/P2 + Action Plan + A/B + annotation + no-repeat + decision trees
+  - [ ] 42-04-PLAN.md — Wave 1: hardener.md (EVLD-07/08, ITRX-06/08) — TPR/TNR gate + sample_rate volume defaults + human-review-queue + prevalence correction
+  - [ ] 42-05-PLAN.md — Wave 1: results-analyzer.md (ITRX-04) — regression ⚠️ flag
+  - [ ] 42-06-PLAN.md — Wave 1: new evaluator-validator.md subagent (EVLD-01..06, 09, 10) — 9 SKST + 7 phases
+  - [ ] 42-07-PLAN.md — Wave 1: 7 resource files across 3 subdirs (iterator, hardener, evaluator-validator)
+  - [ ] 42-08-PLAN.md — Wave 2: SKILL.md index-wire new subagent + 3 resources subdirs + Phase 42 H3 block
+  - [ ] 42-09-PLAN.md — Wave 3: full lint + protected-pipeline + 28-requirement anchor sweep; write 42-09-VERIFICATION.md
 
 ### Phase 43: Cross-IDE Distribution & Manifests
 **Goal**: The repo installs cleanly across Claude Code, Cursor, Codex, and skills-only IDEs with validated plugin manifests, a single-source MCP registration, and CI/CD scaffolds — so V3.0 capabilities reach users outside Claude Code and can run unattended in a pipeline.
@@ -304,7 +313,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | V3.0 | 39. Dataset Generator Enhancements | 0/5 | Complete    | 2026-04-21 |
 | V3.0 | 40. KB & Memory Lifecycle | 6/6 | Complete    | 2026-04-21 |
 | V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 3/5 | Complete    | 2026-04-21 |
-| V3.0 | 42. Evaluator Validation & Iterator Enrichments | 0/TBD | Not started | - |
+| V3.0 | 42. Evaluator Validation & Iterator Enrichments | 2/9 | In Progress|  |
 | V3.0 | 43. Cross-IDE Distribution & Manifests | 0/TBD | Not started | - |
 | V4.0 | 44-48 (5 phases) | 0/TBD | **Defined** | - |
 | V5.0 | 49-52 (4 phases) | 0/TBD | **Defined** | - |
