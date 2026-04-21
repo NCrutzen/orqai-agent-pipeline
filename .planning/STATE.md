@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: "Ready for `/gsd:execute-phase 42` to continue with 42-02-PLAN.md (failure-diagnoser enrichments)"
-stopped_at: Completed 42-04-PLAN.md
-last_updated: "2026-04-21T05:58:26.922Z"
+stopped_at: Completed 42-06-PLAN.md
+last_updated: "2026-04-21T05:59:54.627Z"
 last_activity: "2026-04-21 — Phase 42 Plan 01 complete: tester.md eval-science enrichments; commit e6718da"
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 52
-  completed_plans: 48
+  completed_plans: 49
 ---
 
 # Project State
@@ -84,6 +84,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 42-evaluator-validation-iterator-enrichments P03 | 2 min | 1 tasks | 1 files |
 | Phase 42-evaluator-validation-iterator-enrichments P04 | 2 min | 1 tasks | 1 files |
 | Phase 42 P05 | 2 min | 1 tasks | 1 files |
+| Phase 42 P06 | 9 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -194,6 +195,7 @@ Recent decisions affecting current work:
 - [Phase 42-evaluator-validation-iterator-enrichments]: Hardener TPR/TNR gate reads evaluator-validator JSON; unvalidated custom evaluators downgraded to settings.evaluators (monitoring-only) instead of hard-fail — Preserves visibility without blocking production on unvalidated judges; concerns separated between data collection (evaluator-validator) and enforcement (hardener)
 - [Phase 42-evaluator-validation-iterator-enrichments]: sample_rate derived from 7-day median volume at harden time (100%/30%/10%); safety evaluators override to 100%; no-data fallback = 100% — Volume-driven tradeoff balances LLM-judge cost vs coverage; safety is non-negotiable at every tier
 - [Phase 42-evaluator-validation-iterator-enrichments]: Prevalence correction (theta_hat) guarded by TPR+TNR>1; below threshold report raw with warning instead of misleading corrected number — Formula is mathematically unsafe when judge is worse than random; explicit warning preserves trust
+- [Phase 42]: Evaluator-validator records measured TPR/TNR; hardener Phase 2.0 enforces 0.90 floor — separation of measurement from policy
 
 ### Blockers/Concerns
 
@@ -218,7 +220,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T05:58:26.918Z
-Stopped at: Completed 42-04-PLAN.md
+Last session: 2026-04-21T05:59:33.556Z
+Stopped at: Completed 42-06-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None

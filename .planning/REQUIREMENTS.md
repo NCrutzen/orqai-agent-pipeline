@@ -46,16 +46,16 @@ New skill for mining production traces into actionable failure taxonomies using 
 
 Extends our tester/hardener with the validation protocol the reference enforces: binary judges with measured TPR/TNR on held-out human-labeled test sets.
 
-- [ ] **EVLD-01**: System defaults all new LLM-as-judge evaluators to binary Pass/Fail; continuous scales require explicit justification in the spec
-- [ ] **EVLD-02**: System enforces one evaluator per failure mode — bundled criteria get split automatically
-- [ ] **EVLD-03**: Skill generates judge prompts using the 4-component template (role, task, criterion, pass/fail definitions, examples, chain-of-thought-before-answer JSON output)
-- [ ] **EVLD-04**: System guides collection of 100+ human labels per criterion via orq.ai Annotation Queues or Human Review, balanced ~50 Pass / ~50 Fail
-- [ ] **EVLD-05**: System splits labeled data into disjoint train/dev/test (10-20% / 40-45% / 40-45%) and enforces no dev/test leakage into few-shot examples
-- [ ] **EVLD-06**: System measures TPR and TNR on held-out test set (≥30 Pass / ≥30 Fail) before evaluator is marked validated; stores results with evaluator
+- [x] **EVLD-01**: System defaults all new LLM-as-judge evaluators to binary Pass/Fail; continuous scales require explicit justification in the spec
+- [x] **EVLD-02**: System enforces one evaluator per failure mode — bundled criteria get split automatically
+- [x] **EVLD-03**: Skill generates judge prompts using the 4-component template (role, task, criterion, pass/fail definitions, examples, chain-of-thought-before-answer JSON output)
+- [x] **EVLD-04**: System guides collection of 100+ human labels per criterion via orq.ai Annotation Queues or Human Review, balanced ~50 Pass / ~50 Fail
+- [x] **EVLD-05**: System splits labeled data into disjoint train/dev/test (10-20% / 40-45% / 40-45%) and enforces no dev/test leakage into few-shot examples
+- [x] **EVLD-06**: System measures TPR and TNR on held-out test set (≥30 Pass / ≥30 Fail) before evaluator is marked validated; stores results with evaluator
 - [x] **EVLD-07**: System applies prevalence correction (`theta_hat = (p_observed + TNR - 1) / (TPR + TNR - 1)`) when reporting estimated true success rates from imperfect judges
 - [x] **EVLD-08**: Hardener rejects promotion of any evaluator to a runtime guardrail unless TPR ≥ 90% AND TNR ≥ 90% on the test set
-- [ ] **EVLD-09**: System creates orq.ai Annotation Queue / Human Review entities programmatically (via MCP or REST) — name, description, categorical Pass/Fail + sentiment OR numeric range OR free-text field — rather than only suggesting users create them in the Studio UI
-- [ ] **EVLD-10**: Results-analyzer computes inter-annotator agreement when ≥2 humans label the same trace/datapoint; flags criteria with IAA < 85% for re-calibration before they feed evaluator validation
+- [x] **EVLD-09**: System creates orq.ai Annotation Queue / Human Review entities programmatically (via MCP or REST) — name, description, categorical Pass/Fail + sentiment OR numeric range OR free-text field — rather than only suggesting users create them in the Studio UI
+- [x] **EVLD-10**: Results-analyzer computes inter-annotator agreement when ≥2 humans label the same trace/datapoint; flags criteria with IAA < 85% for re-calibration before they feed evaluator validation
 - [x] **EVLD-11**: Iterator supports evaluator-version A/B by attaching both the current and proposed evaluator prompt as separate columns in the same experiment, enabling per-datapoint judgment comparison (not just score averages)
 
 ### Prompt Optimization (POPT)
@@ -223,16 +223,16 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | TFAIL-04 | 38 | Complete |
 | TFAIL-05 | 38 | Complete |
 | TFAIL-06 | 38 | Complete |
-| EVLD-01 | 42 | Pending |
-| EVLD-02 | 42 | Pending |
-| EVLD-03 | 42 | Pending |
-| EVLD-04 | 42 | Pending |
-| EVLD-05 | 42 | Pending |
-| EVLD-06 | 42 | Pending |
+| EVLD-01 | 42 | Complete |
+| EVLD-02 | 42 | Complete |
+| EVLD-03 | 42 | Complete |
+| EVLD-04 | 42 | Complete |
+| EVLD-05 | 42 | Complete |
+| EVLD-06 | 42 | Complete |
 | EVLD-07 | 42 | Complete |
 | EVLD-08 | 42 | Complete |
-| EVLD-09 | 42 | Pending |
-| EVLD-10 | 42 | Pending |
+| EVLD-09 | 42 | Complete |
+| EVLD-10 | 42 | Complete |
 | EVLD-11 | 42 | Complete |
 | POPT-01 | 41 | Complete |
 | POPT-02 | 41 | Complete |
