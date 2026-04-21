@@ -105,9 +105,9 @@ Enhancements to dataset-generator and the standalone `/orq-agent:datasets` comma
 
 Improvements to `/orq-agent:kb` plus a new memory-store generator.
 
-- [ ] **KBM-01**: KB command tests retrieval quality after chunking (sample queries → verify relevant chunks returned) before the KB is wired to a deployment
-- [ ] **KBM-02**: KB command verifies the embedding model is activated in AI Router before attempting KB creation
-- [ ] **KBM-03**: KB command picks the chunking strategy based on content type — sentence for prose, recursive for structured docs — and documents the choice
+- [x] **KBM-01**: KB command tests retrieval quality after chunking (sample queries → verify relevant chunks returned) before the KB is wired to a deployment
+- [x] **KBM-02**: KB command verifies the embedding model is activated in AI Router before attempting KB creation
+- [x] **KBM-03**: KB command picks the chunking strategy based on content type — sentence for prose, recursive for structured docs — and documents the choice
 - [ ] **KBM-04**: Pipeline distinguishes KB (static reference data) from Memory Store (dynamic user context) with an explicit decision rule; agents never use memory for docs/FAQs or KBs for conversation context
 - [ ] **KBM-05**: Pipeline includes a memory-store generator — creates memory stores with descriptive keys, wires agents with memory instructions, tests read/write/recall cycle
 
@@ -257,9 +257,9 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | DSET-06 | 39 | Complete |
 | DSET-07 | 39 | Complete |
 | DSET-08 | 39 | Complete |
-| KBM-01 | 40 | Pending |
-| KBM-02 | 40 | Pending |
-| KBM-03 | 40 | Pending |
+| KBM-01 | 40 | Complete |
+| KBM-02 | 40 | Complete |
+| KBM-03 | 40 | Complete |
 | KBM-04 | 40 | Pending |
 | KBM-05 | 40 | Pending |
 | MSEL-01 | 35 | Complete |

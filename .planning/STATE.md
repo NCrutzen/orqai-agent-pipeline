@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: Ready for Plan 05 (Phase 39 VALIDATION / close-out plan per canonical Phase 34-38 pattern)
-stopped_at: Completed 39-05-PLAN.md — Phase 39 mechanically complete
-last_updated: "2026-04-21T04:57:15.685Z"
+stopped_at: Completed 40-02-PLAN.md
+last_updated: "2026-04-21T05:08:57.690Z"
 last_activity: "2026-04-21 — Phase 39 Plan 04 complete: SKILL.md + help.md index-wiring for Phase 39 surface; protected pipelines 3/3 SHA-256 intact; commit 77ef0c5"
 progress:
   total_phases: 10
   completed_phases: 6
-  total_plans: 32
-  completed_plans: 32
+  total_plans: 38
+  completed_plans: 34
 ---
 
 # Project State
@@ -69,6 +69,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 39-dataset-generator-enhancements P03 | 2 min | 1 tasks | 3 files |
 | Phase 39-dataset-generator-enhancements P04 | 1 min | 1 tasks | 2 files |
 | Phase 39-dataset-generator-enhancements P05 | 3 min | 1 tasks | 1 files |
+| Phase 40-kb-memory-lifecycle P02 | 2min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -164,6 +165,8 @@ Recent decisions affecting current work:
 - [Phase 39-dataset-generator-enhancements]: datasets.md <pipeline> block is editable (NOT in 3-file protected list — only orq-agent.md/prompt.md/architect.md are SHA-256 guarded per Phase 34); Step 1b added INSIDE <pipeline> preserving natural Step-numbered reading flow while leaving 3/3 golden hashes untouched
 - [Phase 39-dataset-generator-enhancements]: Dataset-generator single-consumer resources/ subdir created with 8-vector catalog + coverage-rules (verbatim 'Coverage check failed:' phrase) + single/multi-turn/rag shape templates; all 15 grep anchors green, lint + protected-pipelines 3/3 SHA-256 clean
 - [Phase 39-dataset-generator-enhancements]: help.md datasets flag summary split onto continuation line to preserve banner column alignment
+- [Phase 40-kb-memory-lifecycle]: KB manifest.json pattern: per-file JSON describing chunking_strategy, chunk_size, overlap, reason — consumed by kb.md Step 7.1.5/7.6
+- [Phase 40-kb-memory-lifecycle]: Chunking classification heuristic: H2/H3 density per 1000 lines, threshold 5 → structured (recursive), else prose (sentence)
 
 ### Blockers/Concerns
 
@@ -188,7 +191,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T04:54:31.426Z
-Stopped at: Completed 39-05-PLAN.md — Phase 39 mechanically complete
+Last session: 2026-04-21T05:08:53.190Z
+Stopped at: Completed 40-02-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
