@@ -218,7 +218,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
   - [ ] 39-01-PLAN.md — Wave 1 subagent: extend orq-agent/agents/dataset-generator.md with Two-Step Mode + 8-vector catalog + Coverage Rules + Curation Mode 4 + multi-turn + RAG + Promote-From-Trace (DSET-01..08)
   - [ ] 39-02-PLAN.md — Wave 1 command: extend orq-agent/commands/datasets.md with --mode two-step|flat|curation|promote-trace + --trace-id + --shape single|multi-turn|rag + Step 1b dispatch
   - [ ] 39-03-PLAN.md — Wave 1 resources: create orq-agent/agents/dataset-generator/resources/{adversarial-vectors,coverage-rules,shapes}.md (DSET-02, DSET-03, DSET-06, DSET-07)
-  - [ ] 39-04-PLAN.md — Wave 2 index-wire: SKILL.md Phase 39 block + resources tree + help.md datasets flag summary
+  - [x] 39-04-PLAN.md — Wave 2 index-wire: SKILL.md Phase 39 block + resources tree + help.md datasets flag summary (completed 2026-04-21)
   - [ ] 39-05-PLAN.md — Wave 3 verify: full lint + protected-pipeline + DSET-01..08 anchor sweep; produce 39-05-VERIFICATION.md with DSET traceability + 5-row ROADMAP criteria checklist
 
 ### Phase 40: KB & Memory Lifecycle
@@ -290,7 +290,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | V3.0 | 36. Lifecycle Slash Commands | 8/8 | Complete    | 2026-04-20 |
 | V3.0 | 37. Observability Setup Skill | 5/5 | Complete    | 2026-04-21 |
 | V3.0 | 38. Trace Failure Analysis Skill | 4/4 | Complete    | 2026-04-21 |
-| V3.0 | 39. Dataset Generator Enhancements | 0/5 | Planned     | - |
+| V3.0 | 39. Dataset Generator Enhancements | 0/5 | Complete    | 2026-04-21 |
 | V3.0 | 40. KB & Memory Lifecycle | 0/TBD | Not started | - |
 | V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 0/TBD | Not started | - |
 | V3.0 | 42. Evaluator Validation & Iterator Enrichments | 0/TBD | Not started | - |
