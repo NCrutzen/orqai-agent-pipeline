@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 39-01-PLAN.md
-last_updated: "2026-04-21T04:46:30.058Z"
+status: Ready for Plan 02 (datasets.md command flag expansion or resources/ subdir creation per phase plan sequence)
+stopped_at: Completed 39-03-PLAN.md
+last_updated: "2026-04-21T04:47:43.987Z"
 last_activity: "2026-04-21 — Phase 39 Plan 01 complete: dataset-generator.md extended with DSET-01..08 sections (+73 lines); 16/16 grep anchors green; SKST lint + protected-pipeline 3/3 SHA-256 pass; commit e9bfcef"
 progress:
   total_phases: 10
   completed_phases: 5
   total_plans: 32
-  completed_plans: 28
+  completed_plans: 30
 ---
 
 # Project State
@@ -65,6 +65,8 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 38-trace-failure-analysis-skill P03 | 3 min | 1 tasks | 3 files |
 | Phase 38-trace-failure-analysis-skill P04 | 4 min | 1 tasks | 1 files |
 | Phase 39-dataset-generator-enhancements P01 | 1 min | 1 tasks | 1 files |
+| Phase 39-dataset-generator-enhancements P02 | 2 min | 1 tasks | 1 files |
+| Phase 39-dataset-generator-enhancements P03 | 2 min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -155,6 +157,9 @@ Recent decisions affecting current work:
 - [Phase 38-trace-failure-analysis-skill]: TODO(TFAIL) eradication scoped to traces.md only in Plan 03; observability.md marker remains for Phase 37 surface owner to resolve — prevents cross-phase scope creep
 - [Phase 38-trace-failure-analysis-skill]: Phase 38 closed under canonical VERIFICATION.md pattern — 5th consecutive V3.0 phase (34/35/36/37/38); 8/8 mechanical gates green, 6/6 TFAIL requirements file-level verified, 4 manual smokes deferred to /gsd:verify-work 38
 - [Phase 39-dataset-generator-enhancements]: DSET-01..08 sections inserted between Self-Validation Checklist and <examples> block in dataset-generator.md — keeps checklist adjacent to generation body; Constraints block append-only (DSET-01 + DSET-08); resources/ creation deferred to downstream plan
+- [Phase 39-dataset-generator-enhancements]: datasets.md Step 1b Mode Dispatch pattern: when a slash command grows from 1 to N modes, insert a dispatch step between input-capture and clarification so each mode's skip/add semantics are declared in one grep-anchorable place — avoids scattering conditionals across Steps 2-5
+- [Phase 39-dataset-generator-enhancements]: DSET-08 --trace-id precondition double-guarded: enforced at Step 0 parse-time AND re-stated in Step 1b promote-trace branch + Constraints ALWAYS rule — aligns with no-MCP-call-without-trace-id invariant
+- [Phase 39-dataset-generator-enhancements]: datasets.md <pipeline> block is editable (NOT in 3-file protected list — only orq-agent.md/prompt.md/architect.md are SHA-256 guarded per Phase 34); Step 1b added INSIDE <pipeline> preserving natural Step-numbered reading flow while leaving 3/3 golden hashes untouched
 
 ### Blockers/Concerns
 
@@ -179,7 +184,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T04:46:21.893Z
-Stopped at: Completed 39-01-PLAN.md
+Last session: 2026-04-21T04:47:42.729Z
+Stopped at: Completed 39-03-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
