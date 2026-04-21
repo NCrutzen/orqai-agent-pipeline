@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: verifying
-stopped_at: "Completed 37-05-PLAN.md — Phase 37 mechanically COMPLETE (5/5 plans, 7/7 OBSV); 37-05-VERIFICATION.md captures 8-gate green + OBSV traceability; ready for /gsd:verify-work 37"
-last_updated: "2026-04-21T04:12:21.712Z"
+stopped_at: Completed 38-02-PLAN.md — 3 resource files (grounded-theory + classification + handoff-matrix) live under commands/trace-failure-analysis/resources/; lint + protected-pipelines 3/3 green; ready for Plan 03 (main skill body)
+last_updated: "2026-04-21T04:24:43.488Z"
 last_activity: "2026-04-21 — Phase 37 Plan 05 complete: full-suite verification sweep captured; 4th consecutive V3.0 phase (34/35/36/37) mechanically closed under canonical VERIFICATION.md pattern; commit df2e1df"
 progress:
   total_phases: 10
   completed_phases: 4
-  total_plans: 23
-  completed_plans: 23
+  total_plans: 27
+  completed_plans: 24
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 37 - Observability Setup Skill (mechanically COMPLETE — 5/5 plans closed)
-Plan: 05 complete — 37-05-VERIFICATION.md captures 8 mechanical gates green (full-suite lint, 4 per-file lints, MSEL-02 rule, protected pipelines 3/3, TODO(OBSV-07) eradicated) + 7/7 OBSV-01..07 grep anchors PASS + 7-row traceability + 5-row ROADMAP criteria checklist + file inventory + 3 deferred manual smokes + sign-off; commit df2e1df
-Status: Phase 37 mechanically COMPLETE — ready for /gsd:verify-work 37 (3 manual smokes: end-to-end trace, --identity MCP round-trip, PII scan); next plan-phase: 38 (Trace Failure Analysis, TFAIL-01..06)
-Last activity: 2026-04-21 — Phase 37 Plan 05 complete: full-suite verification sweep captured; 4th consecutive V3.0 phase (34/35/36/37) mechanically closed under canonical VERIFICATION.md pattern; commit df2e1df
+Phase: 38 - Trace Failure Analysis Skill (Plan 2 of 4 — 1/4 plans closed)
+Plan: 02 complete — 3 resource files (grounded-theory-methodology.md 45L, failure-mode-classification.md 63L, handoff-matrix.md 25L) live under orq-agent/commands/trace-failure-analysis/resources/; reuses Phase 37 per-skill resources/ pattern; lint + protected-pipelines 3/3 green; 4/6 TFAIL reqs marked complete (TFAIL-02/03/05/06); commit 29851b6
+Status: Phase 38 Plan 02 complete — ready for Plan 03 (main skill body orq-agent/commands/trace-failure-analysis.md with SKST-9 sections + 7-step pipeline referencing these 3 resources)
+Last activity: 2026-04-21 — Phase 38 Plan 02 complete: 3 single-consumer resource files shipped under the Phase-37-precedent resources/ subdir; TFAIL-02/03/05/06 marked complete; commit 29851b6
 
 Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5). V3.0 Phase 36 mechanically COMPLETE (8/8). V3.0 Phase 37 mechanically COMPLETE (5/5). Next V3.0 phases (38-43) inherit SKST + MSEL-02 + protected-pipeline invariants.
 
@@ -60,6 +60,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 37-observability-setup-skill P03 | 2 min | 1 tasks | 1 files |
 | Phase 37-observability-setup-skill P04 | 2 min | 1 tasks | 2 files |
 | Phase 37-observability-setup-skill P05 | 2 min | 1 tasks | 1 files |
+| Phase 38-trace-failure-analysis-skill P02 | 1 min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -140,6 +141,9 @@ Recent decisions affecting current work:
 - [Phase 37-observability-setup-skill]: Phase 37 mechanically COMPLETE: 5/5 plans closed, 7/7 OBSV-01..07 requirements file-level verified via SKST lint + MSEL-02 + protected-pipeline SHA-256 (3/3) + 7 grep anchors + TODO(OBSV-07) eradicated; 37-05-VERIFICATION.md captures full evidence trail; ready for /gsd:verify-work 37 (3 manual smokes: end-to-end trace, --identity filter, PII scan)
 - [Phase 37-observability-setup-skill]: 4th consecutive V3.0 phase (34/35/36/37) closed under canonical phase-close VERIFICATION.md pattern — captured green output + requirement traceability + ROADMAP criteria checklist + inventory + deferred items + sign-off; pattern now proven reusable for phases 38-43
 - [Phase 37-observability-setup-skill]: Forward-reference resolution pattern established: when a prior phase parks TODO(XXXX-NN) markers, the consuming phase's phase-close VERIFICATION.md elevates eradication to an explicit named gate (Gate 8 here) rather than an implicit grep — makes the forward-reference audit trail reproducible
+- [Phase 38-trace-failure-analysis-skill]: Phase 38 resources land under commands/trace-failure-analysis/resources/ per Phase 34 Resources Policy; content is freeform prose because lint default glob (commands/*.md single-level) auto-excludes resources/
+- [Phase 38-trace-failure-analysis-skill]: First-upstream-failure rule (TFAIL-03) framed with explicit 3-span cascade example in grounded-theory-methodology.md — prevents rate-inflation anti-pattern visceral
+- [Phase 38-trace-failure-analysis-skill]: Classification mutual-exclusivity tiebreaker = upstream-fix-first (prefer specification over generalization-* when both fit); multi-mode handoff ordering trivial-bug then specification then code-checkable then subjective
 
 ### Blockers/Concerns
 
@@ -164,7 +168,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T04:09:36.472Z
-Stopped at: Completed 37-05-PLAN.md — Phase 37 mechanically COMPLETE (5/5 plans, 7/7 OBSV); 37-05-VERIFICATION.md captures 8-gate green + OBSV traceability; ready for /gsd:verify-work 37
+Last session: 2026-04-21T04:24:43.485Z
+Stopped at: Completed 38-02-PLAN.md — 3 resource files (grounded-theory + classification + handoff-matrix) live under commands/trace-failure-analysis/resources/; lint + protected-pipelines 3/3 green; ready for Plan 03 (main skill body)
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None

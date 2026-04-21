@@ -36,11 +36,11 @@ New skill for instrumenting LLM applications so downstream trace-analysis and ev
 New skill for mining production traces into actionable failure taxonomies using grounded-theory methodology.
 
 - [ ] **TFAIL-01**: Skill samples traces via mixed strategy (random 50% + failure-driven 30% + outlier 20%) targeting ~100 traces
-- [ ] **TFAIL-02**: Skill supports open-coding phase (freeform annotations per trace) and axial-coding phase (grouping into 4-8 non-overlapping failure modes)
-- [ ] **TFAIL-03**: Skill identifies the first upstream failure in each trace, never labels downstream cascading effects
+- [x] **TFAIL-02**: Skill supports open-coding phase (freeform annotations per trace) and axial-coding phase (grouping into 4-8 non-overlapping failure modes)
+- [x] **TFAIL-03**: Skill identifies the first upstream failure in each trace, never labels downstream cascading effects
 - [ ] **TFAIL-04**: Skill produces a transition failure matrix for multi-step pipelines (rows = last success, columns = first failure)
-- [ ] **TFAIL-05**: Skill classifies each failure mode as specification / generalization (code-checkable) / generalization (subjective) / trivial bug
-- [ ] **TFAIL-06**: Skill outputs an error-analysis report with failure taxonomy, rates, example traces, and recommended next steps (hand off to build-evaluator / optimize-prompt / etc.)
+- [x] **TFAIL-05**: Skill classifies each failure mode as specification / generalization (code-checkable) / generalization (subjective) / trivial bug
+- [x] **TFAIL-06**: Skill outputs an error-analysis report with failure taxonomy, rates, example traces, and recommended next steps (hand off to build-evaluator / optimize-prompt / etc.)
 
 ### Evaluator Validation (EVLD)
 
@@ -218,11 +218,11 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | OBSV-06 | 37 | Complete |
 | OBSV-07 | 37 | Complete |
 | TFAIL-01 | 38 | Pending |
-| TFAIL-02 | 38 | Pending |
-| TFAIL-03 | 38 | Pending |
+| TFAIL-02 | 38 | Complete |
+| TFAIL-03 | 38 | Complete |
 | TFAIL-04 | 38 | Pending |
-| TFAIL-05 | 38 | Pending |
-| TFAIL-06 | 38 | Pending |
+| TFAIL-05 | 38 | Complete |
+| TFAIL-06 | 38 | Complete |
 | EVLD-01 | 42 | Pending |
 | EVLD-02 | 42 | Pending |
 | EVLD-03 | 42 | Pending |
