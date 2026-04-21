@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: executing
-stopped_at: Completed 37-03-PLAN.md — traces.md --identity wired live, TODO(OBSV-07) removed
-last_updated: "2026-04-21T04:03:57.717Z"
+stopped_at: "Completed 37-04-PLAN.md — /orq-agent:observability wired into SKILL.md + help.md; protected pipelines 3/3 SHA-256 matches"
+last_updated: "2026-04-21T04:05:34.616Z"
 last_activity: "2026-04-20 — Phase 37 Plan 01 complete: observability.md (242 lines) SKST-conformant, OBSV-01/02/04/05/06 addressed + OBSV-07 prose/forward-reference; commit 2777331; all mechanical gates green"
 progress:
   total_phases: 10
   completed_phases: 3
   total_plans: 23
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 37 - Observability Setup Skill (IN PROGRESS — 2/5 plans closed: 01 + 02)
-Plan: 01 complete — observability.md SKST skill shipped (242 lines) at orq-agent/commands/observability.md addressing OBSV-01/02/04/05/06 + OBSV-07 forward-reference; 9 SKST sections + ORQ ► OBSERVABILITY banner + 7-step body (detection → mode → delegation → baseline verify → enrichment → @traced → identity); delegation hook into Plan 02's observability/resources/<framework>.md + forward-reference to /orq-agent:traces --identity (Plan 03 wires live); per-file lint exit 0, protected pipelines 3/3 SHA-256 matches, 12/12 grep anchors pass (AI Router, OTEL, 6 span types, session_id, customer_id, identity, per-tenant)
-Status: Phase 37 in progress — Plan 01 (skill shell) + Plan 02 (5 resource snippets) closed; next: Plan 03 (wire traces.md --identity live), Plan 04, Plan 05
-Last activity: 2026-04-20 — Phase 37 Plan 01 complete: observability.md (242 lines) SKST-conformant, OBSV-01/02/04/05/06 addressed + OBSV-07 prose/forward-reference; commit 2777331; all mechanical gates green
+Phase: 37 - Observability Setup Skill (IN PROGRESS — 3/5 plans closed: 01 + 02 + 04)
+Plan: 04 complete — /orq-agent:observability wired into SKILL.md directory tree + new Phase 37 (Observability) H3 commands table + 7-point OBSV-01..07 coverage block + Resources Policy migration-status update; help.md Commands banner lists /orq-agent:observability between quickstart and automations; per-file lint exit 0 on both touched files; protected pipelines SHA-256 3/3 matches (orq-agent.md / prompt.md / architect.md byte-identical); commit ccfc87c; 1 auto-fix Rule 3 (coverage-block line-count fix for grep -c anchor)
+Status: Phase 37 in progress — Plans 01/02/04 closed; next: Plan 03 (wire traces.md --identity live), Plan 05 (phase-close verification)
+Last activity: 2026-04-21 — Phase 37 Plan 04 complete: index-wiring recipe applied (SKILL.md + help.md); protected entry points untouched; commit ccfc87c
 
 Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5). V3.0 Phase 36 mechanically COMPLETE (8/8). Next V3.0 phases (37-43) inherit SKST + MSEL-02 + protected-pipeline invariants.
 
@@ -58,6 +58,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 37-observability-setup-skill P02 | 4 min | 1 tasks | 5 files |
 | Phase 37-observability-setup-skill P01 | 4 min | 1 tasks | 1 files |
 | Phase 37-observability-setup-skill P03 | 2 min | 1 tasks | 1 files |
+| Phase 37-observability-setup-skill P04 | 2 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -133,6 +134,8 @@ Recent decisions affecting current work:
 - [Phase 37-observability-setup-skill]: Every framework snippet enforces instrumentors-BEFORE-SDK ordering via CRITICAL code comment — grep anchor 'BEFORE' becomes the OBSV-03 verification surface
 - [Phase 37-observability-setup-skill]: observability.md ships as single-file skill (242 lines, under 400-line threshold); no subagent extraction needed for OBSV-01/02/04/05/06 + OBSV-07 forward-reference
 - [Phase 37-observability-setup-skill]: OBSV-07 retrieval surface closed: --identity wired as MCP pass-through + client-side fallback over trace.metadata/attributes/customer_id; zero-match hint links back to /orq-agent:observability Step 7
+- [Phase 37-observability-setup-skill]: Plan 04 index-wiring: grep -c line-count anchor satisfied via inline 7-bullet OBSV-01..07 coverage block below Phase 37 table (line-count 4->8), not via row-splitting — adds genuine reader value at suite-index layer
+- [Phase 37-observability-setup-skill]: V3.0 index-wiring recipe reused verbatim in Phase 37 — edit exactly SKILL.md + help.md, add new Phase N (Subsystem) H3 after prior block, never touch orq-agent.md/prompt.md/architect.md; SHA-256 3/3 guard holds
 
 ### Blockers/Concerns
 
@@ -157,7 +160,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T04:03:57.714Z
-Stopped at: Completed 37-03-PLAN.md — traces.md --identity wired live, TODO(OBSV-07) removed
+Last session: 2026-04-21T04:05:34.613Z
+Stopped at: Completed 37-04-PLAN.md — /orq-agent:observability wired into SKILL.md + help.md; protected pipelines 3/3 SHA-256 matches
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
