@@ -313,7 +313,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | V3.0 | 39. Dataset Generator Enhancements | 0/5 | Complete    | 2026-04-21 |
 | V3.0 | 40. KB & Memory Lifecycle | 6/6 | Complete    | 2026-04-21 |
 | V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 3/5 | Complete    | 2026-04-21 |
-| V3.0 | 42. Evaluator Validation & Iterator Enrichments | 7/9 | In Progress|  |
+| V3.0 | 42. Evaluator Validation & Iterator Enrichments | 8/9 | In Progress|  |
 | V3.0 | 43. Cross-IDE Distribution & Manifests | 0/TBD | Not started | - |
 | V4.0 | 44-48 (5 phases) | 0/TBD | **Defined** | - |
 | V5.0 | 49-52 (4 phases) | 0/TBD | **Defined** | - |

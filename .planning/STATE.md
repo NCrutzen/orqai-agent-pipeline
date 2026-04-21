@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: completed
-stopped_at: Completed 42-07-PLAN.md
-last_updated: "2026-04-21T06:01:28.694Z"
+stopped_at: Completed 42-08-PLAN.md
+last_updated: "2026-04-21T06:04:30.229Z"
 last_activity: "2026-04-21 — Phase 42 Plan 07 complete: resources scaffold for iterator/hardener/evaluator-validator; commits 641b1ef / 46a603a / 5b62f0b"
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 52
-  completed_plans: 50
+  completed_plans: 51
 ---
 
 # Project State
@@ -86,6 +86,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 42 P05 | 2 min | 1 tasks | 1 files |
 | Phase 42 P06 | 9 min | 1 tasks | 1 files |
 | Phase 42 P07 | 5 min | 3 tasks | 7 files |
+| Phase 42 P08 | 5min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -200,6 +201,7 @@ Recent decisions affecting current work:
 - [Phase 42]: 50/50 Annotation Queue polling floor (EVLD-09) — Exceeds EVLD-06 30/30 statistical minimum to absorb IAA filtering loss without stalling TPR/TNR validation
 - [Phase 42]: Prevalence-correction refuses to render when Youden index <= 0 (EVLD-07) — Judge with TPR+TNR <= 1 is worse than random; applying formula yields negative/undefined theta_hat; show N/A and re-calibrate link instead of misleading number
 - [Phase 42]: 4-component judge template enforces reasoning-before-verdict in JSON contract (EVLD-03) — Autoregressive decoders commit to first token; forcing reasoning to precede verdict locks in CoT analysis before pass/fail commitment
+- [Phase 42]: 42-08: V3.0 index-wiring recipe reused — edited only SKILL.md (help.md untouched since Phase 42 adds no new user-facing command); protected pipelines 3/3 SHA-256 intact
 
 ### Blockers/Concerns
 
@@ -224,7 +226,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T06:00:48.132Z
-Stopped at: Completed 42-07-PLAN.md
+Last session: 2026-04-21T06:04:24.160Z
+Stopped at: Completed 42-08-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
