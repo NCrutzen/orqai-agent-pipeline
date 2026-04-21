@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: Ready for Plan 02 (datasets.md command flag expansion or resources/ subdir creation per phase plan sequence)
-stopped_at: Completed 39-03-PLAN.md
-last_updated: "2026-04-21T04:47:51.888Z"
+stopped_at: Completed 39-04-PLAN.md
+last_updated: "2026-04-21T04:50:49.165Z"
 last_activity: "2026-04-21 — Phase 39 Plan 01 complete: dataset-generator.md extended with DSET-01..08 sections (+73 lines); 16/16 grep anchors green; SKST lint + protected-pipeline 3/3 SHA-256 pass; commit e9bfcef"
 progress:
   total_phases: 10
   completed_phases: 5
   total_plans: 32
-  completed_plans: 30
+  completed_plans: 31
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 39 - Dataset Generator Enhancements (Plan 2 of 5)
-Plan: 01 complete — dataset-generator.md extended with DSET-01..08 sections (Two-Step Mode, 8-vector adversarial catalog, Coverage Rules, Curation Mode 4, Dataset Shapes, Promote-From-Trace) + 2 appended Constraints; 16/16 grep anchors green, SKST lint + protected-pipeline 3/3 SHA-256 pass; commit e9bfcef
-Status: Ready for Plan 02 (datasets.md command flag expansion or resources/ subdir creation per phase plan sequence)
-Last activity: 2026-04-21 — Phase 39 Plan 01 complete: dataset-generator.md extended with DSET-01..08 sections (+73 lines); 16/16 grep anchors green; SKST lint + protected-pipeline 3/3 SHA-256 pass; commit e9bfcef
+Phase: 39 - Dataset Generator Enhancements (Plan 5 of 5)
+Plan: 04 complete — SKILL.md + help.md wired to Phase 39 surface (DSET-01..08 H3 block, dataset-generator/resources/ in Directory Structure, Migration status updated, /orq-agent:datasets help line expanded with --mode/--trace-id/--shape flags); 10/10 grep anchors green, SKST lint + protected-pipeline 3/3 SHA-256 pass; commit 77ef0c5
+Status: Ready for Plan 05 (Phase 39 VALIDATION / close-out plan per canonical Phase 34-38 pattern)
+Last activity: 2026-04-21 — Phase 39 Plan 04 complete: SKILL.md + help.md index-wiring for Phase 39 surface; protected pipelines 3/3 SHA-256 intact; commit 77ef0c5
 
 Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5). V3.0 Phase 36 mechanically COMPLETE (8/8). V3.0 Phase 37 mechanically COMPLETE (5/5). V3.0 Phase 38 mechanically COMPLETE (4/4). 5-in-a-row V3.0 phases closed under canonical VERIFICATION.md pattern (34/35/36/37/38). Next V3.0 phases (39-43) inherit SKST + MSEL-02 + protected-pipeline invariants.
 
@@ -67,6 +67,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 39-dataset-generator-enhancements P01 | 1 min | 1 tasks | 1 files |
 | Phase 39-dataset-generator-enhancements P02 | 2 min | 1 tasks | 1 files |
 | Phase 39-dataset-generator-enhancements P03 | 2 min | 1 tasks | 3 files |
+| Phase 39-dataset-generator-enhancements P04 | 1 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -161,6 +162,7 @@ Recent decisions affecting current work:
 - [Phase 39-dataset-generator-enhancements]: DSET-08 --trace-id precondition double-guarded: enforced at Step 0 parse-time AND re-stated in Step 1b promote-trace branch + Constraints ALWAYS rule — aligns with no-MCP-call-without-trace-id invariant
 - [Phase 39-dataset-generator-enhancements]: datasets.md <pipeline> block is editable (NOT in 3-file protected list — only orq-agent.md/prompt.md/architect.md are SHA-256 guarded per Phase 34); Step 1b added INSIDE <pipeline> preserving natural Step-numbered reading flow while leaving 3/3 golden hashes untouched
 - [Phase 39-dataset-generator-enhancements]: Dataset-generator single-consumer resources/ subdir created with 8-vector catalog + coverage-rules (verbatim 'Coverage check failed:' phrase) + single/multi-turn/rag shape templates; all 15 grep anchors green, lint + protected-pipelines 3/3 SHA-256 clean
+- [Phase 39-dataset-generator-enhancements]: help.md datasets flag summary split onto continuation line to preserve banner column alignment
 
 ### Blockers/Concerns
 
@@ -185,7 +187,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T04:47:42.729Z
-Stopped at: Completed 39-03-PLAN.md
+Last session: 2026-04-21T04:50:46.441Z
+Stopped at: Completed 39-04-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
