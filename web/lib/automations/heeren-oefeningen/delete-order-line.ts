@@ -110,10 +110,17 @@ async function openOrder(page: Page, orderCode: string, auth: NxtAuth): Promise<
   return uuid;
 }
 
+export interface CapturedLine {
+  description: string | null;
+  quantity: number | null;
+  unitPrice: number | null;
+}
+
 async function deleteOrderLine(page: Page, orderCode: string, articleId: string): Promise<{
   before: string;
   after: string;
   deleted: boolean;
+  captured: CapturedLine;
 }> {
   // Scroll naar order lines sectie
   await page.evaluate(() => window.scrollTo(0, 800));
@@ -145,6 +152,37 @@ async function deleteOrderLine(page: Page, orderCode: string, articleId: string)
       `Verwijderknop niet gevonden voor artikel #${articleId} op order ${orderCode}. Is de order in draft-status?`,
     );
   }
+
+  // Capture description/quantity/unitPrice UIT de order-line row voordat we verwijderen.
+  // Deze velden komen niet uit onze DB (ze staan in NXT), dus we lezen ze hier.
+  const captured = await orderLineRow.evaluate((row: Element, artId: string): CapturedLine => {
+    const text = (row.textContent ?? "").replace(/\s+/g, " ").trim();
+
+    // Description: alles vóór "#<articleId>" in het zichtbare deel van de row.
+    // Voorbeeld: "Ontruimingsoefening #6410001050 × €301.05 | 0% Discount ..."
+    let description: string | null = null;
+    const beforeArticle = text.split(`#${artId}`)[0]?.trim() ?? "";
+    if (beforeArticle.length > 0) {
+      description = beforeArticle.replace(/[\s|·]+$/u, "").trim() || null;
+    }
+
+    // Quantity: eerste <input type=number> in de row
+    const qtyInput = row.querySelector('input[type="number"]') as HTMLInputElement | null;
+    const qtyRaw = qtyInput?.value;
+    const quantity = qtyRaw != null && qtyRaw !== "" && !isNaN(Number(qtyRaw)) ? Number(qtyRaw) : null;
+
+    // Unit price: pattern "× €301.05" of "x €301,05" binnen de row text
+    let unitPrice: number | null = null;
+    const priceMatch = text.match(/[×x]\s*€\s*([0-9]+(?:[.,][0-9]+)?)/i);
+    if (priceMatch) {
+      const n = Number(priceMatch[1].replace(",", "."));
+      if (!isNaN(n)) unitPrice = n;
+    }
+
+    return { description, quantity, unitPrice };
+  }, articleId);
+
+  console.log(`[capture] description="${captured.description}" qty=${captured.quantity} unitPrice=${captured.unitPrice}`);
 
   console.log(`[nxt] Verwijder orderregel #${articleId} van order ${orderCode}`);
   await deleteBtn.click();
@@ -183,7 +221,7 @@ async function deleteOrderLine(page: Page, orderCode: string, articleId: string)
     console.warn("[nxt] Geen save-knop beschikbaar (order mogelijk leeg of al opgeslagen)");
   }
 
-  return { before: beforePath, after: afterPath, deleted: true };
+  return { before: beforePath, after: afterPath, deleted: true, captured };
 }
 
 export async function deleteOrderLines(params: {
@@ -198,6 +236,7 @@ export async function deleteOrderLines(params: {
   orderCode: string;
   billingItemId: string;
   screenshots: { before: string; after: string } | null;
+  captured: CapturedLine | null;
   error?: string;
 }> {
   const { billingOrderCode, billingItemId, auth } = params;
@@ -212,14 +251,15 @@ export async function deleteOrderLines(params: {
 
     await login(page, auth);
     await openOrder(page, billingOrderCode, auth);
-    const { before, after } = await deleteOrderLine(page, billingOrderCode, billingItemId);
+    const { before, after, captured } = await deleteOrderLine(page, billingOrderCode, billingItemId);
 
     console.log(`[heeren-oefeningen] Klaar. Screenshots: before=${before}, after=${after}`);
     return {
       success: true,
       orderCode: billingOrderCode,
       billingItemId,
-      screenshots: { before, after }
+      screenshots: { before, after },
+      captured,
     };
 
   } catch (err: any) {
@@ -229,7 +269,8 @@ export async function deleteOrderLines(params: {
       orderCode: billingOrderCode,
       billingItemId,
       screenshots: null,
-      error: err.message
+      captured: null,
+      error: err.message,
     };
   } finally {
     if (browser) await browser.close();

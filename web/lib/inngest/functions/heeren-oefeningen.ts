@@ -144,14 +144,22 @@ export const processHeerenOefening = inngest.createFunction(
       const admin = createAdminClient();
 
       if (result.success) {
+        const update: Record<string, unknown> = {
+          status: "processed",
+          processed_at: new Date().toISOString(),
+          screenshot_before: result.screenshots?.before ?? null,
+          screenshot_after: result.screenshots?.after ?? null,
+        };
+        // Merge captured velden uit NXT als Zapier ze niet stuurde.
+        // Zapier-waarden (als aanwezig) hebben voorrang, anders DOM-scrape.
+        if (result.captured) {
+          if (quantity == null && result.captured.quantity != null) update.quantity = result.captured.quantity;
+          if (unitPrice == null && result.captured.unitPrice != null) update.unit_price = result.captured.unitPrice;
+          if (!description && result.captured.description) update.description = result.captured.description;
+        }
         await admin
           .from("heeren_oefeningen_staging")
-          .update({
-            status: "processed",
-            processed_at: new Date().toISOString(),
-            screenshot_before: result.screenshots?.before ?? null,
-            screenshot_after: result.screenshots?.after ?? null,
-          })
+          .update(update)
           .eq("id", stagingId);
       } else {
         await admin

@@ -101,11 +101,13 @@ export async function POST(request: NextRequest) {
   // Dry-run: echo terug wat we ontvangen zonder Inngest/NXT te raken.
   // Handig om Zapier → Vercel payload te debuggen.
   if (body.dryRun === true || body.dryRun === "true") {
-    const requiredMissing: string[] = [];
-    const fase2Missing: string[] = [];
-    for (const k of ["customerId", "siteId", "brandId", "orderTypeId", "quantity", "unitPrice", "description"] as const) {
-      if (!(k in inngestPayload)) fase2Missing.push(k);
+    // Deze 4 moeten van Zapier komen. quantity/unitPrice/description worden
+    // tijdens Fase 1 uit NXT gescraped, dus geen Zapier-input vereist.
+    const zapierFase2: string[] = [];
+    for (const k of ["customerId", "siteId", "brandId", "orderTypeId"] as const) {
+      if (!(k in inngestPayload)) zapierFase2.push(k);
     }
+    const capturedFromNxt = ["quantity", "unitPrice", "description"];
     return NextResponse.json(
       {
         dryRun: true,
@@ -113,8 +115,9 @@ export async function POST(request: NextRequest) {
         rawBodyKeys: Object.keys(body),
         parsedPayload: inngestPayload,
         fase1_ok: Boolean(billingOrderCode && billingOrderLineId && billingItemId),
-        fase2_missing: fase2Missing,
-        fase2_ready: fase2Missing.length === 0,
+        fase2_missing_from_zapier: zapierFase2,
+        fase2_captured_from_nxt: capturedFromNxt,
+        fase2_ready: zapierFase2.length === 0,
       },
       { status: 200 },
     );
