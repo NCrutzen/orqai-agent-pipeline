@@ -251,7 +251,12 @@ Build a Claude Code skill that transforms natural language use case descriptions
   3. Cross-framework skill generates an `evaluatorq` comparison script (Python or TypeScript) with one job per agent across orq.ai, LangGraph, CrewAI, OpenAI Agents SDK, and Vercel AI SDK.
   4. Script enforces fairness — same dataset, same evaluator(s), same model unless model isolation is the explicit goal — and verifies each agent is independently invocable before running the full experiment.
   5. Comparison results surface side-by-side in the orq.ai Experiment UI.
-**Plans**: TBD
+**Plans**: 5 plans
+  - [ ] 41-01-PLAN.md — Wave 1: create orq-agent/commands/prompt-optimization.md with 9 SKST sections + 11 guideline anchors + {{variable}} preservation + ≤5 suggestions + diff + AskUserQuestion + new-version creation (POPT-01..04)
+  - [ ] 41-02-PLAN.md — Wave 1: create orq-agent/commands/compare-frameworks.md with 9 SKST sections + 5 framework names + evaluatorq Python/TS script + fairness checks + smoke-invocation precheck + --isolate-model + --lang python|ts (XFRM-01..03)
+  - [ ] 41-03-PLAN.md — Wave 1: create 4 single-consumer resources under commands/prompt-optimization/resources/ and commands/compare-frameworks/resources/ (11-guidelines, rewrite-examples, evaluatorq-script-templates, framework-adapters)
+  - [ ] 41-04-PLAN.md — Wave 2: index-wire into orq-agent/SKILL.md (Phase 41 H3 block + Directory Structure + Resources Policy migration status) + orq-agent/commands/help.md (banner + flag summaries)
+  - [ ] 41-05-PLAN.md — Wave 3: full lint + protected-pipeline SHA-256 + POPT/XFRM anchor sweep; write 41-05-VERIFICATION.md with POPT-01..04 + XFRM-01..03 traceability + 5-row ROADMAP criteria checklist
 
 ### Phase 42: Evaluator Validation & Iterator Enrichments
 **Goal**: Tester, failure-diagnoser, iterator, and hardener enforce eval-science methodology — binary-first judges with measured TPR/TNR, prevalence correction, outcome-based grading, P0/P1/P2 action plans, regression flagging, evaluator-version A/B, inter-annotator agreement, overfitting detection, and sample-rate-aware guardrail promotion — so quality signals stay trustworthy at production scale.
@@ -298,7 +303,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | V3.0 | 38. Trace Failure Analysis Skill | 4/4 | Complete    | 2026-04-21 |
 | V3.0 | 39. Dataset Generator Enhancements | 0/5 | Complete    | 2026-04-21 |
 | V3.0 | 40. KB & Memory Lifecycle | 6/6 | Complete    | 2026-04-21 |
-| V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 0/TBD | Not started | - |
+| V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 1/5 | In Progress|  |
 | V3.0 | 42. Evaluator Validation & Iterator Enrichments | 0/TBD | Not started | - |
 | V3.0 | 43. Cross-IDE Distribution & Manifests | 0/TBD | Not started | - |
 | V4.0 | 44-48 (5 phases) | 0/TBD | **Defined** | - |

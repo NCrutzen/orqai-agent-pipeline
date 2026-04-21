@@ -71,9 +71,9 @@ New skill for proactive prompt review using the 11-point prompting guidelines fr
 
 New skill for benchmarking agents across frameworks using `evaluatorq`.
 
-- [ ] **XFRM-01**: Skill generates an `evaluatorq` comparison script (Python or TypeScript) with one job per agent across supported frameworks (orq.ai, LangGraph, CrewAI, OpenAI Agents SDK, Vercel AI SDK)
-- [ ] **XFRM-02**: Skill enforces fairness — same dataset, same evaluator(s), same model (unless model isolation is the explicit goal)
-- [ ] **XFRM-03**: Skill verifies each agent is independently invocable before running the full experiment, and reports results side-by-side in the orq.ai Experiment UI
+- [x] **XFRM-01**: Skill generates an `evaluatorq` comparison script (Python or TypeScript) with one job per agent across supported frameworks (orq.ai, LangGraph, CrewAI, OpenAI Agents SDK, Vercel AI SDK)
+- [x] **XFRM-02**: Skill enforces fairness — same dataset, same evaluator(s), same model (unless model isolation is the explicit goal)
+- [x] **XFRM-03**: Skill verifies each agent is independently invocable before running the full experiment, and reports results side-by-side in the orq.ai Experiment UI
 
 ### Eval Science Methodology (ESCI)
 
@@ -238,9 +238,9 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | POPT-02 | 41 | Pending |
 | POPT-03 | 41 | Pending |
 | POPT-04 | 41 | Pending |
-| XFRM-01 | 41 | Pending |
-| XFRM-02 | 41 | Pending |
-| XFRM-03 | 41 | Pending |
+| XFRM-01 | 41 | Complete |
+| XFRM-02 | 41 | Complete |
+| XFRM-03 | 41 | Complete |
 | ESCI-01 | 42 | Pending |
 | ESCI-02 | 42 | Pending |
 | ESCI-03 | 42 | Pending |
