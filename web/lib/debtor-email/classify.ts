@@ -84,15 +84,34 @@ const SUBJECT_DISPUTE =
 
 /**
  * Body signals — employee is temporarily away + will return.
- * Covers explicit dates ("terug op 5/5"), weekday returns ("vanaf maandag"),
- * back-at-office phrasing ("weer op kantoor"), and vacation/leave keywords.
+ * Covers explicit dates ("terug op 5/5", "tot 21 april"), weekday returns
+ * ("vanaf maandag"), back-at-office phrasing ("weer op kantoor"), and
+ * vacation/leave keywords.
+ *
+ * Date patterns require either a month name or a full DD-MM-YYYY form.
+ * A previous looser form `van\s+\d{1,2}[-./]\d{1,2}` false-matched
+ * office-hours ranges like "van 8.30 uur t/m 17.00 uur" and labeled plain
+ * auto-replies as ooo_temporary.
  */
 const BODY_OOO_TEMPORARY =
-  /\b(terug\s+op|terug\s+vanaf|back\s+on|return\s+on|i\s+will\s+return|de\s+retour\s+le|je\s+serai\s+de\s+retour|vacation|congé|vacances|verlof|afwezig\s+(?:van|tot)|from\s+\d|van\s+\d{1,2}[-./]\d{1,2}|between\s+\d|vanaf\s+(?:maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag|morgen|overmorgen|volgende\s+week|volgende\s+maand)|(?:weer|terug)\s+(?:op\s+kantoor|in\s+dienst|beschikbaar|aanwezig)|ben\s+ik\s+weer|from\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|next\s+week|next\s+month)|à\s+partir\s+(?:de|du)|ab\s+(?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|(?:nä|nae)chste\s+woche))/i;
+  /\b(terug\s+op|terug\s+vanaf|back\s+on|return\s+on|i\s+will\s+return|de\s+retour\s+le|je\s+serai\s+de\s+retour|vacation|congé|vacances|verlof|afwezig\s+(?:van|tot)|from\s+\d|van\s+\d{1,2}[-./]\d{1,2}[-./]\d{2,4}|van\s+\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)|tot\s+\d{1,2}[-./]\d{1,2}(?:[-./]\d{2,4})?|tot\s+\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)|until\s+\d{1,2}[-./]\d{1,2}|until\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d|between\s+\d|vanaf\s+(?:maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag|morgen|overmorgen|volgende\s+week|volgende\s+maand)|(?:weer|terug)\s+(?:op\s+kantoor|in\s+dienst|beschikbaar|aanwezig)|ben\s+ik\s+weer|from\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|next\s+week|next\s+month)|à\s+partir\s+(?:de|du)|ab\s+(?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|(?:nä|nae)chste\s+woche))/i;
 
-/** Body signals — employee has left / redirect elsewhere permanently. */
+/** Body signals — employee has left / redirect to a new person permanently. */
 const BODY_OOO_PERMANENT =
   /\b(no\s+longer\s+(?:works?|employed)|has\s+left\s+the\s+(?:company|organization)|niet\s+meer\s+(?:werkzaam|actief|in\s+dienst)|heeft\s+het\s+bedrijf\s+verlaten|ne\s+(?:travaille|fait)\s+plus\s+partie|please\s+(?:contact|redirect|reach\s+out\s+to)|gelieve\s+contact\s+op\s+te\s+nemen\s+met|veuillez\s+contacter)/i;
+
+/**
+ * Body signals — mailbox itself is retired / redirect future mail to a new
+ * address. Distinct from BODY_OOO_PERMANENT (which covers person-has-left
+ * cases). Both map to `ooo_permanent` from the caller's perspective — both
+ * mean "update vendor master, do not resend here".
+ *
+ * Observed triggers on the real corpus: KPMG "niet langer gebruikt … stuur
+ * naar nl-fmrbainvoiceprocessing@kpmg.nl"; KWC "alle toekomstige facturen
+ * te verzenden naar facturen@kwc-culemborg.nl".
+ */
+const BODY_MAILBOX_RETIRED =
+  /\b(dit\s+e-?mail(?:adres)?\s+(?:wordt\s+)?niet\s+(?:meer|langer)|niet\s+(?:meer|langer)\s+(?:gebruikt|in\s+gebruik|actief|beschikbaar|gebruikt\s+voor)|(?:alle\s+(?:toekomstige\s+)?|gelieve\s+|graag\s+)?(?:facturen|invoices)\s+(?:te\s+)?(?:verzenden|versturen|sturen|mailen)\s+(?:naar|to)\s+(?:het\s+)?(?:volgende\s+)?(?:e-?mail)?|(?:gelieve\s+|graag\s+)?(?:voortaan|in\s+het\s+vervolg)\s+(?:mailen|versturen|sturen|te\s+sturen)\s+naar|no\s+longer\s+(?:in\s+use|used|monitored|active|valid)|this\s+(?:email|mailbox|address)\s+(?:is\s+)?no\s+longer|please\s+send\s+(?:all\s+)?(?:future\s+)?(?:invoices|emails?)\s+to|veuillez\s+(?:désormais|à\s+l['’]avenir)\s+envoyer)/i;
 
 /** Generic OoO body signal (used to promote a subject-only auto_reply to OoO). */
 const BODY_OOO_GENERIC =
@@ -185,6 +204,9 @@ export function classify(input: ClassifyInput): ClassifyResult {
   // ── AUTO-REPLY / OoO family ───────────────────────────────────────────────
 
   if (subjectIsAutoReply) {
+    if (BODY_MAILBOX_RETIRED.test(body)) {
+      return { category: "ooo_permanent", confidence: 0.94, matchedRule: "subject_autoreply+body_mailbox_retired" };
+    }
     if (BODY_OOO_PERMANENT.test(body)) {
       return { category: "ooo_permanent", confidence: 0.96, matchedRule: "subject_autoreply+body_permanent" };
     }
