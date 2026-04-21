@@ -217,62 +217,85 @@ async function findEmailViaSearch(
   const targetMs = new Date(email.receivedAt).getTime();
   if (Number.isNaN(targetMs)) return -1;
 
+  // iController displays timestamps in Europe/Amsterdam local time.
+  // In April → CEST (UTC+2). The offset-lookup is done once outside
+  // the row loop for speed and is good enough for production; DST
+  // transition edges are narrow and not worth the extra complexity.
+  const amsterdamOffsetMs = (() => {
+    const d = new Date(email.receivedAt);
+    const ams = new Date(d.toLocaleString("en-US", { timeZone: "Europe/Amsterdam" }));
+    const utc = new Date(d.toLocaleString("en-US", { timeZone: "UTC" }));
+    return ams.getTime() - utc.getTime();
+  })();
+
+  // Debug telemetry: collect the nearest 3 candidates so a no-match
+  // response carries actionable info back to the caller's log row.
+  const debugCandidates: Array<{ subj: string; ts: string; dtSec: number }> = [];
+
   for (let pg = 0; pg < maxPages; pg++) {
     await page.waitForSelector("#messages-list", { timeout: 5000 }).catch(() => null);
     const isEmpty = await page
       .locator(".dataTables_empty")
       .isVisible({ timeout: 1000 })
       .catch(() => false);
-    if (isEmpty) return -1;
+    if (isEmpty) break;
 
-    const matched = await page.evaluate(
-      ({ wantSubject, targetMs, toleranceMs }) => {
-        // Extract a YYYY-MM-DD HH:MM:SS timestamp from a cell's text.
+    const { hits, pageCandidates } = await page.evaluate(
+      ({ wantSubject, targetMs, toleranceMs, offsetMs }) => {
         const reTs = /(\d{4})-(\d{2})-(\d{2})[T\s]+(\d{2}):(\d{2}):(\d{2})/;
-        const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+        const norm = (s: string) =>
+          s.replace(/[…]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 
         const rows = Array.from(
-          document.querySelectorAll<HTMLTableRowElement>(
-            "#messages-list tbody tr",
-          ),
+          document.querySelectorAll<HTMLTableRowElement>("#messages-list tbody tr"),
         );
         const hits: number[] = [];
+        const pageCandidates: Array<{ subj: string; ts: string; dtSec: number }> = [];
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
           const txt = row.textContent ?? "";
           if (txt.includes("No data available")) continue;
 
-          // Full subject is in the DOM even when CSS truncates visually.
-          // Pull the subject-cell anchor text + any title attribute as fallback.
-          const subjCell = row.querySelector<HTMLElement>(
-            "td a, td.subject, td:nth-child(3)",
-          );
-          const subjectText = subjCell
-            ? norm(subjCell.getAttribute("title") || subjCell.textContent || "")
-            : "";
+          // Scan every cell: pick the one with the longest non-numeric
+          // text that contains alphabetic characters. That's almost
+          // always the subject cell, regardless of column index.
+          const cells = Array.from(row.querySelectorAll<HTMLTableCellElement>("td"));
+          let subjectText = "";
+          for (const c of cells) {
+            const raw = (c.getAttribute("title") || c.textContent || "").trim();
+            if (!/[a-z]/i.test(raw)) continue;
+            if (raw.length > subjectText.length) subjectText = raw;
+          }
+          subjectText = norm(subjectText);
 
           const tsMatch = txt.match(reTs);
           if (!tsMatch) continue;
           const [, y, mo, d, hh, mm, ss] = tsMatch;
-          const rowMs = new Date(
-            `${y}-${mo}-${d}T${hh}:${mm}:${ss}`,
-          ).getTime();
-          if (Number.isNaN(rowMs)) continue;
+          // Build UTC ms from Amsterdam-local components.
+          const rowUtcMs =
+            Date.UTC(+y, +mo - 1, +d, +hh, +mm, +ss) - offsetMs;
+          if (Number.isNaN(rowUtcMs)) continue;
 
-          const dt = Math.abs(rowMs - targetMs);
-          const subjectOk = subjectText === norm(wantSubject);
+          const dt = Math.abs(rowUtcMs - targetMs);
+          const want = norm(wantSubject);
+          // Bidirectional substring match tolerates both CSS truncation
+          // (DOM has "…" or is clipped) and row-text-with-extra-suffix.
+          const subjectOk =
+            subjectText.includes(want) || (want.length > 20 && want.includes(subjectText) && subjectText.length > 20);
 
+          pageCandidates.push({ subj: subjectText.slice(0, 60), ts: tsMatch[0], dtSec: Math.round(dt / 1000) });
           if (subjectOk && dt <= toleranceMs) hits.push(i);
         }
-        return hits;
+        return { hits, pageCandidates };
       },
-      { wantSubject: email.subject, targetMs, toleranceMs: 60_000 },
+      { wantSubject: email.subject, targetMs, toleranceMs: 60_000, offsetMs: amsterdamOffsetMs },
     );
 
-    if (matched.length === 1) return matched[0];
-    if (matched.length > 1) return -2; // ambiguous
+    for (const c of pageCandidates) debugCandidates.push(c);
 
-    // Try to advance to the next page (search results can still paginate).
+    if (hits.length === 1) return hits[0];
+    if (hits.length > 1) return -2;
+
     const advanced = await page.evaluate(() => {
       const btn = document.querySelector<HTMLElement>(
         "#messages-list_paginate .paginate_button.next:not(.disabled), .dataTables_paginate .paginate_button.next:not(.disabled)",
@@ -281,10 +304,32 @@ async function findEmailViaSearch(
       btn.click();
       return true;
     });
-    if (!advanced) return -1;
+    if (!advanced) break;
     await page.waitForTimeout(1500);
   }
+
+  // Stash debug info on the page so the caller can retrieve it.
+  await page
+    .evaluate((c) => {
+      (window as unknown as { __debtorDebug?: unknown }).__debtorDebug = c;
+    }, debugCandidates.sort((a, b) => a.dtSec - b.dtSec).slice(0, 5))
+    .catch(() => null);
+
   return -1;
+}
+
+/** Read debug candidates stashed by findEmailViaSearch. Empty if none. */
+async function readSearchDebug(page: Page): Promise<string> {
+  try {
+    const d = await page.evaluate(
+      () =>
+        (window as unknown as { __debtorDebug?: unknown }).__debtorDebug ?? null,
+    );
+    if (!d) return "";
+    return ` [nearest: ${JSON.stringify(d)}]`;
+  } catch {
+    return "";
+  }
 }
 
 /**
@@ -391,6 +436,7 @@ export async function findAndPreviewEmail(
       };
     }
     if (rowIndex === -1) {
+      const debug = await readSearchDebug(page);
       const shot = await captureScreenshot(page, {
         automation: AUTOMATION_NAME,
         label: `preview-email-not-found`,
@@ -401,7 +447,7 @@ export async function findAndPreviewEmail(
         rowIndex: -1,
         rowPreview: null,
         screenshot: shot,
-        error: `Email not found: "${email.subject}" from ${email.from}`,
+        error: `Email not found: "${email.subject}" from ${email.from}${debug}`,
       };
     }
 
@@ -475,6 +521,7 @@ export async function deleteEmailFromIController(
       };
     }
     if (rowIndex === -1) {
+      const debug = await readSearchDebug(page);
       const errorScreenshot = await captureScreenshot(page, {
         automation: AUTOMATION_NAME,
         label: `email-not-found`,
@@ -483,7 +530,7 @@ export async function deleteEmailFromIController(
         success: false,
         emailFound: false,
         screenshots: { before: errorScreenshot, after: null },
-        error: `Email not found: "${email.subject}" from ${email.from}`,
+        error: `Email not found: "${email.subject}" from ${email.from}${debug}`,
       };
     }
 
