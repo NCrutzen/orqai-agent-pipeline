@@ -10,7 +10,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import {
   StepStatusBadge,
   type StepStatus,
@@ -352,12 +352,12 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
       <div className="flex shrink-0 items-start justify-between px-6 pt-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold">
+            <h1 className="text-[32px] leading-[1.1] tracking-[-0.03em] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
               {run.name || "Agent Swarm"}
             </h1>
             <StepStatusBadge status={runStatus as StepStatus} />
           </div>
-          <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="mt-2 flex items-center gap-4 text-[12px] text-[var(--v7-faint)]">
             <span className="inline-flex items-center gap-1">
               <Clock className="size-3.5" />
               Started{" "}
@@ -396,27 +396,25 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
 
       {/* Collapsible use case card */}
       {run.use_case && (
-        <Card className="mx-6 mt-2 shrink-0">
-          <CardContent className="py-3">
-            <button
-              type="button"
-              onClick={() => setUseCaseExpanded(!useCaseExpanded)}
-              className="flex w-full items-center gap-2 text-left text-sm text-muted-foreground"
-            >
-              {useCaseExpanded ? (
-                <ChevronUp className="size-3.5 shrink-0" />
-              ) : (
-                <ChevronDown className="size-3.5 shrink-0" />
-              )}
-              <span className="font-medium">Use Case</span>
-            </button>
-            {useCaseExpanded && (
-              <p className="mt-2 ml-5 whitespace-pre-wrap text-sm text-muted-foreground">
-                {run.use_case}
-              </p>
+        <GlassCard className="mx-6 mt-2 shrink-0 py-3 px-5">
+          <button
+            type="button"
+            onClick={() => setUseCaseExpanded(!useCaseExpanded)}
+            className="flex w-full items-center gap-2 text-left text-[14px] text-[var(--v7-muted)]"
+          >
+            {useCaseExpanded ? (
+              <ChevronUp className="size-3.5 shrink-0" />
+            ) : (
+              <ChevronDown className="size-3.5 shrink-0" />
             )}
-          </CardContent>
-        </Card>
+            <span className="font-medium text-[var(--v7-text)]">Use Case</span>
+          </button>
+          {useCaseExpanded && (
+            <p className="mt-2 ml-5 whitespace-pre-wrap text-[14px] text-[var(--v7-muted)]">
+              {run.use_case}
+            </p>
+          )}
+        </GlassCard>
       )}
 
       {/* Graph | Progress Timeline | Chat — 3-column layout, fills remaining height */}
@@ -432,7 +430,7 @@ export function RunDetailClient({ run, projectId, chatMessages }: RunDetailClien
         </div>
 
         {/* Chat panel -- wider right column, h-full + overflow-hidden pins input */}
-        <div className="w-[480px] shrink-0 border-l flex flex-col h-full overflow-hidden">
+        <div className="w-[480px] shrink-0 border-l border-[var(--v7-glass-border)] flex flex-col h-full overflow-hidden">
           <ChatPanel
             runId={run.id}
             initialMessages={chatMessages}

@@ -4,7 +4,7 @@ import { useRef, useState, useActionState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ChevronRight, Play, Loader2, Upload, X, FileText } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,37 +53,41 @@ export default function NewRunPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-5">
       {/* Breadcrumb */}
-      <nav className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
-        <Link href="/" className="hover:text-foreground transition-colors">
+      <nav className="mb-4 flex items-center gap-1 text-[12px] text-[var(--v7-muted)]">
+        <Link href="/" className="hover:text-[var(--v7-text)] transition-colors">
           Dashboard
         </Link>
         <ChevronRight className="size-3.5" />
         <Link
           href={`/projects/${projectId}`}
-          className="hover:text-foreground transition-colors"
+          className="hover:text-[var(--v7-text)] transition-colors"
         >
           Project
         </Link>
         <ChevronRight className="size-3.5" />
-        <span className="font-medium text-foreground">Create Agent Swarm</span>
+        <span className="font-medium text-[var(--v7-text)]">Create Agent Swarm</span>
       </nav>
 
       {/* Page header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Create Agent Swarm</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-[32px] leading-[1.1] tracking-[-0.03em] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
+          Create Agent Swarm
+        </h1>
+        <p className="mt-1 text-[14px] text-[var(--v7-muted)]">
           Describe your use case and we&apos;ll design an agent swarm for it
         </p>
       </div>
 
       {/* Form */}
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle className="text-sm">Run Configuration</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <GlassCard className="max-w-2xl p-5">
+        <div className="pb-3">
+          <h2 className="text-[14px] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
+            Run Configuration
+          </h2>
+        </div>
+        <div>
           <form action={formAction} className="flex flex-col gap-5">
             <input type="hidden" name="projectId" value={projectId} />
 
@@ -91,10 +95,10 @@ export default function NewRunPage() {
             <div className="flex flex-col gap-1.5">
               <label
                 htmlFor="runName"
-                className="text-sm font-medium"
+                className="text-[14px] font-medium text-[var(--v7-text)]"
               >
                 Run Name
-                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                <span className="ml-1 text-[12px] font-normal text-[var(--v7-muted)]">
                   (optional)
                 </span>
               </label>
@@ -104,7 +108,7 @@ export default function NewRunPage() {
                 placeholder="e.g., Invoice Processing Agents"
                 disabled={isPending}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[12px] text-[var(--v7-muted)]">
                 Optional &mdash; auto-generated from description if left blank
               </p>
             </div>
@@ -113,10 +117,10 @@ export default function NewRunPage() {
             <div className="flex flex-col gap-1.5">
               <label
                 htmlFor="useCase"
-                className="text-sm font-medium"
+                className="text-[14px] font-medium text-[var(--v7-text)]"
               >
                 Use Case Description
-                <span className="ml-1 text-xs font-normal text-destructive">*</span>
+                <span className="ml-1 text-[12px] font-normal text-[var(--v7-red)]">*</span>
               </label>
               <Textarea
                 id="useCase"
@@ -130,7 +134,7 @@ export default function NewRunPage() {
                 minLength={10}
               />
               {useCase.length > 0 && useCase.trim().length < 10 && (
-                <p className="text-xs text-destructive">
+                <p className="text-[12px] text-[var(--v7-red)]">
                   Please enter at least 10 characters
                 </p>
               )}
@@ -138,17 +142,17 @@ export default function NewRunPage() {
 
             {/* Reference files */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">
+              <label className="text-[14px] font-medium text-[var(--v7-text)]">
                 Reference Files
-                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                <span className="ml-1 text-[12px] font-normal text-[var(--v7-muted)]">
                   (optional)
                 </span>
               </label>
               <div
-                className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 transition-colors ${
+                className={`flex cursor-pointer flex-col items-center gap-2 rounded-[var(--v7-radius-inner)] border-2 border-dashed p-6 transition-colors ${
                   isDragging
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-muted-foreground/50"
+                    ? "border-[var(--v7-teal)] bg-[var(--v7-teal-soft)]"
+                    : "border-[var(--v7-glass-border)] hover:border-[var(--v7-muted)]"
                 }`}
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -158,8 +162,8 @@ export default function NewRunPage() {
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <Upload className="size-5 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
+                <Upload className="size-5 text-[var(--v7-muted)]" />
+                <p className="text-[14px] text-[var(--v7-muted)]">
                   Drop files here or click to browse
                 </p>
                 <input
@@ -178,10 +182,10 @@ export default function NewRunPage() {
                   {files.map((file, i) => (
                     <div
                       key={`${file.name}-${i}`}
-                      className="flex items-center justify-between rounded-md border px-3 py-1.5 text-sm"
+                      className="flex items-center justify-between rounded-[var(--v7-radius-sm)] border border-[var(--v7-glass-border)] px-3 py-1.5 text-[14px] text-[var(--v7-text)]"
                     >
                       <span className="flex items-center gap-2 truncate">
-                        <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                        <FileText className="size-3.5 shrink-0 text-[var(--v7-muted)]" />
                         {file.name}
                       </span>
                       <button
@@ -190,7 +194,7 @@ export default function NewRunPage() {
                           e.stopPropagation();
                           removeFile(i);
                         }}
-                        className="ml-2 shrink-0 text-muted-foreground hover:text-foreground"
+                        className="ml-2 shrink-0 text-[var(--v7-muted)] hover:text-[var(--v7-text)]"
                       >
                         <X className="size-3.5" />
                       </button>
@@ -219,8 +223,8 @@ export default function NewRunPage() {
               )}
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </GlassCard>
     </div>
   );
 }

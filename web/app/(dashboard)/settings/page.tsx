@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { KeyRound, Shield, Activity, Globe } from "lucide-react";
 import { CredentialList } from "@/components/credentials/credential-list";
 import { CreateCredentialModal } from "@/components/credentials/create-credential-modal";
@@ -106,9 +106,11 @@ export default async function SettingsPage({
   );
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold">Settings</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
+    <div className="p-5">
+      <h1 className="text-[32px] leading-[1.1] tracking-[-0.03em] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
+        Settings
+      </h1>
+      <p className="mt-2 text-[14px] text-[var(--v7-muted)]">
         Manage credentials, authentication profiles, system health, and target systems
       </p>
 
@@ -135,8 +137,10 @@ export default async function SettingsPage({
         <TabsContent value="credentials">
           <div className="flex items-center justify-between mt-4">
             <div>
-              <h2 className="text-lg font-semibold">Credentials</h2>
-              <p className="text-sm text-muted-foreground">
+              <h2 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
+                Credentials
+              </h2>
+              <p className="text-[14px] text-[var(--v7-muted)]">
                 Manage encrypted credentials for target system automations
               </p>
             </div>
@@ -156,8 +160,10 @@ export default async function SettingsPage({
 
         <TabsContent value="auth-profiles">
           <div className="mt-4">
-            <h2 className="text-lg font-semibold">Authentication Profiles</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
+              Authentication Profiles
+            </h2>
+            <p className="text-[14px] text-[var(--v7-muted)]">
               Templates defining how automations log into different systems
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
@@ -168,19 +174,21 @@ export default async function SettingsPage({
                   description: string;
                   field_schema: { fields: unknown[] };
                 }) => (
-                  <Card key={profile.id}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">{profile.name}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-xs text-muted-foreground">
+                  <GlassCard key={profile.id} className="p-5">
+                    <div className="pb-2">
+                      <h3 className="text-[14px] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
+                        {profile.name}
+                      </h3>
+                    </div>
+                    <div>
+                      <p className="text-[12px] text-[var(--v7-muted)]">
                         {profile.description}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-2">
+                      <p className="text-[12px] text-[var(--v7-faint)] mt-2">
                         {profile.field_schema.fields.length} field(s)
                       </p>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </GlassCard>
                 )
               )}
             </div>
@@ -196,8 +204,10 @@ export default async function SettingsPage({
         <TabsContent value="systems">
           <div className="flex items-center justify-between mt-4">
             <div>
-              <h2 className="text-lg font-semibold">Systems</h2>
-              <p className="text-sm text-muted-foreground">
+              <h2 className="text-[20px] leading-[1.2] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
+                Systems
+              </h2>
+              <p className="text-[14px] text-[var(--v7-muted)]">
                 Manage target systems and their integration methods
               </p>
             </div>

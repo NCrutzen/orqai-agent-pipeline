@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { AnnotationStepCard } from "@/components/annotation/annotation-step-card";
 import { AnnotationHighlight } from "@/components/annotation/annotation-highlight";
 import type {
@@ -148,18 +148,16 @@ export function AnnotationSideBySide({
   return (
     <div className="flex h-full">
       {/* Left panel: SOP steps (40%) */}
-      <div className="w-[40%] overflow-y-auto border-r p-4 space-y-3">
+      <div className="w-[40%] overflow-y-auto border-r border-[var(--v7-glass-border)] p-4 space-y-3">
         {/* Missing screenshot warning */}
         {analysisResult.missingScreenshots.length > 0 && (
-          <Card className="border-amber-500 bg-amber-500/5">
-            <CardContent className="p-3">
-              <p className="text-sm text-amber-700 dark:text-amber-400">
-                {analysisResult.missingScreenshots.length === 1
-                  ? `Your SOP mentions "${analysisResult.missingScreenshots[0]}" but I don't see a matching screenshot. You can add it now or proceed without it.`
-                  : `Your SOP mentions ${analysisResult.missingScreenshots.length} screens without matching screenshots: ${analysisResult.missingScreenshots.join(", ")}. You can add them or proceed without.`}
-              </p>
-            </CardContent>
-          </Card>
+          <GlassCard className="border-amber-500 bg-amber-500/15 p-3">
+            <p className="text-[14px] text-amber-700 dark:text-amber-300">
+              {analysisResult.missingScreenshots.length === 1
+                ? `Your SOP mentions "${analysisResult.missingScreenshots[0]}" but I don't see a matching screenshot. You can add it now or proceed without it.`
+                : `Your SOP mentions ${analysisResult.missingScreenshots.length} screens without matching screenshots: ${analysisResult.missingScreenshots.join(", ")}. You can add them or proceed without.`}
+            </p>
+          </GlassCard>
         )}
 
         {analysisResult.steps.map((step) => {
@@ -193,7 +191,7 @@ export function AnnotationSideBySide({
               ref={setScreenshotRef(screenshotRef)}
               className="relative"
             >
-              <p className="text-xs text-muted-foreground mb-2">
+              <p className="text-[12px] text-[var(--v7-faint)] mb-2">
                 {screenshotRef}
               </p>
               <div className="relative">
@@ -202,10 +200,10 @@ export function AnnotationSideBySide({
                   <img
                     src={url}
                     alt={`Screenshot: ${screenshotRef}`}
-                    className="w-full rounded-lg"
+                    className="w-full rounded-[var(--v7-radius-inner)]"
                   />
                 ) : (
-                  <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center text-muted-foreground text-sm">
+                  <div className="w-full h-48 bg-[var(--v7-panel-2)] rounded-[var(--v7-radius-inner)] flex items-center justify-center text-[var(--v7-muted)] text-[14px]">
                     Screenshot not available
                   </div>
                 )}

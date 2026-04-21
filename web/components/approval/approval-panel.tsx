@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { ApprovalDiffViewer } from "./diff-viewer";
@@ -71,12 +71,12 @@ export function ApprovalPanel({ approval, containerWidth }: ApprovalPanelProps) 
         <div className="flex items-center gap-2">
           <ApprovalBadge status={localStatus} />
           {approval.comment && (
-            <p className="text-sm italic text-muted-foreground">
+            <p className="text-[14px] italic text-[var(--v7-muted)]">
               &quot;{approval.comment}&quot;
             </p>
           )}
           {localDecision && comment.trim() && (
-            <p className="text-sm italic text-muted-foreground">
+            <p className="text-[14px] italic text-[var(--v7-muted)]">
               &quot;{comment.trim()}&quot;
             </p>
           )}
@@ -84,12 +84,10 @@ export function ApprovalPanel({ approval, containerWidth }: ApprovalPanelProps) 
       )}
 
       {/* Explanation card */}
-      <Card className="bg-muted/50">
-        <CardContent className="p-4">
-          <h4 className="text-sm font-semibold">What changed and why</h4>
-          <p className="mt-1 text-sm">{approval.explanation}</p>
-        </CardContent>
-      </Card>
+      <GlassCard className="p-4">
+        <h4 className="text-[14px] font-semibold text-[var(--v7-text)]">What changed and why</h4>
+        <p className="mt-1 text-[14px] text-[var(--v7-text)]">{approval.explanation}</p>
+      </GlassCard>
 
       <Separator />
 
@@ -108,10 +106,10 @@ export function ApprovalPanel({ approval, containerWidth }: ApprovalPanelProps) 
           {/* Comment field */}
           <div>
             <div className="flex items-center justify-between">
-              <label htmlFor="approval-comment" className="text-sm font-semibold">
+              <label htmlFor="approval-comment" className="text-[14px] font-semibold text-[var(--v7-text)]">
                 Comment
               </label>
-              <span className="text-xs text-muted-foreground">Optional</span>
+              <span className="text-[12px] text-[var(--v7-muted)]">Optional</span>
             </div>
             <Textarea
               id="approval-comment"
@@ -123,7 +121,7 @@ export function ApprovalPanel({ approval, containerWidth }: ApprovalPanelProps) 
               disabled={isSubmitting}
             />
             {comment.length > 0 && (
-              <p className="mt-1 text-right text-xs text-muted-foreground">
+              <p className="mt-1 text-right text-[12px] text-[var(--v7-muted)]">
                 {comment.length} / {maxCommentLength}
               </p>
             )}
@@ -135,7 +133,7 @@ export function ApprovalPanel({ approval, containerWidth }: ApprovalPanelProps) 
               variant="outline"
               onClick={() => handleDecision("rejected")}
               disabled={isSubmitting}
-              className="text-destructive"
+              className="text-rose-700 dark:text-rose-300"
             >
               {isSubmitting && localDecision === "rejected" ? (
                 <Loader2 className="size-4 animate-spin" />

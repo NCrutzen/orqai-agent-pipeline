@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Card } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Clock, AlertCircle } from "lucide-react";
 
@@ -55,11 +55,10 @@ function humanDuration(startStr: string, endStr: string): string {
 }
 
 const statusVariant: Record<string, string> = {
-  pending: "bg-muted text-muted-foreground",
-  running: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  complete:
-    "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  failed: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+  pending: "bg-[var(--v7-panel-2)] text-[var(--v7-muted)]",
+  running: "bg-[var(--v7-blue-soft)] text-[var(--v7-blue)]",
+  complete: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  failed: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
 };
 
 export function RunCard({ run, showProject = false }: RunCardProps) {
@@ -70,18 +69,18 @@ export function RunCard({ run, showProject = false }: RunCardProps) {
 
   return (
     <Link href={`/projects/${run.project_id}/runs/${run.id}`}>
-      <Card className="p-4 transition-colors hover:border-foreground/20">
+      <GlassCard className="p-4 transition-all duration-[220ms] ease-out hover:-translate-y-[2px] hover:shadow-[var(--v7-glass-shadow-heavy)]">
         {/* Top row: name + status */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             {showProject && run.projects?.name && (
-              <p className="mb-0.5 truncate text-xs text-muted-foreground">
+              <p className="mb-0.5 truncate text-[12px] text-[var(--v7-faint)]">
                 {run.projects.name}
               </p>
             )}
-            <p className="truncate font-medium">{run.name}</p>
+            <p className="truncate font-medium text-[var(--v7-text)]">{run.name}</p>
             {run.use_case && (
-              <p className="mt-0.5 truncate text-sm text-muted-foreground">
+              <p className="mt-0.5 truncate text-[14px] text-[var(--v7-muted)]">
                 {run.use_case}
               </p>
             )}
@@ -95,15 +94,15 @@ export function RunCard({ run, showProject = false }: RunCardProps) {
         </div>
 
         {/* Bottom row: metadata */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-[var(--v7-faint)]">
           {/* Step progress */}
           <div className="flex items-center gap-1.5">
             <span>
               {run.steps_completed}/{run.step_count} steps
             </span>
-            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--v7-panel-2)]">
               <div
-                className="h-full rounded-full bg-foreground/40 transition-all"
+                className="h-full rounded-full bg-[var(--v7-muted)] transition-all"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -133,12 +132,12 @@ export function RunCard({ run, showProject = false }: RunCardProps) {
 
         {/* Error message if failed */}
         {run.status === "failed" && run.last_error && (
-          <div className="mt-2 flex items-start gap-1.5 text-xs text-red-600 dark:text-red-400">
+          <div className="mt-2 flex items-start gap-1.5 text-[12px] text-rose-700 dark:text-rose-300">
             <AlertCircle className="mt-0.5 size-3 shrink-0" />
             <p className="truncate">{run.last_error}</p>
           </div>
         )}
-      </Card>
+      </GlassCard>
     </Link>
   );
 }

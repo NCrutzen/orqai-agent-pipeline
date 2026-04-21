@@ -2,7 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import type { HealthServiceStatus } from "@/lib/credentials/types";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { cn } from "@/lib/utils";
 
 function formatRelativeTime(dateStr: string): string {
@@ -20,8 +20,8 @@ const STATUS_CONFIG: Record<
   { dotClass: string; borderClass: string; text: string }
 > = {
   connected: {
-    dotClass: "bg-green-500",
-    borderClass: "border-l-green-500",
+    dotClass: "bg-emerald-500",
+    borderClass: "border-l-emerald-500",
     text: "Connected",
   },
   degraded: {
@@ -30,18 +30,18 @@ const STATUS_CONFIG: Record<
     text: "Degraded -- responding slowly",
   },
   unreachable: {
-    dotClass: "bg-red-500",
-    borderClass: "border-l-red-500",
+    dotClass: "bg-rose-500",
+    borderClass: "border-l-rose-500",
     text: "Unreachable",
   },
   checking: {
-    dotClass: "bg-muted-foreground animate-pulse",
-    borderClass: "border-l-muted",
+    dotClass: "bg-[var(--v7-muted)] animate-pulse",
+    borderClass: "border-l-[var(--v7-glass-border)]",
     text: "Checking...",
   },
   null: {
-    dotClass: "bg-muted-foreground/30",
-    borderClass: "border-l-muted",
+    dotClass: "bg-[var(--v7-faint)]",
+    borderClass: "border-l-[var(--v7-glass-border)]",
     text: "Not checked",
   },
 };
@@ -64,25 +64,29 @@ export function HealthStatusCard({
   const config = STATUS_CONFIG[status ?? "null"];
 
   return (
-    <Card className={cn("border-l-4", config.borderClass)}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+    <GlassCard className={cn("p-5 border-l-4", config.borderClass)}>
+      <div className="flex flex-row items-center justify-between pb-2">
         <div className="flex items-center gap-2">
           <div className={cn("size-2 rounded-full", config.dotClass)} />
-          <span className="text-sm font-semibold">{serviceName}</span>
+          <span className="text-[14px] font-semibold text-[var(--v7-text)]">
+            {serviceName}
+          </span>
         </div>
-        <ServiceIcon className="size-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm">{config.text}</p>
+        <ServiceIcon className="size-4 text-[var(--v7-muted)]" />
+      </div>
+      <div>
+        <p className="text-[14px] text-[var(--v7-text)]">{config.text}</p>
         {checkedAt && (
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-[12px] text-[var(--v7-faint)] mt-1">
             Last checked {formatRelativeTime(checkedAt)}
           </p>
         )}
         {error && status !== "connected" && (
-          <p className="text-xs text-destructive mt-2 line-clamp-2">{error}</p>
+          <p className="text-[12px] text-rose-700 dark:text-rose-300 mt-2 line-clamp-2">
+            {error}
+          </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </GlassCard>
   );
 }

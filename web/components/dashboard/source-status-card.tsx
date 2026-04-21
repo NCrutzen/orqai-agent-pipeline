@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import { cn } from "@/lib/utils";
 import { formatRelativeTimestamp } from "@/lib/dashboard/format";
 import { HealthDot } from "./health-dot";
@@ -24,38 +24,40 @@ export function SourceStatusCard({
   health,
 }: SourceStatusCardProps) {
   return (
-    <Card className={cn(freshness.stale && "border-amber-300 dark:border-amber-700")}>
-      <CardHeader className="flex-row items-center gap-2">
-        <CardTitle className="text-sm font-medium">{source}</CardTitle>
+    <GlassCard className={cn("p-5", freshness.stale && "border-[var(--v7-amber)]")}>
+      <div className="flex flex-row items-center gap-2 pb-3">
+        <h3 className="text-[14px] font-bold font-[var(--font-cabinet)] text-[var(--v7-text)]">
+          {source}
+        </h3>
         <HealthDot status={health} />
-      </CardHeader>
-      <CardContent className="space-y-1">
+      </div>
+      <div className="space-y-1">
         {Object.entries(metrics).map(([key, value]) => (
-          <div key={key} className="flex justify-between text-sm">
-            <span className="text-muted-foreground">{key}</span>
-            <span className="font-medium">{String(value)}</span>
+          <div key={key} className="flex justify-between text-[14px]">
+            <span className="text-[var(--v7-muted)]">{key}</span>
+            <span className="font-medium text-[var(--v7-text)]">{String(value)}</span>
           </div>
         ))}
-      </CardContent>
-      <CardFooter className="flex-col items-start gap-1 text-[10px]">
+      </div>
+      <div className="flex flex-col items-start gap-1 pt-3 text-[10px]">
         {freshness.lastTimestamp ? (
-          <span className="text-muted-foreground">
+          <span className="text-[var(--v7-faint)]">
             {formatRelativeTimestamp(freshness.lastTimestamp)}
           </span>
         ) : (
-          <span className="text-muted-foreground">No data collected yet</span>
+          <span className="text-[var(--v7-faint)]">No data collected yet</span>
         )}
         {freshness.stale && (
-          <span className="text-amber-600 dark:text-amber-400">
+          <span className="text-[var(--v7-amber)]">
             Data may be stale
           </span>
         )}
         {freshness.usingFallback && freshness.fallbackTimestamp && (
-          <span className="text-amber-600 dark:text-amber-400">
+          <span className="text-[var(--v7-amber)]">
             Using data from {freshness.fallbackTimestamp} -- latest scrape had issues
           </span>
         )}
-      </CardFooter>
-    </Card>
+      </div>
+    </GlassCard>
   );
 }

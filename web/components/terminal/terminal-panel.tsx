@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 import type { TerminalEntry } from "@/lib/systems/types";
 import { TerminalEntryCard } from "./terminal-entry";
 import { EntryInteraction } from "./terminal-input";
@@ -80,9 +80,9 @@ export function TerminalPanel({
   return (
     <div className="flex h-full flex-col">
       {/* Header bar */}
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <h2 className="text-sm font-semibold">Activity</h2>
-        <Badge variant="secondary" className="text-xs">
+      <div className="flex items-center justify-between border-b border-[var(--v7-glass-border)] px-4 py-3">
+        <h2 className="text-[14px] font-semibold text-[var(--v7-text)]">Activity</h2>
+        <Badge variant="secondary" className="text-[12px]">
           {entries.length}
         </Badge>
       </div>
@@ -97,13 +97,11 @@ export function TerminalPanel({
       >
         {entries.length === 0 ? (
           /* Empty state */
-          <Card className="mt-8">
-            <CardContent className="py-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                Pipeline steps will appear here as they execute.
-              </p>
-            </CardContent>
-          </Card>
+          <GlassCard className="mt-8 py-8 text-center">
+            <p className="text-[14px] text-[var(--v7-muted)]">
+              Pipeline steps will appear here as they execute.
+            </p>
+          </GlassCard>
         ) : (
           entries.map((entry) => (
             <TerminalEntryCard key={entry.id} entry={entry}>
