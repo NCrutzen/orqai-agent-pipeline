@@ -81,24 +81,48 @@ export async function POST(request: NextRequest) {
   const parsedQuantity = quantity != null && quantity !== "" ? Number(quantity) : undefined;
   const parsedUnitPrice = unitPrice != null && unitPrice !== "" ? Number(unitPrice) : undefined;
 
+  const inngestPayload = {
+    triggeredBy: "zapier-webhook",
+    billingOrderCode,
+    billingOrderId: billingOrderId ?? "",
+    billingOrderLineId,
+    billingItemId,
+    courseId: courseId ?? "",
+    ...(customerId ? { customerId: String(customerId) } : {}),
+    ...(siteId ? { siteId: String(siteId) } : {}),
+    ...(brandId ? { brandId: String(brandId) } : {}),
+    ...(orderTypeId ? { orderTypeId: String(orderTypeId) } : {}),
+    ...(Number.isFinite(parsedQuantity) ? { quantity: parsedQuantity } : {}),
+    ...(Number.isFinite(parsedUnitPrice) ? { unitPrice: parsedUnitPrice } : {}),
+    ...(description ? { description: String(description) } : {}),
+    ...(environment === "acceptance" || environment === "production" ? { environment } : {}),
+  };
+
+  // Dry-run: echo terug wat we ontvangen zonder Inngest/NXT te raken.
+  // Handig om Zapier → Vercel payload te debuggen.
+  if (body.dryRun === true || body.dryRun === "true") {
+    const requiredMissing: string[] = [];
+    const fase2Missing: string[] = [];
+    for (const k of ["customerId", "siteId", "brandId", "orderTypeId", "quantity", "unitPrice", "description"] as const) {
+      if (!(k in inngestPayload)) fase2Missing.push(k);
+    }
+    return NextResponse.json(
+      {
+        dryRun: true,
+        message: "DRY RUN — geen Inngest/NXT aangeroepen",
+        rawBodyKeys: Object.keys(body),
+        parsedPayload: inngestPayload,
+        fase1_ok: Boolean(billingOrderCode && billingOrderLineId && billingItemId),
+        fase2_missing: fase2Missing,
+        fase2_ready: fase2Missing.length === 0,
+      },
+      { status: 200 },
+    );
+  }
+
   await inngest.send({
     name: "automation/heeren-oefeningen.triggered",
-    data: {
-      triggeredBy: "zapier-webhook",
-      billingOrderCode,
-      billingOrderId: billingOrderId ?? "",
-      billingOrderLineId,
-      billingItemId,
-      courseId: courseId ?? "",
-      ...(customerId ? { customerId: String(customerId) } : {}),
-      ...(siteId ? { siteId: String(siteId) } : {}),
-      ...(brandId ? { brandId: String(brandId) } : {}),
-      ...(orderTypeId ? { orderTypeId: String(orderTypeId) } : {}),
-      ...(Number.isFinite(parsedQuantity) ? { quantity: parsedQuantity } : {}),
-      ...(Number.isFinite(parsedUnitPrice) ? { unitPrice: parsedUnitPrice } : {}),
-      ...(description ? { description: String(description) } : {}),
-      ...(environment === "acceptance" || environment === "production" ? { environment } : {}),
-    },
+    data: inngestPayload,
   });
 
   return NextResponse.json(
