@@ -4,7 +4,7 @@ milestone: v0.3
 milestone_name: milestone
 status: "Ready for `/gsd:execute-phase 42` to continue with 42-02-PLAN.md (failure-diagnoser enrichments)"
 stopped_at: Completed 42-05-PLAN.md
-last_updated: "2026-04-21T05:58:16.863Z"
+last_updated: "2026-04-21T05:58:25.395Z"
 last_activity: "2026-04-21 — Phase 42 Plan 01 complete: tester.md eval-science enrichments; commit e6718da"
 progress:
   total_phases: 10
@@ -192,6 +192,8 @@ Recent decisions affecting current work:
 - [Phase 42]: Phase 42 Plan 02: failure-diagnoser classifies every failure into specification/generalization/dataset/evaluator BEFORE diagnosis; enforces outcome-based grading (no path grading); splits iteration-proposals.json into changes[] + dataset_quality_issues[] + evaluator_quality_issues[] — Closes ESCI-01/02/08; layer-separated action arrays route fixes to correct consumer (prompt-editor vs dataset-generator vs evaluator-validator)
 - [Phase 42]: Tester.md gains isolated graders (tool selection / argument quality / output interpretation), capability-to-regression graduation after 2 green runs, overfitting guard at ≥98% on <100 datapoints, and per-iteration run-comparison table
 - [Phase 42-evaluator-validation-iterator-enrichments]: Hardener TPR/TNR gate reads evaluator-validator JSON; unvalidated custom evaluators downgraded to settings.evaluators (monitoring-only) instead of hard-fail — Preserves visibility without blocking production on unvalidated judges; concerns separated between data collection (evaluator-validator) and enforcement (hardener)
+- [Phase 42-evaluator-validation-iterator-enrichments]: sample_rate derived from 7-day median volume at harden time (100%/30%/10%); safety evaluators override to 100%; no-data fallback = 100% — Volume-driven tradeoff balances LLM-judge cost vs coverage; safety is non-negotiable at every tier
+- [Phase 42-evaluator-validation-iterator-enrichments]: Prevalence correction (theta_hat) guarded by TPR+TNR>1; below threshold report raw with warning instead of misleading corrected number — Formula is mathematically unsafe when judge is worse than random; explicit warning preserves trust
 
 ### Blockers/Concerns
 
