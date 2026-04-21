@@ -68,6 +68,16 @@ orq-agent/
         chunking-strategies.md  # Phase 40: sentence vs recursive decision rules (KBM-03)
         kb-vs-memory.md         # Phase 40: KB-vs-Memory decision rule + anti-patterns (KBM-04)
         retrieval-test-template.md  # Phase 40: retrieval test queries + pass criteria (KBM-01)
+    prompt-optimization.md       # Phase 41: Prompt optimization skill (POPT-01..04)
+    prompt-optimization/
+      resources/
+        11-guidelines.md         # Phase 41: 11-guideline rubric (POPT-02)
+        rewrite-examples.md      # Phase 41: before/after rewrite exemplars (POPT-03)
+    compare-frameworks.md        # Phase 41: Cross-framework comparison skill (XFRM-01..03)
+    compare-frameworks/
+      resources/
+        evaluatorq-script-templates.md  # Phase 41: Python + TS evaluatorq scaffolds (XFRM-01)
+        framework-adapters.md           # Phase 41: per-framework adapter sketches (XFRM-01)
     test.md                      # Phase 5: Automated testing (requires test+ tier)
     iterate.md                   # Phase 5: Prompt iteration (requires full tier)
     harden.md                    # Phase 9: Guardrails and quality gates (requires full tier)
@@ -255,6 +265,28 @@ Resource docs under `orq-agent/agents/dataset-generator/resources/` (adversarial
 
 Resource docs under `orq-agent/commands/kb/resources/` (chunking-strategies, kb-vs-memory, retrieval-test-template) are consumed only by `commands/kb.md`, `agents/kb-generator.md`, and `agents/memory-store-generator.md` (all under the kb skill umbrella — single-consumer per Resources Policy below).
 
+### Phase 41 (Prompt Optimization & Cross-Framework Comparison)
+
+| Command | File | Tier Required | Purpose |
+|---------|------|---------------|---------|
+| `/orq-agent:prompt-optimization` | `commands/prompt-optimization.md` | deploy+ | Analyze a prompt against the 11-guideline framework (role, task, stress, guidelines, output-format, tool-calling, reasoning, examples, unnecessary-content, variable-usage, recap); preserve `{{variable}}` literally; produce ≤5 suggestions (POPT-02); diff + AskUserQuestion approval (POPT-03); publish rewrite as a new orq.ai version preserving the original (POPT-04); recommend `/orq-agent:test` for A/B validation |
+| `/orq-agent:compare-frameworks` | `commands/compare-frameworks.md` | deploy+ | Generate an `evaluatorq` comparison script (Python or TypeScript via `--lang python|ts`) benchmarking the same agent across orq.ai, LangGraph, CrewAI, OpenAI Agents SDK, and Vercel AI SDK (XFRM-01); enforce fairness (same dataset / evaluators / model unless `--isolate-model`) (XFRM-02); smoke-invoke each adapter before the full run; shared `experiment_id` surfaces side-by-side in Experiment UI (XFRM-03) |
+
+**`/orq-agent:prompt-optimization` requirement coverage (Phase 41):**
+
+- POPT-01 — Prompt fetch (inline text or orq.ai prompt key); `{{variable}}` scan preserves every placeholder literally before any rewrite.
+- POPT-02 — 11-guideline analysis (role, task, stress, guidelines, output-format, tool-calling, reasoning, examples, unnecessary-content, variable-usage, recap); ≤5 suggestions per run.
+- POPT-03 — Rewrite + side-by-side diff + AskUserQuestion approval gate; no mutation without explicit "yes".
+- POPT-04 — New version published via MCP `create_prompt_version` (REST fallback `POST /v2/prompts/{key}/versions`); original preserved; `/orq-agent:test` recommended.
+
+**`/orq-agent:compare-frameworks` requirement coverage (Phase 41):**
+
+- XFRM-01 — evaluatorq script emitted in Python or TypeScript (user picks via `--lang python|ts`); exactly one job per framework across orq.ai, LangGraph, CrewAI, OpenAI Agents SDK, Vercel AI SDK.
+- XFRM-02 — Fairness checks (same dataset, same evaluator set, same model unless `--isolate-model`); fails fast with "Fairness check failed:" block on violation.
+- XFRM-03 — Per-framework smoke-invocation precheck before full run; shared `experiment_id` across all 5 jobs surfaces results side-by-side in the orq.ai Experiment UI.
+
+Resource docs under `orq-agent/commands/prompt-optimization/resources/` (11-guidelines, rewrite-examples) are consumed only by `commands/prompt-optimization.md`; resource docs under `orq-agent/commands/compare-frameworks/resources/` (evaluatorq-script-templates, framework-adapters) are consumed only by `commands/compare-frameworks.md` (single-consumer per Resources Policy below).
+
 **Invocation:** `/orq-agent "description"` | `/orq-agent` (interactive) | `--gsd` flag | `--output <path>`
 
 ## Command Flags
@@ -408,7 +440,7 @@ Skill documentation lives in two places. The placement rule is driven by consume
 
 **Invariant (enforced by lint):** Every file under `orq-agent/references/` MUST be consumed by ≥2 skills. The `references-multi-consumer` rule in `orq-agent/scripts/lint-skills.sh` enforces this. If a file drops to 1 consumer, the lint fails and the file must move to that consumer's `<skill>/resources/`.
 
-**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phase 37 established the first live per-skill resources directory at `orq-agent/commands/observability/resources/` (5 framework snippets consumed only by `observability.md`). Phase 38 adds a second at `orq-agent/commands/trace-failure-analysis/resources/` (3 files: grounded-theory-methodology, failure-mode-classification, handoff-matrix — consumed only by `trace-failure-analysis.md`). Phase 39 adds a third per-skill resources directory at `orq-agent/agents/dataset-generator/resources/` (3 files: adversarial-vectors, coverage-rules, shapes — consumed only by `dataset-generator.md`). Phase 40 adds a fourth per-skill resources directory at `orq-agent/commands/kb/resources/` (3 files: chunking-strategies, kb-vs-memory, retrieval-test-template — consumed only by `commands/kb.md`, `agents/kb-generator.md`, and `agents/memory-store-generator.md` under the kb skill umbrella). Phases 41-43 will create additional per-skill `resources/` directories on demand when single-consumer content appears.
+**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phase 37 established the first live per-skill resources directory at `orq-agent/commands/observability/resources/` (5 framework snippets consumed only by `observability.md`). Phase 38 adds a second at `orq-agent/commands/trace-failure-analysis/resources/` (3 files: grounded-theory-methodology, failure-mode-classification, handoff-matrix — consumed only by `trace-failure-analysis.md`). Phase 39 adds a third per-skill resources directory at `orq-agent/agents/dataset-generator/resources/` (3 files: adversarial-vectors, coverage-rules, shapes — consumed only by `dataset-generator.md`). Phase 40 adds a fourth per-skill resources directory at `orq-agent/commands/kb/resources/` (3 files: chunking-strategies, kb-vs-memory, retrieval-test-template — consumed only by `commands/kb.md`, `agents/kb-generator.md`, and `agents/memory-store-generator.md` under the kb skill umbrella). Phase 41 adds the fifth and sixth per-skill resources directories at `orq-agent/commands/prompt-optimization/resources/` (2 files: 11-guidelines, rewrite-examples — consumed only by `commands/prompt-optimization.md`) and `orq-agent/commands/compare-frameworks/resources/` (2 files: evaluatorq-script-templates, framework-adapters — consumed only by `commands/compare-frameworks.md`). Phases 42-43 will create additional per-skill `resources/` directories on demand when single-consumer content appears.
 
 ## Anti-Patterns
 
