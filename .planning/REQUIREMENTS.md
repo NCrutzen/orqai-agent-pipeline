@@ -23,13 +23,13 @@ Thin MCP-backed slash commands that give users direct visibility into their work
 
 New skill for instrumenting LLM applications so downstream trace-analysis and eval workflows have signal to work with.
 
-- [ ] **OBSV-01**: Skill detects user's LLM framework (OpenAI SDK, LangChain, CrewAI, Vercel AI, etc.) and existing instrumentation state
-- [ ] **OBSV-02**: Skill recommends integration mode — AI Router (zero-code), OTEL-only, or both — based on detection
+- [x] **OBSV-01**: Skill detects user's LLM framework (OpenAI SDK, LangChain, CrewAI, Vercel AI, etc.) and existing instrumentation state
+- [x] **OBSV-02**: Skill recommends integration mode — AI Router (zero-code), OTEL-only, or both — based on detection
 - [x] **OBSV-03**: Skill generates framework-specific integration code with correct import order (instrumentors before SDK clients)
-- [ ] **OBSV-04**: Skill verifies baseline trace quality — traces appearing, model/tokens captured, span hierarchy, no PII
-- [ ] **OBSV-05**: Skill enriches traces with session_id, user_id, feature tags, customer_id when inferred from code
-- [ ] **OBSV-06**: Skill guides `@traced` decorator placement for custom spans (agent/llm/tool/retrieval/embedding/function types)
-- [ ] **OBSV-07**: Skill documents attaching `identity` attributes to traces (per-customer / per-tenant attribution) and guides filtering traces by identity via `/orq-agent:traces` — enables per-client cost/quality reporting with billing margins
+- [x] **OBSV-04**: Skill verifies baseline trace quality — traces appearing, model/tokens captured, span hierarchy, no PII
+- [x] **OBSV-05**: Skill enriches traces with session_id, user_id, feature tags, customer_id when inferred from code
+- [x] **OBSV-06**: Skill guides `@traced` decorator placement for custom spans (agent/llm/tool/retrieval/embedding/function types)
+- [x] **OBSV-07**: Skill documents attaching `identity` attributes to traces (per-customer / per-tenant attribution) and guides filtering traces by identity via `/orq-agent:traces` — enables per-client cost/quality reporting with billing margins
 
 ### Trace Failure Analysis (TFAIL)
 
@@ -210,13 +210,13 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | LCMD-05 | 36 | Complete |
 | LCMD-06 | 36 | Complete |
 | LCMD-07 | 36 | Complete |
-| OBSV-01 | 37 | Pending |
-| OBSV-02 | 37 | Pending |
+| OBSV-01 | 37 | Complete |
+| OBSV-02 | 37 | Complete |
 | OBSV-03 | 37 | Complete |
-| OBSV-04 | 37 | Pending |
-| OBSV-05 | 37 | Pending |
-| OBSV-06 | 37 | Pending |
-| OBSV-07 | 37 | Pending |
+| OBSV-04 | 37 | Complete |
+| OBSV-05 | 37 | Complete |
+| OBSV-06 | 37 | Complete |
+| OBSV-07 | 37 | Complete |
 | TFAIL-01 | 38 | Pending |
 | TFAIL-02 | 38 | Pending |
 | TFAIL-03 | 38 | Pending |
