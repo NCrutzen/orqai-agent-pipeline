@@ -28,6 +28,7 @@ import {
   Wrench,
   ChevronDown,
   Search,
+  Boxes,
 } from "lucide-react";
 import type {
   RealtimeChannel,
@@ -108,39 +109,70 @@ function NavGroup({
   items,
   pathname,
   icon: LabelIcon,
+  collapsible = false,
+  defaultOpen = true,
 }: {
   label: string;
   items: NavItem[];
   pathname: string | null;
   icon?: typeof Home;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }) {
+  const hasActiveChild = items.some((it) =>
+    pathname ? it.match(pathname) : false,
+  );
+  const [open, setOpen] = useState(
+    collapsible ? defaultOpen || hasActiveChild : true,
+  );
+
+  const header = (
+    <span className="flex items-center gap-1.5 text-[11px] leading-[1.3] tracking-[0.12em] uppercase text-[var(--v7-faint)]">
+      {LabelIcon && <LabelIcon size={12} />}
+      {label}
+    </span>
+  );
+
   return (
     <nav className="flex flex-col gap-1" aria-label={label}>
-      <span className="mb-1 flex items-center gap-1.5 text-[11px] leading-[1.3] tracking-[0.12em] uppercase text-[var(--v7-faint)]">
-        {LabelIcon && <LabelIcon size={12} />}
-        {label}
-      </span>
-      {items.map((item) => {
-        const isActive = pathname ? item.match(pathname) : false;
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.title}
-            href={item.href}
-            className={`flex items-center gap-3 rounded-[var(--v7-radius-sm)] px-3 py-2 text-[14px] transition-colors ${
-              isActive
-                ? "bg-[var(--v7-brand-primary-soft)] text-[var(--v7-text)]"
-                : "text-[var(--v7-muted)] hover:bg-[var(--v7-panel-2)] hover:text-[var(--v7-text)]"
-            }`}
-          >
-            <Icon
-              size={16}
-              className={isActive ? "text-[var(--v7-brand-primary)]" : ""}
-            />
-            <span>{item.title}</span>
-          </Link>
-        );
-      })}
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="group mb-1 flex items-center gap-2 text-left"
+          aria-expanded={open}
+        >
+          <ChevronDown
+            size={14}
+            className={`text-[var(--v7-faint)] transition-transform ${open ? "" : "-rotate-90"}`}
+          />
+          {header}
+        </button>
+      ) : (
+        <div className="mb-1">{header}</div>
+      )}
+      {open &&
+        items.map((item) => {
+          const isActive = pathname ? item.match(pathname) : false;
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.title}
+              href={item.href}
+              className={`flex items-center gap-3 rounded-[var(--v7-radius-sm)] px-3 py-2 text-[14px] transition-colors ${
+                isActive
+                  ? "bg-[var(--v7-brand-primary-soft)] text-[var(--v7-text)]"
+                  : "text-[var(--v7-muted)] hover:bg-[var(--v7-panel-2)] hover:text-[var(--v7-text)]"
+              }`}
+            >
+              <Icon
+                size={16}
+                className={isActive ? "text-[var(--v7-brand-primary)]" : ""}
+              />
+              <span>{item.title}</span>
+            </Link>
+          );
+        })}
     </nav>
   );
 }
@@ -161,8 +193,8 @@ export function SwarmSidebar({
     return pathname.split("/")[2] ?? null;
   }, [pathname]);
 
-  // Collapse swarms by default when list is long; keep open if user is on a swarm route.
-  const [swarmsOpen, setSwarmsOpen] = useState(() => swarms.length <= 10 || !!activeId);
+  // Swarms collapsed by default; auto-open if the user is already on a /swarm/* route.
+  const [swarmsOpen, setSwarmsOpen] = useState(() => !!activeId);
   const [swarmFilter, setSwarmFilter] = useState("");
 
   const filteredSwarms = useMemo(() => {
@@ -279,6 +311,8 @@ export function SwarmSidebar({
         items={AUTOMATIONS_ITEMS}
         pathname={pathname}
         icon={Wrench}
+        collapsible
+        defaultOpen={false}
       />
 
       <div className="flex flex-col gap-2 min-h-0 flex-1">
@@ -292,7 +326,8 @@ export function SwarmSidebar({
             size={14}
             className={`text-[var(--v7-faint)] transition-transform ${swarmsOpen ? "" : "-rotate-90"}`}
           />
-          <span className="text-[11px] leading-[1.3] tracking-[0.12em] uppercase text-[var(--v7-faint)] group-hover:text-[var(--v7-text)]">
+          <span className="flex items-center gap-1.5 text-[11px] leading-[1.3] tracking-[0.12em] uppercase text-[var(--v7-faint)] group-hover:text-[var(--v7-text)]">
+            <Boxes size={12} />
             Swarms
           </span>
           <span className="ml-auto rounded-full bg-[var(--v7-panel-2)] px-2 py-0.5 text-[10px] font-semibold text-[var(--v7-muted)]">
