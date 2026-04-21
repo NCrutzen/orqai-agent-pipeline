@@ -153,7 +153,7 @@ Upgrades to existing iterator and hardener subagents with methodology from the r
 - [x] **ITRX-01**: Iterator assigns P0/P1/P2 priority to every proposed improvement (P0: prompt wording, few-shot, constraints; P1: decomposition, tool descriptions, RAG tuning; P2: model upgrade, expand eval set, fine-tuning)
 - [x] **ITRX-02**: Iterator produces a structured Action Plan (Summary + Priority Improvements + Re-run Criteria) per iteration, in addition to the existing iteration-log.json
 - [x] **ITRX-03**: Tester produces a run-comparison table across iterations (Run | Date | Model | Avg Score | Cost | Key Changes) for trend tracking
-- [ ] **ITRX-04**: Results-analyzer flags regressions when any score drops vs the previous run (⚠️ marker in output)
+- [x] **ITRX-04**: Results-analyzer flags regressions when any score drops vs the previous run (⚠️ marker in output)
 - [x] **ITRX-05**: Iterator refuses to re-run the same optimizer on the same prompt without an explicit user override (no-drift rule)
 - [ ] **ITRX-06**: Hardener exposes a human-review-queue hook — promoting an evaluator to a guardrail can require a minimum number of human-reviewed spans (configurable, tier-gated)
 - [x] **ITRX-07**: Iterator ticket output includes Evidence (datapoints affected, current scores, run ID) and Success Criteria (target re-run score), not just the proposed diff
@@ -285,7 +285,7 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | ITRX-01 | 42 | Complete |
 | ITRX-02 | 42 | Complete |
 | ITRX-03 | 42 | Complete |
-| ITRX-04 | 42 | Pending |
+| ITRX-04 | 42 | Complete |
 | ITRX-05 | 42 | Complete |
 | ITRX-06 | 42 | Pending |
 | ITRX-07 | 42 | Complete |
