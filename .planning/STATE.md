@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 38-02-PLAN.md — 3 resource files (grounded-theory + classification + handoff-matrix) live under commands/trace-failure-analysis/resources/; lint + protected-pipelines 3/3 green; ready for Plan 03 (main skill body)
-last_updated: "2026-04-21T04:24:43.488Z"
-last_activity: "2026-04-21 — Phase 37 Plan 05 complete: full-suite verification sweep captured; 4th consecutive V3.0 phase (34/35/36/37) mechanically closed under canonical VERIFICATION.md pattern; commit df2e1df"
+status: completed
+stopped_at: Completed 38-01-PLAN.md — trace-failure-analysis.md authored (287 lines); 7/7 SKST sections + 7/7 Steps + 33/33 grep anchors + lint PASS + protected-pipelines 3/3 intact; ready for Plan 02 (resources)
+last_updated: "2026-04-21T04:26:00.831Z"
+last_activity: "2026-04-21 — Phase 38 Plan 02 complete: 3 single-consumer resource files shipped under the Phase-37-precedent resources/ subdir; TFAIL-02/03/05/06 marked complete; commit 29851b6"
 progress:
   total_phases: 10
   completed_phases: 4
   total_plans: 27
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 38 - Trace Failure Analysis Skill (Plan 2 of 4 — 1/4 plans closed)
-Plan: 02 complete — 3 resource files (grounded-theory-methodology.md 45L, failure-mode-classification.md 63L, handoff-matrix.md 25L) live under orq-agent/commands/trace-failure-analysis/resources/; reuses Phase 37 per-skill resources/ pattern; lint + protected-pipelines 3/3 green; 4/6 TFAIL reqs marked complete (TFAIL-02/03/05/06); commit 29851b6
-Status: Phase 38 Plan 02 complete — ready for Plan 03 (main skill body orq-agent/commands/trace-failure-analysis.md with SKST-9 sections + 7-step pipeline referencing these 3 resources)
-Last activity: 2026-04-21 — Phase 38 Plan 02 complete: 3 single-consumer resource files shipped under the Phase-37-precedent resources/ subdir; TFAIL-02/03/05/06 marked complete; commit 29851b6
+Phase: 38 - Trace Failure Analysis Skill (Plan 3 of 4 — 2/4 plans closed)
+Plan: 01 complete — orq-agent/commands/trace-failure-analysis.md authored (287L single-file SKST-compliant skill); 9 mandatory SKST H2 sections + 7 numbered ## Step N: sections (Sampling → Open Coding → Axial Coding → First-Upstream Labeling → Transition Matrix → Mode Classification → Report Generation); MCP-first with REST fallback; deploy+ tier gate; 33/33 grep anchors PASS; lint PASS; protected-pipelines 3/3 intact; all 6/6 TFAIL-01..06 now complete; commit 92ae1fd
+Status: Phase 38 Plans 01 + 02 complete (main skill body + resources/ subdir) — ready for Plan 03 (SKILL.md + help.md index wiring + companion back-reference from traces.md)
+Last activity: 2026-04-21 — Phase 38 Plan 01 complete: trace-failure-analysis.md main body shipped (287L); 6/6 TFAIL-01..06 closed; 2/4 plans done; commit 92ae1fd
 
 Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5). V3.0 Phase 36 mechanically COMPLETE (8/8). V3.0 Phase 37 mechanically COMPLETE (5/5). Next V3.0 phases (38-43) inherit SKST + MSEL-02 + protected-pipeline invariants.
 
@@ -61,6 +61,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 37-observability-setup-skill P04 | 2 min | 1 tasks | 2 files |
 | Phase 37-observability-setup-skill P05 | 2 min | 1 tasks | 1 files |
 | Phase 38-trace-failure-analysis-skill P02 | 1 min | 1 tasks | 3 files |
+| Phase 38-trace-failure-analysis-skill P01 | 2 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -144,6 +145,8 @@ Recent decisions affecting current work:
 - [Phase 38-trace-failure-analysis-skill]: Phase 38 resources land under commands/trace-failure-analysis/resources/ per Phase 34 Resources Policy; content is freeform prose because lint default glob (commands/*.md single-level) auto-excludes resources/
 - [Phase 38-trace-failure-analysis-skill]: First-upstream-failure rule (TFAIL-03) framed with explicit 3-span cascade example in grounded-theory-methodology.md — prevents rate-inflation anti-pattern visceral
 - [Phase 38-trace-failure-analysis-skill]: Classification mutual-exclusivity tiebreaker = upstream-fix-first (prefer specification over generalization-* when both fit); multi-mode handoff ordering trivial-bug then specification then code-checkable then subjective
+- [Phase 38-trace-failure-analysis-skill]: Per-skill resources (grounded-theory-methodology.md, failure-mode-classification.md, handoff-matrix.md) referenced by path in Plan 01 skill body; actual creation deferred to Plan 02 per phase parallel_safety invariant
+- [Phase 38-trace-failure-analysis-skill]: trace-failure-analysis.md emits zero model: YAML lines (it operates on queried traces, not authored specs) — MSEL-02 clean by construction; prose snapshot examples like claude-sonnet-4-5-20250929 are fine because the MSEL-02 regex only fires on model: YAML lines
 
 ### Blockers/Concerns
 
@@ -168,7 +171,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T04:24:43.485Z
-Stopped at: Completed 38-02-PLAN.md — 3 resource files (grounded-theory + classification + handoff-matrix) live under commands/trace-failure-analysis/resources/; lint + protected-pipelines 3/3 green; ready for Plan 03 (main skill body)
+Last session: 2026-04-21T04:26:00.828Z
+Stopped at: Completed 38-01-PLAN.md — trace-failure-analysis.md authored (287 lines); 7/7 SKST sections + 7/7 Steps + 33/33 grep anchors + lint PASS + protected-pipelines 3/3 intact; ready for Plan 02 (resources)
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
