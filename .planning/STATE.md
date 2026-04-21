@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 38-04-PLAN.md
-last_updated: "2026-04-21T04:36:26.767Z"
-last_activity: "2026-04-21 — Phase 38 Plan 04 complete: 38-04-VERIFICATION.md (155 lines) captures 8/8 mechanical gates green + 6/6 TFAIL file-level traceability + 5/5 ROADMAP criteria; Phase 38 mechanically COMPLETE (4/4); commit fe7fceb"
+stopped_at: Completed 39-01-PLAN.md
+last_updated: "2026-04-21T04:46:30.058Z"
+last_activity: "2026-04-21 — Phase 39 Plan 01 complete: dataset-generator.md extended with DSET-01..08 sections (+73 lines); 16/16 grep anchors green; SKST lint + protected-pipeline 3/3 SHA-256 pass; commit e9bfcef"
 progress:
   total_phases: 10
   completed_phases: 5
-  total_plans: 27
-  completed_plans: 27
+  total_plans: 32
+  completed_plans: 28
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 38 - Trace Failure Analysis Skill (Plan 4 of 4 — 4/4 plans closed; mechanically COMPLETE)
-Plan: 04 complete — 38-04-VERIFICATION.md authored (155 lines) capturing 8/8 mechanical gates green (full-suite lint, per-file lint, MSEL-02 sweep, protected-pipeline 3/3 SHA-256, TFAIL anchor bundle 54 matches, resources dir=3, index references 3 surfaces, TODO(TFAIL) eradicated); 6/6 TFAIL traceability rows file-level PASS; 5/5 ROADMAP success criteria file-level PASS; 4 manual smokes deferred to /gsd:verify-work 38; commit fe7fceb
-Status: Phase 38 mechanically COMPLETE (4/4 plans) — ready for /gsd:verify-work 38 (manual smokes: end-to-end 4-8 mode elicitation, transition-matrix on multi-span pipeline, handoff-recommendation sensibility, MCP --identity round-trip)
-Last activity: 2026-04-21 — Phase 38 Plan 04 complete: 38-04-VERIFICATION.md (155 lines) captures 8/8 mechanical gates green + 6/6 TFAIL file-level traceability + 5/5 ROADMAP criteria; Phase 38 mechanically COMPLETE (4/4); commit fe7fceb
+Phase: 39 - Dataset Generator Enhancements (Plan 2 of 5)
+Plan: 01 complete — dataset-generator.md extended with DSET-01..08 sections (Two-Step Mode, 8-vector adversarial catalog, Coverage Rules, Curation Mode 4, Dataset Shapes, Promote-From-Trace) + 2 appended Constraints; 16/16 grep anchors green, SKST lint + protected-pipeline 3/3 SHA-256 pass; commit e9bfcef
+Status: Ready for Plan 02 (datasets.md command flag expansion or resources/ subdir creation per phase plan sequence)
+Last activity: 2026-04-21 — Phase 39 Plan 01 complete: dataset-generator.md extended with DSET-01..08 sections (+73 lines); 16/16 grep anchors green; SKST lint + protected-pipeline 3/3 SHA-256 pass; commit e9bfcef
 
 Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5). V3.0 Phase 36 mechanically COMPLETE (8/8). V3.0 Phase 37 mechanically COMPLETE (5/5). V3.0 Phase 38 mechanically COMPLETE (4/4). 5-in-a-row V3.0 phases closed under canonical VERIFICATION.md pattern (34/35/36/37/38). Next V3.0 phases (39-43) inherit SKST + MSEL-02 + protected-pipeline invariants.
 
@@ -64,6 +64,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 38-trace-failure-analysis-skill P01 | 2 min | 1 tasks | 1 files |
 | Phase 38-trace-failure-analysis-skill P03 | 3 min | 1 tasks | 3 files |
 | Phase 38-trace-failure-analysis-skill P04 | 4 min | 1 tasks | 1 files |
+| Phase 39-dataset-generator-enhancements P01 | 1 min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -153,6 +154,7 @@ Recent decisions affecting current work:
 - [Phase 38-trace-failure-analysis-skill]: help.md pipeline-order for Phase 38: /orq-agent:trace-failure-analysis slotted between /orq-agent:observability and /orq-agent:automations — diagnose-before-fix (instrument → analyze → automate)
 - [Phase 38-trace-failure-analysis-skill]: TODO(TFAIL) eradication scoped to traces.md only in Plan 03; observability.md marker remains for Phase 37 surface owner to resolve — prevents cross-phase scope creep
 - [Phase 38-trace-failure-analysis-skill]: Phase 38 closed under canonical VERIFICATION.md pattern — 5th consecutive V3.0 phase (34/35/36/37/38); 8/8 mechanical gates green, 6/6 TFAIL requirements file-level verified, 4 manual smokes deferred to /gsd:verify-work 38
+- [Phase 39-dataset-generator-enhancements]: DSET-01..08 sections inserted between Self-Validation Checklist and <examples> block in dataset-generator.md — keeps checklist adjacent to generation body; Constraints block append-only (DSET-01 + DSET-08); resources/ creation deferred to downstream plan
 
 ### Blockers/Concerns
 
@@ -177,7 +179,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T04:33:29.394Z
-Stopped at: Completed 38-04-PLAN.md
+Last session: 2026-04-21T04:46:21.893Z
+Stopped at: Completed 39-01-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None

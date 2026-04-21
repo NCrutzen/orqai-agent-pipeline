@@ -92,14 +92,14 @@ Cross-cutting rules applied across tester, failure-diagnoser, iterator, hardener
 
 Enhancements to dataset-generator and the standalone `/orq-agent:datasets` command.
 
-- [ ] **DSET-01**: Dataset-generator supports a structured two-step mode: dimensions (3-6) → tuples (combinations, manual-then-LLM-scaled) → natural-language inputs generated in a separate pass
-- [ ] **DSET-02**: Datasets include 15-20% adversarial cases from an 8-vector catalog (persona-breaking, instruction override, language switching, formality mismatch, refusal, format forcing, multi-turn manipulation, contradiction), ≥3 per relevant vector
-- [ ] **DSET-03**: Dataset-generator enforces coverage rules — every dimension value appears in ≥2 datapoints, no value dominates >30%
-- [ ] **DSET-04**: Dataset-generator supports a curation mode (Mode 4) for deduplication, rebalancing, gap-filling, and contradiction resolution on existing datasets, with user confirmation before deletions
-- [ ] **DSET-05**: Every datapoint is tagged by category AND dimension to enable slice analysis in results-analyzer
-- [ ] **DSET-06**: Dataset-generator produces a multi-turn shape (Messages column + perturbation scenarios) for conversational agents
-- [ ] **DSET-07**: Dataset-generator produces a RAG-specific shape (expected source chunk IDs in reference) for agents with KBs
-- [ ] **DSET-08**: User can promote a production trace directly into a dataset as a regression test case, preserving the trace's input, output, intermediate steps, and metadata — enables continuous dataset curation from real traffic
+- [x] **DSET-01**: Dataset-generator supports a structured two-step mode: dimensions (3-6) → tuples (combinations, manual-then-LLM-scaled) → natural-language inputs generated in a separate pass
+- [x] **DSET-02**: Datasets include 15-20% adversarial cases from an 8-vector catalog (persona-breaking, instruction override, language switching, formality mismatch, refusal, format forcing, multi-turn manipulation, contradiction), ≥3 per relevant vector
+- [x] **DSET-03**: Dataset-generator enforces coverage rules — every dimension value appears in ≥2 datapoints, no value dominates >30%
+- [x] **DSET-04**: Dataset-generator supports a curation mode (Mode 4) for deduplication, rebalancing, gap-filling, and contradiction resolution on existing datasets, with user confirmation before deletions
+- [x] **DSET-05**: Every datapoint is tagged by category AND dimension to enable slice analysis in results-analyzer
+- [x] **DSET-06**: Dataset-generator produces a multi-turn shape (Messages column + perturbation scenarios) for conversational agents
+- [x] **DSET-07**: Dataset-generator produces a RAG-specific shape (expected source chunk IDs in reference) for agents with KBs
+- [x] **DSET-08**: User can promote a production trace directly into a dataset as a regression test case, preserving the trace's input, output, intermediate steps, and metadata — enables continuous dataset curation from real traffic
 
 ### Knowledge Base & Memory (KBM)
 
@@ -249,14 +249,14 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | ESCI-06 | 42 | Pending |
 | ESCI-07 | 42 | Pending |
 | ESCI-08 | 42 | Pending |
-| DSET-01 | 39 | Pending |
-| DSET-02 | 39 | Pending |
-| DSET-03 | 39 | Pending |
-| DSET-04 | 39 | Pending |
-| DSET-05 | 39 | Pending |
-| DSET-06 | 39 | Pending |
-| DSET-07 | 39 | Pending |
-| DSET-08 | 39 | Pending |
+| DSET-01 | 39 | Complete |
+| DSET-02 | 39 | Complete |
+| DSET-03 | 39 | Complete |
+| DSET-04 | 39 | Complete |
+| DSET-05 | 39 | Complete |
+| DSET-06 | 39 | Complete |
+| DSET-07 | 39 | Complete |
+| DSET-08 | 39 | Complete |
 | KBM-01 | 40 | Pending |
 | KBM-02 | 40 | Pending |
 | KBM-03 | 40 | Pending |
