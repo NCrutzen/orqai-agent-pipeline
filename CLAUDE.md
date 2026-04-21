@@ -17,7 +17,7 @@ Centraal platform voor AI-driven automations bij Moyne Roberts.
 
 **NOOIT gebruiken:** Netlify/Railway/AWS, Firebase/Neon, Puppeteer, eigen auth, directe LLM API keys (OpenAI/Anthropic) — gebruik Orq.ai Router.
 
-**Vercel project:** Moin Roberts org (`team_M6UAwxyU8jLEUGixW2MHyvzW`) · agent-workforce (`prj_APDosWEbpdca53P5UxXst8tCJMVV`). Nooit een persoonlijk project aanmaken.
+**Vercel project:** Moyne Roberts org (`team_xILPwdz1coAgNKNP0zjMteGI`) · agent-workforce (`prj_APDosWEbpdca53P5UxXst8tCJMVV`). Nooit een persoonlijk project aanmaken.
 
 ## Credentials vs Env Vars
 
