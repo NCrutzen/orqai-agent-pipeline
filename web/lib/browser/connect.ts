@@ -40,6 +40,17 @@ export async function connectWithSession(sessionKey?: string): Promise<{
     : await browser.newContext();
 
   const page = await context.newPage();
+
+  // tsx/esbuild compiles arrow functions inside page.evaluate() callbacks
+  // with a module-scope `__name` helper that doesn't exist in the browser.
+  // The serialized callback throws `ReferenceError: __name is not defined`
+  // before any user code runs. addInitScript fires on every navigation, so
+  // the polyfill survives both initial load and internal SPA route changes.
+  // Passed as a STRING so esbuild doesn't rewrite this expression.
+  await context.addInitScript(
+    "window.__name = window.__name || function(x){return x}",
+  );
+
   return { browser, context, page };
 }
 
