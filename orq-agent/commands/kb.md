@@ -7,6 +7,8 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent
 
 You are running the `/orq-agent:kb` command. This command provides standalone knowledge base management -- generate content, provision KBs in Orq.ai, and upload files.
 
+This command supports `--mode kb` (default, full KB lifecycle) and `--mode memory` (dispatch to memory-store-generator subagent for memory store creation + round-trip test). A `--retrieval-threshold <N>` flag (default 70) configures the retrieval-quality pass bar for KBM-01.
+
 Follow these steps in order. Stop at any step that indicates a terminal condition.
 
 ## Constraints
@@ -36,6 +38,7 @@ Follow these steps in order. Stop at any step that indicates a terminal conditio
 Directional handoffs (→ means "this skill feeds into"):
 
 - → `kb-generator` subagent — produces KB content files under `{swarm-dir}/kb-content/{kb-name}/`
+- → `memory-store-generator` subagent — invoked when `--mode memory` flag is passed
 - ← `/orq-agent` — when the generated agent spec references a KB
 - → `/orq-agent:deploy` — KB is attached to the agent during deploy
 - ← standalone invocation — user can generate / provision / upload without a full swarm
@@ -102,7 +105,16 @@ To upgrade, re-run the install script and select a higher tier:
   curl -sfL https://raw.githubusercontent.com/NCrutzen/orqai-agent-pipeline/main/install.sh | bash
 ```
 
-**If tier is "deploy", "test", or "full":** Gate passes. Proceed to Step 2.
+**If tier is "deploy", "test", or "full":** Gate passes. Proceed to Step 1b.
+
+## Step 1b: Mode Dispatch
+
+Parse the invocation flags:
+- `--mode kb` (default) → continue to Step 2 (full KB lifecycle: generate / provision / upload with KBM-01..04 gates).
+- `--mode memory` → dispatch to the `memory-store-generator` subagent (orq-agent/agents/memory-store-generator.md) with the captured context (swarm dir, agent slug). Skip Steps 2-10 of this command. The subagent handles memory store creation, wiring, and the read/write/recall round-trip test. Return to the user with the subagent's summary.
+- `--retrieval-threshold <N>` — optional integer 0-100, defaults to 70; passed to Step 7.6 retrieval quality test.
+
+**Invariant:** `--mode memory` ALWAYS routes to memory-store-generator; never inline memory logic in this command.
 
 ## Step 2: Load API Key
 
@@ -217,6 +229,26 @@ If multiple KBs were detected, ask the user whether to generate for all KBs or s
 
 Run the KB provisioning flow (same as deploy.md Steps 3.5.2 through 3.5.6):
 
+### 7.0: Embedding Model Activation Check (KBM-02)
+
+Before presenting the embedding model picker, verify the user's activated embedding models in AI Router. Use MCP `list_models --type embedding` when available; fall back to REST `curl -s -H "Authorization: Bearer $ORQ_API_KEY" "$ORQ_BASE_URL/v2/models?type=embedding"`.
+
+Filter the picker options (Step 7.1) to show only activated embedding models. If the user's preferred model is NOT in the activated set, STOP with:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ORQ ► KB — Embedding Model Not Activated
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Requested embedding model `<model_id>` is not activated in AI Router.
+
+Remediation: Activate `<model_id>` in Orq.ai Studio → AI Router → Models → Embeddings before re-running this command.
+
+Alternatively, choose from activated models: <list>.
+```
+
+**Invariant:** Embedding model is immutable after KB creation (existing Anti-Pattern row). Activation check MUST run before any `POST /v2/knowledge` call.
+
 ### 7.1: Embedding Model Picker
 
 Show the embedding model picker once (applies to all KBs in this run):
@@ -233,6 +265,37 @@ Select [1]:
 ```
 
 Default to option 1. Note: embedding model is immutable after KB creation.
+
+### 7.1.5: Chunking Strategy Picker (KBM-03)
+
+For each KB, detect content type to pick the chunking strategy:
+
+- **Prose content type** — source files are `.md` with few H2s (< 5 per 1000 lines), `.txt`, `.pdf` → **sentence** chunker, `chunk_size: 512`, `overlap: 50`.
+- **Structured content type** — source files are `.md` with many H2s/H3s (≥ 5 per 1000 lines), `.html`, `.json`, or code (`.py`, `.ts`, `.js`) → **recursive** chunker, `chunk_size: 1024`, `overlap: 100`.
+
+Detection rule (bash):
+
+```bash
+H2_COUNT=$(grep -cE '^##? ' "$source_file" 2>/dev/null || echo 0)
+LINE_COUNT=$(wc -l < "$source_file")
+H2_DENSITY=$(echo "scale=4; $H2_COUNT * 1000 / $LINE_COUNT" | bc 2>/dev/null)
+if [[ "$extension" =~ ^(html|json|py|ts|js)$ ]] || (( $(echo "$H2_DENSITY >= 5" | bc -l) )); then
+  strategy="recursive"; chunk_size=1024; overlap=100; reason="structured"
+else
+  strategy="sentence"; chunk_size=512; overlap=50; reason="prose"
+fi
+```
+
+Record the choice in the KB plan (Step 7.4) and in KB metadata on creation:
+
+```json
+"metadata": {
+  "chunking_strategy": "sentence",
+  "chunk_size": 512,
+  "overlap": 50,
+  "reason": "prose"
+}
+```
 
 ### 7.2: Per-KB Host Selection
 
@@ -298,6 +361,39 @@ Provisioning results:
 |----|--------|----|
 | {kb-name} | created | {knowledge_id} |
 ```
+
+### 7.6: Retrieval Quality Test (KBM-01)
+
+After chunking completes, run a retrieval quality test BEFORE wiring the KB to any deployment.
+
+1. **Generate 5-10 sample queries** from document headings in the uploaded content:
+   - From heading `### Refund Policy` → query `How do I get a refund?`
+   - From heading `## Billing FAQ` → query `Where do I update my credit card?`
+   - Use an LLM (spec-generator model) to synthesize natural questions per heading.
+
+2. **Run each query** against the newly-created KB via MCP `search_entities` with `type=knowledge_chunks, knowledge_id=$KB_ID, query=$QUERY`. Fall back to REST `POST /v2/knowledge/$KB_ID/search` on MCP failure.
+
+3. **Pass criterion:** ≥ `--retrieval-threshold` (default 70) of queries return a chunk that semantically matches the intended source. Use an LLM-judge (binary Pass/Fail per query) or explicit user confirmation.
+
+4. **Refuse wire-up** on failure:
+
+   ```
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    ORQ ► KB — Retrieval Quality Test Failed
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   Retrieval quality: <pct>% passed (threshold: <N>%).
+
+   KB NOT wired to deployment.
+
+   Remediation options:
+     1. Reduce chunk_size (try 256 for sentence / 512 for recursive)
+     2. Switch chunking strategy (sentence ↔ recursive)
+     3. Re-ingest with cleaner source files (remove boilerplate)
+     4. Lower threshold explicitly via --retrieval-threshold <N>
+   ```
+
+   Store test results under `{swarm-dir}/kb-content/{kb-name}/retrieval-test.json`.
 
 ## Step 8: Upload (Option 3)
 
@@ -390,6 +486,16 @@ After completing the selected action(s), display a summary:
 
 Only show rows for actions that were actually performed. If only "Generate" was selected, only the Generated row appears.
 
+## KB-vs-Memory Decision Rule (KBM-04)
+
+- **KB (static reference data):** Docs, FAQs, product catalogs, policies, structured knowledge. Chunked + embedded + queried by similarity.
+- **Memory Store (dynamic user context):** Session history, preferences, per-user facts. Keyed + written at runtime by agent decisions.
+- **Block:** Memory for docs/FAQs → use KB. KB for conversation context → use Memory Store.
+
+When the user requests an action matching a blocked pattern (e.g., "Store product catalog in memory", "Use KB for last-N user turns", "Use memory for FAQ"), STOP and guide to the correct tool. Never silently coerce.
+
+The KB-vs-Memory boundary is enforced here; `--mode memory` dispatches to the memory-store-generator subagent without inlining memory logic in this command.
+
 ## Anti-Patterns
 
 | Pattern | Do Instead |
@@ -398,6 +504,10 @@ Only show rows for actions that were actually performed. If only "Generate" was 
 | Uploading files larger than 10 MB | Split the file at logical boundaries; Orq.ai enforces a 10 MB per-file limit |
 | Using the same KB for multiple agents with different retrieval shapes | Create per-agent KBs when retrieval queries differ meaningfully |
 | Skipping the KB plan summary before provisioning | The summary is the only place host + embedding model + file plan are visible together |
+| Storing product catalog / FAQ / policy docs in a memory store | Use a KB — static reference data is chunked + embedded + queried by similarity |
+| Using a KB for last-N conversation turns or per-user preferences | Use a memory store — dynamic user context is keyed + written at runtime (dispatch via `--mode memory`) |
+| Wiring a KB to a deployment without running the retrieval quality test | Run Step 7.6 first; refuse wire-up if the retrieval pass rate is below threshold |
+| Picking an embedding model before checking AI Router activation | Run Step 7.0 activation check first; the embedding model is immutable after KB creation |
 
 ## Open in orq.ai
 
