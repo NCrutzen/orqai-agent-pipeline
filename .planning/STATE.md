@@ -4,7 +4,7 @@ milestone: v0.3
 milestone_name: milestone
 status: Ready for Plan 02 (datasets.md command flag expansion or resources/ subdir creation per phase plan sequence)
 stopped_at: Completed 39-03-PLAN.md
-last_updated: "2026-04-21T04:47:43.987Z"
+last_updated: "2026-04-21T04:47:51.888Z"
 last_activity: "2026-04-21 — Phase 39 Plan 01 complete: dataset-generator.md extended with DSET-01..08 sections (+73 lines); 16/16 grep anchors green; SKST lint + protected-pipeline 3/3 SHA-256 pass; commit e9bfcef"
 progress:
   total_phases: 10
@@ -160,6 +160,7 @@ Recent decisions affecting current work:
 - [Phase 39-dataset-generator-enhancements]: datasets.md Step 1b Mode Dispatch pattern: when a slash command grows from 1 to N modes, insert a dispatch step between input-capture and clarification so each mode's skip/add semantics are declared in one grep-anchorable place — avoids scattering conditionals across Steps 2-5
 - [Phase 39-dataset-generator-enhancements]: DSET-08 --trace-id precondition double-guarded: enforced at Step 0 parse-time AND re-stated in Step 1b promote-trace branch + Constraints ALWAYS rule — aligns with no-MCP-call-without-trace-id invariant
 - [Phase 39-dataset-generator-enhancements]: datasets.md <pipeline> block is editable (NOT in 3-file protected list — only orq-agent.md/prompt.md/architect.md are SHA-256 guarded per Phase 34); Step 1b added INSIDE <pipeline> preserving natural Step-numbered reading flow while leaving 3/3 golden hashes untouched
+- [Phase 39-dataset-generator-enhancements]: Dataset-generator single-consumer resources/ subdir created with 8-vector catalog + coverage-rules (verbatim 'Coverage check failed:' phrase) + single/multi-turn/rag shape templates; all 15 grep anchors green, lint + protected-pipelines 3/3 SHA-256 clean
 
 ### Blockers/Concerns
 
