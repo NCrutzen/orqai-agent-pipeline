@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: "Ready for `/gsd:execute-phase 42` to continue with 42-02-PLAN.md (failure-diagnoser enrichments)"
-stopped_at: Completed 42-06-PLAN.md
-last_updated: "2026-04-21T05:59:54.627Z"
-last_activity: "2026-04-21 — Phase 42 Plan 01 complete: tester.md eval-science enrichments; commit e6718da"
+status: completed
+stopped_at: Completed 42-07-PLAN.md
+last_updated: "2026-04-21T06:01:28.694Z"
+last_activity: "2026-04-21 — Phase 42 Plan 07 complete: resources scaffold for iterator/hardener/evaluator-validator; commits 641b1ef / 46a603a / 5b62f0b"
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 52
-  completed_plans: 49
+  completed_plans: 50
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 42 - Evaluator Validation & Iterator Enrichments (Plan 1 of 9) — IN PROGRESS
-Plan: 01 complete — enriched tester.md with 4 new eval-science sections (isolated graders ESCI-03, capability/regression suites ESCI-04, overfitting warning ESCI-07, run-comparison table ITRX-03) + preserved ESCI-05 ≥95% warn anchor; 8/8 lint anchors present; commit e6718da
-Status: Ready for `/gsd:execute-phase 42` to continue with 42-02-PLAN.md (failure-diagnoser enrichments)
-Last activity: 2026-04-21 — Phase 42 Plan 01 complete: tester.md eval-science enrichments; commit e6718da
+Phase: 42 - Evaluator Validation & Iterator Enrichments (Plan 7 of 9 complete) — IN PROGRESS
+Plan: 07 complete — 7 resource files created across 3 new per-subagent resources/ subdirs (iterator, hardener, evaluator-validator) carrying action-plan template, decision trees, sample-rate tiers, prevalence correction, TPR/TNR methodology, annotation-queue setup, 4-component judge template; lint-skills.sh exit 0 and protected-pipeline 3/3 match; commits 641b1ef, 46a603a, 5b62f0b
+Status: Ready for `/gsd:execute-phase 42` to continue with next incomplete plan (42-02 through 42-06, 42-08, 42-09)
+Last activity: 2026-04-21 — Phase 42 Plan 07 complete: resources scaffold for iterator/hardener/evaluator-validator; commits 641b1ef / 46a603a / 5b62f0b
 
 Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5). V3.0 Phase 36 mechanically COMPLETE (8/8). V3.0 Phase 37 mechanically COMPLETE (5/5). V3.0 Phase 38 mechanically COMPLETE (4/4). V3.0 Phase 41 mechanically COMPLETE (5/5). 7-in-a-row V3.0 phases closed under canonical VERIFICATION.md pattern (34/35/36/37/38/40/41). Next V3.0 phases (42-43) inherit SKST + MSEL-02 + protected-pipeline invariants.
 
@@ -85,6 +85,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 42-evaluator-validation-iterator-enrichments P04 | 2 min | 1 tasks | 1 files |
 | Phase 42 P05 | 2 min | 1 tasks | 1 files |
 | Phase 42 P06 | 9 min | 1 tasks | 1 files |
+| Phase 42 P07 | 5 min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -196,6 +197,9 @@ Recent decisions affecting current work:
 - [Phase 42-evaluator-validation-iterator-enrichments]: sample_rate derived from 7-day median volume at harden time (100%/30%/10%); safety evaluators override to 100%; no-data fallback = 100% — Volume-driven tradeoff balances LLM-judge cost vs coverage; safety is non-negotiable at every tier
 - [Phase 42-evaluator-validation-iterator-enrichments]: Prevalence correction (theta_hat) guarded by TPR+TNR>1; below threshold report raw with warning instead of misleading corrected number — Formula is mathematically unsafe when judge is worse than random; explicit warning preserves trust
 - [Phase 42]: Evaluator-validator records measured TPR/TNR; hardener Phase 2.0 enforces 0.90 floor — separation of measurement from policy
+- [Phase 42]: 50/50 Annotation Queue polling floor (EVLD-09) — Exceeds EVLD-06 30/30 statistical minimum to absorb IAA filtering loss without stalling TPR/TNR validation
+- [Phase 42]: Prevalence-correction refuses to render when Youden index <= 0 (EVLD-07) — Judge with TPR+TNR <= 1 is worse than random; applying formula yields negative/undefined theta_hat; show N/A and re-calibrate link instead of misleading number
+- [Phase 42]: 4-component judge template enforces reasoning-before-verdict in JSON contract (EVLD-03) — Autoregressive decoders commit to first token; forcing reasoning to precede verdict locks in CoT analysis before pass/fail commitment
 
 ### Blockers/Concerns
 
@@ -220,7 +224,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T05:59:33.556Z
-Stopped at: Completed 42-06-PLAN.md
+Last session: 2026-04-21T06:00:48.132Z
+Stopped at: Completed 42-07-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
