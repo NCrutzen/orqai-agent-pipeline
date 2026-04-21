@@ -85,6 +85,7 @@ Commands:
   /orq-agent:analytics         Requests/cost/tokens/error-rate summary
   /orq-agent:models            List Model Garden models by provider & type
   /orq-agent:quickstart        12-step onboarding tour
+  /orq-agent:observability     Instrument LLM app for trace capture (framework detect + codegen)
   /orq-agent:automations       Trace Automation rules (list / --create)
   /orq-agent:help              Show this help
 

@@ -73,6 +73,14 @@ orq-agent/
     models.md                    # Phase 36: Model Garden lookup (LCMD-04)
     quickstart.md                # Phase 36: 12-step onboarding tour (LCMD-05 + LCMD-07)
     automations.md               # Phase 36: Trace Automations list + create (LCMD-06)
+    observability.md             # Phase 37: LLM instrumentation setup (OBSV-01..07)
+    observability/
+      resources/
+        openai-sdk.md            # Phase 37: OpenAI SDK integration snippet
+        langchain.md             # Phase 37: LangChain integration snippet
+        crewai.md                # Phase 37: CrewAI integration snippet
+        vercel-ai.md             # Phase 37: Vercel AI SDK integration snippet
+        generic-otel.md          # Phase 37: Generic OpenTelemetry snippet
   agents/
     architect.md                 # Phase 1: Architect subagent
     tool-resolver.md             # Phase 4.2: Tool resolver subagent
@@ -160,6 +168,24 @@ Agents/[swarm-name]/
 | `/orq-agent:models` | `commands/models.md` | any | List Model Garden models grouped by provider × type (chat / embedding / image / rerank / speech / completion) |
 | `/orq-agent:quickstart` | `commands/quickstart.md` | any | 12-step interactive onboarding tour covering the full Build → Evaluate → Optimize lifecycle |
 | `/orq-agent:automations` | `commands/automations.md` | any | List / create Orq.ai Trace Automation rules (auto-kick-off experiments on matching traces) |
+
+### Phase 37 (Observability)
+
+| Command | File | Tier Required | Purpose |
+|---------|------|---------------|---------|
+| `/orq-agent:observability` | `commands/observability.md` | any | Instrument LLM application for Orq.ai trace capture -- framework detection (OBSV-01), mode recommendation AI Router / OTEL / both (OBSV-02), integration codegen with instrumentors-before-SDK ordering (OBSV-03), baseline verification script with PII scan (OBSV-04), trace enrichment session_id / user_id / customer_id (OBSV-05), @traced decorators for 6 span types agent/llm/tool/retrieval/embedding/function (OBSV-06), per-tenant identity attribution + filter via `/orq-agent:traces --identity` (OBSV-07) |
+
+**`/orq-agent:observability` requirement coverage:**
+
+- OBSV-01 — Framework detection via import-pattern grep (OpenAI, LangChain, CrewAI, Vercel AI, generic OTEL); see `commands/observability.md` Step 1.
+- OBSV-02 — Mode recommendation (AI Router / OTEL-only / both); default AI Router when an Orq.ai-supported SDK is already in use.
+- OBSV-03 — Framework-specific integration codegen with instrumentors-BEFORE-SDK import ordering; snippets live in `commands/observability/resources/`.
+- OBSV-04 — Baseline verification script emitted locally (trace appears, model + tokens captured, PII scan warning); skill never uploads test scripts to production.
+- OBSV-05 — Trace enrichment walkthrough for `session_id` / `user_id` / `customer_id` / feature tags.
+- OBSV-06 — `@traced` decorator examples for the 6 canonical span types: agent / llm / tool / retrieval / embedding / function.
+- OBSV-07 — Per-tenant identity attribution (`setIdentity({...})`) + `/orq-agent:traces --identity` filter pass-through (wired live in Plan 03 of Phase 37).
+
+Resource snippets under `orq-agent/commands/observability/resources/` are consumed only by `commands/observability.md` (single-consumer; see Resources Policy below).
 
 **Invocation:** `/orq-agent "description"` | `/orq-agent` (interactive) | `--gsd` flag | `--output <path>`
 
@@ -308,7 +334,7 @@ Skill documentation lives in two places. The placement rule is driven by consume
 
 **Invariant (enforced by lint):** Every file under `orq-agent/references/` MUST be consumed by ≥2 skills. The `references-multi-consumer` rule in `orq-agent/scripts/lint-skills.sh` enforces this. If a file drops to 1 consumer, the lint fails and the file must move to that consumer's `<skill>/resources/`.
 
-**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phases 36-43 will create per-skill `resources/` directories on demand when single-consumer content appears.
+**Migration status:** No existing references qualify for migration (all 8 have ≥2 consumers). Phase 37 established the first live per-skill resources directory at `orq-agent/commands/observability/resources/` (5 framework snippets consumed only by `observability.md`). Phases 38-43 will create additional per-skill `resources/` directories on demand when single-consumer content appears.
 
 ## Anti-Patterns
 
