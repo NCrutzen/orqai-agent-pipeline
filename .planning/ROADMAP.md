@@ -277,7 +277,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
   - [ ] 42-05-PLAN.md — Wave 1: results-analyzer.md (ITRX-04) — regression ⚠️ flag
   - [ ] 42-06-PLAN.md — Wave 1: new evaluator-validator.md subagent (EVLD-01..06, 09, 10) — 9 SKST + 7 phases
   - [ ] 42-07-PLAN.md — Wave 1: 7 resource files across 3 subdirs (iterator, hardener, evaluator-validator)
-  - [ ] 42-08-PLAN.md — Wave 2: SKILL.md index-wire new subagent + 3 resources subdirs + Phase 42 H3 block
+  - [x] 42-08-PLAN.md — Wave 2: SKILL.md index-wire new subagent + 3 resources subdirs + Phase 42 H3 block (completed 2026-04-21)
   - [ ] 42-09-PLAN.md — Wave 3: full lint + protected-pipeline + 28-requirement anchor sweep; write 42-09-VERIFICATION.md
 
 ### Phase 43: Cross-IDE Distribution & Manifests
@@ -313,7 +313,7 @@ Next active phase: Phase 34 (V3.0 milestone).
 | V3.0 | 39. Dataset Generator Enhancements | 0/5 | Complete    | 2026-04-21 |
 | V3.0 | 40. KB & Memory Lifecycle | 6/6 | Complete    | 2026-04-21 |
 | V3.0 | 41. Prompt Optimization & Cross-Framework Comparison | 3/5 | Complete    | 2026-04-21 |
-| V3.0 | 42. Evaluator Validation & Iterator Enrichments | 8/9 | In Progress|  |
+| V3.0 | 42. Evaluator Validation & Iterator Enrichments | 9/9 | Complete   | 2026-04-21 |
 | V3.0 | 43. Cross-IDE Distribution & Manifests | 0/TBD | Not started | - |
 | V4.0 | 44-48 (5 phases) | 0/TBD | **Defined** | - |
 | V5.0 | 49-52 (4 phases) | 0/TBD | **Defined** | - |
