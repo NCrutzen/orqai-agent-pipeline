@@ -6,7 +6,7 @@ import type { TerminalEntry } from "@/lib/systems/types";
 import { submitReviewResponse } from "@/lib/pipeline/review";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
+import { GlassCard } from "@/components/ui/glass-card";
 
 interface TerminalReviewEntryProps {
   entry: TerminalEntry;
@@ -35,8 +35,8 @@ export function TerminalReviewEntry({ entry }: TerminalReviewEntryProps) {
   if (decided) {
     const decision = entry.metadata?.decision as string;
     return (
-      <div className="mt-2 rounded-md border bg-muted/30 p-3">
-        <p className="text-sm text-muted-foreground">
+      <div className="mt-2 rounded-[var(--v7-radius-sm)] border border-[var(--v7-glass-border)] bg-[var(--v7-panel-2)] p-3">
+        <p className="text-[14px] text-[var(--v7-muted)]">
           {decision === "confirmed"
             ? "Swarm architecture confirmed. Continuing..."
             : "Feedback submitted. Re-designing swarm..."}
@@ -47,7 +47,7 @@ export function TerminalReviewEntry({ entry }: TerminalReviewEntryProps) {
 
   if (!agents || agents.length === 0) {
     return (
-      <p className="mt-2 text-sm text-muted-foreground">
+      <p className="mt-2 text-[14px] text-[var(--v7-muted)]">
         Waiting for swarm architecture...
       </p>
     );
@@ -76,8 +76,8 @@ export function TerminalReviewEntry({ entry }: TerminalReviewEntryProps) {
 
   if (mode === "done") {
     return (
-      <div className="mt-2 rounded-md border bg-muted/30 p-3">
-        <p className="text-sm text-muted-foreground">
+      <div className="mt-2 rounded-[var(--v7-radius-sm)] border border-[var(--v7-glass-border)] bg-[var(--v7-panel-2)] p-3">
+        <p className="text-[14px] text-[var(--v7-muted)]">
           Response submitted. Pipeline resuming...
         </p>
       </div>
@@ -89,21 +89,19 @@ export function TerminalReviewEntry({ entry }: TerminalReviewEntryProps) {
       {/* Agent summary cards */}
       <div className="space-y-2">
         {agents.map((agent) => (
-          <Card key={agent.name} className="border-muted">
-            <CardContent className="p-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium">{agent.name}</p>
-                  <p className="text-xs text-muted-foreground">{agent.role}</p>
-                </div>
-                {agent.tools.length > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    {agent.tools.length} tool{agent.tools.length !== 1 ? "s" : ""}
-                  </span>
-                )}
+          <GlassCard key={agent.name} className="p-3">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[14px] font-medium text-[var(--v7-text)]">{agent.name}</p>
+                <p className="text-[12px] text-[var(--v7-muted)]">{agent.role}</p>
               </div>
-            </CardContent>
-          </Card>
+              {agent.tools.length > 0 && (
+                <span className="text-[12px] text-[var(--v7-muted)]">
+                  {agent.tools.length} tool{agent.tools.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+          </GlassCard>
         ))}
       </div>
 
@@ -159,7 +157,7 @@ export function TerminalReviewEntry({ entry }: TerminalReviewEntryProps) {
 
       {/* Submitting state */}
       {mode === "submitting" && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-[14px] text-[var(--v7-muted)]">
           <Loader2 className="size-3.5 animate-spin" />
           Submitting...
         </div>
