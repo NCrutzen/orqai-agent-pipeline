@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: Ready for Plan 05 (Phase 39 VALIDATION / close-out plan per canonical Phase 34-38 pattern)
-stopped_at: Completed 40-04-PLAN.md
-last_updated: "2026-04-21T05:09:29.382Z"
-last_activity: "2026-04-21 — Phase 39 Plan 04 complete: SKILL.md + help.md index-wiring for Phase 39 surface; protected pipelines 3/3 SHA-256 intact; commit 77ef0c5"
+status: Ready for Plan 06 (Phase 40 VALIDATION / close-out plan per canonical Phase 34-39 pattern)
+stopped_at: Completed 40-05-PLAN.md
+last_updated: "2026-04-21T05:13:12.629Z"
+last_activity: "2026-04-21 — Phase 40 Plan 05 complete: SKILL.md + help.md index-wiring for Phase 40 surface; protected pipelines 3/3 SHA-256 intact; commit 5de49d5"
 progress:
   total_phases: 10
   completed_phases: 6
   total_plans: 38
-  completed_plans: 36
+  completed_plans: 37
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 39 - Dataset Generator Enhancements (Plan 5 of 5)
-Plan: 04 complete — SKILL.md + help.md wired to Phase 39 surface (DSET-01..08 H3 block, dataset-generator/resources/ in Directory Structure, Migration status updated, /orq-agent:datasets help line expanded with --mode/--trace-id/--shape flags); 10/10 grep anchors green, SKST lint + protected-pipeline 3/3 SHA-256 pass; commit 77ef0c5
-Status: Ready for Plan 05 (Phase 39 VALIDATION / close-out plan per canonical Phase 34-38 pattern)
-Last activity: 2026-04-21 — Phase 39 Plan 04 complete: SKILL.md + help.md index-wiring for Phase 39 surface; protected pipelines 3/3 SHA-256 intact; commit 77ef0c5
+Phase: 40 - KB & Memory Lifecycle (Plan 6 of 6)
+Plan: 05 complete — SKILL.md + help.md wired to Phase 40 surface (KBM-01..05 H3 block, kb/resources/ in Directory Structure, Migration status updated to 4th per-skill dir, Phase 40 subagent section added for memory-store-generator, subagent count 17 -> 18, /orq-agent:kb help line expanded with --mode kb|memory + --retrieval-threshold flags); 8/8 grep anchors green, SKST lint + protected-pipeline 3/3 SHA-256 pass; commit 5de49d5
+Status: Ready for Plan 06 (Phase 40 VALIDATION / close-out plan per canonical Phase 34-39 pattern)
+Last activity: 2026-04-21 — Phase 40 Plan 05 complete: SKILL.md + help.md index-wiring for Phase 40 surface; protected pipelines 3/3 SHA-256 intact; commit 5de49d5
 
 Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5). V3.0 Phase 36 mechanically COMPLETE (8/8). V3.0 Phase 37 mechanically COMPLETE (5/5). V3.0 Phase 38 mechanically COMPLETE (4/4). 5-in-a-row V3.0 phases closed under canonical VERIFICATION.md pattern (34/35/36/37/38). Next V3.0 phases (39-43) inherit SKST + MSEL-02 + protected-pipeline invariants.
 
@@ -72,6 +72,7 @@ Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5
 | Phase 40-kb-memory-lifecycle P02 | 2min | 1 tasks | 1 files |
 | Phase 40-kb-memory-lifecycle P04 | 2 min | 1 tasks | 3 files |
 | Phase 40-kb-memory-lifecycle P03 | single-task | 1 tasks | 1 files |
+| Phase 40-kb-memory-lifecycle P05 | 1 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -171,6 +172,7 @@ Recent decisions affecting current work:
 - [Phase 40-kb-memory-lifecycle]: Chunking classification heuristic: H2/H3 density per 1000 lines, threshold 5 → structured (recursive), else prose (sentence)
 - [Phase 40-kb-memory-lifecycle]: Embedded KB-vs-Memory Decision Rule verbatim in memory-store-generator subagent as lint anchor (KBM-04) rather than cross-referencing
 - [Phase 40-kb-memory-lifecycle]: kb/resources/ single-consumer subdir parks 3 long-form policy docs (chunking, KB-vs-Memory, retrieval test) per Phase 34 Resources Policy — freeform prose, auto-excluded from SKST lint by commands/*.md single-level glob
+- [Phase 40-kb-memory-lifecycle]: Applied V3.0 index-wiring recipe for Phase 40 — only SKILL.md + help.md touched, protected pipelines 3/3 intact, subagent count 17 -> 18, 4th per-skill resources dir registered under kb skill umbrella
 
 ### Blockers/Concerns
 
@@ -195,7 +197,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T05:09:29.378Z
-Stopped at: Completed 40-04-PLAN.md
+Last session: 2026-04-21T05:12:33.936Z
+Stopped at: Completed 40-05-PLAN.md
 Resume with: `/gsd:verify-work 34` to verify Phase 34 close, then `/gsd:plan-phase 35` for Model Selection Discipline.
 Resume file: None
