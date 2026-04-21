@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const maxDuration = 25;
+
 const INTERNAL_API_KEY = process.env.SMEBA_INTERNAL_API_KEY!;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const EMBEDDING_MODEL = "text-embedding-3-small";
