@@ -132,6 +132,25 @@ For each failing agent:
 
 ---
 
+## Phase 2.5: Publish Decision Trees (ESCI-06)
+
+After diagnosis (Phase 2) but before proposing changes (Phase 3), the iterator publishes 3 inspectable decision trees that expose the reasoning path taken. Users inspect the decision path the iterator took. No auto-promotion without HITL.
+
+**Output:** `{swarm_dir}/iteration-{N}-decision-trees.md`, rendered from the template at `orq-agent/agents/iterator/resources/decision-trees.md` (created by Plan 07).
+
+**The 3 decision trees:**
+
+1. **Prompt fix vs evaluator** — "If TPR/TNR < 90% → evaluator fix. Else → prompt fix."
+   - Inspects whether the evaluator itself is miscalibrated (low TPR/TNR on human-labeled test split) before assuming the prompt is at fault.
+2. **Upgrade model?** — "If P0 exhausted AND bottleneck < target → consider P2 model upgrade."
+   - Blocks model-swap churn until P0 prompt-level fixes have been tried.
+3. **Eval good enough?** — "If TPR ≥ 90% AND TNR ≥ 90% on held-out test → evaluator validated."
+   - Gates whether an evaluator's score is trustworthy as a proxy for ground truth.
+
+Each tree must render its decision path (which branch was taken, with the triggering metric) so reviewers can audit the iterator's reasoning.
+
+---
+
 ## Phase 3: Propose Section-Level Prompt Changes (ITER-02)
 
 For each diagnosed failure pattern, generate a targeted prompt modification as a diff against the specific XML-tagged section.
@@ -178,9 +197,76 @@ Present proposals to the user in this format:
 
 ---
 
+## Phase 3.5: Assign P0/P1/P2 Priority (ITRX-01)
+
+Every proposed improvement from Phase 3 MUST be labeled with a priority tier. The iterator executes P0 first; P1/P2 are deferred to the next iteration cycle unless the user overrides.
+
+**Priority table:**
+
+| Priority | Scope | Examples |
+|----------|-------|----------|
+| **P0** | Prompt wording, few-shot examples, constraints | Tighten `<constraints>` block, add counterexample |
+| **P1** | Decomposition, tool descriptions, RAG tuning | Split agent into two, rewrite tool schema, re-chunk KB |
+| **P2** | Model upgrade, expand eval set, fine-tuning | Swap model snapshot, add 50 new datapoints, launch FT job |
+
+**Rule:** every change in `iteration-proposals.json` gets a `priority: "P0"|"P1"|"P2"` field. Iteration executes P0 first; P1/P2 deferred to next cycle unless user overrides.
+
+---
+
+## Phase 3.6: Action Plan Emission (ITRX-02, ITRX-07)
+
+The iterator emits a structured Action Plan per iteration so reviewers can scan priority-ordered improvements with evidence and success criteria.
+
+**Output:** `{swarm_dir}/iteration-{N}-action-plan.md` with 3 H2 sections:
+
+- `## Summary` — 1-2 sentence diagnosis of what's failing and why.
+- `## Priority Improvements` — P0 first, then P1, then P2. Table with columns:
+  | Priority | Section | Change | Evidence | Success Criteria |
+- `## Re-run Criteria` — target bottleneck score threshold + required split (holdout) + stop conditions.
+
+**Evidence field MUST cite:** datapoints affected (eval_ids), current scores, run ID (literal phrase `run ID`).
+
+**Success Criteria field MUST cite:** target re-run bottleneck score (numeric) and max iterations to achieve.
+
+The phrases `Evidence` and `Success Criteria` appear verbatim as column headers and body references.
+
+**Template:** reference `orq-agent/agents/iterator/resources/action-plan-template.md` (created by Plan 07).
+
+---
+
+## Phase 3.7: Absorb Annotation Comments (ITRX-09)
+
+When `iteration-proposals.json` is built, the iterator fetches free-text annotation comments via MCP (`annotations-list --trace-id {id}`) for every trace cited as worst-case evidence, and absorbs the annotator's reasoning into diff proposals.
+
+**Rule:** each diff proposal's `reason` field MUST cite the relevant annotator reasoning inline, not just pass/fail. Example:
+
+```
+reason: "Annotator: 'The tone was too formal for a support context.' → soften <task_handling> register."
+```
+
+**Fallback:** if no annotations exist on cited traces, note `annotation comment: none (no human labels on cited traces)` in the diff proposal.
+
+This ensures that human-labeled signal (when present) directly informs the proposed prompt change, closing the loop between HITL annotation and iteration.
+
+---
+
 ## Phase 4: Collect Per-Agent Approval (ITER-03, HITL -- LOCKED)
 
 For each failing agent, present the diagnosis (Phase 2 output) followed by proposed changes (Phase 3 output), then ask for explicit approval.
+
+### No-Repeat Optimizer Rule (ITRX-05)
+
+Before soliciting approval, the iterator enforces the `no-repeat` rule to prevent infinite optimization loops on an unchanged prompt.
+
+**Rule:** iterator reads `audit-trail.md` for every past iteration on the same `{agent_key, optimizer_id, prompt_hash}` triple. If the same optimizer ran against the same prompt-hash in a prior iteration, STOP with:
+
+```
+No-repeat rule: optimizer {id} already ran against this prompt. Pass --override to force re-run.
+```
+
+**Explicit override:** user must supply flag `--override` (i.e. explicit override) to force the iterator to proceed. When overridden, iterator records `override: true` in `audit-trail.md` for the new iteration so the bypass is auditable.
+
+`(Phase 42 ITRX-05)`.
 
 ### Step 4.1: Approval Flow
 
@@ -295,6 +381,26 @@ Re-deploying {N} changed agent(s)...
   {agent-key}: FAILED ({error_reason})
 Re-deploy complete with {F} failure(s).
 ```
+
+---
+
+## Phase 6.5: Evaluator-Version A/B (EVLD-11)
+
+When `iteration-proposals.json` includes an evaluator-quality issue (i.e., the diagnosis concluded the evaluator itself is miscalibrated, not the prompt), the iterator runs an `evaluator-version A/B` comparison during re-test.
+
+**Rule:** iterator attaches BOTH the current evaluator prompt AND the proposed evaluator prompt to the SAME re-test experiment as two separate columns (`eval_current`, `eval_proposed`). Each datapoint receives two judgments — one from each evaluator version — on the same model output.
+
+**Output:** re-test results render side-by-side per datapoint, enabling per-datapoint judgment comparison (not just aggregate score averages). This makes disagreement between evaluator versions inspectable at the datapoint level.
+
+**MCP invocation sketch (pseudocode):**
+
+```
+experiments-create --evaluators '[{name: eval_current, prompt: ...}, {name: eval_proposed, prompt: ...}]'
+```
+
+Aggregate per-evaluator-version TPR/TNR is reported alongside the per-datapoint matrix so reviewers can confirm the proposed evaluator is actually more accurate before promoting it.
+
+`(Phase 42 EVLD-11)`.
 
 ---
 
@@ -572,6 +678,13 @@ Directional handoffs (→ means "this skill feeds into"):
 - [ ] Stop conditions enforced (improvement plateau, iteration limit, regression, user abort)
 - [ ] Re-deploy + re-test completed on the holdout split for every changed agent
 - [ ] Next-step recommendation emitted (`/orq-agent:harden` if green, `/orq-agent:iterate` again if still failing)
+- [ ] Every proposed improvement has P0/P1/P2 priority (ITRX-01)
+- [ ] Action Plan emitted per iteration with Summary + Priority Improvements + Re-run Criteria (ITRX-02)
+- [ ] Each ticket cites Evidence (datapoints, scores, run ID) and Success Criteria (target re-run score) (ITRX-07)
+- [ ] Annotation comments absorbed into diff proposal reasons (ITRX-09)
+- [ ] No-repeat optimizer rule enforced; explicit override required (ITRX-05)
+- [ ] Evaluator-version A/B attaches current + proposed evaluators as 2 columns (EVLD-11)
+- [ ] Decision trees published: prompt fix vs evaluator / upgrade model / eval good enough (ESCI-06)
 
 ## Destructive Actions
 
