@@ -118,8 +118,9 @@ export async function POST(request: NextRequest) {
       accountId = (contact["account_id"] ?? acc?.["id"] ?? null) as string | null;
     }
 
-    // Step 1b: Fallback — search Accounts by email domain via email1 field
+    // Step 1b: Fallback — search Accounts by name derived from domain (e.g. "abbott" from "abbott.com")
     if (!accountId) {
+      const companyHint = domain.split(".")[0]; // "abbott" from "abbott.com"
       const { data: accountResults } = await withTimeout(
         zapier.runAction({
           app: "SugarCRMCLIAPI",
@@ -128,8 +129,8 @@ export async function POST(request: NextRequest) {
           connectionId: SUGARCRM_CONNECTION_ID,
           inputs: {
             module: "Accounts",
-            search_field_1: "email1",
-            value_for_search_field_1: domain,
+            search_field_1: "name",
+            value_for_search_field_1: companyHint,
           },
           maxItems: 1,
         }),
@@ -154,14 +155,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 1c: Fetch full account record if we only have accountId from contact lookup
+    // get_records (plural) is the correct action name in SugarCRM CLI API
     if (!accountData) {
       const { data: accResults } = await withTimeout(
         zapier.runAction({
           app: "SugarCRMCLIAPI",
-          actionType: "read",
-          action: "get_record",
+          actionType: "search",
+          action: "record",
           connectionId: SUGARCRM_CONNECTION_ID,
-          inputs: { module: "Accounts", id: accountId },
+          inputs: { module: "Accounts", search_field_1: "id", value_for_search_field_1: accountId },
+          maxItems: 1,
         }),
         ZAPIER_CALL_TIMEOUT_MS
       );
