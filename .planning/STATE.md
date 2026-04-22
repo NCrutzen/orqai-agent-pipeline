@@ -76,11 +76,12 @@ Progress: [████░░░░░░] 43% (3 of 7 V7.0 phases code-complete
 
 ### Pending Todos
 
-4 pending (see `.planning/todos/pending/`):
+5 pending (see `.planning/todos/pending/`):
 - Plan V3 milestones for Playwright and next project phase (planning)
 - Build Zapier analytics browser automation (automation)
 - Resolve PostgREST exposed-schemas for email_insights (database)
-- **Automate copy-document responder for debtor and sales inboxes** (automation) — ~45 req/mo, ~€2,500/yr savings, invoice-first MVP
+- **Triage agent for debtor + sales inbox noise filter** (automation) — phase 0, unblocks all downstream email agents
+- **Automate copy-document responder for debtor and sales inboxes** (automation) — phase 1 consumer of triage, ~45 req/mo, ~€2,500/yr savings
 
 ## Session Continuity
 
