@@ -10,9 +10,11 @@ export async function POST(request: NextRequest) {
   }
 
   const rawText = await request.text().catch(() => "");
-  console.log("[smeba/write-analysis] raw body:", rawText.slice(0, 800));
   let parsed: any = null;
   try { parsed = JSON.parse(rawText); } catch {}
+  // Log only the payload structure, never the content (GDPR — no email bodies in logs)
+  const payloadKeys = parsed && typeof parsed === "object" ? Object.keys(parsed) : [];
+  console.log("[smeba/write-analysis] payload keys:", payloadKeys.join(","));
 
   // Orq.ai may wrap arguments: { arguments: {...} } or { input: {...} } or flat
   const body = parsed?.arguments ?? parsed?.input ?? parsed ?? {};
@@ -21,8 +23,8 @@ export async function POST(request: NextRequest) {
   const sourceId = body?.email_id ?? body?.emailId;
 
   if (!sourceId) {
-    console.log("[smeba/write-analysis] missing email_id. parsed:", JSON.stringify(parsed)?.slice(0, 400));
-    return NextResponse.json({ error: "Missing email_id", received: parsed }, { status: 400 });
+    console.log("[smeba/write-analysis] missing email_id. payload keys:", payloadKeys.join(","));
+    return NextResponse.json({ error: "Missing email_id" }, { status: 400 });
   }
 
   const supabase = createAdminClient();
@@ -92,6 +94,11 @@ export async function POST(request: NextRequest) {
         requires_action: body.requires_action ?? body.requires_human_review ?? false,
         draft_response: body.draft_response ?? null,
         draft_status,
+        language: body.language ?? null,
+        customer_name: body.customer_name ?? null,
+        customer_reference: body.customer_reference ?? null,
+        case_number: body.case_number ?? null,
+        assigned_to: body.assigned_to ?? null,
       },
       { onConflict: "email_id", ignoreDuplicates: false }
     );
