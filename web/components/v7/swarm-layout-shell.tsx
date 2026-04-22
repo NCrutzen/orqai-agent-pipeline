@@ -66,9 +66,13 @@ function ShellBody({
           <KanbanBoard swarmId={swarmId} />
         </section>
 
-        {/* Row 3: Observability — Gantt timeline + event stream */}
-        <section className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_0.8fr]">
+        {/* Row 3: Gantt timeline */}
+        <section>
           <SwimlaneTimeline swarmId={swarmId} />
+        </section>
+
+        {/* Row 4: Live event stream */}
+        <section>
           <TerminalStream swarmId={swarmId} />
         </section>
       </div>

@@ -1,0 +1,21 @@
+{
+  "name": "email-insights",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "extract": "tsx src/1-extract-intents.ts",
+    "embed": "tsx src/2-embed-intents.ts",
+    "cluster": "tsx src/3-cluster-intents.ts",
+    "label": "tsx src/4-label-clusters.ts",
+    "report": "tsx src/5-report.ts",
+    "run": "tsx src/run.ts"
+  },
+  "dependencies": {
+    "@orq-ai/node": "*",
+    "@supabase/supabase-js": "*",
+    "dotenv": "*",
+    "tsx": "*",
+    "zod": "*"
+  }
+}

@@ -56,7 +56,7 @@ const SENDER_PAYMENT_ROLE =
  * AP and puts the system handle inside a longer local-part). The generic
  * SENDER_PAYMENT_ROLE regex only matches role keywords at the START.
  */
-const SENDER_AP_SYSTEM_ANYWHERE = /(basware|blue10|tradeshift)/i;
+const SENDER_AP_SYSTEM_ANYWHERE = /(basware|blue10|tradeshift|inditex)/i;
 
 /** Detects a human-shape sender (firstname.lastname@ or firstname-lastname@). */
 const SENDER_HUMAN_SHAPE = /^[a-z][a-z'-]*[._-][a-z][a-z'-]*@/i;

@@ -1,0 +1,22 @@
+{
+  "domain": "debtor",
+  "filter": {
+    "source": "outlook",
+    "direction": "incoming",
+    "mailbox_in": [
+      "debiteuren@smeba.nl",
+      "debiteuren@smeba-fire.be",
+      "debiteuren@sicli-noord.be"
+    ],
+    "received_after": "2025-01-01"
+  },
+  "skip_analyzed_categories": ["auto_reply", "spam", "internal"],
+  "analysis_schema": "debtor",
+  "output_language": "en",
+  "min_cluster_size": 30,
+  "cluster_distance_threshold": 0.18,
+  "top_n_questions": 50,
+  "top_n_complaints": 25,
+  "llm_model": "anthropic/claude-haiku-4-5-20251001",
+  "embedding_model": "openai/text-embedding-3-small"
+}
