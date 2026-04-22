@@ -3,7 +3,9 @@
 import { categorizeEmail, archiveEmail, fetchMessageBody } from "@/lib/outlook";
 import { classify } from "@/lib/debtor-email/classify";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { deleteEmailFromIController } from "@/lib/automations/debtor-email-cleanup/browser";
+// iController delete is no longer called inline — see comment in the
+// execute loop. The import stays available for the catchup script via
+// `@/lib/automations/debtor-email-cleanup/browser`.
 
 const MAILBOX = "debiteuren@smeba.nl";
 
@@ -259,60 +261,31 @@ export async function executeReviewDecisions(
       completed_at: isoNow,
     });
 
-    // iController delete — the same stream lands in iController's
-    // smebabrandbeveiliging inbox with gaps (many Outlook items aren't there).
-    // `not_found` is a normal outcome and is logged as completed so the
-    // catchup script doesn't re-try it. Hard failures (login, selector
-    // break, browser crash) log as failed but the Outlook actions still
-    // stand — the batch continues.
-    try {
-      const icRes = await deleteEmailFromIController(
-        {
-          company: ICONTROLLER_COMPANY,
-          from: d.from,
-          subject: d.subject,
-          receivedAt: d.receivedAt,
-        },
-        "production",
-      );
-      const errText = icRes.error ?? "";
-      const icStatus: "deleted" | "not_found" | "failed" =
-        icRes.success && icRes.emailFound
-          ? "deleted"
-          : !icRes.emailFound && /email not found|company .* not found/i.test(errText)
-            ? "not_found"
-            : "failed";
-      const nowAfter = new Date().toISOString();
-      await admin.from("automation_runs").insert({
-        automation: "debtor-email-review",
-        status: icStatus === "failed" ? "failed" : "completed",
-        result: {
-          stage: "icontroller_delete",
-          message_id: d.id,
-          company: ICONTROLLER_COMPANY,
-          icontroller: icStatus,
-          screenshots: icRes.screenshots,
-        },
-        error_message: icStatus === "failed" ? errText || null : null,
-        triggered_by: "bulk-review:ui",
-        completed_at: nowAfter,
-      });
-    } catch (err) {
-      const nowAfter = new Date().toISOString();
-      await admin.from("automation_runs").insert({
-        automation: "debtor-email-review",
-        status: "failed",
-        result: {
-          stage: "icontroller_delete",
-          message_id: d.id,
-          company: ICONTROLLER_COMPANY,
-          icontroller: "failed",
-        },
-        error_message: String(err),
-        triggered_by: "bulk-review:ui",
-        completed_at: nowAfter,
-      });
-    }
+    // iController delete wordt NIET inline uitgevoerd. Een enkele browser-
+    // session duurt 15-25s; een chunk van 10 items tikt daardoor tegen
+    // Vercel's Cloudflare proxy idle-timeout (~60-90s) aan en de connectie
+    // wordt gekapt met ERR_CONNECTION_CLOSED / "Failed to fetch". Items
+    // worden dan op de server wel verwerkt maar de UI ziet geen resultaat.
+    //
+    // In plaats daarvan loggen we een 'pending' rij. De bestaande
+    // icontroller-catchup.ts script (of een cron/Inngest-job) pakt deze
+    // later op. De Outlook-kant is al gesynct (categorize + archive staat).
+    await admin.from("automation_runs").insert({
+      automation: "debtor-email-review",
+      status: "pending",
+      result: {
+        stage: "icontroller_delete",
+        message_id: d.id,
+        company: ICONTROLLER_COMPANY,
+        icontroller: "pending",
+        from: d.from,
+        subject: d.subject,
+        received_at: d.receivedAt,
+      },
+      error_message: null,
+      triggered_by: "bulk-review:ui",
+      completed_at: isoNow,
+    });
   }
 
   return result;
