@@ -44,6 +44,17 @@ Customers email `debiteuren@*` and sales inboxes asking for copies of business d
 3. Extend to work_order, contract, quote if MVP holds up
 4. Skip certificate / location_sheet / order_confirmation (too low volume, <5/yr each)
 
+**Architecture note — decouple the fetcher:**
+
+The **document fetcher** (NXT SQL lookup → S3 retrieval → return PDF + metadata) must be a **standalone, reusable tool** — NOT embedded inside the email responder. It should be callable from multiple triggers:
+
+1. **Debtor Team** — direct invocation (internal UI button, Slack slash command, or Zapier step) when they want to pull a doc manually without going through NXT UI
+2. **Sales Team** — same pattern, different consumers (e.g. pulling an offerte or werkbon during a customer call)
+3. **Orq.ai agents** — exposed as a tool-call (function/tool definition) so any agent in the swarm can fetch a document as part of a larger workflow
+4. **Email responder automation** (this todo's primary consumer) — calls the same tool
+
+Interface: single function `fetchDocument({ docType, reference, entity }) → { pdfUrl | base64, metadata, notFoundReason? }`. Entity param handles Smeba/Berki/Sicli multi-tenant routing. Deployed as: Vercel API route + Orq.ai tool registration + Zapier app action.
+
 **Pipeline:**
 ```
 Inbound email (Graph API or Zapier trigger)
