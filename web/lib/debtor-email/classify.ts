@@ -360,7 +360,7 @@ export function classify(input: ClassifyInput): ClassifyResult {
     }
   }
 
-  // (sender_system_fallback verwijderd — bleek in productie 68% precision
+  // (sender_system_fallback verwijderd — haalde in productie 68% precision
   // op 75 samples. Echte inhoud-loze noreply-mails horen in Onbekend voor
   // menselijke review. Positieve varianten worden nu expliciet gevangen
   // door subject_acknowledgement, subject_ticket_ref en reply_prefix+
