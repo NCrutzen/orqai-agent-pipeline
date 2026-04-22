@@ -68,6 +68,25 @@ const ACTIONABLE_CATEGORIES: Category[] = [
 // with the new contact address first.
 const LABEL_ONLY_CATEGORIES = new Set<Category>(["ooo_permanent"]);
 
+// Lijst van bestaande classifier-regels waarnaar de reviewer bij een
+// Onbekend hand-pick kan hinten ("deze mail zou onder deze regel
+// moeten vallen maar de regex miste 'm"). Gebruikt voor gerichte
+// classifier-uitbreiding — zie telemetry result.rule_hint.
+const RULE_HINTS: Array<{ value: string; label: string; cat: Category }> = [
+  { value: "subject_acknowledgement", label: "subject_acknowledgement (ack/ontvangstbevestiging)", cat: "auto_reply" },
+  { value: "subject_ticket_ref", label: "subject_ticket_ref (ticketnummer / procesnummer)", cat: "auto_reply" },
+  { value: "reply_prefix+system_sender", label: "reply_prefix+system_sender (RE:/FW: van noreply@)", cat: "auto_reply" },
+  { value: "reply_prefix+ap_automation_sender", label: "reply_prefix+ap_automation_sender (Basware/Blue10/Tradeshift)", cat: "auto_reply" },
+  { value: "subject_autoreply", label: "subject_autoreply (Automatisch antwoord / OoO subject)", cat: "auto_reply" },
+  { value: "subject_autoreply+body_temporary", label: "subject_autoreply+body_temporary (tijdelijk weg)", cat: "ooo_temporary" },
+  { value: "subject_autoreply+body_mailbox_retired", label: "body_mailbox_retired (mailbox retired / nieuw adres)", cat: "ooo_permanent" },
+  { value: "payment_subject", label: "payment_subject (Betalingsbevestiging / Zahlungsavis)", cat: "payment_admittance" },
+  { value: "payment_sender+subject", label: "payment_sender+subject (role-sender + payment-subject)", cat: "payment_admittance" },
+  { value: "subject_paid_marker", label: "subject_paid_marker (gemarkeerd als Betaald)", cat: "payment_admittance" },
+  { value: "blocked_submission_rejected", label: "blocked_submission_rejected (systeem wijst submit af)", cat: "unknown" },
+  { value: "NEW_RULE_NEEDED", label: "⚠ Nieuwe regel nodig (geen bestaande past)", cat: "unknown" },
+];
+
 const BAND_COLOR: Record<string, string> = {
   high: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   medium: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
@@ -84,6 +103,9 @@ type RowState = {
   include: boolean;
   override: Category | ""; // "" = keep predicted
   notes: string;
+  // Optionele hint: welke classifier-regel had moeten matchen volgens
+  // de reviewer. Alleen relevant bij Onbekend hand-picks.
+  ruleHint: string;
 };
 
 interface Props {
@@ -133,7 +155,7 @@ export function BulkReview(props: Props) {
   };
 
   const getRow = (id: string): RowState =>
-    rowStates[id] ?? { include: true, override: "", notes: "" };
+    rowStates[id] ?? { include: true, override: "", notes: "", ruleHint: "" };
 
   const patchRow = (id: string, patch: Partial<RowState>) =>
     setRowStates((prev) => ({ ...prev, [id]: { ...getRow(id), ...patch } }));
@@ -194,6 +216,7 @@ export function BulkReview(props: Props) {
             decision: "recategorize" as const,
             overrideCategory: s.override as Category,
             notes: s.notes || undefined,
+            ruleHint: s.ruleHint || undefined,
             // Label only — keep in inbox for manual verification. No
             // archive, no iController delete.
             labelOnly: true,
@@ -628,14 +651,49 @@ export function BulkReview(props: Props) {
                         </Select>
                       </div>
                     </div>
+                    {/* Rule-hint dropdown voor Onbekend hand-picks — welke
+                        bestaande regel had dit moeten vangen. Alleen tonen
+                        als reviewer een echte categorie heeft gekozen
+                        (niet "overslaan"). */}
+                    {isUnknownGroup && isLabeled && (
+                      <div className="flex items-center gap-2 pl-7">
+                        <label className="text-[11px] text-muted-foreground whitespace-nowrap">
+                          Welke regel had dit moeten vangen?
+                        </label>
+                        <Select
+                          value={s.ruleHint || "none"}
+                          onValueChange={(v) =>
+                            patchRow(item.id, { ruleHint: v === "none" ? "" : v })
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-xs flex-1">
+                            <SelectValue placeholder="(optioneel — helpt gerichte classifier-uitbreiding)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none" className="text-xs text-muted-foreground">
+                              — geen hint —
+                            </SelectItem>
+                            {RULE_HINTS.filter(
+                              (rh) => rh.cat === s.override || rh.value === "NEW_RULE_NEEDED",
+                            ).map((rh) => (
+                              <SelectItem key={rh.value} value={rh.value} className="text-xs">
+                                {rh.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     {showNotes && (
                       <textarea
                         value={s.notes}
                         onChange={(e) => patchRow(item.id, { notes: e.target.value })}
                         placeholder={
-                          !s.include
-                            ? "Waarom uitsluiten? (optioneel — helpt de classifier leren)"
-                            : "Waarom hercategoriseren? (optioneel — helpt de classifier leren)"
+                          isUnknownGroup
+                            ? "Welk woord/patroon mist de classifier? (bv. 'Confirmation:', 'Ontvangstbevestiging')"
+                            : !s.include
+                              ? "Waarom uitsluiten? (optioneel — helpt de classifier leren)"
+                              : "Waarom hercategoriseren? (optioneel — helpt de classifier leren)"
                         }
                         rows={2}
                         className="w-full text-xs rounded-md border border-border bg-background/60 px-2 py-1.5 resize-y focus:outline-none focus:ring-1 focus:ring-ring"

@@ -64,6 +64,11 @@ export interface ReviewDecision {
   // those labeled for classifier training but kept in the inbox for manual
   // verification before the classifier learns to auto-action them.
   labelOnly?: boolean;
+  // Optional reviewer hint for Onbekend hand-picks: welke bestaande
+  // classifier-regel had deze mail MOETEN matchen. Opgeslagen in telemetry
+  // zodat we later concreet per regel kunnen zien welke woorden/patronen
+  // ontbreken en de regex gericht kunnen uitbreiden.
+  ruleHint?: string;
 }
 
 /**
@@ -113,6 +118,7 @@ export async function executeReviewDecisions(
         },
         override_category: d.overrideCategory ?? null,
         notes: d.notes ?? null,
+        rule_hint: d.ruleHint ?? null,
       },
       error_message: null,
       triggered_by: "bulk-review:ui",
