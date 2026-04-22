@@ -54,7 +54,13 @@ The **document fetcher** (NXT SQL lookup → S3 retrieval → return PDF + metad
 
 Interface: single function `fetchDocument({ docType, reference, entity }) → { pdfUrl | base64, metadata, notFoundReason? }`. Entity param handles Smeba/Berki/Sicli multi-tenant routing.
 
-Deploy surface: **Vercel API route** (the HTTP endpoint the Orq.ai tool-call hits) + **Orq.ai tool registration** (so agents can discover and call it). Zapier is only needed inside the route implementation if NXT SQL still requires the whitelisted IP path — validate whether a direct Vercel→NXT SQL connection is possible before assuming a Zapier hop.
+Deploy surface: **Vercel API route** (the HTTP endpoint the Orq.ai tool-call hits) + **Orq.ai tool registration** (so agents can discover and call it).
+
+**Data access — use the Zapier SDK (`@zapier/zapier-sdk`) for BOTH NXT SQL and S3.**
+- NXT SQL: Zapier `sql_server_find_multiple_rows_via_custom_query` / `sql_server_find_row_via_custom_query` (whitelisted-IP path is non-negotiable — no direct Vercel→NXT connection)
+- S3 (NXT document backend): same Zapier SDK, S3 actions
+- Do NOT hit S3 directly with AWS SDK from Vercel — keep a single credential boundary and auth path through Zapier
+- Pattern already in use here: see `web/debtor-email-analyzer/src/fetch-emails.ts` for Zapier SDK invocation style
 
 **Pipeline:**
 ```
