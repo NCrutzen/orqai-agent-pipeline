@@ -22,7 +22,7 @@ jobs:
   skill-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: SKST lint (Phase 34) + snapshot-pinned-models (Phase 35)
         run: bash orq-agent/scripts/lint-skills.sh
