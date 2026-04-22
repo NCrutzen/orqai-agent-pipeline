@@ -1,15 +1,10 @@
-import { AgentRunBoard } from "@/components/automations/agent-run-board";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default function DebtorEmailSwarmPage() {
-  return (
-    <div className="flex h-full flex-col p-6">
-      <AgentRunBoard
-        title="Debiteuren Email Swarm"
-        prefix="debtor-email"
-        description="Live overzicht van alle agent runs die binnenkomende debiteurenmail classificeren en afhandelen. Klik een kaart voor details en screenshots."
-      />
-    </div>
-  );
+/**
+ * Debtor Email is registered as a swarm in the `projects` table. Live runs
+ * are rendered by the swarm page — this route redirects to preserve any
+ * bookmarks from the first iteration of the feature.
+ */
+export default function DebtorEmailRedirectPage() {
+  redirect("/swarm/60c730a3-be04-4b59-87e8-d9698b468fc9");
 }

@@ -23,7 +23,6 @@ import {
   Settings,
   LogOut,
   Mail,
-  Activity,
   Timer,
   Tag,
   Wrench,
@@ -66,7 +65,6 @@ const WORKSPACE_ITEMS = [
 ];
 
 const AUTOMATIONS_ITEMS = [
-  { title: "Debtor Swarm (live)", href: "/automations/debtor-email", icon: Activity, match: (p: string) => p === "/automations/debtor-email" || p.startsWith("/automations/debtor-email/") },
   { title: "Debtor Review", href: "/automations/debtor-email-review", icon: Mail, match: (p: string) => p.startsWith("/automations/debtor-email-review") },
   { title: "Uren Controle", href: "/automations/uren-controle", icon: Timer, match: (p: string) => p.startsWith("/automations/uren-controle") },
   { title: "Agent Namer", href: "/automations/agent-namer", icon: Tag, match: (p: string) => p.startsWith("/automations/agent-namer") },
