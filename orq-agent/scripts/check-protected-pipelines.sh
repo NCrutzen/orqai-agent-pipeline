@@ -10,7 +10,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 PROTECTED_COMMANDS=(orq-agent prompt architect)
-GOLDEN_DIR=".planning/phases/34-skill-structure-format-foundation/golden"
+GOLDEN_DIR="orq-agent/scripts/golden"
 
 usage() {
   cat <<'EOF'
@@ -22,7 +22,7 @@ Modes:
                or when pipeline changes are intentional + documented in a SUMMARY.
 
 Protected commands (hard-coded): orq-agent, prompt, architect
-Golden dir: .planning/phases/34-skill-structure-format-foundation/golden/
+Golden dir: orq-agent/scripts/golden/
 
 Exit codes:
   0  all pipeline blocks match golden
