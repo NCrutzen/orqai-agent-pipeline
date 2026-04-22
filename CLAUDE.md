@@ -157,6 +157,7 @@ const browser = await chromium.connectOverCDP(
 
 ### Zapier
 - NXT SQL alleen via Zapier (whitelisted IP)
+- **NXT-documenten op S3 ook via Zapier SDK** (`@zapier/zapier-sdk`) — niet direct met AWS SDK vanuit Vercel. Één credential-grens, één auth-pad. Pattern: `web/debtor-email-analyzer/src/fetch-emails.ts`.
 - Orq.ai long-running calls via Cloudflare Workers (Zapier timeout te kort)
 
 → `docs/zapier-patterns.md`
