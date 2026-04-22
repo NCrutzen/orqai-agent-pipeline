@@ -23,7 +23,11 @@ import type { Page, BrowserContext } from "playwright-core";
 const ENV = "acceptance" as const;
 const URL_BASE = "https://test-walkerfire-testing.icontroller.billtrust.com";
 const CREDENTIAL_ID = "e9a9570e-5f0d-4d50-8b41-212fc6bdb78a";
-const SESSION_KEY = "icontroller_session";
+// No session reuse for probe — the cleanup automation shares
+// `icontroller_session` and if that got stored on a Billtrust error page
+// every subsequent run loads a bad session. Fresh login each time keeps
+// the probe independent.
+const SESSION_KEY: string | undefined = undefined;
 
 const OUT_DIR = resolve(__dirname, "../../../../.planning/briefs/artifacts");
 const AUTOMATION = "debtor-email-drafter-probe";
@@ -46,9 +50,13 @@ type ActionCandidate = {
 async function ensureLoggedIn(page: Page) {
   await page.goto(URL_BASE, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2000);
-  const needsLogin = await page.locator("#login-username").isVisible({ timeout: 3000 }).catch(() => false);
-  if (!needsLogin) {
-    console.log("✓ session reused");
+  const hasLoginForm = await page.locator("#login-username").isVisible({ timeout: 5000 }).catch(() => false);
+  if (!hasLoginForm) {
+    const html = await page.content();
+    if (/Sorry!|page is temporarily unavailable/i.test(html)) {
+      throw new Error(`Got Billtrust error page at ${page.url()} instead of login form — suggest visiting manually to verify acceptance is up`);
+    }
+    console.log("✓ already authenticated (no login form shown)");
     return;
   }
   const creds = await resolveCredentials(CREDENTIAL_ID);
@@ -56,8 +64,12 @@ async function ensureLoggedIn(page: Page) {
   await page.fill("#login-password", creds.password);
   await page.click("#login-submit");
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForTimeout(2000);
-  console.log("✓ logged in");
+  await page.waitForTimeout(3000);
+  const postHtml = await page.content();
+  if (/Sorry!|page is temporarily unavailable/i.test(postHtml)) {
+    throw new Error(`Logged in but landed on Billtrust error page at ${page.url()}`);
+  }
+  console.log(`✓ logged in, landed at: ${page.url()}`);
 }
 
 async function scanActions(page: Page, keyword: RegExp): Promise<ActionCandidate[]> {
@@ -273,7 +285,7 @@ async function main() {
     console.log(`\n✓ composer page HTML: ${fullHtml.length.toLocaleString()} bytes`);
     console.log(`✓ summary JSON written to ${OUT_DIR}`);
 
-    await saveSession(context, SESSION_KEY);
+    // No session save — probe runs fresh every time on purpose.
   } catch (err) {
     console.error("Fatal:", err);
     await captureScreenshot(page, { automation: AUTOMATION, label: "error" }).catch(() => null);

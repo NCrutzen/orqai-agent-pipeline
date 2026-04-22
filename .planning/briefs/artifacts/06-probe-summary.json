@@ -1,8 +1,259 @@
 {
   "env": "acceptance",
-  "ts": "2026-04-22T17:40:17.130Z",
+  "ts": "2026-04-22T17:42:54.746Z",
   "flow": "new-message",
   "newMsgCandidates": [],
-  "newMsgCandidatesRetry": [],
-  "error": "Error: No visible New-Message button found; inspect artifacts to identify it"
+  "newMsgCandidatesRetry": [
+    {
+      "tag": "BUTTON",
+      "text": "New message",
+      "id": null,
+      "cls": "call-to-action compose",
+      "href": null,
+      "visible": true,
+      "rect": {
+        "x": 279,
+        "y": 277,
+        "w": 148,
+        "h": 34
+      }
+    }
+  ],
+  "chosenNewMsg": {
+    "tag": "BUTTON",
+    "text": "New message",
+    "id": null,
+    "cls": "call-to-action compose",
+    "href": null,
+    "visible": true,
+    "rect": {
+      "x": 279,
+      "y": 277,
+      "w": 148,
+      "h": 34
+    }
+  },
+  "composerOpenedInNewTab": true,
+  "composerUrl": "https://test-walkerfire-testing.icontroller.billtrust.com/messages/compose?",
+  "composerState": {
+    "editors": [
+      {
+        "tag": "TEXTAREA",
+        "name": "message",
+        "id": null,
+        "cls": "",
+        "placeholder": null,
+        "visible": false
+      },
+      {
+        "tag": "IFRAME",
+        "name": null,
+        "id": null,
+        "cls": "cke_wysiwyg_frame cke_reset",
+        "placeholder": null,
+        "visible": true
+      }
+    ],
+    "fileInputs": [
+      {
+        "id": null,
+        "name": null,
+        "accept": null,
+        "multiple": true,
+        "cls": "dz-hidden-input",
+        "visible": true
+      }
+    ],
+    "formFields": [
+      {
+        "id": "mailbox",
+        "name": "mailbox",
+        "label": "From",
+        "visible": true
+      },
+      {
+        "id": "s2id_autogen4",
+        "name": null,
+        "label": "",
+        "visible": true
+      },
+      {
+        "id": null,
+        "name": "to",
+        "label": "",
+        "visible": true
+      },
+      {
+        "id": "s2id_autogen6",
+        "name": null,
+        "label": "",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "cc",
+        "label": "",
+        "visible": false
+      },
+      {
+        "id": "s2id_autogen8",
+        "name": null,
+        "label": "",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "bcc",
+        "label": "",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "subject",
+        "label": "",
+        "visible": true
+      },
+      {
+        "id": "s2id_autogen2",
+        "name": null,
+        "label": "",
+        "visible": true
+      },
+      {
+        "id": null,
+        "name": "debtors",
+        "label": "",
+        "visible": true
+      }
+    ],
+    "url": "https://test-walkerfire-testing.icontroller.billtrust.com/messages/compose?",
+    "title": "New message - BT Collections"
+  },
+  "attachActions": [
+    {
+      "tag": "BUTTON",
+      "text": "Add attachments",
+      "id": null,
+      "cls": "attachments dz-clickable",
+      "href": null,
+      "visible": true,
+      "rect": {
+        "x": 263,
+        "y": 34,
+        "w": 165,
+        "h": 34
+      }
+    }
+  ],
+  "sendActions": [],
+  "draftActions": [
+    {
+      "tag": "BUTTON",
+      "text": "Save as draft",
+      "id": null,
+      "cls": "save-as-draft",
+      "href": null,
+      "visible": true,
+      "rect": {
+        "x": 121,
+        "y": 34,
+        "w": 138,
+        "h": 34
+      }
+    }
+  ],
+  "composerStateAfterAttach": {
+    "editors": [
+      {
+        "tag": "TEXTAREA",
+        "name": "message",
+        "id": null,
+        "cls": "",
+        "placeholder": null,
+        "visible": false
+      },
+      {
+        "tag": "IFRAME",
+        "name": null,
+        "id": null,
+        "cls": "cke_wysiwyg_frame cke_reset",
+        "placeholder": null,
+        "visible": true
+      }
+    ],
+    "fileInputs": [
+      {
+        "id": null,
+        "name": null,
+        "accept": null,
+        "multiple": true,
+        "cls": "dz-hidden-input",
+        "visible": true
+      }
+    ],
+    "formFields": [
+      {
+        "id": "mailbox",
+        "name": "mailbox",
+        "label": "From",
+        "visible": true
+      },
+      {
+        "id": "s2id_autogen4",
+        "name": null,
+        "label": "",
+        "visible": true
+      },
+      {
+        "id": null,
+        "name": "to",
+        "label": "",
+        "visible": true
+      },
+      {
+        "id": "s2id_autogen6",
+        "name": null,
+        "label": "",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "cc",
+        "label": "",
+        "visible": false
+      },
+      {
+        "id": "s2id_autogen8",
+        "name": null,
+        "label": "",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "bcc",
+        "label": "",
+        "visible": false
+      },
+      {
+        "id": null,
+        "name": "subject",
+        "label": "",
+        "visible": true
+      },
+      {
+        "id": "s2id_autogen2",
+        "name": null,
+        "label": "",
+        "visible": true
+      },
+      {
+        "id": null,
+        "name": "debtors",
+        "label": "",
+        "visible": true
+      }
+    ],
+    "url": "https://test-walkerfire-testing.icontroller.billtrust.com/messages/compose?",
+    "title": "New message - BT Collections"
+  }
 }
