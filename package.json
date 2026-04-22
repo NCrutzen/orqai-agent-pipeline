@@ -1,0 +1,25 @@
+{
+  "name": "@ncrutzen/orqai-agent-pipeline",
+  "version": "3.0.0",
+  "description": "Orq.ai Agent Designer skills — install via `npx skills add NCrutzen/orqai-agent-pipeline` for Cursor/Gemini/Cline/Copilot/Windsurf users who only want the skills layer.",
+  "keywords": ["orq.ai", "agent-designer", "llm", "skills", "claude-code", "cursor"],
+  "homepage": "https://github.com/NCrutzen/orqai-agent-pipeline",
+  "repository": "https://github.com/NCrutzen/orqai-agent-pipeline",
+  "license": "MIT",
+  "author": "Moyne Roberts",
+  "skills": {
+    "entry": "./orq-agent/SKILL.md",
+    "path": "./orq-agent"
+  },
+  "files": [
+    "orq-agent/",
+    ".mcp.json",
+    "mcp.json",
+    "README.md",
+    "LICENSE",
+    "VERSION"
+  ],
+  "scripts": {
+    "test:manifests": "bash tests/scripts/validate-plugin-manifests.sh"
+  }
+}

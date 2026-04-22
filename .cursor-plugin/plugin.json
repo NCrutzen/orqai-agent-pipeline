@@ -1,0 +1,14 @@
+{
+  "$schema": "https://cursor.sh/schemas/plugin.schema.json",
+  "name": "orq-agent",
+  "description": "Generate complete, copy-paste-ready Orq.ai Agent specifications with orchestration logic from use case descriptions",
+  "version": "3.0.0",
+  "author": {
+    "name": "Moyne Roberts"
+  },
+  "homepage": "https://github.com/NCrutzen/orqai-agent-pipeline",
+  "repository": "https://github.com/NCrutzen/orqai-agent-pipeline",
+  "license": "MIT",
+  "skills": "./orq-agent/",
+  "mcp": "./.mcp.json"
+}

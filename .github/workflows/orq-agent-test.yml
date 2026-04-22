@@ -1,0 +1,74 @@
+name: orq-agent-test
+
+# DIST-07: run `/orq-agent:test` on a deployed agent and fail the build on regression
+# detected by results-analyzer (ITRX-04). Uses Claude Code headless via npx.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      agent_key:
+        description: "Orq.ai agent key to test"
+        required: true
+      dataset_id:
+        description: "Dataset ID for the experiment"
+        required: true
+
+env:
+  ORQ_API_KEY: ${{ secrets.ORQ_API_KEY }}
+  AGENT_KEY: ${{ inputs.agent_key || vars.DEFAULT_AGENT_KEY }}
+  DATASET_ID: ${{ inputs.dataset_id || vars.DEFAULT_DATASET_ID }}
+
+jobs:
+  validate-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate plugin manifests (DIST-01..06)
+        run: bash tests/scripts/validate-plugin-manifests.sh
+
+  orq-agent-test:
+    needs: validate-manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Install orq-agent skill
+        run: bash install.sh --tier test
+
+      - name: Run /orq-agent:test on deployed agent
+        id: orq_test
+        run: |
+          claude code \
+            --headless \
+            --api-key "${{ secrets.ANTHROPIC_API_KEY }}" \
+            --prompt "/orq-agent:test --agent $AGENT_KEY --dataset $DATASET_ID" \
+            | tee orq-test-output.txt
+
+      - name: Fail on ITRX-04 regression
+        run: |
+          # results-analyzer emits ⚠️ markers on any score drop vs previous run.
+          if grep -q "⚠️" orq-test-output.txt; then
+            echo "::error title=Regression detected (ITRX-04)::results-analyzer flagged a regression."
+            echo "Output saved to orq-test-output.txt"
+            exit 1
+          fi
+          echo "No regressions detected."
+
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orq-test-output
+          path: orq-test-output.txt

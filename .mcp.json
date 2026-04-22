@@ -1,0 +1,12 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp.schema.json",
+  "mcpServers": {
+    "orq-workspace": {
+      "command": "npx",
+      "args": ["-y", "@orq-ai/mcp-server"],
+      "env": {
+        "ORQ_API_KEY": "${ORQ_API_KEY}"
+      }
+    }
+  }
+}

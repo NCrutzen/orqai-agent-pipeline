@@ -1,0 +1,15 @@
+{
+  "$schema": "https://codex.sh/schemas/marketplace.schema.json",
+  "name": "orq-agent-marketplace",
+  "owner": {
+    "name": "Moyne Roberts"
+  },
+  "plugins": [
+    {
+      "name": "orq-agent",
+      "source": "plugins/orq",
+      "description": "Generate complete Orq.ai Agent specifications from use case descriptions",
+      "version": "3.0.0"
+    }
+  ]
+}
