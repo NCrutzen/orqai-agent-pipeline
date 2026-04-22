@@ -117,12 +117,36 @@ function deriveEntityStage(runs: AutomationRun[]): {
   stage: string;
   hasError: boolean;
 } {
+  // `feedback` runs are audit records: the classifier flagged the mail
+  // for human review. Once a later action run (cleanup/review with
+  // status completed/skipped_idempotent) lands for the same entity, the
+  // review is resolved — the feedback row stays in the table for audit
+  // but should no longer pin the kanban stage at "review".
+  const latestResolvedAt = runs.reduce<string | null>((acc, r) => {
+    if (r.status !== "completed" && r.status !== "skipped_idempotent") {
+      return acc;
+    }
+    const ts = r.completed_at ?? r.created_at;
+    if (!acc || ts.localeCompare(acc) > 0) return ts;
+    return acc;
+  }, null);
+
   let best = "backlog";
   let bestScore = -1;
   let hasError = false;
   for (const run of runs) {
     if (run.status === "failed") hasError = true;
-    const stage = run.status === "failed" ? "failed" : stageFromStatus(run.status);
+    let status = run.status;
+    // Demote superseded feedback rows to "done" so a later approve+
+    // archive action wins over an earlier review flag on the same mail.
+    if (
+      status === "feedback" &&
+      latestResolvedAt &&
+      run.created_at.localeCompare(latestResolvedAt) <= 0
+    ) {
+      status = "completed";
+    }
+    const stage = status === "failed" ? "failed" : stageFromStatus(status);
     const score = STAGE_PRIORITY[stage] ?? 0;
     if (score > bestScore) {
       bestScore = score;
@@ -453,10 +477,25 @@ export async function syncDebtorEmailBridge(): Promise<BridgeResult> {
   if (eventsErr) throw new Error(`insert agent_events: ${eventsErr.message}`);
 
   // Refresh swarm_agents.metrics based on the grouped jobs.
+  //
+  // IMPORTANT: seed every registered agent at zero before counting. If we
+  // only touched agents that appear in the current job set, agents with no
+  // current jobs (e.g. "Classifier Orchestrator" after entity grouping moved
+  // its work to Rule · * agents) would keep whatever error_count / status
+  // the last non-empty sync wrote — sometimes hours or days old. The briefing
+  // LLM then narrates those stale counts as a live incident.
+  const { data: registered } = await admin
+    .from("swarm_agents")
+    .select("agent_name")
+    .eq("swarm_id", DEBTOR_EMAIL_SWARM_ID);
+
   const agentsIncrement = new Map<
     string,
     { active: number; queue: number; errors: number }
   >();
+  for (const row of registered ?? []) {
+    agentsIncrement.set(row.agent_name, { active: 0, queue: 0, errors: 0 });
+  }
   for (const job of jobs) {
     const agent = job.assigned_agent;
     if (!agent) continue;
