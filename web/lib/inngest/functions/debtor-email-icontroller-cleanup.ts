@@ -113,9 +113,15 @@ export const cleanupIControllerPending = inngest.createFunction(
           // Update de pending-rij in-place naar de uiteindelijke status.
           // Belangrijk: NIET een nieuwe rij insert, want dan zou de
           // pending-rij bij de volgende cron-run opnieuw opgepakt worden.
+          //
+          // automation wijzigt van "debtor-email-review" naar
+          // "debtor-email-cleanup" zodat de V7 swarm-bridge deze run
+          // correct mapt naar de "AutoReplyHandler" sub-agent ipv de
+          // classifier. Zie web/lib/automations/debtor-email-bridge/sync.ts
           await admin
             .from("automation_runs")
             .update({
+              automation: "debtor-email-cleanup",
               status: icStatus === "failed" ? "failed" : "completed",
               result: {
                 ...r,
@@ -137,6 +143,7 @@ export const cleanupIControllerPending = inngest.createFunction(
           await admin
             .from("automation_runs")
             .update({
+              automation: "debtor-email-cleanup",
               status: "failed",
               result: {
                 ...r,
