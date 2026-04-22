@@ -6,8 +6,13 @@
  *   - `SortableContext` -- so child cards can be reordered (V7 only
  *     supports cross-column moves; within-column reordering is not
  *     persisted -- see Plan 52-02 D-14)
+ *
+ * Shows up to VISIBLE_LIMIT cards by default; a "Toon N meer" button
+ * expands the rest in place so users can still drag from the full list.
  */
 
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -23,7 +28,13 @@ interface KanbanColumnProps {
   jobs: SwarmJob[];
 }
 
+const VISIBLE_LIMIT = 5;
+
 export function KanbanColumn({ stage, jobs }: KanbanColumnProps) {
+  const [expanded, setExpanded] = useState(false);
+  const visibleJobs = expanded ? jobs : jobs.slice(0, VISIBLE_LIMIT);
+  const hiddenCount = jobs.length - visibleJobs.length;
+
   const { setNodeRef, isOver } = useDroppable({
     id: `column:${stage}`,
     data: { stage, kind: "column" as const },
@@ -58,11 +69,11 @@ export function KanbanColumn({ stage, jobs }: KanbanColumnProps) {
       </header>
 
       <div
-        className="grid gap-[10px] min-h-[60px] overflow-y-auto"
+        className="grid gap-[10px] min-h-[60px]"
         style={{ paddingRight: 3 }}
       >
         <SortableContext
-          items={jobs.map((j) => j.id)}
+          items={visibleJobs.map((j) => j.id)}
           strategy={verticalListSortingStrategy}
         >
           {jobs.length === 0 ? (
@@ -73,7 +84,31 @@ export function KanbanColumn({ stage, jobs }: KanbanColumnProps) {
               No jobs in {STAGE_LABELS[stage]}
             </div>
           ) : (
-            jobs.map((job) => <KanbanJobCard key={job.id} job={job} />)
+            <>
+              {visibleJobs.map((job) => (
+                <KanbanJobCard key={job.id} job={job} />
+              ))}
+              {hiddenCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(true)}
+                  className="flex items-center justify-center gap-1.5 rounded-[var(--v7-radius-sm)] border border-dashed border-[var(--v7-line)] px-3 py-2 text-[12px] text-[var(--v7-muted)] transition-colors hover:border-[var(--v7-teal)] hover:text-[var(--v7-text)]"
+                >
+                  <ChevronDown size={12} />
+                  Toon {hiddenCount} meer
+                </button>
+              )}
+              {expanded && jobs.length > VISIBLE_LIMIT && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(false)}
+                  className="flex items-center justify-center gap-1.5 rounded-[var(--v7-radius-sm)] border border-dashed border-[var(--v7-line)] px-3 py-2 text-[12px] text-[var(--v7-muted)] transition-colors hover:border-[var(--v7-teal)] hover:text-[var(--v7-text)]"
+                >
+                  <ChevronDown size={12} className="rotate-180" />
+                  Inklappen
+                </button>
+              )}
+            </>
           )}
         </SortableContext>
       </div>

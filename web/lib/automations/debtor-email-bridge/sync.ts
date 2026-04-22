@@ -69,7 +69,34 @@ function extractTitle(run: AutomationRun): string {
       const v = (r as Record<string, unknown>)[key];
       if (typeof v === "string" && v.length > 0) return v.slice(0, 120);
     }
+    // Nested shapes (review feedback rows store email under .email or have
+    // prediction/decision metadata we can synthesize a readable title from).
+    const email = (r as Record<string, unknown>).email;
+    if (email && typeof email === "object") {
+      const sub = (email as Record<string, unknown>).subject;
+      if (typeof sub === "string" && sub.length > 0) return sub.slice(0, 120);
+    }
+    const decision = (r as Record<string, unknown>).decision;
+    const prediction = (r as Record<string, unknown>).prediction as
+      | Record<string, unknown>
+      | undefined;
+    const category =
+      (prediction?.category as string | undefined) ??
+      ((r as Record<string, unknown>).override_category as string | undefined) ??
+      ((r as Record<string, unknown>).target_category as string | undefined);
+    if (typeof decision === "string" && category) {
+      return `Review: ${decision} → ${category}`;
+    }
+    if (typeof decision === "string") {
+      return `Review: ${decision}`;
+    }
+    if (category) {
+      return `Categorized as ${category}`;
+    }
+    const stage = (r as Record<string, unknown>).stage;
+    if (typeof stage === "string") return stage.replace(/_/g, " ");
   }
+  if (run.error_message) return run.error_message.slice(0, 120);
   return `${run.automation} · ${run.id.slice(0, 8)}`;
 }
 
