@@ -1,5 +1,29 @@
 # Milestones
 
+## v3.0 Lifecycle Completeness & Eval Science (Shipped: 2026-04-22)
+
+**Phases completed:** 10 phases (34-43), 52 plans
+**Timeline:** 3 days (2026-04-20 → 2026-04-22)
+**Requirements:** 88/88 satisfied (SKST, MSEL, LCMD, OBSV, TFAIL, DSET, KBM, POPT, XFRM, EVLD, ESCI, ITRX, DIST)
+
+**Key accomplishments:**
+1. Agent Skills format foundation — 34 skill files conform to 9-section SKST contract, lint script enforces conformance, 3 protected entry points byte-identical via SHA-256 pipeline hash (Phase 34)
+2. Capable-first, snapshot-pinned, cascade-aware model selection policy in researcher + spec-generator with `snapshot-pinned-models` lint rule and Capable Tier lookup seed (Phase 35)
+3. Six new lifecycle slash commands — `/orq-agent:workspace`, `:traces`, `:analytics`, `:models`, `:quickstart`, `:automations` — thin MCP-backed (Phase 36)
+4. Observability setup skill — framework detection, 3-mode integration (AI Router / OTEL / both), 5 framework snippets, per-tenant `identity` attribution wired through `/orq-agent:traces --identity` (Phase 37)
+5. Trace failure analysis skill — grounded-theory taxonomy (4-8 modes), 50/30/20 sampling, first-upstream-failure rule, transition matrix, 4-class handoff (Phase 38)
+6. Dataset generator upgrades — two-step mode, 8-vector adversarial catalog, coverage rules, Curation Mode 4, multi-turn + RAG shapes, promote-trace → regression datapoint (Phase 39)
+7. KB & Memory lifecycle — retrieval-quality gate, embedding-activation check, content-type chunking policy, KB-vs-Memory blocking rule, new `memory-store-generator` subagent with round-trip test (Phase 40)
+8. Prompt optimization (11-guideline framework, diff + new-version) + cross-framework comparison (evaluatorq script across 5 frameworks with fairness guards) (Phase 41)
+9. Eval-science methodology across tester/failure-diagnoser/iterator/hardener/results-analyzer + new `evaluator-validator` — binary Pass/Fail default, TPR/TNR ≥ 90% gate, prevalence correction, P0/P1/P2 action plans, regression ⚠️ flagging, sample_rate volume defaults, inter-annotator agreement (Phase 42)
+10. Cross-IDE distribution — `.cursor-plugin`/`.codex-plugin`/`.agents/plugins` manifests, root `.mcp.json`/`mcp.json`, `package.json` for `npx skills add`, manifest validator, GitHub Actions + GitLab CI that fail on ITRX-04 regression (Phase 43)
+
+**Tech debt accepted:** 22 deferred manual LLM/MCP smokes across 9 phases — all require live Orq.ai workspace to exercise (see v3.0-MILESTONE-AUDIT.md). Run `/gsd:verify-work <phase>` when ready.
+
+**Archive:** `milestones/v3.0-ROADMAP.md`, `milestones/v3.0-REQUIREMENTS.md`, `milestones/v3.0-MILESTONE-AUDIT.md`
+
+---
+
 ## V2.1 Experiment Pipeline Restructure (Shipped: 2026-03-13)
 
 **Phases completed:** 8 phases, 9 plans

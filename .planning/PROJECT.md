@@ -46,6 +46,19 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 - ✓ Failure-diagnoser + prompt-editor for section-level diagnosis and HITL-approved iteration (ITPIPE-01 through ITPIPE-06) — V2.1
 - ✓ Rewritten iterate.md with 2-subagent loop and 5 stop conditions (LOOP-01 through LOOP-03) — V2.1
 
+Shipped in v3.0 (2026-04-22) — 88 requirements:
+
+- ✓ Agent Skills format foundation (SKST-01..10) — 9-section contract, lint script, protected-pipeline SHA hash — v3.0 Phase 34
+- ✓ Capable-first / snapshot-pin / cascade model policy (MSEL-01..03) — v3.0 Phase 35
+- ✓ Lifecycle slash commands (LCMD-01..07) — workspace/traces/analytics/models/quickstart/automations — v3.0 Phase 36
+- ✓ Observability setup skill (OBSV-01..07) — framework detection, integration codegen, `identity` attribution — v3.0 Phase 37
+- ✓ Trace failure analysis skill (TFAIL-01..06) — grounded-theory taxonomy — v3.0 Phase 38
+- ✓ Dataset generator enhancements (DSET-01..08) — two-step, 8-vector, curation, multi-turn, RAG, promote-trace — v3.0 Phase 39
+- ✓ KB & Memory lifecycle (KBM-01..05) — retrieval gate, chunking policy, memory-store generator — v3.0 Phase 40
+- ✓ Prompt optimization (POPT-01..04) + cross-framework comparison (XFRM-01..03) — v3.0 Phase 41
+- ✓ Evaluator validation (EVLD-01..11) + eval-science methodology (ESCI-01..08) + iterator enrichments (ITRX-01..09) — v3.0 Phase 42
+- ✓ Cross-IDE distribution (DIST-01..07) — plugin manifests + `.mcp.json` + CI scaffolds — v3.0 Phase 43
+
 ### Out of Scope
 
 - Orq.ai Deployments — output targets Agents API (`/v2/agents`), not the simpler Deployments pattern
@@ -53,24 +66,24 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 - Auto-update on launch — updates are manual via `/orq-agent:update`
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: V3.0 Lifecycle Completeness & Eval Science
+## Current State
+
+**Shipped:** v3.0 — 2026-04-22 (10 phases, 52 plans, 88 requirements). All Build → Evaluate → Optimize lifecycle capabilities are now file-level verified. 22 manual LLM/MCP smokes deferred for live-workspace verification via `/gsd:verify-work <phase>`.
+
+**Next milestone goals:**
+- **v4.0 Cross-Swarm Intelligence** (pre-defined) — ecosystem mapping, drift detection between spec and deployed state, overlap and gap analysis, structured fix proposals with HITL approval.
+- **v5.0 Browser Automation** (pre-defined, depends on v4.0) — Playwright script generation, VPS-hosted MCP server, agent spec wiring.
+
+<details>
+<summary>Previous milestone: v3.0 Lifecycle Completeness & Eval Science</summary>
 
 **Goal:** Promote the pipeline from a spec-generator into a complete Build → Evaluate → Optimize lifecycle tool by absorbing observability, trace-failure analysis, evaluator validation science (TPR/TNR), prompt optimization, and cross-IDE distribution patterns from the orq-ai/assistant-plugins reference — without breaking the existing generation loop.
 
-**Target features:**
-- Lifecycle commands: `/orq-agent:workspace`, `/orq-agent:traces`, `/orq-agent:analytics`, `/orq-agent:models`, `/orq-agent:quickstart`
-- New skills: observability-setup, trace-failure-analysis, evaluator-validation, prompt-optimization, cross-framework comparison
-- Eval-science methodology: binary Pass/Fail default, TPR/TNR validation, prevalence correction, one-evaluator-per-failure-mode, failure classification, transition failure matrix, outcome-based grading
-- Dataset generation: dimensions→tuples→NL, 8-vector adversarial catalog, coverage rules, curation mode, RAG-specific shape
-- KB/Memory: retrieval testing, embedding-model activation check, chunking picker, KB-vs-memory disambiguation, memory-store generator
-- Model discipline: start-capable-optimize-cost-later, snapshot pinning, model-cascade pattern
-- Skill-file structure: Agent Skills format with allowed-tools, per-skill resources/, When-NOT-to-use, Companion Skills, Done-When, Constraints blocks, Anti-Patterns, Destructive Actions, Documentation Resolution footers
-- Iterator/hardener: P0/P1/P2 hierarchy, action-plan template, run-comparison tables, regression flagging, failure classification, no-repeat-optimize rule
-- Distribution: .claude-plugin / .cursor-plugin / .codex-plugin manifests, root mcp.json, marketplace manifest
+**Delivered:** Skill Structure (Phase 34) · Model Selection (35) · 6 Lifecycle Slash Commands (36) · Observability (37) · Trace Failure Analysis (38) · Dataset Generator Enhancements (39) · KB & Memory Lifecycle (40) · Prompt Optimization + Cross-Framework (41) · Evaluator Validation & Iterator Enrichments (42) · Cross-IDE Distribution (43).
 
-**Future milestones (unchanged):**
-- V4.0 Cross-Swarm Intelligence — ecosystem mapping, drift detection, overlap analysis, fix proposals (phases renumber after V3.0)
-- V5.0 Browser Automation — Playwright scripts, VPS MCP server, agent spec wiring (phases renumber after V4.0)
+See `milestones/v3.0-ROADMAP.md` and `milestones/v3.0-MILESTONE-AUDIT.md`.
+
+</details>
 
 ## Context
 
@@ -120,4 +133,4 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 | Application capabilities config file | Pipeline reads per-system integration method from config; discussion step fills gaps for unknown systems | — Pending |
 
 ---
-*Last updated: 2026-04-20 — V3.0 milestone defined*
+*Last updated: 2026-04-22 — v3.0 milestone shipped*
