@@ -81,24 +81,34 @@ export async function POST(request: NextRequest) {
     ? "pending"
     : "none";
 
+  // Orq.ai HTTP tools reject empty-string variables, so the orchestrator passes
+  // sentinel values (e.g. "-" or "n.v.t.") for missing CRM fields. Normalise those
+  // back to null before writing.
+  const nullish = (v: unknown): string | null => {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    if (s === "" || s === "-" || s.toLowerCase() === "n.v.t." || s.toLowerCase() === "n/a" || s.toLowerCase() === "null" || s.toLowerCase() === "onbekend") return null;
+    return s;
+  };
+
   const { error } = await supabase
     .schema("sales")
     .from("email_analysis")
     .upsert(
       {
         email_id: supabaseEmailId,
-        category: body.category ?? null,
-        email_intent: body.email_intent ?? null,
-        ai_summary: body.ai_summary ?? null,
-        urgency: body.urgency ?? null,
+        category: nullish(body.category),
+        email_intent: nullish(body.email_intent),
+        ai_summary: nullish(body.ai_summary),
+        urgency: nullish(body.urgency),
         requires_action: body.requires_action ?? body.requires_human_review ?? false,
-        draft_response: body.draft_response ?? null,
+        draft_response: nullish(body.draft_response),
         draft_status,
-        language: body.language ?? null,
-        customer_name: body.customer_name ?? null,
-        customer_reference: body.customer_reference ?? null,
-        case_number: body.case_number ?? null,
-        assigned_to: body.assigned_to ?? null,
+        language: nullish(body.language),
+        customer_name: nullish(body.customer_name),
+        customer_reference: nullish(body.customer_reference),
+        case_number: nullish(body.case_number),
+        assigned_to: nullish(body.assigned_to),
       },
       { onConflict: "email_id", ignoreDuplicates: false }
     );
