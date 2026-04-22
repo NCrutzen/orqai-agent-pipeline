@@ -54,10 +54,19 @@ interface IngestBody {
 }
 
 interface IngestResponse {
-  action: "labeled" | "skipped_idempotent" | "skipped_low_confidence" | "skipped_unknown" | "skipped_not_found" | "failed";
+  action:
+    | "labeled"
+    | "skipped_idempotent"
+    | "skipped_not_whitelisted"
+    | "skipped_unknown"
+    | "skipped_not_found"
+    | "failed";
   messageId?: string;
   category?: string;
   rule?: string;
+  /** Classifier's hand-assigned confidence (0-1). NIET een gemeten precision
+   * — dat is Wilson CI-lo uit de review-telemetry en wordt gebruikt voor de
+   * whitelist-beslissing. */
   confidence?: number;
   label?: string;
   reason?: string;
@@ -178,12 +187,15 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       completed_at: isoNow,
     });
     return NextResponse.json({
-      action: r.category === "unknown" ? "skipped_unknown" : "skipped_low_confidence",
+      action: r.category === "unknown" ? "skipped_unknown" : "skipped_not_whitelisted",
       messageId,
       category: r.category,
       rule: r.matchedRule,
       confidence: r.confidence,
-      reason: "rule not in auto-action whitelist — blijft in inbox voor bulk-review",
+      reason:
+        r.category === "unknown"
+          ? "geen regel matched — mens moet dit labelen via bulk-review UI"
+          : "regel classificeert correct maar Wilson CI-lo is nog < 95% op telemetry — bewijs via bulk-review moet nog binnen voordat auto-action vrijgegeven wordt",
     });
   }
 
