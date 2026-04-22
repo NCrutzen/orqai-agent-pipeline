@@ -95,6 +95,20 @@ export const cleanupIControllerPending = inngest.createFunction(
     for (const row of todo) {
       const r = row.result;
       const outcome = await step.run(`delete-${r.message_id.slice(-20)}`, async () => {
+        // Flip to `pending` before starting — signals the swarm-bridge
+        // that the row is being actively worked on right now, so the
+        // card moves deferred → pending (Ready → In progress) in the
+        // kanban UI. Also prevents a subsequent cron tick from double-
+        // picking the same row if this invocation overruns its budget.
+        await admin
+          .from("automation_runs")
+          .update({
+            automation: "debtor-email-cleanup",
+            status: "pending",
+            result: { ...r, processed_by: "inngest-cleanup-cron" },
+          })
+          .eq("id", row.id);
+
         try {
           const icRes = await deleteEmailFromIController(
             {
