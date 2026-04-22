@@ -52,6 +52,12 @@ interface AgentRunBoardProps {
   prefix: string;
   /** Optional subtitle / description below the title. */
   description?: string;
+  /**
+   * When true, the board omits its own title/description block (which
+   * would otherwise duplicate the surrounding page header). Live stats
+   * stay in a compact strip above the live/archive tabs.
+   */
+  embedded?: boolean;
 }
 
 export function AgentRunBoard(props: AgentRunBoardProps) {
@@ -66,6 +72,7 @@ function AgentRunBoardInner({
   title,
   prefix,
   description,
+  embedded = false,
 }: AgentRunBoardProps) {
   const { runs, status, loading } = useAutomationRuns();
   const [selected, setSelected] = useState<AutomationRun | null>(null);
@@ -113,51 +120,56 @@ function AgentRunBoardInner({
     return { grouped, archive, counts };
   }, [runs]);
 
+  const stats = (
+    <div className="flex items-center gap-2">
+      <HeaderStat
+        count={counts.analyzing + counts.review}
+        label="actief"
+        tone="blue"
+        live={status === "SUBSCRIBED"}
+      />
+      <HeaderStat
+        count={counts.completedToday}
+        label="vandaag klaar"
+        tone="teal"
+      />
+      {counts.failedToday > 0 && (
+        <HeaderStat count={counts.failedToday} label="fouten" tone="red" />
+      )}
+    </div>
+  );
+
   return (
     <div className="flex h-full flex-col gap-4">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--v7-brand-primary)]">
-            <Sparkles size={14} /> Agent Swarm
+      {!embedded && (
+        <header className="flex items-start justify-between gap-4">
+          <div>
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--v7-brand-primary)]">
+              <Sparkles size={14} /> Agent Swarm
+            </div>
+            <h1 className="font-[var(--font-cabinet)] text-[26px] font-bold tracking-[-0.02em] text-[var(--v7-text)]">
+              {title}
+            </h1>
+            {description && (
+              <p className="mt-1 text-[13px] text-[var(--v7-muted)]">
+                {description}
+              </p>
+            )}
           </div>
-          <h1 className="font-[var(--font-cabinet)] text-[26px] font-bold tracking-[-0.02em] text-[var(--v7-text)]">
-            {title}
-          </h1>
-          {description && (
-            <p className="mt-1 text-[13px] text-[var(--v7-muted)]">
-              {description}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <HeaderStat
-            count={counts.analyzing + counts.review}
-            label="actief"
-            tone="blue"
-            live={status === "SUBSCRIBED"}
-          />
-          <HeaderStat
-            count={counts.completedToday}
-            label="vandaag klaar"
-            tone="teal"
-          />
-          {counts.failedToday > 0 && (
-            <HeaderStat
-              count={counts.failedToday}
-              label="fouten"
-              tone="red"
-            />
-          )}
-        </div>
-      </header>
+          {stats}
+        </header>
+      )}
 
       <Tabs defaultValue="live" className="flex flex-1 flex-col">
-        <TabsList variant="line" className="self-start">
-          <TabsTrigger value="live">Live</TabsTrigger>
-          <TabsTrigger value="archive">
-            Archief ({counts.archive})
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-4">
+          <TabsList variant="line" className="self-start">
+            <TabsTrigger value="live">Live</TabsTrigger>
+            <TabsTrigger value="archive">
+              Archief ({counts.archive})
+            </TabsTrigger>
+          </TabsList>
+          {embedded && stats}
+        </div>
 
         <TabsContent value="live" className="mt-4">
           {loading ? (

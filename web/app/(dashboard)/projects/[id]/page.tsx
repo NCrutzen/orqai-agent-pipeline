@@ -160,6 +160,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               title={project.name}
               prefix={automationBacking.prefix}
               description={automationBacking.hint}
+              embedded
             />
           </TabsContent>
         )}
