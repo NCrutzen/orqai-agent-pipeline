@@ -48,13 +48,21 @@ const SENDER_SYSTEM =
 // added `specificatie`, `crediteuren`, `debiteuren` which appeared in the
 // 2026-04-22 hand-labeled batch.
 const SENDER_PAYMENT_ROLE =
-  /^(payment|invoice|factu(?:ur|ratie)|facturen|billing|accounting|accounts?[._-]?payable|betaal|betalingen|specificatie|crediteuren|debiteuren|compte[._-]?client)[a-z0-9._-]*@/i;
+  /^(payment|invoice|factu(?:ur|ratie)|facturen|billing|accounting|accounts?[._-]?payable|betaal|betalingen|specificatie|crediteuren|debiteuren|compte[._-]?client|basware|notifications?|tradeshift|blue10|bso)[a-z0-9._-]*@/i;
+
+/**
+ * Senders with an AP-system local-part that doesn't start with a common role
+ * keyword. Observed: `s.baswareapbcf@phoenixgroup.eu` (Phoenix uses Basware
+ * AP and puts the system handle inside a longer local-part). The generic
+ * SENDER_PAYMENT_ROLE regex only matches role keywords at the START.
+ */
+const SENDER_AP_SYSTEM_ANYWHERE = /(basware|blue10|tradeshift)/i;
 
 /** Detects a human-shape sender (firstname.lastname@ or firstname-lastname@). */
 const SENDER_HUMAN_SHAPE = /^[a-z][a-z'-]*[._-][a-z][a-z'-]*@/i;
 
 const SUBJECT_AUTO_REPLY =
-  /(automatisch(?:e)?\s+antwoord|automatic\s+reply|auto[-\s]?reply|réponse\s+automatique|out\s+of\s+office|absence\s*:|afwezigheidsbericht|abwesenheits)/i;
+  /(automatisch(?:e)?\s+antwoord|automatic\s+reply|auto[-\s]?reply|réponse\s+automatique|out\s+of\s+office|absence\s*:|afwezigheidsbericht|abwesenheits|^\s*no[-\s]?reply\s*$)/i;
 
 /**
  * Receipt-acknowledgement subjects. Vendor systems confirm they received
@@ -69,7 +77,7 @@ const SUBJECT_AUTO_REPLY =
  * but downstream treatment is identical (label + archive).
  */
 const SUBJECT_ACKNOWLEDGEMENT =
-  /(ontvangstbevestiging|e[-\s]?mail\s+ontvangen|succesvol\s+ontvangen|receipt\s+confirmation|acknowledgement\s+of\s+receipt|successfully\s+received)/i;
+  /(ontvangstbevestiging|e[-\s]?mail\s+ontvangen|succesvol\s+ontvangen|receipt\s+confirmation|acknowledgement\s+of\s+receipt|successfully\s+received|is\s+van\s+status\s+veranderd|status\s+changed)/i;
 
 /**
  * Ticket-acknowledgement subjects — vendor ticketing systems auto-respond
@@ -210,6 +218,12 @@ export function classify(input: ClassifyInput): ClassifyResult {
   const subjectIsRefund = SUBJECT_REFUND_BLOCK.test(normSubject);
   const subjectIsDispute = SUBJECT_DISPUTE.test(normSubject);
   const subjectIsPaidMarker = SUBJECT_PAID_MARKER.test(normSubject);
+  const subjectIsAcknowledgement = SUBJECT_ACKNOWLEDGEMENT.test(normSubject);
+  const subjectIsTicketRef = SUBJECT_TICKET_REF.test(normSubject);
+  // "RE:" / "FW:" prefix present on the ORIGINAL subject (normSubject has
+  // it stripped). Combined with a role-based sender this signals a
+  // vendor-system reply to our outbound invoice email.
+  const subjectIsReplyPrefix = /^(?:(?:re|fw|fwd|tr|aw|sv|antw)\s*:\s*)/i.test(subject);
 
   // ── Hard blocks (anything payment-like but clearly NOT payment_admittance) ──
 
@@ -262,6 +276,25 @@ export function classify(input: ClassifyInput): ClassifyResult {
   }
 
   // ── AUTO-REPLY / OoO family ───────────────────────────────────────────────
+
+  // Vendor receipt/ack patterns — observed in 2026-04-22 Onbekend batch.
+  // These are automated confirmations ("we received your invoice email"),
+  // functionally identical to auto_reply for archive purposes.
+  if (subjectIsAcknowledgement) {
+    return { category: "auto_reply", confidence: 0.92, matchedRule: "subject_acknowledgement" };
+  }
+  if (subjectIsTicketRef) {
+    return { category: "auto_reply", confidence: 0.9, matchedRule: "subject_ticket_ref" };
+  }
+  // Role-based sender replying ("RE:") to our outbound invoice email —
+  // e.g. invoicesNL@inditex.com, s.baswareapbcf@phoenixgroup.eu. No body
+  // check needed; the sender+prefix combo is highly structured. We also
+  // accept AP-system handles anywhere in the local-part (Basware, Blue10,
+  // Tradeshift) since those vendors embed the system name inside a longer
+  // address (e.g. s.baswareapbcf@).
+  if (subjectIsReplyPrefix && (senderIsPaymentRole || SENDER_AP_SYSTEM_ANYWHERE.test(from))) {
+    return { category: "auto_reply", confidence: 0.9, matchedRule: "reply_prefix+ap_system_sender" };
+  }
 
   if (subjectIsAutoReply) {
     if (BODY_MAILBOX_RETIRED.test(body)) {
