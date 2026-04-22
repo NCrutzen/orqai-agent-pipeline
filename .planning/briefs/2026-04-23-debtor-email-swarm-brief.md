@@ -37,15 +37,22 @@ Debtor mailboxes (`debiteuren@smeba.nl`, `debiteuren@sicli-noord.be`, `debiteure
 - Peppol / credit request handlers
 - Sales mailbox swarm (separate brief — different intent taxonomy)
 
-## 4. Proposed swarm shape (for `/orq-agent` to validate or redesign)
+## 4. Tools available to the swarm (implemented separately — not designed by `/orq-agent`)
 
-- **Triage/Intent agent** — consumes `unknown` bucket emails, outputs `{ intent, sub_type, document_reference, urgency, language, confidence, reasoning }`. Intents: `copy_document_request | payment_dispute | address_change | peppol_request | credit_request | contract_inquiry | general_inquiry | other`.
-- **Copy-Document sub-agent** — dedicated to fulfilling `copy_document_request`. Tools: `nxt_sql_lookup` (Zapier), `nxt_s3_fetch` (Zapier), `icontroller_create_draft` (Browserless+Playwright). Decides doc_type + reference → fetches → drafts reply in iController with PDF attached → logs for human.
-- **Fallback / Orchestrator** — routes everything else to the human-review queue for now (other sub-agents land in phase 2).
+These are HTTP endpoints exposed as Orq.ai tool-calls. Their internals (Zapier SDK, Browserless, Playwright, etc.) are engineering concerns, not swarm-design concerns. The swarm references them by contract.
 
-Open for `/orq-agent` to reshape: is the copy-document sub-agent one agent or two (resolver + drafter)? Does the intent agent need a separate language-detect step upstream? Should there be a verifier agent after the draft is placed?
+- **`fetchDocument`** — `POST /api/automations/debtor/fetch-document`. Input: `{docType, reference, entity}`. Output: `{found, pdf?, metadata?, reason?}`. Zapier SDK backend for NXT SQL + S3. Todo: `2026-04-22-tool-fetch-document-nxt-via-zapier-sdk.md`.
+- **`createIcontrollerDraft`** — `POST /api/automations/debtor/create-draft`. Input: `{messageId, bodyHtml, pdfBase64, filename}`. Output: `{success, draftUrl, screenshots}`. Browserless+Playwright backend targeting `/messages/compose/direction/reply/messageId/{id}`. Todo: `2026-04-22-tool-icontroller-create-draft.md`.
 
-## 5. Volume + language
+## 5. Proposed swarm shape (for `/orq-agent` to validate or redesign)
+
+- **Intent agent** — consumes `unknown` bucket emails, outputs `{intent, sub_type, document_reference, urgency, language, confidence, reasoning}`. Intents: `copy_document_request | payment_dispute | address_change | peppol_request | credit_request | contract_inquiry | general_inquiry | other`.
+- **Copy-Document sub-agent** — handles `copy_document_request`. Calls `fetchDocument` → if found, calls `createIcontrollerDraft` with the PDF → logs outcome. Doesn't implement those tools, just calls them.
+- **Fallback** — routes everything else to the human-review queue for now.
+
+Open for `/orq-agent` to reshape: is copy-document one agent or two (resolver + drafter split by tool-call)? Does the intent agent need a separate language-detect step? Is there a verifier after draft placement?
+
+## 6. Volume + language
 
 - **Inbound debtor mail:** ~8,000 / 13 months across 5 mailboxes (~600/mo)
 - **After regex classifier drops noise:** unknown bucket size — TO FILL IN from `debtor.email_analysis` query tomorrow
@@ -53,7 +60,7 @@ Open for `/orq-agent` to reshape: is the copy-document sub-agent one agent or tw
 - **Languages:** 92% NL, 6% EN, 2% DE, <1% FR
 - **Entities:** Smeba (NL), Berki (NL), Sicli-Noord (BE), Sicli-Sud (BE), Smeba-Fire (BE) — legal + doc-template differences across NL/BE
 
-## 6. Data samples — TO FILL IN 2026-04-23
+## 7. Data samples — TO FILL IN 2026-04-23
 
 Before invoking `/orq-agent`, fetch and paste in:
 
@@ -71,14 +78,14 @@ Before invoking `/orq-agent`, fetch and paste in:
 - [ ] **200-email random control** from `/tmp/copy-requests-classified.json` — secondary eval set with copy-request labels
 - [ ] **Current volume of `unknown`** (count of rows matching the query above) — sizing signal for LLM budget
 
-## 7. Success criteria
+## 8. Success criteria
 
 - **Intent agent, shadow mode:** ≥90% agreement with human reviewers on 200-email labeled batch, confidence calibration within ±10%
 - **Copy-document sub-agent, shadow mode:** ≥95% precision on `is this actually a copy request` + correct `document_reference` extraction on ≥85% of those
 - **Live trigger:** sustained 4 weeks of shadow-mode performance at the above thresholds, plus ≥3 positive reviews from debtor team on sample drafts
 - **Full auto-send:** NOT in scope for phase 1. Drafts always land in iController for human send.
 
-## 8. Open questions for `/orq-agent` to surface
+## 9. Open questions for `/orq-agent` to surface
 
 - Multi-entity prompt tuning: one intent agent for all 5 mailboxes with entity context injected, or 5 agents?
 - Language handling: detect first + branch to language-specific drafter, or single multilingual drafter?
@@ -86,7 +93,7 @@ Before invoking `/orq-agent`, fetch and paste in:
 - Observability: how does the debtor team see what the swarm decided and override it?
 - Evaluation loop: how do human corrections in iController feed back as training signal for the intent agent?
 
-## 9. References
+## 10. References
 
 - `web/lib/debtor-email/classify.ts` — regex classifier (stays)
 - `web/debtor-email-analyzer/src/classify-copy-requests.ts` — 2026-04-22 classification run (eval signal)
@@ -95,5 +102,7 @@ Before invoking `/orq-agent`, fetch and paste in:
 - `docs/orqai-patterns.md` — Orq.ai prompt + tool-call patterns
 - `CLAUDE.md` — stack constraints, credentials model, Zapier-first beslisboom
 - Sibling todos:
-  - `.planning/todos/pending/2026-04-22-intent-agent-for-unknown-bucket-debtor-mails.md`
-  - `.planning/todos/pending/2026-04-22-automate-copy-document-responder-for-debtor-and-sales-inboxes.md`
+  - `.planning/todos/pending/2026-04-22-intent-agent-for-unknown-bucket-debtor-mails.md` (swarm design)
+  - `.planning/todos/pending/2026-04-22-automate-copy-document-responder-for-debtor-and-sales-inboxes.md` (swarm design — copy-document sub-agent)
+  - `.planning/todos/pending/2026-04-22-tool-fetch-document-nxt-via-zapier-sdk.md` (engineering — fetcher tool)
+  - `.planning/todos/pending/2026-04-22-tool-icontroller-create-draft.md` (engineering — drafter tool)

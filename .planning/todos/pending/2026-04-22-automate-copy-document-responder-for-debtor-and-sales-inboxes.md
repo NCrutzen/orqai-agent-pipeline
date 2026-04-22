@@ -1,14 +1,19 @@
 ---
 created: 2026-04-22T16:59:18.760Z
-title: Automate copy-document responder for debtor inbox (debtor-only scope)
+title: Copy-document sub-agent (swarm design — consumes fetcher + drafter tools)
 area: automation
 files:
-  - web/debtor-email-analyzer/src/classify-copy-requests.ts
-  - web/debtor-email-analyzer/src/find-copy-requests.ts
-  - /tmp/copy-requests-classified.json
+  - .planning/briefs/2026-04-23-debtor-email-swarm-brief.md
+  - .planning/briefs/artifacts/
 ---
 
-> **Scope correction 2026-04-22:** debtor mailboxes only. Sales is out of scope. Earlier "debtor + sales" framing in body text is obsolete — read as "debtor" everywhere.
+> **Scope correction 2026-04-22:** debtor mailboxes only. Sales out of scope. Earlier "debtor + sales" framing is obsolete.
+
+> **Split 2026-04-22:** the fetcher and drafter implementations moved to their own todos:
+> - `2026-04-22-tool-fetch-document-nxt-via-zapier-sdk.md`
+> - `2026-04-22-tool-icontroller-create-draft.md`
+>
+> This todo is now ONLY the swarm-design piece that `/orq-agent` will produce. It references the two tool contracts as preconditions.
 
 ## Problem
 

@@ -80,10 +80,13 @@ Progress: [████░░░░░░] 43% (3 of 7 V7.0 phases code-complete
 - Plan V3 milestones for Playwright and next project phase (planning)
 - Build Zapier analytics browser automation (automation)
 - Resolve PostgREST exposed-schemas for email_insights (database)
-- **Intent agent for unknown-bucket debtor mails** (automation) — LLM on top of existing regex classifier's `unknown` fall-through; routes to downstream sub-agents. **Debtor-only.**
-- **Copy-document sub-agent for debtor inbox** (automation) — dedicated sub-agent, drafts land in iController (Browserless+Playwright, no API), fetcher via Zapier SDK → NXT SQL + S3. **Debtor-only, invoice-first.**
+**Debtor-email sub-project — 4 todos, clearly separated:**
+- **Intent agent for unknown-bucket debtor mails** (swarm design → `/orq-agent`) — LLM on top of regex classifier's `unknown` fall-through
+- **fetchDocument tool** (engineering) — Vercel API route using Zapier SDK for NXT SQL + S3. No swarm involvement.
+- **createIcontrollerDraft tool** (engineering) — Vercel API route using Browserless+Playwright. Selectors captured from 2026-04-22 probe.
+- **Copy-document sub-agent** (swarm design → `/orq-agent`) — consumes the two tool contracts above. Blocked on both tools existing.
 
-**Tomorrow's first pickup:** fill data samples into `.planning/briefs/2026-04-23-debtor-email-swarm-brief.md`, then invoke `/orq-agent` with the completed brief to produce the swarm spec.
+**Tomorrow's first pickup:** build the two engineering tools in parallel (fetcher + drafter). Once both HTTP endpoints are live + registered as Orq.ai tool-calls, fill the swarm brief with data samples and invoke `/orq-agent` for the swarm spec.
 
 ## Session Continuity
 
