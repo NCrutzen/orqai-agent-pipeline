@@ -99,17 +99,17 @@ export function BriefingPanel({ swarmId }: BriefingPanelProps) {
 
   return (
     <GlassCard
-      className="relative overflow-hidden p-[18px] min-h-[260px] flex flex-col gap-3"
+      className="relative overflow-hidden p-[18px] min-h-[200px] flex flex-col gap-2"
       style={{ borderRadius: "var(--v7-radius)" }}
     >
-      {/* Radial accent per UI-SPEC */}
+      {/* Radial accent per UI-SPEC (compacted) */}
       <span
         aria-hidden
         className="absolute pointer-events-none"
         style={{
-          inset: "-20% auto auto 58%",
-          width: 260,
-          height: 260,
+          inset: "-30% auto auto 58%",
+          width: 200,
+          height: 200,
           background:
             "radial-gradient(circle, var(--v7-teal-soft), transparent 62%)",
         }}
@@ -131,14 +131,14 @@ export function BriefingPanel({ swarmId }: BriefingPanelProps) {
 
       {parsed ? (
         <>
-          <h2 className="relative font-[var(--font-cabinet)] text-[28.8px] leading-[1.05] font-bold text-[var(--v7-text)] mt-[16px] mb-[10px] max-w-[14ch]">
+          <h2 className="relative font-[var(--font-cabinet)] text-[20px] leading-[1.2] font-bold text-[var(--v7-text)] mt-2 max-w-[40ch]">
             {parsed.headline}
           </h2>
-          <p className="relative text-[16px] leading-[1.5] text-[var(--v7-muted)] max-w-[64ch]">
+          <p className="relative text-[13px] leading-[1.5] text-[var(--v7-muted)] max-w-[72ch] line-clamp-3">
             {parsed.summary}
           </p>
           {parsed.alerts.length > 0 && (
-            <div className="relative flex flex-wrap gap-2 mt-2">
+            <div className="relative flex flex-wrap gap-2 mt-1">
               {parsed.alerts.map((alert, idx) => (
                 <AlertPill
                   key={`${alert.severity}-${idx}`}
@@ -149,11 +149,11 @@ export function BriefingPanel({ swarmId }: BriefingPanelProps) {
           )}
         </>
       ) : (
-        <div className="relative flex-1 flex flex-col items-start justify-center gap-2 py-4">
-          <h2 className="font-[var(--font-cabinet)] text-[28.8px] leading-[1.05] font-bold text-[var(--v7-text)] max-w-[14ch]">
+        <div className="relative flex-1 flex flex-col items-start justify-center gap-1 py-2">
+          <h2 className="font-[var(--font-cabinet)] text-[20px] leading-[1.2] font-bold text-[var(--v7-text)] max-w-[40ch]">
             Briefing will appear once the first agents report in.
           </h2>
-          <p className="text-[14px] leading-[1.5] text-[var(--v7-muted)]">
+          <p className="text-[13px] leading-[1.5] text-[var(--v7-muted)]">
             Click Regenerate to force a briefing now.
           </p>
         </div>

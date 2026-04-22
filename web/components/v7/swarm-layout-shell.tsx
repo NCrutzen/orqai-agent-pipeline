@@ -1,69 +1,32 @@
 "use client";
 
 /**
- * V7 layout shell for the `/swarm/[swarmId]` route. Owns the DrawerProvider
- * boundary and wires the hero components (briefing panel, fleet cards,
- * agent detail drawer) into the V7 grid. Phase 52/53 components (Kanban,
- * terminal, delegation graph, swimlanes) still render as placeholders.
+ * V7 layout shell for the `/swarm/[swarmId]` route.
+ *
+ * Layout priorities (Apr 2026 iteration):
+ *   1. Briefing compact + DelegationGraph (clickable nodes open drawer)
+ *   2. KanbanBoard promoted to a full-width hero row — primary workload view
+ *   3. Observability (SwimlaneTimeline + TerminalStream) moved to the bottom
+ *
+ * Subagent fleet is intentionally omitted: clicking a node in the delegation
+ * graph already opens the same AgentDetailDrawer, so the fleet strip was
+ * redundant and added noise.
  */
 
-import type { ReactNode } from "react";
-import { GlassCard } from "@/components/ui/glass-card";
 import { RealtimeStatusIndicator } from "@/components/v7/realtime-status-indicator";
 import { BriefingPanel } from "@/components/v7/briefing/briefing-panel";
-import { SubagentFleet } from "@/components/v7/fleet/subagent-fleet";
 import { AgentDetailDrawer } from "@/components/v7/drawer/agent-detail-drawer";
 import { TerminalStream } from "@/components/v7/terminal/terminal-stream";
 import { KanbanBoard } from "@/components/v7/kanban/kanban-board";
 import { DelegationGraph } from "@/components/v7/graph/delegation-graph";
 import { SwimlaneTimeline } from "@/components/v7/swimlane/swimlane-timeline";
-import {
-  DrawerProvider,
-  useDrawer,
-} from "@/components/v7/drawer/drawer-context";
+import { DrawerProvider } from "@/components/v7/drawer/drawer-context";
 import { useRealtimeTable } from "@/lib/v7/use-realtime-table";
-import { cn } from "@/lib/utils";
 
 interface SwarmLayoutShellProps {
   swarmId: string;
   swarmName: string;
   swarmDescription: string | null;
-}
-
-interface PlaceholderRegionProps {
-  heading: string;
-  caption: string;
-  className?: string;
-  children?: ReactNode;
-}
-
-function PlaceholderRegion({
-  heading,
-  caption,
-  className,
-  children,
-}: PlaceholderRegionProps) {
-  return (
-    <GlassCard
-      className={cn(
-        "p-5 flex flex-col items-center justify-center gap-2 text-center",
-        className,
-      )}
-    >
-      <h2 className="font-[var(--font-cabinet)] text-[20px] leading-[1.2] font-bold text-[var(--v7-text)]">
-        {heading}
-      </h2>
-      <span className="text-[12px] leading-[1.3] text-[var(--v7-faint)]">
-        {caption}
-      </span>
-      {children}
-    </GlassCard>
-  );
-}
-
-function FleetBound() {
-  const { setOpenAgent } = useDrawer();
-  return <SubagentFleet onAgentClick={setOpenAgent} />;
 }
 
 function ShellBody({
@@ -82,7 +45,7 @@ function ShellBody({
               {swarmName}
             </h1>
             {swarmDescription && (
-              <p className="text-[16px] leading-[1.5] text-[var(--v7-muted)]">
+              <p className="text-[14px] leading-[1.5] text-[var(--v7-muted)] max-w-3xl">
                 {swarmDescription}
               </p>
             )}
@@ -92,21 +55,20 @@ function ShellBody({
           </div>
         </header>
 
-        <section className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_0.8fr]">
+        {/* Row 1: Briefing (compact narrative + KPIs) + Delegation graph (clickable) */}
+        <section className="grid grid-cols-1 gap-5 lg:grid-cols-[1.3fr_0.9fr]">
           <BriefingPanel swarmId={swarmId} />
           <DelegationGraph swarmId={swarmId} />
         </section>
 
+        {/* Row 2: Kanban — primary workload view, full width */}
         <section>
-          <FleetBound />
-        </section>
-
-        <section>
-          <SwimlaneTimeline swarmId={swarmId} />
-        </section>
-
-        <section className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_0.8fr]">
           <KanbanBoard swarmId={swarmId} />
+        </section>
+
+        {/* Row 3: Observability — Gantt timeline + event stream */}
+        <section className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_0.8fr]">
+          <SwimlaneTimeline swarmId={swarmId} />
           <TerminalStream swarmId={swarmId} />
         </section>
       </div>

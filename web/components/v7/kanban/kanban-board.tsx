@@ -193,22 +193,17 @@ export function KanbanBoard({ swarmId: _swarmId }: KanbanBoardProps) {
   );
 
   return (
-    <GlassCard className="p-[18px] flex flex-col gap-[14px] min-h-[280px]">
-      <header className="flex justify-between items-start gap-3 flex-wrap">
-        <div className="flex flex-col gap-2">
-          <span className="inline-flex items-center gap-2 text-[12px] leading-[1.3] tracking-[0.1em] uppercase text-[var(--v7-faint)]">
-            Job board
+    <GlassCard className="p-[18px] flex flex-col gap-3 min-h-[280px]">
+      <header className="flex justify-between items-center gap-3 flex-wrap">
+        <span className="inline-flex items-center gap-2 text-[12px] leading-[1.3] tracking-[0.1em] uppercase text-[var(--v7-faint)]">
+          Job board
+          <span className="text-[var(--v7-muted)] normal-case tracking-normal">
+            · {filteredJobs.length} job{filteredJobs.length === 1 ? "" : "s"}
+            {filter ? " (filtered)" : ""}
           </span>
-          <span className="font-[var(--font-cabinet)] text-[20px] leading-[1.2] font-bold text-[var(--v7-text)]">
-            Kanban for business stages, not micro-steps
-          </span>
-        </div>
-        <span className="px-3 py-1 rounded-[var(--v7-radius-pill)] border border-[var(--v7-line)] bg-[rgba(255,255,255,0.04)] text-[12px] leading-none text-[var(--v7-muted)] whitespace-nowrap">
-          {filteredJobs.length} job{filteredJobs.length === 1 ? "" : "s"}
-          {filter ? " (filtered)" : " total"}
         </span>
+        <KanbanFilterBar />
       </header>
-      <KanbanFilterBar />
 
       <DndContext
         sensors={sensors}
