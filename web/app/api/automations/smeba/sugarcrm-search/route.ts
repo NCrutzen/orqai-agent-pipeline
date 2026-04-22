@@ -4,25 +4,30 @@ import { createZapierSdk } from "@zapier/zapier-sdk";
 export const maxDuration = 25;
 
 const INTERNAL_API_KEY = process.env.SMEBA_INTERNAL_API_KEY!;
-// Connection ID for "Sugar CRM // NCrutzen" in Zapier
 const SUGARCRM_CONNECTION_ID = 58816663;
 const ZAPIER_CALL_TIMEOUT_MS = 18_000;
-// Max items fetched per lookup to keep latency under ~12s
 const MAX_CASES = 5;
 const MAX_QUOTES = 5;
-const MAX_EMAILS = 10;
+const MAX_EMAILS = 5;
 
-// Handles both plain "user@domain.com" and "Name <user@domain.com>" formats
 function extractDomain(email: string): string | null {
   const match = email.match(/@([\w.-]+)/);
   return match ? match[1].toLowerCase() : null;
 }
 
-// Extracts just the email address from "Name <email@domain.com>" or plain "email@domain.com"
 function extractEmail(raw: string): string {
   const angleMatch = raw.match(/<([^>]+)>/);
   if (angleMatch) return angleMatch[1].trim();
   return raw.trim();
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Zapier call timed out after ${ms}ms`)), ms)
+    ),
+  ]);
 }
 
 export async function POST(request: NextRequest) {
@@ -39,54 +44,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Verify Zapier credentials are configured before attempting SDK calls.
-  // createZapierSdk() reads ZAPIER_CREDENTIALS_CLIENT_ID + ZAPIER_CREDENTIALS_CLIENT_SECRET
-  // (or ZAPIER_CREDENTIALS token) from env vars automatically.
   const hasCredentials =
     process.env.ZAPIER_CREDENTIALS ||
     (process.env.ZAPIER_CREDENTIALS_CLIENT_ID &&
       process.env.ZAPIER_CREDENTIALS_CLIENT_SECRET);
 
   if (!hasCredentials) {
-    console.error(
-      "[smeba/sugarcrm-search] Zapier credentials not configured. " +
-        "Set ZAPIER_CREDENTIALS_CLIENT_ID + ZAPIER_CREDENTIALS_CLIENT_SECRET " +
-        "(or ZAPIER_CREDENTIALS) in Vercel env vars."
-    );
     return NextResponse.json(
-      {
-        crm_match: false,
-        crm_error: true,
-        crm_error_message:
-          "Zapier credentials not configured — contact Nick Crutzen for ZAPIER_CREDENTIALS_CLIENT_ID + ZAPIER_CREDENTIALS_CLIENT_SECRET",
-      },
+      { crm_match: false, crm_error: true, crm_error_message: "Zapier credentials not configured" },
       { status: 503 }
     );
   }
 
-  const { sender_email, _debug } = body as { sender_email: string; _debug?: boolean };
+  const { sender_email } = body as { sender_email: string };
   const domain = extractDomain(sender_email);
-
-  // Debug mode: return first 3 accounts from CRM to verify connection + data structure
-  if (_debug) {
-    const zapier = createZapierSdk();
-    try {
-      const { data } = await withTimeout(
-        zapier.runAction({
-          app: "SugarCRMCLIAPI",
-          actionType: "read",
-          action: "get_records",
-          connectionId: SUGARCRM_CONNECTION_ID,
-          inputs: { module: "Accounts" },
-          maxItems: 3,
-        }),
-        ZAPIER_CALL_TIMEOUT_MS
-      );
-      return NextResponse.json({ _debug: true, accounts: data ?? [] });
-    } catch (e) {
-      return NextResponse.json({ _debug: true, error: String(e) });
-    }
-  }
+  const cleanEmail = extractEmail(sender_email);
 
   if (!domain) {
     return NextResponse.json(
@@ -97,87 +69,29 @@ export async function POST(request: NextRequest) {
 
   const zapier = createZapierSdk();
 
-  function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Zapier call timed out after ${ms}ms`)), ms)
-      ),
-    ]);
-  }
-
   try {
-    // Step 1: Search Accounts by sender domain.
-    // SugarCRM Accounts have an email domain field — search by domain to find the customer.
-    // Field name confirmed by Sam Cody: search_field_1 = 'email_address_used_for_sending'
-    // Fallback: 'name' match if domain search returns nothing.
-    let accountData: Record<string, unknown> | null = null;
-
-    // Step 1a: Search Contacts by exact sender email → derive account_id
-    const cleanEmail = extractEmail(sender_email);
+    // Step 1: Find contact by exact email address
     const { data: contactResults } = await withTimeout(
       zapier.runAction({
         app: "SugarCRMCLIAPI",
         actionType: "search",
         action: "record",
         connectionId: SUGARCRM_CONNECTION_ID,
-        inputs: {
-          module: "Contacts",
-          search_field_1: "email1",
-          value_for_search_field_1: cleanEmail,
-        },
+        inputs: { module: "Contacts", search_field_1: "email1", value_for_search_field_1: cleanEmail },
         maxItems: 1,
       }),
       ZAPIER_CALL_TIMEOUT_MS
     );
 
-    let accountId: string | null = null;
+    const contact = (contactResults?.[0] ?? null) as Record<string, unknown> | null;
+    const contactId = contact?.["id"] as string | null ?? null;
+    const accountId = (contact?.["account_id"] as string) || null;
+    // pr_site_id is a custom field linking contact to a physical site in NXT
+    const siteId = (contact?.["pr_site_id"] as string) || null;
 
-    if (contactResults && contactResults.length > 0) {
-      const contact = contactResults[0] as Record<string, unknown>;
-      const acc = contact["account"] as Record<string, unknown> | undefined;
-      accountId = (contact["account_id"] ?? acc?.["id"] ?? null) as string | null;
-    }
-
-    // Step 1b: Fallback — search Accounts by name derived from domain (e.g. "abbott" from "abbott.com")
-    if (!accountId) {
-      const companyHint = domain.split(".")[0]; // "abbott" from "abbott.com"
-      const { data: accountResults } = await withTimeout(
-        zapier.runAction({
-          app: "SugarCRMCLIAPI",
-          actionType: "search",
-          action: "record",
-          connectionId: SUGARCRM_CONNECTION_ID,
-          inputs: {
-            module: "Accounts",
-            search_field_1: "name",
-            value_for_search_field_1: companyHint,
-          },
-          maxItems: 1,
-        }),
-        ZAPIER_CALL_TIMEOUT_MS
-      );
-
-      if (accountResults && accountResults.length > 0) {
-        accountData = accountResults[0] as Record<string, unknown>;
-        accountId = accountData["id"] as string;
-      }
-    }
-
-    if (!accountId) {
-      return NextResponse.json({
-        crm_match: false,
-        crm_account: null,
-        crm_cases: [],
-        crm_quotes: [],
-        crm_emails: [],
-        crm_error: false,
-      });
-    }
-
-    // Step 1c: Fetch full account record if we only have accountId from contact lookup
-    // get_records (plural) is the correct action name in SugarCRM CLI API
-    if (!accountData) {
+    // Step 2a: If contact has account_id, fetch the account record
+    let accountData: Record<string, unknown> | null = null;
+    if (accountId) {
       const { data: accResults } = await withTimeout(
         zapier.runAction({
           app: "SugarCRMCLIAPI",
@@ -192,73 +106,130 @@ export async function POST(request: NextRequest) {
       accountData = (accResults?.[0] ?? null) as Record<string, unknown> | null;
     }
 
-    if (!accountData) {
+    // Step 2b: No contact found → try to find account by domain name prefix
+    if (!contact) {
+      const companyHint = domain.split(".")[0];
+      const { data: accountResults } = await withTimeout(
+        zapier.runAction({
+          app: "SugarCRMCLIAPI",
+          actionType: "search",
+          action: "record",
+          connectionId: SUGARCRM_CONNECTION_ID,
+          inputs: { module: "Accounts", search_field_1: "name", value_for_search_field_1: companyHint },
+          maxItems: 1,
+        }),
+        ZAPIER_CALL_TIMEOUT_MS
+      );
+      if (accountResults && accountResults.length > 0) {
+        accountData = accountResults[0] as Record<string, unknown>;
+      }
+    }
+
+    // No match at all
+    if (!contact && !accountData) {
       return NextResponse.json({
-        crm_match: false,
-        crm_account: null,
-        crm_cases: [],
-        crm_quotes: [],
-        crm_emails: [],
-        crm_error: false,
+        crm_match: false, crm_contact: null, crm_account: null,
+        crm_cases: [], crm_quotes: [], crm_emails: [], crm_error: false,
       });
     }
 
-    // Step 2: Fetch Cases + Quotes + recent Emails linked to this account in parallel.
-    const [casesResult, quotesResult, emailsResult] = await Promise.allSettled([
-      withTimeout(
-        zapier.runAction({
-          app: "SugarCRMCLIAPI",
-          actionType: "read",
-          action: "get_records",
-          connectionId: SUGARCRM_CONNECTION_ID,
-          inputs: { module: "Cases", account_id: accountId },
-          maxItems: MAX_CASES,
-        }).then((r) => r.data),
-        ZAPIER_CALL_TIMEOUT_MS
-      ),
-      withTimeout(
-        zapier.runAction({
-          app: "SugarCRMCLIAPI",
-          actionType: "read",
-          action: "get_records",
-          connectionId: SUGARCRM_CONNECTION_ID,
-          inputs: { module: "Quotes", account_id: accountId },
-          maxItems: MAX_QUOTES,
-        }).then((r) => r.data),
-        ZAPIER_CALL_TIMEOUT_MS
-      ),
-      withTimeout(
-        zapier.runAction({
-          app: "SugarCRMCLIAPI",
-          actionType: "read",
-          action: "get_records",
-          connectionId: SUGARCRM_CONNECTION_ID,
-          inputs: { module: "Emails", parent_id: accountId },
-          maxItems: MAX_EMAILS,
-        }).then((r) => r.data),
-        ZAPIER_CALL_TIMEOUT_MS
-      ),
+    // Step 3: Fetch cases, quotes, emails in parallel
+    // Cases: by contact_id (all linked cases) + by pr_site_id (named cases for the site)
+    // Emails: by contact_id
+    // Quotes: by account_id if available
+    const lookupId = accountId || (accountData?.["id"] as string) || null;
+
+    const [casesByContact, casesBySite, quotesResult, emailsResult] = await Promise.allSettled([
+      contactId
+        ? withTimeout(
+            zapier.runAction({
+              app: "SugarCRMCLIAPI", actionType: "read", action: "get_records",
+              connectionId: SUGARCRM_CONNECTION_ID,
+              inputs: { module: "Cases", contact_id: contactId },
+              maxItems: MAX_CASES,
+            }).then((r) => r.data),
+            ZAPIER_CALL_TIMEOUT_MS
+          )
+        : Promise.resolve([]),
+      siteId
+        ? withTimeout(
+            zapier.runAction({
+              app: "SugarCRMCLIAPI", actionType: "search", action: "record",
+              connectionId: SUGARCRM_CONNECTION_ID,
+              inputs: { module: "Cases", search_field_1: "pr_site_id", value_for_search_field_1: siteId },
+              maxItems: MAX_CASES,
+            }),
+            ZAPIER_CALL_TIMEOUT_MS
+          ).then((r) => (r as { data?: unknown[] }).data ?? [])
+        : Promise.resolve([]),
+      lookupId
+        ? withTimeout(
+            zapier.runAction({
+              app: "SugarCRMCLIAPI", actionType: "read", action: "get_records",
+              connectionId: SUGARCRM_CONNECTION_ID,
+              inputs: { module: "Quotes", account_id: lookupId },
+              maxItems: MAX_QUOTES,
+            }).then((r) => r.data),
+            ZAPIER_CALL_TIMEOUT_MS
+          )
+        : Promise.resolve([]),
+      contactId
+        ? withTimeout(
+            zapier.runAction({
+              app: "SugarCRMCLIAPI", actionType: "read", action: "get_records",
+              connectionId: SUGARCRM_CONNECTION_ID,
+              inputs: { module: "Emails", contact_id: contactId },
+              maxItems: MAX_EMAILS,
+            }).then((r) => r.data),
+            ZAPIER_CALL_TIMEOUT_MS
+          )
+        : Promise.resolve([]),
     ]);
+
+    // Merge cases from both sources, deduplicate by id
+    const casesFromContact = (casesByContact.status === "fulfilled" ? casesByContact.value : []) as Record<string, unknown>[];
+    const casesFromSite = (casesBySite.status === "fulfilled" ? casesBySite.value : []) as Record<string, unknown>[];
+    const seenIds = new Set<string>();
+    const mergedCases = [...casesFromSite, ...casesFromContact].filter((c) => {
+      const id = c["id"] as string;
+      if (seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
+    });
 
     return NextResponse.json({
       crm_match: true,
-      crm_account: accountData,
-      crm_cases:
-        casesResult.status === "fulfilled" ? (casesResult.value ?? []) : [],
-      crm_quotes:
-        quotesResult.status === "fulfilled" ? (quotesResult.value ?? []) : [],
-      crm_emails:
-        emailsResult.status === "fulfilled" ? (emailsResult.value ?? []) : [],
+      crm_contact: contact
+        ? {
+            id: contact["id"],
+            name: contact["full_name"] ?? contact["name"],
+            phone: contact["phone_mobile"] ?? contact["phone_work"],
+            pr_site_id: contact["pr_site_id"],
+            pr_nxt_id: contact["pr_nxt_id"],
+            account_id: accountId,
+          }
+        : null,
+      crm_account: accountData
+        ? { id: accountData["id"], name: accountData["name"], email1: accountData["email1"] }
+        : null,
+      crm_cases: mergedCases.map((c) => ({
+        id: c["id"],
+        case_number: c["case_number"],
+        name: c["name"],
+        status: c["status"],
+        description: (c["description"] as string)?.slice(0, 500) ?? null,
+        assigned_user_name: c["assigned_user_name"],
+        date_entered: c["date_entered"],
+      })),
+      crm_quotes: quotesResult.status === "fulfilled" ? (quotesResult.value ?? []) : [],
+      crm_emails: (emailsResult.status === "fulfilled" ? (emailsResult.value ?? []) : []) as Record<string, unknown>[],
       crm_error: false,
     });
   } catch (err) {
     console.error("[smeba/sugarcrm-search] Zapier SDK error:", err);
     return NextResponse.json({
-      crm_match: false,
-      crm_account: null,
-      crm_cases: [],
-      crm_quotes: [],
-      crm_emails: [],
+      crm_match: false, crm_contact: null, crm_account: null,
+      crm_cases: [], crm_quotes: [], crm_emails: [],
       crm_error: true,
       crm_error_message: String(err).slice(0, 300),
     });
