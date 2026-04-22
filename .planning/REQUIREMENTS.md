@@ -138,13 +138,13 @@ Structural conventions aligned with the Agent Skills standard.
 
 Optional multi-IDE plugin support. Lower priority than lifecycle capabilities.
 
-- [ ] **DIST-01**: Repo ships a `.claude-plugin/plugin.json` manifest for one-line install via `/plugin install github:NCrutzen/orqai-agent-pipeline`
-- [ ] **DIST-02**: Repo ships a `.cursor-plugin/plugin.json` manifest referencing `./skills/` and `./.mcp.json`, loadable from `~/.cursor/plugins/local/`
-- [ ] **DIST-03**: Repo ships a `.codex-plugin/plugin.json` manifest at `plugins/orq/` with a repo-level `.agents/plugins/marketplace.json`
-- [ ] **DIST-04**: Repo ships root `mcp.json` / `.mcp.json` registering the `orq-workspace` MCP server with `${ORQ_API_KEY}` expansion
-- [ ] **DIST-05**: Repo is installable via `npx skills add NCrutzen/orqai-agent-pipeline` (skills-only path for Cursor/Gemini/Cline/Copilot/Windsurf)
-- [ ] **DIST-06**: Repo includes `tests/scripts/validate-plugin-manifests.sh` plus `tests/commands.md`, `tests/skills.md`, `tests/mcp-tools.md` specifying expected behavior per capability
-- [ ] **DIST-07**: Repo ships CI/CD scaffolds — GitHub Actions workflow + GitLab CI template — that run `/orq-agent:test` on a deployed agent and fail the build on regression detected by results-analyzer (ITRX-04)
+- [x] **DIST-01**: Repo ships a `.claude-plugin/plugin.json` manifest for one-line install via `/plugin install github:NCrutzen/orqai-agent-pipeline`
+- [x] **DIST-02**: Repo ships a `.cursor-plugin/plugin.json` manifest referencing `./skills/` and `./.mcp.json`, loadable from `~/.cursor/plugins/local/`
+- [x] **DIST-03**: Repo ships a `.codex-plugin/plugin.json` manifest at `plugins/orq/` with a repo-level `.agents/plugins/marketplace.json`
+- [x] **DIST-04**: Repo ships root `mcp.json` / `.mcp.json` registering the `orq-workspace` MCP server with `${ORQ_API_KEY}` expansion
+- [x] **DIST-05**: Repo is installable via `npx skills add NCrutzen/orqai-agent-pipeline` (skills-only path for Cursor/Gemini/Cline/Copilot/Windsurf)
+- [x] **DIST-06**: Repo includes `tests/scripts/validate-plugin-manifests.sh` plus `tests/commands.md`, `tests/skills.md`, `tests/mcp-tools.md` specifying expected behavior per capability
+- [x] **DIST-07**: Repo ships CI/CD scaffolds — GitHub Actions workflow + GitLab CI template — that run `/orq-agent:test` on a deployed agent and fail the build on regression detected by results-analyzer (ITRX-04)
 
 ### Iterator/Hardener Enrichments (ITRX)
 
@@ -275,13 +275,13 @@ Populated during roadmap creation (2026-04-20). All 86 V3.0 requirements mapped 
 | SKST-08 | 34 | Complete |
 | SKST-09 | 34 | Complete |
 | SKST-10 | 34 | Complete |
-| DIST-01 | 43 | Pending |
-| DIST-02 | 43 | Pending |
-| DIST-03 | 43 | Pending |
-| DIST-04 | 43 | Pending |
-| DIST-05 | 43 | Pending |
-| DIST-06 | 43 | Pending |
-| DIST-07 | 43 | Pending |
+| DIST-01 | 43 | Complete |
+| DIST-02 | 43 | Complete |
+| DIST-03 | 43 | Complete |
+| DIST-04 | 43 | Complete |
+| DIST-05 | 43 | Complete |
+| DIST-06 | 43 | Complete |
+| DIST-07 | 43 | Complete |
 | ITRX-01 | 42 | Complete |
 | ITRX-02 | 42 | Complete |
 | ITRX-03 | 42 | Complete |
