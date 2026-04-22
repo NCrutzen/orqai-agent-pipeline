@@ -216,11 +216,64 @@ export function BulkReview(props: Props) {
         },
       ];
     });
+    // Chunked submit — each iController browser action takes ~15-20s,
+    // and a single Vercel serverless invocation is capped at 300s. Without
+    // chunking a ~30-item payment group silently exceeds the limit and the
+    // server action crashes, producing a white "Application error" screen.
+    // 10 items/chunk = ~200s worst-case per call = safely under the budget.
+    const CHUNK = 10;
     startExecute(async () => {
-      const res = await executeReviewDecisions(decisions);
-      setExecutionResult(res);
-      setExecutedGroups((prev) => new Set(prev).add(group.key));
       setOpenGroup(null);
+      setExecutionResult({
+        total: decisions.length,
+        executed: 0,
+        succeeded: 0,
+        failed: 0,
+        excluded: 0,
+        recategorized: 0,
+        errors: [],
+      });
+      if (decisions.length === 0) {
+        setExecutedGroups((prev) => new Set(prev).add(group.key));
+        return;
+      }
+      for (let i = 0; i < decisions.length; i += CHUNK) {
+        const chunk = decisions.slice(i, i + CHUNK);
+        try {
+          const res = await executeReviewDecisions(chunk);
+          setExecutionResult((prev) => ({
+            total: decisions.length,
+            executed: (prev?.executed ?? 0) + res.executed,
+            succeeded: (prev?.succeeded ?? 0) + res.succeeded,
+            failed: (prev?.failed ?? 0) + res.failed,
+            excluded: (prev?.excluded ?? 0) + res.excluded,
+            recategorized: (prev?.recategorized ?? 0) + res.recategorized,
+            errors: [...(prev?.errors ?? []), ...res.errors],
+          }));
+        } catch (err) {
+          // Server action crashed (timeout, network, etc.). Surface it so
+          // the page doesn't white-screen and the user knows exactly how
+          // many items made it through before the crash.
+          setExecutionResult((prev) => ({
+            total: decisions.length,
+            executed: prev?.executed ?? 0,
+            succeeded: prev?.succeeded ?? 0,
+            failed: (prev?.failed ?? 0) + chunk.length,
+            excluded: prev?.excluded ?? 0,
+            recategorized: prev?.recategorized ?? 0,
+            errors: [
+              ...(prev?.errors ?? []),
+              ...chunk.map((d) => ({
+                messageId: d.id,
+                subject: d.subject,
+                error: `batch crashed: ${String(err)}`,
+              })),
+            ],
+          }));
+          return;
+        }
+      }
+      setExecutedGroups((prev) => new Set(prev).add(group.key));
     });
   };
 
@@ -313,7 +366,12 @@ export function BulkReview(props: Props) {
             <GlassCard className="p-4 border-emerald-500/40 bg-emerald-500/5">
               <div className="font-semibold">Laatste batch</div>
               <div className="text-sm mt-1 space-y-0.5">
-                <div>✓ Uitgevoerd: {executionResult.succeeded} / {executionResult.executed}</div>
+                <div>
+                  ✓ Uitgevoerd: {executionResult.succeeded} / {executionResult.total}
+                  {executing && executionResult.succeeded + executionResult.failed + executionResult.excluded < executionResult.total && (
+                    <span className="text-muted-foreground"> — bezig, batch loopt door…</span>
+                  )}
+                </div>
                 {executionResult.recategorized > 0 && (
                   <div>
                     ↺ Gehercategoriseerd (mens heeft corrigeerd):{" "}
