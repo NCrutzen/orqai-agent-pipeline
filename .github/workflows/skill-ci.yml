@@ -1,0 +1,34 @@
+# Skill-local CI — runs on every push/PR to the orqai-agent-pipeline skill repo.
+#
+# Scope: lint the skill's own structure. Does NOT touch Orq.ai or Anthropic
+# APIs — no secrets required. Consumer repos get the agent-regression gate
+# via templates/ci/*.template (see templates/ci/README.md).
+#
+# Enforces:
+#   - Phase 34 SKST 9-section format across all skill files
+#   - Phase 35 snapshot-pinned-models rule
+#   - Phase 36 protected-pipeline SHA-256 invariant (3 entry points byte-identical)
+#   - DIST-01..07 plugin manifest validity
+
+name: skill-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  skill-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SKST lint (Phase 34) + snapshot-pinned-models (Phase 35)
+        run: bash orq-agent/scripts/lint-skills.sh
+
+      - name: Protected pipeline SHA check (Phase 36)
+        run: bash orq-agent/scripts/check-protected-pipelines.sh
+
+      - name: Plugin manifest validator (DIST-01..07)
+        run: bash tests/scripts/validate-plugin-manifests.sh

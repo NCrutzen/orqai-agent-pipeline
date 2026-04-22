@@ -1,27 +1,33 @@
-# DIST-07: GitLab CI template — validates manifests + runs /orq-agent:test + fails on ITRX-04 regression.
-# Variables required (set as CI/CD variables, masked):
-#   ORQ_API_KEY, ANTHROPIC_API_KEY, AGENT_KEY, DATASET_ID
+# DIST-07 — GitLab CI template for CONSUMER repos.
+#
+# Copy this file to .gitlab-ci.yml in YOUR agent repo (the repo that owns
+# your Orq.ai agent spec + dataset). Then configure the CI/CD variables
+# listed in templates/ci/README.md in this skill repo.
+#
+# What it does: runs `/orq-agent:test` against a deployed Orq.ai agent on
+# push/MR and fails the pipeline if results-analyzer emits a ⚠️ regression
+# marker (ITRX-04). That's the regression gate from V3.0 Phase 42.
+#
+# Required CI/CD variables (set in Settings → CI/CD → Variables, masked):
+#   ORQ_API_KEY, ANTHROPIC_API_KEY
+# Required (unmasked is fine):
+#   AGENT_KEY, DATASET_ID
 
 stages:
-  - validate
   - test
-
-validate-manifests:
-  stage: validate
-  image: alpine:3.20
-  before_script:
-    - apk add --no-cache bash grep jq
-  script:
-    - bash tests/scripts/validate-plugin-manifests.sh
 
 orq-agent-test:
   stage: test
   image: node:20-bullseye
-  needs: ["validate-manifests"]
   timeout: 30 minutes
   script:
     - npm install -g @anthropic-ai/claude-code
-    - bash install.sh --tier test
+    - npx --yes skills add NCrutzen/orqai-agent-pipeline
+    - |
+      if [ -z "$AGENT_KEY" ] || [ -z "$DATASET_ID" ]; then
+        echo "AGENT_KEY or DATASET_ID unset. Configure them as CI/CD variables."
+        exit 1
+      fi
     - |
       claude code \
         --headless \

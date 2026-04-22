@@ -1,7 +1,14 @@
-name: orq-agent-test
+# DIST-07 — GitHub Actions template for CONSUMER repos.
+#
+# Copy this file to .github/workflows/orq-agent-test.yml in YOUR agent repo
+# (the repo that owns your Orq.ai agent spec + dataset). Then configure the
+# secrets and variables listed in templates/ci/README.md in this skill repo.
+#
+# What it does: runs `/orq-agent:test` against a deployed Orq.ai agent on
+# every push/PR and fails the build if results-analyzer emits a ⚠️ regression
+# marker (ITRX-04). That's the regression gate from V3.0 Phase 42.
 
-# DIST-07: run `/orq-agent:test` on a deployed agent and fail the build on regression
-# detected by results-analyzer (ITRX-04). Uses Claude Code headless via npx.
+name: orq-agent-test
 
 on:
   push:
@@ -11,11 +18,11 @@ on:
   workflow_dispatch:
     inputs:
       agent_key:
-        description: "Orq.ai agent key to test"
-        required: true
+        description: "Orq.ai agent key to test (overrides vars.DEFAULT_AGENT_KEY)"
+        required: false
       dataset_id:
-        description: "Dataset ID for the experiment"
-        required: true
+        description: "Dataset ID for the experiment (overrides vars.DEFAULT_DATASET_ID)"
+        required: false
 
 env:
   ORQ_API_KEY: ${{ secrets.ORQ_API_KEY }}
@@ -23,15 +30,7 @@ env:
   DATASET_ID: ${{ inputs.dataset_id || vars.DEFAULT_DATASET_ID }}
 
 jobs:
-  validate-manifests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Validate plugin manifests (DIST-01..06)
-        run: bash tests/scripts/validate-plugin-manifests.sh
-
   orq-agent-test:
-    needs: validate-manifests
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -45,11 +44,15 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Install orq-agent skill
-        run: bash install.sh --tier test
+        run: npx --yes skills add NCrutzen/orqai-agent-pipeline
 
       - name: Run /orq-agent:test on deployed agent
         id: orq_test
         run: |
+          if [ -z "$AGENT_KEY" ] || [ -z "$DATASET_ID" ]; then
+            echo "::error::AGENT_KEY or DATASET_ID unset. Set vars.DEFAULT_AGENT_KEY and vars.DEFAULT_DATASET_ID, or provide inputs on workflow_dispatch."
+            exit 1
+          fi
           claude code \
             --headless \
             --api-key "${{ secrets.ANTHROPIC_API_KEY }}" \
