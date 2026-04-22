@@ -102,6 +102,11 @@ interface Props {
   // Count of messages in this window that were hidden because they already
   // carry one of our MR category labels.
   alreadyHandled: number;
+  // Active ?rule= filter (null = normal category-grouped view).
+  ruleFilter: string | null;
+  // Alle regels die minstens 1 match hebben in het huidige venster, met
+  // aantallen. Gebruikt door de precision-targeting widget.
+  rulesInWindow: Array<{ rule: string; count: number }>;
 }
 
 export function BulkReview(props: Props) {
@@ -327,6 +332,49 @@ export function BulkReview(props: Props) {
 
       {!props.fetchError && (
         <>
+          {/* Precision-targeting widget — klikbare regel-filter om gericht
+              samples te verzamelen voor regels die nog onder 95% CI-lo
+              zitten. Gebaseerd op de telemetry-analyse: rule X heeft N
+              matches in dit venster beschikbaar. */}
+          {props.rulesInWindow.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-lg font-semibold">
+                {props.ruleFilter ? "Regel-filter actief" : "Gericht labelen per regel"}
+              </h2>
+              {props.ruleFilter ? (
+                <GlassCard className="p-3 flex items-center gap-3 border-amber-500/40 bg-amber-500/5">
+                  <code className="text-sm font-mono">{props.ruleFilter}</code>
+                  <span className="text-sm text-muted-foreground">
+                    — toont alleen items die deze regel matchen
+                  </span>
+                  <a
+                    href={props.beforeCursor ? `?before=${encodeURIComponent(props.beforeCursor)}` : "?"}
+                    className="ml-auto text-sm underline hover:text-foreground"
+                  >
+                    Filter weg →
+                  </a>
+                </GlassCard>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {props.rulesInWindow.map(({ rule, count }) => {
+                    const qs = new URLSearchParams();
+                    qs.set("rule", rule);
+                    if (props.beforeCursor) qs.set("before", props.beforeCursor);
+                    return (
+                      <a
+                        key={rule}
+                        href={`?${qs.toString()}`}
+                        className="text-xs font-mono px-2 py-1 rounded border border-border hover:border-foreground hover:bg-muted/50 transition-colors"
+                      >
+                        {rule} <span className="text-muted-foreground">·</span> {count}
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
           <section className="space-y-3">
             <h2 className="text-lg font-semibold">Groepen klaar voor batch-actie</h2>
             {props.groups.length === 0 && (

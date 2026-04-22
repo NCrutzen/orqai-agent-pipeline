@@ -18,12 +18,13 @@ function bandFor(conf: number): "high" | "medium" | "low" {
 }
 
 interface PageProps {
-  searchParams: Promise<{ before?: string }>;
+  searchParams: Promise<{ before?: string; rule?: string }>;
 }
 
 export default async function DebtorEmailReviewPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const before = params.before;
+  const ruleFilter = params.rule || null;
 
   let messages = [] as Awaited<ReturnType<typeof listInboxMessages>>;
   let fetchError: string | null = null;
@@ -74,13 +75,34 @@ export default async function DebtorEmailReviewPage({ searchParams }: PageProps)
       };
     });
 
-  // Group by (category, band).
-  const groupMap = new Map<string, typeof predictions>();
+  // Tel per regel in het huidige venster (vóór eventuele rule-filter).
+  // Hiermee kan de UI een targeting-widget tonen: "regel X heeft Y matches
+  // beschikbaar — klik om alleen die te zien en snel naar 95% CI te duwen".
+  const rulePerWindow = new Map<string, number>();
   for (const p of predictions) {
-    const key = `${p.category}:${p.confidenceBand}`;
-    const arr = groupMap.get(key) ?? [];
-    arr.push(p);
-    groupMap.set(key, arr);
+    if (p.category === "unknown") continue;
+    rulePerWindow.set(p.matchedRule, (rulePerWindow.get(p.matchedRule) ?? 0) + 1);
+  }
+  const rulesInWindow = Array.from(rulePerWindow.entries())
+    .map(([rule, count]) => ({ rule, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Rule-filter: als ?rule=X in URL staat, toon alleen één "virtuele" groep
+  // met alle items die precies die regel matchen. Versnelt gerichte
+  // sample-opbouw voor regels die nog onder 95% CI-lo zitten.
+  const groupMap = new Map<string, typeof predictions>();
+  if (ruleFilter) {
+    const matching = predictions.filter((p) => p.matchedRule === ruleFilter);
+    if (matching.length > 0) {
+      groupMap.set(`rule:${ruleFilter}`, matching);
+    }
+  } else {
+    for (const p of predictions) {
+      const key = `${p.category}:${p.confidenceBand}`;
+      const arr = groupMap.get(key) ?? [];
+      arr.push(p);
+      groupMap.set(key, arr);
+    }
   }
 
   const catOrder: Record<Category, number> = {
@@ -121,6 +143,8 @@ export default async function DebtorEmailReviewPage({ searchParams }: PageProps)
       beforeCursor={before ?? null}
       olderCursor={olderCursor}
       alreadyHandled={alreadyHandled}
+      ruleFilter={ruleFilter}
+      rulesInWindow={rulesInWindow}
     />
   );
 }
