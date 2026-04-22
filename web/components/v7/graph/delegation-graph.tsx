@@ -162,54 +162,7 @@ export function DelegationGraph(_props: DelegationGraphProps) {
                 <stop offset="0%" stopColor="rgba(255,255,255,0.06)" />
                 <stop offset="100%" stopColor="rgba(255,255,255,0.04)" />
               </linearGradient>
-              <marker
-                id="v7-inbox-arrow"
-                viewBox="0 0 10 10"
-                refX="9"
-                refY="5"
-                markerWidth="8"
-                markerHeight="8"
-                orient="auto"
-              >
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--v7-teal)" />
-              </marker>
             </defs>
-            {/* Entry point: incoming mail pointing to the orchestrator */}
-            {(() => {
-              const orch = layout.find((n) => n.isOrchestrator);
-              if (!orch) return null;
-              const orchX = (orch.xPct / 100) * VIEWBOX_W;
-              const orchY = (orch.yPct / 100) * VIEWBOX_H;
-              return (
-                <g>
-                  <text
-                    x={30}
-                    y={orchY - 18}
-                    fontSize={14}
-                    fontWeight={600}
-                    letterSpacing={2}
-                    fill="var(--v7-faint)"
-                    style={{ textTransform: "uppercase" }}
-                  >
-                    Inkomende mail
-                  </text>
-                  <text x={30} y={orchY + 4} fontSize={13} fill="var(--v7-muted)">
-                    debiteuren@smeba.nl
-                  </text>
-                  <line
-                    x1={30}
-                    y1={orchY + 24}
-                    x2={orchX - NODE_HALF_WIDTH - 6}
-                    y2={orchY}
-                    stroke="var(--v7-teal)"
-                    strokeWidth={2}
-                    strokeDasharray="4 4"
-                    markerEnd="url(#v7-inbox-arrow)"
-                    opacity={0.7}
-                  />
-                </g>
-              );
-            })()}
             {edges.map(({ edge, recent }) => {
               const from = coordsByName.get(edge.from);
               const to = coordsByName.get(edge.to);
