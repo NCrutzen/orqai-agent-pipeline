@@ -72,6 +72,13 @@ interface SwarmRealtimeProviderProps {
   children: ReactNode;
 }
 
+// Polling fallback. Bridges that delete+insert in bursts (debtor-email
+// runs ~hundreds of event rows per minute) can overflow Realtime's
+// per-channel rate limit, silently dropping events. We refresh the
+// snapshot on an interval so the UI still reflects recent activity even
+// when a broadcast was dropped.
+const POLL_INTERVAL_MS = 15_000;
+
 export function SwarmRealtimeProvider({
   swarmId,
   children,
@@ -82,14 +89,14 @@ export function SwarmRealtimeProvider({
     const supabase = createClient();
     let cancelled = false;
 
-    // 1. Fetch initial snapshots for all 4 tables, filtered by swarm_id.
-    (async () => {
+    const fetchSnapshot = async () => {
       const [eventsRes, jobsRes, agentsRes, briefingsRes] = await Promise.all([
         supabase
           .from("agent_events")
           .select("*")
           .eq("swarm_id", swarmId)
-          .order("created_at", { ascending: false }),
+          .order("created_at", { ascending: false })
+          .limit(500),
         supabase.from("swarm_jobs").select("*").eq("swarm_id", swarmId),
         supabase.from("swarm_agents").select("*").eq("swarm_id", swarmId),
         supabase
@@ -103,12 +110,17 @@ export function SwarmRealtimeProvider({
 
       setBundle((prev) => ({
         ...prev,
-        events: (eventsRes.data as AgentEvent[] | null) ?? [],
-        jobs: (jobsRes.data as SwarmJob[] | null) ?? [],
-        agents: (agentsRes.data as SwarmAgent[] | null) ?? [],
-        briefings: (briefingsRes.data as SwarmBriefing[] | null) ?? [],
+        events: (eventsRes.data as AgentEvent[] | null) ?? prev.events,
+        jobs: (jobsRes.data as SwarmJob[] | null) ?? prev.jobs,
+        agents: (agentsRes.data as SwarmAgent[] | null) ?? prev.agents,
+        briefings:
+          (briefingsRes.data as SwarmBriefing[] | null) ?? prev.briefings,
       }));
-    })();
+    };
+
+    // 1. Initial snapshot + periodic refresh.
+    fetchSnapshot();
+    const pollId = setInterval(fetchSnapshot, POLL_INTERVAL_MS);
 
     // 2. Single channel carrying 4 postgres_changes subscriptions.
     const channel: RealtimeChannel = supabase
@@ -189,6 +201,7 @@ export function SwarmRealtimeProvider({
     // 3. Teardown: runs on unmount or when swarmId changes.
     return () => {
       cancelled = true;
+      clearInterval(pollId);
       supabase.removeChannel(channel);
     };
   }, [swarmId]);
