@@ -77,7 +77,7 @@ const SUBJECT_AUTO_REPLY =
  * but downstream treatment is identical (label + archive).
  */
 const SUBJECT_ACKNOWLEDGEMENT =
-  /(ontvangstbevestiging|bevestiging\s+van\s+ontvangst|e[-\s]?mail\s+ontvangen|succesvol\s+ontvangen|uw\s+factuur\s+(?:is\s+ontvangen|wordt\s+verwerkt)|uw\s+elektronische\s+factuur|uw\s+electronische\s+factuur|receipt\s+confirmation|acknowledgement\s+of\s+receipt|successfully\s+received|^\s*confirmation\s*:|is\s+van\s+status\s+veranderd|status\s+changed)/i;
+  /(ontvangstbevestiging|bevestiging\s+van\s+ontvangst|e[-\s]?mail\s+ontvangen|succesvol\s+ontvangen|uw\s+factuur\s+(?:is\s+ontvangen|wordt\s+verwerkt)|uw\s+elektronische\s+factuur|uw\s+electronische\s+factuur|(?:wij|we)\s+hebben\s+(?:jouw|uw|je)\s+[^.!]*\bontvangen|receipt\s+confirmation|acknowledgement\s+of\s+receipt|successfully\s+received|^\s*confirmation\s*:|is\s+van\s+status\s+veranderd|status\s+changed)/i;
 
 /**
  * Ticket-acknowledgement subjects — vendor ticketing systems auto-respond
@@ -95,7 +95,7 @@ const SUBJECT_ACKNOWLEDGEMENT =
  * dunning emails that happen to reference an invoice number.
  */
 const SUBJECT_TICKET_REF =
-  /(\[[A-Z]{2,5}#?\d+\]|\b[A-Z]{2,5}-\d{3,}-\d{3,}\s*:|ticket\s+number|procesnummer|aanmelding\s+van\s+melding|\bis\s+closed[:\s]|\bGCS\d{4,}|melding\s+[CS]\d+|case\s+number)/i;
+  /(\[[A-Z]{2,5}#?\d+\]|\b[A-Z]{2,5}-\d{3,}-\d{3,}\s*:|\(ticket\s*:?\s*\d+\)|ticket\s+number|procesnummer|aanmelding\s+van\s+melding|\bis\s+closed[:\s]|\bGCS\d{4,}|melding\s+[CS]\d+|case\s+number)/i;
 
 /**
  * SUBJECT_PAYMENT is deliberately narrow: it must match only confirmation /
@@ -249,6 +249,36 @@ export function classify(input: ClassifyInput): ClassifyResult {
     return { category: "unknown", confidence: 0, matchedRule: "blocked_submission_rejected" };
   }
 
+  // Expliciete auto-reply / ack / ticket-marker subjects winnen van de
+  // dunning/reminder-block. Waarom: een auto-reply OP onze eigen HERINNERING
+  // draagt "HERINNERING" nog in het onderwerp ("Automatic reply: 529735 -
+  // HERINNERING"). Zonder deze uitzondering werd dat door
+  // SUBJECT_PAYMENT_REQUEST_BLOCK ten onrechte als dunning-reply geblokt.
+  // Observed in 2026-04-22 Onbekend hand-picks: administratie@stb.eu
+  // "Automatic reply:" en digitalefacturen@gasunie.nl "Aanmelding van
+  // melding M2602 03359: ... HERINNERING".
+  if (subjectIsAutoReply) {
+    if (BODY_MAILBOX_RETIRED.test(body)) {
+      return { category: "ooo_permanent", confidence: 0.94, matchedRule: "subject_autoreply+body_mailbox_retired" };
+    }
+    if (BODY_OOO_PERMANENT.test(body)) {
+      return { category: "ooo_permanent", confidence: 0.96, matchedRule: "subject_autoreply+body_permanent" };
+    }
+    if (BODY_OOO_TEMPORARY.test(body)) {
+      return { category: "ooo_temporary", confidence: 0.96, matchedRule: "subject_autoreply+body_temporary" };
+    }
+    if (BODY_OOO_GENERIC.test(body) && isHumanSender) {
+      return { category: "ooo_temporary", confidence: 0.88, matchedRule: "subject_autoreply+body_ooo_generic+human_sender" };
+    }
+    return { category: "auto_reply", confidence: 0.95, matchedRule: "subject_autoreply" };
+  }
+  if (subjectIsAcknowledgement) {
+    return { category: "auto_reply", confidence: 0.92, matchedRule: "subject_acknowledgement" };
+  }
+  if (subjectIsTicketRef) {
+    return { category: "auto_reply", confidence: 0.9, matchedRule: "subject_ticket_ref" };
+  }
+
   if (subjectIsPaymentRequest) {
     return { category: "unknown", confidence: 0, matchedRule: "payment_blocked_request_template" };
   }
@@ -297,57 +327,15 @@ export function classify(input: ClassifyInput): ClassifyResult {
     return { category: "payment_admittance", confidence: 0.85, matchedRule: "payment_system_sender+body" };
   }
 
-  // ── AUTO-REPLY / OoO family ───────────────────────────────────────────────
-
-  // Vendor receipt/ack patterns — observed in 2026-04-22 Onbekend batch.
-  // These are automated confirmations ("we received your invoice email"),
-  // functionally identical to auto_reply for archive purposes.
-  if (subjectIsAcknowledgement) {
-    return { category: "auto_reply", confidence: 0.92, matchedRule: "subject_acknowledgement" };
-  }
-  if (subjectIsTicketRef) {
-    return { category: "auto_reply", confidence: 0.9, matchedRule: "subject_ticket_ref" };
-  }
-  // RE:/FW: van bekende AP-automation systemen (Basware, Blue10, Tradeshift).
-  // Eerdere versie accepteerde ELKE SENDER_PAYMENT_ROLE — dat was te los:
-  // `crediteuren@hansanders.com` en `accounting@lidl.nl` zijn vaak gedeelde
-  // mensen-postbussen voor credit control, geen automation. De reviewer
-  // ving die terecht op ("Is een bevestiging door een mens niet een Auto
-  // Reply"). Alleen specifieke AP-system handles in de local-part vormen
-  // een betrouwbaar signaal; generieke role-addressen moeten via een
-  // inhoudelijke regel (subject_ack/ticket_ref of klassiek subject_autoreply)
-  // bewezen worden.
+  // ── AUTO-REPLY / OoO family (reply-prefix variants) ──────────────────────
+  // subjectIsAutoReply / subjectIsAcknowledgement / subjectIsTicketRef zijn
+  // al vroeg in de flow afgehandeld (vóór dunning-block). Wat hier resteert
+  // zijn RE:/FW:-varianten van vendor-systemen.
   if (subjectIsReplyPrefix && SENDER_AP_SYSTEM_ANYWHERE.test(from)) {
     return { category: "auto_reply", confidence: 0.9, matchedRule: "reply_prefix+ap_automation_sender" };
   }
-  // RE:/FW: van een expliciete noreply-afzender: vendor-systeem reageert op
-  // onze outbound factuur-mail (no-reply@brocacef.nl, DoNotReply@yardi.com,
-  // DONOTREPLY@CARGILL.COM). De sender is per definitie geautomatiseerd
-  // (SENDER_SYSTEM keywords: no-reply / donotreply / mailer-daemon /
-  // postmaster / automailer / autoreply) én het RE:/FW:-prefix signaleert
-  // dat het een reply is op onze eigen uitgaande mail — geen dispute, geen
-  // payment advice. Payment- en block-regels hebben al gevuurd dus wat
-  // hier overblijft is een auto-acknowledgement.
   if (subjectIsReplyPrefix && isSystemSender) {
     return { category: "auto_reply", confidence: 0.92, matchedRule: "reply_prefix+system_sender" };
-  }
-
-  if (subjectIsAutoReply) {
-    if (BODY_MAILBOX_RETIRED.test(body)) {
-      return { category: "ooo_permanent", confidence: 0.94, matchedRule: "subject_autoreply+body_mailbox_retired" };
-    }
-    if (BODY_OOO_PERMANENT.test(body)) {
-      return { category: "ooo_permanent", confidence: 0.96, matchedRule: "subject_autoreply+body_permanent" };
-    }
-    if (BODY_OOO_TEMPORARY.test(body)) {
-      return { category: "ooo_temporary", confidence: 0.96, matchedRule: "subject_autoreply+body_temporary" };
-    }
-    if (BODY_OOO_GENERIC.test(body) && isHumanSender) {
-      return { category: "ooo_temporary", confidence: 0.88, matchedRule: "subject_autoreply+body_ooo_generic+human_sender" };
-    }
-    // Subject alone is already a very strong signal — these are server-set
-    // vacation responders. Observed precision ≈ 97% on historical corpus.
-    return { category: "auto_reply", confidence: 0.95, matchedRule: "subject_autoreply" };
   }
 
   // Body-only OoO signal (subject is generic): only accept if sender is human.
