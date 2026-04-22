@@ -1,5 +1,6 @@
 import { listInboxMessages } from "@/lib/outlook";
 import { classify, type Category } from "@/lib/debtor-email/classify";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { BulkReview } from "./bulk-review";
 
 const MAILBOX = "debiteuren@smeba.nl";
@@ -52,12 +53,43 @@ export default async function DebtorEmailReviewPage({ searchParams }: PageProps)
     "OoO — Permanent",
     "Payment Admittance",
   ]);
-  const alreadyHandled = messages.filter((m) =>
-    m.categories.some((c) => MR_LABELS.has(c)),
-  ).length;
+
+  // Mails that a reviewer has already acted on in bulk-review get logged
+  // to automation_runs — even when the Outlook label couldn't be applied
+  // (archive 404s, label-only categories that leave the mail in the
+  // inbox, etc.). Hiding on Outlook label alone kept re-surfacing those,
+  // which defeats the "work the mailbox once" flow. We additionally
+  // exclude any message_id with a non-failed debtor-email-review /
+  // debtor-email-cleanup run so the page converges to zero once the
+  // reviewer has processed the mailbox. Failed runs stay visible so the
+  // human can retry if they choose.
+  const messageIds = messages.map((m) => m.id);
+  const reviewedIds = new Set<string>();
+  if (messageIds.length > 0) {
+    try {
+      const admin = createAdminClient();
+      const { data: handledRuns } = await admin
+        .from("automation_runs")
+        .select("result->>message_id")
+        .like("automation", "debtor-email-%")
+        .in("status", ["feedback", "completed", "skipped_idempotent", "deferred"])
+        .in("result->>message_id", messageIds);
+      for (const row of handledRuns ?? []) {
+        const id = (row as Record<string, unknown>)["message_id"];
+        if (typeof id === "string") reviewedIds.add(id);
+      }
+    } catch {
+      // Non-fatal: fall back to Outlook-label filter only.
+    }
+  }
+
+  const isHandled = (m: (typeof messages)[number]): boolean =>
+    m.categories.some((c) => MR_LABELS.has(c)) || reviewedIds.has(m.id);
+
+  const alreadyHandled = messages.filter(isHandled).length;
 
   const predictions = messages
-    .filter((m) => !m.categories.some((c) => MR_LABELS.has(c)))
+    .filter((m) => !isHandled(m))
     .map((m) => {
       const r = classify({ subject: m.subject, from: m.from, bodySnippet: m.bodyPreview });
       return {
