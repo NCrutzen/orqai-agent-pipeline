@@ -136,6 +136,20 @@ const SUBJECT_PAYMENT_REQUEST_BLOCK =
 const SUBJECT_REFUND_BLOCK =
   /(retour\s+van\s+factuur|creditnota|credit\s+note|refund|terugbetaling|terugstorting|remboursement)/i;
 
+/**
+ * Hard-block — vendor-system rejection of our outbound invoice submission.
+ * Operationally important because the facturen moeten opnieuw verstuurd
+ * worden in kleinere batch (of ander format), dus MENSELIJKE actie nodig.
+ *
+ * Observed: noreply@vvefacturen.nl → "Te veel PDF of UBL bestanden aangeboden"
+ * (3× gezien in 2026-04-22 corpus; eerder 2× door reviewer naar unknown
+ * gezet). Breder geformuleerd om vergelijkbare rejection-patronen van
+ * andere AP-portalen af te vangen zonder algemene "afgewezen" te vangen
+ * die ook elders kan voorkomen.
+ */
+const SUBJECT_SUBMISSION_REJECTED =
+  /(te\s+veel\s+(?:pdf|ubl|bestand|document)|too\s+many\s+(?:files|attachments)|bestanden\s+(?:aangeboden|geweigerd|afgewezen)|submission\s+rejected|invoice\s+submission\s+failed|kon\s+niet\s+(?:verwerkt|verzonden)\s+worden)/i;
+
 /** Mandatory exclusion — prevents payment_dispute from matching payment_admittance. */
 const BODY_DISPUTE =
   /\b(dispute|disputed|complaint|missing|incorrect|betwist|contesteren|klacht|reclamatie|réclamation|contestation|foutief|onjuist|ontbreekt|error\s+in|wrong\s+amount)\b/i;
@@ -220,12 +234,20 @@ export function classify(input: ClassifyInput): ClassifyResult {
   const subjectIsPaidMarker = SUBJECT_PAID_MARKER.test(normSubject);
   const subjectIsAcknowledgement = SUBJECT_ACKNOWLEDGEMENT.test(normSubject);
   const subjectIsTicketRef = SUBJECT_TICKET_REF.test(normSubject);
+  const subjectIsSubmissionRejected = SUBJECT_SUBMISSION_REJECTED.test(normSubject);
   // "RE:" / "FW:" prefix present on the ORIGINAL subject (normSubject has
   // it stripped). Combined with a role-based sender this signals a
   // vendor-system reply to our outbound invoice email.
   const subjectIsReplyPrefix = /^(?:(?:re|fw|fwd|tr|aw|sv|antw)\s*:\s*)/i.test(subject);
 
-  // ── Hard blocks (anything payment-like but clearly NOT payment_admittance) ──
+  // ── Hard blocks — route naar menselijke triage ────────────────────────────
+
+  // Vendor-system rejection van onze invoice-submission (bv. "Te veel PDF
+  // of UBL bestanden aangeboden"). Vereist heruit-versturen met minder
+  // bestanden — menselijke actie nodig, géén auto-archive.
+  if (subjectIsSubmissionRejected) {
+    return { category: "unknown", confidence: 0, matchedRule: "blocked_submission_rejected" };
+  }
 
   if (subjectIsPaymentRequest) {
     return { category: "unknown", confidence: 0, matchedRule: "payment_blocked_request_template" };
