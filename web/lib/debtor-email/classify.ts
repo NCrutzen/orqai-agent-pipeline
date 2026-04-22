@@ -77,7 +77,7 @@ const SUBJECT_AUTO_REPLY =
  * but downstream treatment is identical (label + archive).
  */
 const SUBJECT_ACKNOWLEDGEMENT =
-  /(ontvangstbevestiging|e[-\s]?mail\s+ontvangen|succesvol\s+ontvangen|receipt\s+confirmation|acknowledgement\s+of\s+receipt|successfully\s+received|is\s+van\s+status\s+veranderd|status\s+changed)/i;
+  /(ontvangstbevestiging|bevestiging\s+van\s+ontvangst|e[-\s]?mail\s+ontvangen|succesvol\s+ontvangen|uw\s+factuur\s+(?:is\s+ontvangen|wordt\s+verwerkt)|uw\s+elektronische\s+factuur|uw\s+electronische\s+factuur|receipt\s+confirmation|acknowledgement\s+of\s+receipt|successfully\s+received|^\s*confirmation\s*:|is\s+van\s+status\s+veranderd|status\s+changed)/i;
 
 /**
  * Ticket-acknowledgement subjects — vendor ticketing systems auto-respond
@@ -95,7 +95,7 @@ const SUBJECT_ACKNOWLEDGEMENT =
  * dunning emails that happen to reference an invoice number.
  */
 const SUBJECT_TICKET_REF =
-  /(\[[A-Z]{2,5}#?\d+\]|ticket\s+number|procesnummer|aanmelding\s+van\s+melding|\bis\s+closed[:\s]|\bGCS\d{4,}|melding\s+[CS]\d+|case\s+number)/i;
+  /(\[[A-Z]{2,5}#?\d+\]|\b[A-Z]{2,5}-\d{3,}-\d{3,}\s*:|ticket\s+number|procesnummer|aanmelding\s+van\s+melding|\bis\s+closed[:\s]|\bGCS\d{4,}|melding\s+[CS]\d+|case\s+number)/i;
 
 /**
  * SUBJECT_PAYMENT is deliberately narrow: it must match only confirmation /
@@ -320,6 +320,17 @@ export function classify(input: ClassifyInput): ClassifyResult {
   if (subjectIsReplyPrefix && SENDER_AP_SYSTEM_ANYWHERE.test(from)) {
     return { category: "auto_reply", confidence: 0.9, matchedRule: "reply_prefix+ap_automation_sender" };
   }
+  // RE:/FW: van een expliciete noreply-afzender: vendor-systeem reageert op
+  // onze outbound factuur-mail (no-reply@brocacef.nl, DoNotReply@yardi.com,
+  // DONOTREPLY@CARGILL.COM). De sender is per definitie geautomatiseerd
+  // (SENDER_SYSTEM keywords: no-reply / donotreply / mailer-daemon /
+  // postmaster / automailer / autoreply) én het RE:/FW:-prefix signaleert
+  // dat het een reply is op onze eigen uitgaande mail — geen dispute, geen
+  // payment advice. Payment- en block-regels hebben al gevuurd dus wat
+  // hier overblijft is een auto-acknowledgement.
+  if (subjectIsReplyPrefix && isSystemSender) {
+    return { category: "auto_reply", confidence: 0.92, matchedRule: "reply_prefix+system_sender" };
+  }
 
   if (subjectIsAutoReply) {
     if (BODY_MAILBOX_RETIRED.test(body)) {
@@ -349,13 +360,12 @@ export function classify(input: ClassifyInput): ClassifyResult {
     }
   }
 
-  // System sender as a LAST-resort auto_reply fallback. Payment/dispute/
-  // OoO checks already ran; if we're still here, a noreply address is
-  // almost always a transactional notification (receipt, error, bounce).
-  // Lower confidence (0.8) — human review below this threshold is fine.
-  if (isSystemSender) {
-    return { category: "auto_reply", confidence: 0.8, matchedRule: "sender_system_fallback" };
-  }
+  // (sender_system_fallback verwijderd — haalde in productie 68% precision
+  // op 75 samples. Echte inhoud-loze noreply-mails horen in Onbekend voor
+  // menselijke review. Positieve varianten worden nu expliciet gevangen
+  // door subject_acknowledgement, subject_ticket_ref en reply_prefix+
+  // system_sender. Alles wat daar niet onder valt wordt handmatig
+  // opgepakt — dat is het punt van een whitelist-gebaseerde classifier.)
 
   return { category: "unknown", confidence: 0, matchedRule: "no_match" };
 }
