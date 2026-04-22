@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="nl" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>Sketch 001 — Smeba Draft Review Layout</title>
+<link rel="stylesheet" href="../themes/default.css">
+<style>
+  /* ═══════════════════════════════════════════════
+     Shared layout primitives
+     ═══════════════════════════════════════════════ */
+  .app {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header {
+    background: var(--accent-soft);
+    border-bottom: 1px solid var(--border);
+    padding: var(--space-3) var(--space-5);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--fs-lg);
+    font-weight: 600;
+    color: var(--accent-text);
+  }
+  .header-chip {
+    padding: 2px 8px;
+    background: rgba(232, 165, 71, 0.15);
+    border: 1px solid rgba(232, 165, 71, 0.3);
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    color: var(--accent-text);
+  }
+  .header-meta {
+    font-size: var(--fs-xs);
+    color: var(--accent-text);
+    opacity: 0.8;
+  }
+
+  .footer-bar {
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--border);
+    padding: var(--space-2) var(--space-5);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+  }
+  .footer-bar .stats { display: flex; gap: var(--space-4); }
+  .footer-bar .stats span strong { color: var(--text); }
+  .footer-bar .actions { display: flex; gap: var(--space-2); }
+  .btn {
+    padding: 4px 12px;
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    border: 1px solid var(--border);
+    color: var(--text);
+    transition: all 0.15s;
+  }
+  .btn:hover { background: var(--bg-hover); }
+  .btn-primary {
+    background: var(--accent);
+    color: #1a0f00;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { background: var(--accent-text); }
+  .btn-ghost { border-color: transparent; }
+
+  /* ═══════════════════════════════════════════════
+     Inbox list (left panel)
+     ═══════════════════════════════════════════════ */
+  .inbox {
+    width: 320px;
+    border-right: 1px solid var(--border);
+    background: var(--bg-elevated);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .inbox-header {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .inbox-header h2 {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }
+  .inbox-count {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    background: var(--bg-panel);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+  }
+  .inbox-search {
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--border);
+  }
+  .inbox-search input {
+    width: 100%;
+    padding: 6px 10px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-sm);
+  }
+  .inbox-search input:focus { outline: none; border-color: var(--accent); }
+  .inbox-filters {
+    display: flex;
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .filter-chip {
+    padding: 3px 9px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .filter-chip:hover { background: var(--bg-hover); color: var(--text); }
+  .filter-chip.active {
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    border-color: rgba(232, 165, 71, 0.4);
+  }
+  .inbox-list { flex: 1; overflow-y: auto; }
+  .inbox-item {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .inbox-item:hover { background: var(--bg-hover); }
+  .inbox-item.selected {
+    background: var(--bg-selected);
+    border-left: 3px solid var(--accent);
+    padding-left: calc(var(--space-4) - 3px);
+  }
+  .inbox-item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3px;
+  }
+  .inbox-item-from {
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    color: var(--text);
+  }
+  .inbox-item-sla {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .sla-green { background: var(--success-soft); color: var(--success); }
+  .sla-amber { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
+  .sla-red { background: var(--danger-soft); color: var(--danger); }
+  .inbox-item-subject {
+    font-size: var(--fs-sm);
+    color: var(--text);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .inbox-item-preview {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .inbox-item-meta {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+    align-items: center;
+  }
+  .confidence-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .confidence-dot::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+  }
+  .confidence-dot.med::before { background: var(--warn); }
+  .confidence-dot.low::before { background: var(--danger); }
+  .status-chip {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .status-draft { background: var(--bg-panel); color: var(--text-muted); }
+  .status-review { background: var(--customer-soft); color: var(--customer); }
+  .status-approved { background: var(--success-soft); color: var(--success); }
+
+  /* ═══════════════════════════════════════════════
+     Content area (mail + draft)
+     ═══════════════════════════════════════════════ */
+  .section-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: var(--space-2);
+  }
+
+  .mail-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+  .mail-card + .mail-card { margin-top: var(--space-4); }
+  .mail-card.customer { border-left: 3px solid var(--customer); }
+  .mail-card.draft { border-left: 3px solid var(--ai); }
+
+  .mail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-3);
+    gap: var(--space-3);
+  }
+  .mail-from {
+    font-weight: 600;
+    font-size: var(--fs-md);
+  }
+  .mail-date { font-size: var(--fs-xs); color: var(--text-muted); }
+  .mail-subject {
+    font-weight: 500;
+    margin: var(--space-2) 0;
+    color: var(--text);
+  }
+  .mail-body {
+    font-size: var(--fs-base);
+    line-height: 1.65;
+    color: var(--text);
+    white-space: pre-wrap;
+  }
+  .mail-lang-toggle {
+    display: inline-flex;
+    gap: 2px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    margin-left: auto;
+  }
+  .mail-lang-toggle button {
+    padding: 2px 8px;
+    font-size: 10px;
+    border-radius: 3px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .mail-lang-toggle button.active {
+    background: var(--bg-panel);
+    color: var(--text);
+  }
+
+  .draft-editor {
+    width: 100%;
+    min-height: 160px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    font-size: var(--fs-base);
+    line-height: 1.6;
+    resize: vertical;
+    color: var(--text);
+  }
+  .draft-editor:focus { outline: none; border-color: var(--accent); }
+
+  .side-by-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+  .side-by-side .col {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+  }
+  .side-by-side .col-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: var(--space-2);
+  }
+
+  .content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-5);
+    background: var(--bg);
+  }
+
+  /* ═══════════════════════════════════════════════
+     Review panel (right)
+     ═══════════════════════════════════════════════ */
+  .review-panel {
+    width: 380px;
+    border-left: 1px solid var(--border);
+    background: var(--bg-elevated);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .review-header {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border);
+  }
+  .review-header h2 {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }
+  .review-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-4);
+  }
+
+  .verdict-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+  .verdict-btn {
+    padding: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: var(--fs-md);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    transition: all 0.15s;
+  }
+  .verdict-btn:hover { background: var(--bg-hover); }
+  .verdict-btn.thumbs-up.active {
+    background: var(--success-soft);
+    border-color: var(--success);
+    color: var(--success);
+  }
+  .verdict-btn.thumbs-down.active {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+
+  .review-section {
+    border-bottom: 1px solid var(--border);
+    padding: var(--space-3) 0;
+  }
+  .review-section:last-child { border-bottom: none; }
+  .review-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+  }
+  .review-section-head:hover .section-label { color: var(--text); }
+  .review-section-toggle {
+    width: 18px; height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: var(--fs-lg);
+    transition: transform 0.2s;
+  }
+  .review-section.collapsed .review-section-toggle { transform: rotate(-90deg); }
+  .review-section.collapsed .review-section-body { display: none; }
+  .review-section-body { padding-top: var(--space-3); }
+
+  .defect-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .defect-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .defect-item:hover { background: var(--bg-hover); }
+  .defect-item.selected {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .defect-checkbox {
+    width: 14px; height: 14px;
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .defect-item.selected .defect-checkbox {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: white;
+  }
+
+  .feedback-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: var(--space-2);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-sm);
+    resize: vertical;
+  }
+  .feedback-textarea:focus { outline: none; border-color: var(--accent); }
+
+  .review-actions {
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    background: var(--bg-elevated);
+  }
+  .action-btn {
+    padding: var(--space-3);
+    border-radius: var(--radius);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+  }
+  .action-btn:hover { background: var(--bg-hover); }
+  .action-btn.primary {
+    background: var(--accent);
+    color: #1a0f00;
+    border-color: var(--accent);
+  }
+  .action-btn.primary:hover { background: var(--accent-text); }
+
+  /* Confidence bar */
+  .confidence-bar {
+    height: 6px;
+    background: var(--bg);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: var(--space-1);
+  }
+  .confidence-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--danger), var(--warn), var(--success));
+    border-radius: 3px;
+  }
+
+  .context-item {
+    padding: var(--space-2);
+    background: var(--bg-panel);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-1);
+    font-size: var(--fs-sm);
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-start;
+  }
+  .context-type {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    background: var(--customer-soft);
+    color: var(--customer);
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+  .context-type.kb { background: var(--ai-soft); color: var(--ai); }
+
+  /* ═══════════════════════════════════════════════
+     Variant A: Classic 3-panel
+     ═══════════════════════════════════════════════ */
+  .variant-a .layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ═══════════════════════════════════════════════
+     Variant B: Mail & Draft side-by-side in middle
+     ═══════════════════════════════════════════════ */
+  .variant-b .layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+  .variant-b .content-split {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: hidden;
+  }
+  .variant-b .content-pane {
+    overflow-y: auto;
+    padding: var(--space-5);
+    background: var(--bg);
+  }
+  .variant-b .content-pane + .content-pane {
+    border-left: 1px solid var(--border);
+  }
+  .variant-b .pane-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ═══════════════════════════════════════════════
+     Variant C: Drawer style (focus mode)
+     ═══════════════════════════════════════════════ */
+  .variant-c .layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+  .variant-c .content-area-wide {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-6);
+    background: var(--bg);
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .variant-c .review-drawer {
+    position: fixed;
+    right: 0;
+    top: 53px;
+    bottom: 34px;
+    width: 420px;
+    background: var(--bg-elevated);
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    z-index: 50;
+    box-shadow: -8px 0 24px rgba(0,0,0,0.3);
+  }
+  .variant-c .review-drawer.open { transform: translateX(0); }
+  .variant-c .drawer-toggle {
+    position: fixed;
+    right: var(--space-4);
+    top: 50%;
+    background: var(--accent);
+    color: #1a0f00;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    transform: translateY(-50%);
+  }
+  .variant-c .review-drawer.open ~ .drawer-toggle { display: none; }
+  .variant-c .drawer-close {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--bg-panel);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  /* Variant panes - only show active */
+  .variant-pane { display: none; height: calc(100vh - 40px); flex-direction: column; }
+  .variant-pane.active { display: flex; }
+
+  /* Responsive tweak */
+  @media (max-width: 1400px) {
+    .inbox { width: 280px; }
+    .review-panel { width: 340px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="variant-tabs">
+  <button onclick="showVariant('a')" class="active winner" id="tab-a">Variant A: Classic 3-panel</button>
+  <button onclick="showVariant('b')" id="tab-b">Variant B: Split-middle (NL|EN)</button>
+  <button onclick="showVariant('c')" id="tab-c">Variant C: Focus-mode + drawer</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     VARIANT A — Classic 3-panel (inbox | mail+draft | review)
+     ══════════════════════════════════════════════════════════════ -->
+<div class="variant-pane active variant-a" id="pane-a">
+  <div class="app">
+    <header class="header">
+      <div class="header-title">
+        📧 Smeba Draft Review
+        <span class="header-chip">Sales Swarm</span>
+        <span class="header-chip">Reviewer: Andrew</span>
+      </div>
+      <div class="header-meta mono">trace: a35a87cd...2fa1</div>
+    </header>
+
+    <div class="layout">
+      <!-- Inbox -->
+      <aside class="inbox">
+        <div class="inbox-header">
+          <h2>Drafts waiting</h2>
+          <span class="inbox-count">12</span>
+        </div>
+        <div class="inbox-search">
+          <input type="text" placeholder="Search drafts...">
+        </div>
+        <div class="inbox-filters">
+          <button class="filter-chip active">All</button>
+          <button class="filter-chip">High confidence</button>
+          <button class="filter-chip">Needs edit</button>
+          <button class="filter-chip">Overdue</button>
+        </div>
+        <div class="inbox-list">
+          <div class="inbox-item selected">
+            <div class="inbox-item-top">
+              <span class="inbox-item-from">Jan de Vries — Albert Heijn</span>
+              <span class="inbox-item-sla sla-amber">8h</span>
+            </div>
+            <div class="inbox-item-subject">Offerte aanvraag werkkleding Q2</div>
+            <div class="inbox-item-preview">Graag ontvang ik een offerte voor 120 paar werkschoenen...</div>
+            <div class="inbox-item-meta">
+              <span class="confidence-dot">92% confidence</span>
+              <span class="status-chip status-review">Reviewing</span>
+            </div>
+          </div>
+          <div class="inbox-item">
+            <div class="inbox-item-top">
+              <span class="inbox-item-from">Marieke Hendriks — Jumbo</span>
+              <span class="inbox-item-sla sla-green">2h</span>
+            </div>
+            <div class="inbox-item-subject">RE: Levertijd bedrijfskleding</div>
+            <div class="inbox-item-preview">Bedankt voor de offerte. Kunnen we de levering...</div>
+            <div class="inbox-item-meta">
+              <span class="confidence-dot med">78% confidence</span>
+              <span class="status-chip status-draft">Draft</span>
+            </div>
+          </div>
+          <div class="inbox-item">
+            <div class="inbox-item-top">
+              <span class="inbox-item-from">Tom van Dam — Heineken</span>
+              <span class="inbox-item-sla sla-red">28h</span>
+            </div>
+            <div class="inbox-item-subject">Klacht: verkeerde maten geleverd</div>
+            <div class="inbox-item-preview">Er is iets misgegaan met onze laatste order...</div>
+            <div class="inbox-item-meta">
+              <span class="confidence-dot low">54% confidence</span>
+              <span class="status-chip status-draft">Draft</span>
+            </div>
+          </div>
+          <div class="inbox-item">
+            <div class="inbox-item-top">
+              <span class="inbox-item-from">Lisa Brouwer — PostNL</span>
+              <span class="inbox-item-sla sla-green">1h</span>
+            </div>
+            <div class="inbox-item-subject">Prijsvraag bulk order</div>
+            <div class="inbox-item-preview">Wij overwegen een jaarcontract voor 500+ mede...</div>
+            <div class="inbox-item-meta">
+              <span class="confidence-dot">95% confidence</span>
+              <span class="status-chip status-draft">Draft</span>
+            </div>
+          </div>
+          <div class="inbox-item">
+            <div class="inbox-item-top">
+              <span class="inbox-item-from">Erik Janssen — KLM</span>
+              <span class="inbox-item-sla sla-amber">6h</span>
+            </div>
+            <div class="inbox-item-subject">RE: Samplepakket ontvangen</div>
+            <div class="inbox-item-preview">De samples zijn binnen, bedankt. Een paar vragen...</div>
+            <div class="inbox-item-meta">
+              <span class="confidence-dot">88% confidence</span>
+              <span class="status-chip status-approved">Approved</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Content -->
+      <main class="content-area">
+        <!-- Received mail -->
+        <div class="mail-card customer">
+          <div class="mail-header">
+            <div>
+              <div class="mail-from">Jan de Vries &lt;j.devries@ah.nl&gt;</div>
+              <div class="mail-date">Ma 21 apr 2026, 14:32 · Albert Heijn B.V.</div>
+            </div>
+            <div class="mail-lang-toggle">
+              <button>NL</button>
+              <button class="active">EN</button>
+            </div>
+          </div>
+          <div class="section-label">Received message (translated)</div>
+          <div class="mail-subject">Quote request — work clothing Q2</div>
+          <div class="mail-body">Dear Smeba team,
+
+For our Q2 rollout I would like to receive a quote for 120 pairs of safety boots (S3) and 180 polo shirts (sizes mixed, our standard AH logo).
+
+Delivery preferred within 3 weeks. Can you also indicate whether the boots are available with a wider fit? Several colleagues reported this issue last year.
+
+Looking forward to your proposal.
+
+Kind regards,
+Jan de Vries
+Procurement — Albert Heijn</div>
+        </div>
+
+        <!-- Draft reply -->
+        <div class="mail-card draft">
+          <div class="mail-header">
+            <div>
+              <div class="mail-from">Draft reply <span class="muted" style="font-weight:400;">— generated 2 min ago</span></div>
+              <div class="mail-date mono">gpt-4o · claude-sonnet-4-6 fallback</div>
+            </div>
+            <div class="mail-lang-toggle">
+              <button>NL</button>
+              <button class="active">EN</button>
+            </div>
+          </div>
+          <div class="section-label">Draft reply (editable — NL will be sent)</div>
+          <textarea class="draft-editor">Dear Jan,
+
+Thank you for your request. Attached you will find our quote for 120 pairs of S3 safety boots and 180 polo shirts with the Albert Heijn logo.
+
+Regarding the wider fit: our S3 line is available in width H (wide) at no extra charge. I have included this option in the quote.
+
+Delivery within 15 working days from order confirmation.
+
+Happy to schedule a call if you would like to discuss.
+
+Kind regards,
+Smeba Sales Team</textarea>
+        </div>
+      </main>
+
+      <!-- Review panel -->
+      <aside class="review-panel">
+        <div class="review-header">
+          <h2>Review</h2>
+        </div>
+        <div class="review-body">
+
+          <div class="verdict-group">
+            <button class="verdict-btn thumbs-up active">👍 Good</button>
+            <button class="verdict-btn thumbs-down">👎 Needs fix</button>
+          </div>
+
+          <div class="review-section">
+            <div class="review-section-head" onclick="toggleSection(this)">
+              <div class="section-label">AI Confidence</div>
+              <div class="review-section-toggle">▾</div>
+            </div>
+            <div class="review-section-body">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <span style="font-size: var(--fs-sm); color: var(--text);">Quality estimate</span>
+                <strong style="color: var(--success);">92%</strong>
+              </div>
+              <div class="confidence-bar"><div class="confidence-fill" style="width: 92%;"></div></div>
+              <div class="dim" style="font-size: 11px; margin-top: 6px;">High confidence — tone, facts, and structure check out.</div>
+            </div>
+          </div>
+
+          <div class="review-section">
+            <div class="review-section-head" onclick="toggleSection(this)">
+              <div class="section-label">AI Reasoning</div>
+              <div class="review-section-toggle">▾</div>
+            </div>
+            <div class="review-section-body">
+              <div style="font-size: var(--fs-sm); line-height: 1.6; color: var(--text-muted);">
+                Matched "quote request" intent. Retrieved SKU pricing from Product KB. Identified wider-fit concern from message; cross-referenced product spec (width H available). Used standard quote template with delivery terms per default SLA (15 working days).
+              </div>
+            </div>
+          </div>
+
+          <div class="review-section">
+            <div class="review-section-head" onclick="toggleSection(this)">
+              <div class="section-label">Context used (3)</div>
+              <div class="review-section-toggle">▾</div>
+            </div>
+            <div class="review-section-body">
+              <div class="context-item">
+                <span class="context-type kb">KB</span>
+                <div>
+                  <div style="font-weight: 500;">S3 Safety Boots — product spec</div>
+                  <div class="dim" style="font-size: 11px;">Width H (wide) noted</div>
+                </div>
+              </div>
+              <div class="context-item">
+                <span class="context-type kb">KB</span>
+                <div>
+                  <div style="font-weight: 500;">Standard quote template — bulk</div>
+                  <div class="dim" style="font-size: 11px;">AH price tier active</div>
+                </div>
+              </div>
+              <div class="context-item">
+                <span class="context-type">MAIL</span>
+                <div>
+                  <div style="font-weight: 500;">Previous thread — Jan de Vries (Q1)</div>
+                  <div class="dim" style="font-size: 11px;">4 messages, amicable tone</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="review-section collapsed">
+            <div class="review-section-head" onclick="toggleSection(this)">
+              <div class="section-label">Defect tags</div>
+              <div class="review-section-toggle">▾</div>
+            </div>
+            <div class="review-section-body">
+              <div class="defect-list">
+                <div class="defect-item"><span class="defect-checkbox"></span>Wrong tone</div>
+                <div class="defect-item"><span class="defect-checkbox"></span>Factually incorrect</div>
+                <div class="defect-item"><span class="defect-checkbox"></span>Missing context</div>
+                <div class="defect-item"><span class="defect-checkbox"></span>Language / grammar</div>
+                <div class="defect-item"><span class="defect-checkbox"></span>Wrong action proposed</div>
+                <div class="defect-item"><span class="defect-checkbox"></span>Too long / too short</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="review-section collapsed">
+            <div class="review-section-head" onclick="toggleSection(this)">
+              <div class="section-label">Additional feedback</div>
+              <div class="review-section-toggle">▾</div>
+            </div>
+            <div class="review-section-body">
+              <textarea class="feedback-textarea" placeholder="Optional: explain what should be different..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="review-actions">
+          <button class="action-btn primary">✓ Approve & Send</button>
+          <button class="action-btn">↻ Send back to AI</button>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="footer-bar">
+      <div class="stats">
+        <span>Queue: <strong>12</strong></span>
+        <span>Reviewed today: <strong>8</strong></span>
+        <span>Avg confidence: <strong>84%</strong></span>
+        <span>Auto-approve candidates: <strong>3</strong></span>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost">⌘K shortcuts</button>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     VARIANT B — Split middle: received mail | draft reply
+     ══════════════════════════════════════════════════════════════ -->
+<div class="variant-pane variant-b" id="pane-b">
+  <div class="app">
+    <header class="header">
+      <div class="header-title">
+        📧 Smeba Draft Review
+        <span class="header-chip">Sales Swarm</span>
+        <span class="header-chip">Reviewer: Andrew</span>
+      </div>
+      <div class="header-meta mono">trace: a35a87cd...2fa1</div>
+    </header>
+
+    <div class="layout">
+      <aside class="inbox">
+        <div class="inbox-header">
+          <h2>Drafts waiting</h2>
+          <span class="inbox-count">12</span>
+        </div>
+        <div class="inbox-search">
+          <input type="text" placeholder="Search drafts...">
+        </div>
+        <div class="inbox-filters">
+          <button class="filter-chip active">All</button>
+          <button class="filter-chip">Overdue</button>
+        </div>
+        <div class="inbox-list">
+          <div class="inbox-item selected">
+            <div class="inbox-item-top">
+              <span class="inbox-item-from">Jan de Vries — AH</span>
+              <span class="inbox-item-sla sla-amber">8h</span>
+            </div>
+            <div class="inbox-item-subject">Offerte werkkleding Q2</div>
+            <div class="inbox-item-meta">
+              <span class="confidence-dot">92%</span>
+              <span class="status-chip status-review">Review</span>
+            </div>
+          </div>
+          <div class="inbox-item">
+            <div class="inbox-item-top">
+              <span class="inbox-item-from">Tom van Dam — Heineken</span>
+              <span class="inbox-item-sla sla-red">28h</span>
+            </div>
+            <div class="inbox-item-subject">Klacht verkeerde maten</div>
+            <div class="inbox-item-meta">
+              <span class="confidence-dot low">54%</span>
+              <span class="status-chip status-draft">Draft</span>
+            </div>
+          </div>
+          <div class="inbox-item">
+            <div class="inbox-item-top">
+              <span class="inbox-item-from">Lisa Brouwer — PostNL</span>
+              <span class="inbox-item-sla sla-green">1h</span>
+            </div>
+            <div class="inbox-item-subject">Prijsvraag bulk order</div>
+            <div class="inbox-item-meta">
+              <span class="confidence-dot">95%</span>
+              <span class="status-chip status-draft">Draft</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div class="content-split">
+        <!-- Left pane: received mail -->
+        <div class="content-pane">
+          <div class="pane-header">
+            <div>
+              <div class="section-label" style="margin:0;">📨 Received</div>
+              <div style="font-weight: 600; margin-top: 2px;">Jan de Vries — Albert Heijn</div>
+            </div>
+            <div class="mail-lang-toggle">
+              <button>NL</button>
+              <button class="active">EN</button>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: var(--space-3);">
+            Ma 21 apr 2026, 14:32
+          </div>
+          <div class="mail-subject">Quote request — work clothing Q2</div>
+          <div class="mail-body">Dear Smeba team,
+
+For our Q2 rollout I would like to receive a quote for 120 pairs of safety boots (S3) and 180 polo shirts (sizes mixed, our standard AH logo).
+
+Delivery preferred within 3 weeks. Can you also indicate whether the boots are available with a wider fit? Several colleagues reported this issue last year.
+
+Looking forward to your proposal.
+
+Kind regards,
+Jan de Vries</div>
+        </div>
+
+        <!-- Right pane: draft reply -->
+        <div class="content-pane" style="background: var(--bg-panel);">
+          <div class="pane-header">
+            <div>
+              <div class="section-label" style="margin:0;">✍️ Draft reply</div>
+              <div style="font-weight: 600; margin-top: 2px;">To: Jan de Vries · <span class="muted" style="font-weight:400;">generates in NL</span></div>
+            </div>
+            <div class="mail-lang-toggle">
+              <button>NL</button>
+              <button class="active">EN (preview)</button>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: var(--space-3);">
+            Generated 2 min ago · gpt-4o
+          </div>
+          <textarea class="draft-editor" style="min-height: 400px;">Dear Jan,
+
+Thank you for your request. Attached you will find our quote for 120 pairs of S3 safety boots and 180 polo shirts with the Albert Heijn logo.
+
+Regarding the wider fit: our S3 line is available in width H (wide) at no extra charge. I have included this option in the quote.
+
+Delivery within 15 working days from order confirmation.
+
+Happy to schedule a call if you would like to discuss.
+
+Kind regards,
+Smeba Sales Team</textarea>
+        </div>
+      </div>
+
+      <aside class="review-panel">
+        <div class="review-header"><h2>Review</h2></div>
+        <div class="review-body">
+          <div class="verdict-group">
+            <button class="verdict-btn thumbs-up active">👍 Good</button>
+            <button class="verdict-btn thumbs-down">👎 Needs fix</button>
+          </div>
+
+          <div class="review-section">
+            <div class="review-section-head" onclick="toggleSection(this)">
+              <div class="section-label">Confidence · 92%</div>
+              <div class="review-section-toggle">▾</div>
+            </div>
+            <div class="review-section-body">
+              <div class="confidence-bar"><div class="confidence-fill" style="width: 92%;"></div></div>
+              <div class="dim" style="font-size: 11px; margin-top: 6px;">High — tone, facts, structure OK.</div>
+            </div>
+          </div>
+
+          <div class="review-section">
+            <div class="review-section-head" onclick="toggleSection(this)">
+              <div class="section-label">Reasoning</div>
+              <div class="review-section-toggle">▾</div>
+            </div>
+            <div class="review-section-body">
+              <div style="font-size: var(--fs-sm); line-height: 1.6; color: var(--text-muted);">
+                Matched quote intent, retrieved SKU pricing + S3 width H spec, applied AH bulk template.
+              </div>
+            </div>
+          </div>
+
+          <div class="review-section">
+            <div class="review-section-head" onclick="toggleSection(this)">
+              <div class="section-label">Context (3)</div>
+              <div class="review-section-toggle">▾</div>
+            </div>
+            <div class="review-section-body">
+              <div class="context-item"><span class="context-type kb">KB</span><div>S3 Boots — width H</div></div>
+              <div class="context-item"><span class="context-type kb">KB</span><div>Quote template bulk AH</div></div>
+              <div class="context-item"><span class="context-type">MAIL</span><div>Thread Q1 — Jan de Vries</div></div>
+            </div>
+          </div>
+
+          <div class="review-section collapsed">
+            <div class="review-section-head" onclick="toggleSection(this)">
+              <div class="section-label">Defect tags</div>
+              <div class="review-section-toggle">▾</div>
+            </div>
+            <div class="review-section-body">
+              <div class="defect-list">
+                <div class="defect-item"><span class="defect-checkbox"></span>Wrong tone</div>
+                <div class="defect-item"><span class="defect-checkbox"></span>Factually incorrect</div>
+                <div class="defect-item"><span class="defect-checkbox"></span>Missing context</div>
+                <div class="defect-item"><span class="defect-checkbox"></span>Wrong action</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="review-actions">
+          <button class="action-btn primary">✓ Approve & Send</button>
+          <button class="action-btn">↻ Back to AI</button>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="footer-bar">
+      <div class="stats">
+        <span>Queue: <strong>12</strong></span>
+        <span>Reviewed: <strong>8</strong></span>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     VARIANT C — Focus mode: wide content, drawer for review
+     ══════════════════════════════════════════════════════════════ -->
+<div class="variant-pane variant-c" id="pane-c">
+  <div class="app">
+    <header class="header">
+      <div class="header-title">
+        📧 Smeba Draft Review
+        <span class="header-chip">Jan de Vries · AH</span>
+      </div>
+      <div style="display: flex; gap: var(--space-2); align-items: center;">
+        <button class="btn btn-ghost mono">← Prev (⌘[)</button>
+        <span style="font-size: var(--fs-xs); color: var(--text-muted);">2 of 12</span>
+        <button class="btn btn-ghost mono">Next → (⌘])</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <main class="content-area-wide">
+
+        <!-- Side-by-side received mail -->
+        <div class="section-label">📨 Received message</div>
+        <div class="mail-card customer" style="margin-bottom: var(--space-5);">
+          <div class="mail-header">
+            <div>
+              <div class="mail-from">Jan de Vries</div>
+              <div class="mail-date">j.devries@ah.nl · Ma 21 apr 2026, 14:32</div>
+            </div>
+          </div>
+          <div class="mail-subject">Offerte aanvraag werkkleding Q2 / Quote request</div>
+          <div class="side-by-side">
+            <div class="col">
+              <div class="col-label">🇳🇱 Origineel</div>
+              <div class="mail-body" style="font-size: var(--fs-sm);">Beste Smeba team,
+
+Voor onze Q2 rollout ontvang ik graag een offerte voor 120 paar veiligheidsschoenen (S3) en 180 polo's (maten gemengd, ons standaard AH logo).
+
+Levering binnen 3 weken. Kunt u ook aangeven of de schoenen beschikbaar zijn in een bredere pasvorm? Collega's meldden dit probleem vorig jaar.
+
+Met vriendelijke groet,
+Jan de Vries</div>
+            </div>
+            <div class="col">
+              <div class="col-label">🇬🇧 English</div>
+              <div class="mail-body" style="font-size: var(--fs-sm);">Dear Smeba team,
+
+For our Q2 rollout I would like to receive a quote for 120 pairs of safety boots (S3) and 180 polo shirts (sizes mixed, our standard AH logo).
+
+Delivery preferred within 3 weeks. Can you also indicate whether the boots are available with a wider fit? Colleagues reported this issue last year.
+
+Kind regards,
+Jan de Vries</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Side-by-side draft -->
+        <div class="section-label">✍️ Draft reply — <span style="color: var(--success);">92% confidence</span></div>
+        <div class="mail-card draft">
+          <div class="side-by-side">
+            <div class="col">
+              <div class="col-label">🇳🇱 Wordt verstuurd</div>
+              <textarea class="draft-editor" style="min-height: 280px; font-size: var(--fs-sm);">Beste Jan,
+
+Dank voor uw aanvraag. Bijgevoegd vindt u onze offerte voor 120 paar S3 veiligheidsschoenen en 180 polo's met het Albert Heijn logo.
+
+Betreffende de bredere pasvorm: onze S3 lijn is verkrijgbaar in breedte H (breed) zonder meerprijs. Deze optie heb ik in de offerte meegenomen.
+
+Levering binnen 15 werkdagen na orderbevestiging.
+
+Graag plan ik een gesprek in indien gewenst.
+
+Met vriendelijke groet,
+Smeba Sales Team</textarea>
+            </div>
+            <div class="col">
+              <div class="col-label">🇬🇧 For review</div>
+              <div class="mail-body" style="font-size: var(--fs-sm); padding: 2px;">Dear Jan,
+
+Thank you for your request. Attached you will find our quote for 120 pairs of S3 safety boots and 180 polo shirts with the Albert Heijn logo.
+
+Regarding the wider fit: our S3 line is available in width H (wide) at no extra charge. I have included this option in the quote.
+
+Delivery within 15 working days from order confirmation.
+
+Happy to schedule a call if you would like to discuss.
+
+Kind regards,
+Smeba Sales Team</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick review bar at bottom of content -->
+        <div style="margin-top: var(--space-5); display: flex; gap: var(--space-2); align-items: center;">
+          <button class="action-btn primary" style="flex: 1;">✓ Approve & Send</button>
+          <button class="verdict-btn thumbs-down" style="padding: 12px 20px;">👎 Needs fix</button>
+          <button class="action-btn">↻ Back to AI</button>
+        </div>
+
+      </main>
+
+      <!-- Drawer for full review details -->
+      <button class="drawer-toggle" onclick="toggleDrawer()">
+        📋 Details
+      </button>
+
+      <aside class="review-drawer" id="reviewDrawer">
+        <button class="drawer-close" onclick="toggleDrawer()">×</button>
+        <div class="review-header" style="padding-right: 40px;">
+          <h2>Review details</h2>
+        </div>
+        <div class="review-body">
+
+          <div class="review-section">
+            <div class="section-label">Confidence</div>
+            <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+              <span style="font-size: var(--fs-sm);">Quality estimate</span>
+              <strong style="color: var(--success);">92%</strong>
+            </div>
+            <div class="confidence-bar"><div class="confidence-fill" style="width: 92%;"></div></div>
+          </div>
+
+          <div class="review-section">
+            <div class="section-label">AI Reasoning</div>
+            <div style="font-size: var(--fs-sm); line-height: 1.6; color: var(--text-muted); margin-top: 8px;">
+              Matched quote-request intent. Retrieved SKU pricing from Product KB. Identified wider-fit concern; cross-referenced spec (width H). Applied standard bulk template with AH price tier.
+            </div>
+          </div>
+
+          <div class="review-section">
+            <div class="section-label">Context used</div>
+            <div style="margin-top: 8px;">
+              <div class="context-item"><span class="context-type kb">KB</span><div>S3 Safety Boots — product spec</div></div>
+              <div class="context-item"><span class="context-type kb">KB</span><div>Standard quote template — bulk</div></div>
+              <div class="context-item"><span class="context-type">MAIL</span><div>Previous thread — Jan de Vries Q1</div></div>
+            </div>
+          </div>
+
+          <div class="review-section">
+            <div class="section-label">Defect tags (if 👎)</div>
+            <div class="defect-list" style="margin-top: 8px;">
+              <div class="defect-item"><span class="defect-checkbox"></span>Wrong tone</div>
+              <div class="defect-item"><span class="defect-checkbox"></span>Factually incorrect</div>
+              <div class="defect-item"><span class="defect-checkbox"></span>Missing context</div>
+              <div class="defect-item"><span class="defect-checkbox"></span>Language / grammar</div>
+            </div>
+          </div>
+
+          <div class="review-section">
+            <div class="section-label">Feedback</div>
+            <textarea class="feedback-textarea" style="margin-top: 8px;" placeholder="Optional note..."></textarea>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="footer-bar">
+      <div class="stats">
+        <span>Queue: <strong>12</strong></span>
+        <span>Today: <strong>8</strong> reviewed</span>
+        <span class="mono">⌘⏎ approve · ⌘[ prev · ⌘] next</span>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- Sketch toolbar -->
+<div class="sketch-toolbar">
+  <span class="badge">SKETCH 001</span>
+  <span>Review Layout · 3 variants</span>
+</div>
+
+<script>
+  function showVariant(v) {
+    document.querySelectorAll('.variant-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.variant-tabs button').forEach(b => b.classList.remove('active'));
+    document.getElementById('pane-' + v).classList.add('active');
+    document.getElementById('tab-' + v).classList.add('active');
+  }
+
+  function toggleSection(head) {
+    head.closest('.review-section').classList.toggle('collapsed');
+  }
+
+  function toggleDrawer() {
+    document.getElementById('reviewDrawer').classList.toggle('open');
+  }
+
+  // Verdict toggle behavior
+  document.querySelectorAll('.verdict-group').forEach(group => {
+    group.querySelectorAll('.verdict-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        group.querySelectorAll('.verdict-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  });
+
+  // Defect item toggle
+  document.querySelectorAll('.defect-item').forEach(item => {
+    item.addEventListener('click', () => item.classList.toggle('selected'));
+  });
+
+  // Inbox item selection
+  document.querySelectorAll('.inbox-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const list = item.closest('.inbox-list');
+      list.querySelectorAll('.inbox-item').forEach(i => i.classList.remove('selected'));
+      item.classList.add('selected');
+    });
+  });
+
+  // Lang toggle
+  document.querySelectorAll('.mail-lang-toggle').forEach(toggle => {
+    toggle.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        toggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  });
+</script>
+
+</body>
+</html>
