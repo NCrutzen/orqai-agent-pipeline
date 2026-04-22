@@ -22,7 +22,7 @@ Every run your automation performs MUST produce one row in
 | column          | required | shape                                                        |
 | --------------- | -------- | ------------------------------------------------------------ |
 | `automation`    | ✓        | kebab-case, e.g. `debtor-email-review`. Must start with the swarm prefix. |
-| `status`        | ✓        | `pending` · `feedback` · `completed` · `skipped_idempotent` · `failed` |
+| `status`        | ✓        | `pending` · `deferred` · `feedback` · `completed` · `skipped_idempotent` · `failed` |
 | `result`        | ✓        | JSON object — see keys below                                 |
 | `error_message` | on fail  | string — surfaced verbatim on the card                       |
 | `triggered_by`  | ✓        | short label (`cron`, `bulk-review:ui`, `zapier`, …)          |
@@ -56,18 +56,41 @@ Every run your automation performs MUST produce one row in
 
 ### Status semantics — how it maps to the kanban
 
-| status                | kanban stage | notes                                               |
-| --------------------- | ------------ | --------------------------------------------------- |
-| `pending`             | progress     | in-flight work                                      |
-| `feedback`            | review       | human review needed — audit-only after resolution\* |
-| `completed`           | done         |                                                     |
-| `skipped_idempotent`  | done         | already handled; no-op                              |
-| `failed`              | done + error | tagged `error`, priority = high                     |
+| status                | kanban stage | notes                                                           |
+| --------------------- | ------------ | --------------------------------------------------------------- |
+| `pending`             | progress     | I own this right now, actively processing                       |
+| `deferred`            | ready        | I've handed off; another worker/cron will pick this up          |
+| `feedback`            | review       | human review needed — audit-only after resolution\*             |
+| `completed`           | done         | terminal success                                                |
+| `skipped_idempotent`  | done         | terminal — detected work was already done (no-op, NOT "retry")  |
+| `failed`              | done + error | tagged `error`, priority = high                                 |
 
 \* When a later `completed`/`skipped_idempotent` run lands on the same
 entity id, earlier `feedback` rows are auto-demoted to done. This means
 you can keep inserting `feedback` rows for audit without pinning the
 card at "review" forever.
+
+### `pending` vs `deferred` — when to use which
+
+Both sit in non-terminal states but mean different things:
+
+- **`pending`** — *you* are processing it right now. A synchronous run
+  that hasn't written `completed` / `failed` yet. Ownership = current
+  worker. Example: classifier mid-run, browser session still open.
+- **`deferred`** — you've written the row and handed off. A *different*
+  worker (cron, catch-up job, manual trigger) will pick it up later.
+  Ownership = future worker. Example: bulk-review queues an iController
+  delete for the 5-min catch-up cron.
+
+The downstream worker's flow:
+
+1. Read `deferred` rows matching its filter.
+2. (Optional) flip to `pending` while actively working, so a second cron
+   tick doesn't double-pick.
+3. Update to `completed` / `failed` when done.
+
+A swarm with no hand-offs simply never emits `deferred` — the `ready`
+kanban lane stays empty (same as `backlog`).
 
 ---
 

@@ -273,12 +273,16 @@ export async function executeReviewDecisions(
     // wordt gekapt met ERR_CONNECTION_CLOSED / "Failed to fetch". Items
     // worden dan op de server wel verwerkt maar de UI ziet geen resultaat.
     //
-    // In plaats daarvan loggen we een 'pending' rij. De bestaande
-    // icontroller-catchup.ts script (of een cron/Inngest-job) pakt deze
-    // later op. De Outlook-kant is al gesynct (categorize + archive staat).
+    // In plaats daarvan loggen we een 'deferred' rij. De Inngest
+    // cleanup-cron (debtor-email-icontroller-cleanup) pakt deze later op.
+    // De Outlook-kant is al gesynct (categorize + archive staat).
+    //
+    // `deferred` i.p.v. `pending` zodat de V7 swarm-bridge deze in de
+    // "Ready" kanban-lane toont (waiting for a different worker) i.p.v.
+    // "In Progress" (actively processing). Zie docs/swarm-bridge-contract.md.
     await admin.from("automation_runs").insert({
       automation: "debtor-email-review",
-      status: "pending",
+      status: "deferred",
       result: {
         stage: "icontroller_delete",
         message_id: d.id,

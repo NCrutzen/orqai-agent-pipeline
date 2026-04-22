@@ -52,13 +52,16 @@ export const cleanupIControllerPending = inngest.createFunction(
   async ({ step }) => {
     const admin = createAdminClient();
 
-    // Stap 1: haal de oudste pending rijen op.
+    // Stap 1: haal de oudste wachtende rijen op. `deferred` = nieuw
+    // contract (swarm-bridge toont deze in de "Ready" lane); `pending`
+    // = legacy rijen van voor de contract-change. Beiden verwerken zodat
+    // oude in-flight werk niet achterblijft.
     const pending = await step.run("load-pending", async () => {
       const { data, error } = await admin
         .from("automation_runs")
         .select("id, result")
         .eq("automation", "debtor-email-review")
-        .eq("status", "pending")
+        .in("status", ["deferred", "pending"])
         .eq("result->>stage", "icontroller_delete")
         .eq("result->>icontroller", "pending")
         .order("completed_at", { ascending: true })
@@ -166,7 +169,7 @@ export const cleanupIControllerPending = inngest.createFunction(
         .from("automation_runs")
         .select("id", { count: "exact", head: true })
         .eq("automation", "debtor-email-review")
-        .eq("status", "pending")
+        .in("status", ["deferred", "pending"])
         .eq("result->>stage", "icontroller_delete")
         .eq("result->>icontroller", "pending");
       if (error) return null;

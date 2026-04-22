@@ -27,6 +27,10 @@ function stageFromStatus(status: string): string {
   switch (status) {
     case "pending":
       return "progress";
+    case "deferred":
+      // "I've handed off; another worker/cron will pick this up."
+      // Distinct from `pending` (I own it now, actively processing).
+      return "ready";
     case "feedback":
       return "review";
     case "completed":
@@ -42,9 +46,10 @@ function stageFromStatus(status: string): string {
 const STAGE_PRIORITY: Record<string, number> = {
   backlog: 0,
   done: 1,
-  progress: 2,
-  review: 3,
-  failed: 4,
+  ready: 2,
+  progress: 3,
+  review: 4,
+  failed: 5,
 };
 
 function deriveEntityStage(runs: AutomationRun[]): {
