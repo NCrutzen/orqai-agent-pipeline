@@ -1,35 +1,39 @@
 /**
  * Bridge automation_runs (debtor-email-*) → swarm_jobs + agent_events so
- * the V7 Agent OS shell (/swarm/[id]) renders Debtor Email data without
- * touching the V7 visual code.
+ * the V7 Agent OS shell (/swarm/[id]) renders Debtor Email data.
  *
- * One automation_run = one swarm_job (deterministic id, upsertable).
- * An automation_run also emits 1-2 agent_events (tool_call at start,
- * done/error at completion) so the delegation graph and Gantt timeline
- * have timeline data to draw.
+ * Entity grouping: when the swarm-registry defines `entity.key`, runs that
+ * share the same `result[entity.key]` value (e.g. Outlook message_id) are
+ * collapsed into ONE swarm_job with a timeline of all runs. Swarms without
+ * an entity config stay in the 1-run-per-job fallback.
  *
- * Idempotent: safe to re-run. swarm_jobs uses automation_run.id as its
- * primary key; agent_events are de-duped by span_id.
+ * Stage of the grouped job is derived from the latest run's status; title
+ * uses `result[entity.titleKey]` with fallback to the first non-empty
+ * subject/title found across the runs.
+ *
+ * Idempotent: swarm_jobs uses a deterministic id (entity id when grouped,
+ * run id otherwise) so re-running the bridge upserts in place.
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  getAutomationBackingForSwarm,
+  type AutomationBackedSwarm,
+} from "@/lib/automations/swarm-registry";
 
 const DEBTOR_EMAIL_SWARM_ID = "60c730a3-be04-4b59-87e8-d9698b468fc9";
 const PREFIX = "debtor-email";
 
-/**
- * Map an automation_run to its sub-agent:
- *
- *   - debtor-email-review runs are FIRED by the Classifier Orchestrator.
- *     Within the orchestrator, one of 5 RegEx rule-agents "matches" a
- *     category (auto_reply / ooo_temporary / ooo_permanent /
- *     payment_admittance / unknown). Each run is attributed to the
- *     specific rule-agent so the delegation graph shows which rule is
- *     carrying the load.
- *
- *   - debtor-email-cleanup runs are the AutoReplyHandler acting on the
- *     output of the classifier (iController delete + Outlook archive).
- */
+type AutomationRun = {
+  id: string;
+  automation: string;
+  status: string;
+  result: Record<string, unknown> | null;
+  error_message: string | null;
+  triggered_by: string;
+  created_at: string;
+  completed_at: string | null;
+};
 
 const RULE_AGENTS: Record<string, string> = {
   auto_reply: "Rule · auto_reply",
@@ -43,17 +47,14 @@ function extractCategory(run: AutomationRun): string | null {
   const r = run.result;
   if (!r || typeof r !== "object") return null;
   const rec = r as Record<string, unknown>;
-  // Completed flow: applied_category is set once Outlook categorization succeeds
   const applied = rec.applied_category;
   if (typeof applied === "string") return normalizeCategory(applied);
-  // Feedback flow: predicted.{category,rule} or override_category
   const predicted = rec.predicted as Record<string, unknown> | undefined;
   const override = rec.override_category;
   if (typeof override === "string" && override.length > 0) return override;
   if (predicted && typeof predicted.category === "string") {
     return predicted.category as string;
   }
-  // Older shape
   const prediction = rec.prediction as Record<string, unknown> | undefined;
   if (prediction && typeof prediction.category === "string") {
     return prediction.category as string;
@@ -63,7 +64,6 @@ function extractCategory(run: AutomationRun): string | null {
 }
 
 function normalizeCategory(raw: string): string {
-  // Orq Outlook categorization uses display names like "Auto-Reply".
   const slug = raw.toLowerCase().replace(/[\s-]+/g, "_");
   if (slug.startsWith("auto_reply") || slug.startsWith("auto-reply")) return "auto_reply";
   if (slug.includes("ooo_temp") || slug === "ooo_temporary") return "ooo_temporary";
@@ -80,20 +80,8 @@ function resolveAgent(run: AutomationRun): string {
     if (category && RULE_AGENTS[category]) return RULE_AGENTS[category];
     return "Classifier Orchestrator";
   }
-  // Future automations: fall back to orchestrator.
   return "Classifier Orchestrator";
 }
-
-type AutomationRun = {
-  id: string;
-  automation: string;
-  status: string;
-  result: Record<string, unknown> | null;
-  error_message: string | null;
-  triggered_by: string;
-  created_at: string;
-  completed_at: string | null;
-};
 
 function stageFromStatus(status: string): string {
   switch (status) {
@@ -111,64 +99,167 @@ function stageFromStatus(status: string): string {
   }
 }
 
-function extractTitle(run: AutomationRun): string {
-  const r = run.result;
-  if (r && typeof r === "object") {
-    for (const key of ["subject", "title", "label", "email_subject"]) {
-      const v = (r as Record<string, unknown>)[key];
-      if (typeof v === "string" && v.length > 0) return v.slice(0, 120);
+/**
+ * Highest-priority stage wins across the runs for an entity. Order:
+ *   failed > review > progress > done > backlog
+ * A mail with one errored run should show as error on the kanban until
+ * the next successful run supersedes it.
+ */
+const STAGE_PRIORITY: Record<string, number> = {
+  "backlog": 0,
+  "done": 1,
+  "progress": 2,
+  "review": 3,
+  "failed": 4,
+};
+
+function deriveEntityStage(runs: AutomationRun[]): {
+  stage: string;
+  hasError: boolean;
+} {
+  let best = "backlog";
+  let bestScore = -1;
+  let hasError = false;
+  for (const run of runs) {
+    if (run.status === "failed") hasError = true;
+    const stage = run.status === "failed" ? "failed" : stageFromStatus(run.status);
+    const score = STAGE_PRIORITY[stage] ?? 0;
+    if (score > bestScore) {
+      bestScore = score;
+      best = stage;
     }
-    // Nested shapes (review feedback rows store email under .email or have
-    // prediction/decision metadata we can synthesize a readable title from).
-    const email = (r as Record<string, unknown>).email;
-    if (email && typeof email === "object") {
-      const sub = (email as Record<string, unknown>).subject;
-      if (typeof sub === "string" && sub.length > 0) return sub.slice(0, 120);
-    }
-    const decision = (r as Record<string, unknown>).decision;
-    const prediction = (r as Record<string, unknown>).prediction as
-      | Record<string, unknown>
-      | undefined;
-    const category =
-      ((r as Record<string, unknown>).applied_category as string | undefined) ??
-      (prediction?.category as string | undefined) ??
-      ((r as Record<string, unknown>).override_category as string | undefined) ??
-      ((r as Record<string, unknown>).target_category as string | undefined);
-    if (typeof decision === "string" && category) {
-      return `${category} · ${decision}`;
-    }
-    if (typeof decision === "string") {
-      return `Review · ${decision}`;
-    }
-    if (category) {
-      return `Categorized: ${category}`;
-    }
-    const stage = (r as Record<string, unknown>).stage;
-    if (typeof stage === "string") return stage.replace(/_/g, " ");
   }
-  if (run.error_message) return run.error_message.slice(0, 120);
-  return `${run.automation} · ${run.id.slice(0, 8)}`;
+  // Map "failed" back to "done" (kanban stage) but keep the error flag.
+  return { stage: best === "failed" ? "done" : best, hasError };
 }
 
-function tagsFor(run: AutomationRun): string[] {
-  const tags: string[] = [];
-  if (run.status === "failed") tags.push("error");
+function runTitle(run: AutomationRun): string | null {
   const r = run.result;
-  if (r && typeof r === "object") {
-    const category = (r as Record<string, unknown>).category;
-    if (typeof category === "string") tags.push(category);
+  if (!r || typeof r !== "object") return null;
+  const rec = r as Record<string, unknown>;
+  for (const key of ["subject", "title", "label", "email_subject"]) {
+    const v = rec[key];
+    if (typeof v === "string" && v.length > 0) return v.slice(0, 140);
   }
-  return tags;
+  const email = rec.email as Record<string, unknown> | undefined;
+  if (email && typeof email.subject === "string" && email.subject.length > 0) {
+    return email.subject.slice(0, 140);
+  }
+  return null;
+}
+
+function resolveTitle(
+  runs: AutomationRun[],
+  entity: AutomationBackedSwarm["entity"] | null,
+): string {
+  if (entity?.titleKey) {
+    for (const run of runs) {
+      const r = run.result as Record<string, unknown> | null;
+      if (r && typeof r === "object") {
+        const v = r[entity.titleKey];
+        if (typeof v === "string" && v.length > 0) return v.slice(0, 140);
+        // Nested email.subject shape
+        const email = r.email as Record<string, unknown> | undefined;
+        if (email) {
+          const nested = email[entity.titleKey];
+          if (typeof nested === "string" && nested.length > 0) {
+            return nested.slice(0, 140);
+          }
+        }
+      }
+    }
+  }
+  for (const run of runs) {
+    const t = runTitle(run);
+    if (t) return t;
+  }
+  const first = runs[0];
+  return first ? `${first.automation} · ${first.id.slice(0, 8)}` : "(no title)";
+}
+
+function getEntityId(
+  run: AutomationRun,
+  entityKey: string,
+): string | null {
+  const r = run.result;
+  if (!r || typeof r !== "object") return null;
+  const rec = r as Record<string, unknown>;
+  const direct = rec[entityKey];
+  if (typeof direct === "string" && direct.length > 0) return direct;
+  // Nested under result.email.{key} — common for email swarms.
+  const email = rec.email as Record<string, unknown> | undefined;
+  if (email && typeof email[entityKey] === "string") {
+    return email[entityKey] as string;
+  }
+  return null;
+}
+
+/**
+ * Deterministic UUID v5-style id from a string (so swarm_jobs.id column
+ * which is UUID can accept a message_id-derived value). Uses a simple
+ * SHA-1 hash with UUID formatting — not cryptographic, just stable.
+ */
+async function stableUuidFrom(swarmId: string, key: string): Promise<string> {
+  const enc = new TextEncoder().encode(`${swarmId}::${key}`);
+  const hash = await crypto.subtle.digest("SHA-1", enc);
+  const bytes = new Uint8Array(hash);
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    "5" + hex.slice(13, 16),
+    ((parseInt(hex.slice(16, 18), 16) & 0x3f) | 0x80).toString(16) +
+      hex.slice(18, 20),
+    hex.slice(20, 32),
+  ].join("-");
+}
+
+interface TimelineEntry {
+  run_id: string;
+  automation: string;
+  agent: string;
+  status: string;
+  stage_label: string;
+  created_at: string;
+  completed_at: string | null;
+  error: string | null;
+}
+
+function buildTimeline(runs: AutomationRun[]): TimelineEntry[] {
+  return runs
+    .slice()
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((run) => {
+      const r = run.result as Record<string, unknown> | null;
+      const stageLabel =
+        (r && typeof r.stage === "string" ? r.stage.replace(/_/g, " ") : null) ??
+        run.automation;
+      return {
+        run_id: run.id,
+        automation: run.automation,
+        agent: resolveAgent(run),
+        status: run.status,
+        stage_label: stageLabel,
+        created_at: run.created_at,
+        completed_at: run.completed_at,
+        error: run.error_message,
+      };
+    });
 }
 
 export interface BridgeResult {
   runs_seen: number;
+  entities_seen: number;
   jobs_upserted: number;
   events_upserted: number;
 }
 
 export async function syncDebtorEmailBridge(): Promise<BridgeResult> {
   const admin = createAdminClient();
+  const backing = getAutomationBackingForSwarm(DEBTOR_EMAIL_SWARM_ID);
+  const entity = backing?.entity ?? null;
 
   const { data: runs, error } = await admin
     .from("automation_runs")
@@ -177,36 +268,131 @@ export async function syncDebtorEmailBridge(): Promise<BridgeResult> {
     )
     .like("automation", `${PREFIX}%`)
     .order("created_at", { ascending: true })
-    .limit(500);
+    .limit(1000);
 
   if (error) throw new Error(`fetch automation_runs: ${error.message}`);
   const runRows = (runs ?? []) as AutomationRun[];
 
   if (runRows.length === 0) {
-    return { runs_seen: 0, jobs_upserted: 0, events_upserted: 0 };
+    return {
+      runs_seen: 0,
+      entities_seen: 0,
+      jobs_upserted: 0,
+      events_upserted: 0,
+    };
   }
 
-  const jobs = runRows.map((run) => ({
-    id: run.id,
-    swarm_id: DEBTOR_EMAIL_SWARM_ID,
-    title: extractTitle(run),
-    description: run.error_message ?? null,
-    stage: stageFromStatus(run.status),
-    priority: run.status === "failed" ? "high" : "normal",
-    assigned_agent: resolveAgent(run),
-    tags: tagsFor(run),
-    position: 0,
-    updated_at: run.completed_at ?? run.created_at,
-  }));
+  // Group by entity id when configured, else treat each run as its own group.
+  const groups = new Map<string, AutomationRun[]>();
+  const groupKeys = new Map<string, string | null>(); // groupId → entityId (null = ungrouped run)
+
+  if (entity) {
+    for (const run of runRows) {
+      const entityId = getEntityId(run, entity.key);
+      if (entityId) {
+        const key = `entity:${entityId}`;
+        const arr = groups.get(key) ?? [];
+        arr.push(run);
+        groups.set(key, arr);
+        if (!groupKeys.has(key)) groupKeys.set(key, entityId);
+      } else {
+        // Runs without an entity id stay as single-run jobs so we don't
+        // silently drop data (e.g. failed runs that never reached Outlook).
+        const key = `run:${run.id}`;
+        groups.set(key, [run]);
+        groupKeys.set(key, null);
+      }
+    }
+  } else {
+    for (const run of runRows) {
+      groups.set(`run:${run.id}`, [run]);
+      groupKeys.set(`run:${run.id}`, null);
+    }
+  }
+
+  const jobs: Array<{
+    id: string;
+    swarm_id: string;
+    title: string;
+    description: string | null;
+    stage: string;
+    priority: string;
+    assigned_agent: string;
+    tags: string[];
+    position: number;
+    updated_at: string;
+  }> = [];
+
+  for (const [groupId, groupRuns] of groups.entries()) {
+    const entityId = groupKeys.get(groupId);
+    const jobId = entityId
+      ? await stableUuidFrom(DEBTOR_EMAIL_SWARM_ID, entityId)
+      : groupRuns[0].id;
+
+    const latestRun =
+      groupRuns
+        .slice()
+        .sort((a, b) =>
+          (b.completed_at ?? b.created_at).localeCompare(
+            a.completed_at ?? a.created_at,
+          ),
+        )[0];
+
+    const { stage, hasError } = deriveEntityStage(groupRuns);
+    const title = resolveTitle(groupRuns, entity);
+    const timeline = buildTimeline(groupRuns);
+
+    const tags: string[] = [];
+    const category =
+      groupRuns
+        .map((r) => extractCategory(r))
+        .find((c): c is string => !!c) ?? null;
+    if (category) tags.push(category);
+    if (hasError) tags.push("error");
+    if (groupRuns.some((r) => r.status === "feedback")) tags.push("needs-review");
+
+    const description = JSON.stringify({
+      timeline,
+      latest_error: hasError
+        ? groupRuns
+            .filter((r) => r.status === "failed")
+            .map((r) => r.error_message)
+            .filter(Boolean)
+            .slice(-1)[0] ?? null
+        : null,
+      entity_id: entityId,
+    });
+
+    jobs.push({
+      id: jobId,
+      swarm_id: DEBTOR_EMAIL_SWARM_ID,
+      title,
+      description,
+      stage,
+      priority: hasError ? "high" : "normal",
+      assigned_agent: resolveAgent(latestRun),
+      tags,
+      position: 0,
+      updated_at: latestRun.completed_at ?? latestRun.created_at,
+    });
+  }
+
+  // Replace-all for this swarm — the grouping changes which ids exist, and
+  // volumes are low. Avoids orphan rows when entity config changes.
+  await admin
+    .from("swarm_jobs")
+    .delete()
+    .eq("swarm_id", DEBTOR_EMAIL_SWARM_ID);
 
   const { error: jobsErr, count: jobsCount } = await admin
     .from("swarm_jobs")
-    .upsert(jobs, { onConflict: "id", count: "exact" });
+    .insert(jobs, { count: "exact" });
 
-  if (jobsErr) throw new Error(`upsert swarm_jobs: ${jobsErr.message}`);
+  if (jobsErr) throw new Error(`insert swarm_jobs: ${jobsErr.message}`);
 
-  // Emit agent_events for Gantt + delegation graph.
-  // Each run emits a start event (tool_call) and an end event (done/error).
+  // agent_events stay per-run (one row per run start/end) — they drive the
+  // Gantt timeline and delegation graph edges, which care about per-run
+  // activity, not per-entity aggregation.
   const events: Array<{
     swarm_id: string;
     agent_name: string;
@@ -258,12 +444,7 @@ export async function syncDebtorEmailBridge(): Promise<BridgeResult> {
     }
   }
 
-  // No unique constraint on span_id, so replace-all for this swarm.
-  // Volumes are small (≤ hundreds/day) and this keeps the sync idempotent.
-  await admin
-    .from("agent_events")
-    .delete()
-    .eq("swarm_id", DEBTOR_EMAIL_SWARM_ID);
+  await admin.from("agent_events").delete().eq("swarm_id", DEBTOR_EMAIL_SWARM_ID);
 
   const { error: eventsErr, count: eventsCount } = await admin
     .from("agent_events")
@@ -271,7 +452,7 @@ export async function syncDebtorEmailBridge(): Promise<BridgeResult> {
 
   if (eventsErr) throw new Error(`insert agent_events: ${eventsErr.message}`);
 
-  // Refresh swarm_agents.metrics based on the jobs we just wrote.
+  // Refresh swarm_agents.metrics based on the grouped jobs.
   const agentsIncrement = new Map<
     string,
     { active: number; queue: number; errors: number }
@@ -286,7 +467,7 @@ export async function syncDebtorEmailBridge(): Promise<BridgeResult> {
     };
     if (job.stage === "progress") bucket.active += 1;
     if (job.stage === "review" || job.stage === "ready") bucket.queue += 1;
-    if ((job.tags as string[]).includes("error")) bucket.errors += 1;
+    if (job.tags.includes("error")) bucket.errors += 1;
     agentsIncrement.set(agent, bucket);
   }
 
@@ -307,6 +488,7 @@ export async function syncDebtorEmailBridge(): Promise<BridgeResult> {
 
   return {
     runs_seen: runRows.length,
+    entities_seen: groups.size,
     jobs_upserted: jobsCount ?? jobs.length,
     events_upserted: eventsCount ?? events.length,
   };
