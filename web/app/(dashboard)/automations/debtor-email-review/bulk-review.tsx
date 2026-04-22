@@ -89,6 +89,11 @@ interface Props {
   unknownCount: number;
   groups: Group[];
   fetchError: string | null;
+  // ISO timestamp of the current "before" filter (null = newest window).
+  beforeCursor: string | null;
+  // Oldest receivedAt in the current window — cursor for the next older page.
+  // Null when fewer than fetchLimit items were returned (end of inbox).
+  olderCursor: string | null;
 }
 
 export function BulkReview(props: Props) {
@@ -216,14 +221,35 @@ export function BulkReview(props: Props) {
 
   return (
     <div className="p-8 space-y-6 max-w-6xl">
-      <header className="space-y-1">
+      <header className="space-y-2">
         <h1 className="text-2xl font-bold">Debiteuren e-mail — bulkreview</h1>
         <p className="text-muted-foreground text-sm">
-          Mailbox: <code>{props.mailbox}</code> · {props.totalFetched} meest recente e-mails
-          geclassificeerd
-          {props.totalFetched === props.fetchLimit ? ` (limiet: ${props.fetchLimit})` : ""} ·
-          opgehaald {new Date(props.fetchedAt).toLocaleTimeString("nl-NL")}
+          Mailbox: <code>{props.mailbox}</code> · {props.totalFetched} e-mails geclassificeerd
+          {props.totalFetched === props.fetchLimit ? ` (venster: ${props.fetchLimit})` : ""}
+          {props.beforeCursor
+            ? ` · ouder dan ${new Date(props.beforeCursor).toLocaleString("nl-NL")}`
+            : " · nieuwste venster"}
+          {" · opgehaald "}
+          {new Date(props.fetchedAt).toLocaleTimeString("nl-NL")}
         </p>
+        <div className="flex items-center gap-3 text-sm">
+          {props.beforeCursor && (
+            <a href="?" className="underline hover:text-foreground">
+              ← Terug naar nieuwste
+            </a>
+          )}
+          {props.olderCursor && (
+            <a
+              href={`?before=${encodeURIComponent(props.olderCursor)}`}
+              className="underline hover:text-foreground"
+            >
+              Laad {props.fetchLimit} oudere →
+            </a>
+          )}
+          {!props.olderCursor && props.beforeCursor && (
+            <span className="text-muted-foreground">Einde van inbox bereikt</span>
+          )}
+        </div>
       </header>
 
       {props.fetchError && (

@@ -17,14 +17,26 @@ function bandFor(conf: number): "high" | "medium" | "low" {
   return "low";
 }
 
-export default async function DebtorEmailReviewPage() {
+interface PageProps {
+  searchParams: Promise<{ before?: string }>;
+}
+
+export default async function DebtorEmailReviewPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const before = params.before;
+
   let messages = [] as Awaited<ReturnType<typeof listInboxMessages>>;
   let fetchError: string | null = null;
   try {
-    messages = await listInboxMessages(MAILBOX, FETCH_LIMIT);
+    messages = await listInboxMessages(MAILBOX, FETCH_LIMIT, { before });
   } catch (err) {
     fetchError = String(err);
   }
+
+  // Oldest item in the current window → cursor for the next "older" page.
+  // Messages are Graph-ordered newest-first, so the last one is the oldest.
+  const olderCursor =
+    messages.length === FETCH_LIMIT ? messages[messages.length - 1]?.receivedAt : null;
 
   const predictions = messages.map((m) => {
     const r = classify({ subject: m.subject, from: m.from, bodySnippet: m.bodyPreview });
@@ -87,6 +99,8 @@ export default async function DebtorEmailReviewPage() {
       unknownCount={unknownCount}
       groups={groups}
       fetchError={fetchError}
+      beforeCursor={before ?? null}
+      olderCursor={olderCursor}
     />
   );
 }

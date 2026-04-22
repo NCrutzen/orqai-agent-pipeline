@@ -77,10 +77,15 @@ export interface OutlookMessage {
 /**
  * List messages from the Inbox folder of a mailbox, newest first.
  * Uses Graph API pagination — pulls up to `max` messages.
+ *
+ * When `before` is supplied (ISO timestamp), only returns messages received
+ * strictly before that moment — useful for "load older" pagination after
+ * the reviewer has processed the newest window.
  */
 export async function listInboxMessages(
   mailbox: string,
   max: number = 200,
+  options: { before?: string } = {},
 ): Promise<OutlookMessage[]> {
   const fields = [
     "id",
@@ -95,7 +100,10 @@ export async function listInboxMessages(
   // Graph allows $top up to 999 for /messages. Bigger pages = fewer sequential
   // round-trips → fewer socket drops over the Zapier→Graph chain.
   const pageSize = Math.min(500, max);
-  let url: string | null = `${GRAPH_BASE}/users/${mailbox}/mailFolders/inbox/messages?$top=${pageSize}&$orderby=receivedDateTime desc&$select=${fields}`;
+  const filter = options.before
+    ? `&$filter=${encodeURIComponent(`receivedDateTime lt ${options.before}`)}`
+    : "";
+  let url: string | null = `${GRAPH_BASE}/users/${mailbox}/mailFolders/inbox/messages?$top=${pageSize}&$orderby=receivedDateTime desc&$select=${fields}${filter}`;
 
   const out: OutlookMessage[] = [];
   while (url && out.length < max) {
