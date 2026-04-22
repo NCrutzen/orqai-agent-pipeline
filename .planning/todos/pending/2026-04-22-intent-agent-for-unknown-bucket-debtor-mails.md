@@ -1,67 +1,68 @@
 ---
 created: 2026-04-22T17:30:00.000Z
-title: Build triage agent for debtor + sales inbox noise filter
+title: Build intent agent for unknown bucket (debtor regex classifier fallthrough)
 area: automation
 files:
-  - web/debtor-email-analyzer/src/categorize.ts
-  - web/lib/automations/sales-email-analyzer/src/categorize-sales.ts
+  - web/lib/debtor-email/classify.ts
+  - web/app/(dashboard)/automations/debtor-email-review/actions.ts
 ---
 
 ## Problem
 
-Debtor + sales inboxes receive ~8,000 inbound emails / 13 months. A meaningful share is NOT actionable mail from customers: out-of-office replies, delivery-failure notices, read receipts, automated PO notifications ("Kopie voor referentie: Nieuwe inkooporder ..."), internal forwards, vendor newsletters, etc. Every downstream agent we build (copy-document fetcher, payment-confirmation handler, dispute handler) would otherwise have to re-parse this noise.
+The debtor-email regex classifier (`web/lib/debtor-email/classify.ts`, 359 lines, 24 hand-iterated rules) already handles noise triage: `auto_reply`, `ooo_temporary`, `ooo_permanent`, `payment_admittance`. By design it routes anything uncertain to `category: "unknown", confidence: 0` for human review.
 
-**Existing signal:** `debtor.email_analysis.email_intent = 'auto_reply'`, `category = 'auto_reply'` already classify most OoO/auto-reply mail. Same for sales. But nothing *acts* on that classification — no routing layer, no noise suppression, no handoff.
+The `unknown` bucket is where the real work lives — genuine customer mail with an intent the regex can't decide: copy-document requests, payment disputes, address changes, peppol requests, contract inquiries, general questions. These need intent classification + routing to downstream handlers (copy-document fetcher, dispute agent, etc.), but it's explicitly out of scope for the regex layer (whitelist-based classifier; open-intent reasoning needs judgment).
 
-**Unblocks:** copy-document automation (see sibling todo `2026-04-22-automate-copy-document-responder-for-debtor-and-sales-inboxes.md`) and every future intent-specific agent in the Debtor/Sales swarms.
+The regex classifier is NOT to be replaced. It's fast, deterministic, auditable (every decision carries a `matchedRule` slug), precision-first, and battle-tested with inline FP corrections. LLM goes on top of the `unknown` bucket only.
 
 ## Solution
 
-Build a **triage agent** (Orq.ai) as the very first stage of the Debtor Team and Sales Team swarms. It consumes every inbound email and outputs a routing decision:
+Build an **intent agent** (Orq.ai) that consumes ONLY emails where `classify()` returned `unknown`. Output:
 
 ```
 {
-  route: "drop" | "human" | "copy_fetcher" | "payment_confirmation" | "dispute" | "address_change" | "general_inquiry" | "unsure",
-  noise_category: null | "out_of_office" | "delivery_failure" | "read_receipt" | "po_notification" | "internal_forward" | "newsletter" | "spam",
-  confidence: "high" | "medium" | "low",
+  intent: "copy_document_request" | "payment_dispute" | "address_change" | "peppol_request" | "credit_request" | "payment_plan" | "general_inquiry" | "other",
+  sub_type: string | null,          // e.g. for copy_document_request: "invoice" | "work_order" | "contract" | ...
+  document_reference: string | null, // invoice/WO/quote number if mentioned
+  urgency: "low" | "medium" | "high" | "critical",
   language: "nl" | "fr" | "en" | "de",
-  reasoning: "one sentence"
+  requires_human: boolean,
+  confidence: "high" | "medium" | "low",
+  reasoning: "one short sentence"
 }
 ```
 
-Rules:
-- `route: "drop"` when `noise_category` is set and confidence is high → logged but no downstream action
-- `route: "human"` when confidence is low or intent is ambiguous → land in a human-review queue
-- `route: "<intent>"` → hand off to the dedicated downstream agent / tool
+**Stack:**
+- Orq.ai Router, `anthropic/claude-haiku-4-5-20251001` + fallbacks
+- JSON-schema `response_format` (per `docs/orqai-patterns.md`)
+- XML-tagged prompt (`<role>`, `<task>`, `<constraints>`, `<output_format>`)
+- State in Supabase: extend existing `debtor.email_analysis` or add `debtor.unknown_intent` table
+- Orchestrator: Inngest function; input is the `unknown` bucket from `classify()`
 
 **Phased build:**
 
-1. **Phase 0 (this todo) — triage agent only.** Deploy against historical data first (the 8k inbound corpus) to measure noise-drop rate and confidence distribution. No live routing yet.
-2. **Phase 1 — shadow mode on live traffic.** Classify in real time, log decisions, but don't act. Compare against human handling for 2 weeks.
-3. **Phase 2 — activate drops.** Enable auto-drop for high-confidence noise categories only. Humans still see everything else.
-4. **Phase 3 — activate routing** to specific intent handlers as each becomes available. First handler to land: copy-document fetcher (sibling todo).
+1. **Phase 0 — shadow mode.** Classify the `unknown` bucket historical corpus (hand-labeled batch from 2026-04-22 is a starter eval set). Measure confidence distribution + human-agreement rate.
+2. **Phase 1 — live shadow.** Classify in real time, log decisions, don't route yet. Compare to human review queue outcomes for 2 weeks.
+3. **Phase 2 — activate routing** to the first concrete handler: the **copy-document fetcher** (sibling todo). Start with `intent: copy_document_request, sub_type: invoice, confidence: high` → auto-fulfill. Everything else stays human.
+4. **Phase 3 — extend routing** to additional handlers as they land (payment dispute agent, address change agent, etc.).
 
-**Stack:**
-- Orq.ai agent, `anthropic/claude-haiku-4-5-20251001` + fallbacks (cheap, fast, high-volume)
-- JSON-schema response_format (per `docs/orqai-patterns.md`)
-- XML-tagged prompt (`<role>`, `<task>`, `<constraints>`, `<output_format>`)
-- State in Supabase: new `triage_decisions` table (email_id, route, noise_category, confidence, acted, overridden_by_human, created_at)
-- Inngest function triggered by new-email events — durable, retryable
-
-**Reference data / eval set:**
-- `/tmp/copy-requests-classified.json` (1,124 labeled emails incl. 200 random control — reusable for precision/recall on copy_fetcher route)
-- Historical `debtor.email_analysis` + `sales.email_analysis` → ~8k pre-labeled rows for backtest
+**Eval set:**
+- Hand-labeled "Onbekend" batch from 2026-04-22 (referenced in classify.ts comments as `2026-04-22 Onbekend hand-picks`)
+- 200-email random control from `/tmp/copy-requests-classified.json` (unused so far — ~5% are real copy-requests the regex didn't catch via its copy-request path either)
 
 **Open questions:**
-- Do we auto-drop OoO / read-receipts entirely (don't log as a Case) or archive them silently for audit? Legal implications for debtor-correspondence retention?
-- Human-review queue: where does it live? Existing NXT Cases, a new Supabase-backed UI, or a Slack channel?
-- Multi-entity: same triage agent across Smeba/Berki/Sicli, or per-entity tuning?
+- Where do we persist the intent output? Extend `debtor.email_analysis` with new columns, or new `debtor.unknown_intent` table? Extending existing table means one schema for all, but mixes regex-derived and LLM-derived fields.
+- Human-review UI already exists at `web/app/(dashboard)/automations/debtor-email-review/` — does the intent agent output feed that UI (as a pre-filled suggestion) or replace parts of it?
+- Multi-entity (Smeba / Berki / Sicli-Noord / Sicli-Sud / Smeba-Fire): same agent across all, or per-entity prompt tuning?
+- Sales inbox: separate intent agent (different intent taxonomy), or same prompt with entity-aware routing?
 
-## Sequencing note
+## Sequencing
 
-This replaces the earlier framing in the copy-document todo where the fetcher was "phase 1". Correct order:
-1. Triage agent (this todo)
-2. Copy-document fetcher tool
-3. Remaining intent handlers (payment confirmation, dispute, etc.)
+Correct order for the email-automation sub-project:
 
-Without triage, every downstream agent re-parses noise. Build it once, benefit everywhere.
+1. **Regex classifier** ✅ already live (`web/lib/debtor-email/classify.ts`) — handles noise
+2. **Intent agent on `unknown` bucket** (this todo) — handles actionable-but-unclassified
+3. **Copy-document fetcher tool** (sibling todo `2026-04-22-automate-copy-document-responder-for-debtor-and-sales-inboxes.md`) — first concrete handler the intent agent routes to
+4. **Additional intent handlers** — dispute, address change, peppol, credit request, etc.
+
+The regex layer is the *right* first step and stays in place. An LLM would be worse here: non-deterministic, opinion-as-reasoning vs. rule-as-audit, and it would over-answer edge cases instead of deferring to `unknown`.

@@ -37,7 +37,14 @@ Customers email `debiteuren@*` and sales inboxes asking for copies of business d
 
 ## Solution
 
-**Sequencing (revised 2026-04-22):** This is the SECOND phase. Phase 0 is the **triage agent** (see sibling todo `2026-04-22-triage-agent-debtor-sales-inbox-noise-filter.md`) — it drops OoO / auto-reply / PO-notification noise and routes the remaining actionable mail. The copy-document fetcher is the first concrete handler that the triage agent routes to. Build order: (0) triage agent, (1) fetcher tool, (2) minimal responder that consumes fetcher for copy-request route, (3) additional intent handlers. Reasons: fetcher is the high-risk piece (NXT SQL patterns, S3 structure, multi-entity routing, Zapier SDK payload limits for PDFs); ~45 copy-requests/month is a gentle pilot volume; swarm integration becomes a trivial tool-registration step once the fetcher works. DO NOT build a swarm on non-copy emails first — that's the harder intent space (disputes, address changes, complaints need judgment) and building it without the mechanical plumbing proven is backwards.
+**Sequencing (corrected 2026-04-22):**
+
+1. **Regex classifier** ✅ already live (`web/lib/debtor-email/classify.ts`) — handles OoO / auto-reply / payment-admittance noise, routes uncertain mail to `unknown`. Stays as-is.
+2. **Intent agent on `unknown` bucket** (sibling todo `2026-04-22-intent-agent-for-unknown-bucket-debtor-mails.md`) — classifies actionable intent (copy_document_request, payment_dispute, etc.) on the mail the regex deferred.
+3. **Copy-document fetcher tool** (this todo) — first concrete handler the intent agent routes to.
+4. **Additional intent handlers** — dispute, address change, peppol, etc.
+
+Do NOT replace the regex classifier with an LLM. It's the right tool for closed-taxonomy noise filtering: deterministic, auditable via `matchedRule`, fast, precision-first. LLM goes on top of `unknown` only. Reasons: fetcher is the high-risk piece (NXT SQL patterns, S3 structure, multi-entity routing, Zapier SDK payload limits for PDFs); ~45 copy-requests/month is a gentle pilot volume; swarm integration becomes a trivial tool-registration step once the fetcher works. DO NOT build a swarm on non-copy emails first — that's the harder intent space (disputes, address changes, complaints need judgment) and building it without the mechanical plumbing proven is backwards.
 
 **Pre-flight spike (1 hour, do this before anything else):** Log into Zapier, find the NXT S3 connection, fetch ONE real document by hand via the Zapier SDK. If that works, rest is a straight build. If it doesn't (e.g. no S3 app linked to NXT account, or Zapier payload limit blocks PDFs), surface immediately — whole plan may need replanning.
 

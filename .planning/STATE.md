@@ -80,8 +80,8 @@ Progress: [████░░░░░░] 43% (3 of 7 V7.0 phases code-complete
 - Plan V3 milestones for Playwright and next project phase (planning)
 - Build Zapier analytics browser automation (automation)
 - Resolve PostgREST exposed-schemas for email_insights (database)
-- **Triage agent for debtor + sales inbox noise filter** (automation) — phase 0, unblocks all downstream email agents
-- **Automate copy-document responder for debtor and sales inboxes** (automation) — phase 1 consumer of triage, ~45 req/mo, ~€2,500/yr savings
+- **Intent agent for unknown-bucket debtor mails** (automation) — LLM on top of existing regex classifier's `unknown` fall-through; routes to downstream handlers
+- **Automate copy-document responder for debtor and sales inboxes** (automation) — first concrete handler the intent agent routes to, ~45 req/mo, ~€2,500/yr savings
 
 ## Session Continuity
 
