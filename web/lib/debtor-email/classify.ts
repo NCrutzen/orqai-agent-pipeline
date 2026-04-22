@@ -37,11 +37,18 @@ export interface ClassifyResult {
 
 // ───────────────────────────────────────────────────────────────── regexes ──
 
+// `no-reply@` with a hyphen was not matched by the old `no\.?reply` form —
+// observed miss: `no-reply@brocacef.nl` fell through to `unknown`. Allow
+// dot, dash, or underscore between the two halves.
 const SENDER_SYSTEM =
-  /^(no\.?reply|no_reply|donotreply|mailer[-_]?daemon|postmaster|automailer|autoreply)@/i;
+  /^(no[-._]?reply|donotreply|mailer[-_]?daemon|postmaster|automailer|autoreply)@/i;
 
+// Trailing `[a-z0-9._-]*` allows suffixes after the role keyword. Observed:
+// `PaymentNotification@inditex.com`, `betaalspecificatie@unica.nl`. Also
+// added `specificatie`, `crediteuren`, `debiteuren` which appeared in the
+// 2026-04-22 hand-labeled batch.
 const SENDER_PAYMENT_ROLE =
-  /^(payment|payments|invoice|invoices|facturen|facturatie|billing|accounting|accounts?[._-]?payable|betaal|betalingen|compte[._-]?client)@/i;
+  /^(payment|invoice|factu(?:ur|ratie)|facturen|billing|accounting|accounts?[._-]?payable|betaal|betalingen|specificatie|crediteuren|debiteuren|compte[._-]?client)[a-z0-9._-]*@/i;
 
 /** Detects a human-shape sender (firstname.lastname@ or firstname-lastname@). */
 const SENDER_HUMAN_SHAPE = /^[a-z][a-z'-]*[._-][a-z][a-z'-]*@/i;
@@ -57,7 +64,21 @@ const SUBJECT_AUTO_REPLY =
  * precision to 19%. Each term below was verified on the historical corpus.
  */
 const SUBJECT_PAYMENT =
-  /(betalingsadvies|betaal[-\s]?advies|betaalbevestiging|betalingsbevestiging|geregistreerde\s+betaling(?:en)?|betaling\s+ontvangen|ontvangen\s+betaling|payment\s+(?:advice|confirmation|details|notice|received|notification)|remittance\s+advice|avis\s+de\s+paiement|confirmation\s+de\s+paiement|zahlungsavis|zahlungsbest(?:ä|ae)tigung|zahlungseingang)/i;
+  /(betalingsadvies|betaal[-\s]?advies|betaalbevestiging|betalingsbevestiging|betaalspecificatie|betaling(?:s)?specificatie|geregistreerde\s+betaling(?:en)?|betaling\s+ontvangen|ontvangen\s+betaling|payment\s+(?:advice|confirmation|details|notice|received|notification|reference)|remittance\s+advice|avis\s+de\s+paiement|confirmation\s+de\s+paiement|zahlungsavis|zahlungsbest(?:ä|ae)tigung|zahlungseingang)/i;
+
+/**
+ * Customer-side "I have approved / marked paid" notifications. Observed on
+ * CBRE portal forwards: "FW: Factuur 17340374 gemarkeerd als Betaald door CBRE"
+ * and "FW: Factuur 17340342 is goedgekeurd voor betaling door CBRE". 18/29
+ * of the 2026-04-22 hand-labeled batch fell into this shape.
+ *
+ * Must fire BEFORE SUBJECT_REFUND_BLOCK because some of these carry
+ * "Creditnota" in the subject ("FW: Creditnota 17339697 gemarkeerd als
+ * Betaald door CBRE") — the credit-note is itself being settled, so this is
+ * still a payment admittance from MR's perspective.
+ */
+const SUBJECT_PAID_MARKER =
+  /(gemarkeerd\s+als\s+betaald|goedgekeurd\s+voor\s+betaling|marked\s+as\s+paid|approved\s+for\s+payment|released\s+for\s+payment)/i;
 
 /**
  * Subjects that look payment-related but are OUTBOUND dunning templates (or
@@ -155,11 +176,17 @@ export function classify(input: ClassifyInput): ClassifyResult {
   const subjectIsPaymentRequest = SUBJECT_PAYMENT_REQUEST_BLOCK.test(normSubject);
   const subjectIsRefund = SUBJECT_REFUND_BLOCK.test(normSubject);
   const subjectIsDispute = SUBJECT_DISPUTE.test(normSubject);
+  const subjectIsPaidMarker = SUBJECT_PAID_MARKER.test(normSubject);
 
   // ── Hard blocks (anything payment-like but clearly NOT payment_admittance) ──
 
   if (subjectIsPaymentRequest) {
     return { category: "unknown", confidence: 0, matchedRule: "payment_blocked_request_template" };
+  }
+  // Paid-marker wins over refund block: a credit note "gemarkeerd als Betaald"
+  // is still an incoming-payment confirmation, not a refund.
+  if (subjectIsPaidMarker) {
+    return { category: "payment_admittance", confidence: 0.96, matchedRule: "subject_paid_marker" };
   }
   if (subjectIsRefund) {
     return { category: "unknown", confidence: 0, matchedRule: "payment_blocked_refund" };
