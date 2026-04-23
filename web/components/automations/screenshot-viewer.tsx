@@ -1,9 +1,14 @@
 "use client";
 
 /**
- * Thumbnail + lightbox for a screenshot stored at a bucket path. Fetches a
- * signed URL on mount (server action) so the storage bucket can stay
- * private. Clicking opens a full-size dialog.
+ * Thumbnail + lightbox for a screenshot.
+ *
+ * Accepts EITHER a direct `url` (newer automations embed a signed URL in
+ * `result.screenshots.{before,after}.url` with ~1h TTL) or a `path`
+ * (legacy shape) that we can sign on-demand via the server action.
+ *
+ * If a direct `url` fails to load (TTL expired), we transparently fall
+ * back to re-signing `path` via `getScreenshotUrl`.
  */
 
 import { useEffect, useState } from "react";
@@ -18,20 +23,37 @@ import { cn } from "@/lib/utils";
 import { getScreenshotUrl } from "./screenshot-actions";
 
 interface ScreenshotViewerProps {
-  path: string;
+  /** Stable bucket path. Used to re-sign when `url` is missing/expired. */
+  path?: string;
+  /** Optional pre-signed URL (e.g. from result.screenshots.*.url). */
+  url?: string | null;
   label: string;
   className?: string;
 }
 
 export function ScreenshotViewer({
   path,
+  url: initialUrl,
   label,
   className,
 }: ScreenshotViewerProps) {
-  const [url, setUrl] = useState<string | null>(null);
+  const [url, setUrl] = useState<string | null>(initialUrl ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [triedRefresh, setTriedRefresh] = useState(false);
 
   useEffect(() => {
+    // If we already have a URL (from the caller), don't fetch proactively —
+    // only re-sign on <img onError>.
+    if (initialUrl) {
+      setUrl(initialUrl);
+      setError(null);
+      setTriedRefresh(false);
+      return;
+    }
+    if (!path) {
+      setError("missing path");
+      return;
+    }
     let cancelled = false;
     (async () => {
       const res = await getScreenshotUrl(path);
@@ -42,7 +64,18 @@ export function ScreenshotViewer({
     return () => {
       cancelled = true;
     };
-  }, [path]);
+  }, [path, initialUrl]);
+
+  const refreshFromPath = async () => {
+    if (triedRefresh || !path) {
+      setError("expired");
+      return;
+    }
+    setTriedRefresh(true);
+    const res = await getScreenshotUrl(path);
+    setUrl(res.url);
+    setError(res.error);
+  };
 
   return (
     <Dialog>
@@ -74,7 +107,7 @@ export function ScreenshotViewer({
             disabled={!url}
             className="group relative block h-40 overflow-hidden rounded-[var(--v7-radius-inner,10px)] border border-[var(--v7-line)] bg-[var(--v7-panel)] disabled:cursor-default"
           >
-            {error ? (
+            {error && !url ? (
               <div className="flex h-full items-center justify-center gap-2 text-[12px] text-[var(--v7-red)]">
                 <ImageOff size={14} />
                 <span>Kan screenshot niet laden</span>
@@ -84,6 +117,7 @@ export function ScreenshotViewer({
               <img
                 src={url}
                 alt={label}
+                onError={refreshFromPath}
                 className="h-full w-full object-cover object-top transition-transform duration-200 group-hover:scale-[1.02]"
               />
             ) : (
@@ -105,6 +139,7 @@ export function ScreenshotViewer({
           <img
             src={url}
             alt={label}
+            onError={refreshFromPath}
             className="mx-auto max-h-[80vh] w-auto rounded-[var(--v7-radius-inner,10px)] border border-[var(--v7-line)]"
           />
         ) : (

@@ -22,6 +22,14 @@ import type { SwarmJob } from "@/lib/v7/types";
 interface KanbanJobCardProps {
   job: SwarmJob;
   isDragOverlay?: boolean;
+  /**
+   * Fired when the card is activated via click (no drag distance
+   * threshold reached) or via Enter/Space while focused. The parent
+   * column uses this to open the lane modal with this entity pre-
+   * expanded. Not provided when rendered inside the modal itself or as
+   * a DragOverlay.
+   */
+  onCardActivate?: (jobId: string) => void;
 }
 
 interface DerivedTag {
@@ -90,7 +98,11 @@ function formatCardTime(iso: string | null | undefined): string {
   return `${diffDay}d`;
 }
 
-export function KanbanJobCard({ job, isDragOverlay }: KanbanJobCardProps) {
+export function KanbanJobCard({
+  job,
+  isDragOverlay,
+  onCardActivate,
+}: KanbanJobCardProps) {
   const sortable = useSortable({
     id: job.id,
     data: { stage: job.stage, kind: "job" as const },
@@ -110,11 +122,27 @@ export function KanbanJobCard({ job, isDragOverlay }: KanbanJobCardProps) {
   const visible = derived.slice(0, MAX_VISIBLE_TAGS);
   const overflow = derived.length - visible.length;
 
+  const handleActivate = () => {
+    if (isDragOverlay || !onCardActivate) return;
+    onCardActivate(job.id);
+  };
+
   return (
     <article
       ref={isDragOverlay ? undefined : setNodeRef}
       {...(isDragOverlay ? {} : attributes)}
       {...(isDragOverlay ? {} : listeners)}
+      onClick={isDragOverlay || !onCardActivate ? undefined : handleActivate}
+      onKeyDown={
+        isDragOverlay || !onCardActivate
+          ? undefined
+          : (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleActivate();
+              }
+            }
+      }
       role="button"
       tabIndex={isDragOverlay ? -1 : 0}
       aria-roledescription="Kanban job card"

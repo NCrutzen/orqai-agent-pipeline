@@ -149,10 +149,18 @@ function AgentRunDrawerBody({
             </div>
             <div className="grid grid-cols-2 gap-3">
               {shots.before && (
-                <ScreenshotViewer path={shots.before} label="Voor" />
+                <ScreenshotViewer
+                  path={shots.before.path}
+                  url={shots.before.url}
+                  label="Voor"
+                />
               )}
               {shots.after && (
-                <ScreenshotViewer path={shots.after} label="Na" />
+                <ScreenshotViewer
+                  path={shots.after.path}
+                  url={shots.after.url}
+                  label="Na"
+                />
               )}
             </div>
           </section>

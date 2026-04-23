@@ -99,11 +99,41 @@ export const STAGE_META: Record<AgentRunStage, StageMeta> = {
 
 /**
  * Common screenshot shape in `result.screenshots`. Paths live in the
- * `automation-screenshots` bucket.
+ * `automation-screenshots` bucket. Newer automations (e.g.
+ * `debtor-email-cleanup`) write the richer `{ url, path }` shape where
+ * `url` is a signed URL with ~1h TTL and `path` is the stable bucket
+ * path we can re-sign via `getScreenshotUrl(path)` when the URL expires.
+ *
+ * Legacy writers stored a plain string path. Both shapes are normalised
+ * here so consumers only ever see `{ url, path } | null`.
  */
+export interface ScreenshotRef {
+  /** Signed URL, may be expired. `null` means "only path available — re-sign on demand". */
+  url: string | null;
+  /** Stable bucket path, used to re-sign when `url` is null/expired. */
+  path: string;
+}
+
 export interface ResultScreenshots {
-  before?: string | null;
-  after?: string | null;
+  before: ScreenshotRef | null;
+  after: ScreenshotRef | null;
+}
+
+function normalizeScreenshot(value: unknown): ScreenshotRef | null {
+  if (!value) return null;
+  if (typeof value === "string") {
+    return value.length > 0 ? { url: null, path: value } : null;
+  }
+  if (typeof value === "object") {
+    const rec = value as Record<string, unknown>;
+    const path = typeof rec.path === "string" ? rec.path : null;
+    const url = typeof rec.url === "string" ? rec.url : null;
+    if (!path && !url) return null;
+    // If we only have a URL without a path, keep the URL but record path as ""
+    // so callers know there's nothing to re-sign.
+    return { url, path: path ?? "" };
+  }
+  return null;
 }
 
 export function extractScreenshots(result: unknown): ResultScreenshots | null {
@@ -112,8 +142,8 @@ export function extractScreenshots(result: unknown): ResultScreenshots | null {
   const shots = r.screenshots;
   if (!shots || typeof shots !== "object") return null;
   const s = shots as Record<string, unknown>;
-  const before = typeof s.before === "string" ? s.before : null;
-  const after = typeof s.after === "string" ? s.after : null;
+  const before = normalizeScreenshot(s.before);
+  const after = normalizeScreenshot(s.after);
   if (!before && !after) return null;
   return { before, after };
 }
