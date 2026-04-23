@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { classify } from "@/lib/debtor-email/classify";
 import { categorizeEmail, archiveEmail, fetchMessageBody, getMessageMeta } from "@/lib/outlook";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { inngest } from "@/lib/inngest/client";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const MAILBOX = "debiteuren@smeba.nl";
-const ICONTROLLER_COMPANY = "smebabrandbeveiliging";
+// Backwards-compat default: existing Smeba Zap does NOT yet pass source_mailbox.
+// Once every Zap carries the field this constant becomes dead and the branch
+// below turns into a hard 400.
+const LEGACY_DEFAULT_MAILBOX = "debiteuren@smeba.nl";
+const LEGACY_DEFAULT_ICONTROLLER_COMPANY = "smebabrandbeveiliging";
 
 /**
  * Whitelist van classifier-regels die auto-action mogen triggeren. Alleen
@@ -49,8 +53,27 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 const MR_LABELS = new Set(Object.values(CATEGORY_LABEL));
 
+type EntityKey =
+  | "smeba"
+  | "berki"
+  | "sicli-noord"
+  | "sicli-sud"
+  | "smeba-fire";
+
+interface MailboxSettings {
+  source_mailbox: string;
+  entity: EntityKey | null;
+  icontroller_company: string | null;
+  ingest_enabled: boolean;
+  auto_label_enabled: boolean;
+  triage_shadow_mode: boolean;
+}
+
 interface IngestBody {
   messageId?: string;
+  /** NEW — Zaps should pass the mailbox they triggered on. Legacy Zap
+   *  without this field falls back to LEGACY_DEFAULT_MAILBOX. */
+  source_mailbox?: string;
 }
 
 interface IngestResponse {
@@ -60,8 +83,11 @@ interface IngestResponse {
     | "skipped_not_whitelisted"
     | "skipped_unknown"
     | "skipped_not_found"
+    | "skipped_disabled"
     | "failed";
   messageId?: string;
+  source_mailbox?: string;
+  entity?: EntityKey;
   category?: string;
   rule?: string;
   /** Classifier's hand-assigned confidence (0-1). NIET een gemeten precision
@@ -71,24 +97,27 @@ interface IngestResponse {
   label?: string;
   reason?: string;
   error?: string;
+  /** True als de unknown-mail het triage-event heeft gefired (shadow-mode). */
+  triage_fired?: boolean;
 }
 
 /**
- * Zapier-ingest webhook. Draait synchroon voor elke nieuwe mail in
- * debiteuren@smeba.nl:
+ * Zapier-ingest webhook. Draait synchroon voor elke nieuwe mail uit een
+ * van de debteuren-mailboxen:
  *
- *   1. fetch volledige body via Graph (subject + from al in trigger, maar
+ *   1. resolve mailbox → settings (entity, icontroller_company, gates)
+ *   2. fetch volledige body via Graph (subject + from al in trigger, maar
  *      body nodig voor body-gebaseerde regels)
- *   2. check idempotency — als al een MR-label → skip
- *   3. classify
- *   4. als rule in AUTO_ACTION_RULES → categorize + archive + log
- *      pending iController-delete. Anders → skip (blijft in inbox voor
- *      bulk-review).
+ *   3. check idempotency — als al een MR-label → skip
+ *   4. classify
+ *   5. als rule in AUTO_ACTION_RULES én auto_label_enabled=true →
+ *      categorize + archive + log pending iController-delete. Anders →
+ *      skip (blijft in inbox voor bulk-review).
+ *   6. als category=unknown én triage_shadow_mode=true → fire
+ *      debtor/email.received event voor de triage-swarm (fire-and-forget).
  *
  * iController-delete wordt NIET synchroon gedaan — die pakt de Inngest
- * cleanup-cron (elke 5 min) op via de pending-rij. Zo blijft deze
- * webhook binnen Zapier's 30s timeout en heeft geen last van
- * Browserless cold-starts.
+ * cleanup-cron (elke 5 min) op via de pending-rij.
  *
  * Security: vereist X-Zapier-Secret header die matcht met
  * ZAPIER_INGEST_SECRET env var.
@@ -116,21 +145,81 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     return NextResponse.json({ action: "failed", error: "messageId required" }, { status: 400 });
   }
 
+  const providedMailbox = body.source_mailbox?.trim();
+  const sourceMailbox = providedMailbox ?? LEGACY_DEFAULT_MAILBOX;
+  if (!providedMailbox) {
+    console.warn(
+      `[debtor-email/ingest] Legacy Zap without source_mailbox — defaulting to ${LEGACY_DEFAULT_MAILBOX}. Update your Zapier config to pass source_mailbox.`,
+    );
+  }
+
   const admin = createAdminClient();
   const isoNow = new Date().toISOString();
+
+  // Resolve mailbox settings. Unknown mailbox → 400 (surface Zap config error).
+  const settingsRes = await admin
+    .schema("debtor")
+    .from("labeling_settings")
+    .select(
+      "source_mailbox, entity, icontroller_company, ingest_enabled, auto_label_enabled, triage_shadow_mode",
+    )
+    .eq("source_mailbox", sourceMailbox)
+    .maybeSingle();
+
+  const settings: MailboxSettings | null = settingsRes.data
+    ? {
+        source_mailbox: settingsRes.data.source_mailbox,
+        entity: settingsRes.data.entity as EntityKey | null,
+        icontroller_company: settingsRes.data.icontroller_company,
+        ingest_enabled: settingsRes.data.ingest_enabled,
+        auto_label_enabled: settingsRes.data.auto_label_enabled,
+        triage_shadow_mode: settingsRes.data.triage_shadow_mode,
+      }
+    : null;
+
+  if (!settings) {
+    return NextResponse.json(
+      {
+        action: "failed",
+        messageId,
+        source_mailbox: sourceMailbox,
+        error: `unknown_mailbox: ${sourceMailbox} not in debtor.labeling_settings`,
+      },
+      { status: 400 },
+    );
+  }
+
+  if (!settings.ingest_enabled) {
+    return NextResponse.json({
+      action: "skipped_disabled",
+      messageId,
+      source_mailbox: sourceMailbox,
+      entity: settings.entity ?? undefined,
+      reason: "ingest disabled for this mailbox",
+    });
+  }
 
   // Haal de mail op. We gebruiken fetchMessageBody dat naast de body ook
   // subject/from nodig heeft — maar die zit niet in de Graph body endpoint.
   // Gebruik een aparte Graph call die alles tegelijk pakt.
-  let msg: { subject: string; from: string; body: string; categories: string[] };
+  let msg: {
+    subject: string;
+    from: string;
+    fromName: string;
+    receivedAt: string;
+    body: string;
+    categories: string[];
+  };
   try {
     const [meta, body] = await Promise.all([
-      getMessageMeta(MAILBOX, messageId),
-      fetchMessageBody(MAILBOX, messageId),
+      getMessageMeta(sourceMailbox, messageId),
+      fetchMessageBody(sourceMailbox, messageId),
     ]);
     msg = {
       subject: meta.subject,
       from: meta.from,
+      fromName: meta.fromName,
+      receivedAt: meta.receivedAt,
       body: body.bodyText,
       categories: meta.categories,
     };
@@ -143,6 +232,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       result: {
         stage: "zapier_ingest_fetch",
         message_id: messageId,
+        source_mailbox: sourceMailbox,
         outcome: is404 ? "not_found" : "fetch_error",
       },
       error_message: errText,
@@ -152,6 +242,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     return NextResponse.json({
       action: is404 ? "skipped_not_found" : "failed",
       messageId,
+      source_mailbox: sourceMailbox,
+      entity: settings.entity ?? undefined,
       error: errText,
     });
   }
@@ -161,6 +253,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     return NextResponse.json({
       action: "skipped_idempotent",
       messageId,
+      source_mailbox: sourceMailbox,
+      entity: settings.entity ?? undefined,
       reason: `already labeled: ${msg.categories.filter((c) => MR_LABELS.has(c)).join(", ")}`,
     });
   }
@@ -168,34 +262,61 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   // Classify
   const r = classify({ subject: msg.subject, from: msg.from, bodySnippet: msg.body.slice(0, 1000) });
 
-  // Alleen acteren op whitelist-regels. De bulk-review UI pikt de rest op.
-  if (!AUTO_ACTION_RULES.has(r.matchedRule)) {
-    // Log de classificatie als feedback zodat telemetry volledig blijft,
-    // maar geen actie.
+  const isWhitelistMatch = AUTO_ACTION_RULES.has(r.matchedRule);
+  const autoActionAllowed = isWhitelistMatch && settings.auto_label_enabled;
+
+  // Bulk-review pad: geen whitelist-match, OF whitelist maar auto-label is af.
+  if (!autoActionAllowed) {
     await admin.from("automation_runs").insert({
       automation: "debtor-email-review",
-      status: "feedback",
+      status: "predicted",
       result: {
         stage: "zapier_ingest_classify",
         message_id: messageId,
+        source_mailbox: sourceMailbox,
+        entity: settings.entity,
         subject: msg.subject,
         from: msg.from,
         predicted: { category: r.category, confidence: r.confidence, rule: r.matchedRule },
-        action: "skipped_not_whitelisted",
+        action: isWhitelistMatch && !settings.auto_label_enabled
+          ? "skipped_disabled"
+          : "skipped_not_whitelisted",
       },
       triggered_by: "zapier:ingest",
       completed_at: isoNow,
     });
+
+    // Triage hook — fire-and-forget for unknown emails when shadow mode is on.
+    let triageFired = false;
+    if (r.category === "unknown" && settings.triage_shadow_mode && settings.entity) {
+      triageFired = await fireTriageEvent({
+        admin,
+        messageId,
+        sourceMailbox,
+        entity: settings.entity,
+        subject: msg.subject,
+        from: msg.from,
+        fromName: msg.fromName,
+        bodyText: msg.body,
+        receivedAt: msg.receivedAt || isoNow,
+      });
+    }
+
     return NextResponse.json({
       action: r.category === "unknown" ? "skipped_unknown" : "skipped_not_whitelisted",
       messageId,
+      source_mailbox: sourceMailbox,
+      entity: settings.entity ?? undefined,
       category: r.category,
       rule: r.matchedRule,
       confidence: r.confidence,
+      triage_fired: triageFired,
       reason:
         r.category === "unknown"
           ? "geen regel matched — mens moet dit labelen via bulk-review UI"
-          : "regel classificeert correct maar Wilson CI-lo is nog < 95% op telemetry — bewijs via bulk-review moet nog binnen voordat auto-action vrijgegeven wordt",
+          : isWhitelistMatch && !settings.auto_label_enabled
+            ? "whitelist-match maar auto_label_enabled=false voor deze mailbox"
+            : "regel classificeert correct maar Wilson CI-lo is nog < 95% op telemetry — bewijs via bulk-review moet nog binnen voordat auto-action vrijgegeven wordt",
     });
   }
 
@@ -204,35 +325,59 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   const label = CATEGORY_LABEL[categoryKey];
   if (!label) {
     return NextResponse.json(
-      { action: "failed", messageId, error: `no label for category ${categoryKey}` },
+      { action: "failed", messageId, source_mailbox: sourceMailbox, error: `no label for category ${categoryKey}` },
       { status: 500 },
     );
   }
 
-  const catRes = await categorizeEmail(MAILBOX, messageId, label);
+  const catRes = await categorizeEmail(sourceMailbox, messageId, label);
   if (!catRes.success) {
     await admin.from("automation_runs").insert({
       automation: "debtor-email-review",
       status: "failed",
-      result: { stage: "categorize", message_id: messageId, category: label },
+      result: {
+        stage: "categorize",
+        message_id: messageId,
+        source_mailbox: sourceMailbox,
+        entity: settings.entity,
+        category: label,
+      },
       error_message: catRes.error ?? null,
       triggered_by: "zapier:ingest",
       completed_at: isoNow,
     });
-    return NextResponse.json({ action: "failed", messageId, error: `categorize: ${catRes.error}` });
+    return NextResponse.json({
+      action: "failed",
+      messageId,
+      source_mailbox: sourceMailbox,
+      entity: settings.entity ?? undefined,
+      error: `categorize: ${catRes.error}`,
+    });
   }
 
-  const arcRes = await archiveEmail(MAILBOX, messageId);
+  const arcRes = await archiveEmail(sourceMailbox, messageId);
   if (!arcRes.success) {
     await admin.from("automation_runs").insert({
       automation: "debtor-email-review",
       status: "failed",
-      result: { stage: "archive", message_id: messageId, category: label },
+      result: {
+        stage: "archive",
+        message_id: messageId,
+        source_mailbox: sourceMailbox,
+        entity: settings.entity,
+        category: label,
+      },
       error_message: arcRes.error ?? null,
       triggered_by: "zapier:ingest",
       completed_at: isoNow,
     });
-    return NextResponse.json({ action: "failed", messageId, error: `archive: ${arcRes.error}` });
+    return NextResponse.json({
+      action: "failed",
+      messageId,
+      source_mailbox: sourceMailbox,
+      entity: settings.entity ?? undefined,
+      error: `archive: ${arcRes.error}`,
+    });
   }
 
   // Log succesvolle Outlook-actie.
@@ -242,6 +387,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     result: {
       stage: "categorize+archive",
       message_id: messageId,
+      source_mailbox: sourceMailbox,
+      entity: settings.entity,
       applied_category: label,
       decision: "approve",
       triggered_by: "zapier:ingest",
@@ -252,18 +399,24 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   });
 
   // Queue iController-delete als pending. De Inngest cleanup-cron pakt
-  // 'm binnen 5 min op.
+  // 'm binnen 5 min op. Cleanup-worker leest `company` nog niet uit de
+  // row (hardcoded Smeba) — zie .planning/todos/pending/
+  // 2026-04-23-cleanup-worker-multi-mailbox.md.
+  const icontrollerCompany =
+    settings.icontroller_company ?? LEGACY_DEFAULT_ICONTROLLER_COMPANY;
   await admin.from("automation_runs").insert({
     automation: "debtor-email-review",
     status: "pending",
     result: {
       stage: "icontroller_delete",
       message_id: messageId,
-      company: ICONTROLLER_COMPANY,
+      source_mailbox: sourceMailbox,
+      entity: settings.entity,
+      company: icontrollerCompany,
       icontroller: "pending",
       from: msg.from,
       subject: msg.subject,
-      received_at: isoNow,
+      received_at: msg.receivedAt || isoNow,
     },
     triggered_by: "zapier:ingest",
     completed_at: isoNow,
@@ -272,9 +425,85 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   return NextResponse.json({
     action: "labeled",
     messageId,
+    source_mailbox: sourceMailbox,
+    entity: settings.entity ?? undefined,
     category: categoryKey,
     rule: r.matchedRule,
     confidence: r.confidence,
     label,
   });
+}
+
+/**
+ * Fire the debtor/email.received Inngest event for triage. Best-effort:
+ * failures are logged but do NOT propagate to the webhook response so that
+ * a broken Inngest connection never breaks the regex-classifier ingest.
+ */
+async function fireTriageEvent(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  messageId: string;
+  sourceMailbox: string;
+  entity: EntityKey;
+  subject: string;
+  from: string;
+  fromName: string;
+  bodyText: string;
+  receivedAt: string;
+}): Promise<boolean> {
+  try {
+    // Look up the canonical email_pipeline.emails.id by internet_message_id.
+    // Upstream email-ingest pipeline inserts this row; if it hasn't yet we
+    // skip (the row will land eventually and a follow-up backfill can fire
+    // the event later if needed).
+    const emailRes = await params.admin
+      .schema("email_pipeline")
+      .from("emails")
+      .select("id")
+      .eq("internet_message_id", params.messageId)
+      .maybeSingle();
+
+    if (!emailRes.data?.id) {
+      console.warn(
+        `[debtor-email/ingest] triage skipped: email_pipeline.emails row not found for ${params.messageId} (mailbox=${params.sourceMailbox})`,
+      );
+      return false;
+    }
+
+    const senderDomain = params.from.split("@")[1]?.toLowerCase() ?? "";
+    const senderFirstName = firstNameFromDisplayName(params.fromName);
+
+    await inngest.send({
+      name: "debtor/email.received",
+      data: {
+        email_id: emailRes.data.id,
+        subject: params.subject,
+        body_text: params.bodyText,
+        sender_email: params.from,
+        sender_domain: senderDomain,
+        sender_first_name: senderFirstName,
+        mailbox: params.sourceMailbox,
+        entity: params.entity,
+        received_at: params.receivedAt,
+      },
+    });
+    return true;
+  } catch (err) {
+    console.error(
+      `[debtor-email/ingest] triage fire failed for ${params.messageId}:`,
+      err,
+    );
+    return false;
+  }
+}
+
+function firstNameFromDisplayName(displayName: string): string | null {
+  const trimmed = displayName.trim();
+  if (!trimmed) return null;
+  // "Jan de Vries" → "Jan"; "jan.devries@..." style addresses never reach
+  // this helper because fromName comes from the Graph display-name field.
+  // If the display-name is a bare email address (Graph falls back to that),
+  // avoid leaking the address as a "first name".
+  if (trimmed.includes("@")) return null;
+  const first = trimmed.split(/\s+/)[0];
+  return first || null;
 }

@@ -171,4 +171,19 @@ export type Events = {
       sourceUrl?: string;
     };
   };
+
+  // Debtor email swarm — triage (phase 1)
+  "debtor/email.received": {
+    data: {
+      email_id: string;
+      subject: string;
+      body_text: string;
+      sender_email: string;
+      sender_domain: string;
+      sender_first_name?: string | null;
+      mailbox: string;
+      entity: "smeba" | "berki" | "sicli-noord" | "sicli-sud" | "smeba-fire";
+      received_at: string;
+    };
+  };
 };

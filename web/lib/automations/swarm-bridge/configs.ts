@@ -78,6 +78,17 @@ const debtorEmailConfig: SwarmBridgeConfig = {
       .find((c): c is string => !!c);
     return cat ? [cat] : [];
   },
+  triageSource: {
+    schema: "debtor",
+    table: "agent_runs",
+    seedAgents: [
+      { name: "Intent Agent", role: "Classifies unknown-bucket emails" },
+      {
+        name: "Copy-Document Agent",
+        role: "Drafts copy-document replies with fetched PDF",
+      },
+    ],
+  },
 };
 
 export const SWARM_BRIDGE_CONFIGS: SwarmBridgeConfig[] = [debtorEmailConfig];

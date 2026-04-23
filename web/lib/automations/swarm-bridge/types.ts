@@ -63,6 +63,44 @@ export interface SwarmBridgeConfig {
    * audit but drop off the kanban.
    */
   windowDays?: number;
+  /**
+   * Additional agent-run source merged into the same swarm_jobs +
+   * agent_events rebuild. Used by the debtor-email triage (phase 1):
+   * classifier rules come from automation_runs, triage state-machine
+   * rows come from debtor.agent_runs.
+   *
+   * Leave undefined for swarms without a triage pipeline.
+   */
+  triageSource?: {
+    schema: string;
+    table: string;
+    /** Agents to ensure exist in swarm_agents (so they appear on the
+     * Live Delegation Graph even when idle). */
+    seedAgents: Array<{ name: string; role: string }>;
+  };
+}
+
+/** Row shape from debtor.agent_runs (and any other triage-style source
+ *  that follows the same contract). Kept deliberately narrow — only the
+ *  columns the bridge renders. */
+export interface AgentRunRow {
+  id: string;
+  email_id: string;
+  entity: string | null;
+  intent: string | null;
+  sub_type: string | null;
+  document_reference: string | null;
+  confidence: string | null;
+  language: string | null;
+  body_version: string | null;
+  intent_version: string | null;
+  status: string;
+  human_verdict: string | null;
+  draft_url: string | null;
+  tool_outputs: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
 }
 
 export interface BridgeResult {
