@@ -22,6 +22,7 @@ import { refreshBriefings } from "@/lib/inngest/functions/briefing-refresh";
 import { syncDebtorEmailBridgeCron } from "@/lib/inngest/functions/debtor-email-bridge";
 import { cleanupIControllerDispatch } from "@/lib/inngest/functions/debtor-email-icontroller-cleanup-dispatcher";
 import { cleanupIControllerShardWorker } from "@/lib/inngest/functions/debtor-email-icontroller-cleanup-worker";
+import { browserlessKeepalive } from "@/lib/inngest/functions/browserless-keepalive";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -40,5 +41,6 @@ export const { GET, POST, PUT } = serve({
     syncDebtorEmailBridgeCron,
     cleanupIControllerDispatch,
     cleanupIControllerShardWorker,
+    browserlessKeepalive,
   ],
 });
