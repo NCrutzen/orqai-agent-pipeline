@@ -81,18 +81,40 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  // Upsert op bron_referentie. Bij geen ref: gewone insert.
-  const { data, error } = row.bron_referentie
-    ? await supabase
+  // Manuele upsert: partial unique index op bron_referentie werkt niet met ON CONFLICT.
+  // Bij een bron_referentie eerst bestaande rij zoeken en updaten, anders inserten.
+  if (row.bron_referentie) {
+    const { data: existing, error: selectError } = await supabase
+      .from("klachten")
+      .select("id")
+      .eq("bron_referentie", row.bron_referentie)
+      .maybeSingle();
+
+    if (selectError) {
+      return NextResponse.json({ error: selectError.message }, { status: 500 });
+    }
+
+    if (existing?.id) {
+      const { error: updateError } = await supabase
         .from("klachten")
-        .upsert(row, { onConflict: "bron_referentie" })
-        .select("id")
-        .single()
-    : await supabase.from("klachten").insert(row).select("id").single();
+        .update(row)
+        .eq("id", existing.id);
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true, id: existing.id, action: "updated" });
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("klachten")
+    .insert(row)
+    .select("id")
+    .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, id: data?.id });
+  return NextResponse.json({ ok: true, id: data?.id, action: "inserted" });
 }
