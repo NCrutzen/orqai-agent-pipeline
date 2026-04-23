@@ -139,14 +139,18 @@ async function findEmailViaSearch(
           const txt = row.textContent ?? "";
           if (txt.includes("No data available")) continue;
 
-          // Scan every cell: pick the one with the longest non-numeric
-          // text that contains alphabetic characters. That's almost
-          // always the subject cell, regardless of column index.
+          // Scan every cell: pick the longest text cell that isn't an
+          // email address or a pure datestamp. Observed 2026-04-23: the
+          // old "longest alphabetic cell" rule picked the sender-email
+          // cell (`administratie@fire-contro…`) for auto-reply rows,
+          // causing subject-match false negatives.
           const cells = Array.from(row.querySelectorAll<HTMLTableCellElement>("td"));
           let subjectText = "";
           for (const c of cells) {
             const raw = (c.getAttribute("title") || c.textContent || "").trim();
             if (!/[a-z]/i.test(raw)) continue;
+            if (/\S@\S/.test(raw) && !/\s/.test(raw)) continue;
+            if (/^\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}/.test(raw)) continue;
             if (raw.length > subjectText.length) subjectText = raw;
           }
           subjectText = norm(subjectText);
@@ -171,7 +175,10 @@ async function findEmailViaSearch(
         }
         return { hits, pageCandidates };
       },
-      { wantSubject: email.subject, targetMs, toleranceMs: 15_000, offsetMs: amsterdamOffsetMs },
+      // ±60s: debug run 2026-04-23 showed exact-subject matches getting
+      // rejected because 15s was narrower than real delivery drift
+      // between the mailbox and iController's ingest clock.
+      { wantSubject: email.subject, targetMs, toleranceMs: 60_000, offsetMs: amsterdamOffsetMs },
     );
 
     for (const c of pageCandidates) debugCandidates.push(c);
