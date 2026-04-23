@@ -451,23 +451,8 @@ async function fireTriageEvent(params: {
   receivedAt: string;
 }): Promise<boolean> {
   try {
-    // Look up the canonical email_pipeline.emails.id by internet_message_id.
-    // Upstream email-ingest pipeline inserts this row; if it hasn't yet we
-    // skip (the row will land eventually and a follow-up backfill can fire
-    // the event later if needed).
-    const emailRes = await params.admin
-      .schema("email_pipeline")
-      .from("emails")
-      .select("id")
-      .eq("internet_message_id", params.messageId)
-      .maybeSingle();
-
-    if (!emailRes.data?.id) {
-      console.warn(
-        `[debtor-email/ingest] triage skipped: email_pipeline.emails row not found for ${params.messageId} (mailbox=${params.sourceMailbox})`,
-      );
-      return false;
-    }
+    const emailId = await resolveOrCreateEmailRow(params);
+    if (!emailId) return false;
 
     const senderDomain = params.from.split("@")[1]?.toLowerCase() ?? "";
     const senderFirstName = firstNameFromDisplayName(params.fromName);
@@ -475,7 +460,7 @@ async function fireTriageEvent(params: {
     await inngest.send({
       name: "debtor/email.received",
       data: {
-        email_id: emailRes.data.id,
+        email_id: emailId,
         subject: params.subject,
         body_text: params.bodyText,
         sender_email: params.from,
@@ -494,6 +479,65 @@ async function fireTriageEvent(params: {
     );
     return false;
   }
+}
+
+/**
+ * Resolve the email_pipeline.emails row for this Zapier-triggered message,
+ * creating a minimal row if none exists.
+ *
+ * The upstream email-ingest pipeline (separate process) uses
+ * `source='outlook'` with its own Graph message-ID encoding. Zapier's
+ * webhook trigger delivers a DIFFERENT Graph ID encoding for the same
+ * message. To avoid silently failing the lookup (which blocked the very
+ * first smoke-test on 2026-04-23), we key Zapier-ingested rows under
+ * `source='outlook-zapier'` + the Zapier-provided messageId. Rows
+ * inserted here stay isolated from upstream rows — no collisions.
+ */
+async function resolveOrCreateEmailRow(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  messageId: string;
+  sourceMailbox: string;
+  subject: string;
+  from: string;
+  fromName: string;
+  bodyText: string;
+  receivedAt: string;
+}): Promise<string | null> {
+  const existing = await params.admin
+    .schema("email_pipeline")
+    .from("emails")
+    .select("id")
+    .eq("source", "outlook-zapier")
+    .eq("source_id", params.messageId)
+    .maybeSingle();
+
+  if (existing.data?.id) return existing.data.id;
+
+  const inserted = await params.admin
+    .schema("email_pipeline")
+    .from("emails")
+    .insert({
+      source: "outlook-zapier",
+      source_id: params.messageId,
+      mailbox: params.sourceMailbox,
+      subject: params.subject,
+      sender_email: params.from,
+      sender_name: params.fromName || null,
+      body_text: params.bodyText,
+      received_at: params.receivedAt,
+      direction: "inbound",
+    })
+    .select("id")
+    .single();
+
+  if (inserted.error || !inserted.data?.id) {
+    console.error(
+      `[debtor-email/ingest] failed to upsert email_pipeline.emails for ${params.messageId}:`,
+      inserted.error,
+    );
+    return null;
+  }
+  return inserted.data.id;
 }
 
 function firstNameFromDisplayName(displayName: string): string | null {
