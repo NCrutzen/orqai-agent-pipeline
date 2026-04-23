@@ -1,6 +1,10 @@
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { deleteEmailFromIController } from "@/lib/automations/debtor-email-cleanup/browser";
+import {
+  openIControllerSession,
+  deleteEmailOnPage,
+  closeIControllerSession,
+} from "@/lib/automations/debtor-email-cleanup/browser";
 
 const ICONTROLLER_COMPANY = "smebabrandbeveiliging";
 
@@ -85,97 +89,96 @@ export const cleanupIControllerPending = inngest.createFunction(
       return true;
     });
 
-    const results: Array<{
-      message_id: string;
-      outcome: "deleted" | "not_found" | "failed";
-      error?: string;
-    }> = [];
+    // Stap 2: één browsersessie voor de hele batch. De login + navigate
+    // dance (~8-12s) gebeurt één keer i.p.v. N keer — grootste winst qua
+    // wall-clock tijd én Browserless-units. Alle per-item DB updates en
+    // het iController-delete zitten in één step.run; bij partial failure
+    // retryt Inngest de hele step (rows die al op completed staan worden
+    // via de admin.update idempotent overschreven).
+    const results = await step.run("delete-batch", async () => {
+      const out: Array<{
+        message_id: string;
+        outcome: "deleted" | "not_found" | "failed";
+        error?: string;
+      }> = [];
 
-    // Stap 2: per bericht één stap — elk krijgt zijn eigen 60s budget.
-    for (const row of todo) {
-      const r = row.result;
-      const outcome = await step.run(`delete-${r.message_id.slice(-20)}`, async () => {
-        // Flip to `pending` before starting — signals the swarm-bridge
-        // that the row is being actively worked on right now, so the
-        // card moves deferred → pending (Ready → In progress) in the
-        // kanban UI. Also prevents a subsequent cron tick from double-
-        // picking the same row if this invocation overruns its budget.
-        await admin
-          .from("automation_runs")
-          .update({
-            automation: "debtor-email-cleanup",
-            status: "pending",
-            result: { ...r, processed_by: "inngest-cleanup-cron" },
-          })
-          .eq("id", row.id);
+      const session = await openIControllerSession("production");
+      try {
+        for (const row of todo) {
+          const r = row.result;
 
-        try {
-          const icRes = await deleteEmailFromIController(
-            {
+          // Flip naar `pending` zodat de kanban de kaart naar "In progress"
+          // schuift en een volgende cron-tick deze rij niet dubbelpakt.
+          await admin
+            .from("automation_runs")
+            .update({
+              automation: "debtor-email-cleanup",
+              status: "pending",
+              result: { ...r, processed_by: "inngest-cleanup-cron" },
+            })
+            .eq("id", row.id);
+
+          try {
+            const icRes = await deleteEmailOnPage(session.page, session.cfg, {
               company: ICONTROLLER_COMPANY,
               from: r.from,
               subject: r.subject,
               receivedAt: r.received_at,
-            },
-            "production",
-          );
-          const errText = icRes.error ?? "";
-          const icStatus: "deleted" | "not_found" | "failed" =
-            icRes.success && icRes.emailFound
-              ? "deleted"
-              : !icRes.emailFound && /email not found|company .* not found/i.test(errText)
-                ? "not_found"
-                : "failed";
+            });
+            const errText = icRes.error ?? "";
+            const icStatus: "deleted" | "not_found" | "failed" =
+              icRes.success && icRes.emailFound
+                ? "deleted"
+                : !icRes.emailFound && /email not found|company .* not found/i.test(errText)
+                  ? "not_found"
+                  : "failed";
 
-          // Update de pending-rij in-place naar de uiteindelijke status.
-          // Belangrijk: NIET een nieuwe rij insert, want dan zou de
-          // pending-rij bij de volgende cron-run opnieuw opgepakt worden.
-          //
-          // automation wijzigt van "debtor-email-review" naar
-          // "debtor-email-cleanup" zodat de V7 swarm-bridge deze run
-          // correct mapt naar de "AutoReplyHandler" sub-agent ipv de
-          // classifier. Zie web/lib/automations/debtor-email-bridge/sync.ts
-          await admin
-            .from("automation_runs")
-            .update({
-              automation: "debtor-email-cleanup",
-              status: icStatus === "failed" ? "failed" : "completed",
-              result: {
-                ...r,
-                icontroller: icStatus,
-                screenshots: icRes.screenshots,
-                processed_by: "inngest-cleanup-cron",
-              },
-              error_message: icStatus === "failed" ? errText || null : null,
-              completed_at: new Date().toISOString(),
-            })
-            .eq("id", row.id);
+            await admin
+              .from("automation_runs")
+              .update({
+                automation: "debtor-email-cleanup",
+                status: icStatus === "failed" ? "failed" : "completed",
+                result: {
+                  ...r,
+                  icontroller: icStatus,
+                  screenshots: icRes.screenshots,
+                  processed_by: "inngest-cleanup-cron",
+                },
+                error_message: icStatus === "failed" ? errText || null : null,
+                completed_at: new Date().toISOString(),
+              })
+              .eq("id", row.id);
 
-          return { message_id: r.message_id, outcome: icStatus, error: errText || undefined };
-        } catch (err) {
-          const msg = String(err);
-          // Mark deze rij als failed zodat de cron niet eindeloos dezelfde
-          // crashing item blijft proberen. Inngest retries nemen transient
-          // errors voor hun rekening (retries: 1 op function-niveau).
-          await admin
-            .from("automation_runs")
-            .update({
-              automation: "debtor-email-cleanup",
-              status: "failed",
-              result: {
-                ...r,
-                icontroller: "failed",
-                processed_by: "inngest-cleanup-cron",
-              },
-              error_message: msg,
-              completed_at: new Date().toISOString(),
-            })
-            .eq("id", row.id);
-          return { message_id: r.message_id, outcome: "failed" as const, error: msg };
+            out.push({
+              message_id: r.message_id,
+              outcome: icStatus,
+              error: errText || undefined,
+            });
+          } catch (err) {
+            const msg = String(err);
+            await admin
+              .from("automation_runs")
+              .update({
+                automation: "debtor-email-cleanup",
+                status: "failed",
+                result: {
+                  ...r,
+                  icontroller: "failed",
+                  processed_by: "inngest-cleanup-cron",
+                },
+                error_message: msg,
+                completed_at: new Date().toISOString(),
+              })
+              .eq("id", row.id);
+            out.push({ message_id: r.message_id, outcome: "failed", error: msg });
+          }
         }
-      });
-      results.push(outcome);
-    }
+      } finally {
+        await closeIControllerSession(session);
+      }
+
+      return out;
+    });
 
     // Stap 3: rapporteer hoeveel items er nog te doen zijn.
     const remaining = await step.run("count-remaining", async () => {

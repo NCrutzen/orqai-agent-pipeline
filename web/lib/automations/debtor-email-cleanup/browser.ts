@@ -6,7 +6,7 @@ const AUTOMATION_NAME = "debtor-email-cleanup";
 
 export type IControllerEnv = "acceptance" | "production";
 
-interface EnvConfig {
+export interface EnvConfig {
   url: string;
   credentialId: string;
   sessionKey: string;
@@ -288,7 +288,7 @@ async function findEmailViaSearch(
         }
         return { hits, pageCandidates };
       },
-      { wantSubject: email.subject, targetMs, toleranceMs: 60_000, offsetMs: amsterdamOffsetMs },
+      { wantSubject: email.subject, targetMs, toleranceMs: 15_000, offsetMs: amsterdamOffsetMs },
     );
 
     for (const c of pageCandidates) debugCandidates.push(c);
@@ -432,7 +432,7 @@ export async function findAndPreviewEmail(
         rowIndex: -1,
         rowPreview: null,
         screenshot: shot,
-        error: `Ambiguous match: multiple rows with subject "${email.subject}" within ±60s of ${email.receivedAt}`,
+        error: `Ambiguous match: multiple rows with subject "${email.subject}" within ±15s of ${email.receivedAt}`,
       };
     }
     if (rowIndex === -1) {
@@ -486,26 +486,64 @@ export async function findAndPreviewEmail(
   }
 }
 
+export interface IControllerSession {
+  browser: Awaited<ReturnType<typeof connectWithSession>>["browser"];
+  context: Awaited<ReturnType<typeof connectWithSession>>["context"];
+  page: Page;
+  cfg: EnvConfig;
+}
+
 /**
- * Find and delete a specific email in iController.
- * Called by the Vercel API route after Zapier handles the Outlook side.
- *
- * Input: email identifiers from Zapier (company, from, subject, receivedAt)
- * Output: success status + before/after screenshot paths for audit trail
+ * Open an iController session once per batch. Login + navigate-to-messages
+ * run a single time here — callers then call `deleteEmailOnPage` N times
+ * against the same `page` to amortize the ~8-12s of connect + login cost.
  */
-export async function deleteEmailFromIController(
-  email: EmailIdentifiers,
+export async function openIControllerSession(
   env?: IControllerEnv,
-): Promise<CleanupResult> {
+): Promise<IControllerSession> {
   const cfg = resolveEnv(env);
   const { browser, context, page } = await connectWithSession(cfg.sessionKey);
+  await login(page, cfg);
+  await navigateToMessages(page, cfg);
+  return { browser, context, page, cfg };
+}
 
+/**
+ * Persist session cookies + close the browser. Safe to call in a finally
+ * block — swallows errors from either half so an earlier failure in the
+ * batch still cleans up the Browserless session.
+ */
+export async function closeIControllerSession(
+  session: IControllerSession,
+): Promise<void> {
   try {
-    await login(page, cfg);
-    await navigateToMessages(page, cfg);
+    await saveSession(session.context, session.cfg.sessionKey);
+  } catch {
+    // non-fatal — next run will re-login if cookies are stale
+  }
+  try {
+    await session.browser.close();
+  } catch {
+    // ignore — Browserless will GC the session on its end
+  }
+}
 
-    // Stay on the all-accounts view — sidebar filtering is the wrong
-    // mental model (same mailbox, many Account labels).
+/**
+ * Search + delete one email against an already-opened iController page.
+ * Caller is responsible for opening/closing the session. Before returning
+ * to /messages for the next item, we re-navigate so the search box is
+ * reset — otherwise residual filter state leaks into the next iteration.
+ */
+export async function deleteEmailOnPage(
+  page: Page,
+  cfg: EnvConfig,
+  email: EmailIdentifiers,
+): Promise<CleanupResult> {
+  try {
+    // Reset the list view so each item starts from a clean state (previous
+    // search filter still populated would skew the next findEmailViaSearch).
+    await page.goto(`${cfg.url}/messages`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1000);
 
     const rowIndex = await findEmailViaSearch(page, email);
     if (rowIndex === -2) {
@@ -517,7 +555,7 @@ export async function deleteEmailFromIController(
         success: false,
         emailFound: false,
         screenshots: { before: errorScreenshot, after: null },
-        error: `Ambiguous match: multiple rows with subject "${email.subject}" within ±60s of ${email.receivedAt}`,
+        error: `Ambiguous match: multiple rows with subject "${email.subject}" within ±15s of ${email.receivedAt}`,
       };
     }
     if (rowIndex === -1) {
@@ -534,7 +572,6 @@ export async function deleteEmailFromIController(
       };
     }
 
-    // Highlight the target row so before/after screenshots clearly point to it.
     await highlightRow(page, rowIndex);
     await page.waitForTimeout(400);
 
@@ -546,8 +583,6 @@ export async function deleteEmailFromIController(
         await selectAndDelete(page, rowIndex);
       },
     );
-
-    await saveSession(context, cfg.sessionKey);
 
     return {
       success: true,
@@ -566,7 +601,23 @@ export async function deleteEmailFromIController(
       screenshots: { before: errorScreenshot, after: null },
       error: String(error),
     };
+  }
+}
+
+/**
+ * Find and delete a single email in iController (one-off path used by the
+ * review-UI server action). Opens a fresh session, deletes, closes.
+ * For batch flows the cron uses openIControllerSession + deleteEmailOnPage
+ * directly so the login cost is amortized.
+ */
+export async function deleteEmailFromIController(
+  email: EmailIdentifiers,
+  env?: IControllerEnv,
+): Promise<CleanupResult> {
+  const session = await openIControllerSession(env);
+  try {
+    return await deleteEmailOnPage(session.page, session.cfg, email);
   } finally {
-    await browser.close();
+    await closeIControllerSession(session);
   }
 }
