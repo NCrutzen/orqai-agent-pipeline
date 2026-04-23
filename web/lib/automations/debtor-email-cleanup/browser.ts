@@ -56,10 +56,17 @@ export interface CleanupResult {
  */
 async function login(page: Page, cfg: EnvConfig): Promise<void> {
   await page.goto(cfg.url, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(2000);
+
+  // Race: either we land on a login form (session invalid) or we land on
+  // the authenticated shell where #messages-nav / the sidebar is present.
+  // Waiting on whichever appears first beats a blind 2s sleep.
+  await Promise.race([
+    page.waitForSelector("#login-username", { timeout: 4000 }),
+    page.waitForSelector("#messages-nav, .sidebar, #messages-list", { timeout: 4000 }),
+  ]).catch(() => null);
 
   const hasLoginForm = await page.locator('#login-username')
-    .isVisible({ timeout: 3000 })
+    .isVisible({ timeout: 500 })
     .catch(() => false);
 
   if (!hasLoginForm) return; // Already logged in via session
@@ -68,10 +75,15 @@ async function login(page: Page, cfg: EnvConfig): Promise<void> {
 
   await page.fill('#login-username', creds.username);
   await page.fill('#login-password', creds.password);
-  await page.click('#login-submit');
 
-  await page.waitForLoadState("domcontentloaded");
-  await page.waitForTimeout(2000);
+  // Click + wait for post-login navigation signal (any sidebar element)
+  // rather than a blind 2s sleep.
+  await Promise.all([
+    page
+      .waitForSelector("#messages-nav, .sidebar, #messages-list", { timeout: 10_000 })
+      .catch(() => null),
+    page.click('#login-submit'),
+  ]);
 }
 
 /**
@@ -80,7 +92,9 @@ async function login(page: Page, cfg: EnvConfig): Promise<void> {
  */
 async function navigateToMessages(page: Page, cfg: EnvConfig): Promise<void> {
   await page.goto(`${cfg.url}/messages`, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(2000);
+  await page
+    .waitForSelector("#messages-list", { timeout: 8000 })
+    .catch(() => null);
 }
 
 /**
@@ -201,18 +215,30 @@ async function findEmailViaSearch(
   let typed = false;
   for (const sel of searchSelectors) {
     const input = page.locator(sel).first();
-    if (await input.isVisible({ timeout: 1500 }).catch(() => false)) {
+    if (await input.isVisible({ timeout: 800 }).catch(() => false)) {
       await input.fill("");
+      // Kick off the response listener BEFORE the Enter that triggers the
+      // DataTables AJAX — otherwise we can miss the frame the request fires.
+      const waitForXhr = page
+        .waitForResponse(
+          (r) => {
+            const u = r.url();
+            return (
+              r.request().resourceType() === "xhr" &&
+              (u.includes("/messages") || u.includes("DataTables") || u.includes("draw="))
+            );
+          },
+          { timeout: 4000 },
+        )
+        .catch(() => null);
       await input.fill(email.from);
       await input.press("Enter").catch(() => null);
+      await waitForXhr;
       typed = true;
       break;
     }
   }
   if (!typed) return -1;
-
-  // Wait for the table to settle after the search filter applies.
-  await page.waitForTimeout(1500);
 
   const targetMs = new Date(email.receivedAt).getTime();
   if (Number.isNaN(targetMs)) return -1;
@@ -305,7 +331,21 @@ async function findEmailViaSearch(
       return true;
     });
     if (!advanced) break;
-    await page.waitForTimeout(1500);
+    // Pagination click also triggers a DataTables XHR — wait on that
+    // instead of a blind 1500ms. Falls through at 4s if the endpoint
+    // doesn't emit a recognizable URL.
+    await page
+      .waitForResponse(
+        (r) => {
+          const u = r.url();
+          return (
+            r.request().resourceType() === "xhr" &&
+            (u.includes("/messages") || u.includes("DataTables") || u.includes("draw="))
+          );
+        },
+        { timeout: 4000 },
+      )
+      .catch(() => null);
   }
 
   // Stash debug info on the page so the caller can retrieve it.
@@ -363,15 +403,24 @@ async function selectAndDelete(page: Page, rowIndex: number): Promise<void> {
 
   await checkbox.scrollIntoViewIfNeeded();
   await checkbox.click();
-  await page.waitForTimeout(400);
 
-  let checked = await checkbox.isChecked().catch(() => false);
+  // Poll for checked state for up to 1s instead of a blind 400ms sleep —
+  // returns as soon as the checkbox registers as :checked.
+  const waitChecked = async (timeoutMs: number): Promise<boolean> => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (await checkbox.isChecked().catch(() => false)) return true;
+      await page.waitForTimeout(50);
+    }
+    return false;
+  };
+
+  let checked = await waitChecked(1000);
   if (!checked) {
     // Fallback: click the first cell (select column) — many DataTables
     // implementations toggle the checkbox when the cell is clicked.
     await row.locator("td").first().click();
-    await page.waitForTimeout(400);
-    checked = await checkbox.isChecked().catch(() => false);
+    checked = await waitChecked(1000);
   }
   if (!checked) {
     throw new Error(`Checkbox on row ${rowIndex} could not be checked`);
@@ -379,17 +428,36 @@ async function selectAndDelete(page: Page, rowIndex: number): Promise<void> {
 
   const deleteButton = page.locator('.delete-bulk.bulk-action').first();
   await deleteButton.click();
-  await page.waitForTimeout(1000);
 
+  // Modal appears via JS animation — the visibility-check below already
+  // has its own 3s timeout, so the old blind 1s sleep was redundant.
   const confirmButton = page.locator(
     'button:has-text("OK"), button:has-text("Yes"), button:has-text("Confirm"), button:has-text("Delete"), .modal button.call-to-action',
   );
   const hasConfirm = await confirmButton.first().isVisible({ timeout: 3000 }).catch(() => false);
   if (hasConfirm) {
+    // Kick off delete-XHR listener before the click — same pattern as the
+    // search: otherwise we risk racing past the request emission frame.
+    const waitForDeleteXhr = page
+      .waitForResponse(
+        (r) => {
+          const u = r.url();
+          const method = r.request().method();
+          return (
+            (method === "POST" || method === "DELETE") &&
+            (u.includes("/messages") || u.includes("/delete"))
+          );
+        },
+        { timeout: 6000 },
+      )
+      .catch(() => null);
     await confirmButton.first().click();
+    await waitForDeleteXhr;
   }
 
-  await page.waitForTimeout(2000);
+  // Brief settle time for the table rerender after the XHR returns —
+  // down from 2s to 400ms.
+  await page.waitForTimeout(400);
 }
 
 export interface PreviewResult {
@@ -543,7 +611,9 @@ export async function deleteEmailOnPage(
     // Reset the list view so each item starts from a clean state (previous
     // search filter still populated would skew the next findEmailViaSearch).
     await page.goto(`${cfg.url}/messages`, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1000);
+    await page
+      .waitForSelector("#messages-list", { timeout: 6000 })
+      .catch(() => null);
 
     const rowIndex = await findEmailViaSearch(page, email);
     if (rowIndex === -2) {
