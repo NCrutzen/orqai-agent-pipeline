@@ -45,7 +45,13 @@ export const cleanupIControllerShardWorker = inngest.createFunction(
   {
     id: "automations/debtor-email-icontroller-shard-worker",
     retries: 1,
-    concurrency: { limit: 1, key: "event.data.workerIndex" },
+    // CEL expression wrapped in string() so a numeric workerIndex (0,1,2)
+    // yields three distinct string keys ("0","1","2") instead of collapsing
+    // into a single bucket — which is what Inngest appears to do when the
+    // key expression returns a number. Observed 2026-04-23: without this
+    // wrap, 3 emitted shard events ran sequentially (1 running + 2 queued)
+    // instead of all three in parallel.
+    concurrency: { limit: 1, key: "string(event.data.workerIndex)" },
   },
   { event: "icontroller/cleanup.shard.requested" },
   async ({ event, step }) => {
