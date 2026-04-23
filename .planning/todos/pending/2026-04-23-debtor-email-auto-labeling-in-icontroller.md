@@ -1,6 +1,6 @@
 ---
 created: 2026-04-23T00:00:00.000Z
-title: Debtor email auto-labeling to iController debtor accounts
+title: iController Auto-Labeling van Accounts aan Emails
 area: automation
 project: Debiteuren Email (60c730a3-f20d-4559-88a3-0cc4c58cdef7)
 files:

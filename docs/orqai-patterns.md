@@ -368,7 +368,40 @@ If you forget the `variables` object, the agent receives the literal string
 
 ---
 
-## 9. Common Mistakes Checklist
+## 9. Orchestration: Inngest-per-step vs Orq agent-as-tool
+
+Bij het ontwerpen van een swarm: kies per sub-taak tussen (a) een Orq-agent die zelf meerdere tools aanroept, of (b) Orq-agents die alléén LLM-reasoning doen en Inngest steps die tools uitvoeren.
+
+### Beslisregel
+
+- **LLM moet kiezen tussen tools op basis van semantische reasoning**
+  → agent-as-tool binnen Orq (sub-agent doet zelf meerdere tool-calls)
+- **Tool-volgorde is dwingend OF tool is duur/flaky (>5s latency OF retry-gevoelig)**
+  → Inngest orchestreert tussen stappen; Orq.ai doet alleen LLM-calls
+- **Altijd:** `variables.email_id` (of equivalent correlation key) in elke Orq-call voor cross-system trace-joinbaarheid (Orq traces ↔ Inngest timeline ↔ Supabase `agent_runs`)
+
+### Waarom agent-as-tool faalt bij flaky/dure tools
+
+- Orq heeft geen durable step-retry. Partial failure → hele agent-run opnieuw → dure tool-call wordt herhaald.
+- HITL "wacht op human review" blokkeert een Orq-run; Inngest `step.waitForEvent` is durable en schaalbaar.
+- Per-agent prompt-replay voor evals is makkelijker als elke agent standalone Orq-call is in plaats van geneste orchestrator-call.
+
+### Concreet voorbeeld — debtor-email swarm
+
+- `debtor-intent-agent` (Orq, geen tools) → emit classificatie
+- Inngest routeert op basis van intent
+- `debtor-copy-document-body-agent` (Orq, geen tools) → emit cover-HTML
+- Inngest doet in code: `fetchDocument` → `createIcontrollerDraft` (beide HTTP-calls met step-retry; `fetchDocument`-resultaat gecached in step-output zodat `createDraft`-retry niet opnieuw 26s Zap-chain triggert)
+
+### Anti-patroon
+
+Copy-Document als één Orq-agent met 2 tool-calls: `fetchDocument` slaagt → `createDraft` faalt → hele agent-run failt → retry triggert opnieuw 26s Zap-chain voor PDF die we al hadden.
+
+→ Cross-link: `docs/inngest-patterns.md` §step.run semantics.
+
+---
+
+## 10. Common Mistakes Checklist
 
 Before shipping any Orq.ai agent, verify:
 
