@@ -123,7 +123,7 @@ export const cleanupIControllerShardWorker = inngest.createFunction(
                   screenshots: icRes.screenshots,
                   processed_by: processorName,
                 },
-                error_message: icStatus === "failed" ? errText || null : null,
+                error_message: icStatus !== "deleted" ? errText || null : null,
                 completed_at: new Date().toISOString(),
               })
               .eq("id", row.id);
