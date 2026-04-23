@@ -15,7 +15,7 @@ export async function connectWithSession(sessionKey?: string): Promise<{
   // runs late; the captured value is undefined).
   const token = process.env.BROWSERLESS_API_TOKEN;
   if (!token) throw new Error("BROWSERLESS_API_TOKEN not configured");
-  const wsEndpoint = `wss://production-ams.browserless.io?token=${token}&timeout=180000`;
+  const wsEndpoint = `wss://production-ams.browserless.io?token=${token}&timeout=600000`;
   const browser = await chromium.connectOverCDP(wsEndpoint, { timeout: 120_000 });
 
   let storageState: string | undefined;
