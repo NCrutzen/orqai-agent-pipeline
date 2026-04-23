@@ -8,13 +8,15 @@ import {
 
 const ICONTROLLER_COMPANY = "smebabrandbeveiliging";
 
-// Hoeveel pending items per cron-invocatie proberen. Elke delete kost
-// ~15-25s (Browserless login + search + delete). Vercel Pro timeout is
-// 60s per invocatie, maar step.run splitst elk item in een eigen
-// invocatie — dus theoretisch mag dit hoger. We houden 'm op 5 om
-// Browserless concurrency en rate-limits niet te stressen; met een 5-min
-// cron is dat een throughput van 60 items/uur = 1440/dag.
-const BATCH_SIZE = 5;
+// Parallelle tabs binnen één browser-context — één iController-login,
+// N onafhankelijke pages die tegelijk items afwerken. 3 is conservatief
+// t.o.v. iController's server-side rate limits; units blijven laag
+// omdat het één Browserless-sessie is.
+const PARALLELISM = 3;
+// Items per cron-tick. Verdeeld over PARALLELISM tabs, dus elke tab
+// krijgt ~5 items. Met event-based waits zit per-item tijd op ~8-12s,
+// dus een batch van 15 in parallel duurt ~40-60s per cron.
+const BATCH_SIZE = 15;
 
 interface PendingResult {
   stage: string;
@@ -96,19 +98,34 @@ export const cleanupIControllerPending = inngest.createFunction(
     // retryt Inngest de hele step (rows die al op completed staan worden
     // via de admin.update idempotent overschreven).
     const results = await step.run("delete-batch", async () => {
-      const out: Array<{
+      type Outcome = {
         message_id: string;
         outcome: "deleted" | "not_found" | "failed";
         error?: string;
-      }> = [];
+      };
+
+      // Verdeel todo over PARALLELISM workers via round-robin, zodat
+      // elke worker ongeveer evenveel items krijgt ook bij kleine batches.
+      const chunks: PendingRow[][] = Array.from(
+        { length: PARALLELISM },
+        () => [],
+      );
+      todo.forEach((row, idx) => chunks[idx % PARALLELISM].push(row));
 
       const session = await openIControllerSession("production");
       try {
-        for (const row of todo) {
+        // Eén login + navigate is al gedaan door openIControllerSession
+        // op session.page. Extra tabs delen de cookies (same context) dus
+        // hoeven niet opnieuw in te loggen — deleteEmailOnPage doet een
+        // eigen goto(/messages) aan het begin van elke iteratie.
+        const pages = [session.page];
+        for (let i = 1; i < PARALLELISM; i++) {
+          pages.push(await session.context.newPage());
+        }
+
+        const processOne = async (row: PendingRow, page: typeof session.page): Promise<Outcome> => {
           const r = row.result;
 
-          // Flip naar `pending` zodat de kanban de kaart naar "In progress"
-          // schuift en een volgende cron-tick deze rij niet dubbelpakt.
           await admin
             .from("automation_runs")
             .update({
@@ -119,7 +136,7 @@ export const cleanupIControllerPending = inngest.createFunction(
             .eq("id", row.id);
 
           try {
-            const icRes = await deleteEmailOnPage(session.page, session.cfg, {
+            const icRes = await deleteEmailOnPage(page, session.cfg, {
               company: ICONTROLLER_COMPANY,
               from: r.from,
               subject: r.subject,
@@ -149,11 +166,11 @@ export const cleanupIControllerPending = inngest.createFunction(
               })
               .eq("id", row.id);
 
-            out.push({
+            return {
               message_id: r.message_id,
               outcome: icStatus,
               error: errText || undefined,
-            });
+            };
           } catch (err) {
             const msg = String(err);
             await admin
@@ -170,14 +187,27 @@ export const cleanupIControllerPending = inngest.createFunction(
                 completed_at: new Date().toISOString(),
               })
               .eq("id", row.id);
-            out.push({ message_id: r.message_id, outcome: "failed", error: msg });
+            return { message_id: r.message_id, outcome: "failed", error: msg };
           }
-        }
+        };
+
+        // Fan-out: elke worker verwerkt zijn chunk sequentieel op de
+        // eigen page; workers lopen parallel. Eén worker die crasht
+        // neemt de andere niet mee — we wrappen per-item al in try/catch.
+        const workerResults = await Promise.all(
+          chunks.map(async (chunk, workerIdx) => {
+            const page = pages[workerIdx];
+            const out: Outcome[] = [];
+            for (const row of chunk) {
+              out.push(await processOne(row, page));
+            }
+            return out;
+          }),
+        );
+        return workerResults.flat();
       } finally {
         await closeIControllerSession(session);
       }
-
-      return out;
     });
 
     // Stap 3: rapporteer hoeveel items er nog te doen zijn.
