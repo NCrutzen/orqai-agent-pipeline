@@ -176,6 +176,10 @@ export type Events = {
   "debtor/email.received": {
     data: {
       email_id: string;
+      /** Outlook Graph message-ID — needed to navigate the iController
+       *  mail view when creating the reply-draft. Distinct from
+       *  `email_id` (our internal Supabase UUID). */
+      graph_message_id: string;
       subject: string;
       body_text: string;
       sender_email: string;

@@ -461,6 +461,7 @@ async function fireTriageEvent(params: {
       name: "debtor/email.received",
       data: {
         email_id: emailId,
+        graph_message_id: params.messageId,
         subject: params.subject,
         body_text: params.bodyText,
         sender_email: params.from,

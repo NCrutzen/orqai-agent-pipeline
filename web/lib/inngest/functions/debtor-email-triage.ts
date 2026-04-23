@@ -327,10 +327,7 @@ export const debtorEmailTriage = inngest.createFunction(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          // TODO(schema): email_pipeline.emails.icontroller_message_id is not
-          // part of event payload yet — phase 1.5 wiring adds this. For now
-          // the event carries email_id only; downstream must resolve.
-          messageId: email_id,
+          messageId: email.graph_message_id,
           bodyHtml: body.body_html,
           pdfBase64: fetchResult.pdf.base64,
           filename: fetchResult.pdf.filename,
