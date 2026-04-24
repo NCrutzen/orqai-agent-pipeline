@@ -118,10 +118,14 @@ Plans:
 **Requirements**: See `.planning/phases/55-debtor-email-pipeline-hardening/55-CONTEXT.md` and source todos: `2026-04-23-cleanup-worker-multi-mailbox.md`, `2026-04-23-create-draft-idempotency-and-cleanup.md`, `2026-04-23-debtor-review-pipeline-provenance-and-scoping.md`, `2026-04-23-self-training-loop-debtor-email-swarm.md` §Phase 1
 **Depends on:** Phase 54
 **Blocker for:** copy-document swarm production launch (alle mailboxen behalve Smeba)
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 55 to break down)
+- [ ] 55-01-PLAN.md — Wave 0: public.agent_runs migration + icontroller_drafts sentinel + labeling_settings.icontroller_mailbox_id + vitest scaffolding + 10 test stubs
+- [ ] 55-02-PLAN.md — Multi-mailbox resolver: per-row mailbox_id in cleanup-worker / catchup / review-actions; EmailIdentifiers contract swap; ingest route writes icontroller_mailbox_id
+- [ ] 55-03-PLAN.md — createIcontrollerDraft idempotency (sentinel row) + HTML-comment operator marker + orphan reconcile in cleanup-worker
+- [ ] 55-04-PLAN.md — Review-lane provenance chips (7 triggers) + skipped_not_whitelisted hygiene + generic /automations/review/[runId] route + POST /api/automations/debtor/verdict
+- [ ] 55-05-PLAN.md — agent_runs writers → public.agent_runs with swarm_type discriminator + git-sha versioning + context jsonb migration
 
 ### Phase 56: iController auto-labeling van accounts aan emails
 
