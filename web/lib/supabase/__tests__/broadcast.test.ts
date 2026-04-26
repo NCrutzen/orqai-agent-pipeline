@@ -34,21 +34,121 @@ vi.mock("@/lib/supabase/client", () => ({
 import {
   broadcastStepUpdate,
   broadcastRunUpdate,
+  broadcastChatMessage,
+  createChatBroadcaster,
   type StepUpdatePayload,
   type RunUpdatePayload,
 } from "../broadcast";
 import { useBroadcast } from "../broadcast-client";
 
 // ---------------------------------------------------------------------------
-// Tests
+// Tests: Debounce behavior (Phase 59 D-03)
+// ---------------------------------------------------------------------------
+
+describe("broadcast debounce (Phase 59 D-03)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("Test 1: coalesces rapid step updates for same (runId, stepName) — emit-the-latest", async () => {
+    await broadcastStepUpdate("run1", { stepName: "x", status: "waiting", displayName: "" });
+    await broadcastStepUpdate("run1", { stepName: "x", status: "running", displayName: "" });
+    await broadcastStepUpdate("run1", { stepName: "x", status: "complete", displayName: "" });
+
+    // Before window elapses, no send yet
+    expect(mockSend).toHaveBeenCalledTimes(0);
+
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend.mock.calls[0][0].payload.status).toBe("complete");
+    expect(mockSend.mock.calls[0][0].event).toBe("step-update");
+  });
+
+  it("Test 2: different stepNames within same run do not interfere", async () => {
+    await broadcastStepUpdate("run1", { stepName: "x", status: "running", displayName: "" });
+    await broadcastStepUpdate("run1", { stepName: "y", status: "running", displayName: "" });
+
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(mockSend).toHaveBeenCalledTimes(2);
+    const stepNames = mockSend.mock.calls.map((c) => c[0].payload.stepName).sort();
+    expect(stepNames).toEqual(["x", "y"]);
+  });
+
+  it("Test 3: different runIds do not interfere", async () => {
+    await broadcastStepUpdate("runA", { stepName: "x", status: "running", displayName: "" });
+    await broadcastStepUpdate("runB", { stepName: "x", status: "running", displayName: "" });
+
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(mockSend).toHaveBeenCalledTimes(2);
+    const channels = mockAdminChannel.mock.calls.map((c) => c[0]).sort();
+    expect(channels).toContain("run:runA");
+    expect(channels).toContain("run:runB");
+  });
+
+  it("Test 4: broadcastChatMessage is NOT debounced (3 calls = 3 sends)", async () => {
+    await broadcastChatMessage("run1", { id: "1", role: "user", content: "a" });
+    await broadcastChatMessage("run1", { id: "2", role: "user", content: "b" });
+    await broadcastChatMessage("run1", { id: "3", role: "user", content: "c" });
+
+    // Chat is direct-send: should already have all 3 calls without advancing timers
+    expect(mockSend).toHaveBeenCalledTimes(3);
+    const events = mockSend.mock.calls.map((c) => c[0].event);
+    expect(events).toEqual(["chat-message", "chat-message", "chat-message"]);
+  });
+
+  it("Test 5: createChatBroadcaster.send is NOT debounced (5 calls = 5 sends)", async () => {
+    const broadcaster = createChatBroadcaster("run1");
+    await broadcaster.send({ messageId: "m1", role: "assistant", token: "a", isStart: true });
+    await broadcaster.send({ messageId: "m1", role: "assistant", token: "b" });
+    await broadcaster.send({ messageId: "m1", role: "assistant", token: "c" });
+    await broadcaster.send({ messageId: "m1", role: "assistant", token: "d" });
+    await broadcaster.send({ messageId: "m1", role: "assistant", token: "e", isDone: true });
+    broadcaster.close();
+
+    expect(mockSend).toHaveBeenCalledTimes(5);
+    const events = mockSend.mock.calls.map((c) => c[0].event);
+    expect(events.every((e) => e === "chat-token")).toBe(true);
+  });
+
+  it("Test 6: broadcastRunUpdate coalesces rapid same-runId calls — emit-the-latest", async () => {
+    await broadcastRunUpdate("run1", { runId: "run1", status: "running", stepsCompleted: 1 });
+    await broadcastRunUpdate("run1", { runId: "run1", status: "running", stepsCompleted: 2 });
+    await broadcastRunUpdate("run1", { runId: "run1", status: "complete", stepsCompleted: 3 });
+
+    expect(mockSend).toHaveBeenCalledTimes(0);
+
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend.mock.calls[0][0].payload.status).toBe("complete");
+    expect(mockSend.mock.calls[0][0].payload.stepsCompleted).toBe(3);
+    expect(mockAdminChannel).toHaveBeenCalledWith("runs:live");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: broadcastStepUpdate (existing surface, now via debounce)
 // ---------------------------------------------------------------------------
 
 describe("broadcastStepUpdate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
   });
 
-  it("sends step-update event to run:{runId} channel", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("sends step-update event to run:{runId} channel after debounce window", async () => {
     const payload: StepUpdatePayload = {
       stepName: "architect",
       status: "running",
@@ -56,6 +156,7 @@ describe("broadcastStepUpdate", () => {
     };
 
     await broadcastStepUpdate("run-123", payload);
+    await vi.advanceTimersByTimeAsync(600);
 
     expect(mockAdminChannel).toHaveBeenCalledWith("run:run-123");
     expect(mockSend).toHaveBeenCalledWith({
@@ -77,6 +178,7 @@ describe("broadcastStepUpdate", () => {
     };
 
     await broadcastStepUpdate("run-456", payload);
+    await vi.advanceTimersByTimeAsync(600);
 
     const sentPayload = mockSend.mock.calls[0][0].payload;
     expect(sentPayload.stepName).toBe("spec-generator");
@@ -96,6 +198,7 @@ describe("broadcastStepUpdate", () => {
     };
 
     await broadcastStepUpdate("run-789", payload);
+    await vi.advanceTimersByTimeAsync(600);
 
     expect(mockRemoveChannel).toHaveBeenCalledWith({ send: mockSend });
   });
@@ -105,10 +208,10 @@ describe("broadcastStepUpdate", () => {
       stepName: "architect",
       status: "running",
       displayName: "Designing",
-      // durationMs, stepsCompleted, runStatus, log are all optional
     };
 
     await broadcastStepUpdate("run-minimal", payload);
+    await vi.advanceTimersByTimeAsync(600);
 
     const sentPayload = mockSend.mock.calls[0][0].payload;
     expect(sentPayload.durationMs).toBeUndefined();
@@ -118,12 +221,21 @@ describe("broadcastStepUpdate", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Tests: broadcastRunUpdate (existing surface, now via debounce)
+// ---------------------------------------------------------------------------
+
 describe("broadcastRunUpdate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
   });
 
-  it("sends run-update event to runs:live channel", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("sends run-update event to runs:live channel after debounce window", async () => {
     const payload: RunUpdatePayload = {
       runId: "run-123",
       status: "running",
@@ -131,6 +243,7 @@ describe("broadcastRunUpdate", () => {
     };
 
     await broadcastRunUpdate("run-123", payload);
+    await vi.advanceTimersByTimeAsync(600);
 
     expect(mockAdminChannel).toHaveBeenCalledWith("runs:live");
     expect(mockSend).toHaveBeenCalledWith({
@@ -149,6 +262,7 @@ describe("broadcastRunUpdate", () => {
     };
 
     await broadcastRunUpdate("run-456", payload);
+    await vi.advanceTimersByTimeAsync(600);
 
     const sentPayload = mockSend.mock.calls[0][0].payload;
     expect(sentPayload.runId).toBe("run-456");
@@ -165,15 +279,19 @@ describe("broadcastRunUpdate", () => {
     };
 
     await broadcastRunUpdate("run-789", payload);
+    await vi.advanceTimersByTimeAsync(600);
 
     expect(mockRemoveChannel).toHaveBeenCalledWith({ send: mockSend });
   });
 });
 
+// ---------------------------------------------------------------------------
+// Tests: useBroadcast hook (unchanged)
+// ---------------------------------------------------------------------------
+
 describe("useBroadcast", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset the on mock to return subscribe again
     mockOn.mockReturnValue({ subscribe: mockSubscribe });
   });
 
@@ -200,7 +318,6 @@ describe("useBroadcast", () => {
 
     renderHook(() => useBroadcast("run:test-123", "step-update", callback));
 
-    // Get the callback passed to .on()
     const broadcastHandler = mockOn.mock.calls[0][2];
     const testPayload = { stepName: "architect", status: "running" };
     broadcastHandler({ payload: testPayload });
@@ -231,13 +348,10 @@ describe("useBroadcast", () => {
 
     const initialSubscribeCount = mockSubscribe.mock.calls.length;
 
-    // Rerender with new callback reference
     rerender({ cb: callback2 });
 
-    // Subscribe count should not increase (useRef prevents re-subscribe)
     expect(mockSubscribe.mock.calls.length).toBe(initialSubscribeCount);
 
-    // But the new callback should be used when event fires
     const broadcastHandler = mockOn.mock.calls[0][2];
     broadcastHandler({ payload: { test: true } });
     expect(callback2).toHaveBeenCalledWith({ test: true });
