@@ -151,13 +151,13 @@ Plans:
 
 **Goal:** Get Supabase realtime messages back under cap (currently 6.5M / 5.5M; grace until 2026-05-26). Phase 58 attacked the upstream writes; Phase 59 attacks the subscription architecture so we don't grow back into the cap as automation volume scales.
 
-**Scope (to be refined in /gsd:plan-phase 59):**
-- Add server-side filter to `automation-realtime-provider.tsx` (currently subscribes to ALL `automation_runs` rows; filters client-side).
-- Replace `agent_events` postgres_changes with batched broadcast on `swarm:${swarmId}` channel (bridge tick emits 1 msg instead of 50–200 row-level msgs).
-- Coalesce `pipeline.ts` `broadcastStepUpdate` calls (22 call sites; rapid status flips emit one msg per flip with no debouncing).
-
 **Depends on:** Phase 58 (cron windowing — completed).
-**Status:** Context drafted (`59-CONTEXT.md`); awaiting `/gsd:plan-phase 59`.
+**Plans:** 3 plans (all Wave 1, parallel — no inter-dependencies)
+
+Plans:
+- [ ] 59-01-PLAN.md — agent_events postgres_changes → batched broadcast + refetch (decision #1)
+- [ ] 59-02-PLAN.md — automation_runs unfiltered subscription → broadcast-driven refetch (decision #2)
+- [ ] 59-03-PLAN.md — Pipeline broadcast coalescing → 500ms debounce in broadcast.ts (decision #3)
 
 ### Phase 58: Inngest cron cost optimization (Shipped 2026-04-26)
 
