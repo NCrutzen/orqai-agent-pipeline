@@ -147,6 +147,14 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd:plan-phase 57 to break down)
 
+### Phase 58: Inngest cron cost optimization (Shipped 2026-04-26)
+
+**Goal:** Bring Inngest free-tier usage back under 50k runs/mo after dual billing alerts (Inngest 42k/50k mid-month, Supabase 6.5M/5.5M realtime messages). Window high-frequency crons to business hours (06:00–19:58 Europe/Amsterdam, Mon–Fri) and pause `orqai-trace-sync` entirely while Executive Dashboard work is on hold.
+
+**Outcome:** Cron-only baseline cut from ~97,600/mo → ~25,000/mo (74% reduction). Bridge cadence 1 min → 2 min within window. orqai-trace-sync converted to event-trigger (`analytics/orqai-trace-sync.run`) so it can be invoked manually when dashboard work resumes.
+
+**Plans:** 58-01 (single atomic edit across 4 Inngest functions).
+
 ---
 
 ## Phases

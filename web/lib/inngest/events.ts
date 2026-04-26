@@ -85,6 +85,15 @@ export type Events = {
   };
 
   // Analytics collection events (Phase 44)
+  // Phase 58: orqai-trace-sync converted from cron to event-only trigger
+  // (Executive Dashboard development paused). Send this event to invoke
+  // a manual sync run; no payload required.
+  "analytics/orqai-trace-sync.run": {
+    data: {
+      triggeredBy?: string;
+    };
+  };
+
   "analytics/orqai-collect.completed": {
     data: {
       snapshotId: string;

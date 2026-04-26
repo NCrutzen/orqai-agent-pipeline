@@ -9,6 +9,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Vercel invocation with a full 300s budget → its own Browserless
  * session. That way one shard crashing doesn't block the others.
  *
+ * Phase 58 (cost optimization): cron is windowed to business hours —
+ * every 5 min, 06:00–19:55 Europe/Amsterdam, Mon–Fri. Emails arriving
+ * outside the window queue in `automation_runs(stage='pending')` and
+ * are picked up at the next business-day 06:00 tick.
+ *
  * Set `ICONTROLLER_PARALLELISM=3` in Vercel env to enable fan-out.
  * Default 1 = sequential single-worker mode (identical to pre-refactor).
  */
@@ -39,7 +44,7 @@ export const cleanupIControllerDispatch = inngest.createFunction(
     retries: 1,
     concurrency: { limit: 1 },
   },
-  { cron: "*/5 * * * *" },
+  { cron: "TZ=Europe/Amsterdam */5 6-19 * * 1-5" },
   async ({ step }) => {
     const admin = createAdminClient();
     const totalNeeded = PARALLELISM * BATCH_SIZE_PER_WORKER;

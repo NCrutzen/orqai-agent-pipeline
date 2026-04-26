@@ -13,14 +13,22 @@ import {
 } from "@/lib/orqai/trace-mapper";
 
 /**
- * Inngest cron function that pulls trace/span data from Orq.ai every two
- * minutes and maps each span to agent_events rows in Supabase.
+ * Inngest function that pulls trace/span data from Orq.ai and maps each
+ * span to agent_events rows in Supabase.
+ *
+ * Phase 58: Cron trigger PAUSED. The Executive Dashboard (which consumed
+ * this data) is on hold for further development. Function is now invoked
+ * by event only — send `analytics/orqai-trace-sync.run` to re-trigger
+ * manually. To restore the cron when dashboard work resumes, swap the
+ * `event` trigger below for a business-hours cron (every 2 minutes,
+ * hours 6 through 19, Mon–Fri, TZ=Europe/Amsterdam) and consider
+ * widening LOOKBACK_WINDOW_MINUTES to cover the overnight/weekend gap.
  *
  * Architecture:
  *   1. Load all swarms (projects) with a non-null orqai_project_id.
  *   2. Load per-swarm sync watermarks in one round-trip.
- *   3. For each swarm, fetch new traces since the watermark (bounded by a
- *      15-minute lookback window and a hard cap of 200 traces per run),
+ *   3. For each swarm, fetch new traces since the watermark (bounded by
+ *      LOOKBACK_WINDOW_MINUTES and a hard cap of 200 traces per run),
  *      fetch spans per trace, map to agent_events, and upsert with
  *      ON CONFLICT DO NOTHING on the partial unique (span_id, event_type)
  *      index.
@@ -78,7 +86,7 @@ export const syncOrqaiTraces = inngest.createFunction(
       });
     },
   },
-  { cron: "*/2 * * * *" }, // Every 2 minutes
+  { event: "analytics/orqai-trace-sync.run" }, // Phase 58: cron paused; manual-only trigger
   async ({ step }) => {
     // Step 1: swarms with an Orq.ai project mapping
     const swarms = await step.run("load-mapped-swarms", async () => {

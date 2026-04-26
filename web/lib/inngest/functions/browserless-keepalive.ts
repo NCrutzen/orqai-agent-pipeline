@@ -15,9 +15,15 @@ import { inngest } from "@/lib/inngest/client";
  *   because the endpoint warmed up. Staggering workers helped 1 and 2
  *   but left 0 exposed.
  *
- *   This keepalive guarantees traffic every 2 min → accept-path is
- *   never idle long enough to go cold → every automation's first
- *   worker connects against a warm endpoint.
+ *   This keepalive guarantees traffic every 2 min during business hours
+ *   → accept-path is never idle long enough to go cold while a human
+ *   might be triggering an automation → every automation's first worker
+ *   connects against a warm endpoint.
+ *
+ *   Phase 58 (cost optimization): keepalive is windowed to business
+ *   hours — 06:00–19:58 Europe/Amsterdam, Mon–Fri. Outside the window
+ *   we accept that the first weekday-morning automation may pay one
+ *   cold-start (~5 s); no human is waiting at 04:00.
  *
  * Scope:
  *   Shared infrastructure for all iController / Browserless flows
@@ -25,9 +31,9 @@ import { inngest } from "@/lib/inngest/client";
  *   login, no storageState — pure CDP handshake.
  *
  * Cost:
- *   ~2s × 720 runs/day ≈ 1440 Browserless units/month. On the
- *   Prototyping tier's 20k/mo budget that's ~7%. Acceptable overhead
- *   for the reliability it buys.
+ *   420 ticks/business-day × 22 working days ≈ 9.2k Inngest runs/mo
+ *   and ~9.2k Browserless units/mo (down from 21.6k/mo at the old
+ *   24/7 every-2-minute cadence).
  */
 export const browserlessKeepalive = inngest.createFunction(
   {
@@ -39,7 +45,7 @@ export const browserlessKeepalive = inngest.createFunction(
     // for no extra warmth.
     concurrency: { limit: 1 },
   },
-  { cron: "*/2 * * * *" },
+  { cron: "TZ=Europe/Amsterdam */2 6-19 * * 1-5" },
   async () => {
     const token = process.env.BROWSERLESS_API_TOKEN;
     if (!token) {

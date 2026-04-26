@@ -152,8 +152,12 @@ const browser = await chromium.connectOverCDP(
 - Alle side effects in `step.run()` — buiten herhaalt bij replay
 - Grote outputs → Supabase, referentie returnen
 - Pro timeout = 60s. Inngest voor lang-lopende taken.
+- **Cron default = business-hours window**: `{ cron: "TZ=Europe/Amsterdam */N 6-19 * * 1-5" }` (06:00-19:58 Amsterdam, Mon-Fri). 24/7 alleen als overnight verkeer écht moet. `TZ=` prefix verplicht — anders draait UTC.
+- **Cron tijdelijk uit?** → `{ event: "naam.run" }` (handmatig triggerbaar, re-enable = één regel). Niet de file deleten.
+- **Watermark-syncs**: bump `LOOKBACK_WINDOW` zodat de eerste tick na een gap (Mon 06:00) ook weekend-data pakt.
+- **NOOIT** een cron-string letterlijk in een `/** */` JSDoc zetten — `*/N` sluit het comment. Beschrijf in woorden ("every 2 minutes, hours 6-19, Mon-Fri") of gebruik `//` single-line.
 
-→ `docs/inngest-patterns.md`
+→ `docs/inngest-patterns.md` · learning `eb434cfd-107e-4a9c-bf8e-c1a443d36802`
 
 ### Zapier
 - NXT SQL alleen via Zapier (whitelisted IP)
