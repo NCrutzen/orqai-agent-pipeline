@@ -23,7 +23,7 @@ create table if not exists public.classifier_rule_evaluations (
 -- Pitfall 7: idempotency for same-day re-runs (manual cron re-trigger).
 create unique index if not exists classifier_rule_evaluations_daily_uniq
   on public.classifier_rule_evaluations
-  (swarm_type, rule_key, ((evaluated_at)::date));
+  (swarm_type, rule_key, ((evaluated_at at time zone 'UTC')::date));
 
 create index if not exists classifier_rule_evaluations_lookup_idx
   on public.classifier_rule_evaluations (swarm_type, rule_key, evaluated_at desc);

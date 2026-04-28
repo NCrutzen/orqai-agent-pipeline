@@ -12,16 +12,25 @@ alter table public.automation_runs
   add column if not exists mailbox_id  int;
 
 -- Backfill from JSONB shape (verified vs route.ts:272-289).
+-- mailbox_id mapping mirrors web/lib/automations/debtor-email/mailboxes.ts (ICONTROLLER_MAILBOXES).
 update public.automation_runs ar
 set
   swarm_type = coalesce(ar.swarm_type, 'debtor-email'),
   topic      = coalesce(ar.topic,      ar.result->'predicted'->>'category'),
   entity     = coalesce(ar.entity,     ar.result->>'entity'),
-  mailbox_id = coalesce(ar.mailbox_id, ls.id)
-from debtor.labeling_settings ls
+  mailbox_id = coalesce(
+    ar.mailbox_id,
+    case ar.result->>'source_mailbox'
+      when 'debiteuren@smeba.nl'      then 4
+      when 'debiteuren@smeba-fire.nl' then 5
+      when 'debiteuren@sicli-noord.nl' then 15
+      when 'debiteuren@sicli-sud.nl'   then 16
+      when 'debiteuren@berki.nl'       then 171
+      else null
+    end
+  )
 where ar.automation = 'debtor-email-review'
-  and ar.swarm_type is null
-  and ls.source_mailbox = ar.result->>'source_mailbox';
+  and ar.swarm_type is null;
 
 -- Catch automation_runs rows that have no source_mailbox in result -- still
 -- backfill swarm_type/topic/entity so the not-null follow-up has a clean run.
