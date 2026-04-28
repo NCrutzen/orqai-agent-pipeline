@@ -1,0 +1,43 @@
+// Phase 60-00 (D-02, D-03). Pure-function promotion/demotion gates.
+
+import { describe, it, expect } from "vitest";
+import {
+  shouldPromote,
+  shouldDemote,
+  PROMOTE_N_MIN,
+  PROMOTE_CI_LO_MIN,
+  DEMOTE_CI_LO_MAX,
+} from "../wilson";
+
+describe("D-02: shouldPromote requires N>=30 AND ci_lo>=0.95", () => {
+  it("rejects N<30 even with perfect ci_lo", () => {
+    expect(shouldPromote(29, 0.99)).toBe(false);
+  });
+
+  it("rejects ci_lo<0.95 even with large N", () => {
+    expect(shouldPromote(500, 0.949)).toBe(false);
+  });
+
+  it("accepts at the exact threshold (N=30, ci_lo=0.95)", () => {
+    expect(shouldPromote(PROMOTE_N_MIN, PROMOTE_CI_LO_MIN)).toBe(true);
+  });
+
+  it("accepts comfortably above threshold", () => {
+    expect(shouldPromote(169, 0.978)).toBe(true);
+  });
+});
+
+describe("D-03: shouldDemote fires below 0.92 (5pp hysteresis gap)", () => {
+  it("does NOT demote at exactly 0.92", () => {
+    expect(shouldDemote(DEMOTE_CI_LO_MAX)).toBe(false);
+  });
+
+  it("does NOT demote in the 0.92-0.95 hysteresis band", () => {
+    expect(shouldDemote(0.93)).toBe(false);
+  });
+
+  it("demotes below 0.92", () => {
+    expect(shouldDemote(0.919)).toBe(true);
+    expect(shouldDemote(0.5)).toBe(true);
+  });
+});
