@@ -1,7 +1,17 @@
 // Phase 60-04 (D-26). Real assertions on RulesTable rendering.
 
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, fireEvent, within, cleanup } from "@testing-library/react";
+
+// Stub server actions — they require runtime env vars (Supabase) we don't load in tests.
+vi.mock("@/app/(dashboard)/automations/classifier-rules/actions", () => ({
+  blockRule: vi.fn(async () => undefined),
+  unblockRule: vi.fn(async () => undefined),
+}));
+
+afterEach(() => {
+  cleanup();
+});
 import type { ClassifierRule } from "@/lib/classifier/types";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import { RulesTable } from "@/app/(dashboard)/automations/classifier-rules/rules-table";
