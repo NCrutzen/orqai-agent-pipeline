@@ -132,10 +132,18 @@ Plans:
 **Goal:** Inbound debtor-emails in iController automatisch labelen aan het juiste debiteur-account na de cleanup-stap. Per mailbox aan/uit via Zapier; onbekende mails blijven onaangeroerd. Scope: Supabase migratie uitvoeren, NXT invoice→debtor lookup via Zapier (whitelisted IP), sender→debtor fallback, LLM tiebreaker voor ambigue matches, iController label-DOM probe, Browserless label-module, Zapier Zaps per mailbox (6 entities: smeba=4, smeba-fire=5, firecontrol=12, sicli-noord=15, sicli-sud=16, berki=171), dry-run review + flip naar live.
 **Requirements**: See todo `2026-04-23-debtor-email-auto-labeling-in-icontroller.md`
 **Depends on:** Phase 54 (independent van 55 — eigen code-pad)
-**Plans:** 0 plans
+**Plans:** 9 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 56 to break down)
+- [ ] 56-00-PLAN.md — Wave 0: additive migration + 9 vitest scaffolds + probe-script source + NXT-Zap client + LLM tiebreaker + resolve-debtor + label-module skeleton + flip-cron skeleton
+- [ ] 56-01-PLAN.md — [BLOCKING] Apply Phase 56 additive migration to live Supabase (mirror of 60-01)
+- [ ] 56-02-PLAN.md — [BLOCKING] Confirm NXT contactperson schema + deploy generic NXT-lookup Zap + set Vercel env vars + 5-brand smoke test
+- [ ] 56-03-PLAN.md — [BLOCKING] Run probe-label-ui.ts on production iController + curate SELECTORS.md
+- [ ] 56-04-PLAN.md — Refactor route.ts to sender-first 4-layer pipeline + always-write email_labels + agent_runs telemetry + broadcast
+- [ ] 56-05-PLAN.md — Implement label-email-in-icontroller.ts with probe-confirmed selectors + wire route dispatch
+- [ ] 56-06-PLAN.md — Dashboard /automations/debtor-email-labeling: page + counts hook + row list + drawer + approve/reject server actions
+- [ ] 56-07-PLAN.md — Implement labeling-flip-cron evaluateMailbox + pickAction + register in Inngest manifest (shadow-mode default)
+- [ ] 56-08-PLAN.md — [calendar-soft] Smeba canary review + flip LABELING_CRON_MUTATE=true; per-mailbox rollout checklist
 
 ### Phase 57: v7 review dashboard polish
 
