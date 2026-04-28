@@ -44,6 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_projects_orqai_project_id
 
 ALTER TABLE orqai_sync_state ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read orqai_sync_state" ON orqai_sync_state;
 CREATE POLICY "Authenticated users can read orqai_sync_state"
   ON orqai_sync_state FOR SELECT TO authenticated USING (true);
 
