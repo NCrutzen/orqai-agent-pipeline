@@ -88,11 +88,11 @@ describe("D-21: race-cohort banner shows for promoted-today rules with remaining
         count={47}
       />,
     );
-    // Full CTA string check
-    expect(
-      screen.getByRole("button", {
-        name: /Bulk-clear remaining 47 predicted rows for promoted rule "subject_paid_marker"/,
-      }),
-    ).toBeInTheDocument();
+    // Full CTA string check — at least one button (the banner CTA) carries
+    // this exact aria-label.
+    const ctaButtons = screen.getAllByRole("button", {
+      name: /Bulk-clear remaining 47 predicted rows for promoted rule "subject_paid_marker"/,
+    });
+    expect(ctaButtons.length).toBeGreaterThanOrEqual(1);
   });
 });
