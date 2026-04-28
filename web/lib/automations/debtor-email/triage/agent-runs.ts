@@ -20,10 +20,11 @@ export async function createRun(
   supabase: SupabaseClient,
   input: CreateRunInput,
 ): Promise<string> {
+  // Phase 60-00: cross-swarm public.agent_runs replaces debtor.agent_runs.
   const { data, error } = await supabase
-    .schema("debtor")
     .from("agent_runs")
     .insert({
+      swarm_type: "debtor-email",
       email_id: input.email_id,
       inngest_run_id: input.inngest_run_id,
       entity: input.entity,
@@ -60,7 +61,6 @@ export async function updateRun(
 ): Promise<void> {
   if (Object.keys(patch).length === 0) return;
   const { error } = await supabase
-    .schema("debtor")
     .from("agent_runs")
     .update(patch)
     .eq("id", id);
@@ -79,7 +79,6 @@ export async function mergeToolOutputs(
   payload: JsonValue,
 ): Promise<void> {
   const { data, error: readErr } = await supabase
-    .schema("debtor")
     .from("agent_runs")
     .select("tool_outputs")
     .eq("id", id)
@@ -92,7 +91,6 @@ export async function mergeToolOutputs(
   const merged: Record<string, JsonValue> = { ...current, [stage]: payload };
 
   const { error: writeErr } = await supabase
-    .schema("debtor")
     .from("agent_runs")
     .update({ tool_outputs: merged })
     .eq("id", id);
@@ -111,7 +109,6 @@ export async function findCachedOutput<T = Record<string, unknown>>(
   output_field: "tool_outputs" | "draft_url",
 ): Promise<T | null> {
   const { data, error } = await supabase
-    .schema("debtor")
     .from("agent_runs")
     .select(`id,${output_field}`)
     .eq("email_id", email_id)
