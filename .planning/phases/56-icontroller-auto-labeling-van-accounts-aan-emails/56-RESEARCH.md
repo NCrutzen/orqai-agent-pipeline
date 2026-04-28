@@ -752,7 +752,7 @@ function pickAction({ n, ci_lo, dry_run, mutate }: { n: number; ci_lo: number; d
 | A8 | `extract-invoices.ts` regex `/\b(17|25|30|32|33)\d{6}\b/g` covers current invoice formats | D-09 seed | [VERIFIED: used in MVP route + corroborated by todo doc note "covers current sample"] |
 | A9 | NXT Zapier connections support all 5 brand databases | D-07 | [ASSUMED] Operator confirms during Zap creation. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **New cron file vs branch in `classifier-promotion-cron.ts`?**
    - What we know: Phase 60's cron iterates `classifier_rules` per `swarm_type` and writes per-rule evaluations. Phase 56's flip target is per-mailbox (`labeling_settings.dry_run`), not per-rule (`classifier_rules.status`). Math is the same (Wilson), source table is the same (`agent_runs`), but mutation target differs.
