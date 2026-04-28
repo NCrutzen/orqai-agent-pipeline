@@ -124,6 +124,13 @@ The 50/49 fixture from the plan's <action> example would NOT clear the 0.95 prom
 - **Fix:** Documented here -- ran without the flag (`pnpm vitest run lib/classifier`); same coverage and output. No code change.
 - **Files modified:** none.
 
+**3. [Tracking note] 60-04 in-progress UI files swept into 60-03 docs commit `9d02eb2`**
+- **Found during:** post-commit `git show --stat`.
+- **Issue:** The `docs(60-03)` commit unexpectedly captured 7 already-on-disk 60-04 files (`web/app/(dashboard)/automations/classifier-rules/*` and a test file mod). I ran `git add` with the SUMMARY path only -- they appear to have been pre-staged by a prior session/tool. The 60-03 substantive work (cron + tests) lives cleanly in `692af05` and is untouched by this.
+- **Fix:** Not reverting -- the files are valid 60-04 GREEN-phase work (paired with the `test(60-04)` RED commit `0107752` already on main). 60-04 should reference these as already-landed and add only its impl/glue commits on top. No content of those files was authored by this plan.
+- **Files affected:** `web/app/(dashboard)/automations/classifier-rules/{actions.ts,block-rule-modal.tsx,ci-lo-sparkline.tsx,page.tsx,rule-status-badge.tsx,rules-table.tsx}`, `web/tests/classifier-rules/rules-table.test.tsx`.
+- **Commit:** `9d02eb2`.
+
 No other deviations. Pure additions to the cron file plus an exported helper for testability (called out in the plan's Task 1 §2 as a permitted "small refactor -- fine").
 
 ## Authentication Gates
