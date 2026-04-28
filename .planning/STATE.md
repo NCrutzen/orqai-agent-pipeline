@@ -51,6 +51,10 @@ Progress: [████░░░░░░] 43% (3 of 7 V7.0 phases code-complete
 
 | Phase 48 P01 | 3min | 2 tasks | 9 files |
 
+### Roadmap Evolution
+
+- Phase 60 added: Debtor email — close the whitelist-gate loop (data-driven AUTO_ACTION_RULES with Wilson-CI auto-promotion cron + queue-driven Bulk Review UI reading automation_runs status=predicted directly)
+
 ### Decisions
 
 - V7.0 uses parallel CSS namespace (--v7-*) to coexist with existing shadcn tokens

@@ -167,6 +167,16 @@ Plans:
 
 **Plans:** 58-01 (single atomic edit across 4 Inngest functions).
 
+### Phase 60: Debtor email — close the whitelist-gate loop: data-driven AUTO_ACTION_RULES with Wilson-CI auto-promotion cron + queue-driven Bulk Review UI reading automation_runs status=predicted directly
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 59
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 60 to break down)
+
 ---
 
 ## Phases
