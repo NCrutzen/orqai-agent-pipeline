@@ -25,6 +25,14 @@ describe("D-02: shouldPromote requires N>=30 AND ci_lo>=0.95", () => {
   it("accepts comfortably above threshold", () => {
     expect(shouldPromote(169, 0.978)).toBe(true);
   });
+
+  it("rejects just below ci_lo threshold even at exact N min", () => {
+    expect(shouldPromote(30, 0.949)).toBe(false);
+  });
+
+  it("rejects high N with sub-threshold ci_lo", () => {
+    expect(shouldPromote(1000, 0.94)).toBe(false);
+  });
 });
 
 describe("D-03: shouldDemote fires below 0.92 (5pp hysteresis gap)", () => {
@@ -38,6 +46,22 @@ describe("D-03: shouldDemote fires below 0.92 (5pp hysteresis gap)", () => {
 
   it("demotes below 0.92", () => {
     expect(shouldDemote(0.919)).toBe(true);
+    expect(shouldDemote(0.91)).toBe(true);
     expect(shouldDemote(0.5)).toBe(true);
+  });
+
+  it("does NOT demote at near-perfect ci_lo", () => {
+    expect(shouldDemote(0.999)).toBe(false);
+  });
+});
+
+describe("D-02 + D-03: 5pp hysteresis gap prevents flap-demotion", () => {
+  it("a rule promoted at ci_lo=0.95 will not flap-demote until ci_lo<0.92", () => {
+    // Step 1: rule clears the promotion gate.
+    expect(shouldPromote(30, 0.95)).toBe(true);
+    // Step 2: ci_lo dips into the hysteresis band -- no demotion yet.
+    expect(shouldDemote(0.93)).toBe(false);
+    // Step 3: ci_lo finally drops below the demote floor -- now we demote.
+    expect(shouldDemote(0.91)).toBe(true);
   });
 });
