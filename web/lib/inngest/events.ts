@@ -147,6 +147,27 @@ export type Events = {
     };
   };
 
+  // Phase 60 — classifier whitelist-gate loop
+  "classifier/backfill.run": {
+    data: {
+      triggeredBy?: string;
+    };
+  };
+  "classifier/verdict.recorded": {
+    data: {
+      automation_run_id: string;
+      agent_run_id: string;
+      swarm_type: string;
+      rule_key: string;
+      decision: "approve" | "reject";
+      message_id: string;
+      source_mailbox: string;
+      entity: string;
+      predicted_category: string;
+      override_category?: string;
+    };
+  };
+
   // iController cleanup fan-out (dispatcher → shard worker)
   "icontroller/cleanup.shard.requested": {
     data: {

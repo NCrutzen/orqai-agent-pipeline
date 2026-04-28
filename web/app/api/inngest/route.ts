@@ -24,6 +24,9 @@ import { cleanupIControllerDispatch } from "@/lib/inngest/functions/debtor-email
 import { cleanupIControllerShardWorker } from "@/lib/inngest/functions/debtor-email-icontroller-cleanup-worker";
 import { browserlessKeepalive } from "@/lib/inngest/functions/browserless-keepalive";
 import { debtorEmailTriage } from "@/lib/inngest/functions/debtor-email-triage";
+import { classifierBackfill } from "@/lib/inngest/functions/classifier-backfill";
+import { classifierPromotionCron } from "@/lib/inngest/functions/classifier-promotion-cron";
+// TODO 60-06: register classifierVerdictWorker
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -44,5 +47,8 @@ export const { GET, POST, PUT } = serve({
     cleanupIControllerShardWorker,
     browserlessKeepalive,
     debtorEmailTriage,
+    classifierBackfill,
+    classifierPromotionCron,
+    // TODO 60-06: classifierVerdictWorker
   ],
 });
