@@ -26,7 +26,7 @@ import { browserlessKeepalive } from "@/lib/inngest/functions/browserless-keepal
 import { debtorEmailTriage } from "@/lib/inngest/functions/debtor-email-triage";
 import { classifierBackfill } from "@/lib/inngest/functions/classifier-backfill";
 import { classifierPromotionCron } from "@/lib/inngest/functions/classifier-promotion-cron";
-// TODO 60-06: register classifierVerdictWorker
+import { classifierVerdictWorker } from "@/lib/inngest/functions/classifier-verdict-worker";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -49,6 +49,6 @@ export const { GET, POST, PUT } = serve({
     debtorEmailTriage,
     classifierBackfill,
     classifierPromotionCron,
-    // TODO 60-06: classifierVerdictWorker
+    classifierVerdictWorker,
   ],
 });
