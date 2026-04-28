@@ -4,6 +4,8 @@ import { categorizeEmail, archiveEmail, fetchMessageBody, getMessageMeta } from 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inngest } from "@/lib/inngest/client";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
+import { readWhitelist } from "@/lib/classifier/cache";
+import { ICONTROLLER_MAILBOXES } from "@/lib/automations/debtor-email/mailboxes";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -36,14 +38,11 @@ const LEGACY_DEFAULT_ICONTROLLER_COMPANY = "smebabrandbeveiliging";
  * samples. Laat die via bulk-review UI blijven lopen tot ze ook bewezen
  * zijn.
  */
-const AUTO_ACTION_RULES = new Set<string>([
-  "subject_paid_marker",
-  "payment_subject",
-  "payment_sender+subject",
-  "payment_system_sender+body",
-  "payment_sender+hint+body",
-  "payment_sender+body",
-]);
+// Phase 60-02 (D-28 step 3): the whitelist now lives in
+// public.classifier_rules and is fetched per request via readWhitelist (60s
+// in-memory cache, FALLBACK_WHITELIST inside cache.ts on DB error). The
+// JSDoc above documents the seed empirics that backfill 60-02 wrote into
+// the table.
 
 const CATEGORY_LABEL: Record<string, string> = {
   auto_reply: "Auto-Reply",
@@ -111,7 +110,7 @@ interface IngestResponse {
  *      body nodig voor body-gebaseerde regels)
  *   3. check idempotency — als al een MR-label → skip
  *   4. classify
- *   5. als rule in AUTO_ACTION_RULES én auto_label_enabled=true →
+ *   5. als rule in classifier-whitelist (D-08 cache) én auto_label_enabled=true →
  *      categorize + archive + log pending iController-delete. Anders →
  *      skip (blijft in inbox voor bulk-review).
  *   6. als category=unknown én triage_shadow_mode=true → fire
@@ -156,6 +155,19 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
 
   const admin = createAdminClient();
   const isoNow = new Date().toISOString();
+
+  // Phase 60-02 (D-08, D-28 step 3): cache-backed read with FALLBACK_WHITELIST
+  // defense-in-depth on transient DB error. Fetched once per request — the
+  // module-level Map in cache.ts amortizes across requests for 60s.
+  const whitelist = await readWhitelist(admin, "debtor-email");
+
+  // Phase 60-02 (D-11): typed mailbox_id mirrors the migration backfill in
+  // 20260428_automation_runs_typed_columns.sql (CASE on source_mailbox).
+  // debtor.labeling_settings has no `id` column, so we resolve via the
+  // ICONTROLLER_MAILBOXES lookup table that already keys this mapping.
+  const mailboxId =
+    ICONTROLLER_MAILBOXES[sourceMailbox as keyof typeof ICONTROLLER_MAILBOXES] ??
+    null;
 
   // Resolve mailbox settings. Unknown mailbox → 400 (surface Zap config error).
   const settingsRes = await admin
@@ -230,6 +242,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     await admin.from("automation_runs").insert({
       automation: "debtor-email-review",
       status: is404 ? "completed" : "failed",
+      swarm_type: "debtor-email",
+      topic: null,
+      entity: settings.entity,
+      mailbox_id: mailboxId,
       result: {
         stage: "zapier_ingest_fetch",
         message_id: messageId,
@@ -264,7 +280,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   // Classify
   const r = classify({ subject: msg.subject, from: msg.from, bodySnippet: msg.body.slice(0, 1000) });
 
-  const isWhitelistMatch = AUTO_ACTION_RULES.has(r.matchedRule);
+  const isWhitelistMatch = whitelist.has(r.matchedRule);
   const autoActionAllowed = isWhitelistMatch && settings.auto_label_enabled;
 
   // Bulk-review pad: geen whitelist-match, OF whitelist maar auto-label is af.
@@ -272,6 +288,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     await admin.from("automation_runs").insert({
       automation: "debtor-email-review",
       status: "predicted",
+      swarm_type: "debtor-email",
+      topic: r.category ?? null,
+      entity: settings.entity,
+      mailbox_id: mailboxId,
       result: {
         stage: "zapier_ingest_classify",
         message_id: messageId,
@@ -338,6 +358,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     await admin.from("automation_runs").insert({
       automation: "debtor-email-review",
       status: "failed",
+      swarm_type: "debtor-email",
+      topic: r.category ?? null,
+      entity: settings.entity,
+      mailbox_id: mailboxId,
       result: {
         stage: "categorize",
         message_id: messageId,
@@ -364,6 +388,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     await admin.from("automation_runs").insert({
       automation: "debtor-email-review",
       status: "failed",
+      swarm_type: "debtor-email",
+      topic: r.category ?? null,
+      entity: settings.entity,
+      mailbox_id: mailboxId,
       result: {
         stage: "archive",
         message_id: messageId,
@@ -389,6 +417,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   await admin.from("automation_runs").insert({
     automation: "debtor-email-review",
     status: "completed",
+    swarm_type: "debtor-email",
+    topic: r.category ?? null,
+    entity: settings.entity,
+    mailbox_id: mailboxId,
     result: {
       stage: "categorize+archive",
       message_id: messageId,
@@ -413,6 +445,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   await admin.from("automation_runs").insert({
     automation: "debtor-email-review",
     status: "pending",
+    swarm_type: "debtor-email",
+    topic: r.category ?? null,
+    entity: settings.entity,
+    mailbox_id: mailboxId,
     result: {
       stage: "icontroller_delete",
       message_id: messageId,
