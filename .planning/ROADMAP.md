@@ -145,6 +145,14 @@ Plans:
 - [ ] 56-07-PLAN.md — Implement labeling-flip-cron evaluateMailbox + pickAction + register in Inngest manifest (shadow-mode default)
 - [ ] 56-08-PLAN.md — [calendar-soft] Smeba canary review + flip LABELING_CRON_MUTATE=true; per-mailbox rollout checklist
 
+### Phase 56.5: Generic /api/zapier-tools/[tool_id] bridge route
+
+**Goal:** Promote the Phase 56 zapier_tools registry from "URL lookup table" to a real bridge layer. One Vercel route handles every Zapier-bound tool: reads tool definition from `public.zapier_tools`, validates input against `input_schema`, formats auth per `auth_method`, forwards to `target_url`, returns response (sync) or kicks off async-callback chain. Migrate the existing invoice-fetch automation (`/api/automations/debtor/fetch-document`) into this generic bridge as the first async-callback consumer, then deprecate the dedicated route. Document tool registry as the canonical Orq.ai agent-tool surface — agents call `POST /api/zapier-tools/<tool_id>` uniformly across automations.
+**Requirements**: D-32, D-33, D-35 from Phase 56 CONTEXT; consolidate sync + async patterns
+**Depends on:** Phase 56 (registry table + 3 seed rows must be live; resolver code patterns proven in production first)
+**Plans:** TBD
+**Defer trigger:** start when EITHER (a) we add a 4th Zapier-bound tool to any automation, OR (b) we want Orq.ai agents to consume the registry, OR (c) invoice-fetch needs a non-trivial change. Don't pre-plan — open with `/gsd-discuss-phase 56.5` when one of those triggers.
+
 ### Phase 57: v7 review dashboard polish
 
 **Goal:** Job-detail drawer bouwen voor v7 kanban cards en screenshot-rendering fixen. Scope: (a) `kanban-job-card.tsx` click → `JobDrawerContext` drawer (header, timeline van log-entries, linked automation_runs, screenshots); (b) `extractScreenshots` in `web/lib/automations/types.ts` fixen — data is `{url, path}`-shape, niet `string`; public-bucket OR on-demand signed-URL refresh. Wacht op Phase 55 (backend stabiel) voordat UI-polish zin heeft.

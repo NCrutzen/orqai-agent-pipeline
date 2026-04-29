@@ -81,6 +81,13 @@ Inbound debtor-emails in iController (na cleanup-stap) automatisch labelen aan h
 - **D-29:** Email-not-yet-ingested race (`email_pipeline.emails` empty when Zapier fires): synchronous 404 to Zapier with `error='email_not_ingested'`. Zapier retry handles it. No async queue. Acceptable per todo doc note ("observatie nodig" → log frequency, escalate if > 1%).
 - **D-30:** Rollout: Smeba (`mailbox_id=4`) shadow-flips first via Wilson-CI cron. Other 4 mailboxes (Smeba-Fire, Sicli-Noord, Sicli-Sud, Berki) stay `dry_run=true` until their N=50 + CI-lo gate passes individually. FireControl deferred until iController access for FireControl is confirmed.
 
+### Zapier-tool registry (architectural anchor — added 2026-04-29)
+
+- **D-32:** **`public.zapier_tools` registry replaces per-Zap env vars.** One row per Zapier-bound tool (sync lookup, async fetch, future). Adding an automation = INSERT one row + build the Zap. No Vercel env var. No code change. No deploy. Schema: `tool_id pk, backend, pattern ('sync'|'async_callback'), target_url, auth_method ('body_field'|'header_bearer'), auth_secret_env, auth_field_name, input_schema jsonb, output_schema jsonb, callback_route, enabled`. Migration: `supabase/migrations/20260429_zapier_tools_registry.sql`.
+- **D-33:** **Auth secrets stay in env vars; the registry references them BY NAME** via `auth_secret_env` column (e.g. value `"DEBTOR_FETCH_WEBHOOK_SECRET"`). Many tools share one secret: all NXT tools point at `DEBTOR_FETCH_WEBHOOK_SECRET` (existing, established by invoice-fetch). Per-tool override possible. Rotation = update one env var + the corresponding Zap's filter.
+- **D-34:** **Phase 56 ships 3 seeded rows** under `backend='nxt'`: `nxt.contact_lookup`, `nxt.identifier_lookup`, `nxt.candidate_details`. All `pattern='sync'`, all point at the new generic-lookup Zap, all use `body_field` auth with field `auth`. The Zap's `lookup_kind` discriminator branches inside Zapier. Resolver code uses tool-id-keyed wrappers (`lookupSenderToAccount`, `lookupIdentifierToAccount`, `lookupCandidateDetails`).
+- **D-35:** **Generic `/api/zapier-tools/[tool_id]/route.ts` bridge route is DEFERRED** to a follow-up phase. Phase 56's resolver calls Zapier directly (with URL read from registry). Follow-up phase consolidates: (a) generic bridge route that reads registry, validates input_schema, formats auth, forwards; (b) generic async-callback handler; (c) migrate existing invoice-fetch into the registry; (d) document for Orq.ai agent consumption (input_schema doubles as agent tool spec).
+
 ### Migration ordering
 
 - **D-31:** **Additive-first, switch-reads** zero-downtime:

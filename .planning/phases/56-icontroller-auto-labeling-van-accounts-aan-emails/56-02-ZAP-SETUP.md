@@ -161,27 +161,17 @@ Use Zapier's "Use a Custom Value" → map the SQL action's `rows` array. The SQL
 
 After all 3 paths are configured + tested.
 
-### 8. Add ONE env var to Vercel (reuses existing secret)
+### 8. Vercel env vars — NONE NEW (registry-backed)
 
-The Vercel env already has `DEBTOR_FETCH_WEBHOOK_SECRET` from the invoice-fetch Zap. Both Zaps share that secret — no new secret var needed.
+This is the future-proof shape: the catch-hook URL lives in the **`public.zapier_tools` registry table** (`supabase/migrations/20260429_zapier_tools_registry.sql`, applied 2026-04-29), not in Vercel env. Three rows are already seeded (`nxt.contact_lookup`, `nxt.identifier_lookup`, `nxt.candidate_details`), all pointing at this Zap.
 
-Add ONE new var in Production:
+**You do NOT add a new env var for this Zap.** Adding any future Zap also doesn't need a new env var — just a new row in `zapier_tools`.
 
-| Key | Value | Notes |
-|---|---|---|
-| `DEBTOR_FETCH_WEBHOOK_URL_LOOKUP` | The catch-hook URL from step 2 | Parallel naming to existing `DEBTOR_FETCH_WEBHOOK_URL_INVOICE` |
+**Auth secret reuse:** all 3 seeded rows reference `auth_secret_env: 'DEBTOR_FETCH_WEBHOOK_SECRET'`, which is already set in Vercel from the invoice-fetch automation. The lookup Zap reads `auth` from the request body (because Catch Hook hides Authorization headers); the invoice-fetch Zap reads `secret` from the body too. Same secret value, different transport per registry config.
 
-Also Preview env if you want preview deploys to work with NXT lookups.
+### 9. Local `.env.local` — already in good shape
 
-**Auth transport detail:** the two Zaps share the same secret value but consume it differently. The invoice-fetch Zap reads `Authorization: Bearer <secret>` from the request HEADER. The lookup Zap (this one) reads `auth: "<secret>"` from the request BODY (because Zapier's Catch Hook trigger doesn't reliably expose the Authorization header in the field picker). Vercel will format each request appropriately for its target.
-
-### 9. Mirror to local `.env.local`
-
-The shared secret is already there from the invoice-fetch setup (may show empty if marked Sensitive — that's fine; Vercel runtime has the real value). Append the new URL only:
-
-```
-DEBTOR_FETCH_WEBHOOK_URL_LOOKUP="https://hooks.zapier.com/hooks/catch/.../<id>/"
-```
+`DEBTOR_FETCH_WEBHOOK_SECRET` is already present (we populated the real value when the secret was provided). Nothing further to add for the lookup Zap.
 
 ### 10. Smoke test
 
