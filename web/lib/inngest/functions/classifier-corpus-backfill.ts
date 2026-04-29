@@ -43,8 +43,9 @@ export const classifierCorpusBackfill = inngest.createFunction(
     const admin = createAdminClient();
 
     // Step 1 — load the corpus. Two queries because the Supabase JS client
-    // lacks cross-schema joins. Page emails in 1k chunks to stay under the
-    // default row-limit ceiling.
+    // lacks cross-schema joins. Chunk size 200: each UUID is ~36 chars and
+    // PostgREST builds the .in() filter into the URL — 1000 IDs blew past
+    // the URL length limit and returned 400 Bad Request.
     const rows = await step.run("load-corpus", async (): Promise<JoinedRow[]> => {
       const { data: analysis, error: aErr } = await admin
         .schema("debtor")
@@ -56,8 +57,9 @@ export const classifierCorpusBackfill = inngest.createFunction(
       const ids = analysisRows.map((r) => r.email_id);
       const emails: Record<string, EmailRow> = {};
 
-      for (let i = 0; i < ids.length; i += 1000) {
-        const chunk = ids.slice(i, i + 1000);
+      const CHUNK = 200;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
         const { data, error } = await admin
           .schema("email_pipeline")
           .from("emails")
