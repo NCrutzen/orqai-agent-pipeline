@@ -177,8 +177,23 @@ const SUBJECT_DISPUTE =
  * office-hours ranges like "van 8.30 uur t/m 17.00 uur" and labeled plain
  * auto-replies as ooo_temporary.
  */
+// 60-09 extensions: 6 patterns surfaced by the 60-08 spot-check (operator
+// re-labeled `subject_autoreply` rows to `ooo_temporary` because the body
+// regex didn't fire). Each new alternation is anchored on a month name or
+// weekday literal, NOT on bare digits, to keep the "van 8.30 uur t/m 17.00
+// uur" office-hours false-match shut (see comment block above).
+//
+// New alternations:
+//  - `vanaf <D> <month> t/m` — Dutch leave range with month name
+//  - `op <weekday> <D>` — "Op woensdag 11 mrt ben ik vrij"
+//  - `tot\s+en\s+met\s+<D>\s+<month>` — "Tot en met 9 maart"
+//  - `niet\s+aanwezig\s+op\s+<weekday>` — "ik ben niet aanwezig op dinsdag"
+//  - `momenteel\s+afwezig` — standalone (covers single-word-local-part senders
+//    that fall outside SENDER_HUMAN_SHAPE, e.g. axel@seandicus.be)
+//  - French `absent(?:e)?\s+du\s+<D>(/| <month>) ...\s+au\s+<D>` — "Je suis
+//    absente du 15/11 au 25/11" / "absent du 1 mars au 15 mars"
 const BODY_OOO_TEMPORARY =
-  /\b(terug\s+op|terug\s+vanaf|back\s+on|return\s+on|i\s+will\s+return|de\s+retour\s+le|je\s+serai\s+de\s+retour|vacation|congé|vacances|verlof|afwezig\s+(?:van|tot)|from\s+\d|van\s+\d{1,2}[-./]\d{1,2}[-./]\d{2,4}|van\s+\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)|tot\s+\d{1,2}[-./]\d{1,2}(?:[-./]\d{2,4})?|tot\s+\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)|until\s+\d{1,2}[-./]\d{1,2}|until\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d|between\s+\d|vanaf\s+(?:maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag|morgen|overmorgen|volgende\s+week|volgende\s+maand)|(?:weer|terug)\s+(?:op\s+kantoor|in\s+dienst|beschikbaar|aanwezig)|ben\s+ik\s+weer|from\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|next\s+week|next\s+month)|à\s+partir\s+(?:de|du)|ab\s+(?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|(?:nä|nae)chste\s+woche))/i;
+  /\b(terug\s+op|terug\s+vanaf|back\s+on|return\s+on|i\s+will\s+return|de\s+retour\s+le|je\s+serai\s+de\s+retour|vacation|congé|vacances|verlof|afwezig\s+(?:van|tot)|momenteel\s+afwezig|from\s+\d|van\s+\d{1,2}[-./]\d{1,2}[-./]\d{2,4}|van\s+\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)|vanaf\s+\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december|jan|feb|mrt|apr|jun|jul|aug|sep|okt|nov|dec)\s+t\/m|tot\s+\d{1,2}[-./]\d{1,2}(?:[-./]\d{2,4})?|tot\s+\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)|tot\s+en\s+met\s+\d{1,2}\s+(?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december|jan|feb|mrt|apr|jun|jul|aug|sep|okt|nov|dec)|niet\s+aanwezig\s+op\s+(?:maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag)|op\s+(?:maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag)\s+\d{1,2}|until\s+\d{1,2}[-./]\d{1,2}|until\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d|between\s+\d|vanaf\s+(?:maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag|morgen|overmorgen|volgende\s+week|volgende\s+maand)|(?:weer|terug)\s+(?:op\s+kantoor|in\s+dienst|beschikbaar|aanwezig)|ben\s+ik\s+weer|from\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|next\s+week|next\s+month)|à\s+partir\s+(?:de|du)|ab\s+(?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|(?:nä|nae)chste\s+woche)|absent(?:e)?\s+du\s+\d{1,2}[-./]\d{1,2}|absent(?:e)?\s+du\s+\d{1,2}\s+(?:janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre))/i;
 
 /** Body signals — employee has left / redirect to a new person permanently. */
 const BODY_OOO_PERMANENT =
