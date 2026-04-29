@@ -177,7 +177,10 @@ export default async function DebtorEmailReviewPage({ searchParams }: PageProps)
 
   return (
     <AutomationRealtimeProvider automations={["debtor-email-review"]}>
-      <SelectionProvider initialSelectedId={params.selected ?? null}>
+      <SelectionProvider
+        initialSelectedId={params.selected ?? null}
+        rowIds={rowIds}
+      >
         <div className="px-6 pt-12 pb-12 max-w-[1600px] mx-auto">
           <h1 className="text-[28px] font-semibold leading-[1.2] font-[family-name:var(--font-cabinet)]">
             Bulk Review

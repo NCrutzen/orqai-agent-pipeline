@@ -22,7 +22,7 @@ function dispatchKey(key: string, opts: KeyboardEventInit = {}) {
 
 function renderShortcuts(rowIds: string[], selectedId: string | null) {
   return render(
-    <SelectionProvider initialSelectedId={selectedId}>
+    <SelectionProvider initialSelectedId={selectedId} rowIds={rowIds}>
       <KeyboardShortcuts rowIds={rowIds} />
     </SelectionProvider>,
   );

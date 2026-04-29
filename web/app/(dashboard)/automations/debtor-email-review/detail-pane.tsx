@@ -105,6 +105,7 @@ const CATEGORY_LABELS: Record<Exclude<OverrideCategory, "unknown">, string> = {
   auto_reply: "Auto-reply",
   ooo_temporary: "OOO (temporary)",
   ooo_permanent: "OOO (permanent)",
+  invoice_copy_request: "Invoice copy request",
 };
 
 const MAILBOX_LABELS: Record<number, string> = {
@@ -156,12 +157,22 @@ interface DetailPaneProps {
 }
 
 export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
-  const { selectedId, setSelected } = useSelection();
+  const { selectedId, setSelected, pendingRemovalIds, markPendingRemoval } =
+    useSelection();
   const router = useRouter();
 
+  // Visible rows = server rows minus any id the reviewer just verdict'd.
+  // The optimistic filter keeps the queue UX snappy: the row vanishes the
+  // moment Approve fires, no waiting for the RSC roundtrip.
+  const visibleRows = pendingRemovalIds.size === 0
+    ? rows
+    : rows.filter((r) => !pendingRemovalIds.has(r.id));
+
   const row =
-    rows.find((r) => r.id === selectedId) ??
-    (initialSelectedRow && initialSelectedRow.id === selectedId
+    visibleRows.find((r) => r.id === selectedId) ??
+    (initialSelectedRow &&
+    initialSelectedRow.id === selectedId &&
+    !pendingRemovalIds.has(initialSelectedRow.id)
       ? initialSelectedRow
       : null);
 
@@ -261,10 +272,31 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
           override_category: kind === "skip" ? "unknown" : override,
           notes: notes || undefined,
         });
-        // Auto-advance — pick the next row id from props.rows. We need
-        // BOTH instant client feedback (the next row appears immediately
-        // in the detail pane) AND a server re-fetch so the verdict-flipped
-        // row drops out of rows[].
+        // Mark the just-verdict'd row for optimistic removal so it
+        // disappears from RowList instantly. The cleanup effect in
+        // SelectionProvider drops the entry once the server roundtrip
+        // returns rows[] without it.
+        markPendingRemoval(row.id);
+
+        // Pick the next row id from rows[], skipping anything already
+        // pending (this row, plus any earlier pending ids that haven't
+        // been pruned yet). Look forward first, then backward.
+        const idx = rows.findIndex((r) => r.id === row.id);
+        const isAvailable = (r: PredictedRow) =>
+          r.id !== row.id && !pendingRemovalIds.has(r.id);
+        let nextRow: PredictedRow | null = null;
+        for (let i = idx + 1; i < rows.length; i++) {
+          if (isAvailable(rows[i])) { nextRow = rows[i]; break; }
+        }
+        if (!nextRow) {
+          for (let i = idx - 1; i >= 0; i--) {
+            if (isAvailable(rows[i])) { nextRow = rows[i]; break; }
+          }
+        }
+
+        // We need BOTH instant client feedback (the next row appears
+        // immediately in the detail pane) AND a server re-fetch so the
+        // verdict-flipped row drops out of rows[] for real.
         //
         // Implementation note: router.refresh() re-fetches against Next's
         // internally-tracked URL — history.replaceState (from setSelected)
@@ -273,8 +305,6 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
         // (the just-approved row), the row is gone from rows[], and
         // DetailPane shows the empty placeholder. Using router.replace
         // updates Next's state AND triggers the re-fetch in one go.
-        const idx = rows.findIndex((r) => r.id === row.id);
-        const nextRow = rows[idx + 1] ?? rows[idx - 1] ?? null;
         const advance = () => {
           // Instant client-side feedback while the server roundtrip flies.
           setSelected(nextRow?.id ?? null);
@@ -297,7 +327,16 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
         toast.error("Couldn't record verdict — try again");
       }
     },
-    [row, rows, override, notes, setSelected, router],
+    [
+      row,
+      rows,
+      override,
+      notes,
+      setSelected,
+      router,
+      pendingRemovalIds,
+      markPendingRemoval,
+    ],
   );
 
   // Wire CustomEvents from KeyboardShortcuts. The handlers respect the
@@ -486,6 +525,9 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
             <SelectItem value="auto_reply">{CATEGORY_LABELS.auto_reply}</SelectItem>
             <SelectItem value="ooo_temporary">{CATEGORY_LABELS.ooo_temporary}</SelectItem>
             <SelectItem value="ooo_permanent">{CATEGORY_LABELS.ooo_permanent}</SelectItem>
+            <SelectItem value="invoice_copy_request">
+              {CATEGORY_LABELS.invoice_copy_request}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>

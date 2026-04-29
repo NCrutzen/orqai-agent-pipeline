@@ -48,9 +48,13 @@ import { DetailPane } from "@/app/(dashboard)/automations/debtor-email-review/de
 import { SelectionProvider } from "@/app/(dashboard)/automations/debtor-email-review/selection-context";
 import type { PredictedRow } from "@/app/(dashboard)/automations/debtor-email-review/page";
 
-function withSelection(initialSelectedId: string | null, children: ReactNode) {
+function withSelection(
+  initialSelectedId: string | null,
+  children: ReactNode,
+  rowIds: string[] = [],
+) {
   return (
-    <SelectionProvider initialSelectedId={initialSelectedId}>
+    <SelectionProvider initialSelectedId={initialSelectedId} rowIds={rowIds}>
       {children}
     </SelectionProvider>
   );
@@ -238,6 +242,35 @@ describe("DetailPane: keyboard CustomEvent wiring", () => {
     expect(recordVerdictMock).toHaveBeenCalledWith(
       expect.objectContaining({ decision: "approve" }),
     );
+  });
+});
+
+describe("DetailPane: optimistic removal", () => {
+  it("the just-approved row is hidden from view immediately, before the server roundtrip", async () => {
+    vi.useFakeTimers();
+    const rows = [makeRow("row-1"), makeRow("row-2"), makeRow("row-3")];
+    render(
+      withSelection(
+        "row-2",
+        <DetailPane rows={rows} initialSelectedRow={null} />,
+        rows.map((r) => r.id),
+      ),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Approve/ }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(220);
+    });
+
+    // Detail pane should now show row-3, NOT row-2 — even though the
+    // server hasn't returned new data yet (rows[] still includes row-2
+    // in this test). That's the optimistic filter at work.
+    expect(screen.getByText("Subject row-3")).toBeInTheDocument();
+    expect(screen.queryByText("Subject row-2")).not.toBeInTheDocument();
   });
 });
 

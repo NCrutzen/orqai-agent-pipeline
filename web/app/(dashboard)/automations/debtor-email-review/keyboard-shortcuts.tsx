@@ -61,15 +61,21 @@ export function KeyboardShortcuts({
 }: {
   rowIds: string[];
 }) {
-  const { selectedId, setSelected } = useSelection();
+  const { selectedId, setSelected, pendingRemovalIds } = useSelection();
 
   useEffect(() => {
+    // Skip ids the reviewer just verdict'd — they're optimistically
+    // hidden from RowList, navigation should match.
+    const visibleIds =
+      pendingRemovalIds.size === 0
+        ? rowIds
+        : rowIds.filter((id) => !pendingRemovalIds.has(id));
     const navigate = (dir: 1 | -1) => {
-      if (rowIds.length === 0) return;
-      const idx = selectedId ? rowIds.indexOf(selectedId) : -1;
+      if (visibleIds.length === 0) return;
+      const idx = selectedId ? visibleIds.indexOf(selectedId) : -1;
       const nextIdx =
-        idx < 0 ? 0 : Math.max(0, Math.min(rowIds.length - 1, idx + dir));
-      const target = rowIds[nextIdx];
+        idx < 0 ? 0 : Math.max(0, Math.min(visibleIds.length - 1, idx + dir));
+      const target = visibleIds[nextIdx];
       if (!target || target === selectedId) return;
       setSelected(target);
     };
@@ -125,7 +131,7 @@ export function KeyboardShortcuts({
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [rowIds, selectedId, setSelected]);
+  }, [rowIds, selectedId, setSelected, pendingRemovalIds]);
 
   return null;
 }

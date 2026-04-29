@@ -48,12 +48,22 @@ export function RowList({
   candidates,
   selection,
 }: RowListProps) {
-  const { selectedId, setSelected } = useSelection();
+  const { selectedId, setSelected, pendingRemovalIds } = useSelection();
   const isPending = selection.tab === "pending";
+
+  // Optimistic filter — rows the reviewer just verdict'd vanish
+  // immediately, before the server roundtrip lands.
+  const visibleRows = useMemo(
+    () =>
+      pendingRemovalIds.size === 0
+        ? rows
+        : rows.filter((r) => !pendingRemovalIds.has(r.id)),
+    [rows, pendingRemovalIds],
+  );
 
   const cohortRows = useMemo(() => {
     if (!selection.rule) return [];
-    return rows
+    return visibleRows
       .filter((r) => ruleOf(r) === selection.rule)
       .map((r) => {
         const result = (r.result as RowResult | null) ?? {};
@@ -65,12 +75,15 @@ export function RowList({
           predicted_category: result.predicted?.category ?? r.topic ?? "unknown",
         };
       });
-  }, [rows, selection.rule]);
+  }, [visibleRows, selection.rule]);
 
   const cohortCount = cohortRows.length;
+  // Pagination cursor needs to stay anchored to the server-side row set,
+  // not the optimistic-filtered one — otherwise "Load older" would skip
+  // a row when a verdict is pending. Same for "is last page".
   const oldest = rows.length > 0 ? rows[rows.length - 1].created_at : null;
   const isLastPage = rows.length < 100;
-  const totalLabel = rows.length;
+  const totalLabel = visibleRows.length;
 
   // Build "Load older" URL preserving current selection.
   const olderQs = new URLSearchParams();
@@ -142,12 +155,12 @@ export function RowList({
 
       {isPending ? (
         <PendingPromotionPanel candidates={candidates} />
-      ) : rows.length === 0 ? (
+      ) : visibleRows.length === 0 ? (
         <EmptyState selectionActive={hasSelection} />
       ) : (
         <>
           <div className="flex flex-col gap-2 min-w-0">
-            {rows.map((row) => (
+            {visibleRows.map((row) => (
               <div key={row.id} className="row-fade-in min-w-0">
                 <RowStrip
                   row={row}

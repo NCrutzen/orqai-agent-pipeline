@@ -6,11 +6,18 @@
 // evaluation when X doesn't exist at runtime. Keep actions.ts pure
 // (only async function exports).
 
+// `invoice_copy_request` is review-only (Phase 60). Reviewers tag
+// invoice-copy-request emails so we accumulate Wilson telemetry on this
+// category. Phase 62 wires the full copy-document swarm
+// (detect → fetchDocument → draft reply with PDF) when telemetry is mature.
+// Until then, reviewer overrides apply the Outlook label and route the
+// email to a manual-handling lane.
 export const OVERRIDE_CATEGORIES = [
   "payment",
   "auto_reply",
   "ooo_temporary",
   "ooo_permanent",
+  "invoice_copy_request",
   "unknown",
 ] as const;
 
