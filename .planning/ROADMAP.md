@@ -145,6 +145,19 @@ Plans:
 - [ ] 56-07-PLAN.md — Implement labeling-flip-cron evaluateMailbox + pickAction + register in Inngest manifest (shadow-mode default)
 - [ ] 56-08-PLAN.md — [calendar-soft] Smeba canary review + flip LABELING_CRON_MUTATE=true; per-mailbox rollout checklist
 
+### Phase 61: Pattern-mining + LLM tiebreaker for unknown / no_match emails
+
+**Goal:** Close the loop on the unknown-bucket. Today's data (2026-04-29 telemetry) shows operators heavily override `predicted.category='unknown'` with the right answer, and the regex `no_match` rule has 25% agreement (5/20) — both signals say the classifier is missing structure that humans easily detect. Two coupled deliverables:
+1. **Pattern-mining UI** — surface clusters of `unknown`/`no_match` emails grouped by similarity (sender, subject pattern, body keyword) with the operator's recent overrides; let operator promote a cluster to a candidate `classifier_rules` row (kind=`regex` if pattern is hand-extracted, kind=`agent_intent` if LLM-described).
+2. **LLM tiebreaker on unknown-bucket inbound** — at ingest time, when classifier returns `no_match`, route via Orq.ai intent agent (kind=`agent_intent`) instead of dropping to human queue. Telemetry feeds back via `agent_runs.human_verdict` like any other rule. Consumes the `nxt.candidate_details` registry tool when ambiguity needs NXT context.
+
+Also: align category-key naming across the 3 surfaces (UI override dropdown, ingest classifier output, worker label map) so `payment` vs `payment_admittance` doesn't bite again. This phase touches all three.
+
+**Requirements**: D-25 (hand-labels stored), Phase 56-02 telemetry maturity (≥ 100 verdicts on unknown-bucket needed before pattern-mining UI is useful)
+**Depends on:** Phase 56 ships + 14-day shadow window completes (telemetry depth)
+**Plans:** TBD
+**Defer trigger:** start when EITHER (a) unknown-bucket overrides exceed N=100 with stable taxonomy, OR (b) regex `no_match` agreement stays under 50% over 14 days — both signal that adding rules manually doesn't scale.
+
 ### Phase 56.5: Generic /api/zapier-tools/[tool_id] bridge route
 
 **Goal:** Promote the Phase 56 zapier_tools registry from "URL lookup table" to a real bridge layer. One Vercel route handles every Zapier-bound tool: reads tool definition from `public.zapier_tools`, validates input against `input_schema`, formats auth per `auth_method`, forwards to `target_url`, returns response (sync) or kicks off async-callback chain. Migrate the existing invoice-fetch automation (`/api/automations/debtor/fetch-document`) into this generic bridge as the first async-callback consumer, then deprecate the dedicated route. Document tool registry as the canonical Orq.ai agent-tool surface — agents call `POST /api/zapier-tools/<tool_id>` uniformly across automations.
