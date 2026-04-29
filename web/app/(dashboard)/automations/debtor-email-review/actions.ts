@@ -105,15 +105,22 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
   }
 
   // 2. Telemetry — public.agent_runs (D-01).
-  // Note: agent_runs has NO `context` column. The reviewer's notes live
-  // in `human_notes`; message_id/source_mailbox/entity/predicted_category
-  // already travel via the Inngest event payload + automation_runs.result
-  // jsonb merge above, so we don't duplicate them here.
+  // Schema notes (verified against live Supabase):
+  //   - agent_runs has NO `context` column. Reviewer notes live in
+  //     `human_notes`; message_id/source_mailbox/entity/predicted_category
+  //     already travel via the Inngest event payload + automation_runs.result
+  //     jsonb merge above, so we don't duplicate them here.
+  //   - agent_runs.email_id is NOT NULL (uuid) but has no FK. The triage
+  //     flow populates it from the inbound event's email uuid; the
+  //     bulk-review flow has no equivalent — the underlying record is the
+  //     automation_run itself. Reuse automation_run_id as email_id so the
+  //     constraint is satisfied and the row remains joinable.
   const { data: ar, error: arErr } = await admin
     .from("agent_runs")
     .insert({
       swarm_type: "debtor-email",
       automation_run_id: parsed.automation_run_id,
+      email_id: parsed.automation_run_id,
       entity: parsed.entity,
       rule_key: parsed.rule_key,
       human_verdict: effectiveDecision === "approve" ? "approved" : "rejected_other",
