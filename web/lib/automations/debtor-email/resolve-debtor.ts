@@ -80,12 +80,18 @@ export async function resolveDebtor(args: ResolveArgs): Promise<ResolveResult> {
   }
 
   // Layer 2: sender → contactperson → top-level customer.
+  // Multiple contact_person rows may belong to the same paying customer
+  // (e.g., one company with several contacts). Dedupe by top_level_customer_id
+  // before deciding single vs ambiguous.
   if (args.from_email) {
     const sender = await lookupSenderToAccount({
       nxt_database: args.nxt_database,
       sender_email: args.from_email,
     });
-    if (sender.matches.length === 1) {
+    const uniqueIds = Array.from(
+      new Set(sender.matches.map((m) => m.top_level_customer_id)),
+    );
+    if (uniqueIds.length === 1 && sender.matches.length >= 1) {
       const m = sender.matches[0];
       return {
         method: "sender_match",
@@ -94,9 +100,8 @@ export async function resolveDebtor(args: ResolveArgs): Promise<ResolveResult> {
         confidence: "high",
       };
     }
-    if (sender.matches.length >= 2) {
-      const ids = sender.matches.map((m) => m.top_level_customer_id);
-      return await llmTiebreak(ids, args);
+    if (uniqueIds.length >= 2) {
+      return await llmTiebreak(uniqueIds, args);
     }
   }
 
