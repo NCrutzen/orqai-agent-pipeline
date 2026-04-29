@@ -174,9 +174,9 @@ Also: align category-key naming across the 3 surfaces (UI override dropdown, ing
 **Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 56.7-01-PLAN.md — Wave 1: Supabase migration (`swarms` + `swarm_categories` tables, CHECK enum, RLS, seeds) + `web/lib/swarms/registry.ts` loader/cache (60s TTL mirror of classifier_rules cache)
-- [ ] 56.7-02-PLAN.md — Wave 2: Verdict-worker generalization — switch on `category.action`, null-safe `outlook_label` (D-11), Zod input schema swap (z.string + post-validate)
-- [ ] 56.7-03-PLAN.md — Wave 3: Generic `[swarm]/review` route + `next.config.ts` redirects + 60-05 amendment (Depends on: 56.7) + test-import sweep
+- [x] 56.7-01-PLAN.md — Wave 1: Supabase migration (`swarms` + `swarm_categories` tables, CHECK enum, RLS, seeds) + `web/lib/swarms/registry.ts` loader/cache (60s TTL mirror of classifier_rules cache)
+- [x] 56.7-02-PLAN.md — Wave 2: Verdict-worker generalization — switch on `category.action`, null-safe `outlook_label` (D-11), Zod input schema swap (z.string + post-validate)
+- [x] 56.7-03-PLAN.md — Wave 3: Generic `[swarm]/review` route + `next.config.ts` redirects + 60-05 amendment (Depends on: 56.7) + test-import sweep
 
 ### Phase 57: v7 review dashboard polish
 
