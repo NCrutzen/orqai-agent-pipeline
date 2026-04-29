@@ -124,15 +124,64 @@ async function assignAccount({
 }
 ```
 
+### Verified behaviors
+
+1. **Save:** Select2 onSelect **auto-saves immediately** (operator confirmed 2026-04-29 via manual click + page refresh). The Browserless module does NOT need a separate Save button click.
+
+2. **Cross-brand candidates appear.** Even in Smeba's mailbox, typing `506909` returned matches from Sicli too. iController's typeahead is brand-agnostic — Phase 56 must send the EXACT customer_id, not name-search.
+
+3. **Brand verification suffix.** Each result is rendered as `<customer_id> - <customer_name> (<entity_brand>)`, e.g. `506909 - Vos Logistics Technical Department B.V. (Smeba Brandbeveiliging BV)`. The parenthesized brand is iController's server-side cross-check: it shows which entity the customer is assignable from. **Phase 56 uses this as a defensive layer** — if the highlighted result's brand doesn't match the source mailbox's expected brand, the module bails out and writes `email_labels.method='brand_mismatch'` instead of clicking. See "Brand-verification flow" below.
+
 ### Caveats / TODO
 
-1. **Save behavior unverified.** Probe escaped before commit (read-only constraint). The Browserless module assumes Select2's onSelect auto-saves via XHR. If iController has a separate Save button somewhere on the page, the module needs to find/click it. **Operator: confirm during the smoke test that selecting a customer in the typeahead immediately persists (refresh page, see Account stays).**
+1. **Top-level customer resolution.** Per operator note 2026-04-29: Phase 56 should target the **top-level/paying** customer when the contact_person row points at a sub-entity. See `customer.parent_id` chain walk in 56-02-ZAP-SETUP.md (updated).
 
-2. **Cross-brand candidates appear.** Even in Smeba's mailbox, typing `506909` returned matches from Sicli too (574383, 579510). iController's typeahead is brand-agnostic — Phase 56 must send the EXACT customer_id, not name-search, to avoid mis-targeting.
+2. **Multi-select widget mode.** The widget is `select2-container-multi` — supports multiple accounts on one message. Phase 56 v1 assigns ONE customer; if multi-account becomes a feature, the module needs to enumerate existing chips and add to (not replace) them.
 
-3. **Top-level customer resolution.** Per operator note 2026-04-29: Phase 56 should target the **top-level/paying** customer when the contact_person row points at a sub-entity. See `customer.parent_id` chain walk in 56-02-ZAP-SETUP.md (updated).
+---
 
-4. **Multi-select widget mode.** The widget is `select2-container-multi` — supports multiple accounts on one message. Phase 56 v1 assigns ONE customer; if multi-account becomes a feature, the module needs to enumerate existing chips and add to (not replace) them.
+## Brand-verification flow (defensive layer)
+
+When typing `customer_id` returns multiple matches across brands, iController auto-highlights the first match. We must NOT trust that — we must read the brand suffix and confirm.
+
+```ts
+// After typing customer_id and waiting for results:
+const highlightedText = await page.$eval(
+  "ul.select2-results .select2-result-selectable.select2-highlighted .select2-result-label",
+  (el) => el.textContent?.trim() ?? "",
+);
+// e.g. "506909 - Vos Logistics Technical Department B.V. (Smeba Brandbeveiliging BV)"
+
+// Parse the parenthesized brand suffix
+const brandMatch = highlightedText.match(/\(([^)]+)\)\s*$/);
+const annotatedBrand = brandMatch?.[1] ?? null;
+// e.g. "Smeba Brandbeveiliging BV"
+
+// Verify it matches the expected brand for this mailbox
+if (!matchesExpectedBrand(annotatedBrand, mailbox_entity)) {
+  // BAIL — do not click. Write email_labels with method='brand_mismatch'.
+  return { ok: false, reason: "brand_mismatch", annotated: annotatedBrand };
+}
+
+// Brand verified — click to assign (auto-saves).
+await page.click(
+  "ul.select2-results .select2-result-selectable.select2-highlighted",
+);
+```
+
+### Mailbox → expected brand pattern
+
+Use regex matching (iController's brand strings vary slightly from internal `entity` slugs):
+
+| `labeling_settings.entity` | iController brand suffix regex |
+|---|---|
+| `smeba` | `/smeba\s+brand/i` |
+| `smeba-fire` | `/smeba\s*fire/i` |
+| `sicli-noord` | `/sicli.*(north|noord)/i` |
+| `sicli-sud` | `/sicli.*(south|sud|zuid)/i` |
+| `berki` | `/berki/i` |
+
+These can live as a constant `MAILBOX_BRAND_PATTERNS` in `web/lib/automations/debtor-email/mailboxes.ts` alongside the existing `ICONTROLLER_MAILBOXES` ID map.
 
 ---
 
