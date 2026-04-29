@@ -8,3 +8,7 @@ supabase/.temp.local-backup/
 
 # Claude Code local state
 .claude/scheduled_tasks.lock
+
+# Local debugging scripts (kept on disk, not tracked)
+web/lib/automations/debtor-email-cleanup/test-*.ts
+web/lib/outlook/test-tools.ts
