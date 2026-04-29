@@ -50,13 +50,23 @@ export const classifierCorpusBackfill = inngest.createFunction(
     // PostgREST .in() filter has a URL length limit — chunk size 200 keeps
     // each request under it (1000 returned 400 Bad Request).
     const result = await step.run("load-and-classify", async () => {
-      const { data: analysis, error: aErr } = await admin
-        .schema("debtor")
-        .from("email_analysis")
-        .select("email_id, email_intent, category");
-      if (aErr) throw new Error(`corpus load (analysis): ${aErr.message}`);
+      // Supabase REST default cap = 1000 rows. Without explicit pagination
+      // the analysis fetch silently truncated to 1000 of 6,114 rows on the
+      // first run and we tallied ~16% of the corpus. Page in 1k batches.
+      const analysisRows: AnalysisRow[] = [];
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await admin
+          .schema("debtor")
+          .from("email_analysis")
+          .select("email_id, email_intent, category")
+          .range(from, from + PAGE - 1);
+        if (error) throw new Error(`corpus load (analysis ${from}): ${error.message}`);
+        const batch = (data ?? []) as AnalysisRow[];
+        analysisRows.push(...batch);
+        if (batch.length < PAGE) break;
+      }
 
-      const analysisRows = (analysis ?? []) as AnalysisRow[];
       const byId = new Map<string, AnalysisRow>(analysisRows.map((r) => [r.email_id, r]));
       const ids = analysisRows.map((r) => r.email_id);
 
@@ -116,10 +126,31 @@ export const classifierCorpusBackfill = inngest.createFunction(
     });
 
     // Step 3 — upsert each rule. status='candidate' — promotion is the cron's job.
+    // Skip rules whose existing status is 'promoted' or 'manual_block': the
+    // corpus is a smaller signal than whatever seeded those rules originally
+    // (60-02 hardcoded numbers from a different historical analysis), so
+    // overwriting would be a regression. Additive only — D-28.
     const seeded = await step.run("upsert-rules", async () => {
       const now = new Date().toISOString();
+
+      const { data: existing, error: exErr } = await admin
+        .from("classifier_rules")
+        .select("rule_key, status")
+        .eq("swarm_type", "debtor-email");
+      if (exErr) throw new Error(`load existing rules: ${exErr.message}`);
+      const lockedRules = new Set(
+        ((existing ?? []) as { rule_key: string; status: string }[])
+          .filter((r) => r.status === "promoted" || r.status === "manual_block")
+          .map((r) => r.rule_key),
+      );
+
       let count = 0;
+      let skippedLocked = 0;
       for (const [ruleKey, t] of result.tally) {
+        if (lockedRules.has(ruleKey)) {
+          skippedLocked++;
+          continue;
+        }
         const ci_lo = wilsonCiLower(t.n, t.agree);
         const { error } = await admin.from("classifier_rules").upsert(
           {
@@ -138,14 +169,15 @@ export const classifierCorpusBackfill = inngest.createFunction(
         if (error) throw new Error(`upsert ${ruleKey}: ${error.message}`);
         count++;
       }
-      return count;
+      return { count, skippedLocked };
     });
 
     return {
       processed: result.processed,
       skipped_missing_fields: result.skippedMissingFields,
       total_classified: result.totalClassified,
-      rules_seeded: seeded,
+      rules_seeded: seeded.count,
+      rules_skipped_locked: seeded.skippedLocked,
     };
   },
 );

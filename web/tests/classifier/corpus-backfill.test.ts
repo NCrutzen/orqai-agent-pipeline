@@ -50,13 +50,20 @@ const upsertMock = vi.fn(async (payload: Record<string, unknown>, options: { onC
 });
 
 // Build a chained query mock that returns analysis or emails depending on schema/table.
-function buildAdminMock(emailsRows: EmailRow[] = EMAILS, analysisRows: AnalysisRow[] = ANALYSIS) {
+function buildAdminMock(
+  emailsRows: EmailRow[] = EMAILS,
+  analysisRows: AnalysisRow[] = ANALYSIS,
+  existingRules: { rule_key: string; status: string }[] = [],
+) {
   return {
     schema: (schemaName: string) => ({
       from: (tableName: string) => {
         if (schemaName === "debtor" && tableName === "email_analysis") {
           return {
-            select: (_cols: string) => Promise.resolve({ data: analysisRows, error: null }),
+            select: (_cols: string) => ({
+              range: (from: number, to: number) =>
+                Promise.resolve({ data: analysisRows.slice(from, to + 1), error: null }),
+            }),
           };
         }
         if (schemaName === "email_pipeline" && tableName === "emails") {
@@ -72,7 +79,13 @@ function buildAdminMock(emailsRows: EmailRow[] = EMAILS, analysisRows: AnalysisR
     }),
     from: (tableName: string) => {
       if (tableName === "classifier_rules") {
-        return { upsert: upsertMock };
+        return {
+          upsert: upsertMock,
+          select: (_cols: string) => ({
+            eq: (_col: string, _val: string) =>
+              Promise.resolve({ data: existingRules, error: null }),
+          }),
+        };
       }
       throw new Error(`unexpected table: ${tableName}`);
     },
@@ -107,7 +120,13 @@ async function invoke() {
       rules_seeded: number;
     }>;
   }).__handler;
-  return handler({ step: { run: stepRun } });
+  return handler({ step: { run: stepRun } }) as Promise<{
+    processed: number;
+    skipped_missing_fields: number;
+    total_classified: number;
+    rules_seeded: number;
+    rules_skipped_locked: number;
+  }>;
 }
 
 describe("60-08 classifier/corpus-backfill — corpus-derived n/agree per rule", () => {
@@ -174,6 +193,19 @@ describe("60-08 classifier/corpus-backfill — corpus-derived n/agree per rule",
     expect(result.skipped_missing_fields).toBe(3);
     expect(result.total_classified).toBe(0);
     expect(upsertCalls).toHaveLength(0);
+  });
+
+  it("skips rules with existing status='promoted' or 'manual_block' (additive only)", async () => {
+    adminMock = buildAdminMock(EMAILS, ANALYSIS, [
+      { rule_key: "subject_paid_marker", status: "promoted" },
+      { rule_key: "subject_autoreply", status: "manual_block" },
+    ]);
+    const result = await invoke();
+    // Both rules tallied but neither upserted — only the candidates remain.
+    expect(upsertCalls.find((c) => c.payload.rule_key === "subject_paid_marker")).toBeUndefined();
+    expect(upsertCalls.find((c) => c.payload.rule_key === "subject_autoreply")).toBeUndefined();
+    expect(result.rules_seeded).toBe(0);
+    expect(result.rules_skipped_locked).toBe(2);
   });
 
   it("is idempotent — re-running produces same upsert payloads with onConflict", async () => {
