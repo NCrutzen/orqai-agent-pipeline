@@ -200,7 +200,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 61-01-PLAN.md — Extend recordVerdict (override+notes, zod) + re-add fetchReviewEmailBody + 2 vitest files
+- [x] 61-01-PLAN.md — Extend recordVerdict (override+notes, zod) + re-add fetchReviewEmailBody + 2 vitest files
 - [ ] 61-02-PLAN.md — 3-col layout + page.tsx ?selected loader + rename row-list/row-strip (no buttons) + new detail-pane + new keyboard-shortcuts + queue-tree summary header + Pending sibling node
 - [ ] 61-03-PLAN.md — Visual polish (Lucide audit, min-w-0 sweep, kbd styling) + 33-item manual UAT checkpoint
 
