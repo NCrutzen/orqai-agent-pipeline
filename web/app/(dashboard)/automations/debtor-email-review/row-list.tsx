@@ -1,19 +1,21 @@
 "use client";
 
-// Phase 60-05 (D-10/D-13/D-14/D-21). Right-side panel of the queue page.
-// Renders the cursor-paginated list of predicted rows for the current
-// selection, the race-cohort banner when applicable, the All
-// predicted / Pending promotion tab strip, and the Load older /
-// End of queue pagination footer.
+// Phase 61-02 (rename of predicted-row-list.tsx). Middle column of the
+// 3-column layout. Renders cursor-paginated row strips, the race-cohort
+// banner, and pagination footer.
 //
-// Realtime invalidation comes from the page-level
-// AutomationRealtimeProvider — the queue UI re-renders on the
-// `automations:debtor-email-review:stale` broadcast (Phase 59).
+// Changes from 60-05:
+//   - Tab strip removed (Pending promotion moved to QueueTree as a sibling
+//     top-level node — D-TREE-PENDING-SIBLING).
+//   - Row strips have no Approve/Reject buttons (D-ROW-NO-BUTTONS).
+//   - Selection is URL-driven via ?selected=<row.id>; row-list owns the
+//     router.push so keyboard-shortcuts.tsx can call the same fn.
+//   - Pending-promotion panel is rendered inline when selection.tab === "pending".
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import Link from "next/link";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PredictedRowItem } from "./predicted-row-item";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { RowStrip } from "./row-strip";
 import { RaceCohortBanner } from "./race-cohort-banner";
 import type {
   ClassifierCandidate,
@@ -22,7 +24,7 @@ import type {
   PromotedRule,
 } from "./page";
 
-interface PredictedRowListProps {
+interface RowListProps {
   rows: PredictedRow[];
   promotedToday: PromotedRule[];
   candidates: ClassifierCandidate[];
@@ -40,13 +42,16 @@ function ruleOf(row: PredictedRow): string | null {
   return r?.predicted?.rule ?? null;
 }
 
-export function PredictedRowList({
+export function RowList({
   rows,
   promotedToday,
   candidates,
   selection,
-}: PredictedRowListProps) {
-  const tab = selection.tab === "pending" ? "pending" : "all";
+}: RowListProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isPending = selection.tab === "pending";
 
   const cohortRows = useMemo(() => {
     if (!selection.rule) return [];
@@ -76,20 +81,9 @@ export function PredictedRowList({
   if (selection.mailbox) olderQs.set("mailbox", selection.mailbox);
   if (selection.rule) olderQs.set("rule", selection.rule);
   if (selection.tab) olderQs.set("tab", selection.tab);
+  if (selection.selected) olderQs.set("selected", selection.selected);
   if (oldest) olderQs.set("before", oldest);
   const olderHref = `/automations/debtor-email-review?${olderQs.toString()}`;
-
-  // Tab URLs.
-  const tabHref = (tabValue: "all" | "pending") => {
-    const qs = new URLSearchParams();
-    if (selection.topic) qs.set("topic", selection.topic);
-    if (selection.entity) qs.set("entity", selection.entity);
-    if (selection.mailbox) qs.set("mailbox", selection.mailbox);
-    if (selection.rule) qs.set("rule", selection.rule);
-    if (tabValue === "pending") qs.set("tab", "pending");
-    const path = "/automations/debtor-email-review";
-    return qs.toString() ? `${path}?${qs.toString()}` : path;
-  };
 
   const hasSelection =
     !!selection.topic ||
@@ -105,12 +99,24 @@ export function PredictedRowList({
     if (selection.entity) qs.set("entity", selection.entity);
     if (selection.mailbox) qs.set("mailbox", selection.mailbox);
     if (selection.tab) qs.set("tab", selection.tab);
+    if (selection.selected) qs.set("selected", selection.selected);
     const path = "/automations/debtor-email-review";
     return qs.toString() ? `${path}?${qs.toString()}` : path;
   })();
 
+  // URL-driven selection. Keyboard handler dispatches the same router.push
+  // by rebuilding URLSearchParams off the current location.
+  const handleSelect = useCallback(
+    (rowId: string) => {
+      const qs = new URLSearchParams(searchParams.toString());
+      qs.set("selected", rowId);
+      router.push(`${pathname}?${qs.toString()}`);
+    },
+    [router, pathname, searchParams],
+  );
+
   return (
-    <section className="flex flex-col gap-3 motion-reduce:[--row-duration:0ms]">
+    <section className="flex flex-col gap-3 min-w-0 motion-reduce:[--row-duration:0ms]">
       {/* prefers-reduced-motion fallback hook for the prepend animation */}
       <style>{`
         @media (prefers-reduced-motion: no-preference) {
@@ -122,26 +128,15 @@ export function PredictedRowList({
         }
       `}</style>
 
-      <Tabs value={tab}>
-        <TabsList>
-          <TabsTrigger value="all" asChild>
-            <Link href={tabHref("all")}>All predicted</Link>
-          </TabsTrigger>
-          <TabsTrigger value="pending" asChild>
-            <Link href={tabHref("pending")}>Pending promotion</Link>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
       {ruleFilterActive && (
-        <div className="flex items-center gap-2 text-[13px] text-[var(--v7-muted)]">
-          <span>
+        <div className="flex items-center gap-2 text-[13px] text-[var(--v7-muted)] min-w-0">
+          <span className="truncate min-w-0">
             Filtered to rule:{" "}
             <code className="font-mono text-[12px]">{selection.rule}</code>
           </span>
           <Link
             href={clearRuleHref}
-            className="underline hover:text-[var(--v7-text)]"
+            className="underline hover:text-[var(--v7-text)] shrink-0"
           >
             Clear
           </Link>
@@ -155,16 +150,20 @@ export function PredictedRowList({
         rows={cohortRows}
       />
 
-      {tab === "pending" ? (
+      {isPending ? (
         <PendingPromotionPanel candidates={candidates} />
       ) : rows.length === 0 ? (
         <EmptyState selectionActive={hasSelection} />
       ) : (
         <>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 min-w-0">
             {rows.map((row) => (
-              <div key={row.id} className="row-fade-in">
-                <PredictedRowItem row={row} />
+              <div key={row.id} className="row-fade-in min-w-0">
+                <RowStrip
+                  row={row}
+                  selected={selection.selected === row.id}
+                  onSelect={handleSelect}
+                />
               </div>
             ))}
           </div>
@@ -251,11 +250,11 @@ function PendingPromotionPanel({
     );
   }
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 min-w-0">
       {candidates.map((c) => (
         <div
           key={c.rule_key}
-          className="flex items-center justify-between gap-3 px-4 py-3 rounded-[var(--v7-radius-sm)] border border-[var(--v7-line)] bg-[var(--v7-panel-2)]"
+          className="flex items-center justify-between gap-3 px-4 py-3 rounded-[var(--v7-radius-sm)] border border-[var(--v7-line)] bg-[var(--v7-panel-2)] min-w-0"
         >
           <div className="min-w-0">
             <div className="font-mono text-[13px] truncate">{c.rule_key}</div>
@@ -266,7 +265,7 @@ function PendingPromotionPanel({
           </div>
           <Link
             href={`/automations/debtor-email-review?rule=${encodeURIComponent(c.rule_key)}`}
-            className="text-[13px] underline hover:text-[var(--v7-text)]"
+            className="text-[13px] underline hover:text-[var(--v7-text)] shrink-0"
           >
             Filter to this rule
           </Link>
