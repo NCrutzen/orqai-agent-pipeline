@@ -78,33 +78,28 @@ export const classifierSpotcheckSampler = inngest.createFunction(
       return { rules_processed: 0, total_inserted: 0, per_rule: [] as PerRuleResult[] };
     }
 
-    // Step 2 — load corpus (same shape as corpus-backfill).
-    const rows = await step.run("load-corpus", async (): Promise<JoinedRow[]> => {
-      const { data: analysis, error: aErr } = await admin
-        .schema("debtor")
-        .from("email_analysis")
-        .select("email_id, email_intent, category");
-      if (aErr) throw new Error(`corpus load (analysis): ${aErr.message}`);
-
-      const analysisRows = (analysis ?? []) as AnalysisRow[];
-      const ids = analysisRows.map((r) => r.email_id);
-      const emails: Record<string, EmailRow> = {};
-
-      for (let i = 0; i < ids.length; i += 1000) {
-        const chunk = ids.slice(i, i + 1000);
+    // Steps 2+3 merged — load corpus AND classify+bucket in one step.
+    // Same lessons as corpus-backfill: paginate analysis (1000-row cap),
+    // chunk emails at 200 (URL length), keep bodies inside the closure
+    // (output_too_large) and only return the small per-rule samples.
+    const buckets = await step.run("load-classify-bucket", async () => {
+      const analysisRows: AnalysisRow[] = [];
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
         const { data, error } = await admin
-          .schema("email_pipeline")
-          .from("emails")
-          .select("id, subject, sender_email, body_text, body_html")
-          .in("id", chunk);
-        if (error) throw new Error(`corpus load (emails ${i}): ${error.message}`);
-        for (const e of (data ?? []) as EmailRow[]) emails[e.id] = e;
+          .schema("debtor")
+          .from("email_analysis")
+          .select("email_id, email_intent, category")
+          .range(from, from + PAGE - 1);
+        if (error) throw new Error(`corpus load (analysis ${from}): ${error.message}`);
+        const batch = (data ?? []) as AnalysisRow[];
+        analysisRows.push(...batch);
+        if (batch.length < PAGE) break;
       }
-      return analysisRows.map((a) => ({ ...a, email: emails[a.email_id] ?? null }));
-    });
 
-    // Step 3 — classify and bucket per rule_key into hard cases / agreements.
-    const buckets = await step.run("classify-and-bucket", () => {
+      const byId = new Map<string, AnalysisRow>(analysisRows.map((r) => [r.email_id, r]));
+      const ids = analysisRows.map((r) => r.email_id);
+
       const promotableSet = new Set(promotable.map((r) => r.rule_key));
       const bucketed = new Map<
         string,
@@ -114,31 +109,44 @@ export const classifierSpotcheckSampler = inngest.createFunction(
         }
       >();
 
-      for (const row of rows) {
-        const e = row.email;
-        if (!e || !e.subject || !e.sender_email) continue;
-        const body = e.body_text ?? stripHtml(e.body_html ?? "");
-        if (!body) continue;
+      const CHUNK = 200;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        const { data, error } = await admin
+          .schema("email_pipeline")
+          .from("emails")
+          .select("id, subject, sender_email, body_text, body_html")
+          .in("id", chunk);
+        if (error) throw new Error(`corpus load (emails ${i}): ${error.message}`);
 
-        const predicted = classify({
-          subject: e.subject,
-          from: e.sender_email,
-          bodySnippet: body,
-        });
-        if (!promotableSet.has(predicted.matchedRule)) continue;
-        if (predicted.category === "unknown") continue;
+        for (const e of (data ?? []) as EmailRow[]) {
+          const a = byId.get(e.id);
+          if (!a) continue;
+          if (!e.subject || !e.sender_email) continue;
+          const body = e.body_text ?? stripHtml(e.body_html ?? "");
+          if (!body) continue;
 
-        const bucket = bucketed.get(predicted.matchedRule) ?? { hard: [], agree: [] };
-        if (isAgreement(predicted.category, row.category, row.email_intent)) {
-          bucket.agree.push({ email_id: row.email_id, predicted });
-        } else {
-          bucket.hard.push({ email_id: row.email_id, predicted });
+          const predicted = classify({
+            subject: e.subject,
+            from: e.sender_email,
+            bodySnippet: body,
+          });
+          if (!promotableSet.has(predicted.matchedRule)) continue;
+          if (predicted.category === "unknown") continue;
+
+          const bucket = bucketed.get(predicted.matchedRule) ?? { hard: [], agree: [] };
+          if (isAgreement(predicted.category, a.category, a.email_intent)) {
+            bucket.agree.push({ email_id: a.email_id, predicted });
+          } else {
+            bucket.hard.push({ email_id: a.email_id, predicted });
+          }
+          bucketed.set(predicted.matchedRule, bucket);
         }
-        bucketed.set(predicted.matchedRule, bucket);
       }
 
       // Deterministic shuffle per rule via email_id hash so re-runs sample the
-      // same rows (auditable). Sort by hash then take first N.
+      // same rows (auditable). Sort by hash then take first N. Returning only
+      // {email_id, predicted} keeps output small (no bodies leak through).
       const samples: Array<{
         rule_key: string;
         hard: Array<{ email_id: string; predicted: ClassifyResult }>;
