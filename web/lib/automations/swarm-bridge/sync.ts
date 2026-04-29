@@ -295,14 +295,19 @@ async function fetchTriageRuns(
   schema: string,
   table: string,
   sinceIso: string,
+  swarmType?: string,
 ): Promise<AgentRunRow[]> {
-  const { data, error } = await admin
+  let query = admin
     .schema(schema)
     .from(table)
     .select(
       "id, email_id, entity, intent, sub_type, document_reference, confidence, language, body_version, intent_version, status, human_verdict, draft_url, tool_outputs, created_at, updated_at, completed_at",
     )
-    .gte("created_at", sinceIso)
+    .gte("created_at", sinceIso);
+  if (swarmType) {
+    query = query.eq("swarm_type", swarmType);
+  }
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .limit(5000);
   if (error) throw new Error(`fetch ${schema}.${table}: ${error.message}`);
@@ -488,6 +493,7 @@ export async function syncSwarmBridge(
       config.triageSource.schema,
       config.triageSource.table,
       since,
+      config.triageSource.swarmType,
     );
   }
 

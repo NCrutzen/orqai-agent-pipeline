@@ -74,6 +74,9 @@ export interface SwarmBridgeConfig {
   triageSource?: {
     schema: string;
     table: string;
+    /** Optional swarm_type filter — required when reading the cross-swarm
+     * `public.agent_runs` table so the bridge only sees this swarm's rows. */
+    swarmType?: string;
     /** Agents to ensure exist in swarm_agents (so they appear on the
      * Live Delegation Graph even when idle). */
     seedAgents: Array<{ name: string; role: string }>;

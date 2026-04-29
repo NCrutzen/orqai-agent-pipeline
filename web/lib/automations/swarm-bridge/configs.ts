@@ -79,8 +79,9 @@ const debtorEmailConfig: SwarmBridgeConfig = {
     return cat ? [cat] : [];
   },
   triageSource: {
-    schema: "debtor",
+    schema: "public",
     table: "agent_runs",
+    swarmType: "debtor-email",
     seedAgents: [
       { name: "Intent Agent", role: "Classifies unknown-bucket emails" },
       {
