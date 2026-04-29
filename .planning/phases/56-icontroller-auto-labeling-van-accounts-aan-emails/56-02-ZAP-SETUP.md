@@ -39,25 +39,37 @@ Zapier → **Create Zap** → name: **"MR — NXT Generic Lookup"**
   - Pick a long random secret (32+ chars). This is `NXT_ZAPIER_WEBHOOK_SECRET`.
   - The header arrives in Zapier as `Authorization`; map to that.
 
-### 4. Branch on `lookup_kind`
+### 4. Whitelist `nxt_database` (security gate)
 
-Add: **Filter by Zapier** OR **Paths by Zapier** (Paths is cleaner — 3 named branches).
+Before branching, add a **Filter by Zapier** to whitelist allowed database names. Database names are STRUCTURAL identifiers in SQL Server and CANNOT be parameterized — they must be string-substituted into the query, which means we MUST whitelist allowed values to prevent injection.
 
-Three paths:
+- Condition: `nxt_database (Text) Exactly matches  nxt_benelux_prod`
+- OR: `nxt_database (Text) Exactly matches  nxt_ireland_prod`
+- OR: `nxt_database (Text) Exactly matches  nxt_uk_prod`
 
-| Path name | Filter condition |
+(Zapier filter "Only continue if" with OR-chain.) Anything else → block.
+
+### 5. Branch on `lookup_kind`
+
+Add **Paths by Zapier** (cleaner than 3 nested filters). Three paths:
+
+| Path name | Filter |
 |---|---|
 | Sender → Account | `lookup_kind  Exactly matches  sender_to_account` |
 | Identifier → Account | `lookup_kind  Exactly matches  identifier_to_account` |
 | Candidate Details | `lookup_kind  Exactly matches  candidate_details` |
 
-### 5. Inside each path — SQL query
+### 6. Inside each path — SQL query (DYNAMIC database)
 
-**App:** Microsoft SQL Server (the existing connection that whitelisted IP works with — same one used for invoice-fetch).
+**App:** Microsoft SQL Server (the existing connection used by invoice-fetch).
 
 **Action:** "Find Multiple Rows via Custom Query"
 
-**Database:** map from incoming `nxt_database` field on the catch hook (Zapier "Custom Value"). For now you can hardcode `nxt_benelux_prod` and add the dynamic mapping later — Phase 56 only ever sends `nxt_benelux_prod`.
+**Database name handling:** Every `[NXT_DATABASE_FROM_PAYLOAD]` placeholder in the SQL below becomes a Zapier field-mapping → pick the catch-hook's `nxt_database` value. Zapier substitutes the literal string before sending the query to SQL Server.
+
+⚠ The whitelist filter from step 4 makes this substitution safe (only known DB names can pass). If you skip the whitelist, the Zap is open to SQL injection via the `nxt_database` field.
+
+⚠ The connection user must have access to all 3 NXT databases. If the existing invoice-fetch connection only has Benelux access, IE/UK paths will fail at runtime — confirm with the DBA before going live with non-Benelux mailboxes.
 
 **Path 1 — Sender → Account:**
 
@@ -70,7 +82,7 @@ WITH cp AS (
     customer_id   AS direct_customer_id,
     source_type, source_id,
     firstname, lastname, email, type, job_title
-  FROM nxt_benelux_prod.dbo.contact_person
+  FROM [NXT_DATABASE_FROM_PAYLOAD].dbo.contact_person
   WHERE email = @sender_email
 ),
 chain AS (
@@ -79,14 +91,14 @@ chain AS (
          cp.contact_id, cp.firstname, cp.lastname, cp.type, cp.job_title,
          0 AS depth
   FROM cp
-  JOIN nxt_benelux_prod.dbo.customer c ON c.id = cp.direct_customer_id
+  JOIN [NXT_DATABASE_FROM_PAYLOAD].dbo.customer c ON c.id = cp.direct_customer_id
   UNION ALL
   -- walk up parent_id until null
   SELECT c.id, c.parent_id, c.name, c.brand_id, c.status,
          chain.contact_id, chain.firstname, chain.lastname, chain.type, chain.job_title,
          chain.depth + 1
   FROM chain
-  JOIN nxt_benelux_prod.dbo.customer c ON c.id = chain.parent_id
+  JOIN [NXT_DATABASE_FROM_PAYLOAD].dbo.customer c ON c.id = chain.parent_id
   WHERE chain.depth < 10  -- safety cap
 )
 SELECT TOP 100
@@ -116,7 +128,7 @@ SELECT
   customer_id,
   paying_customer_id   AS top_level_customer_id,
   site_id, job_id, invoice_date, status
-FROM nxt_benelux_prod.dbo.invoice
+FROM [NXT_DATABASE_FROM_PAYLOAD].dbo.invoice
 WHERE invoice_number IN (@invoice_numbers)
 ```
 Map `@invoice_numbers` ← `payload__invoice_numbers` (a comma-separated list — Zapier handles `IN` clause expansion). Phase 56 uses `top_level_customer_id` (= `paying_customer_id`) as the iController assignment target.
@@ -126,7 +138,7 @@ Map `@invoice_numbers` ← `payload__invoice_numbers` (a comma-separated list �
 SELECT
   id, name, status, brand_id, country_id,
   city, classification, email, modified_on
-FROM nxt_benelux_prod.dbo.customer
+FROM [NXT_DATABASE_FROM_PAYLOAD].dbo.customer
 WHERE id IN (@customer_ids)
 ```
 Map `@customer_ids` ← `payload__customer_ids`.
