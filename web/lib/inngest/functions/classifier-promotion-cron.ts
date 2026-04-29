@@ -68,17 +68,14 @@ export async function evaluateRule(
 
   // manual_block: log the no-op evaluation row, never touch the rule.
   if (status === "manual_block") {
-    await admin.from("classifier_rule_evaluations").upsert(
-      {
-        swarm_type: telemetry.swarm_type,
-        rule_key: telemetry.rule_key,
-        n: telemetry.n,
-        agree: telemetry.agree,
-        ci_lo,
-        action: "no_change" satisfies EvaluationAction,
-      },
-      { onConflict: "swarm_type,rule_key,evaluated_at" },
-    );
+    await admin.from("classifier_rule_evaluations").insert({
+      swarm_type: telemetry.swarm_type,
+      rule_key: telemetry.rule_key,
+      n: telemetry.n,
+      agree: telemetry.agree,
+      ci_lo,
+      action: "no_change" satisfies EvaluationAction,
+    });
     return {
       swarm_type: telemetry.swarm_type,
       rule_key: telemetry.rule_key,
@@ -152,19 +149,23 @@ export async function evaluateRule(
     else action = "no_change";
   }
 
-  // Append-only evaluation row. ON CONFLICT(swarm_type, rule_key, evaluated_at::date)
-  // DO UPDATE so a same-day re-trigger refreshes rather than duplicates (T-60-03-03).
-  await admin.from("classifier_rule_evaluations").upsert(
-    {
-      swarm_type: telemetry.swarm_type,
-      rule_key: telemetry.rule_key,
-      n: telemetry.n,
-      agree: telemetry.agree,
-      ci_lo,
-      action,
-    },
-    { onConflict: "swarm_type,rule_key,evaluated_at" },
-  );
+  // Append-only evaluation row. We previously had ON CONFLICT(swarm_type,
+  // rule_key, evaluated_at::date) DO UPDATE for same-day idempotency, but
+  // Supabase JS's onConflict only accepts plain column names — it can't
+  // reference the functional unique index on the date-cast expression. The
+  // upsert was throwing 42P10 "no unique or exclusion constraint matching
+  // the ON CONFLICT specification" and the cron wrote 0 evaluations.
+  // Switch to plain insert; same-day re-runs produce additional rows
+  // (low volume, easy to dedupe at query time). Functional unique index
+  // dropped in 20260429b_drop_classifier_rule_evaluations_daily_uniq.sql.
+  await admin.from("classifier_rule_evaluations").insert({
+    swarm_type: telemetry.swarm_type,
+    rule_key: telemetry.rule_key,
+    n: telemetry.n,
+    agree: telemetry.agree,
+    ci_lo,
+    action,
+  });
 
   return {
     swarm_type: telemetry.swarm_type,

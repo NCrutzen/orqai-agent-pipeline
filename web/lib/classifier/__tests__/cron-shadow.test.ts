@@ -21,6 +21,7 @@ import {
  */
 function makeAdminStub() {
   const upsert = vi.fn().mockResolvedValue({ data: null, error: null });
+  const insert = vi.fn().mockResolvedValue({ data: null, error: null });
   // .update(...).eq(...).eq(...) -> resolves
   const eqInner = vi.fn().mockResolvedValue({ data: null, error: null });
   const eqOuter = vi.fn().mockReturnValue({ eq: eqInner });
@@ -29,12 +30,12 @@ function makeAdminStub() {
   const fromCalls: string[] = [];
   const from = vi.fn((table: string) => {
     fromCalls.push(table);
-    return { upsert, update };
+    return { upsert, insert, update };
   });
 
   return {
     admin: { from },
-    spies: { from, upsert, update, eqOuter, eqInner, fromCalls },
+    spies: { from, upsert, insert, update, eqOuter, eqInner, fromCalls },
   };
 }
 
@@ -70,7 +71,7 @@ describe("D-19: classifier-promotion-cron shadow vs live mode", () => {
     const result = await evaluateRule(admin, t, r, /* mutate */ false);
 
     // Evaluation row was upserted (write path).
-    expect(spies.upsert).toHaveBeenCalledTimes(1);
+    expect(spies.insert).toHaveBeenCalledTimes(1);
     expect(spies.fromCalls).toContain("classifier_rule_evaluations");
 
     // classifier_rules.update was NEVER invoked in shadow mode.
@@ -78,14 +79,12 @@ describe("D-19: classifier-promotion-cron shadow vs live mode", () => {
     expect(spies.fromCalls).not.toContain("classifier_rules");
 
     // ON CONFLICT idempotency target is the (swarm,rule,date) compound key.
-    expect(spies.upsert).toHaveBeenCalledWith(
+    expect(spies.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         swarm_type: "debtor-email",
         rule_key: "subject_paid_marker",
         action: "shadow_would_promote",
-      }),
-      { onConflict: "swarm_type,rule_key,evaluated_at" },
-    );
+      }));
 
     expect(result.action).toBe("shadow_would_promote");
     expect(result.ci_lo).toBeGreaterThanOrEqual(0.95);
@@ -113,10 +112,8 @@ describe("D-19: classifier-promotion-cron shadow vs live mode", () => {
     expect(result.action).toBe("shadow_would_demote");
     expect(result.ci_lo).toBeLessThan(0.92);
     expect(spies.update).not.toHaveBeenCalled();
-    expect(spies.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "shadow_would_demote" }),
-      { onConflict: "swarm_type,rule_key,evaluated_at" },
-    );
+    expect(spies.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "shadow_would_demote" }));
   });
 
   it("shadow run records action='no_change' when N is below the floor", async () => {
@@ -146,10 +143,8 @@ describe("D-19: classifier-promotion-cron shadow vs live mode", () => {
     );
     expect(spies.fromCalls).toContain("classifier_rules");
     // Evaluation row written with concrete (non-shadow) action.
-    expect(spies.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "promoted" }),
-      { onConflict: "swarm_type,rule_key,evaluated_at" },
-    );
+    expect(spies.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "promoted" }));
   });
 
   it("CLASSIFIER_CRON_MUTATE === 'true' -> demoted rule fires console.warn AND updates status to 'demoted'", async () => {
@@ -206,13 +201,17 @@ describe("D-19: classifier-promotion-cron shadow vs live mode", () => {
     expect(result.action).toBe("no_change");
     expect(spies.update).not.toHaveBeenCalled();
     // Still records an evaluation row so the audit trail exists.
-    expect(spies.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "no_change" }),
-      { onConflict: "swarm_type,rule_key,evaluated_at" },
-    );
+    expect(spies.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "no_change" }));
   });
 
-  it("ON CONFLICT (swarm_type, rule_key, evaluated_at::date) DO UPDATE -- same-day re-trigger is idempotent", async () => {
+  it("plain insert -- same-day re-trigger appends another evaluation row (no idempotency claim)", async () => {
+    // Originally tested ON CONFLICT(swarm_type, rule_key, evaluated_at::date)
+    // DO UPDATE for same-day idempotency. The functional unique index that
+    // backed it could not be referenced via Supabase JS's onConflict (which
+    // only accepts plain column names), so the upsert errored 42P10 and the
+    // cron wrote 0 rows. Switched to plain insert; same-day re-runs simply
+    // append. Dedupe is now the dashboard query's job (latest-per-day select).
     const { admin, spies } = makeAdminStub();
     const t = tel("payment_subject", 151, 151);
     const r = rule("payment_subject", "candidate");
@@ -220,13 +219,6 @@ describe("D-19: classifier-promotion-cron shadow vs live mode", () => {
     await evaluateRule(admin, t, r, false);
     await evaluateRule(admin, t, r, false);
 
-    // Both calls hit upsert with the same compound conflict target -- the DB
-    // unique index collapses them to a single row per day.
-    expect(spies.upsert).toHaveBeenCalledTimes(2);
-    for (const call of spies.upsert.mock.calls) {
-      expect(call[1]).toEqual({
-        onConflict: "swarm_type,rule_key,evaluated_at",
-      });
-    }
+    expect(spies.insert).toHaveBeenCalledTimes(2);
   });
 });
