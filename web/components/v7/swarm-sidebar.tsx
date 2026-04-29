@@ -65,7 +65,7 @@ const WORKSPACE_ITEMS = [
 ];
 
 const AUTOMATIONS_ITEMS = [
-  { title: "Debtor Review", href: "/automations/debtor-email-review", icon: Mail, match: (p: string) => p.startsWith("/automations/debtor-email-review") },
+  { title: "Debtor Review", href: "/automations/debtor-email/review", icon: Mail, match: (p: string) => p.startsWith("/automations/debtor-email/review") || p.startsWith("/automations/debtor-email-review") },
   { title: "Uren Controle", href: "/automations/uren-controle", icon: Timer, match: (p: string) => p.startsWith("/automations/uren-controle") },
   { title: "Agent Namer", href: "/automations/agent-namer", icon: Tag, match: (p: string) => p.startsWith("/automations/agent-namer") },
   { title: "Rijtijden", href: "/rijtijden", icon: Clock, match: (p: string) => p.startsWith("/rijtijden") },

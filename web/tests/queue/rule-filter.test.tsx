@@ -35,10 +35,10 @@ function buildRecorder(): {
 describe("D-15: ?rule=X filter applies via JSONB path on automation_runs.result", () => {
   it("appends .eq('result->predicted->>rule', ruleKey) to the list query", async () => {
     const { loadPageData } = await import(
-      "@/app/(dashboard)/automations/debtor-email-review/page"
+      "@/app/(dashboard)/automations/[swarm]/review/page"
     );
     const { admin, filterCalls } = buildRecorder();
-    await loadPageData({ rule: "subject_paid_marker" }, admin as never);
+    await loadPageData({ rule: "subject_paid_marker" }, admin as never, "debtor-email");
 
     const onAr = filterCalls.filter((c) => c.table === "automation_runs");
     expect(onAr).toContainEqual(
@@ -51,10 +51,10 @@ describe("D-15: ?rule=X filter applies via JSONB path on automation_runs.result"
 
   it("does NOT add the rule filter when ?rule= is absent", async () => {
     const { loadPageData } = await import(
-      "@/app/(dashboard)/automations/debtor-email-review/page"
+      "@/app/(dashboard)/automations/[swarm]/review/page"
     );
     const { admin, filterCalls } = buildRecorder();
-    await loadPageData({}, admin as never);
+    await loadPageData({}, admin as never, "debtor-email");
 
     const onAr = filterCalls.filter((c) => c.table === "automation_runs");
     const ruleEq = onAr.find(
@@ -68,10 +68,10 @@ describe("D-15: ?rule=X filter applies via JSONB path on automation_runs.result"
 
   it("Pending promotion tab queries classifier_rules.status='candidate'", async () => {
     const { loadPageData } = await import(
-      "@/app/(dashboard)/automations/debtor-email-review/page"
+      "@/app/(dashboard)/automations/[swarm]/review/page"
     );
     const { admin, filterCalls } = buildRecorder();
-    await loadPageData({ tab: "pending" }, admin as never);
+    await loadPageData({ tab: "pending" }, admin as never, "debtor-email");
 
     const onCr = filterCalls.filter((c) => c.table === "classifier_rules");
     expect(onCr).toContainEqual(

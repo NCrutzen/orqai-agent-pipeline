@@ -1,20 +1,16 @@
 "use client";
 
-// Phase 61-02 (D-KEYBOARD-SHORTCUTS). Page-scoped global keyboard handler.
+// Phase 56.7-03 (verbatim move from debtor-email-review/keyboard-shortcuts.tsx).
+// Swarm-agnostic. Page-scoped global keyboard handler.
 //
 // Design:
 //   - Single window keydown listener mounted in useEffect with cleanup.
-//   - Navigation keys (↑/↓/j/k) mutate the URL via router.push so the
-//     server re-renders the detail pane via the same ?selected= path the
-//     row strip uses on click.
+//   - Navigation keys (↑/↓/j/k) mutate URL via setSelected.
 //   - Action keys (⏎/Space/n/e/r///?) dispatch CustomEvents on window so
 //     detail-pane.tsx can wire up the actual server-action calls without
-//     coupling to this file or to a shared selection context.
+//     coupling to this file.
 //   - Input-focus guard: no-op when document.activeElement is an
-//     <input>, <textarea>, or has [contenteditable=true]. This is the
-//     UX-correct behaviour — typing notes shouldn't trigger Approve.
-//
-// The Cheatsheet sub-component (Sheet open on `?`) is wired in Task 5.
+//     <input>, <textarea>, or has [contenteditable=true].
 
 import { useEffect, useState } from "react";
 import {
@@ -39,17 +35,12 @@ const ACTION_EVENTS = {
 export const KEYBOARD_EVENTS = ACTION_EVENTS;
 
 function isTypingTarget(el: EventTarget | null): boolean {
-  // Prefer the live document.activeElement over event.target — when a row
-  // strip's button has focus and the user types in a notes field that just
-  // grabbed focus, the next keydown should be considered a typing event.
   const active =
     typeof document !== "undefined" ? document.activeElement : null;
   const candidate = active instanceof HTMLElement ? active : el;
   if (!(candidate instanceof HTMLElement)) return false;
   const tag = candidate.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA") return true;
-  // isContentEditable is not reliably populated in jsdom even after
-  // setAttribute('contenteditable', 'true'); fall back to the attribute.
   if (candidate.isContentEditable) return true;
   const ce = candidate.getAttribute("contenteditable");
   if (ce === "" || ce === "true" || ce === "plaintext-only") return true;
@@ -64,8 +55,6 @@ export function KeyboardShortcuts({
   const { selectedId, setSelected, pendingRemovalIds } = useSelection();
 
   useEffect(() => {
-    // Skip ids the reviewer just verdict'd — they're optimistically
-    // hidden from RowList, navigation should match.
     const visibleIds =
       pendingRemovalIds.size === 0
         ? rowIds
@@ -83,7 +72,6 @@ export function KeyboardShortcuts({
     const handler = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target)) return;
 
-      // Navigation
       if (e.key === "ArrowDown" || e.key === "j") {
         e.preventDefault();
         navigate(1);
@@ -95,7 +83,6 @@ export function KeyboardShortcuts({
         return;
       }
 
-      // Actions — dispatched as CustomEvents so detail-pane wires the impl.
       if (e.key === "Enter") {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent(ACTION_EVENTS.approve));
@@ -135,11 +122,6 @@ export function KeyboardShortcuts({
 
   return null;
 }
-
-// ---------------------------------------------------------------------------
-// Cheatsheet — Sheet that opens on the toggle-cheatsheet CustomEvent.
-// Renders the 9-row shortcut table.
-// ---------------------------------------------------------------------------
 
 interface ShortcutRow {
   keys: string[];

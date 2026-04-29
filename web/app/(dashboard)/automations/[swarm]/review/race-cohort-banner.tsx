@@ -1,14 +1,14 @@
 "use client";
 
-// Phase 60-05 (D-21). Sticky banner offering bulk-clear of the leftover
-// predicted rows for a rule that today's cron just promoted. The banner
-// renders only when:
+// Phase 56.7-03 (D-08, generic). Generic version of the race-cohort
+// banner. Was originally debtor-email-review/race-cohort-banner.tsx
+// (Phase 60-05). recordVerdict now requires `swarm_type` (Pitfall 5);
+// banner threads it from the dynamic-segment route.
+//
+// Renders only when:
 //   1. selection.rule is set, AND
 //   2. promotedToday includes that rule_key, AND
 //   3. count > 0
-//
-// Anything else: the banner is null. This is the ONLY bulk-approve
-// affordance in Phase 60 — outside the race-cohort, per-row approve only.
 
 import { useState, useTransition } from "react";
 import {
@@ -34,10 +34,8 @@ interface RaceCohortBannerProps {
   selection: { rule?: string };
   promotedToday: Array<{ rule_key: string; promoted_at: string }>;
   count: number;
-  /** Optional row payloads for the bulk-clear action. When omitted, the
-   *  banner still renders (for visual confirmation) but the modal CTA
-   *  is disabled — caller should pass the visible page rows. */
   rows?: RaceCohortRow[];
+  swarmType: string;
 }
 
 export function RaceCohortBanner({
@@ -45,6 +43,7 @@ export function RaceCohortBanner({
   promotedToday,
   count,
   rows,
+  swarmType,
 }: RaceCohortBannerProps) {
   const [open, setOpen] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(
@@ -77,6 +76,7 @@ export function RaceCohortBanner({
         const r = rows[i];
         try {
           await recordVerdict({
+            swarm_type: swarmType,
             automation_run_id: r.automation_run_id,
             rule_key: ruleKey,
             decision: "approve",

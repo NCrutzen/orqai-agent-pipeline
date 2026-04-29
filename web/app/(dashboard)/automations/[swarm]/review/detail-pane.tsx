@@ -1,35 +1,20 @@
 "use client";
 
-// Phase 61-02 (D-DETAIL-PANE / D-DETAIL-BODY-LAZY / D-DETAIL-OVERRIDE /
-// D-DETAIL-NOTES / D-DETAIL-ACTIONS / D-AUTO-ADVANCE / D-PREFETCH-NEXT).
+// Phase 56.7-03 (D-08, D-15). Generic detail pane.
+// Was originally debtor-email-review/detail-pane.tsx (Phase 61-02).
 //
-// Right-column detail UI for the bulk-review screen. Receives the selected
-// row from page.tsx (server fetch via ?selected=<id>) plus the visible
-// rows array for next-row computation in the auto-advance path.
-//
-// Layout (top -> bottom):
-//   1. Status pill (predicted / approving / rejecting / failed)
-//   2. Wrapped subject (Cabinet 20px)
-//   3. Meta grid — From, Sent, Mailbox, Topic/Entity, Rule fired, Predicted action
-//   4. Body section — collapsed default, "Show full email" lazy-fetches via
-//      fetchReviewEmailBody and caches in a module-level Map so re-opens are
-//      instant. Hover on a row strip primes the same Map via the exported
-//      prefetchReviewEmailBody helper (D-PREFETCH-NEXT).
-//   5. Override category dropdown — 5 options (D-DETAIL-OVERRIDE)
-//   6. Notes textarea — 3 rows, ≤2000 chars (D-DETAIL-NOTES)
-//   7. Action bar — Approve(⏎) / Reject(Space) / Skip(n) (D-DETAIL-ACTIONS)
-//
-// Submit handler routes the verdict through recordVerdict, then auto-
-// advances the URL to the next row in `rows` within 200ms of the response.
-// Skip submits override_category='unknown' which the server-action routes
-// to decision='reject' (the prior `labelOnly` semantic).
-//
-// Keyboard CustomEvents from KeyboardShortcuts wire to the same handlers
-// here so `e`/`r`/`/`/⏎/Space/n keep parity with mouse interactions.
+// Genericization:
+//   - Override dropdown options come from `categories` prop (loadSwarmCategories
+//     output). Categories with action='reject' are filtered out — those are
+//     the skip path, not real overrides.
+//   - recordVerdict is threaded with `swarm_type` (Pitfall 5).
+//   - Mailbox-id labels: kept gated on swarm_type==='debtor-email'.
+//     Q2 (Phase 56.7+1): move to ui_config.label_maps.mailbox_id.
 
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -46,8 +31,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { fetchReviewEmailBody, recordVerdict } from "./actions";
-import type { OverrideCategory } from "./categories";
 import type { PredictedRow } from "./page";
+import type { SwarmCategoryRow } from "@/lib/swarms/types";
 import { useSelection } from "./selection-context";
 
 // ---- Body cache (module-level so prefetch survives detail-pane remounts) -
@@ -59,10 +44,6 @@ interface CachedBody {
 const bodyCache = new Map<string, CachedBody>();
 const inFlight = new Map<string, Promise<CachedBody | null>>();
 
-/** Prime the body cache without rendering anything. Called from row-strip
- *  on hover (D-PREFETCH-NEXT). Safe to call repeatedly — no-ops on cache hit
- *  or in-flight fetch. Errors are swallowed silently; the user-triggered
- *  open will surface a real error in-pane. */
 export function prefetchReviewEmailBody(id: string): void {
   if (!id || bodyCache.has(id) || inFlight.has(id)) return;
   const p = fetchReviewEmailBody(id)
@@ -98,16 +79,8 @@ function readResult(row: PredictedRow): ResultPayload {
   return r ?? {};
 }
 
-// Human-readable labels for the override dropdown + "Apply <Cat>" button.
-// Order = display order in the dropdown.
-const CATEGORY_LABELS: Record<Exclude<OverrideCategory, "unknown">, string> = {
-  payment: "Payment",
-  auto_reply: "Auto-reply",
-  ooo_temporary: "OOO (temporary)",
-  ooo_permanent: "OOO (permanent)",
-  invoice_copy_request: "Invoice copy request",
-};
-
+// Q2 (Phase 56.7+1): move to ui_config.label_maps.mailbox_id; gated on
+// swarm_type for now so non-debtor swarms don't get debtor-specific labels.
 const MAILBOX_LABELS: Record<number, string> = {
   1: "Sicli Noord",
   2: "Sicli Sud",
@@ -117,12 +90,15 @@ const MAILBOX_LABELS: Record<number, string> = {
   6: "FireControl",
 };
 
-function mailboxLabel(id: number | null): string {
+function mailboxLabel(id: number | null, swarmType: string): string {
   if (id === null) return "(no mailbox)";
-  return MAILBOX_LABELS[id] ?? `mailbox ${id}`;
+  if (swarmType === "debtor-email") {
+    return MAILBOX_LABELS[id] ?? `mailbox ${id}`;
+  }
+  return `mailbox ${id}`;
 }
 
-// Status pill copy/colour — moved verbatim from the old row-strip (60-05).
+// Status pill copy/colour
 type RowStatus = "predicted" | "approving" | "rejecting" | "failed";
 
 function statusPillCopy(s: RowStatus): string {
@@ -150,20 +126,41 @@ function statusPillColor(s: RowStatus): { bg: string; fg: string } {
 
 interface DetailPaneProps {
   rows: PredictedRow[];
-  // Server-fetched fallback when the URL had ?selected=<id> on initial load
-  // and that id is not in the visible rows[] window (e.g., older than the
-  // 100-row page). Once user selects something else, this falls out of use.
   initialSelectedRow: PredictedRow | null;
+  swarmType: string;
+  categories: SwarmCategoryRow[];
+  drawerFields: string[];
 }
 
-export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
+export function DetailPane({
+  rows,
+  initialSelectedRow,
+  swarmType,
+  categories,
+  // drawerFields reserved for future config-driven meta-grid; the existing
+  // 6-field grid matches debtor-email's drawer_fields seed verbatim.
+  drawerFields: _drawerFields,
+}: DetailPaneProps) {
   const { selectedId, setSelected, pendingRemovalIds, markPendingRemoval } =
     useSelection();
   const router = useRouter();
 
-  // Visible rows = server rows minus any id the reviewer just verdict'd.
-  // The optimistic filter keeps the queue UX snappy: the row vanishes the
-  // moment Approve fires, no waiting for the RSC roundtrip.
+  // Override candidates: registry rows whose action is NOT 'reject'.
+  // Reject-action rows (e.g. 'unknown' for debtor-email) are the skip path,
+  // not real category overrides — Skip button covers them.
+  const overrideOptions = useMemo(
+    () =>
+      categories
+        .filter((c) => c.enabled !== false && c.action !== "reject")
+        .sort((a, b) => a.display_order - b.display_order),
+    [categories],
+  );
+  const categoryLabelByKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of categories) m.set(c.category_key, c.display_label);
+    return m;
+  }, [categories]);
+
   const visibleRows = pendingRemovalIds.size === 0
     ? rows
     : rows.filter((r) => !pendingRemovalIds.has(r.id));
@@ -177,12 +174,9 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
       : null);
 
   const [status, setStatus] = useState<RowStatus>("predicted");
-  const [override, setOverride] = useState<OverrideCategory | undefined>(
-    undefined,
-  );
+  const [override, setOverride] = useState<string | undefined>(undefined);
   const [notes, setNotes] = useState("");
 
-  // Body expander state — cached per row.id
   const [bodyOpen, setBodyOpen] = useState(false);
   const [bodyLoading, setBodyLoading] = useState(false);
   const [bodyError, setBodyError] = useState<string | null>(null);
@@ -191,7 +185,6 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
   const overrideTriggerRef = useRef<HTMLButtonElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
-  // Reset per-row state when the selected row changes.
   useEffect(() => {
     setStatus("predicted");
     setOverride(undefined);
@@ -226,8 +219,6 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
               }
             })
             .catch((e: Error) => {
-              // Should be unreachable now that the action returns a result,
-              // but keep a defensive net for runtime/network failures.
               setBodyError(e.message);
             })
             .finally(() => setBodyLoading(false));
@@ -245,15 +236,13 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
       const predictedCategory =
         result.predicted?.category ?? row.topic ?? "unknown";
 
-      // Unknown-bucket gate: reviewer must explain the email so we can mine
-      // it for new rules. Block submit + focus the notes field.
       const isUnknown =
         predictedCategory === "unknown" || ruleKey === "no_match";
       if (isUnknown && notes.trim().length < 10) {
         notesRef.current?.focus();
         toast.error(
           override
-            ? `Briefly explain why this is ${CATEGORY_LABELS[override as Exclude<OverrideCategory, "unknown">] ?? override}`
+            ? `Briefly explain why this is ${categoryLabelByKey.get(override) ?? override}`
             : "Briefly describe this email so we can build a rule for it",
         );
         return;
@@ -262,6 +251,7 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
       setStatus(kind === "approve" ? "approving" : "rejecting");
       try {
         await recordVerdict({
+          swarm_type: swarmType,
           automation_run_id: row.id,
           rule_key: ruleKey,
           decision: kind === "skip" ? "reject" : kind,
@@ -272,15 +262,8 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
           override_category: kind === "skip" ? "unknown" : override,
           notes: notes || undefined,
         });
-        // Mark the just-verdict'd row for optimistic removal so it
-        // disappears from RowList instantly. The cleanup effect in
-        // SelectionProvider drops the entry once the server roundtrip
-        // returns rows[] without it.
         markPendingRemoval(row.id);
 
-        // Pick the next row id from rows[], skipping anything already
-        // pending (this row, plus any earlier pending ids that haven't
-        // been pruned yet). Look forward first, then backward.
         const idx = rows.findIndex((r) => r.id === row.id);
         const isAvailable = (r: PredictedRow) =>
           r.id !== row.id && !pendingRemovalIds.has(r.id);
@@ -294,21 +277,8 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
           }
         }
 
-        // We need BOTH instant client feedback (the next row appears
-        // immediately in the detail pane) AND a server re-fetch so the
-        // verdict-flipped row drops out of rows[] for real.
-        //
-        // Implementation note: router.refresh() re-fetches against Next's
-        // internally-tracked URL — history.replaceState (from setSelected)
-        // only updates the address bar, NOT Next's router state. So a
-        // refresh after replaceState comes back with the stale ?selected=
-        // (the just-approved row), the row is gone from rows[], and
-        // DetailPane shows the empty placeholder. Using router.replace
-        // updates Next's state AND triggers the re-fetch in one go.
         const advance = () => {
-          // Instant client-side feedback while the server roundtrip flies.
           setSelected(nextRow?.id ?? null);
-          // Sync Next's router state and trigger the RSC re-fetch.
           const qs = new URLSearchParams(window.location.search);
           if (nextRow) qs.set("selected", nextRow.id);
           else qs.delete("selected");
@@ -336,18 +306,12 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
       router,
       pendingRemovalIds,
       markPendingRemoval,
+      swarmType,
+      categoryLabelByKey,
     ],
   );
 
-  // Wire CustomEvents from KeyboardShortcuts. The handlers respect the
-  // adaptive action bar so keyboard shortcuts match what's visible:
-  //   - Enter (approve) → primary action (Approve / Apply / Save & Skip)
-  //   - Space (reject)  → no-op when Reject is hidden (override set OR unknown bucket)
-  //   - n     (skip)    → no-op when Skip is hidden (unknown + no override)
   useEffect(() => {
-    // Recompute bucket/override state at event time so the latest UI state
-    // is used (these locals are also computed below the early-return for
-    // !row, so we re-derive here to keep the listener self-contained).
     const computeState = () => {
       if (!row) {
         return { unknown: false, hasOverride: false };
@@ -363,24 +327,16 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
 
     const onApprove = () => {
       const s = computeState();
-      // Primary action: in unknown bucket without an override, the primary
-      // is "Save & Skip"; everywhere else the primary is the approve path
-      // (which the action.ts override-routing turns into Apply when an
-      // override differs from predicted).
       if (s.unknown && !s.hasOverride) void submit("skip");
       else void submit("approve");
     };
     const onReject = () => {
       const s = computeState();
-      // Reject is only visible when there is no override AND we are not in
-      // the unknown bucket — match the UI to avoid invisible side effects.
       if (s.hasOverride || s.unknown) return;
       void submit("reject");
     };
     const onSkip = () => {
       const s = computeState();
-      // Skip is hidden in unknown+no-override (the primary IS Save & Skip
-      // there). The Enter handler covers that case; n in that state no-ops.
       if (s.unknown && !s.hasOverride) return;
       void submit("skip");
     };
@@ -428,13 +384,14 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
   const pill = statusPillColor(status);
   const busy = status === "approving" || status === "rejecting";
 
-  // Unknown bucket = AI couldn't classify (rule=no_match or predicted=unknown).
-  // Reviewer always provides a context note here so we can mine for new rules.
   const isUnknownBucket =
     predictedCategory === "unknown" || ruleKey === "no_match";
   const hasOverride = !!override;
   const notesRequired = isUnknownBucket;
   const notesValid = !notesRequired || notes.trim().length >= 10;
+  const overrideLabel = override
+    ? categoryLabelByKey.get(override) ?? override
+    : "";
 
   return (
     <aside
@@ -463,7 +420,7 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
         <dt className="text-[var(--v7-muted)]">Sent</dt>
         <dd style={{ fontVariantNumeric: "tabular-nums" }}>{sentTime}</dd>
         <dt className="text-[var(--v7-muted)]">Mailbox</dt>
-        <dd>{mailboxLabel(row.mailbox_id)}</dd>
+        <dd>{mailboxLabel(row.mailbox_id, swarmType)}</dd>
         <dt className="text-[var(--v7-muted)]">Topic/Entity</dt>
         <dd className="truncate min-w-0">
           {row.topic ?? "(no topic)"} · {row.entity ?? "(no entity)"}
@@ -500,16 +457,14 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
         )}
       </div>
 
-      {/* 5. Override dropdown — "Unknown (skip)" removed; the dedicated
-          Skip button covers that semantic without polluting the category
-          choices. Reviewer either picks a real category or hits Skip. */}
+      {/* 5. Override dropdown — driven by registry. */}
       <div>
         <label className="block text-[12px] text-[var(--v7-muted)] mb-1">
           {isUnknownBucket ? "Set rule (category)" : "Override category"}
         </label>
         <Select
           value={override ?? ""}
-          onValueChange={(v) => setOverride(v as OverrideCategory)}
+          onValueChange={(v) => setOverride(v)}
         >
           <SelectTrigger ref={overrideTriggerRef} className="w-full">
             <SelectValue
@@ -521,25 +476,21 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
             />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="payment">{CATEGORY_LABELS.payment}</SelectItem>
-            <SelectItem value="auto_reply">{CATEGORY_LABELS.auto_reply}</SelectItem>
-            <SelectItem value="ooo_temporary">{CATEGORY_LABELS.ooo_temporary}</SelectItem>
-            <SelectItem value="ooo_permanent">{CATEGORY_LABELS.ooo_permanent}</SelectItem>
-            <SelectItem value="invoice_copy_request">
-              {CATEGORY_LABELS.invoice_copy_request}
-            </SelectItem>
+            {overrideOptions.map((c) => (
+              <SelectItem key={c.category_key} value={c.category_key}>
+                {c.display_label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* 6. Notes textarea — required in unknown bucket so we can mine the
-          reviewer's reasoning for new rules / automations. Label adapts to
-          whether the reviewer has set a category yet. */}
+      {/* 6. Notes textarea */}
       <div>
         <label className="block text-[12px] text-[var(--v7-muted)] mb-1">
           {isUnknownBucket
             ? hasOverride
-              ? `Why is this ${CATEGORY_LABELS[override as Exclude<OverrideCategory, "unknown">] ?? override}?`
+              ? `Why is this ${overrideLabel}?`
               : "Briefly describe this email — helps us build a rule"
             : "Notes"}
           {notesRequired && <span className="text-[var(--v7-red)]"> *</span>}
@@ -563,11 +514,7 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
         />
       </div>
 
-      {/* 7. Action bar — adapts to bucket + override state.
-          - Unknown + override:   [Apply <Cat>]
-          - Unknown + no override: [Save & Skip]      (records notes for rule mining)
-          - Known   + override:   [Apply <Cat>] [Skip]
-          - Known   + no override: [Approve] [Reject] [Skip]                 */}
+      {/* 7. Action bar */}
       <div className="flex items-center gap-2 mt-2 flex-wrap">
         {hasOverride ? (
           <Button
@@ -576,7 +523,7 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
             style={{ background: "var(--v7-brand-primary)", color: "#fff" }}
           >
             <Check size={16} className="mr-1.5" />
-            {`Apply ${CATEGORY_LABELS[override as Exclude<OverrideCategory, "unknown">] ?? override}`}
+            {`Apply ${overrideLabel}`}
             <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
               ⏎
             </kbd>
@@ -621,8 +568,6 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
           </>
         )}
 
-        {/* Skip stays available except in unknown+no-override (where the
-            primary "Save & Skip" already IS the skip path). */}
         {!(isUnknownBucket && !hasOverride) && (
           <Button variant="ghost" onClick={() => submit("skip")} disabled={busy}>
             <SkipForward size={16} className="mr-1.5" />

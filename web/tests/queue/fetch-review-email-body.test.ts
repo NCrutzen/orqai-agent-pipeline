@@ -47,7 +47,7 @@ vi.mock("@/lib/outlook", () => ({
 }));
 
 // Import AFTER mocks
-import { fetchReviewEmailBody } from "@/app/(dashboard)/automations/debtor-email-review/actions";
+import { fetchReviewEmailBody } from "@/app/(dashboard)/automations/[swarm]/review/actions";
 
 beforeEach(() => {
   selectError = null;

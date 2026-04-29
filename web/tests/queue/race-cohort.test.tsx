@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { RaceCohortBanner } from "@/app/(dashboard)/automations/debtor-email-review/race-cohort-banner";
+import { RaceCohortBanner } from "@/app/(dashboard)/automations/[swarm]/review/race-cohort-banner";
 
 const today = new Date();
 today.setHours(8, 0, 0, 0);
@@ -19,6 +19,7 @@ describe("D-21: race-cohort banner shows for promoted-today rules with remaining
           { rule_key: "subject_paid_marker", promoted_at: today.toISOString() },
         ]}
         count={47}
+        swarmType="debtor-email"
       />,
     );
     expect(
@@ -34,6 +35,7 @@ describe("D-21: race-cohort banner shows for promoted-today rules with remaining
           { rule_key: "subject_paid_marker", promoted_at: today.toISOString() },
         ]}
         count={0}
+        swarmType="debtor-email"
       />,
     );
     expect(container.firstChild).toBeNull();
@@ -47,6 +49,7 @@ describe("D-21: race-cohort banner shows for promoted-today rules with remaining
           { rule_key: "subject_paid_marker", promoted_at: yesterday.toISOString() },
         ]}
         count={47}
+        swarmType="debtor-email"
       />,
     );
     expect(container.firstChild).toBeNull();
@@ -60,6 +63,7 @@ describe("D-21: race-cohort banner shows for promoted-today rules with remaining
           { rule_key: "subject_paid_marker", promoted_at: today.toISOString() },
         ]}
         count={47}
+        swarmType="debtor-email"
       />,
     );
     expect(container.firstChild).toBeNull();
@@ -73,6 +77,7 @@ describe("D-21: race-cohort banner shows for promoted-today rules with remaining
           { rule_key: "subject_paid_marker", promoted_at: today.toISOString() },
         ]}
         count={47}
+        swarmType="debtor-email"
       />,
     );
     expect(container.firstChild).toBeNull();
@@ -86,6 +91,7 @@ describe("D-21: race-cohort banner shows for promoted-today rules with remaining
           { rule_key: "subject_paid_marker", promoted_at: today.toISOString() },
         ]}
         count={47}
+        swarmType="debtor-email"
       />,
     );
     // Full CTA string check — at least one button (the banner CTA) carries

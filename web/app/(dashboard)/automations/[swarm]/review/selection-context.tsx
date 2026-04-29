@@ -1,9 +1,13 @@
 "use client";
 
-// Phase 61 hotfix. Selection state is client-side: row clicks, ↑/↓
-// navigation, and post-verdict auto-advance update local state and patch the
-// URL via `history.replaceState`. No router.push, no server re-render, no
-// re-running the 4 Supabase queries on every keypress.
+// Phase 56.7-03 (D-13). Generic dynamic-segment route — was originally
+// debtor-email-review/selection-context.tsx; component logic is swarm-agnostic
+// so the move is verbatim.
+//
+// Selection state is client-side: row clicks, ↑/↓ navigation, and post-verdict
+// auto-advance update local state and patch the URL via
+// `history.replaceState`. No router.push, no server re-render, no re-running
+// the 4 Supabase queries on every keypress.
 //
 // Filter changes (topic/entity/mailbox/rule via QueueTree links) STILL go
 // through Next's router because they need a fresh row list. The provider

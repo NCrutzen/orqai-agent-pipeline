@@ -21,7 +21,7 @@ vi.mock("next/navigation", () => ({
     refresh: vi.fn(),
     push: vi.fn(),
   }),
-  usePathname: () => "/automations/debtor-email-review",
+  usePathname: () => "/automations/debtor-email/review",
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -31,7 +31,7 @@ const fetchBodyMock = vi
   .fn()
   .mockResolvedValue({ ok: true, bodyText: "hi", bodyHtml: null });
 vi.mock(
-  "@/app/(dashboard)/automations/debtor-email-review/actions",
+  "@/app/(dashboard)/automations/[swarm]/review/actions",
   () => ({
     recordVerdict: (...args: unknown[]) => recordVerdictMock(...args),
     fetchReviewEmailBody: (...args: unknown[]) => fetchBodyMock(...args),
@@ -44,9 +44,36 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-import { DetailPane } from "@/app/(dashboard)/automations/debtor-email-review/detail-pane";
-import { SelectionProvider } from "@/app/(dashboard)/automations/debtor-email-review/selection-context";
-import type { PredictedRow } from "@/app/(dashboard)/automations/debtor-email-review/page";
+import { DetailPane as RawDetailPane } from "@/app/(dashboard)/automations/[swarm]/review/detail-pane";
+import { SelectionProvider } from "@/app/(dashboard)/automations/[swarm]/review/selection-context";
+import type { PredictedRow } from "@/app/(dashboard)/automations/[swarm]/review/page";
+import type { SwarmCategoryRow } from "@/lib/swarms/types";
+
+// Phase 56.7-03: DetailPane now requires `swarmType`, `categories`, and
+// `drawerFields` props (registry-driven). Provide debtor-email defaults
+// here so the existing assertions don't all need to thread them through.
+const TEST_CATEGORIES: SwarmCategoryRow[] = [
+  { swarm_type: "debtor-email", category_key: "payment", display_label: "Payment", outlook_label: "Payment", action: "categorize_archive", swarm_dispatch: null, display_order: 10, enabled: true },
+  { swarm_type: "debtor-email", category_key: "auto_reply", display_label: "Auto-reply", outlook_label: "Auto-Reply", action: "categorize_archive", swarm_dispatch: null, display_order: 20, enabled: true },
+  { swarm_type: "debtor-email", category_key: "ooo_temporary", display_label: "OOO (temporary)", outlook_label: "OoO Temp", action: "categorize_archive", swarm_dispatch: null, display_order: 30, enabled: true },
+  { swarm_type: "debtor-email", category_key: "unknown", display_label: "Skip (label-only)", outlook_label: null, action: "reject", swarm_dispatch: null, display_order: 60, enabled: true },
+];
+
+type DetailPaneProps = Parameters<typeof RawDetailPane>[0];
+function DetailPane(
+  props: Omit<DetailPaneProps, "swarmType" | "categories" | "drawerFields"> &
+    Partial<Pick<DetailPaneProps, "swarmType" | "categories" | "drawerFields">>,
+) {
+  const { swarmType = "debtor-email", categories = TEST_CATEGORIES, drawerFields = [], ...rest } = props;
+  return (
+    <RawDetailPane
+      {...rest}
+      swarmType={swarmType}
+      categories={categories}
+      drawerFields={drawerFields}
+    />
+  );
+}
 
 function withSelection(
   initialSelectedId: string | null,

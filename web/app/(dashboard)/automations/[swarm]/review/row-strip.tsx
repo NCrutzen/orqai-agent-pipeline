@@ -1,15 +1,12 @@
 "use client";
 
-// Phase 61-02. Two-line display-only row strip.
+// Phase 56.7-03 (verbatim move from debtor-email-review/row-strip.tsx).
+// Two-line display-only row strip. Swarm-agnostic.
 // - line 1: subject (14px semibold, truncate)
 // - line 2: sender · rule · time (12px muted, truncate, tabular-nums on time)
 // - selected → 3px brand-primary left bar + brand-primary-soft background
-// - click → onSelect(row.id) — parent owns router.push(?selected=) so the
-//   page-scoped keyboard handler can call the same selection fn.
+// - click → onSelect(row.id)
 // - hover → primes the body cache via prefetchReviewEmailBody (D-PREFETCH-NEXT).
-//
-// No Approve/Reject buttons (D-ROW-NO-BUTTONS) — actions live in detail-pane.tsx.
-// No status pill on the strip — it moved to detail-pane.tsx.
 
 import type { PredictedRow } from "./page";
 import { prefetchReviewEmailBody } from "./detail-pane";

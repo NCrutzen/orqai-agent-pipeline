@@ -1,22 +1,22 @@
-// Phase 60-05 (D-10/D-13/D-14/D-21). Queue-driven Bulk Review page.
+// Phase 56.7-03 (D-08, D-13, D-14, D-15). Generic queue page mounted at
+// /automations/[swarm]/review. Reads the swarm registry (Wave 1) so adding
+// a new swarm is a `swarms` row INSERT, not a new route.
 //
-// This page reads ONLY from `public.automation_runs WHERE status='predicted'`
-// (D-10). The previous Outlook live-fetch + 5×300 window walk is gone.
+// Original: web/app/(dashboard)/automations/debtor-email-review/page.tsx
+// (Phase 60-05). Behaviour is unchanged for the debtor-email seed; the
+// hardcoded 'debtor-email' literals are now sourced from `params.swarm`
+// and the registry's per-swarm config.
 //
-// Counts come from the `public.classifier_queue_counts` RPC (D-13). Row
-// pagination is cursor-based on `created_at` with a page size of 100 (D-14).
-// The race-cohort banner (D-21) renders only for rules promoted today with
-// remaining predicted rows.
-//
-// Phase 61-02 layout:
+// Phase 60-05 / 61-02 layout retained:
 //   3-column grid [clamp(220px,18vw,280px) minmax(380px,460px) 1fr],
 //   max-w-[1600px], min-w-0 hygiene on every child. ?selected=<row-id>
 //   loads a single row server-side and feeds the right-column DetailPane.
-//   Pending promotion is now a sibling node in QueueTree, so we always
-//   fetch the candidate list (small table, cheap).
 
+import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AutomationRealtimeProvider } from "@/components/automations/automation-realtime-provider";
+import { loadSwarm, loadSwarmCategories } from "@/lib/swarms/registry";
+import type { SwarmCategoryRow, SwarmRow } from "@/lib/swarms/types";
 import { QueueTree } from "./queue-tree";
 import { RowList } from "./row-list";
 import { DetailPane } from "./detail-pane";
@@ -80,18 +80,17 @@ export interface PageData {
  * dependency. Used by the React server component below and by the
  * vitest queue tests directly (no need to render the JSX shell).
  *
- * Each filter is conditionally applied. Supabase JS treats successive
- * `.eq()` calls as additive AND filters on the same builder. We mutate
- * the same query reference (rather than reassigning) so the recorded
- * call list in the unit test reflects every applied filter.
+ * `swarmType` threads the dynamic-segment value through every Supabase
+ * call so the same loader serves any swarm row in the registry (D-08).
  */
 export async function loadPageData(
   params: PageSearchParams,
   admin: ReturnType<typeof createAdminClient>,
+  swarmType: string,
 ): Promise<PageData> {
   // 1. Counts: single RPC, GROUP BY (swarm_type, topic, entity, mailbox_id).
   const countsRes = await admin.rpc("classifier_queue_counts", {
-    p_swarm_type: "debtor-email",
+    p_swarm_type: swarmType,
   });
   const counts = (countsRes.data as QueueCountRow[] | null) ?? [];
 
@@ -100,7 +99,7 @@ export async function loadPageData(
     .from("automation_runs")
     .select("*")
     .eq("status", "predicted")
-    .eq("swarm_type", "debtor-email")
+    .eq("swarm_type", swarmType)
     .order("created_at", { ascending: false })
     .limit(100);
   if (params.before) listQuery.lt("created_at", params.before);
@@ -122,7 +121,7 @@ export async function loadPageData(
   const promotedRes = await admin
     .from("classifier_rules")
     .select("rule_key, promoted_at")
-    .eq("swarm_type", "debtor-email")
+    .eq("swarm_type", swarmType)
     .eq("status", "promoted")
     .gte("promoted_at", todayMidnight.toISOString());
   const promotedToday = (promotedRes.data as PromotedRule[] | null) ?? [];
@@ -136,7 +135,7 @@ export async function loadPageData(
     const candRes = await admin
       .from("classifier_rules")
       .select("rule_key, status, n, ci_lo")
-      .eq("swarm_type", "debtor-email")
+      .eq("swarm_type", swarmType)
       .eq("status", "candidate");
     candidates = (candRes.data as ClassifierCandidate[] | null) ?? [];
   } else {
@@ -144,7 +143,7 @@ export async function loadPageData(
     const candRes = await admin
       .from("classifier_rules")
       .select("rule_key, status, n, ci_lo")
-      .eq("swarm_type", "debtor-email")
+      .eq("swarm_type", swarmType)
       .eq("status", "candidate");
     candidates = (candRes.data as ClassifierCandidate[] | null) ?? [];
   }
@@ -166,45 +165,69 @@ export async function loadPageData(
 }
 
 interface PageProps {
+  params: Promise<{ swarm: string }>;
   searchParams: Promise<PageSearchParams>;
 }
 
-export default async function DebtorEmailReviewPage({ searchParams }: PageProps) {
-  const params = await searchParams;
+export default async function SwarmReviewPage({
+  params,
+  searchParams,
+}: PageProps) {
+  const { swarm: swarmType } = await params;
+  const sp = await searchParams;
   const admin = createAdminClient();
-  const data = await loadPageData(params, admin);
+
+  // Registry lookup. Unknown or disabled swarm → 404 (Next 15 idiom).
+  const swarm: SwarmRow | null = await loadSwarm(admin, swarmType);
+  if (!swarm || !swarm.enabled) {
+    notFound();
+  }
+  const categories: SwarmCategoryRow[] = await loadSwarmCategories(
+    admin,
+    swarmType,
+  );
+
+  const data = await loadPageData(sp, admin, swarmType);
   const rowIds = data.rows.map((r) => r.id);
 
   return (
-    <AutomationRealtimeProvider automations={["debtor-email-review"]}>
+    <AutomationRealtimeProvider automations={[`${swarmType}-review`]}>
       <SelectionProvider
-        initialSelectedId={params.selected ?? null}
+        initialSelectedId={sp.selected ?? null}
         rowIds={rowIds}
       >
         <div className="px-6 pt-12 pb-12 max-w-[1600px] mx-auto">
           <h1 className="text-[28px] font-semibold leading-[1.2] font-[family-name:var(--font-cabinet)]">
-            Bulk Review
+            {swarm.display_name ? `${swarm.display_name} — Bulk Review` : "Bulk Review"}
           </h1>
           <p className="text-[14px] leading-[1.5] text-[var(--v7-muted)] mt-2 mb-6">
-            Review predicted classifications. Approved rows trigger Outlook
-            categorize+archive and iController delete in the background.
+            Review predicted classifications. Approved rows trigger the
+            registered side-effects (categorize+archive, downstream cleanup,
+            or swarm dispatch) in the background.
           </p>
           <div className="grid grid-cols-[clamp(220px,18vw,280px)_minmax(380px,460px)_1fr] gap-4 min-w-0">
             <QueueTree
               counts={data.counts}
-              selection={params}
+              selection={sp}
               candidates={data.candidates}
               promotedTodayCount={data.promotedToday.length}
+              swarmType={swarmType}
+              treeLevels={swarm.ui_config.tree_levels}
             />
             <RowList
               rows={data.rows}
               promotedToday={data.promotedToday}
               candidates={data.candidates}
-              selection={params}
+              selection={sp}
+              swarmType={swarmType}
+              columns={swarm.ui_config.row_columns}
             />
             <DetailPane
               rows={data.rows}
               initialSelectedRow={data.selectedRow}
+              swarmType={swarmType}
+              categories={categories}
+              drawerFields={swarm.ui_config.drawer_fields}
             />
           </div>
           <KeyboardShortcuts rowIds={rowIds} />

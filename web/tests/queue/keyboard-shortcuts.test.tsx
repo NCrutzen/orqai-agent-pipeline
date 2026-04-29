@@ -9,8 +9,8 @@ import { render, cleanup } from "@testing-library/react";
 import {
   KeyboardShortcuts,
   KEYBOARD_EVENTS,
-} from "@/app/(dashboard)/automations/debtor-email-review/keyboard-shortcuts";
-import { SelectionProvider } from "@/app/(dashboard)/automations/debtor-email-review/selection-context";
+} from "@/app/(dashboard)/automations/[swarm]/review/keyboard-shortcuts";
+import { SelectionProvider } from "@/app/(dashboard)/automations/[swarm]/review/selection-context";
 
 // ---- Helpers -------------------------------------------------------------
 

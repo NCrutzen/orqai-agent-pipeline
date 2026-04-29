@@ -1,22 +1,20 @@
 "use client";
 
-// Phase 61-02 (rename of predicted-row-list.tsx). Middle column of the
-// 3-column layout. Renders cursor-paginated row strips, the race-cohort
-// banner, and pagination footer.
+// Phase 56.7-03 (D-08, D-13). Generic version of the middle column for the
+// dynamic-segment route. Was originally debtor-email-review/row-list.tsx
+// (Phase 61-02). All hardcoded URL paths now use `swarmType`.
 //
-// Changes from 60-05:
-//   - Tab strip removed (Pending promotion moved to QueueTree as a sibling
-//     top-level node — D-TREE-PENDING-SIBLING).
-//   - Row strips have no Approve/Reject buttons (D-ROW-NO-BUTTONS).
-//   - Selection is URL-driven via ?selected=<row.id>; row-list owns the
-//     router.push so keyboard-shortcuts.tsx can call the same fn.
-//   - Pending-promotion panel is rendered inline when selection.tab === "pending".
+// `columns` prop carries swarm.ui_config.row_columns; today the visual
+// rendering is delegated to RowStrip (subject + sender + rule + time —
+// fixed). The prop is plumbed end-to-end so a future variant of RowStrip
+// can lay out arbitrary columns per registry config without changes here.
 
 import { useMemo } from "react";
 import Link from "next/link";
 import { RowStrip } from "./row-strip";
 import { RaceCohortBanner } from "./race-cohort-banner";
 import { useSelection } from "./selection-context";
+import type { SwarmUiConfig } from "@/lib/swarms/types";
 import type {
   ClassifierCandidate,
   PageSearchParams,
@@ -29,6 +27,8 @@ interface RowListProps {
   promotedToday: PromotedRule[];
   candidates: ClassifierCandidate[];
   selection: PageSearchParams;
+  swarmType: string;
+  columns: SwarmUiConfig["row_columns"];
 }
 
 interface RowResult {
@@ -47,6 +47,7 @@ export function RowList({
   promotedToday,
   candidates,
   selection,
+  swarmType,
 }: RowListProps) {
   const { selectedId, setSelected, pendingRemovalIds } = useSelection();
   const isPending = selection.tab === "pending";
@@ -78,12 +79,11 @@ export function RowList({
   }, [visibleRows, selection.rule]);
 
   const cohortCount = cohortRows.length;
-  // Pagination cursor needs to stay anchored to the server-side row set,
-  // not the optimistic-filtered one — otherwise "Load older" would skip
-  // a row when a verdict is pending. Same for "is last page".
   const oldest = rows.length > 0 ? rows[rows.length - 1].created_at : null;
   const isLastPage = rows.length < 100;
   const totalLabel = visibleRows.length;
+
+  const basePath = `/automations/${swarmType}/review`;
 
   // Build "Load older" URL preserving current selection.
   const olderQs = new URLSearchParams();
@@ -94,7 +94,7 @@ export function RowList({
   if (selection.tab) olderQs.set("tab", selection.tab);
   if (selection.selected) olderQs.set("selected", selection.selected);
   if (oldest) olderQs.set("before", oldest);
-  const olderHref = `/automations/debtor-email-review?${olderQs.toString()}`;
+  const olderHref = `${basePath}?${olderQs.toString()}`;
 
   const hasSelection =
     !!selection.topic ||
@@ -111,16 +111,11 @@ export function RowList({
     if (selection.mailbox) qs.set("mailbox", selection.mailbox);
     if (selection.tab) qs.set("tab", selection.tab);
     if (selection.selected) qs.set("selected", selection.selected);
-    const path = "/automations/debtor-email-review";
-    return qs.toString() ? `${path}?${qs.toString()}` : path;
+    return qs.toString() ? `${basePath}?${qs.toString()}` : basePath;
   })();
-
-  // Selection is client-side. Click → setSelected → context updates state
-  // and patches the URL via history.replaceState. No server re-render.
 
   return (
     <section className="flex flex-col gap-3 min-w-0 motion-reduce:[--row-duration:0ms]">
-      {/* prefers-reduced-motion fallback hook for the prepend animation */}
       <style>{`
         @media (prefers-reduced-motion: no-preference) {
           .row-fade-in { animation: rowFadeIn 200ms ease-out; }
@@ -151,12 +146,16 @@ export function RowList({
         promotedToday={promotedToday}
         count={cohortCount}
         rows={cohortRows}
+        swarmType={swarmType}
       />
 
       {isPending ? (
-        <PendingPromotionPanel candidates={candidates} />
+        <PendingPromotionPanel
+          candidates={candidates}
+          basePath={basePath}
+        />
       ) : visibleRows.length === 0 ? (
-        <EmptyState selectionActive={hasSelection} />
+        <EmptyState selectionActive={hasSelection} swarmType={swarmType} />
       ) : (
         <>
           <div className="flex flex-col gap-2 min-w-0">
@@ -181,7 +180,13 @@ export function RowList({
   );
 }
 
-function EmptyState({ selectionActive }: { selectionActive: boolean }) {
+function EmptyState({
+  selectionActive,
+  swarmType,
+}: {
+  selectionActive: boolean;
+  swarmType: string;
+}) {
   if (selectionActive) {
     return (
       <div className="px-6 py-12 rounded-[var(--v7-radius-card)] border border-[var(--v7-line)] bg-[var(--v7-panel-2)] text-center">
@@ -201,8 +206,8 @@ function EmptyState({ selectionActive }: { selectionActive: boolean }) {
         Nothing to review
       </h2>
       <p className="text-[14px] leading-[1.5] text-[var(--v7-muted)] mt-2">
-        Predicted classifications will appear here once the debtor-email
-        ingest route receives mail. Check back shortly.
+        Predicted classifications will appear here once the {swarmType} ingest
+        route receives data. Check back shortly.
       </p>
     </div>
   );
@@ -235,8 +240,10 @@ function PaginationFooter({
 
 function PendingPromotionPanel({
   candidates,
+  basePath,
 }: {
   candidates: ClassifierCandidate[];
+  basePath: string;
 }) {
   if (candidates.length === 0) {
     return (
@@ -267,7 +274,7 @@ function PendingPromotionPanel({
             </div>
           </div>
           <Link
-            href={`/automations/debtor-email-review?rule=${encodeURIComponent(c.rule_key)}`}
+            href={`${basePath}?rule=${encodeURIComponent(c.rule_key)}`}
             className="text-[13px] underline hover:text-[var(--v7-text)] shrink-0"
           >
             Filter to this rule

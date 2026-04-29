@@ -225,7 +225,7 @@ export function KanbanJobCard({
           )}
           {job.stage === "review" && !isDragOverlay && (
             <Link
-              href="/automations/debtor-email-review"
+              href="/automations/debtor-email/review"
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
               className="ml-auto inline-flex items-center gap-1 rounded-[var(--v7-radius-pill)] border border-[var(--v7-teal)] bg-[var(--v7-teal-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--v7-teal)] transition-colors hover:bg-[var(--v7-teal)] hover:text-[var(--v7-inverse)]"
