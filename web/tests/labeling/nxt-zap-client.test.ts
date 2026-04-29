@@ -147,7 +147,7 @@ describe("callNxtTool (async_callback)", () => {
     // Fire the call; resolve via fake Realtime UPDATE shortly after.
     const promise = callNxtTool("nxt.contact_lookup", {
       nxt_database: "nxt_benelux_prod",
-      sender_email: "x@y.nl",
+      brand_id: "SB", sender_email: "x@y.nl",
     });
 
     // Wait one tick so the subscribe + initial-select races settle, then
@@ -187,8 +187,29 @@ describe("callNxtTool (async_callback)", () => {
     expect(body.lookup_kind).toBe("sender_to_account");
     expect(body.tool_id).toBe("nxt.contact_lookup");
     expect(body.nxt_database).toBe("nxt_benelux_prod");
+    expect(body.brand_id).toBe("SB");
     expect(body.payload.sender_email).toBe("x@y.nl");
+    expect(body.payload.brand_id).toBeUndefined();
     expect(init.headers["content-type"]).toBe("application/json");
+  });
+
+  it("rejects invalid brand_id format (must match ^[A-Z]{2}$)", async () => {
+    const adminInstance = buildMockAdmin({ initialRow: null });
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => adminInstance,
+    }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+
+    const { callNxtTool } = await import(
+      "@/lib/automations/debtor-email/nxt-zap-client"
+    );
+    await expect(
+      callNxtTool("nxt.contact_lookup", {
+        nxt_database: "nxt_benelux_prod",
+        brand_id: "smeba", // lowercase, too long
+        sender_email: "x@y.nl",
+      }),
+    ).rejects.toThrow(/brand_id "smeba" must match/);
   });
 
   it("rejects when registry tool has pattern='sync' (mismatch with this client)", async () => {
@@ -207,7 +228,7 @@ describe("callNxtTool (async_callback)", () => {
     await expect(
       (clientMod.callNxtTool as unknown as (id: string, input: unknown) => Promise<unknown>)(
         "nxt.legacy_sync",
-        { nxt_database: "nxt_benelux_prod", sender_email: "x@y.nl" },
+        { nxt_database: "nxt_benelux_prod", brand_id: "SB", sender_email: "x@y.nl" },
       ),
     ).rejects.toThrow(/pattern=sync, expected async_callback/);
   });
@@ -226,7 +247,7 @@ describe("callNxtTool (async_callback)", () => {
     await expect(
       callNxtTool("nxt.contact_lookup", {
         nxt_database: "nxt_benelux_prod",
-        sender_email: "x@y.nl",
+        brand_id: "SB", sender_email: "x@y.nl",
       }),
     ).rejects.toThrow(/DEBTOR_FETCH_WEBHOOK_SECRET/);
   });
@@ -245,7 +266,7 @@ describe("callNxtTool (async_callback)", () => {
     await expect(
       callNxtTool("nxt.contact_lookup", {
         nxt_database: "nxt_benelux_prod",
-        sender_email: "x@y.nl",
+        brand_id: "SB", sender_email: "x@y.nl",
       }),
     ).rejects.toThrow(/NEXT_PUBLIC_APP_URL/);
   });
@@ -262,7 +283,7 @@ describe("callNxtTool (async_callback)", () => {
     );
     const promise = callNxtTool("nxt.contact_lookup", {
       nxt_database: "nxt_benelux_prod",
-      sender_email: "x@y.nl",
+      brand_id: "SB", sender_email: "x@y.nl",
     });
 
     await Promise.resolve();

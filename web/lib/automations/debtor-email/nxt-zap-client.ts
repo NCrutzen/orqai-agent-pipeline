@@ -76,16 +76,21 @@ export type NxtToolId =
 
 export type ContactLookupInput = {
   nxt_database: string;
+  brand_id: string;
   sender_email: string;
 };
 export type IdentifierLookupInput = {
   nxt_database: string;
+  brand_id: string;
   invoice_numbers: string[];
 };
 export type CandidateDetailsInput = {
   nxt_database: string;
+  brand_id: string;
   customer_ids: string[];
 };
+
+const BRAND_ID_RE = /^[A-Z]{2}$/;
 
 const ContactMatchSchema = z.object({
   contact_id: z.union([z.string(), z.number()]).transform(String),
@@ -192,7 +197,12 @@ export async function callNxtTool<T extends NxtToolId>(
 
   const requestId = randomUUID();
   const lookup_kind = LookupKindByTool[tool_id];
-  const { nxt_database, ...payloadRest } = input;
+  const { nxt_database, brand_id, ...payloadRest } = input;
+  if (!BRAND_ID_RE.test(brand_id)) {
+    throw new Error(
+      `nxt lookup ${tool_id}: brand_id "${brand_id}" must match ^[A-Z]{2}$`,
+    );
+  }
   const payload: Record<string, unknown> = { ...payloadRest };
 
   const admin = createAdminClient();
@@ -206,7 +216,7 @@ export async function callNxtTool<T extends NxtToolId>(
       tool_id,
       lookup_kind,
       nxt_database,
-      payload,
+      payload: { ...payload, brand_id },
       status: "pending",
     })
     .then(
@@ -224,6 +234,7 @@ export async function callNxtTool<T extends NxtToolId>(
     requestId,
     callback_url: callbackUrl,
     nxt_database,
+    brand_id,
     lookup_kind,
     tool_id,
     payload,

@@ -34,6 +34,7 @@ export type Confidence = "high" | "medium" | "low" | "none";
 
 export interface ResolveArgs {
   nxt_database: string;
+  brand_id: string | null; // null = NXT lookups disabled for this mailbox
   conversation_id: string | null;
   from_email: string | null;
   subject: string;
@@ -83,9 +84,11 @@ export async function resolveDebtor(args: ResolveArgs): Promise<ResolveResult> {
   // Multiple contact_person rows may belong to the same paying customer
   // (e.g., one company with several contacts). Dedupe by top_level_customer_id
   // before deciding single vs ambiguous.
-  if (args.from_email) {
+  // Skipped if brand_id not configured for this mailbox.
+  if (args.from_email && args.brand_id) {
     const sender = await lookupSenderToAccount({
       nxt_database: args.nxt_database,
+      brand_id: args.brand_id,
       sender_email: args.from_email,
     });
     const uniqueIds = Array.from(
@@ -106,10 +109,12 @@ export async function resolveDebtor(args: ResolveArgs): Promise<ResolveResult> {
   }
 
   // Layer 3: identifier-parse → paying customer (D-02).
+  // Skipped if brand_id not configured for this mailbox.
   const invoices = extractInvoiceCandidates(args.subject, args.body_text);
-  if (invoices.candidates.length > 0) {
+  if (invoices.candidates.length > 0 && args.brand_id) {
     const ids = await lookupIdentifierToAccount({
       nxt_database: args.nxt_database,
+      brand_id: args.brand_id,
       invoice_numbers: invoices.candidates,
     });
     // Multiple invoice rows may resolve to the same top-level customer; dedupe.
@@ -120,6 +125,7 @@ export async function resolveDebtor(args: ResolveArgs): Promise<ResolveResult> {
       // Single paying customer — fetch its name for the label.
       const detail = await lookupCandidateDetails({
         nxt_database: args.nxt_database,
+        brand_id: args.brand_id,
         customer_ids: uniqueCustomerIds,
       });
       const m = detail.matches[0];
@@ -148,9 +154,19 @@ async function llmTiebreak(
   customerIds: string[],
   args: ResolveArgs,
 ): Promise<ResolveResult> {
+  if (!args.brand_id) {
+    // Should not happen — caller already gated layers 2/3 on brand_id.
+    return {
+      method: "unresolved",
+      customer_account_id: null,
+      customer_name: null,
+      confidence: "none",
+    };
+  }
   // Pre-fetch candidate details (D-12) — predictable cost, no agent loops.
   const details = await lookupCandidateDetails({
     nxt_database: args.nxt_database,
+    brand_id: args.brand_id,
     customer_ids: customerIds,
   });
   const out = await callTiebreaker({
