@@ -201,3 +201,58 @@ on conflict (tool_id) do update set
   description     = excluded.description,
   notes           = excluded.notes,
   updated_at      = now();
+
+-- Existing async-callback Zap (invoice-fetch). Cataloged here so the
+-- registry is the canonical inventory of all Zapier-bound tools — even
+-- though the live route still reads URL/secret from env vars. Phase 56.5
+-- migrates the route to consume this row directly.
+insert into public.zapier_tools (
+  tool_id, description, backend, pattern, target_url,
+  auth_method, auth_secret_env, auth_field_name,
+  callback_route, enabled, notes,
+  input_schema, output_schema
+) values (
+  'nxt.invoice_fetch',
+  'Async-fetch a copy of an invoice PDF from NXT. Zap looks up the invoice via NXT SQL, downloads the PDF from S3, then POSTs back to callback_route with the signed URL.',
+  'nxt',
+  'async_callback',
+  'https://hooks.zapier.com/hooks/catch/15380147/ujxgvtf/',
+  'body_field',
+  'DEBTOR_FETCH_WEBHOOK_SECRET',
+  'secret',
+  '/api/automations/debtor/fetch-document/callback',
+  true,
+  'Live via web/app/api/automations/debtor/fetch-document/route.ts. Body envelope: {docType, reference, entity, requestId, callback_url, secret}. Phase 56.5 migrates this route to consume the registry directly via the generic /api/zapier-tools/[tool_id] bridge.',
+  jsonb_build_object(
+    'type','object',
+    'required', array['docType','reference','entity','requestId','callback_url'],
+    'properties', jsonb_build_object(
+      'docType',     jsonb_build_object('type','string','enum',array['invoice']),
+      'reference',   jsonb_build_object('type','string','description','invoice_number'),
+      'entity',      jsonb_build_object('type','string','description','smeba|smeba-fire|sicli-noord|sicli-sud|berki'),
+      'requestId',   jsonb_build_object('type','string','format','uuid'),
+      'callback_url',jsonb_build_object('type','string','format','uri')
+    )
+  ),
+  jsonb_build_object(
+    'type','object',
+    'description','Async — Zap acks 200 immediately; the actual response arrives via POST to callback_url with this shape.',
+    'properties', jsonb_build_object(
+      'request_id', jsonb_build_object('type','string'),
+      'pdf_url',    jsonb_build_object('type',array['string','null']),
+      'status',     jsonb_build_object('type','string','enum',array['fetched','not_found','upstream_error']),
+      'reason',     jsonb_build_object('type',array['string','null'])
+    )
+  )
+)
+on conflict (tool_id) do update set
+  target_url      = excluded.target_url,
+  auth_method     = excluded.auth_method,
+  auth_secret_env = excluded.auth_secret_env,
+  auth_field_name = excluded.auth_field_name,
+  callback_route  = excluded.callback_route,
+  input_schema    = excluded.input_schema,
+  output_schema   = excluded.output_schema,
+  description     = excluded.description,
+  notes           = excluded.notes,
+  updated_at      = now();

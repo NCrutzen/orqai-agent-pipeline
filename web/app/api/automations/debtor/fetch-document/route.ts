@@ -4,6 +4,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { waitForFetchRequest } from "@/lib/automations/debtor-email/fetch-document";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 
+// Registry note: this route is cataloged in `public.zapier_tools` as
+// `nxt.invoice_fetch` (pattern=async_callback). Phase 56 ships the registry
+// for documentation + URL resolution by the new generic-lookup callers; this
+// existing route still reads URL/secret from env. Phase 56.5 will migrate
+// this route onto the generic /api/zapier-tools/[tool_id] bridge so the
+// registry becomes the single source of truth.
 const WEBHOOK_SECRET = process.env.AUTOMATION_WEBHOOK_SECRET;
 const ZAP_URL = process.env.DEBTOR_FETCH_WEBHOOK_URL_INVOICE;
 const ZAP_SHARED_SECRET = process.env.DEBTOR_FETCH_WEBHOOK_SECRET;
