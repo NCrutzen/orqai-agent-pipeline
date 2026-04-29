@@ -36,6 +36,12 @@ const CATEGORY_LABEL: Record<string, string> = {
   ooo_permanent: "OoO — Permanent",
   payment: "Payment Admittance",
   payment_admittance: "Payment Admittance",
+  // Phase 60 review-only: reviewers tag invoice-copy-request emails so we
+  // accumulate Wilson telemetry on this category. Phase 62 will replace
+  // the Outlook-only handling with a full copy-document swarm
+  // (fetchDocument → draft reply with PDF). Today the worker just applies
+  // the label so the email is visible in Outlook for manual handling.
+  invoice_copy_request: "Invoice Copy Request",
 };
 
 export const classifierVerdictWorker = inngest.createFunction(
