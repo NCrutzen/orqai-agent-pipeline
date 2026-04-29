@@ -166,6 +166,18 @@ Also: align category-key naming across the 3 surfaces (UI override dropdown, ing
 **Plans:** TBD
 **Defer trigger:** start when EITHER (a) we add a 4th Zapier-bound tool to any automation, OR (b) we want Orq.ai agents to consume the registry, OR (c) invoice-fetch needs a non-trivial change. Don't pre-plan — open with `/gsd-discuss-phase 56.5` when one of those triggers.
 
+### Phase 56.7: Swarm registry — generic queue-review surface for any swarm
+
+**Goal:** Promote the queue-review pattern from "debtor-email-specific" to a swarm-agnostic registry-driven system so any new automation/agent-swarm (Sales email next, then Planning, Order Entry, …) plugs in via DB rows instead of new code/routes. Two new tables (`public.swarms`, `public.swarm_categories`) drive a generic `/automations/[swarm]/review` page, generic verdict-worker dispatch via switch on `swarm_categories.action` (`categorize_archive` / `reject` / `manual_review` / `swarm_dispatch`), and self-onboarding into the existing `/automations/classifier-rules` dashboard. Adding a new swarm becomes: INSERT one `swarms` row + INSERT category rows + (optionally) one Inngest dispatch worker. No new route, no new component, no Vercel deploy for routing. Phase 56.7 ships ONE seeded swarm (`debtor-email`) with the 6 existing categories + `payment_admittance` alias.
+**Requirements**: D-00..D-17 from `.planning/phases/56.7-swarm-registry/56.7-CONTEXT.md`
+**Depends on:** Phase 60 (cross-swarm `swarm_type` keying); ships BEFORE 60-05 queue UI rewrite consumes it (per D-15).
+**Plans:** 3/3 plans complete
+
+Plans:
+- [ ] 56.7-01-PLAN.md — Wave 1: Supabase migration (`swarms` + `swarm_categories` tables, CHECK enum, RLS, seeds) + `web/lib/swarms/registry.ts` loader/cache (60s TTL mirror of classifier_rules cache)
+- [ ] 56.7-02-PLAN.md — Wave 2: Verdict-worker generalization — switch on `category.action`, null-safe `outlook_label` (D-11), Zod input schema swap (z.string + post-validate)
+- [ ] 56.7-03-PLAN.md — Wave 3: Generic `[swarm]/review` route + `next.config.ts` redirects + 60-05 amendment (Depends on: 56.7) + test-import sweep
+
 ### Phase 57: v7 review dashboard polish
 
 **Goal:** Job-detail drawer bouwen voor v7 kanban cards en screenshot-rendering fixen. Scope: (a) `kanban-job-card.tsx` click → `JobDrawerContext` drawer (header, timeline van log-entries, linked automation_runs, screenshots); (b) `extractScreenshots` in `web/lib/automations/types.ts` fixen — data is `{url, path}`-shape, niet `string`; public-bucket OR on-demand signed-URL refresh. Wacht op Phase 55 (backend stabiel) voordat UI-polish zin heeft.
