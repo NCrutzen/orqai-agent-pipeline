@@ -71,12 +71,25 @@ export async function POST(request: NextRequest) {
   //   { rows: [...] }                                 (object)
   //   [{ rows: [...], _zap_search_was_found_status }] (array of step wrappers)
   // Recursively unwrap any object whose only meaningful key is `rows`.
+  // Drop Zapier-internal keys that leak into individual rows.
+  const ZAPIER_INTERNAL_KEYS = new Set([
+    "_zap_search_was_found_status",
+    "_zap_search_success_on_miss",
+    "_zap_search_multiple_results",
+  ]);
+  const stripZapInternals = (obj: Record<string, unknown>) => {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (!ZAPIER_INTERNAL_KEYS.has(k)) out[k] = v;
+    }
+    return out;
+  };
   const flattenRows = (val: unknown): unknown[] => {
     if (Array.isArray(val)) return val.flatMap(flattenRows);
     if (val && typeof val === "object") {
       const obj = val as Record<string, unknown>;
       if (Array.isArray(obj.rows)) return flattenRows(obj.rows);
-      return [val];
+      return [stripZapInternals(obj)];
     }
     return [];
   };
