@@ -53,16 +53,16 @@ Pure deterministic regex rules ordered by specificity. First match wins. Returns
 
 **Rationale:** closed-taxonomy noise filtering (out-of-office, auto-replies, payment confirmations) is well-suited to regex. Auditable via `matchedRule`, fast, precision-first, free.
 
-**Categories produced today:**
+**Categories produced by the regex classifier (each triggers `categorize_archive` automatically — auto label + archive + iController delete):**
 - `auto_reply` — system-sender + automated subject patterns
 - `ooo_temporary` — temporary OoO indicators
 - `ooo_permanent` — permanent OoO indicators
-- `payment_admittance` — bank/AP system payment confirmations
-- `unknown` — no rule matched
+- `payment_admittance` — bank/AP system payment confirmations (betaalbevestiging, remittance advice, payment notification, etc.)
+- `unknown` — no rule matched (Stage 2 takes over)
 
-**Override category** (set by operator from review UI, NOT classifier):
+**Override-only categories** (set by operator from Bulk Review, NOT produced by the regex):
 - `invoice_copy_request` — operator marks email as "customer asks for invoice copy"
-- `payment` — variant of payment_admittance
+- `payment` — present as a `swarm_categories` row but no regex rule fires it today; operator-override or future-extension. (Distinct from `payment_admittance`, which IS regex-detected.)
 
 ---
 
