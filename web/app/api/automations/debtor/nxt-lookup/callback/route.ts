@@ -67,9 +67,24 @@ export async function POST(request: NextRequest) {
       }
     }
   }
-  // SQL step output is `{ rows: [...] }` — unwrap if present.
-  if (raw && typeof raw === "object" && !Array.isArray(raw) && Array.isArray((raw as { rows?: unknown }).rows)) {
-    raw = (raw as { rows: unknown[] }).rows;
+  // Zapier wraps SQL step output as either:
+  //   { rows: [...] }                                 (object)
+  //   [{ rows: [...], _zap_search_was_found_status }] (array of step wrappers)
+  // Recursively unwrap any object whose only meaningful key is `rows`.
+  const flattenRows = (val: unknown): unknown[] => {
+    if (Array.isArray(val)) return val.flatMap(flattenRows);
+    if (val && typeof val === "object") {
+      const obj = val as Record<string, unknown>;
+      if (Array.isArray(obj.rows)) return flattenRows(obj.rows);
+      return [val];
+    }
+    return [];
+  };
+  if (
+    (raw && typeof raw === "object") ||
+    Array.isArray(raw)
+  ) {
+    raw = flattenRows(raw);
   }
   let matches: unknown[];
   if (Array.isArray(raw)) {
