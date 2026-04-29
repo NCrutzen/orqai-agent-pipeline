@@ -105,21 +105,20 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
   }
 
   // 2. Telemetry — public.agent_runs (D-01).
+  // Note: agent_runs has NO `context` column. The reviewer's notes live
+  // in `human_notes`; message_id/source_mailbox/entity/predicted_category
+  // already travel via the Inngest event payload + automation_runs.result
+  // jsonb merge above, so we don't duplicate them here.
   const { data: ar, error: arErr } = await admin
     .from("agent_runs")
     .insert({
       swarm_type: "debtor-email",
       automation_run_id: parsed.automation_run_id,
+      entity: parsed.entity,
       rule_key: parsed.rule_key,
       human_verdict: effectiveDecision === "approve" ? "approved" : "rejected_other",
+      human_notes: parsed.notes ?? null,
       corrected_category: parsed.override_category ?? null,
-      context: {
-        message_id: parsed.message_id,
-        source_mailbox: parsed.source_mailbox,
-        entity: parsed.entity,
-        predicted_category: parsed.predicted_category,
-        ...(parsed.notes ? { notes: parsed.notes } : {}),
-      },
     })
     .select("id")
     .single();

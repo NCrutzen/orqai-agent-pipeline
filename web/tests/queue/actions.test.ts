@@ -124,16 +124,17 @@ describe("D-16: recordVerdict — verdict-write only, no inline side-effects", (
     expect(insertCalls[0].payload).toMatchObject({
       swarm_type: "debtor-email",
       automation_run_id: baseInput.automation_run_id,
+      entity: "smeba",
       rule_key: "subject_paid_marker",
       human_verdict: "approved",
+      human_notes: null,
       corrected_category: null,
-      context: {
-        message_id: "AAMkAG-graph-id",
-        source_mailbox: "debiteuren@smeba.nl",
-        entity: "smeba",
-        predicted_category: "payment_admittance",
-      },
     });
+    // agent_runs has no `context` column — it was a fictional jsonb in the
+    // earlier mock. Real schema: human_notes (text) carries the note;
+    // message_id/source_mailbox/predicted_category travel via the Inngest
+    // event payload below.
+    expect(insertCalls[0].payload).not.toHaveProperty("context");
 
     // 3. Inngest event fired
     expect(sendMock).toHaveBeenCalledTimes(1);
@@ -349,14 +350,15 @@ describe("Phase 61-01: recordVerdict extended schema (override + notes)", () => 
     );
   });
 
-  it("notes lands in agent_runs.context when provided", async () => {
+  it("notes lands in agent_runs.human_notes when provided", async () => {
     await recordVerdict({
       ...baseInput,
       decision: "approve",
       notes: "Reviewer note here",
     });
-    const ctx = (insertCalls[0].payload.context ?? {}) as Record<string, unknown>;
-    expect(ctx.notes).toBe("Reviewer note here");
+    expect(insertCalls[0].payload).toMatchObject({
+      human_notes: "Reviewer note here",
+    });
   });
 
   it("agent_runs.corrected_category is null when no override supplied", async () => {
