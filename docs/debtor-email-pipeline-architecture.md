@@ -406,15 +406,26 @@ This means the Kanban in live mode shows mostly drafts-needing-send + unresolved
 
 ## Orq.ai agent registry
 
-| Agent | Slug | Env var | Purpose |
+Mirror of `public.zapier_tools`: agents are addressed by `agent_key` and resolved at runtime from `public.orq_agents`. **Adding a new agent = INSERT one row; no env var, no Vercel deploy.**
+
+Client: `web/lib/automations/orq-agents/client.ts` → `invokeOrqAgent(agent_key, inputs, opts)`. Registry row provides slug + timeout + `output_schema` (which becomes the model's `response_format` strict json_schema guardrail). Caller Zod-parses the response against their own type.
+
+Seeded today (see `supabase/migrations/20260429g_orq_agents_registry.sql`):
+
+| `agent_key` | `orqai_id` | `swarm_type` | Purpose |
 |---|---|---|---|
-| Label Tiebreaker | (existing) | `LABEL_TIEBREAKER_AGENT_SLUG` | Multi-candidate disambiguation in resolveDebtor |
-| Invoice Copy Drafter | `01KPWWCCEX26VYT9E21Q43XN4S` | `INVOICE_COPY_DRAFT_AGENT_SLUG` | Compose invoice-copy reply body for Wave 3 invoice-copy handler |
-| Intent Classifier (planned) | TBD | `UNKNOWN_INTENT_AGENT_SLUG` | Stage 2 LLM classifier on `unknown` (sub-routes to invoice_copy / dispute / etc.) |
+| `debtor-intent-agent` | `01KPWWA338NDNEJZQGJCTVPMY8` | `debtor-email` | Stage 2 LLM classifier on `unknown`; routes into 8 actionable intents |
+| `debtor-copy-document-body-agent` | `01KPWWCCEX26VYT9E21Q43XN4S` | `debtor-email` | Compose invoice-copy reply HTML body for iController draft |
+| `label-tiebreaker` | _placeholder, enabled=false_ | `cross-cutting` | Multi-candidate disambiguation in resolveDebtor |
+
+The label-tiebreaker row is seeded with `enabled=false` until the operator fills in the real `orqai_id` and flips the row enabled. Until then `lib/automations/debtor-email/llm-tiebreaker.ts` falls back to `LABEL_TIEBREAKER_AGENT_SLUG` env var transparently.
+
+Future agents (stubs at `Agents/debtor-email-swarm/agents/` waiting for Phase 2 of the swarm rollout): payment-dispute, address-change, contract-inquiry, credit-request, peppol-request, general-inquiry. Add a row in `orq_agents` per agent when its slug is provisioned.
 
 ## Roadmap pointers
 
 - Phase 56-02 — async-callback pivot, brand_id filter, callback route, resolver wired (DONE)
-- Phase 56-02 wave 3 — flip `unknown` + `invoice_copy_request` to `swarm_dispatch` + 2 new workers (THIS)
+- Phase 56-02 wave 3 part 1 — orq_agents registry + label-resolver Inngest worker + flip `unknown` row (DONE 2026-04-29)
+- Phase 56-02 wave 3 part 2 — invoice-copy handler + flip `invoice_copy_request` row (NEXT)
 - Phase 56.7 — swarm_registry generalization (in design, see `.planning/phases/56.7-swarm-registry/`)
 - Phase 56.8 — iController DOM step for matched-customer labeling
