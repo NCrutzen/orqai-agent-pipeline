@@ -60,24 +60,66 @@ Three paths:
 **Database:** map from incoming `nxt_database` field on the catch hook (Zapier "Custom Value"). For now you can hardcode `nxt_benelux_prod` and add the dynamic mapping later — Phase 56 only ever sends `nxt_benelux_prod`.
 
 **Path 1 — Sender → Account:**
+
+> ⚠ Updated 2026-04-29 per operator: resolve to the **top-level (paying) customer** by walking `customer.parent_id` chain. Phase 56 stores and assigns the top-level customer_id, never the sub-entity.
+
 ```sql
-SELECT
-  id, customer_id, source_type, source_id,
-  firstname, lastname, email, type, job_title
-FROM nxt_benelux_prod.dbo.contact_person
-WHERE email = @sender_email
+WITH cp AS (
+  SELECT
+    id            AS contact_id,
+    customer_id   AS direct_customer_id,
+    source_type, source_id,
+    firstname, lastname, email, type, job_title
+  FROM nxt_benelux_prod.dbo.contact_person
+  WHERE email = @sender_email
+),
+chain AS (
+  -- start at the contact's direct customer
+  SELECT c.id, c.parent_id, c.name, c.brand_id, c.status,
+         cp.contact_id, cp.firstname, cp.lastname, cp.type, cp.job_title,
+         0 AS depth
+  FROM cp
+  JOIN nxt_benelux_prod.dbo.customer c ON c.id = cp.direct_customer_id
+  UNION ALL
+  -- walk up parent_id until null
+  SELECT c.id, c.parent_id, c.name, c.brand_id, c.status,
+         chain.contact_id, chain.firstname, chain.lastname, chain.type, chain.job_title,
+         chain.depth + 1
+  FROM chain
+  JOIN nxt_benelux_prod.dbo.customer c ON c.id = chain.parent_id
+  WHERE chain.depth < 10  -- safety cap
+)
+SELECT TOP 100
+  contact_id,
+  id            AS top_level_customer_id,
+  name          AS top_level_customer_name,
+  brand_id, status,
+  firstname, lastname, type, job_title,
+  depth
+FROM chain
+WHERE parent_id IS NULL  -- only the top-level row(s)
+ORDER BY depth DESC
 ```
+
 Map `@sender_email` ← `payload__sender_email` from the catch hook.
 
+**Why the recursive CTE:** if `contact_person.email = alice@x.com` points at customer `123`, and `123.parent_id = 456`, and `456.parent_id = NULL`, then the row Phase 56 actually wants to label-target in iController is **456** (the paying entity), not 123. The CTE walks up to `parent_id IS NULL` and returns that row.
+
 **Path 2 — Identifier → Account:**
+
+> Returns `paying_customer_id` directly (already top-level on the invoice row — that's the entity actually being billed). No CTE needed.
+
 ```sql
 SELECT
-  id, invoice_number, customer_id, paying_customer_id,
+  id              AS invoice_id,
+  invoice_number,
+  customer_id,
+  paying_customer_id   AS top_level_customer_id,
   site_id, job_id, invoice_date, status
 FROM nxt_benelux_prod.dbo.invoice
 WHERE invoice_number IN (@invoice_numbers)
 ```
-Map `@invoice_numbers` ← `payload__invoice_numbers` (a comma-separated list — Zapier handles `IN` clause expansion).
+Map `@invoice_numbers` ← `payload__invoice_numbers` (a comma-separated list — Zapier handles `IN` clause expansion). Phase 56 uses `top_level_customer_id` (= `paying_customer_id`) as the iController assignment target.
 
 **Path 3 — Candidate Details:**
 ```sql

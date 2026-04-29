@@ -1,0 +1,353 @@
+{
+  "totalLinks": 152,
+  "withMsg": [],
+  "dataEls": [
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1372274",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1376053",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379035",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379028",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379034",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379032",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379038",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379042",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379047",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379045",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379051",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379052",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379080",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379079",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379081",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379084",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379085",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379088",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379087",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379089",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379090",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379098",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379099",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379100",
+        "id": null
+      },
+      "text": ""
+    },
+    {
+      "tag": "INPUT",
+      "attrs": {
+        "msg": null,
+        "messageId": "1379104",
+        "id": null
+      },
+      "text": ""
+    }
+  ],
+  "sampleAllLinks": [
+    {
+      "href": "/",
+      "text": ""
+    },
+    {
+      "href": "/btMarketing/invoicing",
+      "text": "Invoicing"
+    },
+    {
+      "href": "/btMarketing/bpn",
+      "text": "Payments"
+    },
+    {
+      "href": "/btMarketing/cashapp",
+      "text": "Cash App"
+    },
+    {
+      "href": "/",
+      "text": "Collections"
+    },
+    {
+      "href": "/btMarketing/credit",
+      "text": "Credit"
+    },
+    {
+      "href": "/btMarketing/disputes",
+      "text": "Disputes"
+    },
+    {
+      "href": "/dashboard",
+      "text": "Dashboard"
+    },
+    {
+      "href": "/rapporten/reports",
+      "text": "Reports"
+    },
+    {
+      "href": "/dynamicWorkspace",
+      "text": "Worksheet"
+    },
+    {
+      "href": "/debtorList",
+      "text": "Accounts"
+    },
+    {
+      "href": "/messages",
+      "text": "Messages1000+"
+    },
+    {
+      "href": "#",
+      "text": ""
+    },
+    {
+      "href": "/dashboard",
+      "text": "BT Collections"
+    },
+    {
+      "href": "/ibiller",
+      "text": "iBiller"
+    },
+    {
+      "href": "#",
+      "text": ""
+    },
+    {
+      "href": "#",
+      "text": "Copy"
+    },
+    {
+      "href": "#",
+      "text": "Dismiss"
+    },
+    {
+      "href": "#",
+      "text": "Ignore for 7 days"
+    },
+    {
+      "href": "https://help.billtrust.com",
+      "text": ""
+    },
+    {
+      "href": "#",
+      "text": ""
+    },
+    {
+      "href": "/users/addEdit/user/39",
+      "text": "IT support Moyne Roberts\n                ITsupport@moyneroberts.com"
+    },
+    {
+      "href": "/settings",
+      "text": "Settings"
+    },
+    {
+      "href": "#",
+      "text": "Refresh worksheet"
+    },
+    {
+      "href": "/logout",
+      "text": "Log out"
+    },
+    {
+      "href": "/messages",
+      "text": "Inbox"
+    },
+    {
+      "href": "/messages/index/mailbox/21",
+      "text": "» A and A"
+    },
+    {
+      "href": "/messages/index/mailbox/2",
+      "text": "» Apexfire"
+    },
+    {
+      "href": "/messages/index/mailbox/17",
+      "text": "» Berki Brandbeveiliging"
+    },
+    {
+      "href": "/messages/index/mailbox/19",
+      "text": "» Blackwood Fire"
+    }
+  ]
+}

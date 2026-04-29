@@ -1,0 +1,9 @@
+{
+  "list_url": "https://walkerfire.icontroller.eu/messages/index/mailbox/{mailbox_id}",
+  "detail_url_template": "https://walkerfire.icontroller.eu/messages/show?msg={msg_id}",
+  "sample_msg_id": "1372274",
+  "account_input_selector": "#s2id_autogen2",
+  "customer_id_typeahead_works": true,
+  "candidate_count": 1,
+  "notes": "Operator confirmed: typeahead accepts customer_id directly. Browserless module: navigate to detail_url_template, focus account_input_selector, type customer_id, wait 1.5s, click first dropdown result, click Save/Confirm."
+}

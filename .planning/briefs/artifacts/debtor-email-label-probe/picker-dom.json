@@ -1,0 +1,55 @@
+{
+  "sampleId": "506909",
+  "inputs": [
+    {
+      "id": "s2id_autogen2",
+      "name": null,
+      "placeholder": "",
+      "type": "text",
+      "cls": "select2-input select2-focused",
+      "value": "",
+      "autofocus": true
+    },
+    {
+      "id": null,
+      "name": null,
+      "placeholder": null,
+      "type": "text",
+      "cls": "clients select2-offscreen",
+      "value": "",
+      "autofocus": false
+    },
+    {
+      "id": "s2id_autogen4",
+      "name": null,
+      "placeholder": "",
+      "type": "text",
+      "cls": "select2-input select2-default",
+      "value": "None selected",
+      "autofocus": false
+    },
+    {
+      "id": null,
+      "name": null,
+      "placeholder": null,
+      "type": "text",
+      "cls": "labels select2-offscreen",
+      "value": "",
+      "autofocus": false
+    }
+  ],
+  "dropdowns": [
+    {
+      "tag": "DIV",
+      "id": "s2id_autogen1",
+      "cls": "select2-container select2-container-multi select2-container-active select2-dropdown-open clients",
+      "text": ""
+    },
+    {
+      "tag": "UL",
+      "id": null,
+      "cls": "select2-results",
+      "text": "Please enter 1 or more character"
+    }
+  ]
+}

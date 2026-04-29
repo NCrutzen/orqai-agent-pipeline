@@ -1,0 +1,54 @@
+{
+  "found": true,
+  "labelRect": {
+    "x": 32,
+    "y": 162.65625,
+    "w": 100,
+    "h": 30
+  },
+  "candidates": [
+    {
+      "path": "sibling[0]",
+      "tag": "DIV",
+      "cls": "select2-container select2-container-multi clients",
+      "id": "s2id_autogen1",
+      "text": "No matches foundNo matches found",
+      "rect": {
+        "x": 132,
+        "y": 162.65625,
+        "w": 1111,
+        "h": 36
+      },
+      "score": 6
+    },
+    {
+      "path": "parent[0].next",
+      "tag": "DIV",
+      "cls": "labels message-box-field full-width-field border-bottom message-box-tags",
+      "id": null,
+      "text": "Labels",
+      "rect": {
+        "x": 16,
+        "y": 209.65625,
+        "w": 1248,
+        "h": 60
+      },
+      "score": 6
+    },
+    {
+      "path": "sibling[1]",
+      "tag": "INPUT",
+      "cls": "clients select2-offscreen",
+      "id": null,
+      "text": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      },
+      "score": 5
+    }
+  ],
+  "chosenSelector": "#s2id_autogen1"
+}

@@ -1,0 +1,54 @@
+[
+  {
+    "tag": "DIV",
+    "id": "s2id_autogen1",
+    "cls": "select2-container select2-container-multi select2-container-active select2-dropdown-open clients",
+    "html": "<ul class=\"select2-choices\">  <li class=\"select2-search-field\">    <label for=\"s2id_autogen2\" class=\"select2-offscreen\"></label>    <input type=\"text\" autocomplete=\"off\" autocorrect=\"off\" autocapitalize=\"off\" spellcheck=\"false\" class=\"select2-input select2-focused\" id=\"s2id_autogen2\" placeholder=\"\" style=\"width: 1096px;\" aria-activedescendant=\"select2-result-label-6\">  </li></ul>",
+    "visible_items": [
+      {
+        "cls": "select2-search-field",
+        "text": ""
+      }
+    ]
+  },
+  {
+    "tag": "UL",
+    "id": null,
+    "cls": "select2-results",
+    "html": "<li class=\"select2-results-dept-0 select2-result select2-result-unselectable select2-result-with-children\" role=\"presentation\"><div class=\"select2-result-label\" id=\"select2-result-label-5\" role=\"option\">Account</div><ul class=\"select2-result-sub\"><li class=\"select2-results-dept-1 select2-result select2-result-selectable select2-highlighted\" role=\"presentation\"><div class=\"select2-result-label\" id=\"select2-result-label-6\" role=\"option\">506909 - Vos Logistics Technical Department B.V. (Smeba Brandbeveiliging BV)</div></li><li class=\"select2-results-dept-1 select2-result select2-result-selectable\" role=\"presentation\"><div class=\"select2-result-label\" id=\"select2-result-label-7\" role=\"option\">574383 - Carton-De Pauw (Sicli Fire Protection South BV)</div></li><li class=\"select2-results-dept-1 select2-result select2-result-selectable\" role=\"presentation\"><div class=\"select2-result-label\" id=\"select2-result-label-8\" role=\"option\">579510 - LE DIRECTEUR FINANCIER (Sicli Fire Protection South BV)</div></li></ul></li>",
+    "visible_items": [
+      {
+        "cls": "select2-results-dept-0 select2-result select2-result-unselectable select2-result-with-children",
+        "text": "Account506909 - Vos Logistics Technical Department B.V. (Smeba Brandbeveiliging BV)574383 - Carton-De Pauw (Sicli Fire P"
+      },
+      {
+        "cls": "select2-result-label",
+        "text": "Account"
+      },
+      {
+        "cls": "select2-results-dept-1 select2-result select2-result-selectable select2-highlighted",
+        "text": "506909 - Vos Logistics Technical Department B.V. (Smeba Brandbeveiliging BV)"
+      },
+      {
+        "cls": "select2-result-label",
+        "text": "506909 - Vos Logistics Technical Department B.V. (Smeba Brandbeveiliging BV)"
+      },
+      {
+        "cls": "select2-results-dept-1 select2-result select2-result-selectable",
+        "text": "574383 - Carton-De Pauw (Sicli Fire Protection South BV)"
+      },
+      {
+        "cls": "select2-result-label",
+        "text": "574383 - Carton-De Pauw (Sicli Fire Protection South BV)"
+      },
+      {
+        "cls": "select2-results-dept-1 select2-result select2-result-selectable",
+        "text": "579510 - LE DIRECTEUR FINANCIER (Sicli Fire Protection South BV)"
+      },
+      {
+        "cls": "select2-result-label",
+        "text": "579510 - LE DIRECTEUR FINANCIER (Sicli Fire Protection South BV)"
+      }
+    ]
+  }
+]
