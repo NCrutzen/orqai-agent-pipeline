@@ -161,25 +161,27 @@ Use Zapier's "Use a Custom Value" → map the SQL action's `rows` array. The SQL
 
 After all 3 paths are configured + tested.
 
-### 8. Add the env vars to Vercel
+### 8. Add ONE env var to Vercel (reuses existing secret)
 
-In Vercel → Project (`agent-workforce`) → Settings → Environment Variables → **Production**:
+The Vercel env already has `DEBTOR_FETCH_WEBHOOK_SECRET` from the invoice-fetch Zap. Both Zaps share that secret — no new secret var needed.
 
-| Key | Value | Sensitive? |
+Add ONE new var in Production:
+
+| Key | Value | Notes |
 |---|---|---|
-| `NXT_ZAPIER_WEBHOOK_URL` | The catch-hook URL from step 2 | No (it's already a secret URL) |
-| `NXT_ZAPIER_WEBHOOK_SECRET` | The random 32+ char string from step 3 | Yes |
+| `DEBTOR_FETCH_WEBHOOK_URL_LOOKUP` | The catch-hook URL from step 2 | Parallel naming to existing `DEBTOR_FETCH_WEBHOOK_URL_INVOICE` |
 
-Also Preview if you want preview deploys to work with NXT (recommended; same values).
+Also Preview env if you want preview deploys to work with NXT lookups.
+
+**Auth transport detail:** the two Zaps share the same secret value but consume it differently. The invoice-fetch Zap reads `Authorization: Bearer <secret>` from the request HEADER. The lookup Zap (this one) reads `auth: "<secret>"` from the request BODY (because Zapier's Catch Hook trigger doesn't reliably expose the Authorization header in the field picker). Vercel will format each request appropriately for its target.
 
 ### 9. Mirror to local `.env.local`
 
-```
-NXT_ZAPIER_WEBHOOK_URL=https://hooks.zapier.com/hooks/catch/.../<id>/
-NXT_ZAPIER_WEBHOOK_SECRET=<your-secret>
-```
+The shared secret is already there from the invoice-fetch setup (may show empty if marked Sensitive — that's fine; Vercel runtime has the real value). Append the new URL only:
 
-Append both lines (don't replace the file).
+```
+DEBTOR_FETCH_WEBHOOK_URL_LOOKUP="https://hooks.zapier.com/hooks/catch/.../<id>/"
+```
 
 ### 10. Smoke test
 
