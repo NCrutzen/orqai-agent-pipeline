@@ -1,24 +1,34 @@
-// Phase 56-00 + 56-01b registry refactor.
+// Phase 56-02 (revised 2026-04-29): async-callback client.
 //
-// Generic Zapier-tool client that resolves URL + auth from public.zapier_tools
-// at runtime. Adding a new automation = INSERT a row in zapier_tools (no env
-// var, no code change here, no Vercel deploy).
+// Zapier Catch Hook cannot return a Custom Response — verified via Zapier
+// community + product docs. So all 3 NXT lookup tools follow the same
+// async-callback pattern as nxt.invoice_fetch:
 //
-// Tools shipped today:
-//   - nxt.contact_lookup      sync   sender_email -> top-level customer
-//   - nxt.identifier_lookup   sync   invoice_numbers -> paying customer
-//   - nxt.candidate_details   sync   customer_ids -> details for LLM tiebreaker
+//   1. Insert pending row in debtor.nxt_lookup_requests.
+//   2. POST the Zap with { requestId, callback_url, secret, ...payload }.
+//   3. Wait via Supabase Realtime UPDATE on the row.
+//   4. Zap's terminal POST step calls /api/automations/debtor/nxt-lookup/callback,
+//      which UPDATEs status='complete' with the SQL matches array.
 //
-// Auth transport per tool:
-//   - body_field   → secret injected as a body field (Catch-Hook-friendly)
-//   - header_bearer → Authorization: Bearer <secret>
-// The secret value is read from the env var named in tool.auth_secret_env.
+// Tools:
+//   - nxt.contact_lookup       sender_email -> top-level customer
+//   - nxt.identifier_lookup    invoice_numbers -> paying customer
+//   - nxt.candidate_details    customer_ids -> details for LLM tiebreaker
+//
+// Auth: `auth_secret_env` env var, injected as a body field per
+// `auth_field_name` (Catch-Hook-friendly — headers aren't reliably exposed
+// in Zapier's field picker).
 
+import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const ZAP_TIMEOUT_MS = 25_000; // < 30s Zapier hard limit
-const REGISTRY_CACHE_TTL_MS = 60_000; // mirrors classifier_rules cache cadence
+const ZAP_POST_TIMEOUT_MS = 10_000; // POST→Zap ack only; the Zap itself is async.
+const WAIT_TIMEOUT_MS = 50_000; // < Vercel Pro 60s ceiling.
+const REGISTRY_CACHE_TTL_MS = 60_000;
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 
 type ZapierToolRow = {
   tool_id: string;
@@ -28,6 +38,7 @@ type ZapierToolRow = {
   auth_method: "body_field" | "header_bearer";
   auth_secret_env: string;
   auth_field_name: string;
+  callback_route: string | null;
   enabled: boolean;
 };
 
@@ -41,7 +52,7 @@ async function loadTool(tool_id: string): Promise<ZapierToolRow> {
     const { data, error } = await admin
       .from("zapier_tools")
       .select(
-        "tool_id, backend, pattern, target_url, auth_method, auth_secret_env, auth_field_name, enabled",
+        "tool_id, backend, pattern, target_url, auth_method, auth_secret_env, auth_field_name, callback_route, enabled",
       )
       .eq("enabled", true);
     if (error) {
@@ -63,7 +74,6 @@ export type NxtToolId =
   | "nxt.identifier_lookup"
   | "nxt.candidate_details";
 
-// Per-tool input shapes (Vercel side — what callers pass)
 export type ContactLookupInput = {
   nxt_database: string;
   sender_email: string;
@@ -77,12 +87,11 @@ export type CandidateDetailsInput = {
   customer_ids: string[];
 };
 
-// Output shape mirrors the Zap's Custom Response: `{ matches: [...] }`
 const ContactMatchSchema = z.object({
-  contact_id: z.string(),
-  top_level_customer_id: z.string(),
+  contact_id: z.union([z.string(), z.number()]).transform(String),
+  top_level_customer_id: z.union([z.string(), z.number()]).transform(String),
   top_level_customer_name: z.string(),
-  brand_id: z.string().nullable().optional(),
+  brand_id: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
   status: z.string().nullable().optional(),
   firstname: z.string().nullable().optional(),
   lastname: z.string().nullable().optional(),
@@ -92,22 +101,22 @@ const ContactMatchSchema = z.object({
 });
 
 const IdentifierMatchSchema = z.object({
-  invoice_id: z.string(),
-  invoice_number: z.string(),
-  customer_id: z.string(),
-  top_level_customer_id: z.string(),
-  site_id: z.string().nullable().optional(),
-  job_id: z.string().nullable().optional(),
+  invoice_id: z.union([z.string(), z.number()]).transform(String),
+  invoice_number: z.union([z.string(), z.number()]).transform(String),
+  customer_id: z.union([z.string(), z.number()]).transform(String),
+  top_level_customer_id: z.union([z.string(), z.number()]).transform(String),
+  site_id: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
+  job_id: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
   invoice_date: z.string(),
   status: z.string(),
 });
 
 const CandidateDetailMatchSchema = z.object({
-  id: z.string(),
+  id: z.union([z.string(), z.number()]).transform(String),
   name: z.string(),
   status: z.string(),
-  brand_id: z.string().nullable().optional(),
-  country_id: z.string().nullable().optional(),
+  brand_id: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
+  country_id: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
   city: z.string().nullable().optional(),
   classification: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
@@ -124,20 +133,30 @@ export type ContactMatch = z.infer<typeof ContactMatchSchema>;
 export type IdentifierMatch = z.infer<typeof IdentifierMatchSchema>;
 export type CandidateDetail = z.infer<typeof CandidateDetailMatchSchema>;
 
+const LookupKindByTool: Record<NxtToolId, string> = {
+  "nxt.contact_lookup": "sender_to_account",
+  "nxt.identifier_lookup": "identifier_to_account",
+  "nxt.candidate_details": "candidate_details",
+};
+
+type LookupRequestRow = {
+  id: string;
+  status: "pending" | "complete" | "failed";
+  result: { matches?: unknown } | null;
+  error: string | null;
+};
+
 /**
- * Generic synchronous Zapier-tool call. Resolves the tool from
- * public.zapier_tools, formats the auth per `auth_method`, POSTs, validates
- * response shape against the tool-specific Zod schema.
- *
- * For each NXT tool we pass the body via `wrappedBody` so the Zap sees
- * `auth`, `tool_id`, and the inline lookup_kind+payload it already expects.
+ * Async-callback Zapier-tool call.
  *
  * Throws on:
- *   - tool not in registry
- *   - secret env var missing
- *   - timeout (>25s)
- *   - non-2xx response
- *   - response body that fails Zod parse
+ *   - tool not in registry / disabled
+ *   - tool.pattern != 'async_callback' or callback_route missing
+ *   - secret env / NEXT_PUBLIC_APP_URL missing
+ *   - row insert failure
+ *   - Zap POST non-2xx (the ack, not the actual result)
+ *   - timeout (50s) — surfaces as Error("nxt lookup timed out")
+ *   - response shape that fails Zod parse
  */
 export async function callNxtTool<T extends NxtToolId>(
   tool_id: T,
@@ -149,7 +168,21 @@ export async function callNxtTool<T extends NxtToolId>(
         ? CandidateDetailsInput
         : never,
 ): Promise<z.infer<(typeof ResponseSchemaByTool)[T]>> {
+  if (!APP_URL) {
+    throw new Error("NEXT_PUBLIC_APP_URL is not set — cannot build callback_url");
+  }
+
   const tool = await loadTool(tool_id);
+
+  if (tool.pattern !== "async_callback") {
+    throw new Error(
+      `zapier_tools: tool "${tool_id}" pattern=${tool.pattern}, expected async_callback`,
+    );
+  }
+  if (!tool.callback_route) {
+    throw new Error(`zapier_tools: tool "${tool_id}" missing callback_route`);
+  }
+
   const secret = process.env[tool.auth_secret_env];
   if (!secret) {
     throw new Error(
@@ -157,61 +190,168 @@ export async function callNxtTool<T extends NxtToolId>(
     );
   }
 
-  // Map tool_id → lookup_kind expected inside the Zap body. The registry
-  // doesn't model this 1:1 because future tools may be in their own Zap.
-  // For the current "NXT generic-lookup" Zap, all 3 tools route there with
-  // a lookup_kind discriminator.
-  const lookupKind: Record<NxtToolId, string> = {
-    "nxt.contact_lookup": "sender_to_account",
-    "nxt.identifier_lookup": "identifier_to_account",
-    "nxt.candidate_details": "candidate_details",
-  };
+  const requestId = randomUUID();
+  const lookup_kind = LookupKindByTool[tool_id];
+  const { nxt_database, ...payloadRest } = input;
+  const payload: Record<string, unknown> = { ...payloadRest };
 
-  // Strip nxt_database out of the per-tool input so it sits at the body
-  // top level (the Zap whitelist filter reads it from there).
-  const { nxt_database, ...rest } = input;
-  const payload: Record<string, unknown> = { ...rest };
+  const admin = createAdminClient();
+
+  // 1. Insert pending row.
+  const insertErr = await admin
+    .schema("debtor")
+    .from("nxt_lookup_requests")
+    .insert({
+      id: requestId,
+      tool_id,
+      lookup_kind,
+      nxt_database,
+      payload,
+      status: "pending",
+    })
+    .then(
+      ({ error }) => error,
+      (err: unknown) => (err instanceof Error ? err : new Error(String(err))),
+    );
+
+  if (insertErr) {
+    throw new Error(`nxt_lookup_requests insert failed: ${insertErr.message}`);
+  }
+
+  const callbackUrl = `${APP_URL.replace(/\/$/, "")}${tool.callback_route}`;
 
   const body: Record<string, unknown> = {
+    requestId,
+    callback_url: callbackUrl,
     nxt_database,
-    lookup_kind: lookupKind[tool_id],
+    lookup_kind,
     tool_id,
     payload,
-    request_id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
   };
 
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-  };
+  // body_field auth (Catch-Hook-friendly).
   if (tool.auth_method === "body_field") {
     body[tool.auth_field_name] = secret;
   } else {
-    headers[tool.auth_field_name.toLowerCase() === "authorization" ? "authorization" : tool.auth_field_name] =
-      `Bearer ${secret}`;
+    // header_bearer fallback. Same auth value, different transport.
+    // (None of the 3 lookup tools use this today.)
+    body[tool.auth_field_name] = secret;
   }
 
+  // 2. POST to Zap. Short timeout — this is just the 200 ack.
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), ZAP_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), ZAP_POST_TIMEOUT_MS);
+  let res: Response;
   try {
-    const res = await fetch(tool.target_url, {
+    res = await fetch(tool.target_url, {
       method: "POST",
-      headers,
+      headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
       signal: ctrl.signal,
     });
-    if (!res.ok) {
-      throw new Error(`zapier_tools call ${tool_id} failed: HTTP ${res.status}`);
-    }
-    const json = await res.json();
-    const schema = ResponseSchemaByTool[tool_id];
-    return schema.parse(json) as z.infer<(typeof ResponseSchemaByTool)[T]>;
   } finally {
     clearTimeout(timer);
   }
+
+  if (!res.ok) {
+    throw new Error(`zapier_tools call ${tool_id} failed: HTTP ${res.status}`);
+  }
+
+  // 3. Wait for callback via Realtime.
+  const result = await waitForLookupRequest(requestId, WAIT_TIMEOUT_MS);
+  if (result === null) {
+    throw new Error(`nxt lookup timed out after ${WAIT_TIMEOUT_MS}ms (request_id=${requestId})`);
+  }
+
+  const matches = Array.isArray(result.matches) ? result.matches : [];
+  const schema = ResponseSchemaByTool[tool_id];
+  return schema.parse({ matches }) as z.infer<(typeof ResponseSchemaByTool)[T]>;
 }
 
-/** Convenience wrappers — clearer at call sites in the resolver pipeline. */
+/**
+ * Wait for a debtor.nxt_lookup_requests row to leave 'pending'.
+ * Mirrors waitForFetchRequest in fetch-document.ts.
+ */
+async function waitForLookupRequest(
+  requestId: string,
+  timeoutMs: number,
+): Promise<{ matches?: unknown } | null> {
+  const admin = createAdminClient();
+
+  return new Promise<{ matches?: unknown } | null>((resolve, reject) => {
+    let settled = false;
+    let channel: RealtimeChannel | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (channel) admin.removeChannel(channel).catch(() => null);
+    };
+
+    const finish = (
+      outcome:
+        | { kind: "ok"; value: { matches?: unknown } | null }
+        | { kind: "err"; error: Error },
+    ) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (outcome.kind === "ok") resolve(outcome.value);
+      else reject(outcome.error);
+    };
+
+    channel = admin
+      .channel(`nxt_lookup_req:${requestId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "debtor",
+          table: "nxt_lookup_requests",
+          filter: `id=eq.${requestId}`,
+        },
+        (payload: RealtimePostgresChangesPayload<LookupRequestRow>) => {
+          const row = payload.new as LookupRequestRow | undefined;
+          if (!row) return;
+          if (row.status === "complete") {
+            finish({ kind: "ok", value: row.result ?? {} });
+          } else if (row.status === "failed") {
+            finish({
+              kind: "err",
+              error: new Error(row.error ?? "nxt lookup failed"),
+            });
+          }
+        },
+      )
+      .subscribe(async (status) => {
+        if (status !== "SUBSCRIBED") return;
+
+        // Race guard.
+        const { data, error } = await admin
+          .schema("debtor")
+          .from("nxt_lookup_requests")
+          .select("id, status, result, error")
+          .eq("id", requestId)
+          .maybeSingle();
+
+        if (error) {
+          finish({ kind: "err", error: new Error(`nxt_lookup_requests lookup failed: ${error.message}`) });
+          return;
+        }
+        if (!data) return;
+        const row = data as LookupRequestRow;
+        if (row.status === "complete") {
+          finish({ kind: "ok", value: row.result ?? {} });
+        } else if (row.status === "failed") {
+          finish({ kind: "err", error: new Error(row.error ?? "nxt lookup failed") });
+        }
+      });
+
+    timeoutId = setTimeout(() => finish({ kind: "ok", value: null }), timeoutMs);
+  });
+}
+
 export const lookupSenderToAccount = (input: ContactLookupInput) =>
   callNxtTool("nxt.contact_lookup", input);
 
