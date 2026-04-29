@@ -85,11 +85,18 @@ export async function resolveDebtor(args: ResolveArgs): Promise<ResolveResult> {
   // (e.g., one company with several contacts). Dedupe by top_level_customer_id
   // before deciding single vs ambiguous.
   // Skipped if brand_id not configured for this mailbox.
+  // On lookup error/timeout — fall through to layer 3 instead of failing the
+  // whole resolver. Layer-2 timeouts shouldn't block invoice matching.
   if (args.from_email && args.brand_id) {
     const sender = await lookupSenderToAccount({
       nxt_database: args.nxt_database,
       brand_id: args.brand_id,
       sender_email: args.from_email,
+    }).catch((err) => {
+      console.warn(
+        `[resolveDebtor] layer 2 (sender) failed, falling through: ${err instanceof Error ? err.message : err}`,
+      );
+      return { matches: [] };
     });
     const uniqueIds = Array.from(
       new Set(sender.matches.map((m) => m.top_level_customer_id)),
@@ -110,12 +117,18 @@ export async function resolveDebtor(args: ResolveArgs): Promise<ResolveResult> {
 
   // Layer 3: identifier-parse → paying customer (D-02).
   // Skipped if brand_id not configured for this mailbox.
+  // Same graceful-fallback as layer 2.
   const invoices = extractInvoiceCandidates(args.subject, args.body_text);
   if (invoices.candidates.length > 0 && args.brand_id) {
     const ids = await lookupIdentifierToAccount({
       nxt_database: args.nxt_database,
       brand_id: args.brand_id,
       invoice_numbers: invoices.candidates,
+    }).catch((err) => {
+      console.warn(
+        `[resolveDebtor] layer 3 (identifier) failed, falling through: ${err instanceof Error ? err.message : err}`,
+      );
+      return { matches: [] };
     });
     // Multiple invoice rows may resolve to the same top-level customer; dedupe.
     const uniqueCustomerIds = Array.from(

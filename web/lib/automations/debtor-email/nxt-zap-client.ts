@@ -25,7 +25,9 @@ import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const ZAP_POST_TIMEOUT_MS = 10_000; // POST→Zap ack only; the Zap itself is async.
-const WAIT_TIMEOUT_MS = 50_000; // < Vercel Pro 60s ceiling.
+const WAIT_TIMEOUT_MS = 20_000; // Tight enough to avoid label-email blocking; relies on
+// Zapier's Find Multiple Rows configured with success_on_miss=true so callbacks fire
+// even on 0 matches. If Zap halts on miss the wait still bounds at 20s.
 const REGISTRY_CACHE_TTL_MS = 60_000;
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
