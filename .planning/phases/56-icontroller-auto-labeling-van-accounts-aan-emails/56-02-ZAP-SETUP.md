@@ -1,0 +1,183 @@
+# 56-02 — NXT Generic Lookup Zap Setup
+
+**Status:** PENDING — operator action
+**Owner:** Nick Crutzen
+**Pickup time:** 2026-04-29 ~09:30 CEST (after 3-hour break)
+
+---
+
+## Goal
+
+Create one Zapier Zap that lets Vercel ask NXT three kinds of questions, all parameterized by `nxt_database` so we can hit Benelux / Ireland / UK from the same wiring.
+
+## Why this shape
+
+- **Single Zap** instead of three separate Zaps = one auth surface, one URL to remember, one credential to rotate.
+- **`lookup_kind` discriminator** = adding a fourth lookup later is a Zapier branch, not a new Vercel env var.
+- **Parameterized `nxt_database`** = future-proof for Ireland/UK without code changes. Vercel reads `debtor.labeling_settings.nxt_database` per mailbox and forwards it.
+
+---
+
+## Step-by-step Zap construction
+
+### 1. Create the Zap
+
+Zapier → **Create Zap** → name: **"MR — NXT Generic Lookup"**
+
+### 2. Trigger — Catch Hook
+
+- App: **Webhooks by Zapier**
+- Event: **Catch Hook**
+- Click **Continue** without filtering payload → Zapier shows you the catch URL.
+  - Copy it. This is `NXT_ZAPIER_WEBHOOK_URL` (one of the two env vars).
+- Test: leave a sample payload empty for now (we'll send a real one in step 8).
+
+### 3. Auth filter (so random callers can't hit the Zap)
+
+- Add: **Filter by Zapier**
+- Condition: `Authorization (Text) Exactly matches  Bearer YOUR_SECRET_HERE`
+  - Pick a long random secret (32+ chars). This is `NXT_ZAPIER_WEBHOOK_SECRET`.
+  - The header arrives in Zapier as `Authorization`; map to that.
+
+### 4. Branch on `lookup_kind`
+
+Add: **Filter by Zapier** OR **Paths by Zapier** (Paths is cleaner — 3 named branches).
+
+Three paths:
+
+| Path name | Filter condition |
+|---|---|
+| Sender → Account | `lookup_kind  Exactly matches  sender_to_account` |
+| Identifier → Account | `lookup_kind  Exactly matches  identifier_to_account` |
+| Candidate Details | `lookup_kind  Exactly matches  candidate_details` |
+
+### 5. Inside each path — SQL query
+
+**App:** Microsoft SQL Server (the existing connection that whitelisted IP works with — same one used for invoice-fetch).
+
+**Action:** "Find Multiple Rows via Custom Query"
+
+**Database:** map from incoming `nxt_database` field on the catch hook (Zapier "Custom Value"). For now you can hardcode `nxt_benelux_prod` and add the dynamic mapping later — Phase 56 only ever sends `nxt_benelux_prod`.
+
+**Path 1 — Sender → Account:**
+```sql
+SELECT
+  id, customer_id, source_type, source_id,
+  firstname, lastname, email, type, job_title
+FROM nxt_benelux_prod.dbo.contact_person
+WHERE email = @sender_email
+```
+Map `@sender_email` ← `payload__sender_email` from the catch hook.
+
+**Path 2 — Identifier → Account:**
+```sql
+SELECT
+  id, invoice_number, customer_id, paying_customer_id,
+  site_id, job_id, invoice_date, status
+FROM nxt_benelux_prod.dbo.invoice
+WHERE invoice_number IN (@invoice_numbers)
+```
+Map `@invoice_numbers` ← `payload__invoice_numbers` (a comma-separated list — Zapier handles `IN` clause expansion).
+
+**Path 3 — Candidate Details:**
+```sql
+SELECT
+  id, name, status, brand_id, country_id,
+  city, classification, email, modified_on
+FROM nxt_benelux_prod.dbo.customer
+WHERE id IN (@customer_ids)
+```
+Map `@customer_ids` ← `payload__customer_ids`.
+
+### 6. Final action per path — Custom Response
+
+**App:** Webhooks by Zapier
+**Action:** **Custom Request** with method `Custom Response` (Zapier returns the response body to the original POST caller)
+
+**Body (raw JSON):**
+```json
+{ "matches": [SQL_STEP_OUTPUT_HERE] }
+```
+
+Use Zapier's "Use a Custom Value" → map the SQL action's `rows` array. The SQL action returns each row as a separate item; you want them as a JSON array under `matches`.
+
+**Status:** 200
+
+### 7. Turn the Zap ON
+
+After all 3 paths are configured + tested.
+
+### 8. Add the env vars to Vercel
+
+In Vercel → Project (`agent-workforce`) → Settings → Environment Variables → **Production**:
+
+| Key | Value | Sensitive? |
+|---|---|---|
+| `NXT_ZAPIER_WEBHOOK_URL` | The catch-hook URL from step 2 | No (it's already a secret URL) |
+| `NXT_ZAPIER_WEBHOOK_SECRET` | The random 32+ char string from step 3 | Yes |
+
+Also Preview if you want preview deploys to work with NXT (recommended; same values).
+
+### 9. Mirror to local `.env.local`
+
+```
+NXT_ZAPIER_WEBHOOK_URL=https://hooks.zapier.com/hooks/catch/.../<id>/
+NXT_ZAPIER_WEBHOOK_SECRET=<your-secret>
+```
+
+Append both lines (don't replace the file).
+
+### 10. Smoke test
+
+When you're back, ping me. I'll run a curl like:
+
+```bash
+curl -X POST "$NXT_ZAPIER_WEBHOOK_URL" \
+  -H "Authorization: Bearer $NXT_ZAPIER_WEBHOOK_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nxt_database": "nxt_benelux_prod",
+    "lookup_kind": "sender_to_account",
+    "payload": { "sender_email": "alice@nonexistent.example" }
+  }'
+```
+
+Expected: `{ "matches": [] }` (no contact with that email).
+
+Then a real-data smoke:
+```bash
+... -d '{"lookup_kind":"sender_to_account","payload":{"sender_email":"jvanschaijk@voslogistics.com"}}'
+```
+Expected: `{ "matches": [{ "customer_id": "506909", ... }] }` (per the sample data you pasted).
+
+---
+
+## Failure-mode design (already locked)
+
+| Failure | Vercel behavior |
+|---|---|
+| Zap returns 200 with empty matches | Fall through to next pipeline layer (identifier-parse → unresolved → manual review) |
+| Zap timeout or 5xx | Vercel retries once after 1s; if still failing → write `email_labels` row with `method='nxt_error'`, surface in dashboard "Failed lookups" filter |
+| Zapier reaches plan limits / disabled | Same as 5xx path — fail-open, never label wrong customer |
+| NXT SQL slow but eventually returns | Up to Zapier's 30s timeout; sync POST uses the full window |
+
+The email STAYS unlabeled in iController on any error path. That's deliberately safe — operator retries from the dashboard once Zap/NXT is healthy.
+
+---
+
+## Open question (for v2, not blocking)
+
+The customer table has its own `email` column too. Some senders (e.g., billing-bucket emails at a corporate parent) might be on the customer record but NOT in contact_person. If sender_to_account misses are common in production, add `customer.email` UNION to the contact_person query. Defer until telemetry shows it's needed.
+
+---
+
+## Closeout
+
+After steps 1-9 are done:
+
+- [ ] Zap is **ON**, all 3 paths filled
+- [ ] Vercel has `NXT_ZAPIER_WEBHOOK_URL` + `NXT_ZAPIER_WEBHOOK_SECRET` set (Production)
+- [ ] Local `.env.local` has both vars
+- [ ] You've pinged Claude with the values for smoke-test
+- [ ] Smoke test returns expected shape
+- [ ] Phase 56-02 marked complete; Wave 2 unblocked
