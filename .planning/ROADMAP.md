@@ -192,6 +192,18 @@ Plans:
 - [ ] 60-06-PLAN.md — actions.ts rewrite (verdict-write only) + classifier-verdict-worker (event-trigger, split step.run for categorize/archive/iController-delete-via-cleanup-queue)
 - [ ] 60-07-PLAN.md — Post-shadow cleanup: drop FALLBACK_WHITELIST after 1-day clean run + flip CLASSIFIER_CRON_MUTATE=true after 14-day shadow review (autonomous: false)
 
+### Phase 61: Restore lost bulk-review UX (60-05 regression fix): horizontal overflow, missing email-body expander, missing per-row notes, missing rule-hint dropdown / per-item override. Reintroduce these on top of the new tree-driven shell — don't revert 60-05's data-driven architecture.
+
+**Goal:** Restore the four UX features lost in the Phase 60-05 rewrite (email-body expander, override dropdown, per-row notes, page-scoped keyboard shortcuts) and fix horizontal overflow with a 3-column max-w-[1600px] layout — without reverting 60-05'''s data-driven tree architecture.
+**Requirements**: See `61-CONTEXT.md` (D-LAYOUT-3COL, D-DETAIL-PANE, D-DETAIL-BODY-LAZY, D-DETAIL-OVERRIDE, D-DETAIL-NOTES, D-KEYBOARD-SHORTCUTS, D-AUTO-ADVANCE, D-TREE-PENDING-SIBLING, D-PERSIST-OVERRIDE, D-PERSIST-NOTES, D-FETCH-EMAIL-BODY, D-LABEL-ONLY-SKIP, plus 4 polish requirements)
+**Depends on:** Phase 60
+**Plans:** 3 plans
+
+Plans:
+- [ ] 61-01-PLAN.md — Extend recordVerdict (override+notes, zod) + re-add fetchReviewEmailBody + 2 vitest files
+- [ ] 61-02-PLAN.md — 3-col layout + page.tsx ?selected loader + rename row-list/row-strip (no buttons) + new detail-pane + new keyboard-shortcuts + queue-tree summary header + Pending sibling node
+- [ ] 61-03-PLAN.md — Visual polish (Lucide audit, min-w-0 sweep, kbd styling) + 33-item manual UAT checkpoint
+
 ---
 
 ## Phases
