@@ -163,6 +163,8 @@ const browser = await chromium.connectOverCDP(
 - NXT SQL alleen via Zapier (whitelisted IP)
 - **NXT-documenten op S3 ook via Zapier SDK** (`@zapier/zapier-sdk`) — niet direct met AWS SDK vanuit Vercel. Één credential-grens, één auth-pad. Pattern: `web/debtor-email-analyzer/src/fetch-emails.ts`.
 - Orq.ai long-running calls via Cloudflare Workers (Zapier timeout te kort)
+- **Zapier-tool routing via `public.zapier_tools` registry — NIET via per-Zap env vars.** Eén row per tool (`tool_id`, `backend`, `pattern`, `target_url`, `auth_method`, `auth_secret_env`, `input_schema`). Nieuwe automation = INSERT één row; geen env var, geen Vercel deploy, geen code-change voor routing. Auth-secrets blijven in env vars; registry verwijst naar de **naam** van de env var (`auth_secret_env` veld). Hergebruik bestaande secret env var waar mogelijk (e.g. `DEBTOR_FETCH_WEBHOOK_SECRET` voor alle NXT-tools). Pattern: `supabase/migrations/20260429_zapier_tools_registry.sql` + `web/lib/automations/debtor-email/nxt-zap-client.ts`. Learning: `de425a88-ac72-438d-bf8b-523e55ba63ef`.
+- Catch Hook trigger toont **niet** alle headers betrouwbaar in Zapier's field picker. Voor auth-validatie: gebruik **body field** (`auth: "<secret>"`) ipv `Authorization: Bearer` header. Beide Zaps (invoice-fetch én NXT generic-lookup) volgen dit patroon.
 
 → `docs/zapier-patterns.md`
 
