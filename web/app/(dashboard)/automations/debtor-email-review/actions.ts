@@ -26,15 +26,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { inngest } from "@/lib/inngest/client";
 import { fetchMessageBody } from "@/lib/outlook";
+import { OVERRIDE_CATEGORIES, type OverrideCategory } from "./categories";
 
-export const OVERRIDE_CATEGORIES = [
-  "payment",
-  "auto_reply",
-  "ooo_temporary",
-  "ooo_permanent",
-  "unknown",
-] as const;
-export type OverrideCategory = (typeof OVERRIDE_CATEGORIES)[number];
+// Re-export the type only — types erase at compile time and are allowed
+// from a "use server" file. The runtime value (OVERRIDE_CATEGORIES) is
+// not re-exported here; consumers import it directly from ./categories.
+export type { OverrideCategory };
 
 const verdictSchema = z.object({
   automation_run_id: z.string().min(1),
