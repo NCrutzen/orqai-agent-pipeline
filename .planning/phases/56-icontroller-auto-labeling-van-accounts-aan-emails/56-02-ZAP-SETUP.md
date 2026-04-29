@@ -3,6 +3,7 @@
 **Status:** PENDING — operator action
 **Owner:** Nick Crutzen
 **Pickup time:** 2026-04-29 ~09:30 CEST (after 3-hour break)
+**Pattern revision (2026-04-29):** sync → **async_callback** (Zapier doesn't support Custom Response on any plan)
 
 ---
 
@@ -143,19 +144,29 @@ WHERE id IN (@customer_ids)
 ```
 Map `@customer_ids` ← `payload__customer_ids`.
 
-### 6. Final action per path — Custom Response
+### 6. Final action per path — POST callback (async pattern)
+
+> ⚠ **Updated 2026-04-29:** Custom Response is NOT supported on any Zapier plan (verified via Zapier community + product docs). Catch Hook always returns 200 immediately and runs the Zap async. We use the same async-callback pattern as the existing invoice-fetch Zap.
 
 **App:** Webhooks by Zapier
-**Action:** **Custom Request** with method `Custom Response` (Zapier returns the response body to the original POST caller)
+**Action:** **POST**
 
-**Body (raw JSON):**
-```json
-{ "matches": [SQL_STEP_OUTPUT_HERE] }
-```
+| Field | Value |
+|---|---|
+| **URL** | map to catch-hook field `callback_url` (Vercel sends this per request — never hardcode) |
+| **Payload Type** | `json` |
+| **Wrap Request In Array** | `false` |
+| **Headers** | (none — auth goes in body) |
 
-Use Zapier's "Use a Custom Value" → map the SQL action's `rows` array. The SQL action returns each row as a separate item; you want them as a JSON array under `matches`.
+**Data fields:**
+- `requestId` ← catch-hook `requestId`
+- `secret` ← catch-hook `auth` (re-emit the same secret Vercel sent in)
+- `lookup_kind` ← catch-hook `lookup_kind`
+- `matches` ← SQL step's `rows` array (whole array, not per-field)
 
-**Status:** 200
+The Vercel callback route (`/api/automations/debtor/nxt-lookup/callback`) validates `secret`, looks up the pending row by `requestId`, stores `matches`, and unblocks the original caller.
+
+**Why `secret` and not `auth` in the callback body:** the invoice-fetch callback already uses `secret`. Same env var (`DEBTOR_FETCH_WEBHOOK_SECRET`), same constant-time check. Keeping the field name aligned across both Zaps means one less divergence.
 
 ### 7. Turn the Zap ON
 
@@ -173,28 +184,31 @@ This is the future-proof shape: the catch-hook URL lives in the **`public.zapier
 
 `DEBTOR_FETCH_WEBHOOK_SECRET` is already present (we populated the real value when the secret was provided). Nothing further to add for the lookup Zap.
 
-### 10. Smoke test
+### 10. Smoke test (async path — call via Vercel, not Zapier directly)
 
-When you're back, ping me. I'll run a curl like:
+The Zap no longer returns the matches inline, so curling the catch hook only proves it accepted the request. To smoke the full round-trip, hit the Vercel endpoint that drives `callNxtTool` (Phase 56-03 wires up). Or for now, manually verify by:
+
+1. POST to the catch-hook URL with a valid body containing `requestId`, `callback_url`, `auth`, `nxt_database`, `lookup_kind`, `payload`.
+2. Watch `debtor.nxt_lookup_requests` row transition `pending → complete` with `result.matches` populated.
 
 ```bash
-curl -X POST "$NXT_ZAPIER_WEBHOOK_URL" \
-  -H "Authorization: Bearer $NXT_ZAPIER_WEBHOOK_SECRET" \
+REQUEST_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+
+curl -X POST "https://hooks.zapier.com/hooks/catch/15380147/uv5ju6h/" \
   -H "Content-Type: application/json" \
-  -d '{
-    "nxt_database": "nxt_benelux_prod",
-    "lookup_kind": "sender_to_account",
-    "payload": { "sender_email": "alice@nonexistent.example" }
-  }'
+  -d "{
+    \"requestId\": \"$REQUEST_ID\",
+    \"callback_url\": \"https://agent-workforce.vercel.app/api/automations/debtor/nxt-lookup/callback\",
+    \"auth\": \"$DEBTOR_FETCH_WEBHOOK_SECRET\",
+    \"nxt_database\": \"nxt_benelux_prod\",
+    \"lookup_kind\": \"sender_to_account\",
+    \"payload\": { \"sender_email\": \"jvanschaijk@voslogistics.com\" }
+  }"
 ```
 
-Expected: `{ "matches": [] }` (no contact with that email).
+⚠ You must INSERT a pending row in `debtor.nxt_lookup_requests` first (id = `$REQUEST_ID`, status='pending'), otherwise the callback returns 404 `unknown_request`. The real driver does this insert automatically via `callNxtTool`.
 
-Then a real-data smoke:
-```bash
-... -d '{"lookup_kind":"sender_to_account","payload":{"sender_email":"jvanschaijk@voslogistics.com"}}'
-```
-Expected: `{ "matches": [{ "customer_id": "506909", ... }] }` (per the sample data you pasted).
+Expected after a few seconds: row updated to `status='complete'`, `result.matches[0].top_level_customer_id = '506909'`.
 
 ---
 
