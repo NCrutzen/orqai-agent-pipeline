@@ -153,6 +153,19 @@ export type Events = {
       triggeredBy?: string;
     };
   };
+  // Phase 60-08 — corpus-driven backfill of classifier_rules.n/agree
+  "classifier/corpus-backfill.run": {
+    data: {
+      triggeredBy?: string;
+    };
+  };
+  // Phase 60-08 — sample hard-case rows into agent_runs review queue
+  "classifier/spotcheck.queue": {
+    data: {
+      triggeredBy?: string;
+      max_per_rule?: number;
+    };
+  };
   "classifier/verdict.recorded": {
     data: {
       automation_run_id: string;

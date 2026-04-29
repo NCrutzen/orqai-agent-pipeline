@@ -25,6 +25,7 @@ import { cleanupIControllerShardWorker } from "@/lib/inngest/functions/debtor-em
 import { browserlessKeepalive } from "@/lib/inngest/functions/browserless-keepalive";
 import { debtorEmailTriage } from "@/lib/inngest/functions/debtor-email-triage";
 import { classifierBackfill } from "@/lib/inngest/functions/classifier-backfill";
+import { classifierCorpusBackfill } from "@/lib/inngest/functions/classifier-corpus-backfill";
 import { classifierPromotionCron } from "@/lib/inngest/functions/classifier-promotion-cron";
 import { classifierVerdictWorker } from "@/lib/inngest/functions/classifier-verdict-worker";
 
@@ -48,6 +49,7 @@ export const { GET, POST, PUT } = serve({
     browserlessKeepalive,
     debtorEmailTriage,
     classifierBackfill,
+    classifierCorpusBackfill,
     classifierPromotionCron,
     classifierVerdictWorker,
   ],
