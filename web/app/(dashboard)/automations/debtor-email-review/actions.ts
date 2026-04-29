@@ -22,6 +22,7 @@
 // detail-pane body expander built in Plan 02.
 
 import { z } from "zod";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { inngest } from "@/lib/inngest/client";
@@ -115,6 +116,19 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
   //     bulk-review flow has no equivalent — the underlying record is the
   //     automation_run itself. Reuse automation_run_id as email_id so the
   //     constraint is satisfied and the row remains joinable.
+  // Reviewer identity for audit trail (D-21). Best-effort — falls back to
+  // null if the action runs outside a request scope (tests, internal jobs,
+  // or any caller without cookies).
+  let reviewerEmail: string | null = null;
+  try {
+    const sb = await createClient();
+    const { data: userRes } = await sb.auth.getUser();
+    reviewerEmail = userRes?.user?.email ?? null;
+  } catch {
+    // No request context (tests, server-job invocation) → leave null.
+  }
+  const verdictTimestamp = new Date().toISOString();
+
   const { data: ar, error: arErr } = await admin
     .from("agent_runs")
     .insert({
@@ -126,6 +140,8 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
       human_verdict: effectiveDecision === "approve" ? "approved" : "rejected_other",
       human_notes: parsed.notes ?? null,
       corrected_category: parsed.override_category ?? null,
+      verdict_set_at: verdictTimestamp,
+      verdict_set_by: reviewerEmail,
     })
     .select("id")
     .single();
