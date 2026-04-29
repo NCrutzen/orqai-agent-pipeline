@@ -4,14 +4,14 @@ milestone: v0.3
 milestone_name: milestone
 status: executing
 stopped_at: Phase 56 context gathered — ready for /gsd-plan-phase 56
-last_updated: "2026-04-28T16:09:29.590Z"
-last_activity: 2026-04-28 -- Phase 60 execution started
+last_updated: "2026-04-29T04:33:43.442Z"
+last_activity: 2026-04-29 -- Phase 61 execution started
 progress:
-  total_phases: 29
+  total_phases: 30
   completed_phases: 9
-  total_plans: 33
-  completed_plans: 27
-  percent: 82
+  total_plans: 45
+  completed_plans: 28
+  percent: 62
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** Phase 60 — debtor-email-close-the-whitelist-gate-loop-data-driven-auto-
+**Current focus:** Phase 61 — restore-lost-bulk-review-ux-60-05-regression-fix-horizontal-
 **Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress (91%), V4.0 partially complete, V6.0 phases 44-45 complete
 
 ## Current Position
 
-Phase: 60 (debtor-email-close-the-whitelist-gate-loop-data-driven-auto-) — EXECUTING
-Plan: 1 of 8
-Status: Executing Phase 60
-Last activity: 2026-04-28 -- Phase 60 execution started
+Phase: 61 (restore-lost-bulk-review-ux-60-05-regression-fix-horizontal-) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 61
+Last activity: 2026-04-29 -- Phase 61 execution started
 
 Progress: [████░░░░░░] 43% (3 of 7 V7.0 phases code-complete)
 
@@ -54,6 +54,7 @@ Progress: [████░░░░░░] 43% (3 of 7 V7.0 phases code-complete
 ### Roadmap Evolution
 
 - Phase 60 added: Debtor email — close the whitelist-gate loop (data-driven AUTO_ACTION_RULES with Wilson-CI auto-promotion cron + queue-driven Bulk Review UI reading automation_runs status=predicted directly)
+- Phase 61 added: Restore lost bulk-review UX (60-05 regression fix) — horizontal overflow, email-body expander, per-row notes, rule-hint dropdown / per-item override on top of the new tree-driven shell
 
 ### Decisions
 
