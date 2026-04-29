@@ -79,7 +79,16 @@ export async function POST(request: NextRequest) {
   } else if (raw == null) {
     matches = [];
   } else {
-    return NextResponse.json({ error: "invalid_matches" }, { status: 400 });
+    // Diagnostic: surface what we received so the caller can debug Zapier's
+    // serialization. Safe to expose since this endpoint is auth-gated.
+    const sample =
+      typeof body.matches === "string"
+        ? `string len=${body.matches.length} head="${body.matches.slice(0, 80)}"`
+        : `type=${typeof body.matches} value=${JSON.stringify(body.matches)?.slice(0, 200)}`;
+    return NextResponse.json(
+      { error: "invalid_matches", details: sample },
+      { status: 400 },
+    );
   }
 
   // Strip auth out of stored payload.
