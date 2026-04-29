@@ -1,11 +1,7 @@
-// Phase 61-01 (D-FETCH-EMAIL-BODY). Verifies fetchReviewEmailBody:
-// - reads automation_runs.result.{message_id, source_mailbox} for the run id
-// - calls outlook fetchMessageBody(mailbox, message_id)
-// - returns { bodyText, bodyHtml } (bodyHtml is null when empty)
-// - throws "automation_run not found" when select returns null
-// - throws "automation_run missing message_id or source_mailbox" when jsonb incomplete
-// - returns { bodyText: "", bodyHtml: null } when fetchMessageBody returns empty body
-// - surfaces fetchMessageBody errors with prefix "outlook fetch failed: ..."
+// Phase 61-01 + 61-hotfix (D-FETCH-EMAIL-BODY). Verifies fetchReviewEmailBody
+// returns a typed result `{ ok: true, ... } | { ok: false, error }` instead
+// of throwing — Next masks server-action throws in production builds, so
+// errors must travel through the result envelope to reach the user.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -72,52 +68,61 @@ describe("fetchReviewEmailBody (D-FETCH-EMAIL-BODY)", () => {
     expect(fetchMessageBodyMock).toHaveBeenCalledWith("x@y.nl", "msg-1");
   });
 
-  it("returns { bodyText, bodyHtml } from fetchMessageBody", async () => {
+  it("returns { ok: true, bodyText, bodyHtml } from fetchMessageBody", async () => {
     const out = await fetchReviewEmailBody("ar-uuid-1");
     expect(out).toEqual({
+      ok: true,
       bodyText: "hello world",
       bodyHtml: "<p>hello world</p>",
     });
   });
 
-  it("throws 'automation_run not found' when select returns null", async () => {
+  it("returns { ok: false, error } when select returns null", async () => {
     selectError = { message: "no row" };
-    await expect(fetchReviewEmailBody("ar-uuid-1")).rejects.toThrow(
-      /automation_run not found/,
-    );
+    const out = await fetchReviewEmailBody("ar-uuid-1");
+    expect(out).toEqual({ ok: false, error: "automation_run not found" });
   });
 
-  it("throws 'automation_run missing message_id or source_mailbox' when jsonb is incomplete", async () => {
+  it("returns { ok: false, error: 'missing ...' } when jsonb is incomplete", async () => {
     selectData = { result: { source_mailbox: "x@y.nl" } }; // no message_id
-    await expect(fetchReviewEmailBody("ar-uuid-1")).rejects.toThrow(
-      /missing message_id or source_mailbox/,
-    );
+    expect(await fetchReviewEmailBody("ar-uuid-1")).toEqual({
+      ok: false,
+      error: "automation_run missing message_id or source_mailbox",
+    });
 
     selectData = { result: { message_id: "msg-1" } }; // no source_mailbox
-    await expect(fetchReviewEmailBody("ar-uuid-1")).rejects.toThrow(
-      /missing message_id or source_mailbox/,
-    );
+    expect(await fetchReviewEmailBody("ar-uuid-1")).toEqual({
+      ok: false,
+      error: "automation_run missing message_id or source_mailbox",
+    });
 
     selectData = { result: null };
-    await expect(fetchReviewEmailBody("ar-uuid-1")).rejects.toThrow(
-      /missing message_id or source_mailbox/,
-    );
+    expect(await fetchReviewEmailBody("ar-uuid-1")).toEqual({
+      ok: false,
+      error: "automation_run missing message_id or source_mailbox",
+    });
   });
 
-  it("returns { bodyText: '', bodyHtml: null } when fetchMessageBody returns empty body", async () => {
+  it("returns { ok: true, bodyText: '', bodyHtml: null } when fetchMessageBody returns empty body", async () => {
     fetchMessageBodyMock.mockResolvedValueOnce({
       bodyText: "",
       bodyHtml: "",
       bodyType: "text",
     });
     const out = await fetchReviewEmailBody("ar-uuid-1");
-    expect(out).toEqual({ bodyText: "", bodyHtml: null });
+    expect(out).toEqual({ ok: true, bodyText: "", bodyHtml: null });
   });
 
-  it("surfaces fetchMessageBody errors with prefix 'outlook fetch failed: ...'", async () => {
+  it("surfaces fetchMessageBody errors via { ok: false, error: 'outlook fetch failed: ...' }", async () => {
+    // Quiet the diagnostic console.error during this expected-failure test.
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     fetchMessageBodyMock.mockRejectedValueOnce(new Error("403 Forbidden"));
-    await expect(fetchReviewEmailBody("ar-uuid-1")).rejects.toThrow(
-      /outlook fetch failed: 403 Forbidden/,
-    );
+    const out = await fetchReviewEmailBody("ar-uuid-1");
+    expect(out).toEqual({
+      ok: false,
+      error: "outlook fetch failed: 403 Forbidden",
+    });
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
   });
 });

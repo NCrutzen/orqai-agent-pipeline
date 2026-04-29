@@ -159,39 +159,47 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
 // the caller only has to pass the run id.
 // ---------------------------------------------------------------------------
 
-export interface ReviewEmailBody {
-  bodyText: string;
-  bodyHtml: string | null;
-}
+// Typed result instead of `throw` so the real error message survives Next's
+// production server-action masking ("An error occurred in the Server
+// Components render…"). The reviewer needs to see *why* a body fetch failed
+// (Graph 401, missing source_mailbox, network) — masking turns every failure
+// into the same opaque sentence.
+export type ReviewEmailBodyResult =
+  | { ok: true; bodyText: string; bodyHtml: string | null }
+  | { ok: false; error: string };
 
 export async function fetchReviewEmailBody(
   automationRunId: string,
-): Promise<ReviewEmailBody> {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("automation_runs")
-    .select("result")
-    .eq("id", automationRunId)
-    .single();
-  if (error || !data) {
-    throw new Error("automation_run not found");
-  }
-  const result = (data.result ?? {}) as {
-    message_id?: string;
-    source_mailbox?: string;
-  };
-  if (!result.message_id || !result.source_mailbox) {
-    throw new Error("automation_run missing message_id or source_mailbox");
-  }
+): Promise<ReviewEmailBodyResult> {
   try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("automation_runs")
+      .select("result")
+      .eq("id", automationRunId)
+      .single();
+    if (error || !data) {
+      return { ok: false, error: "automation_run not found" };
+    }
+    const result = (data.result ?? {}) as {
+      message_id?: string;
+      source_mailbox?: string;
+    };
+    if (!result.message_id || !result.source_mailbox) {
+      return {
+        ok: false,
+        error: "automation_run missing message_id or source_mailbox",
+      };
+    }
     const body = await fetchMessageBody(result.source_mailbox, result.message_id);
-    // fetchMessageBody returns { bodyText, bodyHtml, bodyType }.
-    // Empty body → return ("", null) without throwing.
     return {
+      ok: true,
       bodyText: body.bodyText ?? "",
       bodyHtml: body.bodyHtml ? body.bodyHtml : null,
     };
   } catch (e) {
-    throw new Error(`outlook fetch failed: ${(e as Error).message}`);
+    const msg = (e as Error).message ?? String(e);
+    console.error("[fetchReviewEmailBody]", automationRunId, msg);
+    return { ok: false, error: `outlook fetch failed: ${msg}` };
   }
 }
