@@ -2,20 +2,31 @@
 phase: 60
 plan: 05
 subsystem: queue-driven-bulk-review-ui
-tags: [next, server-component, supabase-rpc, realtime-broadcast, v7-tokens, urls-as-state]
+tags: [next, server-component, supabase-rpc, realtime-broadcast, v7-tokens, urls-as-state, superseded-path]
+post_execution_note: |
+  Components built under /automations/debtor-email-review/ on 2026-04-28
+  were relocated to /automations/[swarm]/review/ on 2026-04-29 by Phase 56.7-03
+  (swarm-registry rollout, D-15). Implementation logic is intact at the new
+  path; the file references in this SUMMARY's "affects" / "Self-Check" sections
+  are HISTORICAL and reflect the path used at the time of execution. See
+  56.7-03-SUMMARY.md for the move + 307-redirect from the old URL. The amended
+  60-05-PLAN.md (post-56.7-03) reflects the current path.
 requires:
   - 60-00 (it.todo stubs in web/tests/queue/{page,rule-filter,race-cohort}.test.tsx)
   - 60-01 (automation_runs typed columns, classifier_queue_counts RPC, classifier_rules table)
   - 60-02 (classifier_rules table populated by ingest cache + backfill)
   - 60-06 (recordVerdict server action exported from actions.ts)
 provides:
-  - Queue-driven /automations/debtor-email-review page (server component)
+  - Queue-driven /automations/debtor-email-review page (server component) — NOW LIVES AT /automations/[swarm]/review/ post-56.7-03
   - QueueTree recursive 3-level tree (topic → entity → mailbox) with URL-driven selection
   - PredictedRowList cursor-paginated detail panel with broadcast refetch
   - PredictedRowItem per-row Approve/Reject with optimistic status pill
   - RaceCohortBanner sticky banner for newly-promoted-rule cohort cleanup
 affects:
-  - web/app/(dashboard)/automations/debtor-email-review/page.tsx (REWRITE)
+  # NOTE: paths below were superseded by Phase 56.7-03 (2026-04-29). Equivalents
+  # now live at web/app/(dashboard)/automations/[swarm]/review/. Old path
+  # 307-redirects via web/next.config.ts.
+  - web/app/(dashboard)/automations/debtor-email-review/page.tsx (REWRITE → moved to [swarm]/review/page.tsx)
   - web/app/(dashboard)/automations/debtor-email-review/bulk-review.tsx (DELETED)
   - web/tests/queue/page.test.tsx (it.todo → real expects)
   - web/tests/queue/rule-filter.test.tsx (it.todo → real expects)
@@ -167,7 +178,7 @@ metrics:
 - Plan 60-05 and 60-06 lived on the same wave with a no-overlap constraint on their files. The single shared seam is the `recordVerdict` import from actions.ts; this works because actions.ts is in 60-06's `files_modified` only and 60-05 just imports the symbol.
 - The `bulk-review.tsx` deletion closes the temporary tsc break documented in 60-06-SUMMARY.
 
-## Self-Check: PASSED
+## Self-Check: PASSED (at execution time, 2026-04-28)
 
 - web/app/(dashboard)/automations/debtor-email-review/page.tsx — FOUND
 - web/app/(dashboard)/automations/debtor-email-review/queue-tree.tsx — FOUND
@@ -179,3 +190,27 @@ metrics:
 - Commit `4135ec4` (GREEN implementation) — present in `git log`
 - `pnpm vitest run tests/queue` — 21/21 ✓
 - `pnpm tsc --noEmit -p .` — clean ✓
+
+## Post-Execution Path Migration (2026-04-29, Phase 56.7-03)
+
+The entire `web/app/(dashboard)/automations/debtor-email-review/` directory
+was moved to `web/app/(dashboard)/automations/[swarm]/review/` by Phase 56.7-03
+to make the queue UI swarm-agnostic. Component logic is unchanged; only the
+route segment was generalized. The old URL 307-redirects via `next.config.ts`.
+
+Equivalent files at the current path (post-56.7-03):
+
+- web/app/(dashboard)/automations/[swarm]/review/page.tsx
+- web/app/(dashboard)/automations/[swarm]/review/queue-tree.tsx
+- web/app/(dashboard)/automations/[swarm]/review/row-list.tsx (renamed from predicted-row-list)
+- web/app/(dashboard)/automations/[swarm]/review/row-strip.tsx (extracted from predicted-row-item)
+- web/app/(dashboard)/automations/[swarm]/review/race-cohort-banner.tsx
+- web/app/(dashboard)/automations/[swarm]/review/detail-pane.tsx (new, registry-driven drawer)
+- web/app/(dashboard)/automations/[swarm]/review/selection-context.tsx
+- web/app/(dashboard)/automations/[swarm]/review/keyboard-shortcuts.tsx
+- web/app/(dashboard)/automations/[swarm]/review/actions.ts (recordVerdict, registry-validated)
+- web/app/(dashboard)/automations/[swarm]/review/categories.ts (type-only sibling)
+
+UAT 2026-04-29 (see `.planning/phases/56.7-swarm-registry/56.7-UAT.md`)
+verified the live queue UI end-to-end against the new path: 5/5 pass,
+including the dispatch chain into `classifier-verdict-worker`.
