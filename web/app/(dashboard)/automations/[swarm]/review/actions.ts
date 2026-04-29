@@ -192,7 +192,7 @@ export async function fetchReviewEmailBody(
     const admin = createAdminClient();
     const { data, error } = await admin
       .from("automation_runs")
-      .select("result")
+      .select("result, triggered_by")
       .eq("id", automationRunId)
       .single();
     if (error || !data) {
@@ -201,7 +201,31 @@ export async function fetchReviewEmailBody(
     const result = (data.result ?? {}) as {
       message_id?: string;
       source_mailbox?: string;
+      email_id?: string;
     };
+
+    // Phase 60-08 spot-check rows store the corpus email_id (uuid) in
+    // result.email_id and the RFC 5322 internet_message_id in result.message_id.
+    // Outlook Graph doesn't accept the RFC ID and the historical corpus is
+    // probably no longer in any mailbox anyway — read the body from
+    // email_pipeline.emails directly.
+    if (data.triggered_by === "corpus-backfill-spotcheck" && result.email_id) {
+      const { data: emailRow, error: eErr } = await admin
+        .schema("email_pipeline")
+        .from("emails")
+        .select("body_text, body_html")
+        .eq("id", result.email_id)
+        .single();
+      if (eErr || !emailRow) {
+        return { ok: false, error: `email_pipeline lookup failed: ${eErr?.message ?? "not found"}` };
+      }
+      return {
+        ok: true,
+        bodyText: emailRow.body_text ?? "",
+        bodyHtml: emailRow.body_html || null,
+      };
+    }
+
     if (!result.message_id || !result.source_mailbox) {
       return {
         ok: false,
