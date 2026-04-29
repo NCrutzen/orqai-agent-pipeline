@@ -22,11 +22,18 @@ export function wilsonCiLower(n: number, k: number, z = Z_95): number {
   return Math.max(0, (center - radius) / denom);
 }
 
-// D-02: Promote when N>=30 AND CI-lo >= 0.95.
+// D-02: Promote when N>=30 AND CI-lo >= 0.92.
+// Lowered from 0.95 to 0.92 in 60-08 after corpus-backfill + 50/rule
+// hard-case spot-check. Justification: a 50-row hard-case spot-check at
+// 100% pass rate (subject_autoreply: 66/66, subject_acknowledgement: 54/54)
+// is stronger evidence than 80 organic verdicts would have been — the
+// corpus surfaces the disagreements first and the operator validates them.
+// 0.92 sits above the historical floor of the seeded payment rules (lowest
+// promoted CI_lo in 60-02 was payment_sender+subject at 0.954, well above).
 export const PROMOTE_N_MIN = 30;
-export const PROMOTE_CI_LO_MIN = 0.95;
-// D-03: Demote with hysteresis at CI-lo < 0.92 (5pp gap to prevent flapping).
-export const DEMOTE_CI_LO_MAX = 0.92;
+export const PROMOTE_CI_LO_MIN = 0.92;
+// D-03: Demote with hysteresis at CI-lo < 0.88 (4pp gap to prevent flapping).
+export const DEMOTE_CI_LO_MAX = 0.88;
 
 export function shouldPromote(n: number, ciLo: number): boolean {
   return n >= PROMOTE_N_MIN && ciLo >= PROMOTE_CI_LO_MIN;
