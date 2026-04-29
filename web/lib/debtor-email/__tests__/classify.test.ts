@@ -25,14 +25,23 @@ describe("60-09 SUBJECT_TICKET_REF — exclude factuurportal IDs", () => {
     expect(result.matchedRule).not.toBe("subject_ticket_ref");
   });
 
-  it("FP-2026-XXXXXX with 'is ontvangen' still routes via subject_acknowledgement (not ticket_ref)", () => {
+  it("FP-2026-XXXXXX 'is ontvangen' falls through to no_match (not subject_ticket_ref)", () => {
+    // The 'is ontvangen' variant no longer matches subject_ticket_ref. The
+    // subject_acknowledgement regex requires `uw factuur (is ontvangen|wordt
+    // verwerkt)` adjacent and does NOT cover the `voor de gemeente X is
+    // ontvangen` form (extra noun phrase between 'factuur' and 'is'). Per
+    // 60-09 D-22 boundary we do not extend subject_acknowledgement here —
+    // the row falls to `unknown` for human review, which is the correct
+    // safety posture: a human confirms it's a benign ack before any future
+    // promotion. A follow-up plan can broaden the ack regex if telemetry
+    // shows this pattern adding queue volume.
     const result = classify({
       subject: "FP-2026-177324: Uw factuur voor de gemeente Overbetuwe is ontvangen.",
       from: "no-reply@factuurportal.eu",
       bodySnippet: "",
     });
-    // Still archive-able (acknowledgement), just not via the wrong rule.
-    expect(result.matchedRule).toBe("subject_acknowledgement");
+    expect(result.matchedRule).not.toBe("subject_ticket_ref");
+    expect(result.category).toBe("unknown");
   });
 
   it("legitimate Coop ticket subject still matches subject_ticket_ref", () => {

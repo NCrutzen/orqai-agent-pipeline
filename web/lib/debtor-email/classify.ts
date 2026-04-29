@@ -94,8 +94,16 @@ const SUBJECT_ACKNOWLEDGEMENT =
  * literal followed by an identifier. Narrow enough to avoid catching plain
  * dunning emails that happen to reference an invoice number.
  */
+// 60-09: the `\b[A-Z]{2,5}-\d{3,}-\d{3,}\s*:` branch over-matched
+// `FP-2026-270485:` from `no-reply@factuurportal.eu`. Those are invoice-
+// portal IDs, not ticket-system acks. The "is ontvangen / wordt verwerkt"
+// variants of those subjects are correctly handled by SUBJECT_ACKNOWLEDGEMENT
+// upstream; the "kan helaas niet worden verwerkt" rejection variant must
+// route to `unknown` (human action: resubmit invoice). Negative-lookahead
+// excludes the FP- prefix specifically — extend with `|XX` if other
+// invoice-portal vendors with similar 2-letter prefixes emerge.
 const SUBJECT_TICKET_REF =
-  /(\[[A-Z]{2,5}#?\d+\]|\b[A-Z]{2,5}-\d{3,}-\d{3,}\s*:|\(ticket\s*:?\s*\d+\)|ticket\s+number|procesnummer|aanmelding\s+van\s+melding|\bis\s+closed[:\s]|\bGCS\d{4,}|melding\s+[CS]\d+|case\s+number)/i;
+  /(\[[A-Z]{2,5}#?\d+\]|\b(?!FP-)[A-Z]{2,5}-\d{3,}-\d{3,}\s*:|\(ticket\s*:?\s*\d+\)|ticket\s+number|procesnummer|aanmelding\s+van\s+melding|\bis\s+closed[:\s]|\bGCS\d{4,}|melding\s+[CS]\d+|case\s+number)/i;
 
 /**
  * SUBJECT_PAYMENT is deliberately narrow: it must match only confirmation /
