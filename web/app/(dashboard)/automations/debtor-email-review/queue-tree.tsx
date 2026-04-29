@@ -195,9 +195,18 @@ function TreeRow({
   );
 }
 
-export function QueueTree({ counts, selection }: QueueTreeProps) {
+export function QueueTree({
+  counts,
+  selection,
+  candidates = [],
+  promotedTodayCount = 0,
+}: QueueTreeProps) {
   const router = useRouter();
   const tree = useMemo(() => buildTree(counts), [counts]);
+  const totalCount = useMemo(
+    () => counts.reduce((s, c) => s + c.count, 0),
+    [counts],
+  );
 
   // Local expand state, keyed by topic and topic+entity. Default: top topic
   // expanded if there's only one, otherwise all collapsed.
@@ -234,13 +243,16 @@ export function QueueTree({ counts, selection }: QueueTreeProps) {
       if (next.topic) qs.set("topic", next.topic);
       if (next.entity) qs.set("entity", next.entity);
       if (next.mailbox) qs.set("mailbox", next.mailbox);
-      // Preserve rule + tab from current selection.
+      // Preserve rule from current selection. Phase 61-02: Pending and
+      // topic-tree selections are mutually exclusive — clear `tab` when
+      // activating a topic/entity/mailbox node. Pending sibling has its
+      // own onActivate path that sets ?tab=pending explicitly.
       if (selection.rule) qs.set("rule", selection.rule);
-      if (selection.tab) qs.set("tab", selection.tab);
+      if (next.tab) qs.set("tab", next.tab);
       const path = "/automations/debtor-email-review";
       router.push(qs.toString() ? `${path}?${qs.toString()}` : path);
     },
-    [router, selection.rule, selection.tab],
+    [router, selection.rule],
   );
 
   // Keyboard navigation: arrow up/down between visible rows; left collapses
@@ -263,9 +275,34 @@ export function QueueTree({ counts, selection }: QueueTreeProps) {
   return (
     <nav
       aria-label="Predicted-rows queue tree"
-      className="flex flex-col gap-2 px-2 py-3 rounded-[var(--v7-radius-card)] border border-[var(--v7-line)] bg-[var(--v7-panel)]"
+      className="flex flex-col gap-2 px-2 py-3 rounded-[var(--v7-radius-card)] border border-[var(--v7-line)] bg-[var(--v7-panel)] min-w-0 w-full"
       onKeyDown={onKeyDown}
     >
+      {/* Queue summary header (D-TREE-SUMMARY-HEADER) */}
+      <div className="px-3 pt-2 pb-3 border-b border-[var(--v7-line)] mb-2">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--v7-muted)]">
+          Queue summary
+        </div>
+        <div className="mt-2 flex items-baseline justify-between gap-2 min-w-0">
+          <span
+            className="text-[24px] font-semibold leading-[1.1] font-[family-name:var(--font-cabinet)]"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {totalCount}
+          </span>
+          {promotedTodayCount > 0 && (
+            <span
+              className="text-[11px] px-2 py-0.5 rounded-[var(--v7-radius-pill)] shrink-0"
+              style={{
+                background: "var(--v7-brand-primary-soft)",
+                color: "var(--v7-brand-primary)",
+              }}
+            >
+              {promotedTodayCount} promoted today
+            </span>
+          )}
+        </div>
+      </div>
       <div className="px-3 pt-1 pb-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--v7-muted)]">
         QUEUE BY TOPIC
       </div>
@@ -362,6 +399,26 @@ export function QueueTree({ counts, selection }: QueueTreeProps) {
             </div>
           );
         })}
+
+        {/* Pending promotion sibling node (D-TREE-PENDING-SIBLING).
+         *  Lives in the tree, NOT in the row-list tab strip. Activating
+         *  pushes ?tab=pending and clears topic/entity/mailbox. */}
+        <div className="mt-2 pt-2 border-t border-[var(--v7-line)]">
+          <TreeRow
+            innerRef={registerRow}
+            label="Pending promotion"
+            count={candidates.length}
+            depth={0}
+            active={selection.tab === "pending"}
+            expandable={false}
+            onActivate={() =>
+              router.push(
+                `/automations/debtor-email-review?tab=pending`,
+              )
+            }
+            ariaLabel={`${candidates.length} candidate rules pending promotion`}
+          />
+        </div>
       </div>
     </nav>
   );
