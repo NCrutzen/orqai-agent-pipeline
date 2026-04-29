@@ -33,7 +33,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
 import { Check, MailOpen, SkipForward, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -50,7 +49,8 @@ import {
   recordVerdict,
   type OverrideCategory,
 } from "./actions";
-import type { PageSearchParams, PredictedRow } from "./page";
+import type { PredictedRow } from "./page";
+import { useSelection } from "./selection-context";
 
 // ---- Body cache (module-level so prefetch survives detail-pane remounts) -
 
@@ -59,23 +59,27 @@ interface CachedBody {
   bodyHtml: string | null;
 }
 const bodyCache = new Map<string, CachedBody>();
-const inFlight = new Map<string, Promise<CachedBody>>();
+const inFlight = new Map<string, Promise<CachedBody | null>>();
 
 /** Prime the body cache without rendering anything. Called from row-strip
  *  on hover (D-PREFETCH-NEXT). Safe to call repeatedly — no-ops on cache hit
- *  or in-flight fetch. */
+ *  or in-flight fetch. Errors are swallowed silently; the user-triggered
+ *  open will surface a real error in-pane. */
 export function prefetchReviewEmailBody(id: string): void {
   if (!id || bodyCache.has(id) || inFlight.has(id)) return;
   const p = fetchReviewEmailBody(id)
-    .then((b) => {
-      bodyCache.set(id, b);
+    .then((res) => {
       inFlight.delete(id);
-      return b;
+      if (res.ok) {
+        const cached = { bodyText: res.bodyText, bodyHtml: res.bodyHtml };
+        bodyCache.set(id, cached);
+        return cached;
+      }
+      return null;
     })
     .catch(() => {
       inFlight.delete(id);
-      // Swallow — user-triggered open will surface the error in-pane.
-      return { bodyText: "", bodyHtml: null };
+      return null;
     });
   inFlight.set(id, p);
 }
@@ -137,14 +141,21 @@ function statusPillColor(s: RowStatus): { bg: string; fg: string } {
 // ---- Component -----------------------------------------------------------
 
 interface DetailPaneProps {
-  row: PredictedRow | null;
   rows: PredictedRow[];
-  selection: PageSearchParams;
+  // Server-fetched fallback when the URL had ?selected=<id> on initial load
+  // and that id is not in the visible rows[] window (e.g., older than the
+  // 100-row page). Once user selects something else, this falls out of use.
+  initialSelectedRow: PredictedRow | null;
 }
 
-export function DetailPane({ row, rows, selection }: DetailPaneProps) {
-  void selection;
-  const router = useRouter();
+export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
+  const { selectedId, setSelected } = useSelection();
+
+  const row =
+    rows.find((r) => r.id === selectedId) ??
+    (initialSelectedRow && initialSelectedRow.id === selectedId
+      ? initialSelectedRow
+      : null);
 
   const [status, setStatus] = useState<RowStatus>("predicted");
   const [override, setOverride] = useState<OverrideCategory | undefined>(
@@ -184,11 +195,20 @@ export function DetailPane({ row, rows, selection }: DetailPaneProps) {
           setBodyLoading(true);
           setBodyError(null);
           fetchReviewEmailBody(row.id)
-            .then((b) => {
-              bodyCache.set(row.id, b);
-              setBodyText(b.bodyText);
+            .then((res) => {
+              if (res.ok) {
+                bodyCache.set(row.id, {
+                  bodyText: res.bodyText,
+                  bodyHtml: res.bodyHtml,
+                });
+                setBodyText(res.bodyText);
+              } else {
+                setBodyError(res.error);
+              }
             })
             .catch((e: Error) => {
+              // Should be unreachable now that the action returns a result,
+              // but keep a defensive net for runtime/network failures.
               setBodyError(e.message);
             })
             .finally(() => setBodyLoading(false));
@@ -219,17 +239,13 @@ export function DetailPane({ row, rows, selection }: DetailPaneProps) {
           override_category: kind === "skip" ? "unknown" : override,
           notes: notes || undefined,
         });
-        // Auto-advance — pick the next row id from props.rows; push ?selected=.
+        // Auto-advance — pick the next row id from props.rows and update
+        // selection in client state (no router.push, no server re-render).
         // Honour prefers-reduced-motion: advance synchronously instead of
         // waiting 200ms (D-AUTO-ADVANCE-TIMING).
         const idx = rows.findIndex((r) => r.id === row.id);
         const nextRow = rows[idx + 1] ?? rows[idx - 1] ?? null;
-        const advance = () => {
-          const qs = new URLSearchParams(window.location.search);
-          if (nextRow) qs.set("selected", nextRow.id);
-          else qs.delete("selected");
-          router.push(`${window.location.pathname}?${qs.toString()}`);
-        };
+        const advance = () => setSelected(nextRow?.id ?? null);
         const reduceMotion =
           typeof window !== "undefined" &&
           typeof window.matchMedia === "function" &&
@@ -241,7 +257,7 @@ export function DetailPane({ row, rows, selection }: DetailPaneProps) {
         toast.error("Couldn't record verdict — try again");
       }
     },
-    [row, rows, override, notes, router],
+    [row, rows, override, notes, setSelected],
   );
 
   // Wire CustomEvents from KeyboardShortcuts.

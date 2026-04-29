@@ -17,7 +17,6 @@
 // The Cheatsheet sub-component (Sheet open on `?`) is wired in Task 5.
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   Sheet,
   SheetContent,
@@ -25,6 +24,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useSelection } from "./selection-context";
 
 const ACTION_EVENTS = {
   approve: "bulk-review:approve",
@@ -58,14 +58,10 @@ function isTypingTarget(el: EventTarget | null): boolean {
 
 export function KeyboardShortcuts({
   rowIds,
-  selectedId,
 }: {
   rowIds: string[];
-  selectedId: string | null;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const { selectedId, setSelected } = useSelection();
 
   useEffect(() => {
     const navigate = (dir: 1 | -1) => {
@@ -75,9 +71,7 @@ export function KeyboardShortcuts({
         idx < 0 ? 0 : Math.max(0, Math.min(rowIds.length - 1, idx + dir));
       const target = rowIds[nextIdx];
       if (!target || target === selectedId) return;
-      const qs = new URLSearchParams(searchParams.toString());
-      qs.set("selected", target);
-      router.push(`${pathname}?${qs.toString()}`);
+      setSelected(target);
     };
 
     const handler = (e: KeyboardEvent) => {
@@ -131,7 +125,7 @@ export function KeyboardShortcuts({
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [rowIds, selectedId, router, pathname, searchParams]);
+  }, [rowIds, selectedId, setSelected]);
 
   return null;
 }

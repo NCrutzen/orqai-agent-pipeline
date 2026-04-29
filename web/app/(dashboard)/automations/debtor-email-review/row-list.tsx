@@ -12,11 +12,11 @@
 //     router.push so keyboard-shortcuts.tsx can call the same fn.
 //   - Pending-promotion panel is rendered inline when selection.tab === "pending".
 
-import { useMemo, useCallback } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { RowStrip } from "./row-strip";
 import { RaceCohortBanner } from "./race-cohort-banner";
+import { useSelection } from "./selection-context";
 import type {
   ClassifierCandidate,
   PageSearchParams,
@@ -48,9 +48,7 @@ export function RowList({
   candidates,
   selection,
 }: RowListProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const { selectedId, setSelected } = useSelection();
   const isPending = selection.tab === "pending";
 
   const cohortRows = useMemo(() => {
@@ -104,16 +102,8 @@ export function RowList({
     return qs.toString() ? `${path}?${qs.toString()}` : path;
   })();
 
-  // URL-driven selection. Keyboard handler dispatches the same router.push
-  // by rebuilding URLSearchParams off the current location.
-  const handleSelect = useCallback(
-    (rowId: string) => {
-      const qs = new URLSearchParams(searchParams.toString());
-      qs.set("selected", rowId);
-      router.push(`${pathname}?${qs.toString()}`);
-    },
-    [router, pathname, searchParams],
-  );
+  // Selection is client-side. Click → setSelected → context updates state
+  // and patches the URL via history.replaceState. No server re-render.
 
   return (
     <section className="flex flex-col gap-3 min-w-0 motion-reduce:[--row-duration:0ms]">
@@ -161,8 +151,8 @@ export function RowList({
               <div key={row.id} className="row-fade-in min-w-0">
                 <RowStrip
                   row={row}
-                  selected={selection.selected === row.id}
-                  onSelect={handleSelect}
+                  selected={selectedId === row.id}
+                  onSelect={setSelected}
                 />
               </div>
             ))}

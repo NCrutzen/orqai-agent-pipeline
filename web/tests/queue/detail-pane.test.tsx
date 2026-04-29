@@ -1,25 +1,19 @@
-// Phase 61-02 (D-DETAIL-PANE / D-DETAIL-ACTIONS / D-AUTO-ADVANCE).
-// Detail pane assertions: renders meta + actions for a selected row;
-// Approve/Reject/Skip call recordVerdict with the right payload; auto-
-// advance pushes ?selected=<next-row-id> within 220ms; CustomEvent wiring
-// from KeyboardShortcuts triggers the same submit path.
+// Phase 61-02 + 61-hotfix (D-DETAIL-PANE / D-DETAIL-ACTIONS / D-AUTO-ADVANCE).
+// Detail pane assertions: renders meta + actions for the row matching
+// SelectionProvider's selectedId; Approve/Reject/Skip call recordVerdict with
+// the right payload; auto-advance updates selection via history.replaceState
+// within 220ms; CustomEvent wiring from KeyboardShortcuts triggers the same
+// submit path.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
-
-// ---- next/navigation mock (must be set before component import) ---------
-const pushMock = vi.fn();
-let currentSearch = "";
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
-  usePathname: () => "/automations/debtor-email-review",
-  useSearchParams: () => new URLSearchParams(currentSearch),
-}));
+import type { ReactNode } from "react";
 
 // ---- recordVerdict + fetchReviewEmailBody mocks --------------------------
 const recordVerdictMock = vi.fn().mockResolvedValue({ ok: true });
-const fetchBodyMock = vi.fn().mockResolvedValue({ bodyText: "hi", bodyHtml: null });
+const fetchBodyMock = vi
+  .fn()
+  .mockResolvedValue({ ok: true, bodyText: "hi", bodyHtml: null });
 vi.mock(
   "@/app/(dashboard)/automations/debtor-email-review/actions",
   () => ({
@@ -35,7 +29,16 @@ vi.mock("sonner", () => ({
 }));
 
 import { DetailPane } from "@/app/(dashboard)/automations/debtor-email-review/detail-pane";
+import { SelectionProvider } from "@/app/(dashboard)/automations/debtor-email-review/selection-context";
 import type { PredictedRow } from "@/app/(dashboard)/automations/debtor-email-review/page";
+
+function withSelection(initialSelectedId: string | null, children: ReactNode) {
+  return (
+    <SelectionProvider initialSelectedId={initialSelectedId}>
+      {children}
+    </SelectionProvider>
+  );
+}
 
 function makeRow(id: string, overrides: Partial<PredictedRow> = {}): PredictedRow {
   return {
@@ -59,30 +62,24 @@ function makeRow(id: string, overrides: Partial<PredictedRow> = {}): PredictedRo
   };
 }
 
+let replaceStateSpy: ReturnType<typeof vi.spyOn>;
+
 beforeEach(() => {
-  pushMock.mockClear();
   recordVerdictMock.mockClear();
   recordVerdictMock.mockResolvedValue({ ok: true });
   fetchBodyMock.mockClear();
-  currentSearch = "selected=row-2";
-  // jsdom has window.location; the auto-advance path reads window.location.search.
-  Object.defineProperty(window, "location", {
-    value: {
-      pathname: "/automations/debtor-email-review",
-      search: "?selected=row-2",
-    },
-    writable: true,
-  });
+  replaceStateSpy = vi.spyOn(window.history, "replaceState");
 });
 
 afterEach(() => {
   cleanup();
+  replaceStateSpy.mockRestore();
   vi.useRealTimers();
 });
 
 describe("DetailPane: empty state", () => {
-  it("renders an empty placeholder when row is null", () => {
-    render(<DetailPane row={null} rows={[]} selection={{}} />);
+  it("renders an empty placeholder when no row matches selectedId", () => {
+    render(withSelection(null, <DetailPane rows={[]} initialSelectedRow={null} />));
     expect(screen.getByText(/Select a row from the list/i)).toBeInTheDocument();
   });
 });
@@ -90,7 +87,12 @@ describe("DetailPane: empty state", () => {
 describe("DetailPane: meta + action bar", () => {
   it("renders subject, sender, rule, action buttons for the selected row", () => {
     const row = makeRow("row-2");
-    render(<DetailPane row={row} rows={[row]} selection={{ selected: "row-2" }} />);
+    render(
+      withSelection(
+        "row-2",
+        <DetailPane rows={[row]} initialSelectedRow={null} />,
+      ),
+    );
     expect(screen.getByText("Subject row-2")).toBeInTheDocument();
     expect(screen.getByText(/Sender row-2/)).toBeInTheDocument();
     expect(screen.getByText("subject_paid_marker")).toBeInTheDocument();
@@ -98,18 +100,32 @@ describe("DetailPane: meta + action bar", () => {
     expect(screen.getByRole("button", { name: /Reject/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Skip/ })).toBeInTheDocument();
   });
+
+  it("falls back to initialSelectedRow when the id is not in rows[]", () => {
+    const stale = makeRow("row-99");
+    render(
+      withSelection(
+        "row-99",
+        <DetailPane rows={[]} initialSelectedRow={stale} />,
+      ),
+    );
+    expect(screen.getByText("Subject row-99")).toBeInTheDocument();
+  });
 });
 
 describe("DetailPane: submit + auto-advance", () => {
-  it("Approve click calls recordVerdict with decision='approve' and auto-advances within 220ms", async () => {
+  it("Approve click calls recordVerdict and auto-advances within 220ms", async () => {
     vi.useFakeTimers();
     const rows = [makeRow("row-1"), makeRow("row-2"), makeRow("row-3")];
-    render(<DetailPane row={rows[1]} rows={rows} selection={{ selected: "row-2" }} />);
-    const approve = screen.getByRole("button", { name: /Approve/ });
+    render(
+      withSelection(
+        "row-2",
+        <DetailPane rows={rows} initialSelectedRow={null} />,
+      ),
+    );
 
     await act(async () => {
-      fireEvent.click(approve);
-      // flush the awaited recordVerdict promise
+      fireEvent.click(screen.getByRole("button", { name: /Approve/ }));
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -120,22 +136,27 @@ describe("DetailPane: submit + auto-advance", () => {
     expect(call.automation_run_id).toBe("row-2");
     expect(call.rule_key).toBe("subject_paid_marker");
 
-    // Auto-advance fires inside a setTimeout(200ms) — advance the timer.
     await act(async () => {
       vi.advanceTimersByTime(220);
     });
-    expect(pushMock).toHaveBeenCalledTimes(1);
-    expect(pushMock.mock.calls[0][0]).toMatch(/selected=row-3/);
+
+    // Auto-advance updated selection to the next row in client state.
+    // Detail pane should now render row-3's subject.
+    expect(screen.getByText("Subject row-3")).toBeInTheDocument();
+    // And the URL was patched via replaceState.
+    const lastReplace = replaceStateSpy.mock.calls.at(-1);
+    expect(String(lastReplace?.[2] ?? "")).toMatch(/selected=row-3/);
   });
 
   it("Reject click calls recordVerdict with decision='reject' and auto-advances", async () => {
     vi.useFakeTimers();
     const rows = [makeRow("row-1"), makeRow("row-2")];
-    render(<DetailPane row={rows[0]} rows={rows} selection={{ selected: "row-1" }} />);
-    Object.defineProperty(window, "location", {
-      value: { pathname: "/automations/debtor-email-review", search: "?selected=row-1" },
-      writable: true,
-    });
+    render(
+      withSelection(
+        "row-1",
+        <DetailPane rows={rows} initialSelectedRow={null} />,
+      ),
+    );
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Reject/ }));
@@ -150,14 +171,18 @@ describe("DetailPane: submit + auto-advance", () => {
     await act(async () => {
       vi.advanceTimersByTime(220);
     });
-    expect(pushMock).toHaveBeenCalledTimes(1);
-    expect(pushMock.mock.calls[0][0]).toMatch(/selected=row-2/);
+    expect(screen.getByText("Subject row-2")).toBeInTheDocument();
   });
 
   it("Skip click sends override_category='unknown'", async () => {
     vi.useFakeTimers();
     const rows = [makeRow("row-1"), makeRow("row-2")];
-    render(<DetailPane row={rows[0]} rows={rows} selection={{ selected: "row-1" }} />);
+    render(
+      withSelection(
+        "row-1",
+        <DetailPane rows={rows} initialSelectedRow={null} />,
+      ),
+    );
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Skip/ }));
@@ -175,7 +200,12 @@ describe("DetailPane: keyboard CustomEvent wiring", () => {
   it("listens for bulk-review:approve and submits", async () => {
     vi.useFakeTimers();
     const rows = [makeRow("row-1")];
-    render(<DetailPane row={rows[0]} rows={rows} selection={{ selected: "row-1" }} />);
+    render(
+      withSelection(
+        "row-1",
+        <DetailPane rows={rows} initialSelectedRow={null} />,
+      ),
+    );
 
     await act(async () => {
       window.dispatchEvent(new CustomEvent("bulk-review:approve"));
@@ -186,5 +216,31 @@ describe("DetailPane: keyboard CustomEvent wiring", () => {
     expect(recordVerdictMock).toHaveBeenCalledWith(
       expect.objectContaining({ decision: "approve" }),
     );
+  });
+});
+
+describe("DetailPane: body fetch error surfaces real message", () => {
+  it("renders the action's error string when ok=false", async () => {
+    fetchBodyMock.mockResolvedValueOnce({
+      ok: false,
+      error: "outlook fetch failed: graph 401 Unauthorized",
+    });
+    const row = makeRow("row-1");
+    render(
+      withSelection(
+        "row-1",
+        <DetailPane rows={[row]} initialSelectedRow={null} />,
+      ),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Show full email/i }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.getByText(/outlook fetch failed: graph 401 Unauthorized/),
+    ).toBeInTheDocument();
   });
 });

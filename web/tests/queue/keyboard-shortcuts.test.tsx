@@ -1,7 +1,8 @@
-// Phase 61-02 (D-KEYBOARD-SHORTCUTS). Page-scoped global keyboard handler
-// with input-focus guard. Navigation keys mutate the URL via router.push;
-// action keys dispatch CustomEvents on window so detail-pane can wire up
-// the actual server-action calls without coupling to this file.
+// Phase 61-02 + 61-hotfix (D-KEYBOARD-SHORTCUTS). Page-scoped global keyboard
+// handler with input-focus guard. Navigation keys update SelectionContext
+// (which patches the URL via history.replaceState — no router.push); action
+// keys dispatch CustomEvents on window so detail-pane wires up the actual
+// server-action calls without coupling to this file.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
@@ -9,16 +10,7 @@ import {
   KeyboardShortcuts,
   KEYBOARD_EVENTS,
 } from "@/app/(dashboard)/automations/debtor-email-review/keyboard-shortcuts";
-
-// ---- next/navigation mock ------------------------------------------------
-const pushMock = vi.fn();
-let currentSearch = "";
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
-  usePathname: () => "/automations/debtor-email-review",
-  useSearchParams: () => new URLSearchParams(currentSearch),
-}));
+import { SelectionProvider } from "@/app/(dashboard)/automations/debtor-email-review/selection-context";
 
 // ---- Helpers -------------------------------------------------------------
 
@@ -30,51 +22,49 @@ function dispatchKey(key: string, opts: KeyboardEventInit = {}) {
 
 function renderShortcuts(rowIds: string[], selectedId: string | null) {
   return render(
-    <KeyboardShortcuts rowIds={rowIds} selectedId={selectedId} />,
+    <SelectionProvider initialSelectedId={selectedId}>
+      <KeyboardShortcuts rowIds={rowIds} />
+    </SelectionProvider>,
   );
 }
 
+let replaceStateSpy: ReturnType<typeof vi.spyOn>;
+
 beforeEach(() => {
-  pushMock.mockClear();
-  currentSearch = "";
+  replaceStateSpy = vi.spyOn(window.history, "replaceState");
 });
 
 afterEach(() => {
   cleanup();
+  replaceStateSpy.mockRestore();
 });
 
 // ---- Navigation tests ----------------------------------------------------
 
 describe("KeyboardShortcuts: row navigation", () => {
-  it("ArrowDown when ?selected=row-2 of [row-1,row-2,row-3] pushes ?selected=row-3", () => {
-    currentSearch = "selected=row-2";
+  it("ArrowDown when selected=row-2 of [row-1,row-2,row-3] advances to row-3", () => {
     renderShortcuts(["row-1", "row-2", "row-3"], "row-2");
     dispatchKey("ArrowDown");
-    expect(pushMock).toHaveBeenCalledTimes(1);
-    expect(pushMock.mock.calls[0][0]).toMatch(/selected=row-3/);
+    expect(replaceStateSpy).toHaveBeenCalledTimes(1);
+    expect(String(replaceStateSpy.mock.calls[0][2] ?? "")).toMatch(/selected=row-3/);
   });
 
-  it("ArrowUp when ?selected=row-1 (top) is a no-op (clamps)", () => {
-    currentSearch = "selected=row-1";
+  it("ArrowUp when selected=row-1 (top) is a no-op (clamps)", () => {
     renderShortcuts(["row-1", "row-2", "row-3"], "row-1");
     dispatchKey("ArrowUp");
-    expect(pushMock).not.toHaveBeenCalled();
+    expect(replaceStateSpy).not.toHaveBeenCalled();
   });
 
   it("'j' mirrors ArrowDown", () => {
-    currentSearch = "selected=row-1";
     renderShortcuts(["row-1", "row-2", "row-3"], "row-1");
     dispatchKey("j");
-    expect(pushMock).toHaveBeenCalledTimes(1);
-    expect(pushMock.mock.calls[0][0]).toMatch(/selected=row-2/);
+    expect(String(replaceStateSpy.mock.calls.at(-1)?.[2] ?? "")).toMatch(/selected=row-2/);
   });
 
   it("'k' mirrors ArrowUp", () => {
-    currentSearch = "selected=row-2";
     renderShortcuts(["row-1", "row-2", "row-3"], "row-2");
     dispatchKey("k");
-    expect(pushMock).toHaveBeenCalledTimes(1);
-    expect(pushMock.mock.calls[0][0]).toMatch(/selected=row-1/);
+    expect(String(replaceStateSpy.mock.calls.at(-1)?.[2] ?? "")).toMatch(/selected=row-1/);
   });
 });
 
@@ -180,11 +170,10 @@ describe("KeyboardShortcuts: no-op while typing", () => {
     expect(document.activeElement).toBe(input);
 
     const spy = vi.spyOn(window, "dispatchEvent");
-    // Dispatch with the input as the target so the handler sees the right activeElement.
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 
-    expect(pushMock).not.toHaveBeenCalled();
+    expect(replaceStateSpy).not.toHaveBeenCalled();
     const customDispatched = spy.mock.calls
       .map((c) => c[0])
       .filter((e): e is CustomEvent => e instanceof CustomEvent && e.type.startsWith("bulk-review:"));
@@ -204,7 +193,7 @@ describe("KeyboardShortcuts: no-op while typing", () => {
     ta.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true }));
     ta.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
 
-    expect(pushMock).not.toHaveBeenCalled();
+    expect(replaceStateSpy).not.toHaveBeenCalled();
     const customDispatched = spy.mock.calls
       .map((c) => c[0])
       .filter((e): e is CustomEvent => e instanceof CustomEvent && e.type.startsWith("bulk-review:"));
@@ -226,7 +215,7 @@ describe("KeyboardShortcuts: no-op while typing", () => {
     div.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     div.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true }));
 
-    expect(pushMock).not.toHaveBeenCalled();
+    expect(replaceStateSpy).not.toHaveBeenCalled();
     const customDispatched = spy.mock.calls
       .map((c) => c[0])
       .filter((e): e is CustomEvent => e instanceof CustomEvent && e.type.startsWith("bulk-review:"));

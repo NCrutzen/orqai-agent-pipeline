@@ -21,6 +21,7 @@ import { QueueTree } from "./queue-tree";
 import { RowList } from "./row-list";
 import { DetailPane } from "./detail-pane";
 import { KeyboardShortcuts, Cheatsheet } from "./keyboard-shortcuts";
+import { SelectionProvider } from "./selection-context";
 
 export const dynamic = "force-dynamic";
 
@@ -176,39 +177,37 @@ export default async function DebtorEmailReviewPage({ searchParams }: PageProps)
 
   return (
     <AutomationRealtimeProvider automations={["debtor-email-review"]}>
-      <div className="px-6 pt-12 pb-12 max-w-[1600px] mx-auto">
-        <h1 className="text-[28px] font-semibold leading-[1.2] font-[family-name:var(--font-cabinet)]">
-          Bulk Review
-        </h1>
-        <p className="text-[14px] leading-[1.5] text-[var(--v7-muted)] mt-2 mb-6">
-          Review predicted classifications. Approved rows trigger Outlook
-          categorize+archive and iController delete in the background.
-        </p>
-        <div className="grid grid-cols-[clamp(220px,18vw,280px)_minmax(380px,460px)_1fr] gap-4 min-w-0">
-          <QueueTree
-            counts={data.counts}
-            selection={params}
-            candidates={data.candidates}
-            promotedTodayCount={data.promotedToday.length}
-          />
-          <RowList
-            rows={data.rows}
-            promotedToday={data.promotedToday}
-            candidates={data.candidates}
-            selection={params}
-          />
-          <DetailPane
-            row={data.selectedRow}
-            rows={data.rows}
-            selection={params}
-          />
+      <SelectionProvider initialSelectedId={params.selected ?? null}>
+        <div className="px-6 pt-12 pb-12 max-w-[1600px] mx-auto">
+          <h1 className="text-[28px] font-semibold leading-[1.2] font-[family-name:var(--font-cabinet)]">
+            Bulk Review
+          </h1>
+          <p className="text-[14px] leading-[1.5] text-[var(--v7-muted)] mt-2 mb-6">
+            Review predicted classifications. Approved rows trigger Outlook
+            categorize+archive and iController delete in the background.
+          </p>
+          <div className="grid grid-cols-[clamp(220px,18vw,280px)_minmax(380px,460px)_1fr] gap-4 min-w-0">
+            <QueueTree
+              counts={data.counts}
+              selection={params}
+              candidates={data.candidates}
+              promotedTodayCount={data.promotedToday.length}
+            />
+            <RowList
+              rows={data.rows}
+              promotedToday={data.promotedToday}
+              candidates={data.candidates}
+              selection={params}
+            />
+            <DetailPane
+              rows={data.rows}
+              initialSelectedRow={data.selectedRow}
+            />
+          </div>
+          <KeyboardShortcuts rowIds={rowIds} />
+          <Cheatsheet />
         </div>
-        <KeyboardShortcuts
-          rowIds={rowIds}
-          selectedId={params.selected ?? null}
-        />
-        <Cheatsheet />
-      </div>
+      </SelectionProvider>
     </AutomationRealtimeProvider>
   );
 }
