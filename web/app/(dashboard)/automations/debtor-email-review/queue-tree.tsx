@@ -172,8 +172,8 @@ function TreeRow({
         if (!active) e.currentTarget.style.background = "transparent";
       }}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2 truncate text-[14px] leading-[1.4]">
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <span className="flex items-center gap-2 truncate min-w-0 text-[14px] leading-[1.4]">
           {expandable && (
             <button
               type="button"
@@ -181,15 +181,17 @@ function TreeRow({
                 e.stopPropagation();
                 onToggleExpand?.();
               }}
-              className="text-[10px] text-[var(--v7-muted)] w-3 inline-flex justify-center"
+              className="text-[10px] text-[var(--v7-muted)] w-3 inline-flex justify-center shrink-0"
               aria-label={expanded ? "Collapse" : "Expand"}
             >
               {expanded ? "▾" : "▸"}
             </button>
           )}
-          <span className="truncate">{label}</span>
+          <span className="truncate min-w-0">{label}</span>
         </span>
-        <CountBadge count={count} active={active} />
+        <span className="shrink-0">
+          <CountBadge count={count} active={active} />
+        </span>
       </div>
     </div>
   );

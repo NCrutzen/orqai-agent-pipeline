@@ -219,15 +219,23 @@ export function DetailPane({ row, rows, selection }: DetailPaneProps) {
           override_category: kind === "skip" ? "unknown" : override,
           notes: notes || undefined,
         });
-        // Auto-advance — pick the next row id from props.rows; push ?selected=
+        // Auto-advance — pick the next row id from props.rows; push ?selected=.
+        // Honour prefers-reduced-motion: advance synchronously instead of
+        // waiting 200ms (D-AUTO-ADVANCE-TIMING).
         const idx = rows.findIndex((r) => r.id === row.id);
         const nextRow = rows[idx + 1] ?? rows[idx - 1] ?? null;
-        setTimeout(() => {
+        const advance = () => {
           const qs = new URLSearchParams(window.location.search);
           if (nextRow) qs.set("selected", nextRow.id);
           else qs.delete("selected");
           router.push(`${window.location.pathname}?${qs.toString()}`);
-        }, 200);
+        };
+        const reduceMotion =
+          typeof window !== "undefined" &&
+          typeof window.matchMedia === "function" &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (reduceMotion) advance();
+        else setTimeout(advance, 200);
       } catch {
         setStatus("failed");
         toast.error("Couldn't record verdict — try again");
@@ -396,7 +404,9 @@ export function DetailPane({ row, rows, selection }: DetailPaneProps) {
         >
           <Check size={16} className="mr-1.5" />
           Approve
-          <span className="ml-2 opacity-70 text-[11px]">⏎</span>
+          <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
+            ⏎
+          </kbd>
         </Button>
         <Button
           variant="outline"
@@ -406,12 +416,16 @@ export function DetailPane({ row, rows, selection }: DetailPaneProps) {
         >
           <X size={16} className="mr-1.5" />
           Reject
-          <span className="ml-2 opacity-70 text-[11px]">Space</span>
+          <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
+            Space
+          </kbd>
         </Button>
         <Button variant="ghost" onClick={() => submit("skip")} disabled={busy}>
           <SkipForward size={16} className="mr-1.5" />
           Skip
-          <span className="ml-2 opacity-70 text-[11px]">n</span>
+          <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
+            n
+          </kbd>
         </Button>
       </div>
     </aside>
