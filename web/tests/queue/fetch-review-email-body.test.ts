@@ -35,11 +35,16 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => adminClientMock,
 }));
 
-const fetchMessageBodyMock = vi.fn(async (_mailbox: string, _id: string) => ({
-  bodyText: "hello world",
-  bodyHtml: "<p>hello world</p>",
-  bodyType: "html" as const,
-}));
+const fetchMessageBodyMock = vi.fn(
+  async (
+    _mailbox: string,
+    _id: string,
+  ): Promise<{ bodyText: string; bodyHtml: string; bodyType: "text" | "html" }> => ({
+    bodyText: "hello world",
+    bodyHtml: "<p>hello world</p>",
+    bodyType: "html",
+  }),
+);
 
 vi.mock("@/lib/outlook", () => ({
   fetchMessageBody: (mailbox: string, id: string) => fetchMessageBodyMock(mailbox, id),
