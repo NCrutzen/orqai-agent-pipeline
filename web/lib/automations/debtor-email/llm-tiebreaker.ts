@@ -6,11 +6,14 @@
 // selected_account_id is in the caller-provided candidates list. Throw
 // otherwise.
 //
-// CLAUDE.md: response_format=json_schema MANDATORY (15-20% prompt-only JSON
-// failure rate); 45s client timeout (Orq.ai internal retry = 31s); Zod
-// boundary on output.
+// 2026-04-29 (Phase 56-02 wave 3): registry-aware. Prefers
+// public.orq_agents row 'label-tiebreaker' when enabled; falls back to
+// LABEL_TIEBREAKER_AGENT_SLUG env var while operator fills in the
+// real slug + flips enabled=true. After the registry row is active,
+// the env var becomes vestigial.
 
 import { z } from "zod";
+import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
 
 const TiebreakerOutputSchema = z.object({
   selected_account_id: z.string(),
@@ -20,6 +23,7 @@ const TiebreakerOutputSchema = z.object({
 export type TiebreakerOutput = z.infer<typeof TiebreakerOutputSchema>;
 
 const ORQ_TIMEOUT_MS = 45_000;
+const REGISTRY_AGENT_KEY = "label-tiebreaker";
 
 export interface TiebreakerCandidate {
   customer_account_id: string;
@@ -38,6 +42,46 @@ export interface TiebreakerArgs {
 export async function callTiebreaker(
   args: TiebreakerArgs,
 ): Promise<TiebreakerOutput> {
+  const inputs = {
+    email_subject: args.email_subject,
+    email_body: args.email_body,
+    candidates: args.candidates,
+  };
+
+  let raw: unknown;
+  try {
+    // Preferred path: registry-driven invocation.
+    const result = await invokeOrqAgent(REGISTRY_AGENT_KEY, inputs, {
+      jsonSchemaName: "label_tiebreaker_output",
+    });
+    raw = result.raw;
+  } catch (err) {
+    // Fallback to env-var path while the registry row is being populated
+    // OR the registry connection isn't available (test env, missing
+    // service-role key, etc.). Once the operator sets a real orqai_id +
+    // enabled=true AND production has SUPABASE creds, registry path
+    // succeeds and this branch becomes unreachable.
+    const reason = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `[tiebreaker] registry path unavailable (${reason}); falling back to LABEL_TIEBREAKER_AGENT_SLUG env var`,
+    );
+    raw = await callTiebreakerLegacy(args);
+  }
+
+  const parsed = TiebreakerOutputSchema.parse(raw);
+
+  // Post-validate (T-56-00-03 prompt-injection guard).
+  const allowed = new Set(args.candidates.map((c) => c.customer_account_id));
+  if (!allowed.has(parsed.selected_account_id)) {
+    throw new Error(
+      `Tiebreaker returned selected_account_id='${parsed.selected_account_id}' not in candidates`,
+    );
+  }
+  return parsed;
+}
+
+/** Legacy env-var path. Removed once orq_agents row is populated. */
+async function callTiebreakerLegacy(args: TiebreakerArgs): Promise<unknown> {
   const apiKey = process.env.ORQ_API_KEY;
   if (!apiKey) throw new Error("ORQ_API_KEY not set");
   const slug = process.env.LABEL_TIEBREAKER_AGENT_SLUG;
@@ -85,21 +129,9 @@ export async function callTiebreaker(
       throw new Error(`Orq.ai tiebreaker failed: ${res.status}`);
     }
     const json = await res.json();
-    const parsed = TiebreakerOutputSchema.parse(
-      // Orq.ai sometimes wraps in { output: ... }; accept either
-      (json && typeof json === "object" && "output" in json
-        ? (json as { output: unknown }).output
-        : json) ?? json,
-    );
-
-    // Post-validate (T-56-00-03 prompt-injection guard).
-    const allowed = new Set(args.candidates.map((c) => c.customer_account_id));
-    if (!allowed.has(parsed.selected_account_id)) {
-      throw new Error(
-        `Tiebreaker returned selected_account_id='${parsed.selected_account_id}' not in candidates`,
-      );
-    }
-    return parsed;
+    return json && typeof json === "object" && "output" in json
+      ? (json as { output: unknown }).output
+      : json;
   } finally {
     clearTimeout(t);
   }
