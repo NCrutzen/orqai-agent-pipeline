@@ -42,11 +42,14 @@ export const classifierCorpusBackfill = inngest.createFunction(
   async ({ step }) => {
     const admin = createAdminClient();
 
-    // Step 1 — load the corpus. Two queries because the Supabase JS client
-    // lacks cross-schema joins. Chunk size 200: each UUID is ~36 chars and
-    // PostgREST builds the .in() filter into the URL — 1000 IDs blew past
-    // the URL length limit and returned 400 Bad Request.
-    const rows = await step.run("load-corpus", async (): Promise<JoinedRow[]> => {
+    // Step 1+2 merged — load corpus AND classify in the same step. Bodies
+    // (especially body_html) are tens of KB each; returning 6k of them blows
+    // past Inngest's per-step output limit (~1 MB → output_too_large). Keep
+    // them inside the closure and only return the small tally.
+    //
+    // PostgREST .in() filter has a URL length limit — chunk size 200 keeps
+    // each request under it (1000 returned 400 Bad Request).
+    const result = await step.run("load-and-classify", async () => {
       const { data: analysis, error: aErr } = await admin
         .schema("debtor")
         .from("email_analysis")
@@ -54,8 +57,13 @@ export const classifierCorpusBackfill = inngest.createFunction(
       if (aErr) throw new Error(`corpus load (analysis): ${aErr.message}`);
 
       const analysisRows = (analysis ?? []) as AnalysisRow[];
+      const byId = new Map<string, AnalysisRow>(analysisRows.map((r) => [r.email_id, r]));
       const ids = analysisRows.map((r) => r.email_id);
-      const emails: Record<string, EmailRow> = {};
+
+      const tally = new Map<string, { n: number; agree: number; predictedCategory: string }>();
+      let skippedMissingFields = 0;
+      let totalClassified = 0;
+      let processed = 0;
 
       const CHUNK = 200;
       for (let i = 0; i < ids.length; i += CHUNK) {
@@ -66,52 +74,44 @@ export const classifierCorpusBackfill = inngest.createFunction(
           .select("id, subject, sender_email, body_text, body_html")
           .in("id", chunk);
         if (error) throw new Error(`corpus load (emails ${i}): ${error.message}`);
-        for (const e of (data ?? []) as EmailRow[]) emails[e.id] = e;
+
+        for (const e of (data ?? []) as EmailRow[]) {
+          processed++;
+          const a = byId.get(e.id);
+          if (!a) continue;
+          if (!e.subject || !e.sender_email) {
+            skippedMissingFields++;
+            continue;
+          }
+          const body = e.body_text ?? stripHtml(e.body_html ?? "");
+          if (!body) {
+            skippedMissingFields++;
+            continue;
+          }
+
+          const predicted = classify({
+            subject: e.subject,
+            from: e.sender_email,
+            bodySnippet: body,
+          });
+          totalClassified++;
+
+          if (predicted.matchedRule === "no_match") continue;
+          if (predicted.category === "unknown") continue;
+
+          const key = predicted.matchedRule;
+          const cur = tally.get(key) ?? { n: 0, agree: 0, predictedCategory: predicted.category };
+          cur.n += 1;
+          if (isAgreement(predicted.category, a.category, a.email_intent)) cur.agree += 1;
+          tally.set(key, cur);
+        }
       }
 
-      return analysisRows.map((a) => ({ ...a, email: emails[a.email_id] ?? null }));
-    });
-
-    // Step 2 — classify and aggregate. Pure JS, no IO. Wrapped in step.run so
-    // Inngest captures the tally for replay/visibility but it is fast.
-    const result = await step.run("classify-and-aggregate", () => {
-      const tally = new Map<string, { n: number; agree: number; predictedCategory: string }>();
-      let skippedMissingFields = 0;
-      let totalClassified = 0;
-
-      for (const row of rows) {
-        const e = row.email;
-        if (!e || !e.subject || !e.sender_email) {
-          skippedMissingFields++;
-          continue;
-        }
-        const body = e.body_text ?? stripHtml(e.body_html ?? "");
-        if (!body) {
-          skippedMissingFields++;
-          continue;
-        }
-
-        const predicted = classify({
-          subject: e.subject,
-          from: e.sender_email,
-          bodySnippet: body,
-        });
-        totalClassified++;
-
-        // Skip catch-alls and hard-blocks — they cannot promote.
-        if (predicted.matchedRule === "no_match") continue;
-        if (predicted.category === "unknown") continue;
-
-        const key = predicted.matchedRule;
-        const cur = tally.get(key) ?? { n: 0, agree: 0, predictedCategory: predicted.category };
-        cur.n += 1;
-        if (isAgreement(predicted.category, row.category, row.email_intent)) cur.agree += 1;
-        tally.set(key, cur);
-      }
       return {
         tally: Array.from(tally.entries()),
         skippedMissingFields,
         totalClassified,
+        processed,
       };
     });
 
@@ -142,7 +142,7 @@ export const classifierCorpusBackfill = inngest.createFunction(
     });
 
     return {
-      processed: rows.length,
+      processed: result.processed,
       skipped_missing_fields: result.skippedMissingFields,
       total_classified: result.totalClassified,
       rules_seeded: seeded,
