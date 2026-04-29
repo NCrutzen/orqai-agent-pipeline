@@ -320,7 +320,99 @@ Status → stage mapping (proposed):
 
 Categories that are NOT kanban-eligible (auto_reply etc.) skip stages and write directly with `done` so they appear in the terminal feed without occupying a `review` slot.
 
+## Feedback model — two distinct loops
 
+Two surfaces, two purposes, two learning signals. Conflating them yields useless training data; separating them lets each loop tune its own component.
+
+### Flow 1 — Rule correctness (classifier-level feedback)
+
+**Question this answers:** Did the regex classifier assign the right `category_key`?
+
+**Surface:** Bulk Review (`/automations/debtor-email/review`)
+
+**Operator actions:**
+- Override `category_key` (e.g. `invoice_copy_request` → `payment_admittance`)
+- 👍 / 👎 on the rule that fired
+- Free-form note explaining the correction
+
+**Storage:**
+- `email_labels.corrected_category` — operator's chosen replacement
+- `agent_runs.human_verdict` — the 👍/👎 signal feeding rule self-tuning
+- `email_labels.reviewed_by` + `reviewed_at` — audit
+
+**Cascading effect:**
+- If override changes the action class (e.g. `invoice_copy_request` → `payment_admittance`), system re-emits the appropriate `swarm_dispatch` or runs `categorize_archive` for the new category
+- If override is between two `categorize_archive` categories, only the Outlook label changes; no resolver re-run
+
+**What this loop tunes:**
+- Existing rules: precision per `matchedRule` over time
+- Pattern detection: 5+ corrections of "X → Y" → candidate for new rule
+- Threshold tuning: regex specificity vs recall tradeoff
+
+### Flow 2 — Automation correctness (handler-level feedback)
+
+**Question this answers:** Did the downstream handler produce the right output?
+
+**Surfaces (different per phase):**
+- **During dry_run** → Kanban review-lane (Approve / Reject card actions)
+- **Post-execution in live** → Bulk Review row detail panel (audit-time correction)
+
+**Operator actions:**
+
+| Card type | Approve | Reject |
+|---|---|---|
+| `unknown` matched (sender/identifier_match) | "customer correct" → CI++ | "wrong customer" → manual pick + 👎 |
+| `unknown` matched via `llm_tiebreaker` | "tiebreaker correct" → CI++ | "tiebreaker wrong" → manual pick + 👎 (Orq feedback) |
+| `unknown` unresolved | "skip permanently" | manual customer pick → re-emit label step |
+| `invoice_copy_request` drafted | "draft sent (correct)" | "draft needed manual edit" + reason |
+| `invoice_copy_request` fetch failed | "no invoice exists" → close | manual fetch + draft |
+
+**Storage (new fields on `email_labels`, Wave 3 migration):**
+- `feedback_verdict`: `approved | rejected | manual_override`
+- `feedback_reason`: text, required on reject
+- `corrected_customer_account_id`: when reject + manual pick on label flow
+- `draft_quality`: `correct | needed_edit | rejected` for invoice-copy flow
+
+**Cascading effect:**
+- Approve → resolver per-layer CI counter increments
+- Reject + correction → `email_labels` updated with corrected value; if live mode, optionally re-trigger iController step with corrected customer
+- Draft "needed_edit" feedback collected per brand/language → Orq.ai Draft Agent prompt iteration input
+
+**What this loop tunes:**
+- Resolver per-layer precision (CI score per `method`: thread_inheritance / sender_match / identifier_match / llm_tiebreaker)
+- LLM tiebreaker: confidence threshold + prompt iteration via Orq.ai
+- Draft Agent: tone, language detection, template selection
+- Brand-specific edge cases that need new code paths
+
+### Surface vs flow matrix
+
+| Surface | Flow 1 actions | Flow 2 actions |
+|---|---|---|
+| **Bulk Review** | ✅ category override + rule 👍/👎 | ✅ post-execution review (live mode); historical correction |
+| **Kanban review-lane** | ❌ (only ratifies the action, not the rule) | ✅ approve/reject during dry_run; manual override actions |
+| **Kanban done-lane / terminal feed** | ❌ | 👁 view-only; click-through opens detail |
+
+Both surfaces share the same underlying `email_labels` row — operator can navigate from a kanban card to its Bulk Review entry and vice versa.
+
+### Live mode behavior (confirmed: option B)
+
+In live mode (`labeling_settings.dry_run = false`):
+- `unknown → matched` → label applied automatically; **no Kanban card** for verification
+- Audit + late correction stays in Bulk Review (Flow 2 row-detail panel)
+- `invoice_copy_request` → still creates Kanban card because operator MUST send the draft from iController (we don't auto-send)
+- `unknown → unresolved` → still creates Kanban card (operator must triage)
+
+This means the Kanban in live mode shows mostly drafts-needing-send + unresolved-needing-triage, not verification noise.
+
+## Orq.ai agent registry
+
+| Agent | Slug | Env var | Purpose |
+|---|---|---|---|
+| Label Tiebreaker | (existing) | `LABEL_TIEBREAKER_AGENT_SLUG` | Multi-candidate disambiguation in resolveDebtor |
+| Invoice Copy Drafter | `01KPWWCCEX26VYT9E21Q43XN4S` | `INVOICE_COPY_DRAFT_AGENT_SLUG` | Compose invoice-copy reply body for Wave 3 invoice-copy handler |
+| Intent Classifier (planned) | TBD | `UNKNOWN_INTENT_AGENT_SLUG` | Stage 2 LLM classifier on `unknown` (sub-routes to invoice_copy / dispute / etc.) |
+
+## Roadmap pointers
 
 - Phase 56-02 — async-callback pivot, brand_id filter, callback route, resolver wired (DONE)
 - Phase 56-02 wave 3 — flip `unknown` + `invoice_copy_request` to `swarm_dispatch` + 2 new workers (THIS)
