@@ -33,6 +33,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import { Check, MailOpen, SkipForward, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -147,6 +148,7 @@ interface DetailPaneProps {
 
 export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
   const { selectedId, setSelected } = useSelection();
+  const router = useRouter();
 
   const row =
     rows.find((r) => r.id === selectedId) ??
@@ -237,12 +239,20 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
           notes: notes || undefined,
         });
         // Auto-advance — pick the next row id from props.rows and update
-        // selection in client state (no router.push, no server re-render).
+        // selection in client state. Then call router.refresh() so the
+        // server re-runs loadPageData and the verdict-flipped row drops
+        // out of rows[]. Without this, the queue would silently retain
+        // the row even though automation_runs.status='feedback' on the
+        // server (the AutomationRealtimeProvider refetches its own bundle
+        // but the page reads from the server fetch, not the bundle).
         // Honour prefers-reduced-motion: advance synchronously instead of
         // waiting 200ms (D-AUTO-ADVANCE-TIMING).
         const idx = rows.findIndex((r) => r.id === row.id);
         const nextRow = rows[idx + 1] ?? rows[idx - 1] ?? null;
-        const advance = () => setSelected(nextRow?.id ?? null);
+        const advance = () => {
+          setSelected(nextRow?.id ?? null);
+          router.refresh();
+        };
         const reduceMotion =
           typeof window !== "undefined" &&
           typeof window.matchMedia === "function" &&
@@ -254,7 +264,7 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
         toast.error("Couldn't record verdict — try again");
       }
     },
-    [row, rows, override, notes, setSelected],
+    [row, rows, override, notes, setSelected, router],
   );
 
   // Wire CustomEvents from KeyboardShortcuts.

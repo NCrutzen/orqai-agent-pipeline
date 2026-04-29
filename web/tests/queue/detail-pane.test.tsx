@@ -9,6 +9,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 
+// ---- next/navigation mock — DetailPane calls useRouter().refresh() after
+// a successful verdict so the server re-runs loadPageData and the
+// verdict-flipped row drops out of rows[].
+const refreshMock = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: refreshMock, push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/automations/debtor-email-review",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // ---- recordVerdict + fetchReviewEmailBody mocks --------------------------
 const recordVerdictMock = vi.fn().mockResolvedValue({ ok: true });
 const fetchBodyMock = vi
@@ -68,6 +78,7 @@ beforeEach(() => {
   recordVerdictMock.mockClear();
   recordVerdictMock.mockResolvedValue({ ok: true });
   fetchBodyMock.mockClear();
+  refreshMock.mockClear();
   replaceStateSpy = vi.spyOn(window.history, "replaceState");
 });
 
@@ -146,6 +157,9 @@ describe("DetailPane: submit + auto-advance", () => {
     // And the URL was patched via replaceState.
     const lastReplace = replaceStateSpy.mock.calls.at(-1);
     expect(String(lastReplace?.[2] ?? "")).toMatch(/selected=row-3/);
+    // router.refresh() was called so the server re-runs loadPageData
+    // and the verdict-flipped row leaves the queue.
+    expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 
   it("Reject click calls recordVerdict with decision='reject' and auto-advances", async () => {
