@@ -26,8 +26,14 @@ classifier-verdict-worker               lib/inngest/functions/classifier-verdict
    loads swarm_categories(swarm_type='debtor-email', category_key=<x>)
    switches on category.action:
         ├─ categorize_archive: auto_reply, ooo_*, payment_admittance, payment
-        │     → outlook.categorize(label) + outlook.archive
-        │     → queue iController-delete (deferred automation_run)
+        │     Three side effects bundled (D-11 + D-12):
+        │     1. outlook.categorize(swarm_categories.outlook_label)
+        │     2. outlook.archive (remove from inbox)
+        │     3. queue debtor-email-cleanup automation_run (status='deferred')
+        │        → cleanupIControllerDispatch → shard worker → Browserless
+        │          → iController categorize + delete the email row there
+        │     (Phase 56.8: move the iController step into a generic
+        │     side_effects jsonb on swarms, drop the swarm_type guard.)
         │
         └─ swarm_dispatch: emit Inngest event named in category.swarm_dispatch
               ↓
