@@ -98,6 +98,15 @@ function readResult(row: PredictedRow): ResultPayload {
   return r ?? {};
 }
 
+// Human-readable labels for the override dropdown + "Apply <Cat>" button.
+// Order = display order in the dropdown.
+const CATEGORY_LABELS: Record<Exclude<OverrideCategory, "unknown">, string> = {
+  payment: "Payment",
+  auto_reply: "Auto-reply",
+  ooo_temporary: "OOO (temporary)",
+  ooo_permanent: "OOO (permanent)",
+};
+
 const MAILBOX_LABELS: Record<number, string> = {
   1: "Sicli Noord",
   2: "Sicli Sud",
@@ -225,6 +234,20 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
       const predictedCategory =
         result.predicted?.category ?? row.topic ?? "unknown";
 
+      // Unknown-bucket gate: reviewer must explain the email so we can mine
+      // it for new rules. Block submit + focus the notes field.
+      const isUnknown =
+        predictedCategory === "unknown" || ruleKey === "no_match";
+      if (isUnknown && notes.trim().length < 10) {
+        notesRef.current?.focus();
+        toast.error(
+          override
+            ? `Briefly explain why this is ${CATEGORY_LABELS[override as Exclude<OverrideCategory, "unknown">] ?? override}`
+            : "Briefly describe this email so we can build a rule for it",
+        );
+        return;
+      }
+
       setStatus(kind === "approve" ? "approving" : "rejecting");
       try {
         await recordVerdict({
@@ -267,11 +290,51 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
     [row, rows, override, notes, setSelected, router],
   );
 
-  // Wire CustomEvents from KeyboardShortcuts.
+  // Wire CustomEvents from KeyboardShortcuts. The handlers respect the
+  // adaptive action bar so keyboard shortcuts match what's visible:
+  //   - Enter (approve) → primary action (Approve / Apply / Save & Skip)
+  //   - Space (reject)  → no-op when Reject is hidden (override set OR unknown bucket)
+  //   - n     (skip)    → no-op when Skip is hidden (unknown + no override)
   useEffect(() => {
-    const onApprove = () => void submit("approve");
-    const onReject = () => void submit("reject");
-    const onSkip = () => void submit("skip");
+    // Recompute bucket/override state at event time so the latest UI state
+    // is used (these locals are also computed below the early-return for
+    // !row, so we re-derive here to keep the listener self-contained).
+    const computeState = () => {
+      if (!row) {
+        return { unknown: false, hasOverride: false };
+      }
+      const r = (row.result as ResultPayload | null) ?? {};
+      const rk = r.predicted?.rule ?? "no_match";
+      const pc = r.predicted?.category ?? row.topic ?? "unknown";
+      return {
+        unknown: pc === "unknown" || rk === "no_match",
+        hasOverride: !!override,
+      };
+    };
+
+    const onApprove = () => {
+      const s = computeState();
+      // Primary action: in unknown bucket without an override, the primary
+      // is "Save & Skip"; everywhere else the primary is the approve path
+      // (which the action.ts override-routing turns into Apply when an
+      // override differs from predicted).
+      if (s.unknown && !s.hasOverride) void submit("skip");
+      else void submit("approve");
+    };
+    const onReject = () => {
+      const s = computeState();
+      // Reject is only visible when there is no override AND we are not in
+      // the unknown bucket — match the UI to avoid invisible side effects.
+      if (s.hasOverride || s.unknown) return;
+      void submit("reject");
+    };
+    const onSkip = () => {
+      const s = computeState();
+      // Skip is hidden in unknown+no-override (the primary IS Save & Skip
+      // there). The Enter handler covers that case; n in that state no-ops.
+      if (s.unknown && !s.hasOverride) return;
+      void submit("skip");
+    };
     const onToggleBody = () => void toggleBody();
     const onFocusOverride = () => overrideTriggerRef.current?.focus();
     const onFocusNotes = () => notesRef.current?.focus();
@@ -289,7 +352,7 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
       window.removeEventListener("bulk-review:focus-override", onFocusOverride);
       window.removeEventListener("bulk-review:focus-notes", onFocusNotes);
     };
-  }, [submit, toggleBody]);
+  }, [submit, toggleBody, row, override]);
 
   if (!row) {
     return (
@@ -315,6 +378,14 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
   const sentTime = new Date(row.created_at).toLocaleString("en-GB");
   const pill = statusPillColor(status);
   const busy = status === "approving" || status === "rejecting";
+
+  // Unknown bucket = AI couldn't classify (rule=no_match or predicted=unknown).
+  // Reviewer always provides a context note here so we can mine for new rules.
+  const isUnknownBucket =
+    predictedCategory === "unknown" || ruleKey === "no_match";
+  const hasOverride = !!override;
+  const notesRequired = isUnknownBucket;
+  const notesValid = !notesRequired || notes.trim().length >= 10;
 
   return (
     <aside
@@ -380,32 +451,46 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
         )}
       </div>
 
-      {/* 5. Override dropdown */}
+      {/* 5. Override dropdown — "Unknown (skip)" removed; the dedicated
+          Skip button covers that semantic without polluting the category
+          choices. Reviewer either picks a real category or hits Skip. */}
       <div>
         <label className="block text-[12px] text-[var(--v7-muted)] mb-1">
-          Override category
+          {isUnknownBucket ? "Set rule (category)" : "Override category"}
         </label>
         <Select
           value={override ?? ""}
           onValueChange={(v) => setOverride(v as OverrideCategory)}
         >
           <SelectTrigger ref={overrideTriggerRef} className="w-full">
-            <SelectValue placeholder="Use predicted category" />
+            <SelectValue
+              placeholder={
+                isUnknownBucket
+                  ? "Pick a category for this email"
+                  : "Use predicted category"
+              }
+            />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="payment">Payment</SelectItem>
-            <SelectItem value="auto_reply">Auto-reply</SelectItem>
-            <SelectItem value="ooo_temporary">OOO (temporary)</SelectItem>
-            <SelectItem value="ooo_permanent">OOO (permanent)</SelectItem>
-            <SelectItem value="unknown">Unknown (skip)</SelectItem>
+            <SelectItem value="payment">{CATEGORY_LABELS.payment}</SelectItem>
+            <SelectItem value="auto_reply">{CATEGORY_LABELS.auto_reply}</SelectItem>
+            <SelectItem value="ooo_temporary">{CATEGORY_LABELS.ooo_temporary}</SelectItem>
+            <SelectItem value="ooo_permanent">{CATEGORY_LABELS.ooo_permanent}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* 6. Notes textarea */}
+      {/* 6. Notes textarea — required in unknown bucket so we can mine the
+          reviewer's reasoning for new rules / automations. Label adapts to
+          whether the reviewer has set a category yet. */}
       <div>
         <label className="block text-[12px] text-[var(--v7-muted)] mb-1">
-          Notes
+          {isUnknownBucket
+            ? hasOverride
+              ? `Why is this ${CATEGORY_LABELS[override as Exclude<OverrideCategory, "unknown">] ?? override}?`
+              : "Briefly describe this email — helps us build a rule"
+            : "Notes"}
+          {notesRequired && <span className="text-[var(--v7-red)]"> *</span>}
         </label>
         <Textarea
           ref={notesRef}
@@ -413,43 +498,88 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
           maxLength={2000}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Notes (optional)"
+          placeholder={
+            isUnknownBucket
+              ? hasOverride
+                ? "e.g. Sender always sends remittance advice for invoices"
+                : "Who sent this? What is it about? What action is expected?"
+              : "Notes (optional)"
+          }
+          aria-required={notesRequired}
+          aria-invalid={notesRequired && !notesValid}
           className="text-[13px]"
         />
       </div>
 
-      {/* 7. Action bar */}
+      {/* 7. Action bar — adapts to bucket + override state.
+          - Unknown + override:   [Apply <Cat>]
+          - Unknown + no override: [Save & Skip]      (records notes for rule mining)
+          - Known   + override:   [Apply <Cat>] [Skip]
+          - Known   + no override: [Approve] [Reject] [Skip]                 */}
       <div className="flex items-center gap-2 mt-2 flex-wrap">
-        <Button
-          onClick={() => submit("approve")}
-          disabled={busy}
-          style={{ background: "var(--v7-brand-primary)", color: "#fff" }}
-        >
-          <Check size={16} className="mr-1.5" />
-          Approve
-          <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
-            ⏎
-          </kbd>
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => submit("reject")}
-          disabled={busy}
-          style={{ borderColor: "var(--v7-red)", color: "var(--v7-red)" }}
-        >
-          <X size={16} className="mr-1.5" />
-          Reject
-          <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
-            Space
-          </kbd>
-        </Button>
-        <Button variant="ghost" onClick={() => submit("skip")} disabled={busy}>
-          <SkipForward size={16} className="mr-1.5" />
-          Skip
-          <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
-            n
-          </kbd>
-        </Button>
+        {hasOverride ? (
+          <Button
+            onClick={() => submit("approve")}
+            disabled={busy || (notesRequired && !notesValid)}
+            style={{ background: "var(--v7-brand-primary)", color: "#fff" }}
+          >
+            <Check size={16} className="mr-1.5" />
+            {`Apply ${CATEGORY_LABELS[override as Exclude<OverrideCategory, "unknown">] ?? override}`}
+            <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
+              ⏎
+            </kbd>
+          </Button>
+        ) : isUnknownBucket ? (
+          <Button
+            onClick={() => submit("skip")}
+            disabled={busy || (notesRequired && !notesValid)}
+            style={{ background: "var(--v7-brand-primary)", color: "#fff" }}
+          >
+            <SkipForward size={16} className="mr-1.5" />
+            Save & Skip
+            <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
+              ⏎
+            </kbd>
+          </Button>
+        ) : (
+          <>
+            <Button
+              onClick={() => submit("approve")}
+              disabled={busy}
+              style={{ background: "var(--v7-brand-primary)", color: "#fff" }}
+            >
+              <Check size={16} className="mr-1.5" />
+              Approve
+              <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
+                ⏎
+              </kbd>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => submit("reject")}
+              disabled={busy}
+              style={{ borderColor: "var(--v7-red)", color: "var(--v7-red)" }}
+            >
+              <X size={16} className="mr-1.5" />
+              Reject
+              <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
+                Space
+              </kbd>
+            </Button>
+          </>
+        )}
+
+        {/* Skip stays available except in unknown+no-override (where the
+            primary "Save & Skip" already IS the skip path). */}
+        {!(isUnknownBucket && !hasOverride) && (
+          <Button variant="ghost" onClick={() => submit("skip")} disabled={busy}>
+            <SkipForward size={16} className="mr-1.5" />
+            Skip
+            <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
+              n
+            </kbd>
+          </Button>
+        )}
       </div>
     </aside>
   );
