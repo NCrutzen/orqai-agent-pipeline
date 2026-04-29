@@ -23,10 +23,18 @@ import { categorizeEmail, archiveEmail } from "@/lib/outlook";
 
 // Outlook category labels — mirrors actions.ts pre-rewrite. Could move to a
 // shared constants module once a second consumer needs it.
+//
+// Note: the UI override dropdown (OVERRIDE_CATEGORIES in
+// debtor-email-review/categories.ts) uses the short key `payment` while the
+// ingest classifier writes the longer `payment_admittance`. Both must map
+// to the same Outlook category here. `unknown` is intentionally NOT in this
+// map — actions.ts short-circuits override='unknown' to a reject (label-only
+// skip), so the worker never reaches a label lookup for it.
 const CATEGORY_LABEL: Record<string, string> = {
   auto_reply: "Auto-Reply",
   ooo_temporary: "OoO — Temporary",
   ooo_permanent: "OoO — Permanent",
+  payment: "Payment Admittance",
   payment_admittance: "Payment Admittance",
 };
 
