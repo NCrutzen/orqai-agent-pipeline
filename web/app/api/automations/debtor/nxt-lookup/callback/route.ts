@@ -48,14 +48,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "invalid_request_id" }, { status: 400 });
   }
 
-  // matches must be an array. Zapier sometimes sends a single object instead
-  // of an array when the SQL step returned exactly one row — normalize.
+  // matches normalization. Zapier serializes complex values as
+  // `Object.to_json(...)` strings when mapped from an SQL step — accept
+  // string-encoded JSON arrays/objects as well as native arrays/objects.
+  let raw: unknown = body.matches;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed === "") {
+      raw = [];
+    } else {
+      try {
+        raw = JSON.parse(trimmed);
+      } catch {
+        return NextResponse.json(
+          { error: "invalid_matches", details: "matches string is not JSON" },
+          { status: 400 },
+        );
+      }
+    }
+  }
+  // SQL step output is `{ rows: [...] }` — unwrap if present.
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && Array.isArray((raw as { rows?: unknown }).rows)) {
+    raw = (raw as { rows: unknown[] }).rows;
+  }
   let matches: unknown[];
-  if (Array.isArray(body.matches)) {
-    matches = body.matches;
-  } else if (body.matches && typeof body.matches === "object") {
-    matches = [body.matches];
-  } else if (body.matches == null) {
+  if (Array.isArray(raw)) {
+    matches = raw;
+  } else if (raw && typeof raw === "object") {
+    matches = [raw];
+  } else if (raw == null) {
     matches = [];
   } else {
     return NextResponse.json({ error: "invalid_matches" }, { status: 400 });
