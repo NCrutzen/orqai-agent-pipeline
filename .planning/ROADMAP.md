@@ -216,14 +216,14 @@ Plans:
 **Plans:** 8 plans
 
 Plans:
-- [ ] 60-00-PLAN.md — Wave 0 scaffold: 7 SQL migrations (public.agent_runs rename absorbing 55-05 + 4 classifier tables + RPC + view), classifier library (types/wilson/cache/read), 10 vitest stub files
-- [ ] 60-01-PLAN.md — [BLOCKING] Schema push of all 7 Wave 0 migrations to live Supabase (autonomous: false — Management API token may be expired)
-- [ ] 60-02-PLAN.md — classifier-backfill Inngest one-shot + ingest-route refactor (readWhitelist cache + typed columns on every automation_runs insert + classify.ts UNCHANGED)
-- [ ] 60-03-PLAN.md — classifier-promotion-cron daily at TZ=Europe/Amsterdam 0 6 * * 1-5 with shadow-mode flag (CLASSIFIER_CRON_MUTATE) + manual_block exception
-- [ ] 60-04-PLAN.md — /automations/classifier-rules cross-swarm dashboard (page + 5 components + Block/Unblock server actions, shadow banner, ci_lo sparkline)
-- [ ] 60-05-PLAN.md — Queue UI rewrite: page.tsx (RPC counts + cursor pagination) + queue-tree (3-level URL-driven) + predicted-row-list/item + race-cohort-banner
-- [ ] 60-06-PLAN.md — actions.ts rewrite (verdict-write only) + classifier-verdict-worker (event-trigger, split step.run for categorize/archive/iController-delete-via-cleanup-queue)
-- [ ] 60-07-PLAN.md — Post-shadow cleanup: drop FALLBACK_WHITELIST after 1-day clean run + flip CLASSIFIER_CRON_MUTATE=true after 14-day shadow review (autonomous: false)
+- [x] 60-00-PLAN.md — Wave 0 scaffold: 7 SQL migrations (public.agent_runs rename absorbing 55-05 + 4 classifier tables + RPC + view), classifier library (types/wilson/cache/read), 10 vitest stub files
+- [x] 60-01-PLAN.md — [BLOCKING] Schema push of all 7 Wave 0 migrations to live Supabase (autonomous: false — Management API token may be expired)
+- [x] 60-02-PLAN.md — classifier-backfill Inngest one-shot + ingest-route refactor (readWhitelist cache + typed columns on every automation_runs insert + classify.ts UNCHANGED)
+- [x] 60-03-PLAN.md — classifier-promotion-cron daily at TZ=Europe/Amsterdam 0 6 * * 1-5 with shadow-mode flag (CLASSIFIER_CRON_MUTATE) + manual_block exception
+- [x] 60-04-PLAN.md — /automations/classifier-rules cross-swarm dashboard (page + 5 components + Block/Unblock server actions, shadow banner, ci_lo sparkline)
+- [x] 60-05-PLAN.md — Queue UI rewrite: page.tsx (RPC counts + cursor pagination) + queue-tree (3-level URL-driven) + predicted-row-list/item + race-cohort-banner
+- [x] 60-06-PLAN.md — actions.ts rewrite (verdict-write only) + classifier-verdict-worker (event-trigger, split step.run for categorize/archive/iController-delete-via-cleanup-queue)
+- [x] 60-07-PLAN.md — Post-shadow cleanup: drop FALLBACK_WHITELIST after 1-day clean run + flip CLASSIFIER_CRON_MUTATE=true after 14-day shadow review (autonomous: false)
 
 ### Phase 61: Restore lost bulk-review UX (60-05 regression fix): horizontal overflow, missing email-body expander, missing per-row notes, missing rule-hint dropdown / per-item override. Reintroduce these on top of the new tree-driven shell — don't revert 60-05's data-driven architecture.
 
