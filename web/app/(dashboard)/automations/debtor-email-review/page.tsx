@@ -7,11 +7,20 @@
 // pagination is cursor-based on `created_at` with a page size of 100 (D-14).
 // The race-cohort banner (D-21) renders only for rules promoted today with
 // remaining predicted rows.
+//
+// Phase 61-02 layout:
+//   3-column grid [clamp(220px,18vw,280px) minmax(380px,460px) 1fr],
+//   max-w-[1600px], min-w-0 hygiene on every child. ?selected=<row-id>
+//   loads a single row server-side and feeds the right-column DetailPane.
+//   Pending promotion is now a sibling node in QueueTree, so we always
+//   fetch the candidate list (small table, cheap).
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AutomationRealtimeProvider } from "@/components/automations/automation-realtime-provider";
 import { QueueTree } from "./queue-tree";
-import { PredictedRowList } from "./predicted-row-list";
+import { RowList } from "./row-list";
+import { DetailPane } from "./detail-pane";
+import { KeyboardShortcuts, Cheatsheet } from "./keyboard-shortcuts";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +31,7 @@ export interface PageSearchParams {
   rule?: string;
   tab?: string;
   before?: string;
+  selected?: string;
 }
 
 export interface QueueCountRow {
@@ -61,6 +71,7 @@ export interface PageData {
   rows: PredictedRow[];
   promotedToday: PromotedRule[];
   candidates: ClassifierCandidate[];
+  selectedRow: PredictedRow | null;
 }
 
 /**
@@ -115,9 +126,20 @@ export async function loadPageData(
     .gte("promoted_at", todayMidnight.toISOString());
   const promotedToday = (promotedRes.data as PromotedRule[] | null) ?? [];
 
-  // 4. Pending-promotion tab — classifier_rules.status='candidate' (D-15).
+  // 4. Pending-promotion candidates. In Phase 61-02 the Pending node lives
+  //    in the queue tree as a sibling, so we always fetch the count.
+  //    classifier_rules is small; the added cost is negligible.
   let candidates: ClassifierCandidate[] = [];
   if (params.tab === "pending") {
+    // Full payload only when the pending pane is rendered.
+    const candRes = await admin
+      .from("classifier_rules")
+      .select("rule_key, status, n, ci_lo")
+      .eq("swarm_type", "debtor-email")
+      .eq("status", "candidate");
+    candidates = (candRes.data as ClassifierCandidate[] | null) ?? [];
+  } else {
+    // Tree-badge count only — fetch the rule_key list (cheap).
     const candRes = await admin
       .from("classifier_rules")
       .select("rule_key, status, n, ci_lo")
@@ -126,7 +148,20 @@ export async function loadPageData(
     candidates = (candRes.data as ClassifierCandidate[] | null) ?? [];
   }
 
-  return { counts, rows, promotedToday, candidates };
+  // 5. Selected row for the detail pane (?selected=<id>). Separate query
+  //    so the list query is not widened by an OR clause. Returns null when
+  //    no selection or the id is no longer in the predicted set.
+  let selectedRow: PredictedRow | null = null;
+  if (params.selected) {
+    const selRes = await admin
+      .from("automation_runs")
+      .select("*")
+      .eq("id", params.selected)
+      .single();
+    selectedRow = (selRes.data as PredictedRow | null) ?? null;
+  }
+
+  return { counts, rows, promotedToday, candidates, selectedRow };
 }
 
 interface PageProps {
@@ -137,10 +172,11 @@ export default async function DebtorEmailReviewPage({ searchParams }: PageProps)
   const params = await searchParams;
   const admin = createAdminClient();
   const data = await loadPageData(params, admin);
+  const rowIds = data.rows.map((r) => r.id);
 
   return (
     <AutomationRealtimeProvider automations={["debtor-email-review"]}>
-      <div className="px-8 pt-16 pb-12 max-w-[1280px] mx-auto">
+      <div className="px-6 pt-12 pb-12 max-w-[1600px] mx-auto">
         <h1 className="text-[28px] font-semibold leading-[1.2] font-[family-name:var(--font-cabinet)]">
           Bulk Review
         </h1>
@@ -148,15 +184,30 @@ export default async function DebtorEmailReviewPage({ searchParams }: PageProps)
           Review predicted classifications. Approved rows trigger Outlook
           categorize+archive and iController delete in the background.
         </p>
-        <div className="grid grid-cols-[320px_1fr] gap-6">
-          <QueueTree counts={data.counts} selection={params} />
-          <PredictedRowList
+        <div className="grid grid-cols-[clamp(220px,18vw,280px)_minmax(380px,460px)_1fr] gap-4 min-w-0">
+          <QueueTree
+            counts={data.counts}
+            selection={params}
+            candidates={data.candidates}
+            promotedTodayCount={data.promotedToday.length}
+          />
+          <RowList
             rows={data.rows}
             promotedToday={data.promotedToday}
             candidates={data.candidates}
             selection={params}
           />
+          <DetailPane
+            row={data.selectedRow}
+            rows={data.rows}
+            selection={params}
+          />
         </div>
+        <KeyboardShortcuts
+          rowIds={rowIds}
+          selectedId={params.selected ?? null}
+        />
+        <Cheatsheet />
       </div>
     </AutomationRealtimeProvider>
   );

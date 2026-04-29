@@ -10,11 +10,18 @@
 
 import { useMemo, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import type { PageSearchParams, QueueCountRow } from "./page";
+import type {
+  ClassifierCandidate,
+  PageSearchParams,
+  QueueCountRow,
+} from "./page";
 
 interface QueueTreeProps {
   counts: QueueCountRow[];
   selection: PageSearchParams;
+  // Phase 61-02 additions — wired in Task 2.
+  candidates?: ClassifierCandidate[];
+  promotedTodayCount?: number;
 }
 
 interface MailboxNode {
