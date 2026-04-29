@@ -67,7 +67,9 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 // Programmable category list per test.
 let categoriesToReturn: SwarmCategoryRow[] = [];
-const loadSwarmCategoriesMock = vi.fn(async () => categoriesToReturn);
+const loadSwarmCategoriesMock = vi.fn(
+  async (..._args: unknown[]) => categoriesToReturn,
+);
 
 vi.mock("@/lib/swarms/registry", () => ({
   loadSwarmCategories: (...args: unknown[]) => loadSwarmCategoriesMock(...args),
