@@ -9,12 +9,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 
-// ---- next/navigation mock — DetailPane calls useRouter().refresh() after
-// a successful verdict so the server re-runs loadPageData and the
-// verdict-flipped row drops out of rows[].
-const refreshMock = vi.fn();
+// ---- next/navigation mock — DetailPane calls useRouter().replace() after
+// a successful verdict so Next's router state AND URL sync to the next
+// row, the server re-runs loadPageData, and the verdict-flipped row
+// drops out of rows[]. (router.refresh would race with replaceState and
+// re-fetch against the stale ?selected= param.)
+const replaceMock = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: refreshMock, push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({
+    replace: replaceMock,
+    refresh: vi.fn(),
+    push: vi.fn(),
+  }),
   usePathname: () => "/automations/debtor-email-review",
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -78,7 +84,7 @@ beforeEach(() => {
   recordVerdictMock.mockClear();
   recordVerdictMock.mockResolvedValue({ ok: true });
   fetchBodyMock.mockClear();
-  refreshMock.mockClear();
+  replaceMock.mockClear();
   replaceStateSpy = vi.spyOn(window.history, "replaceState");
 });
 
@@ -157,9 +163,11 @@ describe("DetailPane: submit + auto-advance", () => {
     // And the URL was patched via replaceState.
     const lastReplace = replaceStateSpy.mock.calls.at(-1);
     expect(String(lastReplace?.[2] ?? "")).toMatch(/selected=row-3/);
-    // router.refresh() was called so the server re-runs loadPageData
-    // and the verdict-flipped row leaves the queue.
-    expect(refreshMock).toHaveBeenCalledTimes(1);
+    // router.replace() was called so Next's router state syncs to the
+    // next row AND the server re-runs loadPageData; the verdict-flipped
+    // row leaves the queue. URL must carry ?selected=row-3.
+    expect(replaceMock).toHaveBeenCalledTimes(1);
+    expect(String(replaceMock.mock.calls[0][0])).toMatch(/selected=row-3/);
   });
 
   it("Reject click calls recordVerdict with decision='reject' and auto-advances", async () => {

@@ -261,20 +261,30 @@ export function DetailPane({ rows, initialSelectedRow }: DetailPaneProps) {
           override_category: kind === "skip" ? "unknown" : override,
           notes: notes || undefined,
         });
-        // Auto-advance — pick the next row id from props.rows and update
-        // selection in client state. Then call router.refresh() so the
-        // server re-runs loadPageData and the verdict-flipped row drops
-        // out of rows[]. Without this, the queue would silently retain
-        // the row even though automation_runs.status='feedback' on the
-        // server (the AutomationRealtimeProvider refetches its own bundle
-        // but the page reads from the server fetch, not the bundle).
-        // Honour prefers-reduced-motion: advance synchronously instead of
-        // waiting 200ms (D-AUTO-ADVANCE-TIMING).
+        // Auto-advance — pick the next row id from props.rows. We need
+        // BOTH instant client feedback (the next row appears immediately
+        // in the detail pane) AND a server re-fetch so the verdict-flipped
+        // row drops out of rows[].
+        //
+        // Implementation note: router.refresh() re-fetches against Next's
+        // internally-tracked URL — history.replaceState (from setSelected)
+        // only updates the address bar, NOT Next's router state. So a
+        // refresh after replaceState comes back with the stale ?selected=
+        // (the just-approved row), the row is gone from rows[], and
+        // DetailPane shows the empty placeholder. Using router.replace
+        // updates Next's state AND triggers the re-fetch in one go.
         const idx = rows.findIndex((r) => r.id === row.id);
         const nextRow = rows[idx + 1] ?? rows[idx - 1] ?? null;
         const advance = () => {
+          // Instant client-side feedback while the server roundtrip flies.
           setSelected(nextRow?.id ?? null);
-          router.refresh();
+          // Sync Next's router state and trigger the RSC re-fetch.
+          const qs = new URLSearchParams(window.location.search);
+          if (nextRow) qs.set("selected", nextRow.id);
+          else qs.delete("selected");
+          router.replace(`${window.location.pathname}?${qs.toString()}`, {
+            scroll: false,
+          });
         };
         const reduceMotion =
           typeof window !== "undefined" &&
