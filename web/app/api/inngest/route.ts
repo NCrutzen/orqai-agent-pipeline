@@ -29,6 +29,7 @@ import { classifierCorpusBackfill } from "@/lib/inngest/functions/classifier-cor
 import { classifierSpotcheckSampler } from "@/lib/inngest/functions/classifier-spotcheck-sampler";
 import { classifierPromotionCron } from "@/lib/inngest/functions/classifier-promotion-cron";
 import { classifierVerdictWorker } from "@/lib/inngest/functions/classifier-verdict-worker";
+import { classifierLabelResolver } from "@/lib/inngest/functions/classifier-label-resolver";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -54,5 +55,6 @@ export const { GET, POST, PUT } = serve({
     classifierSpotcheckSampler,
     classifierPromotionCron,
     classifierVerdictWorker,
+    classifierLabelResolver,
   ],
 });

@@ -215,6 +215,32 @@ export type Events = {
     };
   };
 
+  // Debtor email swarm — label-resolver (Phase 56-02 wave 3, swarm_dispatch
+  // target for category_key='unknown'). Routed by classifier-verdict-worker
+  // when an email falls through the regex classifier into the unknown bucket.
+  "debtor-email/label-resolve.requested": {
+    data: {
+      automation_run_id: string;
+      swarm_type: string;
+      category_key: string; // always 'unknown' today
+      message_id: string;
+      source_mailbox: string;
+    };
+  };
+
+  // Debtor email swarm — invoice-copy handler (Phase 56-02 wave 3, swarm_dispatch
+  // target for category_key='invoice_copy_request'). Resolves customer + fetches
+  // PDF + creates iController draft via the Orq.ai copy-document body agent.
+  "debtor-email/invoice-copy.requested": {
+    data: {
+      automation_run_id: string;
+      swarm_type: string;
+      category_key: string;
+      message_id: string;
+      source_mailbox: string;
+    };
+  };
+
   // Debtor email swarm — triage (phase 1)
   "debtor/email.received": {
     data: {
