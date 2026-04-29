@@ -26,12 +26,18 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { inngest } from "@/lib/inngest/client";
 import { fetchMessageBody } from "@/lib/outlook";
-import { OVERRIDE_CATEGORIES, type OverrideCategory } from "./categories";
+import {
+  OVERRIDE_CATEGORIES,
+  type ReviewEmailBodyResult,
+  type VerdictInput,
+} from "./categories";
 
-// Re-export the type only — types erase at compile time and are allowed
-// from a "use server" file. The runtime value (OVERRIDE_CATEGORIES) is
-// not re-exported here; consumers import it directly from ./categories.
-export type { OverrideCategory };
+// IMPORTANT: this file MUST export only async functions. Next 15 /
+// Turbopack's "use server" codegen scans every export name and emits a
+// runtime `module.exports.X = X` line — even for `export type`
+// declarations. A type-only export therefore produces
+// `ReferenceError: X is not defined` at module-evaluation time. All
+// types and constants live in ./categories.
 
 const verdictSchema = z.object({
   automation_run_id: z.string().min(1),
@@ -44,8 +50,6 @@ const verdictSchema = z.object({
   override_category: z.enum(OVERRIDE_CATEGORIES).optional(),
   notes: z.string().max(2000).optional(),
 });
-
-export type VerdictInput = z.infer<typeof verdictSchema>;
 
 export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> {
   const parsed = verdictSchema.parse(input);
@@ -156,15 +160,8 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
 // the caller only has to pass the run id.
 // ---------------------------------------------------------------------------
 
-// Typed result instead of `throw` so the real error message survives Next's
-// production server-action masking ("An error occurred in the Server
-// Components render…"). The reviewer needs to see *why* a body fetch failed
-// (Graph 401, missing source_mailbox, network) — masking turns every failure
-// into the same opaque sentence.
-export type ReviewEmailBodyResult =
-  | { ok: true; bodyText: string; bodyHtml: string | null }
-  | { ok: false; error: string };
-
+// ReviewEmailBodyResult is a typed envelope (defined in ./categories) so
+// the real error message survives Next's production server-action masking.
 export async function fetchReviewEmailBody(
   automationRunId: string,
 ): Promise<ReviewEmailBodyResult> {

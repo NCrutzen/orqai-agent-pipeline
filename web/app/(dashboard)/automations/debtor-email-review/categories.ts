@@ -1,8 +1,10 @@
-// Phase 61 hotfix. Override-category constants live OUTSIDE actions.ts
-// because Next 15 enforces: a `"use server"` file can only export async
-// functions. A non-function export (the readonly tuple below) breaks
-// production builds with:
-//   "A 'use server' file can only export async functions, found object."
+// Phase 61 hotfix. All non-function exports for the bulk-review server
+// actions live here, NOT in actions.ts. Next 15 / Turbopack's "use server"
+// codegen treats every export name from a "use server" file as a runtime
+// reference, even type-only exports — emitting them as
+// `module.exports.X = X` and producing a ReferenceError at module
+// evaluation when X doesn't exist at runtime. Keep actions.ts pure
+// (only async function exports).
 
 export const OVERRIDE_CATEGORIES = [
   "payment",
@@ -13,3 +15,19 @@ export const OVERRIDE_CATEGORIES = [
 ] as const;
 
 export type OverrideCategory = (typeof OVERRIDE_CATEGORIES)[number];
+
+export interface VerdictInput {
+  automation_run_id: string;
+  rule_key: string;
+  decision: "approve" | "reject";
+  message_id: string;
+  source_mailbox: string;
+  entity: string;
+  predicted_category: string;
+  override_category?: OverrideCategory;
+  notes?: string;
+}
+
+export type ReviewEmailBodyResult =
+  | { ok: true; bodyText: string; bodyHtml: string | null }
+  | { ok: false; error: string };

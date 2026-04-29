@@ -44,11 +44,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  fetchReviewEmailBody,
-  recordVerdict,
-  type OverrideCategory,
-} from "./actions";
+import { fetchReviewEmailBody, recordVerdict } from "./actions";
+import type { OverrideCategory } from "./categories";
 import type { PredictedRow } from "./page";
 import { useSelection } from "./selection-context";
 
