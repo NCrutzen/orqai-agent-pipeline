@@ -688,3 +688,40 @@ V7.0: 48 -> 49 -> 50 -> 51 -> 52 -> 53 -> 54
 | V5.0 | TBD | 0/TBD | **Defined** | - |
 | V6.0 | 44-47 (4 phases) | 6/TBD | **Partially Complete** | - |
 | V7.0 | 48-54 (7 phases) | 0/TBD | **Not started** | - |
+
+## Backlog
+
+### Phase 999.1: UK/IE mailbox onboarding — apply 60-08 corpus-backfill + spot-check pipeline (BACKLOG)
+
+**Goal:** Extend the debtor-email classifier to UK and Ireland mailboxes using the same corpus-backfill + 50-row hard-case spot-check methodology proven in 60-08. The current `classify.ts` regex set has English keywords as opportunistic first-pass coverage but was tuned on a NL/BE-only 6,114-email corpus — UK/IE traffic needs its own validation pass before any rule can be trusted as `promoted` for those entities.
+
+**Trigger:** When the first UK or IE debtor mailbox is operationally onboarded — env var provisioned, NXT entity registered, or stakeholder ask.
+
+**Scope:**
+1. Add UK/IE rows to `debtor.labeling_settings` (e.g. `debiteuren@<entity>.uk`, `debiteuren@<entity>.ie`)
+2. Verify Outlook ingest is wired for those mailboxes (Zapier trigger + ingest route)
+3. Collect 1-2 weeks of UK/IE traffic in `email_pipeline.emails`
+4. Run `debtor.email_analysis` LLM-classifier over the new corpus
+5. Fire `classifier/corpus-backfill.run` → surfaces UK/IE-specific n/agree per existing rule
+6. Fire `classifier/spotcheck.queue` with `max_per_rule=50` for any rule that hits N≥30 on the UK/IE corpus
+7. Manual spot-check 50/rule
+8. Likely follow-up regex extensions for UK/IE patterns:
+   - BACS payment terminology (`BACS payment`, `Faster Payment`, `CHAPS`)
+   - "Annual leave" / "On leave" OoO phrasing
+   - British date formats (dd/mm/yyyy as well as Month-name forms)
+   - GBP currency markers
+   - Irish-specific vendor systems (Bank of Ireland, AIB notifications)
+9. Promote per-rule via existing 0.92 gate (60-08)
+
+**Effort:** ~half-day engineering (mostly ops + spot-check time, regex tuning iterative)
+
+**Reference docs:**
+- `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-08-PLAN.md` — methodology
+- `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-08-RUNBOOK.md` — operator script
+- `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
+- `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when first UK/IE mailbox lands)
