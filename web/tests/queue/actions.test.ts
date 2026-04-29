@@ -1,11 +1,11 @@
-// Phase 60-06 (D-16/D-17/D-29). Verifies recordVerdict is verdict-write only:
-// flips automation_runs.status, writes agent_runs telemetry, fires
-// classifier/verdict.recorded, emits broadcast. NO Outlook / iController
-// inline (those moved to classifier-verdict-worker).
-//
-// Phase 61-01: extends recordVerdict with override_category enum + notes,
-// jsonb merge of {review_override, review_note} into automation_runs.result,
-// and decision-routing per D-LABEL-ONLY-SKIP.
+// Phase 56.7-03 (D-15, Pitfall 5). Verifies that recordVerdict is now
+// swarm-agnostic:
+//   - swarm_type threads through agent_runs.swarm_type, the Inngest event
+//     payload, and the broadcast automation name (`${swarm_type}-review`).
+//   - override_category is validated against loadSwarmCategories at runtime
+//     (NOT against a static OVERRIDE_CATEGORIES const).
+//   - Pre-existing 60-06 / 61-01 contracts are intact (status flip, agent_runs
+//     telemetry, jsonb merge, decision routing, notes max 2000).
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
@@ -13,7 +13,6 @@ import { resolve } from "node:path";
 
 // ---- Mocks ----------------------------------------------------------------
 
-// Capture admin-client interactions
 type UpdateCall = { table: string; payload: Record<string, unknown>; eqCol: string; eqVal: unknown };
 type InsertCall = { table: string; payload: Record<string, unknown> };
 type SelectCall = { table: string; cols: string; eqCol: string; eqVal: unknown };
@@ -75,12 +74,34 @@ vi.mock("@/lib/automations/runs/emit", () => ({
     emitMock(admin, automation),
 }));
 
+// Phase 56.7-03 / Pitfall 5: registry-driven override_category validation.
+// The seven debtor-email categories from the migration seed.
+const DEBTOR_CATS = [
+  { swarm_type: "debtor-email", category_key: "payment", display_label: "Payment", outlook_label: "Payment", action: "categorize_archive", swarm_dispatch: null, display_order: 10, enabled: true },
+  { swarm_type: "debtor-email", category_key: "payment_admittance", display_label: "Payment Admittance", outlook_label: "Payment Admittance", action: "categorize_archive", swarm_dispatch: null, display_order: 15, enabled: true },
+  { swarm_type: "debtor-email", category_key: "auto_reply", display_label: "Auto-reply", outlook_label: "Auto-Reply", action: "categorize_archive", swarm_dispatch: null, display_order: 20, enabled: true },
+  { swarm_type: "debtor-email", category_key: "ooo_temporary", display_label: "OOO (temporary)", outlook_label: "OoO Temp", action: "categorize_archive", swarm_dispatch: null, display_order: 30, enabled: true },
+  { swarm_type: "debtor-email", category_key: "ooo_permanent", display_label: "OOO (permanent)", outlook_label: "OoO Perm", action: "categorize_archive", swarm_dispatch: null, display_order: 40, enabled: true },
+  { swarm_type: "debtor-email", category_key: "invoice_copy_request", display_label: "Invoice copy request", outlook_label: "Invoice Copy Request", action: "categorize_archive", swarm_dispatch: null, display_order: 50, enabled: true },
+  { swarm_type: "debtor-email", category_key: "unknown", display_label: "Skip (label-only)", outlook_label: null, action: "reject", swarm_dispatch: null, display_order: 60, enabled: true },
+];
+const loadSwarmCategoriesMock = vi.fn(async (_admin: unknown, swarmType: string) => {
+  if (swarmType === "debtor-email") return DEBTOR_CATS;
+  return [];
+});
+vi.mock("@/lib/swarms/registry", () => ({
+  loadSwarmCategories: (admin: unknown, swarmType: string) =>
+    loadSwarmCategoriesMock(admin, swarmType),
+  loadSwarm: vi.fn(),
+}));
+
 // Import AFTER mocks
-import { recordVerdict } from "@/app/(dashboard)/automations/debtor-email-review/actions";
+import { recordVerdict } from "@/app/(dashboard)/automations/[swarm]/review/actions";
 
 // ---- Test helpers ---------------------------------------------------------
 
 const baseInput = {
+  swarm_type: "debtor-email",
   automation_run_id: "00000000-0000-0000-0000-000000000001",
   rule_key: "subject_paid_marker",
   message_id: "AAMkAG-graph-id",
@@ -101,16 +122,16 @@ beforeEach(() => {
   adminClientMock.from.mockClear();
   sendMock.mockClear();
   emitMock.mockClear();
+  loadSwarmCategoriesMock.mockClear();
 });
 
-// ---- Tests ----------------------------------------------------------------
+// ---- D-16 contract preserved ---------------------------------------------
 
 describe("D-16: recordVerdict — verdict-write only, no inline side-effects", () => {
   it("approve path: flips status -> feedback, inserts agent_runs(approved), fires Inngest, emits broadcast", async () => {
     const result = await recordVerdict({ ...baseInput, decision: "approve" });
     expect(result).toEqual({ ok: true });
 
-    // 1. UPDATE automation_runs SET status='feedback'
     expect(updateCalls).toHaveLength(1);
     expect(updateCalls[0].table).toBe("automation_runs");
     expect(updateCalls[0].payload).toMatchObject({ status: "feedback" });
@@ -118,7 +139,6 @@ describe("D-16: recordVerdict — verdict-write only, no inline side-effects", (
     expect(updateCalls[0].eqCol).toBe("id");
     expect(updateCalls[0].eqVal).toBe(baseInput.automation_run_id);
 
-    // 2. INSERT public.agent_runs with swarm_type, rule_key, human_verdict='approved'
     expect(insertCalls).toHaveLength(1);
     expect(insertCalls[0].table).toBe("agent_runs");
     expect(insertCalls[0].payload).toMatchObject({
@@ -130,13 +150,8 @@ describe("D-16: recordVerdict — verdict-write only, no inline side-effects", (
       human_notes: null,
       corrected_category: null,
     });
-    // agent_runs has no `context` column — it was a fictional jsonb in the
-    // earlier mock. Real schema: human_notes (text) carries the note;
-    // message_id/source_mailbox/predicted_category travel via the Inngest
-    // event payload below.
     expect(insertCalls[0].payload).not.toHaveProperty("context");
 
-    // 3. Inngest event fired
     expect(sendMock).toHaveBeenCalledTimes(1);
     expect(sendMock).toHaveBeenCalledWith({
       name: "classifier/verdict.recorded",
@@ -153,7 +168,6 @@ describe("D-16: recordVerdict — verdict-write only, no inline side-effects", (
       }),
     });
 
-    // 4. emitAutomationRunStale called with the queue automation
     expect(emitMock).toHaveBeenCalledTimes(1);
     expect(emitMock).toHaveBeenCalledWith(adminClientMock, "debtor-email-review");
   });
@@ -207,46 +221,27 @@ describe("D-16: recordVerdict — verdict-write only, no inline side-effects", (
   });
 
   it("static check: actions.ts does NOT import categorizeEmail / archiveEmail / iController helpers", () => {
-    const actionsPath = resolve(__dirname, "../../app/(dashboard)/automations/debtor-email-review/actions.ts");
+    const actionsPath = resolve(__dirname, "../../app/(dashboard)/automations/[swarm]/review/actions.ts");
     const src = readFileSync(actionsPath, "utf8");
-    // No Outlook side-effect imports
     expect(src).not.toMatch(/categorizeEmail/);
     expect(src).not.toMatch(/archiveEmail/);
-    // No iController helpers (case-insensitive — covers icontroller dir too)
     expect(src).not.toMatch(/icontroller/i);
     expect(src).not.toMatch(/openIControllerSession/);
     expect(src).not.toMatch(/deleteEmailOnPage/);
-    // Sanity: it DOES fire the verdict event
     expect(src).toMatch(/classifier\/verdict\.recorded/);
+  });
+
+  it("static check: actions.ts does NOT import a static OVERRIDE_CATEGORIES const (Pitfall 5)", () => {
+    const actionsPath = resolve(__dirname, "../../app/(dashboard)/automations/[swarm]/review/actions.ts");
+    const src = readFileSync(actionsPath, "utf8");
+    expect(src).not.toMatch(/OVERRIDE_CATEGORIES/);
+    expect(src).toMatch(/loadSwarmCategories/);
   });
 });
 
-// ---- Phase 61-01: override_category enum + notes + decision routing -------
+// ---- 61-01: jsonb merge + decision routing + notes -----------------------
 
-describe("Phase 61-01: recordVerdict extended schema (override + notes)", () => {
-  it("schema accepts override_category in the 5-value enum (zod parse OK)", async () => {
-    for (const cat of ["payment", "auto_reply", "ooo_temporary", "ooo_permanent", "unknown"] as const) {
-      await expect(
-        recordVerdict({
-          ...baseInput,
-          decision: "approve",
-          override_category: cat,
-        }),
-      ).resolves.toEqual({ ok: true });
-    }
-  });
-
-  it("schema rejects an unknown override_category value (zod throws)", async () => {
-    await expect(
-      recordVerdict({
-        ...baseInput,
-        decision: "approve",
-        // @ts-expect-error — intentionally invalid
-        override_category: "foo",
-      }),
-    ).rejects.toThrow();
-  });
-
+describe("Phase 61-01 contracts (preserved by 56.7-03)", () => {
   it("schema accepts notes up to 2000 chars; rejects 2001", async () => {
     const ok = "a".repeat(2000);
     await expect(
@@ -267,7 +262,6 @@ describe("Phase 61-01: recordVerdict extended schema (override + notes)", () => 
       override_category: "auto_reply",
       notes: "Looks like a vacation reply",
     });
-    // first the select-then-update fetch, then the update
     expect(selectCalls).toHaveLength(1);
     expect(selectCalls[0].table).toBe("automation_runs");
     expect(selectCalls[0].cols).toContain("result");
@@ -302,7 +296,7 @@ describe("Phase 61-01: recordVerdict extended schema (override + notes)", () => 
   it("D-LABEL-ONLY-SKIP: override_category='unknown' forces decision='reject' in the event", async () => {
     await recordVerdict({
       ...baseInput,
-      decision: "approve", // reviewer pressed approve but selected unknown — skip wins
+      decision: "approve",
       override_category: "unknown",
       notes: "Can't tell",
     });
@@ -317,10 +311,6 @@ describe("Phase 61-01: recordVerdict extended schema (override + notes)", () => 
   });
 
   it("override_category equal to predicted_category: decision is preserved (no-op override)", async () => {
-    // Use a predicted_category that is itself a valid enum value so the
-    // override equality branch can fire. (baseInput.predicted_category is
-    // "payment_admittance" which is not in the 5-value enum — that's fine
-    // for other tests but not for this equality case.)
     await recordVerdict({
       ...baseInput,
       predicted_category: "auto_reply",
@@ -337,7 +327,7 @@ describe("Phase 61-01: recordVerdict extended schema (override + notes)", () => 
   it("override_category differs from predicted_category and != 'unknown' → decision forced to 'approve'", async () => {
     await recordVerdict({
       ...baseInput,
-      decision: "reject", // reviewer pressed reject, but supplied a real override → approve override
+      decision: "reject",
       override_category: "auto_reply",
     });
     expect(sendMock).toHaveBeenCalledWith(
@@ -364,5 +354,69 @@ describe("Phase 61-01: recordVerdict extended schema (override + notes)", () => 
   it("agent_runs.corrected_category is null when no override supplied", async () => {
     await recordVerdict({ ...baseInput, decision: "approve" });
     expect(insertCalls[0].payload).toMatchObject({ corrected_category: null });
+  });
+});
+
+// ---- 56.7-03: swarm-aware contracts ---------------------------------------
+
+describe("swarm-aware: registry-driven override_category validation (Pitfall 5)", () => {
+  it("accepts a known override_category for the swarm (looked up via loadSwarmCategories)", async () => {
+    await expect(
+      recordVerdict({
+        ...baseInput,
+        decision: "approve",
+        override_category: "payment",
+      }),
+    ).resolves.toEqual({ ok: true });
+    // Registry was consulted with the input's swarm_type
+    expect(loadSwarmCategoriesMock).toHaveBeenCalledWith(adminClientMock, "debtor-email");
+  });
+
+  it("rejects an override_category not in the registry for that swarm", async () => {
+    await expect(
+      recordVerdict({
+        ...baseInput,
+        decision: "approve",
+        override_category: "bogus-not-seeded",
+      }),
+    ).rejects.toThrow(/unknown override_category: bogus-not-seeded for swarm debtor-email/);
+    // No write side-effects when validation fails
+    expect(updateCalls).toHaveLength(0);
+    expect(insertCalls).toHaveLength(0);
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("threads swarm_type into the broadcast automation name (`${swarm_type}-review`)", async () => {
+    await recordVerdict({ ...baseInput, decision: "approve" });
+    expect(emitMock).toHaveBeenCalledWith(adminClientMock, "debtor-email-review");
+  });
+
+  it("a different swarm_type would emit on its own channel (e.g. 'sales-email-review')", async () => {
+    // Arrange: registry returns a category list for sales-email so the
+    // post-validation step doesn't reject the test's override.
+    loadSwarmCategoriesMock.mockImplementationOnce(async () => [
+      { swarm_type: "sales-email", category_key: "lead", display_label: "Lead", outlook_label: null, action: "categorize_archive", swarm_dispatch: null, display_order: 10, enabled: true },
+    ]);
+    await recordVerdict({
+      ...baseInput,
+      swarm_type: "sales-email",
+      decision: "approve",
+      override_category: "lead",
+    });
+    expect(emitMock).toHaveBeenCalledWith(adminClientMock, "sales-email-review");
+    expect(sendMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ swarm_type: "sales-email" }),
+      }),
+    );
+  });
+
+  it("inngest event payload carries swarm_type from the input", async () => {
+    await recordVerdict({ ...baseInput, decision: "approve" });
+    expect(sendMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ swarm_type: "debtor-email" }),
+      }),
+    );
   });
 });

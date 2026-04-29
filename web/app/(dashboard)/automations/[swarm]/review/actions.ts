@@ -17,7 +17,9 @@
 // override_category is validated as a free-form string at the schema level
 // (Pitfall 5) and post-validated against `loadSwarmCategories(admin,
 // swarm_type)` so unknown values for the active swarm are rejected without
-// re-deploying the route when a new category is seeded.
+// re-deploying the route when a new category is seeded. The static
+// per-swarm enum that used to live in ./categories is gone — registry is
+// the source of truth.
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -44,8 +46,8 @@ const verdictSchema = z.object({
   source_mailbox: z.string(),
   entity: z.string(),
   predicted_category: z.string(),
-  // D-15 / Pitfall 5: register-driven validation, not z.enum on a static
-  // OVERRIDE_CATEGORIES const. The registry is the source of truth.
+  // D-15 / Pitfall 5: registry-driven validation, not z.enum on a static
+  // per-swarm const. The swarm_categories table is the source of truth.
   override_category: z.string().nullable().optional(),
   notes: z.string().max(2000).optional(),
 });
