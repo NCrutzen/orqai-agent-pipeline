@@ -12,24 +12,83 @@
 //
 // No inline side-effects. No reclassify-guard, no per-row chunking,
 // no 5-minute server-action timeout. Returns instantly.
+//
+// Phase 61-01 extends recordVerdict with:
+//   - override_category enum (D-PERSIST-OVERRIDE / D-LABEL-ONLY-SKIP)
+//   - notes (≤2000 chars, D-PERSIST-NOTES)
+//   - jsonb merge of {review_override, review_note} into automation_runs.result
+//   - decision routing: override='unknown' → reject; override≠predicted → approve
+// And re-introduces fetchReviewEmailBody (D-FETCH-EMAIL-BODY) for the
+// detail-pane body expander built in Plan 02.
 
+import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { inngest } from "@/lib/inngest/client";
+import { fetchMessageBody } from "@/lib/outlook";
 
-export interface VerdictInput {
-  automation_run_id: string;
-  rule_key: string;
-  decision: "approve" | "reject";
-  message_id: string;
-  source_mailbox: string;
-  entity: string;
-  predicted_category: string;
-  override_category?: string;
-}
+export const OVERRIDE_CATEGORIES = [
+  "payment",
+  "auto_reply",
+  "ooo_temporary",
+  "ooo_permanent",
+  "unknown",
+] as const;
+export type OverrideCategory = (typeof OVERRIDE_CATEGORIES)[number];
+
+const verdictSchema = z.object({
+  automation_run_id: z.string().min(1),
+  rule_key: z.string().min(1),
+  decision: z.enum(["approve", "reject"]),
+  message_id: z.string(),
+  source_mailbox: z.string(),
+  entity: z.string(),
+  predicted_category: z.string(),
+  override_category: z.enum(OVERRIDE_CATEGORIES).optional(),
+  notes: z.string().max(2000).optional(),
+});
+
+export type VerdictInput = z.infer<typeof verdictSchema>;
 
 export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> {
+  const parsed = verdictSchema.parse(input);
   const admin = createAdminClient();
+
+  // Phase 61-01: route the effective decision before writing anything.
+  //   - override_category='unknown' → label-only skip → decision='reject'
+  //     (matches the prior `labelOnly` semantic from commit a1033f4 — the
+  //     worker sees override_category='unknown' and skips Outlook side-effects).
+  //   - override_category differing from predicted_category and not 'unknown'
+  //     → reviewer is approving the override target → decision='approve'.
+  //   - override_category equal to predicted_category, or no override at all
+  //     → preserve the reviewer's raw decision.
+  let effectiveDecision = parsed.decision;
+  const isSkip = parsed.override_category === "unknown";
+  const isDifferingOverride =
+    !!parsed.override_category &&
+    parsed.override_category !== "unknown" &&
+    parsed.override_category !== parsed.predicted_category;
+  if (isSkip) {
+    effectiveDecision = "reject";
+  } else if (isDifferingOverride) {
+    effectiveDecision = "approve";
+  }
+
+  // 0. Fetch existing automation_runs.result so we can jsonb-merge the
+  //    reviewer's override + note without dropping any keys the queue
+  //    pipeline previously stored (message_id, source_mailbox, predicted, …).
+  //    Done via fetch-then-update because postgrest does not expose `||`.
+  const { data: existing } = await admin
+    .from("automation_runs")
+    .select("result")
+    .eq("id", parsed.automation_run_id)
+    .single();
+
+  const mergedResult = {
+    ...((existing?.result as Record<string, unknown>) ?? {}),
+    ...(parsed.override_category ? { review_override: parsed.override_category } : {}),
+    ...(parsed.notes ? { review_note: parsed.notes } : {}),
+  };
 
   // 1. Flip predicted -> feedback. Row leaves queue on broadcast (D-17).
   const { error: updErr } = await admin
@@ -37,8 +96,9 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
     .update({
       status: "feedback",
       completed_at: new Date().toISOString(),
+      result: mergedResult,
     })
-    .eq("id", input.automation_run_id);
+    .eq("id", parsed.automation_run_id);
   if (updErr) {
     throw new Error(`automation_runs update failed: ${updErr.message}`);
   }
@@ -48,15 +108,16 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
     .from("agent_runs")
     .insert({
       swarm_type: "debtor-email",
-      automation_run_id: input.automation_run_id,
-      rule_key: input.rule_key,
-      human_verdict: input.decision === "approve" ? "approved" : "rejected_other",
-      corrected_category: input.override_category ?? null,
+      automation_run_id: parsed.automation_run_id,
+      rule_key: parsed.rule_key,
+      human_verdict: effectiveDecision === "approve" ? "approved" : "rejected_other",
+      corrected_category: parsed.override_category ?? null,
       context: {
-        message_id: input.message_id,
-        source_mailbox: input.source_mailbox,
-        entity: input.entity,
-        predicted_category: input.predicted_category,
+        message_id: parsed.message_id,
+        source_mailbox: parsed.source_mailbox,
+        entity: parsed.entity,
+        predicted_category: parsed.predicted_category,
+        ...(parsed.notes ? { notes: parsed.notes } : {}),
       },
     })
     .select("id")
@@ -70,16 +131,17 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
   await inngest.send({
     name: "classifier/verdict.recorded",
     data: {
-      automation_run_id: input.automation_run_id,
+      automation_run_id: parsed.automation_run_id,
       agent_run_id: ar.id,
       swarm_type: "debtor-email",
-      rule_key: input.rule_key,
-      decision: input.decision,
-      message_id: input.message_id,
-      source_mailbox: input.source_mailbox,
-      entity: input.entity,
-      predicted_category: input.predicted_category,
-      override_category: input.override_category,
+      rule_key: parsed.rule_key,
+      decision: effectiveDecision,
+      message_id: parsed.message_id,
+      source_mailbox: parsed.source_mailbox,
+      entity: parsed.entity,
+      predicted_category: parsed.predicted_category,
+      override_category: parsed.override_category,
+      notes: parsed.notes,
     },
   });
 
@@ -87,4 +149,49 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
   await emitAutomationRunStale(admin, "debtor-email-review");
 
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 61-01 (D-FETCH-EMAIL-BODY): re-introduce the body fetch action that
+// powers the detail-pane "Show full email" expander in Plan 02. Lazy-fetch
+// only — never bulk pre-fetch (anti-pattern #3 in 61-CONTEXT.md).
+// Reads message_id + source_mailbox out of automation_runs.result jsonb so
+// the caller only has to pass the run id.
+// ---------------------------------------------------------------------------
+
+export interface ReviewEmailBody {
+  bodyText: string;
+  bodyHtml: string | null;
+}
+
+export async function fetchReviewEmailBody(
+  automationRunId: string,
+): Promise<ReviewEmailBody> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("automation_runs")
+    .select("result")
+    .eq("id", automationRunId)
+    .single();
+  if (error || !data) {
+    throw new Error("automation_run not found");
+  }
+  const result = (data.result ?? {}) as {
+    message_id?: string;
+    source_mailbox?: string;
+  };
+  if (!result.message_id || !result.source_mailbox) {
+    throw new Error("automation_run missing message_id or source_mailbox");
+  }
+  try {
+    const body = await fetchMessageBody(result.source_mailbox, result.message_id);
+    // fetchMessageBody returns { bodyText, bodyHtml, bodyType }.
+    // Empty body → return ("", null) without throwing.
+    return {
+      bodyText: body.bodyText ?? "",
+      bodyHtml: body.bodyHtml ? body.bodyHtml : null,
+    };
+  } catch (e) {
+    throw new Error(`outlook fetch failed: ${(e as Error).message}`);
+  }
 }
