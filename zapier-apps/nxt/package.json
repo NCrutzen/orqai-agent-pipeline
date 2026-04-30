@@ -1,0 +1,20 @@
+{
+  "name": "zapier-platform-app-nxt-mr",
+  "version": "1.0.0",
+  "description": "Moyne Roberts NXT integration for Zapier — create sales orders, lookups, more.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20",
+    "npm": ">=8"
+  },
+  "dependencies": {
+    "zapier-platform-core": "16.0.0"
+  },
+  "devDependencies": {
+    "zapier-platform-cli": "16.0.0"
+  },
+  "private": true
+}
