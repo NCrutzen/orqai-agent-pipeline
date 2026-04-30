@@ -1,11 +1,51 @@
 # Milestones
 
+## v7.0 Agent OS (Shipped: 2026-04-30)
+
+**Phases completed:** 18 phases, 50 plans, 15 tasks
+
+**Key accomplishments:**
+
+- 4 V7 foundation tables (agent_events, swarm_jobs, swarm_agents, swarm_briefings) with indexes, RLS, and Supabase Realtime publication
+- Microsoft SSO button on /login, access-pending page for unauthorized users, and project_members gate on the dashboard layout with middleware exemption.
+- V7 swarm sidebar + single-channel Realtime provider and hook.
+- `/swarm/[swarmId]` route, layout shell, and 404.
+- DB migration + shared MCP helper + pure trace mapper with 8 unit tests.
+- Inngest cron function that syncs Orq.ai traces to agent_events, and its route registration.
+- Orq.ai Briefing Agent + server action + client panel + 30-min cron.
+- Slide-out drawer + shell wiring + test fixture.
+- Live event stream with bounded ring buffer.
+- 5-column Kanban board with dnd-kit + optimistic moveJob server action.
+- 3 sidebar filter chips with shareable URL state.
+- Cinematic SVG graph wired to live Realtime data: nodes from swarm_agents, edges from agent_events.parent_span_id traversal, animated particles on edges active in the last 60 seconds.
+- Per-agent Gantt-style timeline of recent activity. One lane per swarm_agent (alphabetical, capped at 8), bars colored by event type with terminal-type promotion, hover/focus reveals a tooltip with span name, duration, agent, and timestamps. Reuses Phase 49's SwarmRealtimeProvider via useRealtimeTable.
+- Two RLS-protected Supabase tables (`public.swarms` + `public.swarm_categories`) plus a 60s in-memory TTL loader (`web/lib/swarms/registry.ts`) that lets Wave 2 verdict-worker and Wave 3 generic queue UI pivot off DB rows instead of hardcoded constants.
+- Rewrote `classifier-verdict-worker` to dispatch by `swarm_categories.action` (4-branch switch) instead of the hardcoded `CATEGORY_LABEL` map — adding a future swarm with a custom side-effect now requires only `INSERT swarms` + `INSERT swarm_categories(action='swarm_dispatch')` + a new Inngest worker, with zero edits to this file.
+- One-liner:
+- `web/lib/automations/swarm-bridge/sync.ts`
+- Replaced unfiltered automation_runs postgres_changes with one broadcast per write on `automations:${automation}:stale` and a subscriber that opens one channel per explicit name (no LIKE, no ancestor fanout).
+- 500ms emit-the-latest debounce inside `web/lib/supabase/broadcast.ts` keyed by (channel, event-key); chat tokens and chat messages bypass; zero caller-site edits.
+- 1. [Rule 3 - Tooling] vitest 4.x dropped `--reporter=basic`
+- 1. [Rule 3 — Plan vs live-DB] `mailbox_id: settings.id` replaced with `ICONTROLLER_MAILBOXES` lookup
+- 1. [Rule 1 -- Bug in plan example] Test fixtures n=50, agree=49 do NOT clear the 0.95 promote gate
+- 1. [Rule 3 - Blocking] Test DOM leakage between renders
+- One-liner:
+- One-liner:
+- One-liner:
+- One-liner:
+- 1. [Rule 3 - Blocker] Zod v4 strict UUID validator rejected test fixtures
+- 1. [Rule 3 - Blocker] jsdom does not populate `isContentEditable` after `setAttribute`
+- `web/app/(dashboard)/automations/debtor-email-review/detail-pane.tsx`
+
+---
+
 ## V7.0 Agent OS (Defined: 2026-04-15)
 
 **Phases:** 7 (phases 48-54)
 **Requirements:** 45 (DS-01-04, AUTH-01-03, NAV-01-04, RT-01-04, DATA-01-03, BRIEF-01-03, FLEET-01-04, DRAW-01-04, GRAPH-01-04, KAN-01-04, OBS-01-05, POL-01-03)
 
 **Planned deliverables:**
+
 1. New design system (Satoshi + Cabinet Grotesk, glassmorphism, dark/light toggle with parallel --v7-* tokens)
 2. Azure AD OAuth SSO with automatic account linking for existing email/password users
 3. Sidebar with dynamic swarm navigation and live mini-stats
@@ -24,6 +64,7 @@
 **Design reference:** docs/designs/agent-dashboard-v2.html
 
 **Research flags:**
+
 - Phase 50: Orq.ai trace MCP tool names unverified (list_traces/list_spans) -- must validate before planning
 - Phase 53: Custom SVG swimlane complexity -- flag for early prototype
 
@@ -35,6 +76,7 @@
 **Requirements:** 26 (UIDX-01-06, EDASH-01-06, DINT-01-06, PEXT-01-05, O365-01-03)
 
 **Planned deliverables:**
+
 1. Extended project model with status lifecycle (idea/building/testing/live) and automation type classification
 2. Zapier analytics browser scraper (Browserless.io) and Orq.ai analytics collector (MCP API) with Inngest cron scheduling
 3. Executive dashboard with KPI cards, trend charts, project status distribution, ROI estimates, and health indicators -- all from pre-computed snapshots
@@ -54,6 +96,7 @@
 **Requirements:** 24/24 satisfied (DATA-01-05, EXPR-01-06, ANLZ-01-05, TEST-01-03, ITPIPE-01-06, LOOP-01-03)
 
 **Key accomplishments:**
+
 1. Dataset-preparer subagent with MCP/REST upload, smoke test validation, stratified 60/20/20 splits, and JSON handoff contract
 2. Experiment-runner subagent with REST-only execution, adaptive 10-30s polling, holdout re-test mode, and per-run per-evaluator raw scores
 3. Results-analyzer subagent with Student's t 95% CI statistics, role-based pass/fail thresholds, category-sliced scoring, and backward-compatible hardener output
@@ -74,6 +117,7 @@
 **Requirements:** 23/23 satisfied (DEPLOY-01-08, TEST-01-05, ITER-01-07, GUARD-01-03)
 
 **Key accomplishments:**
+
 1. Deployer subagent with MCP-first/REST-fallback deployment pipeline, idempotent create-or-update, and read-back verification
 2. Tester subagent with V1.0 dataset transformation, role-based evaluator auto-selection, and 3x median experiment execution via evaluatorq SDK
 3. Iterator subagent with evaluator-to-section failure diagnosis, diff-style proposals, HITL approval, and 4 automatic stopping conditions
@@ -94,6 +138,7 @@
 **Requirements:** 50/50 satisfied (40 V1.0 + 10 V2.0)
 
 **Key accomplishments:**
+
 1. End-to-end agent swarm generation from natural language use cases — architect → researcher → spec-gen → orchestration → tools → datasets → README
 2. Adaptive pipeline with structured discussion — surfaces domain gray areas, skips research when input is detailed
 3. KB-aware pipeline — end-to-end knowledge base support from discussion through orchestration output
