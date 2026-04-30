@@ -58,10 +58,33 @@ async function loadAgent(agent_key: string): Promise<OrqAgentRow> {
   return agent;
 }
 
+/**
+ * Phase 64 (RESEARCH A1): every Orq.ai invocation MUST surface usage +
+ * billing so callers (Stage 0 budget counter, automation_runs.result.cost_cents
+ * write) have a single, mockable seam for cost telemetry. `cost_cents` is
+ * the integer-cent rounding of `billing.total_cost`. `billing` is also
+ * exposed verbatim so consumers (e.g. test mocks) that want the raw
+ * upstream shape can read it without re-parsing.
+ */
 export type InvokeResult = {
   raw: unknown; // The Orq response (caller is responsible for Zod-parsing).
   agent: OrqAgentRow;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  billing: { total_cost: number };
+  cost_cents: number; // Math.round((billing.total_cost ?? 0) * 100)
 };
+
+export function invokeResultCostCents(result: {
+  cost_cents?: number;
+  billing?: { total_cost?: number };
+}): number {
+  if (typeof result.cost_cents === "number") return result.cost_cents;
+  return Math.round((result.billing?.total_cost ?? 0) * 100);
+}
 
 /**
  * Invoke an Orq.ai agent by registry key.
@@ -132,11 +155,43 @@ export async function invokeOrqAgent(
       json && typeof json === "object" && "output" in json
         ? (json as { output: unknown }).output
         : json;
-    return { raw, agent };
+    const usageRaw =
+      json && typeof json === "object" && "usage" in json
+        ? (
+            json as {
+              usage?: {
+                prompt_tokens?: number;
+                completion_tokens?: number;
+                total_tokens?: number;
+              };
+            }
+          ).usage
+        : undefined;
+    const billingRaw =
+      json && typeof json === "object" && "billing" in json
+        ? (json as { billing?: { total_cost?: number } }).billing
+        : undefined;
+    const usage = {
+      prompt_tokens: usageRaw?.prompt_tokens ?? 0,
+      completion_tokens: usageRaw?.completion_tokens ?? 0,
+      total_tokens: usageRaw?.total_tokens ?? 0,
+    };
+    const billing = { total_cost: billingRaw?.total_cost ?? 0 };
+    const cost_cents = Math.round(billing.total_cost * 100);
+    return { raw, agent, usage, billing, cost_cents };
   } finally {
     clearTimeout(timer);
   }
 }
+
+/**
+ * Phase 64 alias of `invokeOrqAgent`. Kept as a separately importable name so
+ * Plan 01 RED tests (which mock both names) and downstream callers that want
+ * to communicate intent ("I require usage+cost telemetry") have a stable
+ * import target. The two functions return identical `InvokeResult`s — there
+ * is only one transport seam.
+ */
+export const invokeOrqAgentWithUsage = invokeOrqAgent;
 
 /** Test-only: clear the in-memory registry cache. */
 export function __resetCacheForTests() {
