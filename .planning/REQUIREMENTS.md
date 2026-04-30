@@ -117,17 +117,53 @@ Filled by roadmapper after phase mapping.
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| RFC-01..04 | TBD | pending |
-| SAFE-01..04 | TBD | pending |
-| BUDG-01..03 | TBD | pending |
-| CORD-01..04 | TBD | pending |
-| CONS-01..03 | TBD | pending |
-| TAG-01..03 | TBD | pending |
-| REVW-01..06 | TBD | pending |
-| SWRM-01..04 | TBD | pending |
-| CANO-01..04 | TBD | pending |
-| LERN-01..05 | TBD | pending |
-| TELE-01..03 | TBD | pending |
-| SALES-01..03 | TBD | pending |
+| RFC-01 | Phase 63 | pending |
+| RFC-02 | Phase 63 | pending |
+| RFC-03 | Phase 63 | pending |
+| RFC-04 | Phase 63 | pending |
+| SAFE-01 | Phase 64 | pending |
+| SAFE-02 | Phase 64 | pending |
+| SAFE-03 | Phase 64 | pending |
+| SAFE-04 | Phase 64 | pending |
+| BUDG-01 | Phase 64 | pending |
+| BUDG-02 | Phase 64 | pending |
+| BUDG-03 | Phase 64 | pending |
+| CORD-01 | Phase 65 | pending |
+| CORD-02 | Phase 65 | pending |
+| CORD-03 | Phase 65 | pending |
+| CORD-04 | Phase 65 | pending |
+| CONS-01 | Phase 66 | pending |
+| CONS-02 | Phase 66 | pending |
+| CONS-03 | Phase 66 | pending |
+| TAG-01 | Phase 67 | pending |
+| TAG-02 | Phase 67 | pending |
+| TAG-03 | Phase 67 | pending |
+| SWRM-01 | Phase 68 | pending |
+| SWRM-02 | Phase 68 | pending |
+| SWRM-03 | Phase 68 | pending |
+| SWRM-04 | Phase 68 | pending |
+| CANO-01 | Phase 69 | pending |
+| CANO-02 | Phase 69 | pending |
+| CANO-03 | Phase 69 | pending |
+| CANO-04 | Phase 69 | pending |
+| TELE-01 | Phase 70 | pending |
+| TELE-02 | Phase 70 | pending |
+| TELE-03 | Phase 70 | pending |
+| REVW-01 | Phase 71 | pending |
+| REVW-02 | Phase 71 | pending |
+| REVW-03 | Phase 71 | pending |
+| REVW-04 | Phase 71 | pending |
+| REVW-05 | Phase 71 | pending |
+| REVW-06 | Phase 71 | pending |
+| LERN-01 | Phase 72 | pending |
+| LERN-02 | Phase 72 | pending |
+| LERN-03 | Phase 72 | pending |
+| LERN-04 | Phase 72 | pending |
+| LERN-05 | Phase 72 | pending |
+| SALES-01 | Phase 73 | pending |
+| SALES-02 | Phase 73 | pending |
+| SALES-03 | Phase 73 | pending |
+
+**Coverage:** 47/47 v1 requirements mapped to 11 phases (63-73). 100%.
 
 **Total:** 47 v1 requirements across 12 categories.

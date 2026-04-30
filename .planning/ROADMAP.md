@@ -16,6 +16,7 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 | **V5.0** | Cross-Swarm Intelligence -- ecosystem mapping, drift detection, overlap analysis, and fix proposals | **Defined** |
 | **V6.0** | Executive Dashboard & UI Revamp -- 360-degree management dashboard, UI redesign, O365 SSO | **Partially Complete** |
 | **V7.0** | Agent OS -- cinematic swarm operating view with new design system, real-time data, AI briefings, delegation graphs | **Shipped 2026-04-30** |
+| **v8.0** | Agentic Platform -- 4-stage funnel canonical architecture (input safety, regex, entity enrichment, intent coordinator, handler) + per-run budgets, 4-axis Bulk Review, promotion ladder, sales-email validation | **Defining** |
 
 ---
 
@@ -300,6 +301,22 @@ Plans:
 - [x] **Phase 54: Polish** - Migrate executive dashboard, projects page, and settings page to V7 design tokens
 
 </details>
+
+### v8.0 Agentic Platform (Phases 63-73)
+
+**Milestone Goal:** Establish a standardized 4-stage funnel architecture (Stage 0 input safety, Stage 1 regex filter, Stage 2 entity enrichment, Stage 3 intent coordinator, Stage 4 handler) for every automation swarm at Moyne Roberts. v8.0 supersedes the parallel debtor-email-triage path with a single canonical flow, adds production guardrails (per-run budgets, capability/regression evals), and proves the platform standard by onboarding a second swarm (sales-email/SugarCRM) in under a day.
+
+- [ ] **Phase 63: Architecture RFC** - Doc-only canonical 4-stage funnel RFC (`docs/agentic-pipeline-architecture.md`); supersedes `debtor-email-pipeline-architecture.md`; locks Stage 2->Stage 3 context-shape contract, 4-axis override model, graduated automation hooks
+- [ ] **Phase 64: Stage 0 input safety + per-run budgets** - Prompt-injection guard (regex + lightweight LLM), `injection_suspected` review lane, hard token/cost ceiling per Inngest run, intent-scoped tool allowlist via `zapier_tools.allowed_for_intents`
+- [ ] **Phase 65: Stage 3 ranked multi-intent coordinator + orchestrator escalation** - Ranked intent list with confidence scores; Stage 3.5 orchestrator-worker spawned on low confidence / high intent count / `requires_orchestration` flag; default single-shot path remains for ~80% of inbound
+- [ ] **Phase 66: Pipeline consolidation (retire triage path)** - Single canonical `regex -> label-resolver -> coordinator -> handler` flow; `debtor-email-triage` Inngest function retired; all Stage 4 handlers invoked via `debtor-email/<intent>.requested` events
+- [ ] **Phase 67: Stage 2 closure (iController DOM tagging)** - Browser-based iController auto-tagging on matched-customer in live mode; non-blocking for downstream stages; before/after screenshots captured (Phase 56.8 absorbed)
+- [ ] **Phase 68: swarm_registry generalisation + canonical context shape** - Extend `public.swarms` with `stage1_regex_module`, `stage2_entity_resolver`, `stage3_coordinator_agent_key`, `side_effects[]`; new `swarm_intents` table replaces hardcoded intent->handler maps; verdict-worker `swarm_type` gate replaced by registry lookup
+- [ ] **Phase 69: Handler-agent canonicalisation (cross-swarm reuse)** - Refactor `debtor-copy-document-body-agent` to accept canonical context shape; entity_register block parameterized; brand list data-driven from `swarms.entity_brand`; cross-cutting `swarm_type='cross-cutting'` declaration in `public.orq_agents`
+- [ ] **Phase 70: Telemetry consolidation (pipeline_events)** - Single canonical `pipeline_events` table records every stage decision; existing tables (`classifier_rules`, `agent_runs`, `email_labels`, `automation_runs`) preserved as denormalized read-models; downstream consumers migrate to `pipeline_events`
+- [ ] **Phase 71: Bulk Review 4-axis redesign + capability/regression eval split** - Stage 1/2/3/4 independent override controls; per-row aggregated decision view + per-run cost + tool calls; `eval_type ∈ {capability, regression}` tagging on every override
+- [ ] **Phase 72: Promotion recommender + Learning Inbox** - `promotion_candidates` table aggregates per-stage telemetry; Inngest cron generates actionable recommendations; Learning Inbox UI lets operator approve candidates -> auto-creates migration/PR/config change with rollback audit trail
+- [ ] **Phase 73: Sales-email swarm (SugarCRM) - validation** - Onboard second swarm via registry INSERTs only; reuse canonicalised body agent; Bulk Review surface emerges from registry-driven UI without new components; proves cross-swarm reuse claim
 
 <details>
 <summary>V5.0 Cross-Swarm Intelligence -- DEFINED</summary>
@@ -660,6 +677,132 @@ Plans:
 Plans:
 - [x] 54-01: V7 migration across dashboard, executive, projects, settings
 
+### Phase 63: Architecture RFC
+**Goal**: Operator can read a single canonical RFC document that defines the 4-stage funnel shape and supersedes the existing debtor-email pipeline architecture, locking the cross-swarm context contract before any code is touched
+**Depends on**: Nothing (RFC-only foundation phase; locks shape for 64+)
+**Requirements**: RFC-01, RFC-02, RFC-03, RFC-04
+**Success Criteria** (what must be TRUE):
+  1. `docs/agentic-pipeline-architecture.md` exists, defines all 5 stages (Stage 0..4), and is linked from `CLAUDE.md` as the canonical doc
+  2. The Stage 2 -> Stage 3 context-shape contract (customer_id, customer_name, language, entity_brand, recent_documents[]) is documented and lookup-backend-agnostic
+  3. The 4-axis override model (Stage 1 category, Stage 2 customer, Stage 3 intent, Stage 4 handler output) is documented with per-axis learning signal
+  4. Graduated automation hooks per stage (regex promotion, sender mapping, prompt-tune triggers) are documented
+  5. Existing `docs/debtor-email-pipeline-architecture.md` is annotated as superseded with a forward-pointer to the new RFC
+**Plans**: TBD
+
+### Phase 64: Stage 0 input safety + per-run budgets
+**Goal**: Every inbound email passes through prompt-injection screening before any LLM sees it, and every pipeline run is bounded by hard token/cost ceilings with intent-scoped tool allowlists
+**Depends on**: Phase 63 (RFC must lock the canonical shape first; orchestrator-worker spawning in Phase 65 is unsafe without per-run budgets)
+**Requirements**: SAFE-01, SAFE-02, SAFE-03, SAFE-04, BUDG-01, BUDG-02, BUDG-03
+**Success Criteria** (what must be TRUE):
+  1. Emails containing prompt-injection patterns are flagged `injection_suspected` and routed to a human-only review lane, never to coordinator or handler
+  2. Operator can audit injection-flagged emails in Bulk Review with the trigger pattern (regex hit or LLM verdict) surfaced
+  3. Any pipeline run exceeding the configured token or cost ceiling halts deterministically and lands in the human queue with the budget breach reason
+  4. A copy-document handler attempting to invoke a payment-update tool is rejected by the `zapier_tools.allowed_for_intents` allowlist (no successful side-effect)
+  5. Operator sees per-email token cost in Bulk Review; cost outliers (>3x median) appear as their own override axis
+**Plans**: TBD
+
+### Phase 65: Stage 3 ranked multi-intent coordinator + orchestrator escalation
+**Goal**: The Stage 3 coordinator emits a ranked intent list and escalates to a Stage 3.5 orchestrator-worker only when the request genuinely needs decomposition, while the default fast path stays a single-shot router
+**Depends on**: Phase 64 (orchestrator-worker spawning multiple Stage 4 handlers requires per-run budgets and tool allowlists to be safe)
+**Requirements**: CORD-01, CORD-02, CORD-03, CORD-04
+**Success Criteria** (what must be TRUE):
+  1. Coordinator output is an ordered list of intents (primary + secondaries) with confidence scores, replacing the single-label output
+  2. Coordinator escalates to Stage 3.5 orchestrator-worker when `confidence < threshold` OR `intent_count >= 3` OR an intent is registry-tagged `requires_orchestration`
+  3. Orchestrator-worker spawns multiple Stage 4 handlers in parallel and synthesises their outputs into a single iController draft visible in Bulk Review
+  4. On a representative sample, ~80% of inbound stays on the single-shot path with no orchestrator overhead added
+**Plans**: TBD
+
+### Phase 66: Pipeline consolidation (retire triage path)
+**Goal**: There is exactly one canonical inbound flow (regex -> label-resolver -> coordinator -> handler) and the parallel `debtor-email-triage` path is retired
+**Depends on**: Phase 65 (cannot retire the triage path until the canonical coordinator handles ranked multi-intent)
+**Requirements**: CONS-01, CONS-02, CONS-03
+**Success Criteria** (what must be TRUE):
+  1. Every inbound debtor email passes through `regex -> label-resolver -> coordinator -> handler` with no parallel triage execution observed in telemetry
+  2. The `debtor-email-triage` Inngest function is removed (or hard-disabled with a deprecation marker) and its intent-agent role lives only in `classifier-label-resolver`
+  3. Every Stage 4 handler (copy-document body agent and any future handlers) is invoked via canonical `debtor-email/<intent>.requested` events; no direct cross-handler invocation remains
+**Plans**: TBD
+
+### Phase 67: Stage 2 closure (iController DOM tagging)
+**Goal**: When the resolver returns a matched customer in live mode, the email is automatically tagged under that customer account in iController, with the tagging step non-blocking for downstream coordinator + handler work
+**Depends on**: Phase 66 (canonical flow must be the only path before adding a side-effect to it)
+**Requirements**: TAG-01, TAG-02, TAG-03
+**Success Criteria** (what must be TRUE):
+  1. In live mode, a matched-customer email automatically receives an iController account tag with no operator action
+  2. A tagging failure surfaces as a deferred run flag and does not break Stage 3 + Stage 4 execution for that email
+  3. Operator can audit tagging actions in `email_labels` plus before/after screenshots stored alongside the run
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 68: swarm_registry generalisation + canonical context shape
+**Goal**: Adding a new swarm requires only registry INSERTs - no edits to verdict-worker, classifier, or handler code - because every swarm-specific binding lives in `public.swarms` and `swarm_intents`
+**Depends on**: Phase 63 (canonical context shape from RFC), Phase 66 (single canonical flow exists to be parameterised)
+**Requirements**: SWRM-01, SWRM-02, SWRM-03, SWRM-04
+**Success Criteria** (what must be TRUE):
+  1. `public.swarms` has `stage1_regex_module`, `stage2_entity_resolver`, `stage3_coordinator_agent_key`, `side_effects[]` jsonb, plus the canonical context-shape contract column
+  2. `swarm_intents` table exists with (`intent_key`, `handler_agent_key`, `handler_event`, `requires_orchestration`) and replaces every hardcoded intent->handler mapping
+  3. A dry-run new-swarm onboarding requires zero edits to `verdict-worker` / classifier code - registry INSERTs only
+  4. The `verdict-worker` `if swarm_type === 'debtor-email'` gate is replaced by a `side_effects[]` lookup
+**Plans**: TBD
+
+### Phase 69: Handler-agent canonicalisation (cross-swarm reuse)
+**Goal**: Existing handler agents accept a canonical context shape with data-driven brand list, so they work across debtor-email, sales-email, and future UK/IE brands without prompt edits
+**Depends on**: Phase 68 (registry must carry the canonical context shape and brand list)
+**Requirements**: CANO-01, CANO-02, CANO-03, CANO-04
+**Success Criteria** (what must be TRUE):
+  1. `debtor-copy-document-body-agent` accepts the canonical context shape; its entity_register block is parameterised and passes regression tests on debtor + sales fixtures
+  2. The brand list driving handler prompts is read from `swarms.entity_brand` registry rows, not hardcoded enums in agent prompts
+  3. Cross-cutting handler agents are declared `swarm_type='cross-cutting'` in `public.orq_agents`; per-swarm specialisation only exists where genuinely required
+  4. Onboarding a new entity_brand row produces correct handler output without any agent prompt change (UK/IE backlog scenario validated on fixtures)
+**Plans**: TBD
+
+### Phase 70: Telemetry consolidation (pipeline_events)
+**Goal**: Every stage decision flows into a single canonical `pipeline_events` table that becomes the source of truth for Bulk Review and the promotion recommender, while existing tables stay alive as denormalised read-models
+**Depends on**: Phase 66 (single canonical flow is the only thing emitting events), Phase 68 (registry shape stable so swarm_type column is meaningful)
+**Requirements**: TELE-01, TELE-02, TELE-03
+**Success Criteria** (what must be TRUE):
+  1. Every stage decision is recorded in `pipeline_events` with `swarm_type`, `stage`, `decision`, `confidence`, `override?`, `eval_type`
+  2. Existing tables (`classifier_rules`, `agent_runs`, `email_labels`, `automation_runs`) continue to populate without consumer breakage
+  3. Bulk Review and the promotion recommender both read from `pipeline_events` instead of joining 3+ legacy tables
+**Plans**: TBD
+
+### Phase 71: Bulk Review 4-axis redesign + capability/regression eval split
+**Goal**: Operators can override at any of the 4 stages independently, with each override producing a distinct learning signal tagged as either a new capability or a regression
+**Depends on**: Phase 70 (UI consumes `pipeline_events` rather than fragile multi-table joins)
+**Requirements**: REVW-01, REVW-02, REVW-03, REVW-04, REVW-05, REVW-06
+**Success Criteria** (what must be TRUE):
+  1. Operator can override at Stage 1 (wrong category) and the email re-routes to noise/archive/different category with the original verdict preserved as audit
+  2. Operator can override at Stage 2 (wrong customer) - corrects `customer_account_id` and optionally re-runs Stage 3+4
+  3. Operator can override at Stage 3 (wrong intent) and the email re-emits to a different handler-agent
+  4. Operator can override at Stage 4 (wrong handler output) and the override records `draft_quality` plus reason for handler prompt tuning
+  5. Every override is tagged `eval_type ∈ {capability, regression}` so model swaps can be measured against a stable regression set
+  6. Each email occupies one row aggregating all 4 stage decisions plus per-run cost and tool calls
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 72: Promotion recommender + Learning Inbox
+**Goal**: High-volume LLM-handled patterns surface as actionable promotion recommendations (regex / sender mapping / prompt tune) that the operator can approve into deterministic rules with full audit trail and rollback
+**Depends on**: Phase 70 (recommender consumes `pipeline_events`), Phase 71 (override signals exist with eval_type tagging)
+**Requirements**: LERN-01, LERN-02, LERN-03, LERN-04, LERN-05
+**Success Criteria** (what must be TRUE):
+  1. `promotion_candidates` table contains rows aggregated from per-stage telemetry, each suggesting a concrete change (regex rule / sender mapping / prompt tune)
+  2. An Inngest cron periodically refreshes candidates and never blocks the synchronous pipeline
+  3. Operator sees a Learning Inbox UI listing each candidate with volume, expected cost savings, and the suggested change
+  4. Operator approval of a candidate auto-creates the corresponding migration / PR / config change with full audit linking back to the LLM signals that produced it
+  5. A promoted rule that later proves wrong can be rolled back to restore the original LLM-handled signal, with rollback events traceable in the audit trail
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 73: Sales-email swarm (SugarCRM) - validation
+**Goal**: A second swarm (sales-email backed by SugarCRM) ships via registry INSERTs alone, reusing the canonicalised body agent and registry-driven Bulk Review UI, proving the platform standard works for more than one domain
+**Depends on**: Phase 68 (registry generalisation), Phase 69 (handler canonicalisation), Phase 70 (telemetry consolidation)
+**Requirements**: SALES-01, SALES-02, SALES-03
+**Success Criteria** (what must be TRUE):
+  1. Sales-email is onboarded with one regex module + one Stage 2 SugarCRM resolver + one Stage 3 coordinator agent and zero new handler-agents
+  2. Sales-email handles its own copy-invoice requests via the canonicalised cross-swarm body agent without prompt edits
+  3. The sales-email Bulk Review surface emerges automatically from the registry-driven UI - no new React components required
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 **Execution Order:**
@@ -667,6 +810,7 @@ V3.0: 34 -> 35 -> 36 -> 37 -> 37.1 -> 38 -> 38.1
 V4.0: 39 -> 40 -> 41 -> 42
 V6.0: 44 -> 45 -> 46 -> 47
 V7.0: 48 -> 49 -> 50 -> 51 -> 52 -> 53 -> 54
+v8.0: 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -693,6 +837,17 @@ V7.0: 48 -> 49 -> 50 -> 51 -> 52 -> 53 -> 54
 | 52. Live Interactivity | V7.0 | 0/TBD | Not started | - |
 | 53. Advanced Observability | V7.0 | 0/TBD | Not started | - |
 | 54. Polish | V7.0 | 1/1 | Code-complete | 2026-04-16 |
+| 63. Architecture RFC | v8.0 | 0/TBD | Not started | - |
+| 64. Stage 0 input safety + per-run budgets | v8.0 | 0/TBD | Not started | - |
+| 65. Stage 3 ranked multi-intent coordinator | v8.0 | 0/TBD | Not started | - |
+| 66. Pipeline consolidation (retire triage) | v8.0 | 0/TBD | Not started | - |
+| 67. Stage 2 closure (iController DOM tagging) | v8.0 | 0/TBD | Not started | - |
+| 68. swarm_registry generalisation | v8.0 | 0/TBD | Not started | - |
+| 69. Handler-agent canonicalisation | v8.0 | 0/TBD | Not started | - |
+| 70. Telemetry consolidation (pipeline_events) | v8.0 | 0/TBD | Not started | - |
+| 71. Bulk Review 4-axis redesign | v8.0 | 0/TBD | Not started | - |
+| 72. Promotion recommender + Learning Inbox | v8.0 | 0/TBD | Not started | - |
+| 73. Sales-email swarm (SugarCRM) validation | v8.0 | 0/TBD | Not started | - |
 
 ## Progress Summary
 
@@ -706,6 +861,7 @@ V7.0: 48 -> 49 -> 50 -> 51 -> 52 -> 53 -> 54
 | V5.0 | TBD | 0/TBD | **Defined** | - |
 | V6.0 | 44-47 (4 phases) | 6/TBD | **Partially Complete** | - |
 | V7.0 | 48-54 (7 phases) | 0/TBD | **Not started** | - |
+| v8.0 | 63-73 (11 phases) | 0/TBD | **Defining** | - |
 
 ## Backlog
 
