@@ -31,6 +31,8 @@ import { classifierPromotionCron } from "@/lib/inngest/functions/classifier-prom
 import { classifierVerdictWorker } from "@/lib/inngest/functions/classifier-verdict-worker";
 import { classifierLabelResolver } from "@/lib/inngest/functions/classifier-label-resolver";
 import { classifierInvoiceCopyHandler } from "@/lib/inngest/functions/classifier-invoice-copy-handler";
+import { stage0SafetyWorker } from "@/lib/inngest/functions/stage-0-safety-worker";
+import { budgetBreachHandler } from "@/lib/inngest/functions/budget-breach-handler";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -58,5 +60,7 @@ export const { GET, POST, PUT } = serve({
     classifierVerdictWorker,
     classifierLabelResolver,
     classifierInvoiceCopyHandler,
+    stage0SafetyWorker,
+    budgetBreachHandler,
   ],
 });

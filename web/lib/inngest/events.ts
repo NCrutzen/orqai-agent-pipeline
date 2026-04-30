@@ -241,6 +241,71 @@ export type Events = {
     };
   };
 
+  /**
+   * Phase 64 SAFE-01 / SAFE-02 / SAFE-03 — Stage 0 Input Safety.
+   *
+   * Emitted by the synchronous ingest route for every inbound email that
+   * would otherwise be fed to an LLM (the unknown bucket). Consumed by
+   * `stage-0/safety-worker`, which runs the regex screen + LLM verdict
+   * + per-invocation budget guard before forwarding to the classifier.
+   *
+   * Naming choice (RESEARCH Open Question 2): `stage-0/email.received`
+   * deliberately distinct from the legacy `debtor/email.received` triage
+   * event so the two pipelines don't collide.
+   *
+   * `safety_overridden` (Pitfall 5): operator-driven re-emit (Plan 05) sets
+   * this true to short-circuit Stage 0. The ingest route NEVER sets it.
+   */
+  "stage-0/email.received": {
+    data: {
+      automation_run_id: string;
+      email_id: string;
+      message_id: string;
+      source_mailbox: string;
+      subject: string;
+      body_text: string;
+      safety_overridden?: boolean;
+    };
+  };
+
+  /**
+   * Phase 64 BUDG-01 (D-13) — first-class per-run budget breach event.
+   *
+   * Emitted by `stage-0/safety-worker` when `budget.check()` returns
+   * `breached: true`. Consumed by `stage-0/budget-breach-handler`, which
+   * marks the originating run failed and files a Kanban human-review row.
+   *
+   * Both functions register `retries: 0` so Inngest auto-retry never
+   * amplifies cost on a breach (Pitfall 1). Breach is data, not exception.
+   */
+  "pipeline/budget_breached": {
+    data: {
+      automation_run_id: string;
+      email_id: string;
+      budget: { cost_cents: number; token_count: number };
+      reason: string;
+    };
+  };
+
+  /**
+   * Phase 64 — handoff from Stage 0 to Stage 1 (regex classifier).
+   * Emitted by `stage-0/safety-worker` ONLY when verdict='safe' (or
+   * when `safety_overridden=true`). Stage 1 worker subscribes via the
+   * existing classifier pipeline. This event is the single seam across
+   * the Stage 0 → Stage 1 trust boundary.
+   */
+  "classifier/screen.requested": {
+    data: {
+      automation_run_id: string;
+      email_id: string;
+      message_id: string;
+      source_mailbox: string;
+      subject: string;
+      body_text: string;
+      safety_overridden?: boolean;
+    };
+  };
+
   // Debtor email swarm — triage (phase 1)
   "debtor/email.received": {
     data: {

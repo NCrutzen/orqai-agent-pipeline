@@ -114,7 +114,9 @@ interface IngestResponse {
  *      categorize + archive + log pending iController-delete. Anders →
  *      skip (blijft in inbox voor bulk-review).
  *   6. als category=unknown én triage_shadow_mode=true → fire
- *      debtor/email.received event voor de triage-swarm (fire-and-forget).
+ *      stage-0/email.received event voor de Stage 0 safety-worker
+ *      (Phase 64 SAFE-01..03, fire-and-forget). Stage 0 forwards to the
+ *      classifier on verdict=safe, otherwise persists topic='safety_review'.
  *
  * iController-delete wordt NIET synchroon gedaan — die pakt de Inngest
  * cleanup-cron (elke 5 min) op via de pending-rij.
@@ -285,38 +287,78 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
 
   // Bulk-review pad: geen whitelist-match, OF whitelist maar auto-label is af.
   if (!autoActionAllowed) {
-    await admin.from("automation_runs").insert({
-      automation: "debtor-email-review",
-      status: "predicted",
-      swarm_type: "debtor-email",
-      topic: r.category ?? null,
-      entity: settings.entity,
-      mailbox_id: mailboxId,
-      result: {
-        stage: "zapier_ingest_classify",
-        message_id: messageId,
-        source_mailbox: sourceMailbox,
+    // Phase 64 SAFE-01..03 — for the LLM-bound unknown bucket we now create
+    // a Stage 0 automation_runs row first (status='pending') so that the
+    // stage-0/safety-worker has a stable id to attach its verdict (and the
+    // budget-breach-handler has a row to mark failed). The classifier-path
+    // audit row (status='predicted') stays for non-unknown bulk-review cases.
+    const isLlmBound =
+      r.category === "unknown" && settings.triage_shadow_mode && settings.entity;
+
+    let stage0RunId: string | null = null;
+    if (isLlmBound) {
+      const stage0Insert = await admin
+        .from("automation_runs")
+        .insert({
+          automation: "debtor-email-review",
+          status: "pending",
+          swarm_type: "debtor-email",
+          topic: null,
+          entity: settings.entity,
+          mailbox_id: mailboxId,
+          result: {
+            stage: "stage_0_safety_pending",
+            message_id: messageId,
+            source_mailbox: sourceMailbox,
+            entity: settings.entity,
+            subject: msg.subject,
+            from: msg.from,
+          },
+          triggered_by: "zapier:ingest",
+        })
+        .select("id")
+        .single();
+      stage0RunId = stage0Insert.data?.id ?? null;
+    } else {
+      await admin.from("automation_runs").insert({
+        automation: "debtor-email-review",
+        status: "predicted",
+        swarm_type: "debtor-email",
+        topic: r.category ?? null,
         entity: settings.entity,
-        subject: msg.subject,
-        from: msg.from,
-        predicted: { category: r.category, confidence: r.confidence, rule: r.matchedRule },
-        action: isWhitelistMatch && !settings.auto_label_enabled
-          ? "skipped_disabled"
-          : "skipped_not_whitelisted",
-      },
-      triggered_by: "zapier:ingest",
-      completed_at: isoNow,
-    });
+        mailbox_id: mailboxId,
+        result: {
+          stage: "zapier_ingest_classify",
+          message_id: messageId,
+          source_mailbox: sourceMailbox,
+          entity: settings.entity,
+          subject: msg.subject,
+          from: msg.from,
+          predicted: { category: r.category, confidence: r.confidence, rule: r.matchedRule },
+          action: isWhitelistMatch && !settings.auto_label_enabled
+            ? "skipped_disabled"
+            : "skipped_not_whitelisted",
+        },
+        triggered_by: "zapier:ingest",
+        completed_at: isoNow,
+      });
+    }
     await emitAutomationRunStale(admin, "debtor-email-review");
 
-    // Triage hook — fire-and-forget for unknown emails when shadow mode is on.
+    // Stage 0 hand-off — fire-and-forget for unknown emails when shadow mode is
+    // on. The stage-0/safety-worker (Phase 64) runs regex screen + LLM verdict
+    // + per-invocation budget guard before forwarding to the classifier via
+    // classifier/screen.requested (verdict=safe) or persisting topic=
+    // 'safety_review' (verdict=injection_suspected). Pitfall 5: this route
+    // NEVER sets safety_overridden — only operator-driven re-emit (Plan 05) does.
     let triageFired = false;
-    if (r.category === "unknown" && settings.triage_shadow_mode && settings.entity) {
-      triageFired = await fireTriageEvent({
+    if (isLlmBound && stage0RunId) {
+      triageFired = await fireStage0Event({
         admin,
+        automation_run_id: stage0RunId,
         messageId,
         sourceMailbox,
-        entity: settings.entity,
+        entity: settings.entity!,
         subject: msg.subject,
         from: msg.from,
         fromName: msg.fromName,
@@ -478,12 +520,23 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
 }
 
 /**
- * Fire the debtor/email.received Inngest event for triage. Best-effort:
- * failures are logged but do NOT propagate to the webhook response so that
- * a broken Inngest connection never breaks the regex-classifier ingest.
+ * Phase 64 SAFE-01..03 — Fire the stage-0/email.received Inngest event so
+ * the Stage 0 safety worker can run regex+LLM verdict+budget guard BEFORE
+ * the email reaches any LLM-fed classifier. Best-effort: failures are
+ * logged but do NOT propagate to the webhook response so that a broken
+ * Inngest connection never breaks the synchronous regex-classifier ingest.
+ *
+ * The Stage 0 worker emits classifier/screen.requested on verdict=safe
+ * (the new Stage 1 entry seam); on verdict=injection_suspected it persists
+ * topic='safety_review' and does NOT forward. On budget breach it emits
+ * pipeline/budget_breached (handled by budget-breach-handler with retries=0).
+ *
+ * Pitfall 5 — `safety_overridden` is INTENTIONALLY omitted here. Only the
+ * operator-driven re-emit path (Plan 05) sets it true.
  */
-async function fireTriageEvent(params: {
+async function fireStage0Event(params: {
   admin: ReturnType<typeof createAdminClient>;
+  automation_run_id: string;
   messageId: string;
   sourceMailbox: string;
   entity: EntityKey;
@@ -497,28 +550,22 @@ async function fireTriageEvent(params: {
     const emailId = await resolveOrCreateEmailRow(params);
     if (!emailId) return false;
 
-    const senderDomain = params.from.split("@")[1]?.toLowerCase() ?? "";
-    const senderFirstName = firstNameFromDisplayName(params.fromName);
-
     await inngest.send({
-      name: "debtor/email.received",
+      name: "stage-0/email.received",
       data: {
+        automation_run_id: params.automation_run_id,
         email_id: emailId,
-        graph_message_id: params.messageId,
+        message_id: params.messageId,
+        source_mailbox: params.sourceMailbox,
         subject: params.subject,
         body_text: params.bodyText,
-        sender_email: params.from,
-        sender_domain: senderDomain,
-        sender_first_name: senderFirstName,
-        mailbox: params.sourceMailbox,
-        entity: params.entity,
-        received_at: params.receivedAt,
+        // safety_overridden intentionally omitted — Pitfall 5.
       },
     });
     return true;
   } catch (err) {
     console.error(
-      `[debtor-email/ingest] triage fire failed for ${params.messageId}:`,
+      `[debtor-email/ingest] stage-0 fire failed for ${params.messageId}:`,
       err,
     );
     return false;
