@@ -3,6 +3,8 @@
 > **Status:** as-of 2026-04-29. Phase 56-02 wave 3 is in design (workers below marked "planned").
 >
 > **Supersedes:** `docs/email-agent-swarm-architecture.md` (early agent-first vision, predates the regex classifier + `swarm_categories` registry).
+>
+> **SUPERSEDED for cross-swarm shape** by [docs/agentic-pipeline/README.md](agentic-pipeline/README.md). Retained as the implementation map for the debtor-email swarm specifically.
 
 This document is the canonical map of how an inbound debtor email becomes (a) classified, (b) routed, (c) actioned. Everything else (routes, workers, Orq.ai agents, registry rows, tables) implements one of the boxes here.
 
