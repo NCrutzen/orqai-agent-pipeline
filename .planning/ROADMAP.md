@@ -704,11 +704,11 @@ Plans:
   5. Operator sees per-email token cost in Bulk Review; cost outliers (>3x median) appear as their own override axis
 **Plans**: 5 plans
 Plans:
-- [ ] 64-01-PLAN.md — Wave 0 scaffolding: RED tests, probes (Haiku + ceiling), migration (allowed_for_intents), RFC update (D-02)
-- [ ] 64-02-PLAN.md — Stage 0 pure libs: regex-screen, regex-patterns, budget-counter, llm-verdict + extend invokeOrqAgent to expose usage+cost
-- [ ] 64-03-PLAN.md — Tool allowlist enforcement in nxt-zap-client (BUDG-02 default-deny) + caller updates
-- [ ] 64-04-PLAN.md — Inngest events + workers (stage-0-safety-worker, budget-breach-handler) + ingest route handoff
-- [ ] 64-05-PLAN.md — Safety Review tab UI: data loader, queue tree node, cost cell, detail pane, 3 server actions + outlier RPC
+- [x] 64-01-PLAN.md — Wave 0 scaffolding: RED tests, probes (Haiku + ceiling), migration (allowed_for_intents), RFC update (D-02)
+- [x] 64-02-PLAN.md — Stage 0 pure libs: regex-screen, regex-patterns, budget-counter, llm-verdict + extend invokeOrqAgent to expose usage+cost
+- [x] 64-03-PLAN.md — Tool allowlist enforcement in nxt-zap-client (BUDG-02 default-deny) + caller updates
+- [x] 64-04-PLAN.md — Inngest events + workers (stage-0-safety-worker, budget-breach-handler) + ingest route handoff
+- [x] 64-05-PLAN.md — Safety Review tab UI: data loader, queue tree node, cost cell, detail pane, 3 server actions + outlier RPC
 
 
 ### Phase 65: Stage 3 ranked multi-intent coordinator + orchestrator escalation
