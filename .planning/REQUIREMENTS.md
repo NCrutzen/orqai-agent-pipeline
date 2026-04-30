@@ -11,9 +11,12 @@
 ### Architecture (RFC)
 
 - [ ] **RFC-01**: Operator can read a single canonical RFC document (`docs/agentic-pipeline-architecture.md`) that defines the 4-stage funnel shape (Stage 0 safety, Stage 1 regex, Stage 2 entity enrichment, Stage 3 intent coordinator, Stage 4 handler) and supersedes the existing `debtor-email-pipeline-architecture.md`
-- [ ] **RFC-02**: RFC documents the canonical Stage 2 → Stage 3 context-shape contract (customer_id, customer_name, language, entity_brand, recent_documents[]) so cross-swarm agents are agnostic to the lookup backend (NXT vs SugarCRM)
-- [ ] **RFC-03**: RFC documents the 4-axis override model (Stage 1 = wrong category, Stage 2 = wrong customer, Stage 3 = wrong intent, Stage 4 = wrong handler output) and how each override produces an independent learning signal
-- [ ] **RFC-04**: RFC documents the graduated automation hooks per stage (when LLM-handled patterns should promote down to deterministic rules, sender mappings, or prompt-tunes)
+- [x] **RFC-02
+**: RFC documents the canonical Stage 2 → Stage 3 context-shape contract (customer_id, customer_name, language, entity_brand, recent_documents[]) so cross-swarm agents are agnostic to the lookup backend (NXT vs SugarCRM)
+- [x] **RFC-03
+**: RFC documents the 4-axis override model (Stage 1 = wrong category, Stage 2 = wrong customer, Stage 3 = wrong intent, Stage 4 = wrong handler output) and how each override produces an independent learning signal
+- [x] **RFC-04
+**: RFC documents the graduated automation hooks per stage (when LLM-handled patterns should promote down to deterministic rules, sender mappings, or prompt-tunes)
 
 ### Stage 0 — Input safety
 

@@ -687,7 +687,10 @@ Plans:
   3. The 4-axis override model (Stage 1 category, Stage 2 customer, Stage 3 intent, Stage 4 handler output) is documented with per-axis learning signal
   4. Graduated automation hooks per stage (regex promotion, sender mapping, prompt-tune triggers) are documented
   5. Existing `docs/debtor-email-pipeline-architecture.md` is annotated as superseded with a forward-pointer to the new RFC
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 63-01-PLAN.md — Wave 1 contracts (context-shape-contract, override-model, graduated-automation)
+- [ ] 63-02-PLAN.md — Wave 2 per-stage docs (stage-0..4)
+- [ ] 63-03-PLAN.md — Wave 3 README, CLAUDE.md update, SUPERSEDED banner, D-09 verification
 
 ### Phase 64: Stage 0 input safety + per-run budgets
 **Goal**: Every inbound email passes through prompt-injection screening before any LLM sees it, and every pipeline run is bounded by hard token/cost ceilings with intent-scoped tool allowlists
