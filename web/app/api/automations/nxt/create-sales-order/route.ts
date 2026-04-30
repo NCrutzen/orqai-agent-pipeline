@@ -6,6 +6,7 @@ import {
   determinePrice,
   type CreateSalesOrderInput,
 } from "@/lib/automations/nxt-zapier/nxt-client";
+import { checkWebhookAuth } from "@/lib/automations/nxt-zapier/auth";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -38,25 +39,8 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const expected = process.env.AUTOMATION_WEBHOOK_SECRET;
-  if (!expected) {
-    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-  }
-  const provided = req.headers.get("x-webhook-secret")?.trim() ?? "";
-  if (provided !== expected.trim()) {
-    return NextResponse.json(
-      {
-        error: "Unauthorized",
-        // Geen secrets terug -- alleen lengte als debug-hint
-        debug: {
-          providedLength: provided.length,
-          expectedLength: expected.trim().length,
-          match: false,
-        },
-      },
-      { status: 401 }
-    );
-  }
+  const authError = checkWebhookAuth(req);
+  if (authError) return authError;
 
   let body: unknown;
   try {

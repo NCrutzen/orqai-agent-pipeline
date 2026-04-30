@@ -13,6 +13,11 @@
 
 const authentication = require("./authentication");
 const createSalesOrder = require("./creates/sales-order");
+const customerList = require("./triggers/customers");
+const siteList = require("./triggers/sites");
+const brandList = require("./triggers/brands");
+const orderTypeList = require("./triggers/order-types");
+const itemList = require("./triggers/items");
 
 const addAuthHeader = (request, z, bundle) => {
   if (bundle.authData.secret) {
@@ -26,7 +31,13 @@ module.exports = {
   platformVersion: require("zapier-platform-core").version,
   authentication,
   beforeRequest: [addAuthHeader],
-  triggers: {},
+  triggers: {
+    [customerList.key]: customerList,
+    [siteList.key]: siteList,
+    [brandList.key]: brandList,
+    [orderTypeList.key]: orderTypeList,
+    [itemList.key]: itemList,
+  },
   searches: {},
   creates: {
     [createSalesOrder.key]: createSalesOrder,
