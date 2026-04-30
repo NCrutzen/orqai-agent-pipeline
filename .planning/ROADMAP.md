@@ -237,6 +237,16 @@ Plans:
 - [x] 61-02-PLAN.md — 3-col layout + page.tsx ?selected loader + rename row-list/row-strip (no buttons) + new detail-pane + new keyboard-shortcuts + queue-tree summary header + Pending sibling node
 - [x] 61-03-PLAN.md — Visual polish (Lucide audit, min-w-0 sweep, kbd styling) + 33-item manual UAT checkpoint
 
+### Phase 62: classifier-rules-readability — Maak het classifier-rules dashboard begrijpelijker voor operators: groepeer rules per category, sectioneer no_match als system-row, toon human-readable label en link naar regex-implementatie in classify.ts, en introduceer overlap-lint waarschuwing bij seeden van nieuwe candidates. Doel: operator kan zonder code-toegang begrijpen wat elke rule doet en waarom, zonder de promotion-machinerie (Wilson CI per rule_key) te raken.
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 61
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 62 to break down)
+
 ---
 
 ## Phases
