@@ -4,7 +4,8 @@ Centraal platform voor AI-driven automations bij Moyne Roberts.
 
 ## Canonical Architecture Docs
 
-- **Debtor Email Pipeline** → `docs/debtor-email-pipeline-architecture.md` — definitive flow from Outlook ingest through classifier, swarm_categories registry, per-category handlers (label-resolver, invoice-copy), Bulk Review vs Kanban surfaces. Read this before editing any file in `web/lib/automations/debtor-email/` or `web/app/api/automations/debtor*/`.
+- **Agentic Pipeline (cross-swarm canonical)** → `docs/agentic-pipeline/README.md` — the v8.0 5-stage funnel architecture (Stage 0 safety → Stage 1 regex → Stage 2 entity → Stage 3 coordinator → Stage 4 handler), Stage 2→3 context-shape contract, 4-axis override model, graduated-automation hooks. Read this BEFORE designing any new agentic pipeline or extending an existing swarm.
+- **Debtor Email Pipeline (swarm-specific implementation)** → `docs/debtor-email-pipeline-architecture.md` — implementation map for the debtor-email swarm specifically: Outlook ingest, classifier, swarm_categories registry, per-category handlers (label-resolver, invoice-copy), Bulk Review vs Kanban surfaces. Read this before editing any file in `web/lib/automations/debtor-email/` or `web/app/api/automations/debtor*/`.
 
 ## Auto-loaded Skills
 - **Sketch findings voor agent-workforce** (design decisions, CSS patterns, visual direction voor Smeba Draft Review frontend) → `Skill("sketch-findings-agent-workforce")`
