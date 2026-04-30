@@ -31,7 +31,9 @@ Stage 0 is **NOT YET SHIPPED**. Phase 64 implements the prompt-injection regex p
                       └─────────────────────┘
 ```
 
-The regex pass is cheap and runs on every inbound. The LLM verdict step is conditional: it runs only when the regex pass is inconclusive (neither obviously safe nor obviously hostile). `over_budget` short-circuits the whole pipeline when the per-run ceiling has already been spent on retries earlier in the same conversation.
+Stage 0 runs both a regex pass and an LLM verdict pass on every inbound email. The two layers are independent — regex provides a deterministic, free audit trail and seeds graduated-automation telemetry, while the LLM verdict (Haiku-class via Orq.ai Router) provides the binding classification. They both always run, and both contribute to the per-email cost surfaced as override axis 4. Rationale (Phase 64 D-01): a uniform per-email cost signal is more valuable than the marginal cost saved by skipping Haiku on regex-clear emails (~€0.0003/email). `over_budget` short-circuits the whole pipeline when the per-run ceiling has already been spent on retries earlier in the same conversation.
+
+> Updated 2026-04-30 in Phase 64 (D-02): the previous RFC paragraph gated the verdict on regex outcome; that wording has been superseded by uniform LLM-on-every-email.
 
 ## Decision Surface
 
