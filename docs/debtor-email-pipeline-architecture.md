@@ -181,7 +181,7 @@ DO NOT archive the Outlook message
 | `classifier-corpus-backfill` | event | Build labeled corpus for rule tuning |
 | `labeling-flip-cron` | cron | Flip dry_run per mailbox at scheduled times |
 | `classifier-label-resolver` *(planned)* | `debtor-email/label-resolve.requested` | Wave 3 — unknown handler |
-| `classifier-invoice-copy-handler` *(planned)* | `debtor-email/invoice-copy.requested` | Wave 3 — invoice copy handler |
+| `classifier-invoice-copy-handler` | `debtor-email/invoice-copy.requested` | Wave 3 part 2 — operator-override-driven invoice copy handler (extract → fetch-document → body agent → create-draft → email_labels[invoice_copy_drafted]) |
 
 ### NXT-Zap integration (registry-driven)
 | tool_id | pattern | callback_route | Purpose |
@@ -420,8 +420,8 @@ Seeded today (see `supabase/migrations/20260429g_orq_agents_registry.sql`):
 
 | `agent_key` | `orqai_id` | `swarm_type` | Purpose |
 |---|---|---|---|
-| `debtor-intent-agent` | `01KPWWA338NDNEJZQGJCTVPMY8` | `debtor-email` | Stage 2 LLM classifier on `unknown`; routes into 8 actionable intents |
-| `debtor-copy-document-body-agent` | `01KPWWCCEX26VYT9E21Q43XN4S` | `debtor-email` | Compose invoice-copy reply HTML body for iController draft |
+| `debtor-intent-agent` | `01KQECK191GE21CH8D8KEMTM9J` | `debtor-email` | Stage 2 LLM classifier on `unknown`; routes into 8 actionable intents |
+| `debtor-copy-document-body-agent` | `01KQECMBEMRKX28E0F0T64A43K` | `debtor-email` | Compose invoice-copy reply HTML body for iController draft |
 | `label-tiebreaker` | _placeholder, enabled=false_ | `cross-cutting` | Multi-candidate disambiguation in resolveDebtor |
 
 The label-tiebreaker row is seeded with `enabled=false` until the operator fills in the real `orqai_id` and flips the row enabled. Until then `lib/automations/debtor-email/llm-tiebreaker.ts` falls back to `LABEL_TIEBREAKER_AGENT_SLUG` env var transparently.
@@ -432,6 +432,6 @@ Future agents (stubs at `Agents/debtor-email-swarm/agents/` waiting for Phase 2 
 
 - Phase 56-02 — async-callback pivot, brand_id filter, callback route, resolver wired (DONE)
 - Phase 56-02 wave 3 part 1 — orq_agents registry + label-resolver Inngest worker + flip `unknown` row (DONE 2026-04-29)
-- Phase 56-02 wave 3 part 2 — invoice-copy handler + flip `invoice_copy_request` row (NEXT)
+- Phase 56-02 wave 3 part 2 — invoice-copy handler + flip `invoice_copy_request` row + email_labels feedback columns (DONE 2026-04-30)
 - Phase 56.7 — swarm_registry generalization (in design, see `.planning/phases/56.7-swarm-registry/`)
 - Phase 56.8 — iController DOM step for matched-customer labeling

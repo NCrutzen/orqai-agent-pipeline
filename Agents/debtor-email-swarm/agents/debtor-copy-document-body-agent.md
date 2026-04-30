@@ -5,11 +5,11 @@ version: 2026-04-23.v1
 swarm: debtor-email-swarm
 phase: 1
 pattern: external-orchestration (Inngest)
-orqai_id: "01KPWWCCEX26VYT9E21Q43XN4S"
+orqai_id: "01KQECMBEMRKX28E0F0T64A43K"
 orqai_project_id: "019db9c0-c45a-7000-ab48-ebde3557b891"
-orqai_project_key: "debtor-team"
-orqai_studio_url: "https://my.orq.ai/cura/agents/01KPWWCCEX26VYT9E21Q43XN4S"
-deployed_at: "2026-04-23T10:00:00Z"
+orqai_project_key: "Debtor Team"
+orqai_studio_url: "https://my.orq.ai/cura/agents/01KQECMBEMRKX28E0F0T64A43K"
+deployed_at: "2026-04-30T00:00:00Z"
 deploy_channel: "mcp"
 ---
 

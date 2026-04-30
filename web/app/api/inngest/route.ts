@@ -30,6 +30,7 @@ import { classifierSpotcheckSampler } from "@/lib/inngest/functions/classifier-s
 import { classifierPromotionCron } from "@/lib/inngest/functions/classifier-promotion-cron";
 import { classifierVerdictWorker } from "@/lib/inngest/functions/classifier-verdict-worker";
 import { classifierLabelResolver } from "@/lib/inngest/functions/classifier-label-resolver";
+import { classifierInvoiceCopyHandler } from "@/lib/inngest/functions/classifier-invoice-copy-handler";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -56,5 +57,6 @@ export const { GET, POST, PUT } = serve({
     classifierPromotionCron,
     classifierVerdictWorker,
     classifierLabelResolver,
+    classifierInvoiceCopyHandler,
   ],
 });
