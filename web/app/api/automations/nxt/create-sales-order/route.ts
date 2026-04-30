@@ -42,8 +42,20 @@ export async function POST(req: Request) {
   if (!expected) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
-  if (req.headers.get("x-webhook-secret") !== expected) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const provided = req.headers.get("x-webhook-secret")?.trim() ?? "";
+  if (provided !== expected.trim()) {
+    return NextResponse.json(
+      {
+        error: "Unauthorized",
+        // Geen secrets terug -- alleen lengte als debug-hint
+        debug: {
+          providedLength: provided.length,
+          expectedLength: expected.trim().length,
+          match: false,
+        },
+      },
+      { status: 401 }
+    );
   }
 
   let body: unknown;
