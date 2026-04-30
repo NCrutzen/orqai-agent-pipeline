@@ -92,7 +92,7 @@ export async function resolveDebtor(args: ResolveArgs): Promise<ResolveResult> {
       nxt_database: args.nxt_database,
       brand_id: args.brand_id,
       sender_email: args.from_email,
-    }).catch((err) => {
+    }, "unknown").catch((err) => {
       console.warn(
         `[resolveDebtor] layer 2 (sender) failed, falling through: ${err instanceof Error ? err.message : err}`,
       );
@@ -124,7 +124,7 @@ export async function resolveDebtor(args: ResolveArgs): Promise<ResolveResult> {
       nxt_database: args.nxt_database,
       brand_id: args.brand_id,
       invoice_numbers: invoices.candidates,
-    }).catch((err) => {
+    }, "unknown").catch((err) => {
       console.warn(
         `[resolveDebtor] layer 3 (identifier) failed, falling through: ${err instanceof Error ? err.message : err}`,
       );
@@ -140,7 +140,7 @@ export async function resolveDebtor(args: ResolveArgs): Promise<ResolveResult> {
         nxt_database: args.nxt_database,
         brand_id: args.brand_id,
         customer_ids: uniqueCustomerIds,
-      });
+      }, "unknown");
       const m = detail.matches[0];
       return {
         method: "identifier_match",
@@ -181,7 +181,7 @@ async function llmTiebreak(
     nxt_database: args.nxt_database,
     brand_id: args.brand_id,
     customer_ids: customerIds,
-  });
+  }, "unknown");
   const out = await callTiebreaker({
     email_subject: args.subject,
     email_body: args.body_text,

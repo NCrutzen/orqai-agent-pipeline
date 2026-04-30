@@ -18,6 +18,7 @@ const TOOL_ROWS = [
     auth_field_name: "auth",
     callback_route: "/api/automations/debtor/nxt-lookup/callback",
     enabled: true,
+    allowed_for_intents: ["unknown", "invoice_copy_request"],
   },
   {
     tool_id: "nxt.identifier_lookup",
@@ -29,6 +30,7 @@ const TOOL_ROWS = [
     auth_field_name: "auth",
     callback_route: "/api/automations/debtor/nxt-lookup/callback",
     enabled: true,
+    allowed_for_intents: ["unknown", "invoice_copy_request"],
   },
   {
     tool_id: "nxt.legacy_sync",
@@ -40,6 +42,7 @@ const TOOL_ROWS = [
     auth_field_name: "auth",
     callback_route: null,
     enabled: true,
+    allowed_for_intents: ["unknown"],
   },
 ];
 
@@ -148,7 +151,7 @@ describe("callNxtTool (async_callback)", () => {
     const promise = callNxtTool("nxt.contact_lookup", {
       nxt_database: "nxt_benelux_prod",
       brand_id: "SB", sender_email: "x@y.nl",
-    });
+    }, "unknown");
 
     // Wait one tick so the subscribe + initial-select races settle, then
     // simulate the Zap callback updating the row.
@@ -208,7 +211,7 @@ describe("callNxtTool (async_callback)", () => {
         nxt_database: "nxt_benelux_prod",
         brand_id: "smeba", // lowercase, too long
         sender_email: "x@y.nl",
-      }),
+      }, "unknown"),
     ).rejects.toThrow(/brand_id "smeba" must match/);
   });
 
@@ -226,9 +229,10 @@ describe("callNxtTool (async_callback)", () => {
     // a synthetic id. Use type cast — the production NxtToolId union
     // intentionally excludes legacy_sync.
     await expect(
-      (clientMod.callNxtTool as unknown as (id: string, input: unknown) => Promise<unknown>)(
+      (clientMod.callNxtTool as unknown as (id: string, input: unknown, intent: string) => Promise<unknown>)(
         "nxt.legacy_sync",
         { nxt_database: "nxt_benelux_prod", brand_id: "SB", sender_email: "x@y.nl" },
+        "unknown",
       ),
     ).rejects.toThrow(/pattern=sync, expected async_callback/);
   });
@@ -248,7 +252,7 @@ describe("callNxtTool (async_callback)", () => {
       callNxtTool("nxt.contact_lookup", {
         nxt_database: "nxt_benelux_prod",
         brand_id: "SB", sender_email: "x@y.nl",
-      }),
+      }, "unknown"),
     ).rejects.toThrow(/DEBTOR_FETCH_WEBHOOK_SECRET/);
   });
 
@@ -267,7 +271,7 @@ describe("callNxtTool (async_callback)", () => {
       callNxtTool("nxt.contact_lookup", {
         nxt_database: "nxt_benelux_prod",
         brand_id: "SB", sender_email: "x@y.nl",
-      }),
+      }, "unknown"),
     ).rejects.toThrow(/NEXT_PUBLIC_APP_URL/);
   });
 
@@ -284,7 +288,7 @@ describe("callNxtTool (async_callback)", () => {
     const promise = callNxtTool("nxt.contact_lookup", {
       nxt_database: "nxt_benelux_prod",
       brand_id: "SB", sender_email: "x@y.nl",
-    });
+    }, "unknown");
 
     await Promise.resolve();
     setTimeout(() => {
