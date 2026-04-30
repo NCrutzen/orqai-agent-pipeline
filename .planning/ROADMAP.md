@@ -702,7 +702,14 @@ Plans:
   3. Any pipeline run exceeding the configured token or cost ceiling halts deterministically and lands in the human queue with the budget breach reason
   4. A copy-document handler attempting to invoke a payment-update tool is rejected by the `zapier_tools.allowed_for_intents` allowlist (no successful side-effect)
   5. Operator sees per-email token cost in Bulk Review; cost outliers (>3x median) appear as their own override axis
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [ ] 64-01-PLAN.md — Wave 0 scaffolding: RED tests, probes (Haiku + ceiling), migration (allowed_for_intents), RFC update (D-02)
+- [ ] 64-02-PLAN.md — Stage 0 pure libs: regex-screen, regex-patterns, budget-counter, llm-verdict + extend invokeOrqAgent to expose usage+cost
+- [ ] 64-03-PLAN.md — Tool allowlist enforcement in nxt-zap-client (BUDG-02 default-deny) + caller updates
+- [ ] 64-04-PLAN.md — Inngest events + workers (stage-0-safety-worker, budget-breach-handler) + ingest route handoff
+- [ ] 64-05-PLAN.md — Safety Review tab UI: data loader, queue tree node, cost cell, detail pane, 3 server actions + outlier RPC
+
 
 ### Phase 65: Stage 3 ranked multi-intent coordinator + orchestrator escalation
 **Goal**: The Stage 3 coordinator emits a ranked intent list and escalates to a Stage 3.5 orchestrator-worker only when the request genuinely needs decomposition, while the default fast path stays a single-shot router

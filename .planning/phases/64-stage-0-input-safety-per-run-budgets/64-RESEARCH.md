@@ -724,27 +724,27 @@ export const budgetBreachHandler = inngest.createFunction(
 | A6 | Existing `automation_runs.result` jsonb shape can absorb Stage 0 fields without schema migration | Pattern 2 | The column is `jsonb` (no schema constraint) — verified. But indices on `result->>'cost_cents'` would help BUDG-03 query perf; planner may want to add a GIN index. [VERIFIED column type; index decision ASSUMED] |
 | A7 | Bumping `@orq-ai/node` from 4.7.7 → 4.8.1 is non-breaking | Standard Stack version verification | Minor bump in same major; should be safe but not required for Phase 64. [ASSUMED — semver convention] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Where does `safety_overridden` audit flag live — `automation_runs.result.safety_overridden` (jsonb field) or new column on `email_labels`?**
    - What we know: D-11 says re-process with `safety_overridden` audit flag.
    - What's unclear: whether axis-1 telemetry math (graduated automation) needs to filter overridden rows out, which would prefer a top-level column.
-   - Recommendation: **Use `automation_runs.result.safety_overridden` (jsonb) for Phase 64; promote to a column in Phase 71 if axis math needs it.** Avoids a schema migration for what may be ephemeral.
+   - RESOLVED: **Use `automation_runs.result.safety_overridden` (jsonb) for Phase 64; promote to a column in Phase 71 if axis math needs it.** Avoids a schema migration for what may be ephemeral.
 
 2. **Should `pipeline/email.received` replace the current `debtor/email.received` (used for shadow-triage) or coexist?**
    - What we know: Existing `/ingest` route already fires `debtor/email.received` for shadow-triage.
    - What's unclear: Phase 64 introduces a similar event — naming-collision risk.
-   - Recommendation: **Use `stage-0/email.received` as the Stage 0 trigger to avoid collision.** Plan can rename in a later phase if RFC alignment requires.
+   - RESOLVED: **Use `stage-0/email.received` as the Stage 0 trigger to avoid collision.** Plan can rename in a later phase if RFC alignment requires.
 
 3. **Does the existing `classifier-verdict-worker` need a budget accumulator too, or only Stage 0?**
    - What we know: BUDG-01 says "each pipeline run" gets a ceiling (D-15 = per-Inngest-invocation).
    - What's unclear: Stage 0 emits an event that triggers the classifier, which is a SEPARATE Inngest invocation per D-15. So they get separate budgets.
-   - Recommendation: **Phase 64 ships budget-tracking ONLY in Stage 0. Plan should document this as known limitation; classifier + invoice-copy handler get budget tracking in Phase 65/66.** Otherwise scope creep.
+   - RESOLVED: **Phase 64 ships budget-tracking ONLY in Stage 0. Plan should document this as known limitation; classifier + invoice-copy handler get budget tracking in Phase 65/66.** Otherwise scope creep.
 
 4. **Should the Bulk Review SQL median computation become a materialised view?**
    - What we know: Volume is small; live query is cheap today.
    - What's unclear: Won't be cheap forever.
-   - Recommendation: **Live query for Phase 64; promote to materialised view if pageload exceeds 200ms in production.** Defer to Phase 70 telemetry consolidation.
+   - RESOLVED: **Live query for Phase 64; promote to materialised view if pageload exceeds 200ms in production.** Defer to Phase 70 telemetry consolidation.
 
 ## Environment Availability
 
