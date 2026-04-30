@@ -72,6 +72,13 @@ export interface PredictedRow {
    * row is not part of any outlier query.
    */
   is_cost_outlier?: boolean;
+  /** Phase 64-05 (BUDG-03). Per-row median/sample window metadata
+   *  threaded from the same RPC so the AXIS 4 card can render the
+   *  human readout ("N cents — Mx rolling 7-day median") without a
+   *  second roundtrip. */
+  median_cost_cents?: number | null;
+  sample_count?: number;
+  cost_cents?: number;
 }
 
 export interface PageData {
@@ -128,14 +135,27 @@ export async function loadPageData(
     const outlierRes = await admin.rpc("automation_runs_with_outlier", {
       p_swarm_type: swarmType,
     });
-    const outlierMap = new Map<string, boolean>();
-    for (const o of (outlierRes.data as Array<{ id: string; is_cost_outlier: boolean }> | null) ?? []) {
-      outlierMap.set(o.id, o.is_cost_outlier);
+    interface OutlierRow {
+      id: string;
+      is_cost_outlier: boolean;
+      cost_cents: number;
+      median_cost_cents: number | null;
+      sample_count: number;
     }
-    rows = safetyRows.map((r) => ({
-      ...r,
-      is_cost_outlier: outlierMap.get(r.id) ?? false,
-    }));
+    const outlierMap = new Map<string, OutlierRow>();
+    for (const o of (outlierRes.data as OutlierRow[] | null) ?? []) {
+      outlierMap.set(o.id, o);
+    }
+    rows = safetyRows.map((r) => {
+      const o = outlierMap.get(r.id);
+      return {
+        ...r,
+        is_cost_outlier: o?.is_cost_outlier ?? false,
+        cost_cents: o?.cost_cents ?? 0,
+        median_cost_cents: o?.median_cost_cents ?? null,
+        sample_count: o?.sample_count ?? 0,
+      };
+    });
   } else {
     const listQuery = admin
       .from("automation_runs")

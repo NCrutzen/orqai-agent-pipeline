@@ -10,6 +10,7 @@
 
 import type { PredictedRow } from "./page";
 import { prefetchReviewEmailBody } from "./detail-pane";
+import { BudgetBreachBadge } from "./components/budget-breach-badge";
 
 interface RowStripProps {
   row: PredictedRow;
@@ -24,6 +25,10 @@ interface ResultPayload {
   from?: string;
   fromName?: string;
   predicted?: { rule?: string; category?: string };
+  /** Phase 64-05 (BUDG-01). Verbatim string from
+   *  `pipeline.budget_breached.data.reason` (e.g. "cost_cents 18 > 15 ceiling").
+   *  Rendered as-is so operator + log pipeline see the same text. */
+  reason?: string;
 }
 
 function readResult(row: PredictedRow): ResultPayload {
@@ -69,6 +74,14 @@ export function RowStrip({ row, selected, onSelect }: RowStripProps) {
           <span> · </span>
           <span style={{ fontVariantNumeric: "tabular-nums" }}>{time}</span>
         </div>
+        {/* Phase 64-05 (BUDG-01 / BUDG-03). Per-UI-SPEC: budget-breach rows
+            carry a pill chip on the row strip so operators can spot halted
+            runs at a glance without opening the detail pane. */}
+        {row.topic === "budget_breach" && result.reason && (
+          <div className="mt-1">
+            <BudgetBreachBadge reason={result.reason} />
+          </div>
+        )}
       </div>
     </button>
   );

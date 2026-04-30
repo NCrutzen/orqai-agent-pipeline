@@ -34,6 +34,8 @@ import { fetchReviewEmailBody, recordVerdict } from "./actions";
 import type { PredictedRow } from "./page";
 import type { SwarmCategoryRow } from "@/lib/swarms/types";
 import { useSelection } from "./selection-context";
+import { SafetyDetailPane } from "./components/safety-detail-pane";
+import { CostOutlierAxisCard } from "./components/cost-outlier-axis-card";
 
 // ---- Body cache (module-level so prefetch survives detail-pane remounts) -
 
@@ -368,6 +370,32 @@ export function DetailPane({
         <p className="text-[14px] text-[var(--v7-muted)] text-center">
           Select a row from the list to review it.
         </p>
+      </aside>
+    );
+  }
+
+  // Phase 64-05 (SAFE-02 / SAFE-04 / BUDG-03). Stage 0 safety_review rows
+  // get a dedicated detail pane variant. Body cache reuse: the safety pane
+  // can highlight matched_span against the live email body when available.
+  if (row.topic === "safety_review") {
+    const cachedBody = bodyCache.get(row.id)?.bodyText ?? bodyText ?? null;
+    return (
+      <aside
+        className="min-w-0 rounded-[var(--v7-radius-card)] border border-[var(--v7-line)] bg-[var(--v7-panel-2)] p-5 flex flex-col gap-4"
+        aria-label="Safety review detail pane"
+      >
+        <h2 className="text-[20px] font-semibold leading-[1.3] font-[family-name:var(--font-cabinet)] break-words">
+          Stage 0 safety review
+        </h2>
+        <SafetyDetailPane row={row} bodyText={cachedBody} />
+        {row.median_cost_cents !== undefined &&
+          row.sample_count !== undefined && (
+            <CostOutlierAxisCard
+              cost_cents={row.cost_cents ?? 0}
+              median_cost_cents={row.median_cost_cents}
+              sample_count={row.sample_count}
+            />
+          )}
       </aside>
     );
   }
