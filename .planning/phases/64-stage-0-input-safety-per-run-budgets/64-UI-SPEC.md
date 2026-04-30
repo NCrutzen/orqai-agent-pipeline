@@ -1,10 +1,11 @@
 ---
 phase: 64
 slug: stage-0-input-safety-per-run-budgets
-status: draft
+status: approved
 shadcn_initialized: false
 preset: not applicable
 created: 2026-04-30
+reviewed_at: 2026-04-30
 ---
 
 # Phase 64 — UI Design Contract
