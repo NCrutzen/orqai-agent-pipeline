@@ -23,6 +23,7 @@ import * as adminMod from "@/lib/supabase/admin";
 import {
   callNxtTool,
   ToolNotAllowedForIntentError,
+  __resetZapierToolCacheForTests,
 } from "../nxt-zap-client";
 
 const adminMocks = (adminMod as unknown as { __mocks__: any }).__mocks__;
@@ -40,6 +41,7 @@ const BASE_INPUT = {
 };
 
 beforeEach(() => {
+  __resetZapierToolCacheForTests();
   adminMocks.from.mockClear();
   adminMocks.select.mockClear();
   adminMocks.eq.mockReset();
@@ -65,7 +67,7 @@ describe("BUDG-02: ToolNotAllowedForIntentError is a named export", () => {
 describe("BUDG-02: default-deny when allowed_for_intents is NULL", () => {
   it("throws ToolNotAllowedForIntentError when the registry row has NULL allowed_for_intents", async () => {
     setRegistryRow({
-      tool_id: "nxt.invoice_fetch",
+      tool_id: "nxt.identifier_lookup",
       backend: "nxt",
       pattern: "async_callback",
       target_url: "https://hooks.zapier.com/x",

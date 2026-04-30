@@ -42,10 +42,24 @@ type ZapierToolRow = {
   auth_field_name: string;
   callback_route: string | null;
   enabled: boolean;
+  allowed_for_intents: string[] | null;
 };
+
+/** Phase 64 BUDG-02 / D-06: default-deny intent allowlist breach. */
+export class ToolNotAllowedForIntentError extends Error {
+  constructor(public tool_id: string, public intent: string) {
+    super(`Tool "${tool_id}" not allowed for intent "${intent}"`);
+    this.name = "ToolNotAllowedForIntentError";
+  }
+}
 
 let cache: { fetched_at: number; tools: Map<string, ZapierToolRow> } | null =
   null;
+
+/** Test-only: drop the in-process registry cache so each test sees a fresh DB read. */
+export function __resetZapierToolCacheForTests(): void {
+  cache = null;
+}
 
 async function loadTool(tool_id: string): Promise<ZapierToolRow> {
   const now = Date.now();
@@ -54,7 +68,7 @@ async function loadTool(tool_id: string): Promise<ZapierToolRow> {
     const { data, error } = await admin
       .from("zapier_tools")
       .select(
-        "tool_id, backend, pattern, target_url, auth_method, auth_secret_env, auth_field_name, callback_route, enabled",
+        "tool_id, backend, pattern, target_url, auth_method, auth_secret_env, auth_field_name, callback_route, enabled, allowed_for_intents",
       )
       .eq("enabled", true);
     if (error) {
@@ -174,12 +188,22 @@ export async function callNxtTool<T extends NxtToolId>(
       : T extends "nxt.candidate_details"
         ? CandidateDetailsInput
         : never,
+  intent: string,
 ): Promise<z.infer<(typeof ResponseSchemaByTool)[T]>> {
+  const tool = await loadTool(tool_id);
+
+  // Phase 64 BUDG-02 / D-06: default-deny intent allowlist.
+  // NULL or empty allowed_for_intents ⇒ no intent can invoke. Fires immediately
+  // after registry load and BEFORE any other validation so a forbidden tool
+  // call is rejected without leaking unrelated env-var hints.
+  const allowed = tool.allowed_for_intents ?? [];
+  if (allowed.length === 0 || !allowed.includes(intent)) {
+    throw new ToolNotAllowedForIntentError(tool_id, intent);
+  }
+
   if (!APP_URL) {
     throw new Error("NEXT_PUBLIC_APP_URL is not set — cannot build callback_url");
   }
-
-  const tool = await loadTool(tool_id);
 
   if (tool.pattern !== "async_callback") {
     throw new Error(
@@ -365,11 +389,11 @@ async function waitForLookupRequest(
   });
 }
 
-export const lookupSenderToAccount = (input: ContactLookupInput) =>
-  callNxtTool("nxt.contact_lookup", input);
+export const lookupSenderToAccount = (input: ContactLookupInput, intent: string) =>
+  callNxtTool("nxt.contact_lookup", input, intent);
 
-export const lookupIdentifierToAccount = (input: IdentifierLookupInput) =>
-  callNxtTool("nxt.identifier_lookup", input);
+export const lookupIdentifierToAccount = (input: IdentifierLookupInput, intent: string) =>
+  callNxtTool("nxt.identifier_lookup", input, intent);
 
-export const lookupCandidateDetails = (input: CandidateDetailsInput) =>
-  callNxtTool("nxt.candidate_details", input);
+export const lookupCandidateDetails = (input: CandidateDetailsInput, intent: string) =>
+  callNxtTool("nxt.candidate_details", input, intent);
