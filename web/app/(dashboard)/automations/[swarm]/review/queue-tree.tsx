@@ -383,6 +383,29 @@ export function QueueTree({
         QUEUE BY {(treeLevels[0] ?? "TOPIC").toUpperCase().replace(/_/g, " ")}
       </div>
       <div role="tree" className="flex flex-col gap-0.5">
+        {/* Phase 64-05 (SAFE-02). Safety review sibling node — sits ABOVE the
+            topic tree per 64-UI-SPEC.md Component Inventory. Count comes from
+            the counts RPC (rows where topic='safety_review'); active state
+            uses --v7-brand-primary (the only new placement of the accent
+            token in this phase). Clicking sets ?tab=safety&topic=safety_review. */}
+        <div className="mb-2 pb-2 border-b border-[var(--v7-line)]">
+          <TreeRow
+            innerRef={registerRow}
+            label="Safety review"
+            count={counts
+              .filter((c) => c.topic === "safety_review")
+              .reduce((s, c) => s + c.count, 0)}
+            depth={0}
+            active={selection.tab === "safety"}
+            expandable={false}
+            onActivate={() =>
+              router.push(
+                `/automations/${swarmType}/review?tab=safety&topic=safety_review`,
+              )
+            }
+            ariaLabel="Stage 0 safety review queue"
+          />
+        </div>
         {tree.length === 0 && (
           <div className="px-3 py-6 text-[13px] text-[var(--v7-muted)]">
             No predicted rows yet.

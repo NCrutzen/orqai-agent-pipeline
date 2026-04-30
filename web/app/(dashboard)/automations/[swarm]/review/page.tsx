@@ -65,6 +65,13 @@ export interface PredictedRow {
   mailbox_id: number | null;
   result: unknown;
   created_at: string;
+  /**
+   * Phase 64-05 (BUDG-03 / D-17). Computed at read time by the
+   * `automation_runs_with_outlier` RPC. False when the 7-day sample
+   * window has <100 entries (Pitfall 6 bootstrap guard) or when the
+   * row is not part of any outlier query.
+   */
+  is_cost_outlier?: boolean;
 }
 
 export interface PageData {
@@ -95,25 +102,61 @@ export async function loadPageData(
   const counts = (countsRes.data as QueueCountRow[] | null) ?? [];
 
   // 2. Predicted rows: cursor pagination, page-size 100.
-  const listQuery = admin
-    .from("automation_runs")
-    .select("*")
-    .eq("status", "predicted")
-    .eq("swarm_type", swarmType)
-    .order("created_at", { ascending: false })
-    .limit(100);
-  if (params.before) listQuery.lt("created_at", params.before);
-  if (params.topic) listQuery.eq("topic", params.topic);
-  if (params.entity) listQuery.eq("entity", params.entity);
-  if (params.mailbox) {
-    const mb = parseInt(params.mailbox, 10);
-    if (!Number.isNaN(mb)) listQuery.eq("mailbox_id", mb);
+  //
+  // Phase 64-05 (SAFE-02 / SAFE-04): when params.tab==='safety', filter on
+  // topic='safety_review' so the Safety Review tab only shows Stage 0
+  // injection-suspected rows. Existing topic/entity/mailbox/rule filters
+  // are not applied in the safety branch — Stage 0 rows aren't categorised
+  // by the regex classifier, so those filters have no meaning here.
+  let rows: PredictedRow[];
+  if (params.tab === "safety") {
+    const safetyQuery = admin
+      .from("automation_runs")
+      .select("*")
+      .eq("status", "predicted")
+      .eq("swarm_type", swarmType)
+      .eq("topic", "safety_review")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (params.before) safetyQuery.lt("created_at", params.before);
+    const safetyRes = await safetyQuery;
+    const safetyRows = (safetyRes.data as PredictedRow[] | null) ?? [];
+
+    // BUDG-03 / D-17 — enrich with cost-outlier flag at read time.
+    // The RPC carries the Pitfall-6 bootstrap guard internally
+    // (sample_count<100 → is_cost_outlier=false for every id).
+    const outlierRes = await admin.rpc("automation_runs_with_outlier", {
+      p_swarm_type: swarmType,
+    });
+    const outlierMap = new Map<string, boolean>();
+    for (const o of (outlierRes.data as Array<{ id: string; is_cost_outlier: boolean }> | null) ?? []) {
+      outlierMap.set(o.id, o.is_cost_outlier);
+    }
+    rows = safetyRows.map((r) => ({
+      ...r,
+      is_cost_outlier: outlierMap.get(r.id) ?? false,
+    }));
+  } else {
+    const listQuery = admin
+      .from("automation_runs")
+      .select("*")
+      .eq("status", "predicted")
+      .eq("swarm_type", swarmType)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (params.before) listQuery.lt("created_at", params.before);
+    if (params.topic) listQuery.eq("topic", params.topic);
+    if (params.entity) listQuery.eq("entity", params.entity);
+    if (params.mailbox) {
+      const mb = parseInt(params.mailbox, 10);
+      if (!Number.isNaN(mb)) listQuery.eq("mailbox_id", mb);
+    }
+    if (params.rule) {
+      listQuery.eq("result->predicted->>rule", params.rule);
+    }
+    const listRes = await listQuery;
+    rows = (listRes.data as PredictedRow[] | null) ?? [];
   }
-  if (params.rule) {
-    listQuery.eq("result->predicted->>rule", params.rule);
-  }
-  const listRes = await listQuery;
-  const rows = (listRes.data as PredictedRow[] | null) ?? [];
 
   // 3. Today's promoted rules — race-cohort surfacing (D-21).
   const todayMidnight = new Date();
