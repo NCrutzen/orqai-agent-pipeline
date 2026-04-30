@@ -10,16 +10,17 @@
 const perform = async (z, bundle) => {
   const i = bundle.inputData;
 
-  const lines = [
-    {
-      itemId: i.itemId,
-      quantity: Number(i.quantity ?? 1),
-      price: Number(i.price ?? 0),
-      discount: Number(i.discount ?? 0),
-      transferToUsage: i.transferToUsage !== "false",
-    },
-  ];
-  if (i.itemDescription) lines[0].itemDescription = i.itemDescription;
+  const line = {
+    itemId: i.itemId,
+    quantity: Number(i.quantity ?? 1),
+    discount: Number(i.discount ?? 0),
+    transferToUsage: i.transferToUsage !== "false",
+  };
+  if (i.price !== undefined && i.price !== "" && i.price !== null) {
+    line.price = Number(i.price);
+  }
+  if (i.itemDescription) line.itemDescription = i.itemDescription;
+  const lines = [line];
 
   const body = {
     env: i.env || "acceptance",
@@ -139,8 +140,9 @@ module.exports = {
         key: "price",
         label: "Unit Price",
         type: "number",
-        helpText: "Prijs per eenheid (€).",
-        required: true,
+        helpText:
+          "Prijs per eenheid (€). Optioneel — als leeg laat NXT de standaardprijs bepalen op basis van customer, site en item.",
+        required: false,
       },
       {
         key: "discount",

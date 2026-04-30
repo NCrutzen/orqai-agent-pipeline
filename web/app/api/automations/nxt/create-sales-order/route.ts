@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   createSalesOrder,
   searchItems,
+  determinePrice,
   type CreateSalesOrderInput,
 } from "@/lib/automations/nxt-zapier/nxt-client";
 
@@ -13,7 +14,9 @@ const LineSchema = z.object({
   itemId: z.string().min(1),
   itemDescription: z.string().optional(),
   quantity: z.number().positive(),
-  price: z.number().nonnegative(),
+  // Prijs is optioneel — als leeg of 0 dan haalt de route hem op via
+  // /api/prices/determine, exact zoals het NXT-frontend dat doet.
+  price: z.number().nonnegative().optional(),
   discount: z.number().nonnegative().default(0),
   transferToUsage: z.boolean().default(true),
 });
@@ -58,7 +61,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // Vul ontbrekende item-descriptions aan via item-search
+  // Vul ontbrekende item-descriptions + prices aan via NXT lookups
   const lines: CreateSalesOrderInput["lines"] = [];
   for (const l of parsed.data.lines) {
     let description = l.itemDescription;
@@ -73,11 +76,26 @@ export async function POST(req: Request) {
       }
       description = match.description;
     }
+
+    // Prijs niet meegegeven? Laat NXT de standaardprijs bepalen
+    // (zelfde call als het frontend bij het invullen van een item doet).
+    let price = l.price;
+    if (price === undefined) {
+      const determined = await determinePrice(
+        parsed.data.env,
+        parsed.data.customerId,
+        parsed.data.siteId,
+        l.itemId,
+        l.quantity
+      );
+      price = determined.price;
+    }
+
     lines.push({
       itemId: l.itemId,
       itemDescription: description,
       quantity: l.quantity,
-      price: l.price,
+      price,
       discount: l.discount,
       transferToUsage: l.transferToUsage,
     });
