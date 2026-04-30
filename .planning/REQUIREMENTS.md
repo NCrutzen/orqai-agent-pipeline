@@ -10,7 +10,8 @@
 
 ### Architecture (RFC)
 
-- [ ] **RFC-01**: Operator can read a single canonical RFC document (`docs/agentic-pipeline-architecture.md`) that defines the 4-stage funnel shape (Stage 0 safety, Stage 1 regex, Stage 2 entity enrichment, Stage 3 intent coordinator, Stage 4 handler) and supersedes the existing `debtor-email-pipeline-architecture.md`
+- [x] **RFC-01
+**: Operator can read a single canonical RFC document (`docs/agentic-pipeline-architecture.md`) that defines the 4-stage funnel shape (Stage 0 safety, Stage 1 regex, Stage 2 entity enrichment, Stage 3 intent coordinator, Stage 4 handler) and supersedes the existing `debtor-email-pipeline-architecture.md`
 - [x] **RFC-02
 **: RFC documents the canonical Stage 2 → Stage 3 context-shape contract (customer_id, customer_name, language, entity_brand, recent_documents[]) so cross-swarm agents are agnostic to the lookup backend (NXT vs SugarCRM)
 - [x] **RFC-03
