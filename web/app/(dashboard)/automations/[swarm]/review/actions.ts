@@ -185,6 +185,32 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
 // fetcher. Out of scope for 56.7.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Phase 64-05 (SAFE-02 / SAFE-04). Stage 0 safety-review operator actions.
+// Stubbed in this commit — full implementation lands in the next commit
+// alongside the queue-tree node + row-strip cost cell + detail-pane wiring.
+// Stubs throw so any accidental call surfaces immediately instead of
+// silently no-opping.
+// ---------------------------------------------------------------------------
+
+export async function markSafeAndReprocess(
+  _automation_run_id: string,
+): Promise<{ ok: true }> {
+  throw new Error("markSafeAndReprocess: not implemented yet (Phase 64-05 Task 4)");
+}
+
+export async function dismissSafetyReview(
+  _automation_run_id: string,
+): Promise<{ ok: true }> {
+  throw new Error("dismissSafetyReview: not implemented yet (Phase 64-05 Task 4)");
+}
+
+export async function escalateToKanban(
+  _automation_run_id: string,
+): Promise<{ ok: true }> {
+  throw new Error("escalateToKanban: not implemented yet (Phase 64-05 Task 4)");
+}
+
 export async function fetchReviewEmailBody(
   automationRunId: string,
 ): Promise<ReviewEmailBodyResult> {
