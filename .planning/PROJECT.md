@@ -70,17 +70,31 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 - [ ] Automated project status monitoring (deferred to V7.0+)
 - [ ] O365 SSO via Azure AD (moved to V7.0)
 
-**V7.0 Agent OS** (defining):
-- [ ] O365 SSO via Azure AD for frictionless executive access
-- [ ] Full visual redesign with new design system (Satoshi + Cabinet Grotesk, glassmorphism, dark/light)
-- [ ] Sidebar with swarm navigation (Debtor Email, Sales Email, + generic template)
-- [ ] AI narrative briefing per swarm (dedicated Orq.ai Briefing Agent)
-- [ ] Live delegation graph with animated orchestrator → sub-agent paths
-- [ ] Subagent fleet cards with recursive detail drawer
-- [ ] Kanban execution board for business-stage job tracking
-- [ ] Gantt-style observability swimlanes (per-agent timeline)
-- [ ] Claude-style terminal event stream (Supabase Realtime)
-- [ ] Data integration: Supabase + Orq.ai API (traces, tool calls, agent metrics)
+**V7.0 Agent OS** (shipped 2026-04-30 — phases 48-54):
+- [x] O365 SSO via Azure AD for frictionless executive access
+- [x] Full visual redesign with new design system (Satoshi + Cabinet Grotesk, glassmorphism, dark/light)
+- [x] Sidebar with swarm navigation (Debtor Email, Sales Email, + generic template)
+- [x] AI narrative briefing per swarm (dedicated Orq.ai Briefing Agent)
+- [x] Live delegation graph with animated orchestrator → sub-agent paths
+- [x] Subagent fleet cards with recursive detail drawer
+- [x] Kanban execution board for business-stage job tracking
+- [x] Gantt-style observability swimlanes (per-agent timeline)
+- [x] Claude-style terminal event stream (Supabase Realtime)
+- [x] Data integration: Supabase + Orq.ai API (traces, tool calls, agent metrics)
+
+**v8.0 Agentic Platform** (defining):
+- [ ] Architecture RFC for the 4-stage funnel canonical shape
+- [ ] Stage 0 input safety / prompt-injection guard
+- [ ] Per-run token & cost budgets + tool-call allowlists per intent
+- [ ] Stage 3 ranked multi-intent coordinator + escalation to orchestrator-worker
+- [ ] Pipeline consolidation — triage path retired, single canonical flow
+- [ ] Stage 2 closure (iController DOM tagging — formerly Phase 56.8)
+- [ ] Bulk Review 4-axis override redesign + capability/regression eval split
+- [ ] `public.swarms` generalisation + canonical context-shape contract
+- [ ] Cross-swarm handler-agent canonicalisation (brand-multitenant)
+- [ ] Promotion recommender + Learning Inbox (graduated automation)
+- [ ] Sales-email swarm (SugarCRM) — validation of the platform standard
+- [ ] Single canonical `pipeline_events` table
 
 ### Out of Scope
 
@@ -89,25 +103,32 @@ Shipped in V2.1 (2026-03-13) — 24 requirements:
 - CLI skill management -- lives in orqai-agent-pipeline repo
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: V7.0 Agent OS
+## Current Milestone: v8.0 Agentic Platform
 
-**Goal:** Transform the Agent Workforce app into a cinematic swarm operating view with O365 SSO for frictionless executive access. A real-time control room where management sees every swarm, agent, and job in action — powered by Supabase Realtime and Orq.ai API data.
+**Goal:** Establish a standardized 4-stage funnel architecture (regex filter → entity enrichment → intent coordinator → handler) for every automation swarm at Moyne Roberts, validated against Anthropic's canonical agentic guidance and proven by onboarding a second swarm (sales-email/SugarCRM) in under a day. v8.0 supersedes the parallel `debtor-email-triage` pipeline with a single canonical flow, adds production guardrails (input safety, per-run budgets, capability/regression evals), and introduces a self-learning promotion ladder so high-volume agent decisions migrate down to deterministic rules over time.
 
-**Target features:**
-- O365 SSO via Azure AD (CEO/management login with Microsoft account)
-- Full visual redesign with new design system (Satoshi + Cabinet Grotesk, glassmorphism, dark/light toggle)
-- Sidebar with swarm navigation (Debtor Email, Sales Email, + generic template for future swarms)
-- AI narrative briefing per swarm (dedicated Orq.ai Briefing Agent, runs recurrently)
-- Live delegation graph with animated orchestrator → sub-agent communication paths
-- Subagent fleet cards with metrics, skills, and recursive detail drawer
-- Kanban execution board for business-stage job tracking (drag & drop)
-- Gantt-style observability swimlanes (per-agent timeline: thinking/tool/wait/done)
-- Claude-style terminal event stream via Supabase Realtime
-- Data integration: Supabase (automation_runs, projects) + Orq.ai API (traces, tool calls, agent metrics)
+**Target capabilities:**
+- Architecture RFC formalizing the 4-stage funnel as the canonical platform shape
+- Stage 0 input safety: regex + lightweight LLM injection-guard before any prompt sees email content
+- Per-run token + cost budgets in Inngest, enforced via `zapier_tools.allowed_for_intents`
+- Stage 3 ranked multi-intent coordinator with optional Stage 3.5 orchestrator-worker escalation
+- Pipeline consolidation: triage path absorbed into canonical regex → label → coordinator → handler flow
+- Stage 2 closure: iController DOM tagging step on matched-customer (Phase 56.8)
+- Bulk Review redesign with 4-axis stage-by-stage overrides + capability/regression eval split
+- `public.swarms` generalisation with canonical context-shape contract
+- Cross-swarm handler-agent canonicalisation (entity register parameterized; brand-multitenant from day 1)
+- Promotion recommender + Learning Inbox UI: telemetry → graduated automation suggestions
+- Sales-email swarm (SugarCRM) onboarding as validation of the platform standard
+- Single canonical `pipeline_events` table; bestaande tabellen behouden als denormalized read-models
 
-**Design reference:** `docs/designs/agent-dashboard-v2.html`
+**Architectural decisions locked (from 2026-04-30 design session):**
+- Workflow-first per Anthropic guidance; agents (autonomous loops) only where decomposition is genuinely required
+- Stage 2 labeling is enriching, NOT blocking — coordinator handles customer-less emails downstream
+- 4-axis override model — each stage gets its own override type for independent learning signals
+- Brand-multitenant from day 1 (Smeba, Berki, Sicli-Noord/Sud, Smeba-Fire today; UK/IE coming, no hardcoded enums)
+- Single canonical `pipeline_events` table — migrate now while not yet live-live
 
-**Previous milestones:** V6.0 (phases 44-45 complete), V3.0 (91%), V4.0 (phases 39-40 complete)
+**Previous milestones:** V7.0 Agent OS shipped 2026-04-30. V6.0 (phases 44-45 complete), V3.0 (91%), V4.0 (phases 39-40 complete) paused per 2026-03-25 pivot to MR Automations Toolkit focus.
 
 ## Context
 
