@@ -187,28 +187,252 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
 
 // ---------------------------------------------------------------------------
 // Phase 64-05 (SAFE-02 / SAFE-04). Stage 0 safety-review operator actions.
-// Stubbed in this commit — full implementation lands in the next commit
-// alongside the queue-tree node + row-strip cost cell + detail-pane wiring.
-// Stubs throw so any accidental call surfaces immediately instead of
-// silently no-opping.
+//
+// Three actions, mutually exclusive per email (see 64-UI-SPEC.md):
+//   1. markSafeAndReprocess  — re-emits stage-0/email.received with
+//                              safety_overridden=true; the worker's Pitfall-5
+//                              short-circuit then forwards directly to the
+//                              classifier without paying for another LLM call.
+//   2. dismissSafetyReview   — records a dismissed_at timestamp and marks
+//                              the source row completed. No re-emit.
+//   3. escalateToKanban      — files a NEW automation_runs row in the
+//                              human-review lane (topic='safety_escalation',
+//                              triggered_by='safety-review-escalation'),
+//                              mirroring the budget-breach-handler pattern
+//                              (D-11: reuse the existing Kanban surface).
+//
+// All three read the source row first to fetch the original event payload
+// fields stored in result jsonb (email_id, message_id, source_mailbox)
+// so the re-emit / linkage shape stays intact. Subject + body_text aren't
+// in the safety row's result (the worker doesn't persist them); for
+// markSafeAndReprocess we re-fetch the body via fetchMessageBody so the
+// downstream classifier still sees the email content.
+//
+// Threat T-64-14 (repudiation): every mutation timestamps result.* with
+// the action name + reviewer email so the audit chain in automation_runs
+// records who did what when. status='completed' is irreversible.
 // ---------------------------------------------------------------------------
 
+interface SafetyResultShape {
+  stage?: string;
+  email_id?: string;
+  message_id?: string;
+  source_mailbox?: string;
+  subject?: string;
+  verdict?: "safe" | "injection_suspected";
+  regex_matched?: string | null;
+  llm_reason?: string;
+  matched_span?: string | null;
+  cost_cents?: number;
+  token_count?: number;
+  safety_overridden?: boolean;
+  dismissed_at?: string;
+  escalated_at?: string;
+  marked_safe_at?: string;
+  marked_safe_by?: string | null;
+  dismissed_by?: string | null;
+  escalated_by?: string | null;
+}
+
+async function loadSafetyRow(
+  admin: ReturnType<typeof createAdminClient>,
+  automation_run_id: string,
+): Promise<{ result: SafetyResultShape; entity: string | null; mailbox_id: number | null }> {
+  const { data, error } = await admin
+    .from("automation_runs")
+    .select("result, entity, mailbox_id")
+    .eq("id", automation_run_id)
+    .single();
+  if (error || !data) {
+    throw new Error(`safety row not found: ${error?.message ?? automation_run_id}`);
+  }
+  const result = (data.result ?? {}) as SafetyResultShape;
+  return { result, entity: data.entity ?? null, mailbox_id: data.mailbox_id ?? null };
+}
+
+async function reviewerEmail(): Promise<string | null> {
+  try {
+    const sb = await createClient();
+    const { data: userRes } = await sb.auth.getUser();
+    return userRes?.user?.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const SAFETY_STALE_CHANNEL = "debtor-email-review";
+
 export async function markSafeAndReprocess(
-  _automation_run_id: string,
+  automation_run_id: string,
 ): Promise<{ ok: true }> {
-  throw new Error("markSafeAndReprocess: not implemented yet (Phase 64-05 Task 4)");
+  if (!automation_run_id) {
+    throw new Error("markSafeAndReprocess: automation_run_id required");
+  }
+  const admin = createAdminClient();
+  const { result } = await loadSafetyRow(admin, automation_run_id);
+  if (!result.message_id || !result.source_mailbox || !result.email_id) {
+    throw new Error(
+      "markSafeAndReprocess: source row missing message_id/source_mailbox/email_id",
+    );
+  }
+
+  // Re-fetch body so the downstream classifier sees the same content the
+  // operator just inspected. The Stage 0 worker won't re-evaluate (Pitfall 5
+  // short-circuit), but the forwarded classifier/screen.requested event
+  // carries body_text by design.
+  let bodyText = "";
+  let subject = result.subject ?? "";
+  try {
+    const body = await fetchMessageBody(result.source_mailbox, result.message_id);
+    bodyText = body.bodyText ?? "";
+    // fetchMessageBody also returns the subject in some implementations;
+    // fall back to whatever the source row had.
+    subject = subject || (body as { subject?: string }).subject || "";
+  } catch (e) {
+    // Outlook fetch fail is recoverable: the override re-emit only needs
+    // the IDs to short-circuit Stage 0; the classifier event payload still
+    // requires body_text so we surface a clean error.
+    throw new Error(
+      `markSafeAndReprocess: outlook fetch failed: ${(e as Error).message}`,
+    );
+  }
+
+  const operator = await reviewerEmail();
+  const nowIso = new Date().toISOString();
+
+  // Mutate the source row first so the optimistic UI removal sticks.
+  const merged: SafetyResultShape = {
+    ...result,
+    safety_overridden: true,
+    marked_safe_at: nowIso,
+    marked_safe_by: operator,
+  };
+  const { error: updErr } = await admin
+    .from("automation_runs")
+    .update({
+      status: "completed",
+      completed_at: nowIso,
+      result: merged,
+    })
+    .eq("id", automation_run_id);
+  if (updErr) {
+    throw new Error(`automation_runs update failed: ${updErr.message}`);
+  }
+
+  // Re-emit Stage 0 with safety_overridden=true (Pitfall 5 short-circuit).
+  await inngest.send({
+    name: "stage-0/email.received",
+    data: {
+      automation_run_id,
+      email_id: result.email_id,
+      message_id: result.message_id,
+      source_mailbox: result.source_mailbox,
+      subject,
+      body_text: bodyText,
+      safety_overridden: true,
+    },
+  });
+
+  await emitAutomationRunStale(admin, SAFETY_STALE_CHANNEL);
+  return { ok: true };
 }
 
 export async function dismissSafetyReview(
-  _automation_run_id: string,
+  automation_run_id: string,
 ): Promise<{ ok: true }> {
-  throw new Error("dismissSafetyReview: not implemented yet (Phase 64-05 Task 4)");
+  if (!automation_run_id) {
+    throw new Error("dismissSafetyReview: automation_run_id required");
+  }
+  const admin = createAdminClient();
+  const { result } = await loadSafetyRow(admin, automation_run_id);
+
+  const operator = await reviewerEmail();
+  const nowIso = new Date().toISOString();
+  const merged: SafetyResultShape = {
+    ...result,
+    dismissed_at: nowIso,
+    dismissed_by: operator,
+  };
+  const { error: updErr } = await admin
+    .from("automation_runs")
+    .update({
+      status: "completed",
+      completed_at: nowIso,
+      result: merged,
+    })
+    .eq("id", automation_run_id);
+  if (updErr) {
+    throw new Error(`automation_runs update failed: ${updErr.message}`);
+  }
+
+  await emitAutomationRunStale(admin, SAFETY_STALE_CHANNEL);
+  return { ok: true };
 }
 
 export async function escalateToKanban(
-  _automation_run_id: string,
+  automation_run_id: string,
 ): Promise<{ ok: true }> {
-  throw new Error("escalateToKanban: not implemented yet (Phase 64-05 Task 4)");
+  if (!automation_run_id) {
+    throw new Error("escalateToKanban: automation_run_id required");
+  }
+  const admin = createAdminClient();
+  const { result, entity, mailbox_id } = await loadSafetyRow(admin, automation_run_id);
+
+  const operator = await reviewerEmail();
+  const nowIso = new Date().toISOString();
+
+  // D-11 — reuse the existing Kanban human-review lane. The lane is
+  // surfaced by automation_runs rows with status='pending'. Mirrors the
+  // budget-breach-handler shape so both Stage 0 escalations land in the
+  // same operator surface.
+  const { error: insErr } = await admin.from("automation_runs").insert({
+    automation: "debtor-email-review",
+    status: "pending",
+    swarm_type: "debtor-email",
+    topic: "safety_escalation",
+    entity,
+    mailbox_id,
+    result: {
+      source_automation_run_id: automation_run_id,
+      reason: "stage_0_safety_escalation",
+      stage: "stage_0_safety",
+      escalated_at: nowIso,
+      escalated_by: operator,
+      // Forward the original verdict context so the Kanban card has
+      // everything the operator needs to act without re-querying.
+      original_email_id: result.email_id,
+      original_message_id: result.message_id,
+      source_mailbox: result.source_mailbox,
+      regex_matched: result.regex_matched ?? null,
+      llm_reason: result.llm_reason ?? null,
+      matched_span: result.matched_span ?? null,
+    },
+    triggered_by: "safety-review-escalation",
+  });
+  if (insErr) {
+    throw new Error(`Kanban escalation insert failed: ${insErr.message}`);
+  }
+
+  // Mark the source safety_review row completed so it leaves the queue.
+  const merged: SafetyResultShape = {
+    ...result,
+    escalated_at: nowIso,
+    escalated_by: operator,
+  };
+  const { error: updErr } = await admin
+    .from("automation_runs")
+    .update({
+      status: "completed",
+      completed_at: nowIso,
+      result: merged,
+    })
+    .eq("id", automation_run_id);
+  if (updErr) {
+    throw new Error(`automation_runs update failed: ${updErr.message}`);
+  }
+
+  await emitAutomationRunStale(admin, SAFETY_STALE_CHANNEL);
+  return { ok: true };
 }
 
 export async function fetchReviewEmailBody(
