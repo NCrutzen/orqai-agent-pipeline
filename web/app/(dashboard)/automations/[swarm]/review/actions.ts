@@ -213,6 +213,14 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
 // records who did what when. status='completed' is irreversible.
 // ---------------------------------------------------------------------------
 
+/** Phase 64.1: precision/recall signal stamped on every operator action.
+ *  Future analytics queries derive TP/FP rates from this field without
+ *  needing a separate labelling pipeline. */
+type SafetyOutcome =
+  | "false_positive"          // Mark safe & reprocess — Stage 0 was wrong
+  | "true_positive_archived"  // Correct & Dismiss     — Stage 0 was right, archive
+  | "true_positive_escalated";// Escalate              — Stage 0 was right, needs follow-up
+
 interface SafetyResultShape {
   stage?: string;
   email_id?: string;
@@ -232,22 +240,45 @@ interface SafetyResultShape {
   marked_safe_by?: string | null;
   dismissed_by?: string | null;
   escalated_by?: string | null;
+  /** Phase 64.1 outcome label — see SafetyOutcome type. */
+  safety_outcome?: SafetyOutcome;
 }
 
 async function loadSafetyRow(
   admin: ReturnType<typeof createAdminClient>,
   automation_run_id: string,
-): Promise<{ result: SafetyResultShape; entity: string | null; mailbox_id: number | null }> {
+): Promise<{
+  result: SafetyResultShape;
+  entity: string | null;
+  mailbox_id: number | null;
+  status: string | null;
+}> {
   const { data, error } = await admin
     .from("automation_runs")
-    .select("result, entity, mailbox_id")
+    .select("result, entity, mailbox_id, status")
     .eq("id", automation_run_id)
     .single();
   if (error || !data) {
     throw new Error(`safety row not found: ${error?.message ?? automation_run_id}`);
   }
   const result = (data.result ?? {}) as SafetyResultShape;
-  return { result, entity: data.entity ?? null, mailbox_id: data.mailbox_id ?? null };
+  return {
+    result,
+    entity: data.entity ?? null,
+    mailbox_id: data.mailbox_id ?? null,
+    status: data.status ?? null,
+  };
+}
+
+/** Phase 64.1: stale-tab guard. Prevents double-action when an operator
+ *  re-clicks an already-acted-on row from a stale browser tab. */
+function assertActionable(status: string | null, action: string): void {
+  if (status !== "predicted") {
+    throw new Error(
+      `${action}: row is no longer actionable (status=${status ?? "unknown"}). ` +
+      "Another action may have completed already — refresh the page.",
+    );
+  }
 }
 
 async function reviewerEmail(): Promise<string | null> {
@@ -269,7 +300,8 @@ export async function markSafeAndReprocess(
     throw new Error("markSafeAndReprocess: automation_run_id required");
   }
   const admin = createAdminClient();
-  const { result } = await loadSafetyRow(admin, automation_run_id);
+  const { result, status } = await loadSafetyRow(admin, automation_run_id);
+  assertActionable(status, "markSafeAndReprocess");
   if (!result.message_id || !result.source_mailbox || !result.email_id) {
     throw new Error(
       "markSafeAndReprocess: source row missing message_id/source_mailbox/email_id",
@@ -306,6 +338,7 @@ export async function markSafeAndReprocess(
     safety_overridden: true,
     marked_safe_at: nowIso,
     marked_safe_by: operator,
+    safety_outcome: "false_positive", // Phase 64.1
   };
   const { error: updErr } = await admin
     .from("automation_runs")
@@ -344,7 +377,8 @@ export async function dismissSafetyReview(
     throw new Error("dismissSafetyReview: automation_run_id required");
   }
   const admin = createAdminClient();
-  const { result } = await loadSafetyRow(admin, automation_run_id);
+  const { result, status } = await loadSafetyRow(admin, automation_run_id);
+  assertActionable(status, "dismissSafetyReview");
 
   const operator = await reviewerEmail();
   const nowIso = new Date().toISOString();
@@ -352,6 +386,7 @@ export async function dismissSafetyReview(
     ...result,
     dismissed_at: nowIso,
     dismissed_by: operator,
+    safety_outcome: "true_positive_archived", // Phase 64.1
   };
   const { error: updErr } = await admin
     .from("automation_runs")
@@ -376,7 +411,11 @@ export async function escalateToKanban(
     throw new Error("escalateToKanban: automation_run_id required");
   }
   const admin = createAdminClient();
-  const { result, entity, mailbox_id } = await loadSafetyRow(admin, automation_run_id);
+  const { result, entity, mailbox_id, status } = await loadSafetyRow(
+    admin,
+    automation_run_id,
+  );
+  assertActionable(status, "escalateToKanban");
 
   const operator = await reviewerEmail();
   const nowIso = new Date().toISOString();
@@ -398,6 +437,7 @@ export async function escalateToKanban(
       stage: "stage_0_safety",
       escalated_at: nowIso,
       escalated_by: operator,
+      safety_outcome: "true_positive_escalated", // Phase 64.1
       // Forward the original verdict context so the Kanban card has
       // everything the operator needs to act without re-querying.
       original_email_id: result.email_id,
@@ -418,6 +458,7 @@ export async function escalateToKanban(
     ...result,
     escalated_at: nowIso,
     escalated_by: operator,
+    safety_outcome: "true_positive_escalated", // Phase 64.1
   };
   const { error: updErr } = await admin
     .from("automation_runs")

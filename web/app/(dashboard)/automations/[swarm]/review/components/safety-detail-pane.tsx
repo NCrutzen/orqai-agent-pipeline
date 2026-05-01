@@ -67,16 +67,28 @@ export function SafetyDetailPane({ row, bodyText }: SafetyDetailPaneProps) {
   const costCents = result.cost_cents ?? 0;
   const tokenCount = result.token_count ?? 0;
 
+  // Phase 64.1: action error string for the Outlook 400 case is
+  // friendlier than the raw API message — operators see this when an
+  // already-deleted Outlook message can't be refetched.
+  function friendlyError(raw: string): string {
+    if (
+      raw.includes("ErrorInvalidIdMalformed") ||
+      raw.includes("fetchMessageBody 400") ||
+      raw.includes("fetchMessageBody 404")
+    ) {
+      return "Couldn't refetch the original email — it may have been deleted from Outlook. Try Correct & Dismiss or Escalate instead.";
+    }
+    return raw || "try again";
+  }
+
   const onMarkSafe = useCallback(async () => {
     setBusy("mark-safe");
     markPendingRemoval(row.id);
     try {
       await markSafeAndReprocess(row.id);
-      toast.success("Marked safe — reprocessing through Stage 1");
+      toast.success("Marked safe — reprocessing through Stage 1 (Stage 0 false positive logged)");
     } catch (e) {
-      toast.error(
-        `Mark safe failed: ${(e as Error).message ?? "try again"}`,
-      );
+      toast.error(`Mark safe failed: ${friendlyError((e as Error).message)}`);
     } finally {
       setBusy(null);
     }
@@ -87,12 +99,13 @@ export function SafetyDetailPane({ row, bodyText }: SafetyDetailPaneProps) {
     markPendingRemoval(row.id);
     try {
       await dismissSafetyReview(row.id);
-      // 5s undo lives in the existing sonner toast layer; the action
-      // is idempotent on the source row so a future re-emit (if ever)
-      // would no-op. Keep the surface flat: single confirm-toast.
-      toast.success("Dismissed — logged and archived", { duration: 5000 });
+      // Phase 64.1: copy clarifies the implied verdict — Dismiss = "Stage 0
+      // was correct, archive". Used by future precision/recall analytics.
+      toast.success("Confirmed and archived — Stage 0 true positive logged", {
+        duration: 5000,
+      });
     } catch (e) {
-      toast.error(`Dismiss failed: ${(e as Error).message ?? "try again"}`);
+      toast.error(`Dismiss failed: ${friendlyError((e as Error).message)}`);
     } finally {
       setBusy(null);
     }
@@ -103,9 +116,9 @@ export function SafetyDetailPane({ row, bodyText }: SafetyDetailPaneProps) {
     markPendingRemoval(row.id);
     try {
       await escalateToKanban(row.id);
-      toast.success("Escalated to human review");
+      toast.success("Escalated to human review — Stage 0 true positive logged");
     } catch (e) {
-      toast.error(`Escalate failed: ${(e as Error).message ?? "try again"}`);
+      toast.error(`Escalate failed: ${friendlyError((e as Error).message)}`);
     } finally {
       setBusy(null);
     }
@@ -268,12 +281,17 @@ export function SafetyDetailPane({ row, bodyText }: SafetyDetailPaneProps) {
         </div>
       </section>
 
-      {/* Action bar — three buttons (D-11 / D-12, no manual reply) */}
+      {/* Action bar — three buttons (D-11 / D-12, no manual reply).
+          Phase 64.1 button copy + aria-label captures the implied verdict on
+          Stage 0's classification: Mark safe = false positive,
+          Correct & Dismiss = true positive (archive), Escalate = true positive (action). */}
       <div className="flex items-center gap-2 mt-2 flex-wrap">
         <button
           type="button"
           onClick={onMarkSafe}
           disabled={busy !== null}
+          aria-label="Mark safe and reprocess — Stage 0 was wrong (false positive)"
+          title="Stage 0 was wrong — let this email continue through to the classifier"
           className="px-4 py-2 rounded-[var(--v7-radius-sm)] focus:outline-none focus:ring-2"
           style={{
             background: "var(--v7-brand-primary)",
@@ -293,6 +311,8 @@ export function SafetyDetailPane({ row, bodyText }: SafetyDetailPaneProps) {
           type="button"
           onClick={onDismiss}
           disabled={busy !== null}
+          aria-label="Confirm Stage 0 was correct and dismiss — true positive, no further action"
+          title="Stage 0 caught this correctly — archive without further action"
           className="px-4 py-2 rounded-[var(--v7-radius-sm)] border focus:outline-none focus:ring-2"
           style={{
             background: "transparent",
@@ -306,13 +326,15 @@ export function SafetyDetailPane({ row, bodyText }: SafetyDetailPaneProps) {
             cursor: busy ? "not-allowed" : "pointer",
           }}
         >
-          {busy === "dismiss" ? "Dismissing…" : "Dismiss"}
+          {busy === "dismiss" ? "Dismissing…" : "Correct & Dismiss"}
         </button>
 
         <button
           type="button"
           onClick={onEscalate}
           disabled={busy !== null}
+          aria-label="Escalate to human review — Stage 0 was correct AND this needs follow-up"
+          title="Stage 0 was right and this needs human follow-up beyond archiving"
           className="px-4 py-2 rounded-[var(--v7-radius-sm)] border focus:outline-none focus:ring-2"
           style={{
             background: "transparent",
