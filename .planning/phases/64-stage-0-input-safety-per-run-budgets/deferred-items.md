@@ -4,9 +4,64 @@
 
 ### 1. Provision Orq.ai agent `stage-0-safety-classifier` + insert orq_agents row
 
-**Status:** DEFERRED — no env access in parallel worktree.
-**Owner:** Operator (post-merge, before Plan 04 worker ships).
-**Why deferred:** worktree has no `web/.env.local`; cannot reach Supabase service-role API or Orq.ai dashboard from inside the parallel agent.
+**Status:** ✅ DONE — orchestrator session 2026-04-30/05-01 via Orq.ai MCP + Supabase MCP.
+- Orq.ai agent created: `01KQFP097V210QNB1N0E09YEWQ` in project "Debtor Team"
+- Supabase row inserted in `public.orq_agents` (`enabled: true`, `version: 2026-04-30.v1`)
+- Agent updated to persist `model.parameters.response_format.json_schema` (strict mode) — applies on the proxy `/invoke` endpoint that production code uses
+
+### 1a. Add JSON Schema tool to agent's `settings.tools` (Studio click-through)
+
+**Status:** OPEN — requires Orq.ai Studio dashboard (5 min).
+**Why deferred:** the Orq.ai MCP exposes no tool CRUD; the workspace API key gets `403 — This API key type cannot access this endpoint` on `POST /v2/tools`. Studio dashboard or a personal access token is required to create the tool resource.
+
+**Why this matters:** `model.parameters.response_format` is honored by the proxy `/invoke` endpoint (used by `web/lib/automations/orq-agents/client.ts`) but **ignored by the `/v2/agents/{id}/execute` endpoint** that Studio's test surface and the MCP `invoke_agent` tool use. The canonical Orq.ai pattern (per the `orq-agent` skill / `agents/deployer.md`) is a separate `json_schema` tool resource attached to `settings.tools` — that enforces JSON across **both** endpoints, including Studio test runs and any future `/responses`-based caller.
+
+**Production runtime is already protected** by two layers (agent-level params + per-call body field in `client.ts:140-143`). The Studio test surface is the only gap.
+
+**Required action (Studio):**
+
+1. Open the agent: https://my.orq.ai/cura/agents/01KQFP097V210QNB1N0E09YEWQ
+2. Open the **Tools** panel → **Add tool** → **JSON Schema**
+3. Configure with these exact values:
+   - Key: `stage-0-safety-verdict`
+   - Description: `Strict JSON envelope for the Stage 0 safety verdict output.`
+   - Schema (paste verbatim):
+     ```json
+     {
+       "type": "object",
+       "properties": {
+         "verdict": { "type": "string", "enum": ["safe", "injection_suspected"] },
+         "reason":  { "type": "string", "maxLength": 280 },
+         "matched_span": { "type": ["string", "null"] }
+       },
+       "required": ["verdict", "reason", "matched_span"],
+       "additionalProperties": false
+     }
+     ```
+   - Strict: **on**
+4. Save. Studio attaches the new tool to `settings.tools` automatically.
+5. Verify: re-run the smoke test from Studio → output is bare JSON, no markdown fencing.
+
+**Alternative (if you have a personal access token instead of workspace key):**
+```bash
+curl -X POST https://api.orq.ai/v2/tools \
+  -H "Authorization: Bearer <PAT>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "stage-0-safety-verdict",
+    "path": "Debtor Team",
+    "description": "Strict JSON envelope for the Stage 0 safety verdict output.",
+    "type": "json_schema",
+    "json_schema": {
+      "name": "stage_0_safety_verdict",
+      "strict": true,
+      "schema": { "type": "object", "properties": { "verdict": { "type": "string", "enum": ["safe", "injection_suspected"] }, "reason": { "type": "string", "maxLength": 280 }, "matched_span": { "type": ["string", "null"] } }, "required": ["verdict", "reason", "matched_span"], "additionalProperties": false }
+    }
+  }'
+# Then PATCH the agent to attach: settings.tools = [{ "type": "json_schema", "key": "stage-0-safety-verdict" }]
+```
+
+### 1b. Original spec (kept for reference)
 
 **Required action:**
 
