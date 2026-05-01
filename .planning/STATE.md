@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Phase 64 complete — Stage 0 input safety + per-run budgets shipped (verification gaps closed)
-last_updated: "2026-04-30T17:15:00.000Z"
+stopped_at: Phase 65 context gathered
+last_updated: "2026-05-01T12:14:09.741Z"
 last_activity: 2026-04-30 -- Phase 64 complete
 progress:
   total_phases: 45
@@ -111,7 +111,7 @@ Progress: [████████░░] 76%
 ## Session Continuity
 
 Last session: --stopped-at
-Stopped at: Phase 64 UI-SPEC approved
+Stopped at: Phase 65 context gathered
 Resume with: `/gsd-autonomous --from 49`
 Resume file: --resume-file
 
