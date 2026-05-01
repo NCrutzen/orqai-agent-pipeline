@@ -136,7 +136,12 @@ const browser = await chromium.connectOverCDP(
 - ALTIJD agent updates verifiëren met `get_agent` na `update_agent` (let op: dit verifieert persistentie, **niet** catalog-validiteit van model IDs — zie hierboven)
 - Experiments via REST API, NIET MCP
 - Zod validatie op alle LLM output
-- Primary model voorkeur: `anthropic/claude-sonnet-4-5-20250929` (latest Anthropic in Orq catalog, 2026-05). `claude-sonnet-4-6` en alle Haiku-varianten staan **niet** in de catalog — verifieer altijd via `list_models` vóór gebruik. Fallbacks van bestaande agents: `openai/gpt-4o-mini`, `google-ai/gemini-2.5-flash`.
+- **Anthropic model routing in Orq.ai (2026-05):**
+  - **Opus 4.6** → `aws/eu.anthropic.claude-opus-4-6-v1` (Bedrock EU; only 4.6 variant in catalog — er is GEEN `anthropic/claude-opus-4-6` of `anthropic/claude-sonnet-4-6`)
+  - **Sonnet 4.5** → `anthropic/claude-sonnet-4-5-20250929` (Anthropic-direct) of `aws/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` (Bedrock EU)
+  - **Haiku 4.5** → `aws/eu.anthropic.claude-haiku-4-5-20251001-v1:0` (Bedrock EU only — er is GEEN Anthropic-direct Haiku in de catalog)
+  - **Let op:** eerdere CLAUDE.md guidance noemde "Primary model: `anthropic/claude-sonnet-4-6`" — dat ID bestaat **niet** in Orq's catalog. Wat in projectcontext "4.6" heet is in Orq's catalog `aws/eu.anthropic.claude-opus-4-6-v1` (Opus, Bedrock EU). Verifieer altijd via `list_models` vóór agent create/update.
+  - Fallback chain bestaande agents: `openai/gpt-4o-mini`, `google-ai/gemini-2.5-flash`.
 - XML-tagged prompts: `<role>`, `<task>`, `<constraints>`, `<output_format>`
 - 45s client timeout (Orq.ai intern retry = 31s)
 - Knowledge bases in Supabase, NIET in Orq.ai
