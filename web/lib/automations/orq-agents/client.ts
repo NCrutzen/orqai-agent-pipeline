@@ -59,15 +59,14 @@ async function loadAgent(agent_key: string): Promise<OrqAgentRow> {
 }
 
 /**
- * Phase 64 (RESEARCH A1): every Orq.ai invocation MUST surface usage +
- * billing so callers (Stage 0 budget counter, automation_runs.result.cost_cents
- * write) have a single, mockable seam for cost telemetry. `cost_cents` is
- * the integer-cent rounding of `billing.total_cost`. `billing` is also
- * exposed verbatim so consumers (e.g. test mocks) that want the raw
- * upstream shape can read it without re-parsing.
+ * Result shape — kept stable across the 2026-05-01 transport rewrite so
+ * callers (Stage 0 budget counter, automation_runs.result.cost_cents write,
+ * tests) don't need to change. cost_cents and billing.total_cost are 0
+ * because Orq's /v2/agents/{key}/responses endpoint does not return cost
+ * info — only token counts. See follow-up note in the rewrite block below.
  */
 export type InvokeResult = {
-  raw: unknown; // The Orq response (caller is responsible for Zod-parsing).
+  raw: unknown; // Parsed JSON object from the agent's text output.
   agent: OrqAgentRow;
   usage: {
     prompt_tokens: number;
@@ -75,7 +74,7 @@ export type InvokeResult = {
     total_tokens: number;
   };
   billing: { total_cost: number };
-  cost_cents: number; // Math.round((billing.total_cost ?? 0) * 100)
+  cost_cents: number;
 };
 
 export function invokeResultCostCents(result: {
@@ -89,22 +88,34 @@ export function invokeResultCostCents(result: {
 /**
  * Invoke an Orq.ai agent by registry key.
  *
- * - Reads slug + timeout from public.orq_agents
- * - Builds the response_format from registry output_schema (so model
- *   guardrails travel with the registry row, not the caller)
- * - Returns the raw response — caller Zod-parses against the same shape
- *   they want type-narrowed
+ * 2026-05-01 rewrite: Plan 02's original implementation called
+ * `${BASE}/${orqai_id}/invoke` with a body shape that does not exist on
+ * Orq.ai's API — every call returned 404. Confirmed working transport
+ * is `${BASE}/${agent_key}/responses` (mirrors `invoke-intent.ts`). The
+ * agent's per-model JSON-schema enforcement is configured at the agent
+ * level (Studio → Tools → JSON Schema → reference from Model Parameters
+ * → Response Format), NOT in the per-call body — so this client no
+ * longer sends `response_format`.
+ *
+ * Cost tracking caveat: /responses returns `usage.input_tokens` and
+ * `output_tokens` but NO billing/cost field. cost_cents is therefore
+ * 0 — budget enforcement falls back to token-count ceilings only until
+ * we add a per-model price table or query Orq's analytics API for
+ * per-trace cost retroactively.
  *
  * Throws on:
  *   - agent not in registry / disabled
  *   - ORQ_API_KEY missing
  *   - timeout (> agent.timeout_ms)
  *   - non-2xx response
+ *   - JSON parse failure on agent output text
  */
 export async function invokeOrqAgent(
   agent_key: string,
   inputs: Record<string, unknown>,
-  opts?: { jsonSchemaName?: string },
+  // jsonSchemaName kept for signature compatibility — schema enforcement
+  // now lives on the agent server-side, not in the per-call body.
+  _opts?: { jsonSchemaName?: string },
 ): Promise<InvokeResult> {
   if (!ORQ_API_KEY) {
     throw new Error("ORQ_API_KEY is not set");
@@ -112,34 +123,25 @@ export async function invokeOrqAgent(
 
   const agent = await loadAgent(agent_key);
 
-  // Build response_format guardrail from the registry's output_schema.
-  // Orq's strict json_schema mode rejects any properties beyond the schema,
-  // which is exactly what we want for prompt-injection-resistant outputs.
-  const response_format = agent.output_schema
-    ? {
-        type: "json_schema" as const,
-        json_schema: {
-          name:
-            opts?.jsonSchemaName ??
-            agent.agent_key.replace(/[^a-z0-9]+/g, "_") + "_output",
-          schema: agent.output_schema,
-          strict: true,
-        },
-      }
-    : undefined;
+  // User message = JSON inputs verbatim. Agents' system prompts handle
+  // the interpretation — keeps client.ts generic across all agent keys.
+  const userText = JSON.stringify(inputs, null, 2);
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), agent.timeout_ms);
   try {
-    const res = await fetch(`${ORQ_BASE_URL}/${agent.orqai_id}/invoke`, {
+    const res = await fetch(`${ORQ_BASE_URL}/${agent.agent_key}/responses`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${ORQ_API_KEY}`,
       },
       body: JSON.stringify({
-        inputs,
-        ...(response_format ? { response_format } : {}),
+        message: {
+          role: "user",
+          parts: [{ kind: "text", text: userText }],
+        },
+        configuration: { blocking: true },
       }),
       signal: ctrl.signal,
     });
@@ -149,35 +151,43 @@ export async function invokeOrqAgent(
         `Orq invoke ${agent_key} failed: HTTP ${res.status} ${text.slice(0, 200)}`,
       );
     }
-    const json = await res.json();
-    // Orq sometimes wraps in { output: ... }; unwrap so callers don't have to.
-    const raw =
-      json && typeof json === "object" && "output" in json
-        ? (json as { output: unknown }).output
-        : json;
-    const usageRaw =
-      json && typeof json === "object" && "usage" in json
-        ? (
-            json as {
-              usage?: {
-                prompt_tokens?: number;
-                completion_tokens?: number;
-                total_tokens?: number;
-              };
-            }
-          ).usage
-        : undefined;
-    const billingRaw =
-      json && typeof json === "object" && "billing" in json
-        ? (json as { billing?: { total_cost?: number } }).billing
-        : undefined;
-    const usage = {
-      prompt_tokens: usageRaw?.prompt_tokens ?? 0,
-      completion_tokens: usageRaw?.completion_tokens ?? 0,
-      total_tokens: usageRaw?.total_tokens ?? 0,
+    const json = (await res.json()) as {
+      output?: Array<{
+        role?: string;
+        parts?: Array<{ kind?: string; text?: string }>;
+      }>;
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        total_tokens?: number;
+      };
     };
-    const billing = { total_cost: billingRaw?.total_cost ?? 0 };
-    const cost_cents = Math.round(billing.total_cost * 100);
+
+    const rawText = json.output?.[0]?.parts?.[0]?.text ?? "";
+    if (!rawText) {
+      throw new Error(`Orq invoke ${agent_key}: empty output text`);
+    }
+    const stripped = rawText
+      .trim()
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "");
+    let raw: unknown;
+    try {
+      raw = JSON.parse(stripped);
+    } catch (e) {
+      throw new Error(
+        `Orq invoke ${agent_key}: JSON.parse failed: ${(e as Error).message}`,
+      );
+    }
+
+    const usage = {
+      prompt_tokens: json.usage?.input_tokens ?? 0,
+      completion_tokens: json.usage?.output_tokens ?? 0,
+      total_tokens: json.usage?.total_tokens ?? 0,
+    };
+    // Orq /responses does not return cost — see header comment.
+    const billing = { total_cost: 0 };
+    const cost_cents = 0;
     return { raw, agent, usage, billing, cost_cents };
   } finally {
     clearTimeout(timer);
