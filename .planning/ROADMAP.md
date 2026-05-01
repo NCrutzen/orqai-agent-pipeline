@@ -720,7 +720,13 @@ Plans:
   2. Coordinator escalates to Stage 3.5 orchestrator-worker when `confidence < threshold` OR `intent_count >= 3` OR an intent is registry-tagged `requires_orchestration`
   3. Orchestrator-worker spawns multiple Stage 4 handlers in parallel and synthesises their outputs into a single iController draft visible in Bulk Review
   4. On a representative sample, ~80% of inbound stays on the single-shot path with no orchestrator overhead added
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [ ] 65-01-PLAN.md — DB schema + canonical types: 3 migrations (coordinator_runs, swarm_categories.requires_orchestration + 8 intent seed rows, coordinator_complete_handler RPC) + HandlerOutput + intentAgentOutputSchemaV2 + Wave 0 test scaffolds
+- [ ] 65-02-PLAN.md — Orq agent registry: list_models pre-flight + PATCH debtor-intent-agent v2 + create debtor-orchestrator-agent + create synthesis-agent (Studio JSON Schema tools + create-then-PATCH ritual)
+- [ ] 65-03-PLAN.md — Coordinator rewrite (single-shot fast path, CORD-01/02/04): rewrite invoke-intent for ranked output, pure escalation gate, in-place rewrite of debtor-email-triage Inngest function
+- [ ] 65-04-PLAN.md — Orchestrator + synthesis fan-out (CORD-03): orchestrator-planner + synthesis Inngest functions, RPC fan-in helper, output-adapter, wire classifier-invoice-copy-handler to call coordinator-complete RPC
+- [ ] 65-05-PLAN.md — Regression backfill + Bulk Review badge + verification: one-off regression script, partial_synthesis badge component, end-to-end smoke verification of CORD-01..04
 
 ### Phase 66: Pipeline consolidation (retire triage path)
 **Goal**: There is exactly one canonical inbound flow (regex -> label-resolver -> coordinator -> handler) and the parallel `debtor-email-triage` path is retired
