@@ -14,9 +14,12 @@
  * CI gate:    `npm run audit:orq-agents` (exits non-zero on any mismatch)
  *
  * Env required (web/.env.local):
- *   - SUPABASE_URL
+ *   - NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL)
  *   - SUPABASE_SERVICE_ROLE_KEY
- *   - ORQ_API_KEY (workspace key — quotes around the value are stripped)
+ *   - ORQ_API_KEY — quotes around the value are stripped automatically.
+ *     The key must have catalog-read permission on this workspace; if you
+ *     get a 403 on /v2/models, check the key's scopes/permissions in
+ *     Orq Studio → Settings → API Keys.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -30,13 +33,7 @@ loadDotenv({ path: resolve(__dirname, "..", ".env.local") });
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-// Catalog endpoints (/v2/models, /v2/tools) require a Personal Access Token
-// — workspace keys (sk-orq-...) are scoped to the proxy /invoke surface only
-// and return 403 on management endpoints. Mint a PAT in Orq Studio →
-// Settings → API Keys and set as ORQ_PAT.
-const ORQ_PAT = process.env.ORQ_PAT?.replace(/^"|"$/g, "");
 const ORQ_API_KEY = process.env.ORQ_API_KEY?.replace(/^"|"$/g, "");
-const ORQ_AUTH = ORQ_PAT ?? ORQ_API_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error(
@@ -44,8 +41,8 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   );
   process.exit(2);
 }
-if (!ORQ_AUTH) {
-  console.error("✗ ORQ_PAT (preferred) or ORQ_API_KEY must be set");
+if (!ORQ_API_KEY) {
+  console.error("✗ ORQ_API_KEY must be set");
   process.exit(2);
 }
 
@@ -67,13 +64,12 @@ interface CatalogModel {
 
 async function fetchOrqCatalog(): Promise<Set<string>> {
   const res = await fetch("https://api.orq.ai/v2/models?modelType=chat", {
-    headers: { Authorization: `Bearer ${ORQ_AUTH}` },
+    headers: { Authorization: `Bearer ${ORQ_API_KEY}` },
   });
   if (res.status === 403) {
     throw new Error(
-      "Orq.ai /v2/models returned 403 — workspace API keys (sk-orq-...) " +
-      "cannot access management endpoints. Mint a Personal Access Token " +
-      "in Orq Studio → Settings → API Keys and set it as ORQ_PAT in .env.local.",
+      "Orq.ai /v2/models returned 403 — check ORQ_API_KEY's scopes/permissions " +
+      "in Orq Studio → Settings → API Keys. Catalog-read access is required.",
     );
   }
   if (!res.ok) {
@@ -85,8 +81,8 @@ async function fetchOrqCatalog(): Promise<Set<string>> {
   const models = json.models ?? [];
   if (models.length === 0) {
     throw new Error(
-      "Orq.ai /v2/models returned 0 models — likely auth scope issue. " +
-      "Verify ORQ_PAT has 'models:read' scope.",
+      "Orq.ai /v2/models returned 0 models — verify ORQ_API_KEY has " +
+      "catalog-read permission on this workspace.",
     );
   }
   return new Set(models.map((m) => m.id));

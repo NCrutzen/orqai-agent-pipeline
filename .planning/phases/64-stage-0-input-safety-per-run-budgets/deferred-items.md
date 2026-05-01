@@ -12,7 +12,7 @@
 ### 1a. Add JSON Schema tool to agent's `settings.tools` (Studio click-through)
 
 **Status:** OPEN — requires Orq.ai Studio dashboard (5 min).
-**Why deferred:** the Orq.ai MCP exposes no tool CRUD; the workspace API key gets `403 — This API key type cannot access this endpoint` on `POST /v2/tools`. Studio dashboard or a personal access token is required to create the tool resource.
+**Why deferred:** the Orq.ai MCP exposes no tool CRUD; `POST /v2/tools` from this session returned `403 — This API key type cannot access this endpoint`. Orq.ai has a single key type, so the 403 most likely means the `ORQ_API_KEY` in `web/.env.local` was minted without catalog-write scopes — easiest path is to create the tool via Studio dashboard (or re-mint the API key with the right scopes and use the curl below).
 
 **Why this matters:** `model.parameters.response_format` is honored by the proxy `/invoke` endpoint (used by `web/lib/automations/orq-agents/client.ts`) but **ignored by the `/v2/agents/{id}/execute` endpoint** that Studio's test surface and the MCP `invoke_agent` tool use. The canonical Orq.ai pattern (per the `orq-agent` skill / `agents/deployer.md`) is a separate `json_schema` tool resource attached to `settings.tools` — that enforces JSON across **both** endpoints, including Studio test runs and any future `/responses`-based caller.
 
@@ -42,10 +42,10 @@
 4. Save. Studio attaches the new tool to `settings.tools` automatically.
 5. Verify: re-run the smoke test from Studio → output is bare JSON, no markdown fencing.
 
-**Alternative (if you have a personal access token instead of workspace key):**
+**Alternative (if your `ORQ_API_KEY` has the catalog-write scopes):**
 ```bash
 curl -X POST https://api.orq.ai/v2/tools \
-  -H "Authorization: Bearer <PAT>" \
+  -H "Authorization: Bearer $ORQ_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "key": "stage-0-safety-verdict",
