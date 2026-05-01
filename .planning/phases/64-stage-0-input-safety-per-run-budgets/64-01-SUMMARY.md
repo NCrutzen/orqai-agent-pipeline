@@ -131,6 +131,20 @@ Each task was committed atomically (worktree mode, `--no-verify` per parallel-ex
 
 ## Issues Encountered
 
+### CORRIGENDUM (added 2026-05-01): Probe 1 verdict was wrong — wrong model ID transitively confirmed
+
+**Discovered during:** Phase 64 operator setup of Stage 0 agent on 2026-05-01.
+
+**What Probe 1 said:** Querying `public.orq_agents` for any row using `claude-haiku-4-5` family found `debtor-intent-agent` with `model_config.primary = "anthropic/claude-haiku-4-5-20251001"` — verdict AVAILABLE, model pinned to `anthropic/claude-haiku-4-5-20251001`.
+
+**What's actually true:** Orq.ai's `list_models` catalog has **no Anthropic-direct Haiku entry**. The only Haiku 4.5 in the workspace catalog is `aws/eu.anthropic.claude-haiku-4-5-20251001-v1:0` (AWS Bedrock EU region). The existing `debtor-intent-agent` row was set with the same wrong identifier — Orq's PATCH endpoint accepts arbitrary model strings without catalog validation, so both agents stored the wrong ID and Studio rendered both Model dropdowns as empty.
+
+**Why the probe missed it:** Probe 1 trusted the existing `orq_agents` row as evidence of catalog availability. That's a transitive bug — the row was wrong too. The correct probe would have called `mcp__orqai-mcp__list_models` and asserted the ID is in the returned set.
+
+**Resolution:** Operator enabled Bedrock-EU Haiku in Orq workspace + switched the Stage 0 agent to `aws/eu.anthropic.claude-haiku-4-5-20251001-v1:0`. Supabase `orq_agents.model_config.primary` resynced (version `2026-05-01.v2`). Smoke test on the Bedrock primary returns the correct verdict. The same correction should be applied to `debtor-intent-agent` if it has not yet been verified in Studio.
+
+**Captured as learnings:** `f980a2a1-4500-4c2e-98c5-803261ab7d78` (catalog mismatch) and tightened in CLAUDE.md § Orq.ai (`list_models` pre-flight rule).
+
 ### BLOCKER: Task 6 — Migration push to live Supabase NOT EXECUTED
 
 **Symptom:** `npx supabase db push` fails before applying any migration:

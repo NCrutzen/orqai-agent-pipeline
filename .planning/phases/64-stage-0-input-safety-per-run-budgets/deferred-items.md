@@ -69,8 +69,8 @@ curl -X POST https://api.orq.ai/v2/tools \
    - `agent_key`: `stage-0-safety-classifier`
    - `description`: `Stage 0 prompt-injection verdict (Phase 64 D-03). Binary classification on inbound email body.`
    - `swarm_type`: `debtor-email`
-   - `model_config.primary`: `anthropic/claude-haiku-4-5-20251001` (per PROBES.md)
-   - `model_config.fallbacks`: `["openai/gpt-4o-mini","anthropic/claude-haiku-3-5","google/gemini-2.0-flash"]`
+   - `model_config.primary`: `aws/eu.anthropic.claude-haiku-4-5-20251001-v1:0` (per PROBES.md)
+   - `model_config.fallbacks`: `["openai/gpt-4o-mini","google-ai/gemini-2.5-flash"]`
    - `output_schema`:
      ```json
      {
@@ -105,7 +105,7 @@ curl -X POST https://api.orq.ai/v2/tools \
      '1.0.0',
      '{"type":"object","properties":{"email_id":{"type":"string"},"email_subject":{"type":"string"},"email_body":{"type":"string"}},"required":["email_id","email_subject","email_body"]}'::jsonb,
      '{"type":"object","properties":{"verdict":{"type":"string","enum":["safe","injection_suspected"]},"reason":{"type":"string","maxLength":280},"matched_span":{"anyOf":[{"type":"string"},{"type":"null"}]}},"required":["verdict","reason","matched_span"],"additionalProperties":false}'::jsonb,
-     '{"primary":"anthropic/claude-haiku-4-5-20251001","fallbacks":["openai/gpt-4o-mini","anthropic/claude-haiku-3-5","google/gemini-2.0-flash"],"max_tokens":600,"temperature":0}'::jsonb,
+     '{"primary":"aws/eu.anthropic.claude-haiku-4-5-20251001-v1:0","fallbacks":["openai/gpt-4o-mini","google-ai/gemini-2.5-flash"],"max_tokens":600,"temperature":0}'::jsonb,
      45000,
      true
    );
