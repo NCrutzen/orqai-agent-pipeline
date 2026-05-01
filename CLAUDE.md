@@ -141,7 +141,7 @@ const browser = await chromium.connectOverCDP(
   - **Sonnet 4.5** → `anthropic/claude-sonnet-4-5-20250929` (Anthropic-direct) of `aws/eu.anthropic.claude-sonnet-4-5-20250929-v1:0` (Bedrock EU)
   - **Haiku 4.5** → `aws/eu.anthropic.claude-haiku-4-5-20251001-v1:0` (Bedrock EU only — er is GEEN Anthropic-direct Haiku in de catalog)
   - **Let op:** eerdere CLAUDE.md guidance noemde "Primary model: `anthropic/claude-sonnet-4-6`" — dat ID bestaat **niet** in Orq's catalog. Wat in projectcontext "4.6" heet is in Orq's catalog `aws/eu.anthropic.claude-opus-4-6-v1` (Opus, Bedrock EU). Verifieer altijd via `list_models` vóór agent create/update.
-  - Fallback chain bestaande agents: `openai/gpt-4o-mini`, `google-ai/gemini-2.5-flash`.
+  - Fallback chain bestaande agents: `openai/gpt-4o-mini` (of `openai/gpt-4o` voor zwaardere agents), `google-ai/gemini-2.5-flash` (of `google-ai/gemini-2.5-pro`), `mistral/mistral-large-2411` (EU-hosted, dated pin — NIET `mistral-large-latest`, dat ID bestaat niet in de catalog). Vermijd `mistral/mistral-large-latest`, `anthropic/claude-3-5-haiku-20241022`, `anthropic/claude-sonnet-4-5` (zonder datum) — allemaal niet in de catalog.
 - XML-tagged prompts: `<role>`, `<task>`, `<constraints>`, `<output_format>`
 - 45s client timeout (Orq.ai intern retry = 31s)
 - Knowledge bases in Supabase, NIET in Orq.ai
