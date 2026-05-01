@@ -129,10 +129,13 @@ const browser = await chromium.connectOverCDP(
 
 ### Orq.ai
 - ALTIJD `response_format` met `json_schema` — prompt-only JSON faalt 15-20%
-- ALTIJD agent updates verifiëren met `get_agent` na `update_agent`
+- ALTIJD `list_models` **vóór** `create_agent`/`update_agent` om primary + iedere fallback ID tegen de catalog te valideren. PATCH accepteert onbekende IDs zonder fout en `get_agent` echoot ze terug — Studio rendert de Model-dropdown leeg en blokkeert "Add tool" (incl. JSON Schema). Learning `f980a2a1-4500-4c2e-98c5-803261ab7d78`.
+- `create_agent` **dropt** `model.parameters.response_format` stilzwijgend; `update_agent` persisteert het wel. Pattern: create met bare model-id, dan direct PATCH met de volledige `model.parameters` (incl. `response_format` strict json_schema) en verifieer met `get_agent`. Learning `cba7352b-4feb-4d11-94f8-0ebd24f15cd0`.
+- Voor cross-endpoint JSON-enforcement (Studio test + production): naast `model.parameters.response_format` óók een **`json_schema` tool resource** in `settings.tools`. MCP exposeert geen tool CRUD; Studio dashboard of personal access token (workspace key krijgt 403 op `POST /v2/tools`).
+- ALTIJD agent updates verifiëren met `get_agent` na `update_agent` (let op: dit verifieert persistentie, **niet** catalog-validiteit van model IDs — zie hierboven)
 - Experiments via REST API, NIET MCP
 - Zod validatie op alle LLM output
-- Primary model: `anthropic/claude-sonnet-4-6` + 3-4 fallbacks
+- Primary model voorkeur: `anthropic/claude-sonnet-4-5-20250929` (latest Anthropic in Orq catalog, 2026-05). `claude-sonnet-4-6` en alle Haiku-varianten staan **niet** in de catalog — verifieer altijd via `list_models` vóór gebruik. Fallbacks van bestaande agents: `openai/gpt-4o-mini`, `google-ai/gemini-2.5-flash`.
 - XML-tagged prompts: `<role>`, `<task>`, `<constraints>`, `<output_format>`
 - 45s client timeout (Orq.ai intern retry = 31s)
 - Knowledge bases in Supabase, NIET in Orq.ai
