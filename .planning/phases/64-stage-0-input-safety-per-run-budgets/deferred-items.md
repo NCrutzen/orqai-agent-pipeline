@@ -32,7 +32,7 @@
        "properties": {
          "verdict": { "type": "string", "enum": ["safe", "injection_suspected"] },
          "reason":  { "type": "string", "maxLength": 280 },
-         "matched_span": { "type": ["string", "null"] }
+         "matched_span": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
        },
        "required": ["verdict", "reason", "matched_span"],
        "additionalProperties": false
@@ -55,7 +55,7 @@ curl -X POST https://api.orq.ai/v2/tools \
     "json_schema": {
       "name": "stage_0_safety_verdict",
       "strict": true,
-      "schema": { "type": "object", "properties": { "verdict": { "type": "string", "enum": ["safe", "injection_suspected"] }, "reason": { "type": "string", "maxLength": 280 }, "matched_span": { "type": ["string", "null"] } }, "required": ["verdict", "reason", "matched_span"], "additionalProperties": false }
+      "schema": { "type": "object", "properties": { "verdict": { "type": "string", "enum": ["safe", "injection_suspected"] }, "reason": { "type": "string", "maxLength": 280 }, "matched_span": { "anyOf": [ { "type": "string" }, { "type": "null" } ] } }, "required": ["verdict", "reason", "matched_span"], "additionalProperties": false }
     }
   }'
 # Then PATCH the agent to attach: settings.tools = [{ "type": "json_schema", "key": "stage-0-safety-verdict" }]
@@ -78,7 +78,7 @@ curl -X POST https://api.orq.ai/v2/tools \
        "properties": {
          "verdict": { "type": "string", "enum": ["safe","injection_suspected"] },
          "reason": { "type": "string", "maxLength": 280 },
-         "matched_span": { "type": ["string","null"] }
+         "matched_span": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
        },
        "required": ["verdict","reason","matched_span"],
        "additionalProperties": false
@@ -104,7 +104,7 @@ curl -X POST https://api.orq.ai/v2/tools \
      'debtor-email',
      '1.0.0',
      '{"type":"object","properties":{"email_id":{"type":"string"},"email_subject":{"type":"string"},"email_body":{"type":"string"}},"required":["email_id","email_subject","email_body"]}'::jsonb,
-     '{"type":"object","properties":{"verdict":{"type":"string","enum":["safe","injection_suspected"]},"reason":{"type":"string","maxLength":280},"matched_span":{"type":["string","null"]}},"required":["verdict","reason","matched_span"],"additionalProperties":false}'::jsonb,
+     '{"type":"object","properties":{"verdict":{"type":"string","enum":["safe","injection_suspected"]},"reason":{"type":"string","maxLength":280},"matched_span":{"anyOf":[{"type":"string"},{"type":"null"}]}},"required":["verdict","reason","matched_span"],"additionalProperties":false}'::jsonb,
      '{"primary":"anthropic/claude-haiku-4-5-20251001","fallbacks":["openai/gpt-4o-mini","anthropic/claude-haiku-3-5","google/gemini-2.0-flash"],"max_tokens":600,"temperature":0}'::jsonb,
      45000,
      true
