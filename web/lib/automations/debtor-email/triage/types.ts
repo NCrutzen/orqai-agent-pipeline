@@ -95,6 +95,31 @@ export const intentAgentOutputSchema = z.object({
 export type IntentAgentOutput = z.infer<typeof intentAgentOutputSchema>;
 
 // ---------------------------------------------------------------------------
+// Phase 65 (D-12) — ranked-intent V2 schema. v1 kept above for backfill
+// comparator (Plan 65-05). Phase 66 deletes v1.
+// ---------------------------------------------------------------------------
+
+export const INTENT_VERSION_V2 = "2026-05-01.v2" as const;
+
+export const rankedIntentEntrySchema = z.object({
+  intent: z.enum(INTENT),
+  confidence: z.enum(CONFIDENCE),
+  document_reference: z.string().max(64).nullable(),
+  sub_type: z.enum(SUB_TYPE).nullable(),
+  reasoning: z.string().max(200),
+});
+
+export const intentAgentOutputSchemaV2 = z.object({
+  ranked: z.array(rankedIntentEntrySchema).min(1).max(5), // OQ6 — bound prompt blow-up
+  language: z.enum(LANGUAGE),
+  urgency: z.enum(URGENCY),
+  intent_version: z.literal(INTENT_VERSION_V2),
+});
+
+export type RankedIntentEntry = z.infer<typeof rankedIntentEntrySchema>;
+export type IntentAgentOutputV2 = z.infer<typeof intentAgentOutputSchemaV2>;
+
+// ---------------------------------------------------------------------------
 // Body agent output schema (matches agents/debtor-copy-document-body-agent.md)
 // ---------------------------------------------------------------------------
 
