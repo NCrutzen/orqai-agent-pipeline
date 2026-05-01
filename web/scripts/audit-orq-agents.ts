@@ -17,9 +17,9 @@
  *   - NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL)
  *   - SUPABASE_SERVICE_ROLE_KEY
  *   - ORQ_API_KEY — quotes around the value are stripped automatically.
- *     The key must have catalog-read permission on this workspace; if you
- *     get a 403 on /v2/models, check the key's scopes/permissions in
- *     Orq Studio → Settings → API Keys.
+ *     If the call to /v2/models fails, see https://docs.orq.ai or ask
+ *     the workspace admin. (The session that wrote this script could not
+ *     reach /v2/models from this key — root cause unconfirmed.)
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -66,23 +66,16 @@ async function fetchOrqCatalog(): Promise<Set<string>> {
   const res = await fetch("https://api.orq.ai/v2/models?modelType=chat", {
     headers: { Authorization: `Bearer ${ORQ_API_KEY}` },
   });
-  if (res.status === 403) {
-    throw new Error(
-      "Orq.ai /v2/models returned 403 — check ORQ_API_KEY's scopes/permissions " +
-      "in Orq Studio → Settings → API Keys. Catalog-read access is required.",
-    );
-  }
   if (!res.ok) {
     throw new Error(
-      `Orq.ai catalog fetch failed: ${res.status} ${res.statusText} — ${await res.text()}`,
+      `Orq.ai /v2/models returned ${res.status} ${res.statusText}: ${await res.text()}`,
     );
   }
   const json = (await res.json()) as { models?: CatalogModel[] };
   const models = json.models ?? [];
   if (models.length === 0) {
     throw new Error(
-      "Orq.ai /v2/models returned 0 models — verify ORQ_API_KEY has " +
-      "catalog-read permission on this workspace.",
+      "Orq.ai /v2/models returned an empty list — see https://docs.orq.ai or ask the workspace admin.",
     );
   }
   return new Set(models.map((m) => m.id));
