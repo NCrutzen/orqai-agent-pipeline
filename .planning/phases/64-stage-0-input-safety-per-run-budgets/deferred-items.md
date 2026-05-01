@@ -1,5 +1,52 @@
 # Phase 64 — Deferred Items
 
+## Phase 64.1 — Safety outcome labels + "Correct & Dismiss" button
+
+**Status:** PLANNED — operator-approved follow-up after Phase 64 smoke testing 2026-05-01.
+**Goal:** Capture an implicit precision/recall signal on every operator action against a Stage 0 safety_review row, so future analytics can compute true-positive and false-positive rates per week without a separate labelling pipeline.
+
+**Background:** Phase 64 shipped the three operator actions (Mark safe & reprocess / Dismiss / Escalate) with neutral semantics — `result` only stamps `marked_safe_at` / `dismissed_at` / `escalated_at`. Per UI-SPEC L136 + L168 + L192, Dismiss currently means "logged and archived, no reply", semantically neutral on whether Stage 0 was right or wrong. Operator approved a refinement where each action carries an implicit verdict on Stage 0's classification, surfaced both in the button copy and persisted as a structured field for analytics.
+
+**Action → implied verdict mapping (locked):**
+
+| Button (new copy) | Implicit verdict on Stage 0 | Field stored on `result` |
+|---|---|---|
+| **Mark safe & reprocess** | Stage 0 was wrong (false positive) — let it through | `safety_outcome: "false_positive"` |
+| **Correct & Dismiss** *(renamed from "Dismiss")* | Stage 0 was right (true positive) — no further action needed | `safety_outcome: "true_positive_archived"` |
+| **Escalate to human review** | Stage 0 was right AND this needs human follow-up beyond archive | `safety_outcome: "true_positive_escalated"` |
+
+**Implementation scope (~1 hour focused):**
+
+1. **`web/app/(dashboard)/automations/[swarm]/review/components/safety-detail-pane.tsx`**
+   - Rename Dismiss button copy: `"Dismiss"` → `"Correct & Dismiss"`
+   - Add aria-label hover hints clarifying the implied verdict on each button (per WCAG 2.1).
+2. **`web/app/(dashboard)/automations/[swarm]/review/actions.ts`**
+   - `markSafeAndReprocess`: add `safety_outcome: "false_positive"` to the `merged` result write.
+   - `dismissSafetyReview`: add `safety_outcome: "true_positive_archived"`.
+   - `escalateToKanban`: add `safety_outcome: "true_positive_escalated"` (also on the new Kanban escalation row's `result`).
+3. **`web/app/(dashboard)/automations/[swarm]/review/components/safety-detail-pane.tsx`** confirm-toast copy:
+   - "Marked safe — reprocessing through Stage 1 *(Stage 0 false positive logged)*"
+   - "Confirmed and archived — *Stage 0 true positive logged*"
+   - "Escalated to human review — *Stage 0 true positive logged*"
+4. **`web/app/(dashboard)/automations/[swarm]/review/actions.ts` — friendly Outlook 400 error**
+   - Catch `fetchMessageBody` 400/404 specifically inside `markSafeAndReprocess` and surface as: `"Couldn't refetch the original email — the Outlook message may have been deleted. Try Correct & Dismiss or Escalate instead."` (instead of the raw API string operators see today).
+5. **`64-UI-SPEC.md`** — append a short `## Phase 64.1 amendment` section locking the new copy + aria-labels.
+6. **Tests:**
+   - Extend the safety-review-loader vitest to assert the three actions write the expected `safety_outcome` value.
+   - Snapshot test on the new button copy so future renames trip review.
+7. **No DB schema change** — `safety_outcome` lives inside the existing `result jsonb`. Analytics queries read it via `result->>'safety_outcome'`.
+8. **Follow-up analytics (separate, not part of 64.1):** a small Supabase view `stage_0_outcome_metrics_view` that aggregates `count(*) filter (where safety_outcome = ...)` over the last 7/30/90 days. Defer until 64.1 has produced enough labelled rows to be meaningful.
+
+**Acceptance:**
+- All three actions on a Stage 0 safety_review row write a `safety_outcome` value.
+- "Correct & Dismiss" button visible in the safety detail pane (replaces "Dismiss").
+- Outlook fetch failure on Mark safe & reprocess shows the friendly error string.
+- TSC clean, 33+ vitest tests green.
+
+**Phase number:** `64.1` (use `/gsd-insert-phase` to add between Phase 64 and Phase 65 in ROADMAP).
+
+---
+
 ## From Plan 64-02 (Wave 2 — implementations)
 
 ### 1. Provision Orq.ai agent `stage-0-safety-classifier` + insert orq_agents row
