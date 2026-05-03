@@ -1,6 +1,10 @@
 import {
+  // Phase 65 D-12 — v2 ranked-intent schema. v1 import retained for the
+  // Plan 65-05 backfill regression comparator; Phase 66 deletes v1.
   intentAgentOutputSchema,
+  intentAgentOutputSchemaV2,
   type IntentAgentOutput,
+  type IntentAgentOutputV2,
 } from "./types";
 
 const ORQ_ENDPOINT = "https://api.orq.ai/v2/agents";
@@ -30,9 +34,13 @@ export type InvokeIntentOptions = {
 };
 
 export type InvokeIntentResult = {
-  output: IntentAgentOutput;
+  output: IntentAgentOutputV2;
   raw: string;
 };
+
+// Re-export v1 type alias for callers that still need it (Plan 65-05 backfill
+// regression comparator). Production triage path consumes only IntentAgentOutputV2.
+export type { IntentAgentOutput };
 
 function sortKeys<T extends Record<string, unknown>>(obj: T): T {
   const sorted: Record<string, unknown> = {};
@@ -131,10 +139,17 @@ export async function invokeIntentAgent(
     throw e;
   }
 
-  const validated = intentAgentOutputSchema.safeParse(parsed);
+  // Phase 65 (D-12): switch validator to v2 ranked-intent schema. The v1 schema
+  // import is kept alive for Plan 65-05 regression backfill but is no longer
+  // wired into the production transport. v1 outputs from a stale agent
+  // deployment will fail this gate with an informative zod issues blob — the
+  // INTENT_VERSION_V2 literal mismatch alone is enough to trip safeParse.
+  const validated = intentAgentOutputSchemaV2.safeParse(parsed);
   if (!validated.success) {
     const e = new Error(
-      `Intent-agent schema validation failed: ${validated.error.message}`,
+      `Intent-agent v2 output schema mismatch: ${JSON.stringify(
+        validated.error.issues,
+      )}`,
     );
     (e as { raw?: string }).raw = raw;
     throw e;
@@ -142,3 +157,6 @@ export async function invokeIntentAgent(
 
   return { output: validated.data, raw };
 }
+
+// Silence unused-import lint for the retained v1 schema (kept for Plan 65-05).
+void intentAgentOutputSchema;

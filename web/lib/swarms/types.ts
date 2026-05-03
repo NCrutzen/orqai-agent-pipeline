@@ -41,4 +41,12 @@ export interface SwarmCategoryRow {
   swarm_dispatch: string | null; // D-02: Inngest event name when action='swarm_dispatch'
   display_order: number;
   enabled: boolean;
+  // Phase 65 D-08 — escalation-gate flag. Set true to force a category to the
+  // orchestrator path even when the coordinator returns a high-confidence
+  // single-intent ranking. DB default false; optional in TS so legacy
+  // (Phase 56.7) fixtures and registry rows pulled from rows that pre-date the
+  // ALTER TABLE remain assignable. The escalation gate compares with `=== true`.
+  // Migration:
+  // supabase/migrations/20260501b_swarm_categories_requires_orchestration.sql
+  requires_orchestration?: boolean;
 }
