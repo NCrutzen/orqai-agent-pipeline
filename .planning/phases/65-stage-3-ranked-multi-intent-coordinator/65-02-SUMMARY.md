@@ -11,7 +11,7 @@ provides:
   - debtor-intent-agent v2 live in Orq Studio (model=anthropic/claude-sonnet-4-5-20250929, ranked-list output, json_schema strict)
   - debtor-orchestrator-agent NEW (orqai_id 01KQPA63RJ726GA6399K3NDGTK; swarm_type=debtor-email)
   - synthesis-agent NEW (orqai_id 01KQPA6TQ5Z2JXQW8WGM3XKATC; swarm_type=cross-cutting)
-  - supabase/migrations/20260501d_orq_agents_v2_and_orchestrator.sql (registry mirror, awaits operator-applied push)
+  - supabase/migrations/20260501d_orq_agents_v2_and_orchestrator.sql (registry mirror, applied 2026-05-03 via Supabase SQL editor)
   - 3 audit-trail get_agent JSON snapshots committed at .planning/phases/.../{agent}-v2.json
 affects: [65-03, 65-04, 65-05, 73]
 
@@ -52,8 +52,8 @@ patterns-established:
 
 requirements-completed: []  # CORD-01..03 require Plans 03+04+05 to wire pipeline; Plan 02 lays the agent foundation only
 
-duration: ~15min agent execution (Tasks 1-5); operator-applied SQL pending for Task 6
-completed: 2026-05-03
+duration: ~15min agent execution (Tasks 1-5); operator-applied SQL via Supabase SQL editor for Task 6
+completed: 2026-05-03 (all 6 tasks)
 ---
 
 # Phase 65 Plan 02: Orq agent registry — debtor-intent v2 + orchestrator + synthesis Summary
@@ -65,7 +65,7 @@ completed: 2026-05-03
 - **Duration:** ~15 min agent execution (list_models pre-flight + 3 agent ops + migration write)
 - **Started:** 2026-05-03T06:52:05Z
 - **Completed (Tasks 1-5):** 2026-05-03T07:07:32Z
-- **Tasks:** 6 — Tasks 2-5 fully automated; Task 1 deviated (operator-authorized inline-schema test); Task 6 operator-pending (BLOCKING checkpoint)
+- **Tasks:** 6 — Tasks 2-5 fully automated; Task 1 deviated (operator-authorized inline-schema test); Task 6 applied 2026-05-03 (BLOCKING checkpoint)
 - **Files created:** 8 (1 migration + 5 JSON artifacts + 2 .orq-agents/ snapshots — 3 of these are duplicates of the same content for verify-clause compatibility)
 
 ## Accomplishments
@@ -90,7 +90,7 @@ completed: 2026-05-03
 3. **Task 3: PATCH debtor-intent-agent v2** — `36ae93d` (chore)
 4. **Task 4: Create orchestrator + synthesis** — `ff6d0d1` (feat)
 5. **Task 5: Registry mirror migration** — `b988c0b` (feat)
-6. **Task 6: [BLOCKING] supabase db push** — operator-pending (CHECKPOINT below)
+6. **Task 6: [BLOCKING] supabase db push** — operator applied 2026-05-03 via Supabase SQL editor; all 3 rows verified (`debtor-intent-agent` v2026-05-01.v2 · debtor-orchestrator-agent · synthesis-agent cross-cutting; intent_const + synthesis_const literals match)
 
 **Plan metadata:** committed alongside this SUMMARY.
 
@@ -270,4 +270,4 @@ None — no new trust boundaries introduced beyond those documented in the plan'
 ---
 *Phase: 65-stage-3-ranked-multi-intent-coordinator*
 *Plan: 02*
-*Completed (Tasks 1-5): 2026-05-03; Task 6 operator-pending*
+*Completed (Tasks 1-5): 2026-05-03; Task 6 applied 2026-05-03*
