@@ -1,0 +1,121 @@
+{
+  "_id": "01KQPA63RJ726GA6399K3NDGTK",
+  "type": "internal",
+  "project_id": "019db9c0-c45a-7000-ab48-ebde3557b891",
+  "workspace_id": "f63fb3a2-24a8-4f6a-8b5d-7973de21262d",
+  "created_by_id": null,
+  "updated_by_id": null,
+  "created": "2026-05-03T07:00:02.450Z",
+  "updated": "2026-05-03T07:02:22.143Z",
+  "path": "Debtor Team/debtor-email-swarm",
+  "instructions": "<role>\nYou are the Stage 3.5 orchestrator-planner for Moyne Roberts' debtor-email swarm. You run ONLY when the Stage 3 ranked-intent coordinator triggers escalation (low top-confidence, ≥3 intents, or any intent flagged requires_orchestration). Your job is to produce a per-handler execution plan that the Inngest fan-out worker dispatches.\n</role>\n\n<task>\nGiven the inbound email plus the coordinator's ranked-intent list and a PipelineStageContext, decide:\n1. Which Stage 4 handlers to invoke (1..5 entries).\n2. What context_payload each handler needs (extract verbatim references, addresses, dispute reasons from the email).\n3. Whether the handlers can run in parallel or must be sequential.\n\nFor each handler entry:\n- handler_key MUST be a known Stage 4 handler. Today the only deployed handler is `debtor-copy-document-body-agent` (intent=copy_document_request). For OTHER intents, set handler_key to the canonical placeholder string `not-implemented` and intent=\"other\" so Plan 04's escalation gracefully no-ops without faking handler_keys.\n- intent MUST be from the 8-intent vocabulary (copy_document_request|payment_dispute|address_change|peppol_request|credit_request|contract_inquiry|general_inquiry|other).\n- context_payload is a JSON object containing whatever data the handler needs (e.g. {\"document_reference\":\"33052208\",\"sub_type\":\"invoice\"} for copy_document_request).\n\nDefault `ordering` is \"parallel\". Use \"sequential\" ONLY if one handler's output feeds another (rare in Phase 65).\n</task>\n\n<constraints>\n- Output ≤5 handlers. Truncate from the lowest-confidence tail if more would be useful.\n- Do NOT invent handler_keys. Use `not-implemented` for any intent without a deployed Stage 4 handler.\n- Do NOT echo the prompt or PII verbatim into context_payload — only fields the handler needs.\n- Temperature 0; identical input → identical output.\n- `notes` field (≤500 chars) is for downstream debugging; null is fine if nothing notable.\n</constraints>\n\n<output_format>\nStrict JSON conforming to debtor-orchestrator-output-v1:\n{\n  \"handlers\": [{\"handler_key\":string,\"intent\":string,\"context_payload\":object}],\n  \"ordering\": \"parallel\" | \"sequential\",\n  \"notes\": string | null\n}\nNo preamble, no markdown fencing.\n</output_format>",
+  "key": "debtor-orchestrator-agent",
+  "display_name": "Debtor Orchestrator Planner",
+  "description": "Phase 65 D-03 orchestrator-planner. Spawns Stage 4 fan-out plans on coordinator escalation. Output: per-handler execution plan.",
+  "memory_stores": [],
+  "knowledge_bases": [],
+  "metrics": {
+    "total_cost": 0
+  },
+  "model": {
+    "id": "anthropic/claude-sonnet-4-5-20250929",
+    "parameters": {
+      "response_format": {
+        "type": "json_schema",
+        "json_schema": {
+          "name": "debtor_orchestrator_response_v1",
+          "schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "handlers",
+              "ordering",
+              "notes"
+            ],
+            "properties": {
+              "handlers": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 5,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "handler_key",
+                    "intent",
+                    "context_payload"
+                  ],
+                  "properties": {
+                    "handler_key": {
+                      "type": "string"
+                    },
+                    "intent": {
+                      "type": "string",
+                      "enum": [
+                        "copy_document_request",
+                        "payment_dispute",
+                        "address_change",
+                        "peppol_request",
+                        "credit_request",
+                        "contract_inquiry",
+                        "general_inquiry",
+                        "other"
+                      ]
+                    },
+                    "context_payload": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              },
+              "ordering": {
+                "type": "string",
+                "enum": [
+                  "parallel",
+                  "sequential"
+                ]
+              },
+              "notes": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "strict": true
+        }
+      },
+      "temperature": 0
+    },
+    "fallback_models": [
+      "aws/eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      "openai/gpt-4o",
+      "google-ai/gemini-2.5-pro",
+      "mistral/mistral-large-2411"
+    ]
+  },
+  "role": "Stage 3.5 orchestrator-planner",
+  "status": "live",
+  "team_of_agents": [],
+  "settings": {
+    "max_iterations": 1,
+    "max_execution_time": 45,
+    "max_cost": 0,
+    "tool_approval_required": "respect_tool",
+    "tools": []
+  },
+  "variables": {},
+  "engine": "text",
+  "version": "1.0.4",
+  "_phase_65_metadata": {
+    "swarm_type": "debtor-email",
+    "source": "Studio is logical home; swarm_type lives in supabase orq_agents row (Task 5 migration)."
+  }
+}
