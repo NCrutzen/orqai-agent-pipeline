@@ -2,13 +2,14 @@
 
 /**
  * V7 swarm sidebar. Renders the brand block, dynamic swarm list, and
- * live mini-stat pills. Owns a single dashboard-wide Realtime channel
- * (`dashboard:swarms`) that watches `swarm_jobs` and `swarm_agents`
- * globally so the mini-stats stay live across all swarm rows.
- *
- * This dashboard-level channel is distinct from the per-swarm-view
- * channel owned by `SwarmRealtimeProvider`. RT-01 constrains the
- * swarm-view count; sidebar chrome is layout-level.
+ * mini-stat pills. Stats refresh via a 30s poll — NOT a Realtime
+ * subscription. An earlier version subscribed to unfiltered
+ * `postgres_changes` on swarm_jobs + swarm_agents from this layout-level
+ * component; the bridge tick (every 2 min, business hours, Mon-Fri)
+ * upserts hundreds of rows per tick and each row fanned out to every
+ * open dashboard tab, blowing through the 5M Realtime cap. Polling
+ * aggregates is sufficient for sidebar badges. See learning
+ * d462b889-25a6-4790-84c7-b3ad437f7501.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -30,10 +31,6 @@ import {
   Search,
   Boxes,
 } from "lucide-react";
-import type {
-  RealtimeChannel,
-  RealtimePostgresChangesPayload,
-} from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { SwarmListItem } from "@/components/v7/swarm-list-item";
 import {
@@ -71,31 +68,8 @@ const AUTOMATIONS_ITEMS = [
   { title: "Rijtijden", href: "/rijtijden", icon: Clock, match: (p: string) => p.startsWith("/rijtijden") },
 ];
 
-function applyRowMutation<T extends { id: string }>(
-  current: T[],
-  payload: RealtimePostgresChangesPayload<T>,
-): T[] {
-  switch (payload.eventType) {
-    case "INSERT": {
-      const next = payload.new as T;
-      if (current.some((r) => r.id === next.id)) return current;
-      return [...current, next];
-    }
-    case "UPDATE": {
-      const next = payload.new as T;
-      return current.map((r) => (r.id === next.id ? next : r));
-    }
-    case "DELETE": {
-      const prev = payload.old as Partial<T>;
-      if (!prev.id) return current;
-      return current.filter((r) => r.id !== prev.id);
-    }
-    default:
-      return current;
-  }
-}
-
 const ACTIVE_STAGE_SET = new Set<string>(ACTIVE_JOB_STAGES);
+const SIDEBAR_POLL_INTERVAL_MS = 30_000;
 
 type NavItem = {
   title: string;
@@ -225,34 +199,23 @@ export function SwarmSidebar({
 
   useEffect(() => {
     const supabase = createClient();
-    const channel: RealtimeChannel = supabase
-      .channel("dashboard:swarms")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "swarm_jobs" },
-        (payload) =>
-          setJobs((prev) =>
-            applyRowMutation(
-              prev,
-              payload as RealtimePostgresChangesPayload<SwarmJobRow>,
-            ),
-          ),
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "swarm_agents" },
-        (payload) =>
-          setAgents((prev) =>
-            applyRowMutation(
-              prev,
-              payload as RealtimePostgresChangesPayload<SwarmAgentRow>,
-            ),
-          ),
-      )
-      .subscribe();
+    let cancelled = false;
+
+    const refetch = async () => {
+      const [jobsRes, agentsRes] = await Promise.all([
+        supabase.from("swarm_jobs").select("*"),
+        supabase.from("swarm_agents").select("*"),
+      ]);
+      if (cancelled) return;
+      if (jobsRes.data) setJobs(jobsRes.data as SwarmJobRow[]);
+      if (agentsRes.data) setAgents(agentsRes.data as SwarmAgentRow[]);
+    };
+
+    const intervalId = setInterval(refetch, SIDEBAR_POLL_INTERVAL_MS);
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      clearInterval(intervalId);
     };
   }, []);
 
