@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 65-02-PLAN.md (Tasks 1-5; Task 6 operator-pending)
-last_updated: "2026-05-03T07:12:43.180Z"
-last_activity: 2026-05-01 -- Phase --phase execution started
+stopped_at: Completed 65-03-PLAN.md (Plans 01, 02, 03 done; 04 in progress; 05 pending)
+last_updated: "2026-05-03T07:39:56.763Z"
+last_activity: 2026-05-03 -- Phase 65 Wave 2 in progress
 progress:
   total_phases: 45
   completed_phases: 13
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 Phase: --phase (65) — EXECUTING
 Plan: 1 of --name
 Milestone: v8.0 Agentic Platform (11 phases, 63-73)
-Last activity: 2026-05-01 -- Phase --phase execution started
+Last activity: 2026-05-03 -- Phase 65 Wave 2 in progress (Plans 01-03 done)
 
 Progress: [███████░░░] 73%
 
@@ -52,7 +52,8 @@ Progress: [███████░░░] 73%
 | Phase 63 P01 | 3m 25s | 3 tasks | 3 files |
 | Phase 63 P02 | 5m | 5 tasks | 5 files |
 | Phase 63 P03 | 2m | 4 tasks | 3 files |
-| Phase 65 P02 | 927 | 5 tasks | 8 files |
+| Phase 65 P02 | 927s | 5 tasks | 8 files |
+| Phase 65 P03 | 482s | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,7 @@ Progress: [███████░░░] 73%
 - 63-03: docs/agentic-pipeline/README.md is the canonical RFC entry point; CLAUDE.md updated to point at it primary, debtor-email doc demoted to swarm-specific implementation map
 - Phase 65-02: Inline model.parameters.response_format on Orq REST API replaces Studio Tools UI ritual (verified end-to-end on 3 agents 2026-05-03)
 - Phase 65-02: fallback_models lives at AGENT ROOT level on Orq PATCH; nested-form silently no-ops
+- Phase 65 Plan 03 — coordinator V2 rewritten in-place; SwarmCategoryRow.requires_orchestration optional in TS to keep legacy fixtures assignable; debtor/email.received payload extended with optional run_id/automation_run_id/budget_run_id (back-compat)
 
 ### Blockers/Concerns
 
@@ -113,10 +115,10 @@ Progress: [███████░░░] 73%
 
 ## Session Continuity
 
-Last session: 2026-05-03T07:12:31.609Z
-Stopped at: Completed 65-02-PLAN.md (Tasks 1-5; Task 6 operator-pending)
-Resume with: `/gsd-autonomous --from 49`
-Resume file: Task 6 supabase db push pending operator action
+Last session: 2026-05-03T07:39:50.137Z
+Stopped at: Plans 01-03 complete; Plan 04 in progress; Plan 05 pending
+Resume with: `/gsd-execute-phase 65`
+Resume file: None
 
 ## Deferred Items
 

@@ -306,7 +306,10 @@ export type Events = {
     };
   };
 
-  // Debtor email swarm — triage (phase 1)
+  // Debtor email swarm — triage (phase 1) / Phase 65 coordinator (in-place rewrite per D-10).
+  // Optional run_id / automation_run_id / budget_run_id / agent_run_id added in Phase 65 to
+  // carry the Stage 0 budget envelope and the coordinator_runs row identifier through to
+  // the new dispatch path. Existing callers that don't set them stay backwards-compatible.
   "debtor/email.received": {
     data: {
       email_id: string;
@@ -322,6 +325,156 @@ export type Events = {
       mailbox: string;
       entity: "smeba" | "berki" | "sicli-noord" | "sicli-sud" | "smeba-fire";
       received_at: string;
+      // Phase 65 additions (D-10):
+      /** Coordinator-run identifier — primary key of public.coordinator_runs. */
+      run_id?: string;
+      /** Cross-swarm Bulk Review row identifier. */
+      automation_run_id?: string;
+      /** Stage 0 budget envelope identifier (Phase 64 D-15). */
+      budget_run_id?: string;
+      /** public.agent_runs.id pre-created by upstream emitter; coordinator merges
+       *  intent_first_pass into tool_outputs against this id when present. */
+      agent_run_id?: string;
+    };
+  };
+
+  // Phase 65 (D-10) — coordinator → orchestrator handoff. Plan 04 builds the
+  // listener; Plan 03 emits this event when the escalation gate returns
+  // orchestrator. Carries the full ranked-intent array so the planner doesn't
+  // need to re-classify.
+  "debtor-email/orchestrator.requested": {
+    data: {
+      run_id: string;
+      email_id: string;
+      automation_run_id?: string;
+      ranked: Array<{
+        intent: string;
+        confidence: "low" | "medium" | "high";
+        document_reference: string | null;
+        sub_type: string | null;
+        reasoning: string;
+      }>;
+      language: "nl" | "en" | "de" | "fr";
+      urgency: "low" | "normal" | "high";
+      escalation_reason:
+        | "low_confidence"
+        | "high_intent_count"
+        | "requires_orchestration_flag";
+      budget_run_id?: string;
+      swarm_type: string;
+    };
+  };
+
+  // Phase 65 — orchestrator → synthesis handoff. Plan 04 emits; Plan 04 listens.
+  // Listed here so events.ts is the single source of truth for the Phase 65 taxonomy.
+  "debtor-email/synthesis.requested": {
+    data: {
+      run_id: string;
+      email_id: string;
+      automation_run_id?: string;
+      swarm_type: string;
+    };
+  };
+
+  // Phase 65 — per-intent dispatch events emitted by the coordinator's
+  // single-shot fast-path (CORD-04). The actual event name is read from
+  // public.swarm_categories.swarm_dispatch (registry-driven dispatch — same
+  // idiom as classifier-verdict-worker:149-176). These typed entries make
+  // them well-known names so downstream Plan 04+ handlers can declare them
+  // statically. Payload shape mirrors the orchestrator event minus the
+  // ranked array (single intent decided by ranked[0]).
+  "debtor-email/copy_document_request.requested": {
+    data: {
+      run_id: string;
+      email_id: string;
+      automation_run_id?: string;
+      intent: "copy_document_request";
+      ranked: Array<{
+        intent: string;
+        confidence: "low" | "medium" | "high";
+        document_reference: string | null;
+        sub_type: string | null;
+        reasoning: string;
+      }>;
+      budget_run_id?: string;
+      swarm_type: string;
+    };
+  };
+  "debtor-email/payment_dispute.requested": {
+    data: {
+      run_id: string;
+      email_id: string;
+      automation_run_id?: string;
+      intent: "payment_dispute";
+      ranked: Array<unknown>;
+      budget_run_id?: string;
+      swarm_type: string;
+    };
+  };
+  "debtor-email/address_change.requested": {
+    data: {
+      run_id: string;
+      email_id: string;
+      automation_run_id?: string;
+      intent: "address_change";
+      ranked: Array<unknown>;
+      budget_run_id?: string;
+      swarm_type: string;
+    };
+  };
+  "debtor-email/peppol_request.requested": {
+    data: {
+      run_id: string;
+      email_id: string;
+      automation_run_id?: string;
+      intent: "peppol_request";
+      ranked: Array<unknown>;
+      budget_run_id?: string;
+      swarm_type: string;
+    };
+  };
+  "debtor-email/credit_request.requested": {
+    data: {
+      run_id: string;
+      email_id: string;
+      automation_run_id?: string;
+      intent: "credit_request";
+      ranked: Array<unknown>;
+      budget_run_id?: string;
+      swarm_type: string;
+    };
+  };
+  "debtor-email/contract_inquiry.requested": {
+    data: {
+      run_id: string;
+      email_id: string;
+      automation_run_id?: string;
+      intent: "contract_inquiry";
+      ranked: Array<unknown>;
+      budget_run_id?: string;
+      swarm_type: string;
+    };
+  };
+  "debtor-email/general_inquiry.requested": {
+    data: {
+      run_id: string;
+      email_id: string;
+      automation_run_id?: string;
+      intent: "general_inquiry";
+      ranked: Array<unknown>;
+      budget_run_id?: string;
+      swarm_type: string;
+    };
+  };
+  "debtor-email/other.requested": {
+    data: {
+      run_id: string;
+      email_id: string;
+      automation_run_id?: string;
+      intent: "other";
+      ranked: Array<unknown>;
+      budget_run_id?: string;
+      swarm_type: string;
     };
   };
 };

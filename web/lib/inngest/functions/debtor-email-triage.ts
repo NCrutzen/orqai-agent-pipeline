@@ -1,14 +1,24 @@
-import { NonRetriableError } from "inngest";
+// Phase 65 (D-10) — coordinator function rewritten in-place.
+//
+// This function id "automations/debtor-email-triage" survives Phase 65 per D-10;
+// Phase 66 renames it. Earlier Phase-1 single-label flow (classify → fetch
+// document → generate body → create iController draft) is removed here — the
+// per-intent handlers move to Plan 65-04 (orchestrator + synthesis) and the
+// existing copy-document handler in web/app/api/automations/debtor*/. Plan 03
+// owns: ranked classify → escalation gate → registry-driven single-shot OR
+// orchestrator emit.
+//
+// retries: 0 (matches verdict-worker / label-resolver convention — Bulk Review
+// retry button is the recovery path; auto-retry would amplify Orq cost on a
+// stuck run).
+//
+// concurrency: entity-key limit 4 + run_id-key limit 1 (RESEARCH OQ3 — entity
+// fan-out 4 keeps mailbox throughput while run_id 1 prevents duplicate
+// dispatch under Inngest replay).
+
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { invokeIntentAgent } from "@/lib/automations/debtor-email/triage/invoke-intent";
-import { invokeBodyAgent } from "@/lib/automations/debtor-email/triage/invoke-body";
-import { detectEmotion } from "@/lib/automations/debtor-email/triage/detect-emotion";
-import {
-  checkBreaker,
-  openBreaker,
-  closeBreaker,
-} from "@/lib/automations/debtor-email/triage/circuit-breaker";
 import {
   createRun,
   findCachedOutput,
@@ -16,33 +26,33 @@ import {
   updateRun,
 } from "@/lib/automations/debtor-email/triage/agent-runs";
 import {
-  BODY_VERSION,
-  INTENT_VERSION,
-  type CreateDraftResponse,
-  type FetchDocumentResponse,
-  type IntentAgentOutput,
-  type SubType,
+  INTENT_VERSION_V2,
+  type IntentAgentOutputV2,
 } from "@/lib/automations/debtor-email/triage/types";
+import { loadSwarmCategories } from "@/lib/swarms/registry";
+import { evaluateEscalationGate } from "@/lib/automations/debtor-email/coordinator/escalation-gate";
+import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 
-const BREAKER_KEY = "icontroller_drafter_breaker";
+const SWARM_TYPE = "debtor-email";
 
-/**
- * Phase-1 triage for `debtor/email.received`. See
- * `Agents/debtor-email-swarm/ORCHESTRATION.md` for the authoritative spec.
- *
- * Retry strategy — Inngest v3.52 only supports FUNCTION-level `retries` (no
- * per-step override). Entire function retries up to 3× on thrown errors;
- * NonRetriableError skips retry. Per-step retry granularity (fetch-document
- * 3×, create-draft 1×, etc.) is simulated by throwing NonRetriableError for
- * terminal failures and relying on Orq Router's internal retries for LLM
- * calls. See TODOs below.
- */
+// Inngest's typed `inngest.send` rejects dynamic event names because the
+// registry-driven dispatch chooses the event name at runtime from
+// swarm_categories.swarm_dispatch. Cast through unknown — same pattern as
+// classifier-verdict-worker.ts:162-165.
+type DynamicSend = (payload: {
+  name: string;
+  data: Record<string, unknown>;
+}) => Promise<unknown>;
+
 export const debtorEmailTriage = inngest.createFunction(
   {
     id: "automations/debtor-email-triage",
-    name: "Debtor Email Triage",
-    retries: 3,
-    concurrency: [{ key: "event.data.entity", limit: 2 }],
+    name: "Debtor Email Triage (Coordinator V2)",
+    retries: 0,
+    concurrency: [
+      { key: "event.data.entity", limit: 4 },
+      { key: "event.data.run_id", limit: 1 },
+    ],
   },
   { event: "debtor/email.received" },
   async ({ event, step }) => {
@@ -51,351 +61,237 @@ export const debtorEmailTriage = inngest.createFunction(
     const inngest_run_id = event.id ?? `local-${email_id}`;
     const supabase = createAdminClient();
 
-    // ----- 1) Create agent_runs row ----------------------------------------
-    const agent_run_id = await step.run("create-run", async () =>
-      createRun(supabase, { email_id, inngest_run_id, entity }),
-    );
+    // Phase 65 D-10 / Phase 64 D-15: Stage 0 (or callers pre-Phase 64) MAY
+    // pass the coordinator run_id, automation_run_id, budget_run_id, and the
+    // pre-created agent_run_id forward. When run_id is absent (legacy direct
+    // emit) we synthesise one so coordinator_runs always has a key. The
+    // synthesised id will not collide with a real Stage-0-emitted run because
+    // coordinator_runs.run_id is a uuid PRIMARY KEY.
+    const run_id =
+      event.data.run_id ??
+      (typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? (crypto as { randomUUID(): string }).randomUUID()
+        : `local-${email_id}-${Date.now()}`);
+    const automation_run_id = event.data.automation_run_id;
+    const budget_run_id = event.data.budget_run_id;
 
-    // ----- 2) Classify intent (with idempotency cache) ---------------------
-    const firstPass = await step.run("classify-intent", async () => {
-      // Cache check: replay-safe skip.
-      const cached = await findCachedOutput<Record<string, unknown>>(
-        supabase,
-        email_id,
-        "intent_version",
-        INTENT_VERSION,
-        "tool_outputs",
-      );
-      const cachedFirst = cached?.intent_first_pass as
-        | IntentAgentOutput
-        | undefined;
-      if (cachedFirst) return cachedFirst;
-
-      const { output } = await invokeIntentAgent({
-        email_id,
-        inngest_run_id,
-        subject: email.subject,
-        body_text: email.body_text,
-        sender_email: email.sender_email,
-        sender_domain: email.sender_domain,
-        mailbox: email.mailbox,
-        entity,
-        received_at: email.received_at,
-      });
-
-      await mergeToolOutputs(supabase, agent_run_id, "intent_first_pass", output);
-      await updateRun(supabase, agent_run_id, {
-        intent: output.intent,
-        sub_type: output.sub_type,
-        document_reference: output.document_reference,
-        language: output.language,
-        confidence: output.confidence,
-        urgency: output.urgency,
-        intent_version: output.intent_version,
-        reasoning: output.reasoning,
-      });
-      return output;
+    // ---- 1) Resolve agent_run_id (caller-provided OR create a fresh row) ----
+    const agent_run_id = await step.run("create-agent-run", async () => {
+      if (event.data.agent_run_id) return event.data.agent_run_id;
+      return createRun(supabase, { email_id, inngest_run_id, entity });
     });
 
-    // ----- 3) Hybrid Haiku→Sonnet escalation -------------------------------
-    const needsEscalation =
-      firstPass.confidence === "low" || firstPass.language === "fr";
+    // ---- 2) Insert coordinator_runs row early -------------------------------
+    // Tentative escalation_decision='single_shot' / expected_handlers=1.
+    // Both fields are overwritten after the gate evaluates.
+    await step.run("create-coordinator-run", async () => {
+      const { error } = await supabase.from("coordinator_runs").insert({
+        run_id,
+        automation_run_id: automation_run_id ?? null,
+        email_id,
+        swarm_type: SWARM_TYPE,
+        ranked_intents: [],
+        escalation_decision: "single_shot",
+        expected_handlers: 1,
+        budget_run_id: budget_run_id ?? null,
+      });
+      if (error) {
+        throw new Error(`coordinator_runs insert: ${error.message}`);
+      }
+      await emitAutomationRunStale(supabase, "debtor-email-review");
+    });
 
-    const classification: IntentAgentOutput = needsEscalation
-      ? await step.run("classify-intent-escalate", async () => {
-          const { output } = await invokeIntentAgent(
-            {
-              email_id,
-              inngest_run_id,
-              subject: email.subject,
-              body_text: email.body_text,
-              sender_email: email.sender_email,
-              sender_domain: email.sender_domain,
-              mailbox: email.mailbox,
-              entity,
-              received_at: email.received_at,
-            },
-            { modelOverride: "anthropic/claude-sonnet-4-6" },
+    try {
+      // ---- 3) Classify intent (V2 ranked output, idempotent cache) ---------
+      // Inngest's step.run wraps the return type in JsonifyObject which strips
+      // zod-derived literal unions. Cast back to the v2 shape after the await
+      // — the value is already validated by intentAgentOutputSchemaV2 inside
+      // invokeIntentAgent (or originated from a previously validated cache row).
+      const outputRaw = await step.run("classify-intent", async () => {
+          const cached = await findCachedOutput<Record<string, unknown>>(
+            supabase,
+            email_id,
+            "intent_version",
+            INTENT_VERSION_V2,
+            "tool_outputs",
           );
+          const cachedFirst = cached?.intent_first_pass as
+            | IntentAgentOutputV2
+            | undefined;
+          if (cachedFirst) return cachedFirst;
+
+          const { output: fresh } = await invokeIntentAgent({
+            email_id,
+            inngest_run_id,
+            subject: email.subject,
+            body_text: email.body_text,
+            sender_email: email.sender_email,
+            sender_domain: email.sender_domain,
+            mailbox: email.mailbox,
+            entity,
+            received_at: email.received_at,
+          });
+
+          // mergeToolOutputs requires JsonValue. The IntentAgentOutputV2 shape
+          // is JSON-serialisable by construction (zod-validated literals +
+          // strings/numbers/null), so the unknown cast is sound at runtime.
           await mergeToolOutputs(
             supabase,
             agent_run_id,
-            "intent_escalated",
-            output,
+            "intent_first_pass",
+            fresh as unknown as Parameters<typeof mergeToolOutputs>[3],
           );
+
+          // Hoist top-1 onto agent_runs back-compat columns. v1 columns
+          // (intent, confidence, sub_type, document_reference, language,
+          // urgency, reasoning, intent_version) still exist on agent_runs
+          // and are read by Bulk Review; the row is the back-compat surface
+          // until Phase 66 migrates queries to coordinator_runs.ranked_intents.
+          const top = fresh.ranked[0];
           await updateRun(supabase, agent_run_id, {
-            intent: output.intent,
-            sub_type: output.sub_type,
-            document_reference: output.document_reference,
+            intent: top.intent,
+            sub_type: top.sub_type,
+            document_reference: top.document_reference,
+            language: fresh.language,
+            confidence: top.confidence,
+            urgency: fresh.urgency,
+            intent_version: INTENT_VERSION_V2,
+            reasoning: top.reasoning,
+          });
+          return fresh;
+        },
+      );
+      const output = outputRaw as unknown as IntentAgentOutputV2;
+
+      // ---- 4) Persist ranked_intents on coordinator_runs --------------------
+      await step.run("persist-ranked", async () => {
+        const { error } = await supabase
+          .from("coordinator_runs")
+          .update({ ranked_intents: output.ranked })
+          .eq("run_id", run_id);
+        if (error) throw new Error(`persist-ranked: ${error.message}`);
+      });
+
+      // ---- 5) Evaluate escalation gate -------------------------------------
+      const decision = await step.run("evaluate-escalation-gate", async () => {
+        const categories = await loadSwarmCategories(supabase, SWARM_TYPE);
+        return evaluateEscalationGate(output, categories);
+      });
+
+      // ---- 6) Write escalation_decision + reason to coordinator_runs ------
+      await step.run("write-escalation", async () => {
+        const { error } = await supabase
+          .from("coordinator_runs")
+          .update({
+            escalation_decision: decision.kind,
+            escalation_reason:
+              decision.kind === "orchestrator" ? decision.reason : null,
+          })
+          .eq("run_id", run_id);
+        if (error) throw new Error(`write-escalation: ${error.message}`);
+      });
+
+      if (decision.kind === "single_shot") {
+        // ---- 7a) Single-shot dispatch (CORD-04) — registry-driven --------
+        // Same idiom as classifier-verdict-worker:149-176. The event name is
+        // looked up from swarm_categories.swarm_dispatch for ranked[0].intent.
+        const top = output.ranked[0];
+        const categories = await loadSwarmCategories(supabase, SWARM_TYPE);
+        const category = categories.find((c) => c.category_key === top.intent);
+        if (!category?.swarm_dispatch) {
+          // RESEARCH Pitfall 1 — Plan 01 seed migration adds the 8 INTENT
+          // rows. A missing swarm_dispatch here means either the migration
+          // didn't apply OR an intent was added without a registry row.
+          throw new Error(
+            `no swarm_dispatch registered for intent=${top.intent} (verify Plan 01 seed migration applied)`,
+          );
+        }
+
+        await step.run("dispatch-single-shot", async () => {
+          await (inngest.send as unknown as DynamicSend)({
+            name: category.swarm_dispatch!,
+            data: {
+              run_id,
+              email_id,
+              automation_run_id,
+              intent: top.intent,
+              ranked: output.ranked,
+              budget_run_id,
+              swarm_type: SWARM_TYPE,
+            },
+          });
+        });
+
+        await step.run("mark-coordinator-complete", async () => {
+          const { error } = await supabase
+            .from("coordinator_runs")
+            .update({
+              completed_at: new Date().toISOString(),
+              completed_handlers: 1,
+            })
+            .eq("run_id", run_id);
+          if (error) {
+            throw new Error(`mark-coordinator-complete: ${error.message}`);
+          }
+          await emitAutomationRunStale(supabase, "debtor-email-review");
+        });
+
+        return {
+          run_id,
+          email_id,
+          decision: "single_shot" as const,
+          intent: top.intent,
+          dispatch_event: category.swarm_dispatch,
+        };
+      }
+
+      // ---- 7b) Orchestrator dispatch ---------------------------------------
+      // Plan 04's orchestrator function listens on this event, runs the
+      // planner agent, and updates coordinator_runs.expected_handlers to N
+      // before fanning out per-intent handlers.
+      await step.run("dispatch-orchestrator", async () => {
+        await (inngest.send as unknown as DynamicSend)({
+          name: "debtor-email/orchestrator.requested",
+          data: {
+            run_id,
+            email_id,
+            automation_run_id,
+            ranked: output.ranked,
             language: output.language,
-            confidence: output.confidence,
             urgency: output.urgency,
-            reasoning: output.reasoning,
-          });
-          return output;
-        })
-      : firstPass;
-
-    // ----- 4) Route by intent ---------------------------------------------
-    const route = await step.run("route-by-intent", async () => {
-      const autoCopyDoc =
-        classification.intent === "copy_document_request" &&
-        classification.confidence === "high" &&
-        classification.document_reference !== null &&
-        classification.sub_type !== null;
-      return { auto: autoCopyDoc } as const;
-    });
-
-    if (!route.auto) {
-      await step.run("human-queue", async () => {
-        await updateRun(supabase, agent_run_id, {
-          status: "routed_human_queue",
-          completed_at: new Date().toISOString(),
+            escalation_reason: decision.reason,
+            budget_run_id,
+            swarm_type: SWARM_TYPE,
+          },
         });
       });
+
       return {
-        agent_run_id,
+        run_id,
         email_id,
-        status: "routed_human_queue" as const,
+        decision: "orchestrator" as const,
+        escalation_reason: decision.reason,
       };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await step.run("mark-failed", async () => {
+        if (automation_run_id) {
+          await supabase
+            .from("automation_runs")
+            .update({
+              status: "failed",
+              error_message: msg,
+              completed_at: new Date().toISOString(),
+            })
+            .eq("id", automation_run_id);
+        }
+        await supabase
+          .from("coordinator_runs")
+          .update({ completed_at: new Date().toISOString() })
+          .eq("run_id", run_id);
+        await emitAutomationRunStale(supabase, "debtor-email-review");
+      });
+      throw err;
     }
-
-    // From here on: document_reference + sub_type are guaranteed non-null.
-    const documentReference = classification.document_reference!;
-    const subType = classification.sub_type as SubType;
-
-    // ----- 5) Fetch document ----------------------------------------------
-    // TODO(inngest): Inngest v3.52 doesn't support per-step `retries`; the
-    // spec calls for 3× exponential (30s / 2m / 10m) on this step specifically.
-    // Current behaviour: function-level retries (3×) cover transient failures
-    // but re-run earlier steps too. Revisit when Inngest exposes per-step retry.
-    const fetchResult = await step.run("fetch-document", async () => {
-      await updateRun(supabase, agent_run_id, { status: "fetching_document" });
-
-      const url = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/automations/debtor/fetch-document`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.AUTOMATION_WEBHOOK_SECRET ?? ""}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          docType: subType,
-          reference: documentReference,
-          entity,
-        }),
-      });
-
-      const json = (await res.json().catch(() => ({}))) as FetchDocumentResponse;
-
-      if (!res.ok || json.found === false) {
-        const failure = json as { found: false; reason?: string };
-        const reason = failure.reason ?? "fetch_failed";
-        await mergeToolOutputs(supabase, agent_run_id, "fetch_result", {
-          ok: false,
-          reason,
-        });
-        if (reason === "not_found") {
-          await updateRun(supabase, agent_run_id, {
-            status: "copy_document_failed_not_found",
-            completed_at: new Date().toISOString(),
-          });
-          throw new NonRetriableError(`fetch_not_found`);
-        }
-        if (reason === "invalid_reference_format" || reason === "unsupported_doc_type") {
-          await updateRun(supabase, agent_run_id, {
-            status: "copy_document_failed_not_found",
-            completed_at: new Date().toISOString(),
-          });
-          throw new NonRetriableError(`fetch_${reason}`);
-        }
-        // timeout / upstream_error / fetch_failed → retriable
-        throw new Error(`fetch-document transient: ${reason}`);
-      }
-
-      if (json.ambiguous) {
-        await mergeToolOutputs(supabase, agent_run_id, "fetch_result", {
-          ok: false,
-          reason: "ambiguous",
-          match_count: json.match_count ?? null,
-        });
-        await updateRun(supabase, agent_run_id, {
-          status: "copy_document_needs_review",
-          completed_at: new Date().toISOString(),
-        });
-        throw new NonRetriableError("fetch_ambiguous");
-      }
-
-      // Strip base64 before persisting — it belongs in memory, not JSONB.
-      await mergeToolOutputs(supabase, agent_run_id, "fetch_result", {
-        ok: true,
-        filename: json.pdf.filename,
-        metadata: json.metadata,
-        request_id: json.request_id,
-      });
-      return json;
-    });
-
-    // ----- 6) Emotion detection -------------------------------------------
-    const emotion = await step.run("detect-emotion", async () => {
-      const result = detectEmotion(email.body_text, classification.language);
-      await mergeToolOutputs(supabase, agent_run_id, "emotion", result);
-      return result;
-    });
-
-    // ----- 7) Generate body (with one validator-retry) --------------------
-    const body = await step.run("generate-body", async () => {
-      await updateRun(supabase, agent_run_id, { status: "generating_body" });
-
-      // NB: we previously tried a findCachedOutput against a non-existent
-      // `agent_runs.body_html` column (it lives inside tool_outputs.body).
-      // Inngest's own step memoization already handles replay-safety within
-      // a function invocation, so a cross-invocation body cache is not
-      // needed for phase-1 shadow mode.
-
-      const input = {
-        email_id,
-        inngest_run_id,
-        email_subject: email.subject,
-        email_body_text: email.body_text,
-        email_sender_email: email.sender_email,
-        email_sender_first_name: email.sender_first_name ?? null,
-        email_mailbox: email.mailbox,
-        email_entity: entity,
-        email_language: classification.language,
-        intent_result_intent: "copy_document_request" as const,
-        intent_result_sub_type: subType,
-        intent_result_document_reference: documentReference,
-        intent_result_confidence: "high" as const,
-        fetched_document_invoice_id: fetchResult.metadata.invoice_id,
-        fetched_document_filename: fetchResult.pdf.filename,
-        fetched_document_document_type: fetchResult.metadata.document_type,
-        fetched_document_created_on: fetchResult.metadata.created_on,
-        emotion_trigger_match: emotion.match,
-      };
-
-      // TODO(validators): port the 8 body post-validators from
-      // agents/debtor-copy-document-body-agent.md §Post-validator and retry
-      // once with the appropriate addendum flag on failure. Scaffolding only
-      // runs the single happy-path call right now.
-      const { output } = await invokeBodyAgent(input);
-
-      await mergeToolOutputs(supabase, agent_run_id, "body", {
-        detected_tone: output.detected_tone,
-        body_version: output.body_version,
-        retries: 0,
-      });
-      await updateRun(supabase, agent_run_id, {
-        body_version: output.body_version,
-        detected_tone: output.detected_tone,
-      });
-      return output;
-    });
-
-    // ----- 8) Circuit-breaker check ---------------------------------------
-    const breaker = await step.run("check-breaker", async () =>
-      checkBreaker(supabase, BREAKER_KEY),
-    );
-
-    if (breaker === "open") {
-      await step.run("human-queue-blocked", async () => {
-        await updateRun(supabase, agent_run_id, {
-          status: "login_failed_blocked",
-          completed_at: new Date().toISOString(),
-        });
-      });
-      return {
-        agent_run_id,
-        email_id,
-        status: "login_failed_blocked" as const,
-      };
-    }
-
-    // ----- 9) Create draft ------------------------------------------------
-    // TODO(inngest): spec calls for per-step retries: 1 with screenshot
-    // archival on transient failure. Simulated here via NonRetriableError for
-    // terminal cases; function-level retry (3×) handles the 1× intent for
-    // attach_failed / save_failed.
-    const draft = await step.run("create-draft", async () => {
-      await updateRun(supabase, agent_run_id, { status: "creating_draft" });
-
-      const url = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/automations/debtor/create-draft`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.AUTOMATION_WEBHOOK_SECRET ?? ""}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messageId: email.graph_message_id,
-          bodyHtml: body.body_html,
-          pdfBase64: fetchResult.pdf.base64,
-          filename: fetchResult.pdf.filename,
-          env: "production",
-        }),
-      });
-
-      const json = (await res.json().catch(() => ({}))) as CreateDraftResponse;
-
-      if (!res.ok || json.success === false) {
-        const failure = json as { success: false; reason?: string; screenshot?: string };
-        const reason = failure.reason ?? "create_draft_failed";
-
-        await mergeToolOutputs(supabase, agent_run_id, "draft_result", {
-          ok: false,
-          reason,
-          screenshot: failure.screenshot ?? null,
-        });
-
-        if (reason === "login_failed") {
-          await openBreaker(supabase, BREAKER_KEY, "iController login failed");
-          // TODO(slack): port a Slack helper (see docs/browserless-patterns.md
-          // or lib/alerts) and call it here. For scaffold, log only.
-          await updateRun(supabase, agent_run_id, {
-            status: "login_failed_blocked",
-            completed_at: new Date().toISOString(),
-          });
-          throw new NonRetriableError("login_failed");
-        }
-        if (reason === "message_not_found") {
-          await updateRun(supabase, agent_run_id, {
-            status: "copy_document_needs_review",
-            completed_at: new Date().toISOString(),
-          });
-          throw new NonRetriableError("message_not_found");
-        }
-        // attach_failed / save_failed → retriable
-        throw new Error(`create-draft transient: ${reason}`);
-      }
-
-      // Probe succeeded from half_open → re-close the breaker.
-      if (breaker === "half_open") {
-        await closeBreaker(supabase, BREAKER_KEY);
-      }
-
-      await mergeToolOutputs(supabase, agent_run_id, "draft_result", {
-        ok: true,
-        draftUrl: json.draftUrl,
-        screenshots: json.screenshots,
-        bodyInjectionPath: json.bodyInjectionPath ?? null,
-      });
-      return json;
-    });
-
-    // ----- 10) Persist + mark drafted -------------------------------------
-    await step.run("persist-run", async () => {
-      await updateRun(supabase, agent_run_id, {
-        draft_url: draft.draftUrl,
-        status: "copy_document_drafted",
-        completed_at: new Date().toISOString(),
-      });
-    });
-
-    return {
-      agent_run_id,
-      email_id,
-      status: "copy_document_drafted" as const,
-      draft_url: draft.draftUrl,
-    };
   },
 );
