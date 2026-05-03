@@ -34,10 +34,13 @@
 
 ### Stage 3 coordinator redesign
 
-- [ ] **CORD-01**: Stage 3 coordinator emits an ordered list of intents (primary + secondaries) with confidence scores, not a single label
-- [ ] **CORD-02**: Coordinator escalates to a Stage 3.5 orchestrator-worker when `confidence < threshold` OR `intent_count >= 3` OR an intent is registry-tagged `requires_orchestration`
+- [x] **CORD-01
+**: Stage 3 coordinator emits an ordered list of intents (primary + secondaries) with confidence scores, not a single label
+- [x] **CORD-02
+**: Coordinator escalates to a Stage 3.5 orchestrator-worker when `confidence < threshold` OR `intent_count >= 3` OR an intent is registry-tagged `requires_orchestration`
 - [ ] **CORD-03**: Orchestrator-worker spawns multiple Stage 4 handlers in parallel and synthesises their outputs into a single iController draft
-- [ ] **CORD-04**: Default path (~80% of inbound) remains a single-shot router with no orchestrator overhead
+- [x] **CORD-04
+**: Default path (~80% of inbound) remains a single-shot router with no orchestrator overhead
 
 ### Pipeline consolidation
 
