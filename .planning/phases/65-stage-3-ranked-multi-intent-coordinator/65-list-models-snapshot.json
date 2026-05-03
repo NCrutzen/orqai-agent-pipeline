@@ -1,0 +1,38 @@
+{
+  "verified_at": "2026-05-03T06:52:05Z",
+  "source": "https://api.orq.ai/v2/models",
+  "catalog_total": 830,
+  "required_ids_for_phase_65": [
+    {
+      "id": "anthropic/claude-sonnet-4-5-20250929",
+      "created": 1747896962791,
+      "type": "chat",
+      "owned_by": "vendor"
+    },
+    {
+      "id": "aws/eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      "created": 1717311362791,
+      "type": "chat",
+      "owned_by": "vendor"
+    },
+    {
+      "id": "openai/gpt-4o",
+      "created": 1715472000000,
+      "type": "chat",
+      "owned_by": "vendor"
+    },
+    {
+      "id": "google-ai/gemini-2.5-pro",
+      "created": 1750118400000,
+      "type": "chat",
+      "owned_by": "vendor"
+    },
+    {
+      "id": "mistral/mistral-large-2411",
+      "created": 1763648804059,
+      "type": "chat",
+      "owned_by": "vendor"
+    }
+  ],
+  "forbidden_ids_acknowledged": "See CLAUDE.md historical errata. This snapshot is the explicit allowlist for Phase 65 agent config."
+}
