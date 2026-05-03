@@ -132,8 +132,8 @@ Filled by roadmapper after phase mapping.
 | BUDG-01 | Phase 64 | pending |
 | BUDG-02 | Phase 64 | pending |
 | BUDG-03 | Phase 64 | pending |
-| CORD-01 | Phase 65 | pending |
-| CORD-02 | Phase 65 | pending |
+| CORD-01 | Phase 65 | in-progress (foundation in 65-01; full coverage in 65-03/04/05) |
+| CORD-02 | Phase 65 | in-progress (column + seed in 65-01; gate function in 65-03) |
 | CORD-03 | Phase 65 | pending |
 | CORD-04 | Phase 65 | pending |
 | CONS-01 | Phase 66 | pending |
