@@ -54,7 +54,7 @@
 
 - [x] **TAG-01
 **: When the resolver returns a matched customer in live mode, an iController DOM step automatically tags the email under that customer account
-- [ ] **TAG-02**: Tagging step is non-blocking for downstream Stage 3+4 (failure surfaces as a deferred run, doesn't break the coordinator)
+- [x] **TAG-02**: Tagging step is non-blocking for downstream Stage 3+4 (failure surfaces as a deferred run, doesn't break the coordinator)
 - [x] **TAG-03
 **: Operator can audit tagging actions in `email_labels` (existing) plus screenshots before/after
 
@@ -146,9 +146,9 @@ Filled by roadmapper after phase mapping.
 | CONS-01 | Phase 66 | complete (production-data negative assertion: 1,285 regex-matched runs / 0 coordinator rows; unit-test covers Option A label-resolver emit + coordinator subscription; live emit deferred per 66-regression-report) |
 | CONS-02 | Phase 66 | complete (rename + dir move + dead-code delete + 8 import rewrites; static audit returns 0) |
 | CONS-03 | Phase 66 | complete (zero cross-handler imports; emit-site allowlist verified; static audit lock) |
-| TAG-01 | Phase 67 | pending |
-| TAG-02 | Phase 67 | pending |
-| TAG-03 | Phase 67 | pending |
+| TAG-01 | Phase 67 | complete (live tagger pipeline wired + behaviorally verified production iController; happy-path 'tagged' deferred to first naturally-flowing matched-customer email post smeba dry_run flip) |
+| TAG-02 | Phase 67 | complete (deferred-run contract observed live: real findMessageRow miss → clean 'failed' row with structured error; tagger never threw; no Stage 3 disruption) |
+| TAG-03 | Phase 67 | complete (audit surface populated; Bulk Review failed-tag badge + screenshot links; failed-tag loader helper unit-tested) |
 | SWRM-01 | Phase 68 | pending |
 | SWRM-02 | Phase 68 | pending |
 | SWRM-03 | Phase 68 | pending |
