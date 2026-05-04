@@ -84,27 +84,10 @@ begin
          'formal_address',      'u',
          'nxt_database_alias',  'berki',
          'icontroller_company', 'berki'
-       ),
-       jsonb_build_object(
-         'code',                'iccafe',
-         'display_name',        'IC Cafe',
-         'register_language',   'nl',
-         'register_dialect',    'nl-NL',
-         'signoff_phrase',      'Met vriendelijke groet',
-         'formal_address',      'u',
-         'nxt_database_alias',  'iccafe',
-         'icontroller_company', 'iccafe'
-       ),
-       jsonb_build_object(
-         'code',                'iccafe-france',
-         'display_name',        'IC Cafe France',
-         'register_language',   'fr',
-         'register_dialect',    'fr-FR',
-         'signoff_phrase',      'Cordialement',
-         'formal_address',      'vous',
-         'nxt_database_alias',  'iccafe-france',
-         'icontroller_company', 'iccafe-france'
        )
+       -- Phase 69 A1 decision (operator, 2026-05-04): keep only the 5 Benelux
+       -- brands live today. iccafe / iccafe-france deferred — they will be
+       -- onboarded in a future phase via INSERT (CANO-04 zero-prompt-edit path).
      )
    where swarm_type = 'debtor-email';
 end $$;
