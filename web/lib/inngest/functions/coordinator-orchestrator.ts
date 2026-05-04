@@ -16,12 +16,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
 import { orchestratorOutputSchema } from "@/lib/automations/debtor-email/coordinator/orchestrator-types";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
+import { loadHandlerEvent } from "@/lib/swarms/registry";
 
 const ORCHESTRATOR_AGENT_KEY = "debtor-orchestrator-agent";
+const SWARM_TYPE = "debtor-email";
 
-// Plan 03 owns extending events.ts. This file emits dynamic event names
-// (`debtor-email/${intent}.requested`) which Plan 03's typed catalogue
-// will absorb. Cast to bypass strict EventSchema typing in the meantime.
+// Phase 68 (SWRM-02): handler event names come from swarm_intents registry,
+// not from a template literal. Adding a new intent = INSERT into
+// swarm_intents only.
 type SendFn = (p: { name: string; data: Record<string, unknown> }) => Promise<unknown>;
 
 export const coordinatorOrchestrator = inngest.createFunction(
@@ -85,28 +87,40 @@ export const coordinatorOrchestrator = inngest.createFunction(
         await emitAutomationRunStale(admin, "debtor-email-review");
       });
 
-      // 4. Fan-out via inngest.send. Template-literal event names so adding
-      // a new intent = registry change + new handler, no edit here.
-      await step.run("fan-out", async () => {
-        await Promise.all(
-          plan.handlers.map((h) =>
-            (inngest.send as unknown as SendFn)({
-              name: `debtor-email/${h.intent}.requested`,
-              data: {
-                run_id,
-                email_id,
-                automation_run_id,
-                intent: h.intent,
-                handler_key: h.handler_key,
-                context_payload: h.context_payload,
-                budget_run_id,
-                swarm_type: "debtor-email",
-                from_orchestrator: true,
-              },
-            }),
-          ),
+      // 4. Fan-out via inngest.send. Phase 68 (SWRM-02): handler event names
+      // resolve through loadHandlerEvent(swarm_intents). Missing intent ⇒
+      // structured throw (no fallback per D-12). Lookups live inside step.run
+      // so Inngest memoises across replays.
+      for (const h of plan.handlers) {
+        const handler_event = await step.run(
+          `resolve-handler-${h.intent}`,
+          async () => {
+            const evt = await loadHandlerEvent(admin, SWARM_TYPE, h.intent);
+            if (!evt) {
+              throw new Error(
+                `no handler for intent "${h.intent}" in swarm "${SWARM_TYPE}"`,
+              );
+            }
+            return evt;
+          },
         );
-      });
+        await step.run(`fan-out-${h.intent}`, async () => {
+          await (inngest.send as unknown as SendFn)({
+            name: handler_event,
+            data: {
+              run_id,
+              email_id,
+              automation_run_id,
+              intent: h.intent,
+              handler_key: h.handler_key,
+              context_payload: h.context_payload,
+              budget_run_id,
+              swarm_type: SWARM_TYPE,
+              from_orchestrator: true,
+            },
+          });
+        });
+      }
 
       return { ok: true, run_id, handlers: plan.handlers.length, ordering: plan.ordering };
     } catch (err) {
