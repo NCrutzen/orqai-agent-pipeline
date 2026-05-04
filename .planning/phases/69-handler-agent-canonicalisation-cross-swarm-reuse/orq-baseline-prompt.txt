@@ -250,3 +250,23 @@ in their `<input>` payload. Phase 69 must regenerate them with the new shape:
 
 (empty — to be filled by gsd-execute-phase agent or operator running the
 Orq MCP get_agent call as the Wave 4 prerequisite)
+
+=============================================================
+WAVE 5 LIVE CAPTURE — 2026-05-04 (pre-PATCH)
+=============================================================
+
+Captured via: mcp__orqai-mcp__get_agent debtor-copy-document-body-agent
+Agent ID:     01KQECMBEMRKX28E0F0T64A43K
+
+Model chain (verified against list_models — all valid):
+  Primary:   aws/eu.anthropic.claude-opus-4-6-v1
+  Fallback1: openai/gpt-4o
+  Fallback2: google-ai/gemini-2.5-pro
+  Fallback3: anthropic/claude-sonnet-4-5-20250929
+  Fallback4: mistral/mistral-large-2411
+
+Settings:    max_iterations=1, max_execution_time=45, max_cost=0,
+             tool_approval_required=respect_tool, tools=[]
+No model.parameters set (response_format enforced per-call by client.ts via jsonSchemaName).
+
+Live instructions (verbatim) — see Wave 5 SUMMARY for diff vs PATCH.
