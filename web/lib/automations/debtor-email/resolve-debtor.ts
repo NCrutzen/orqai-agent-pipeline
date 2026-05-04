@@ -206,3 +206,9 @@ function toTiebreakerCandidate(m: CandidateDetail) {
     // shape today — left undefined, the LLM tiebreaker handles missing fields.
   };
 }
+
+// Phase 68 (D-15) — Stage-2 contract alias. The dynamic loader
+// (web/lib/swarms/dynamic.ts) imports this module by path and expects a
+// `resolveEntity` symbol. Re-exports preserve identity so module-cache hits
+// keep working.
+export { resolveDebtor as resolveEntity };

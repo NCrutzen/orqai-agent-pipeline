@@ -262,6 +262,11 @@ describe("swarm-aware: registry-driven page entry point", () => {
       enabled: false,
       ui_config: { tree_levels: ["topic"], row_columns: [], drawer_fields: [], default_sort: "created_at desc" },
       side_effects: null,
+      stage1_regex_module: null,
+      stage2_entity_resolver: null,
+      stage3_coordinator_agent_key: null,
+      canonical_context_shape: null,
+      entity_brand: null,
     });
     loadSwarmCategoriesMock.mockResolvedValue([]);
     const Page = (

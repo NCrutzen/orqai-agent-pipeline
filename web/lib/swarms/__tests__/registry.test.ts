@@ -8,13 +8,20 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   loadSwarm,
   loadSwarmCategories,
+  loadSwarmIntents,
+  loadHandlerEvent,
+  loadCanonicalContextShape,
   __resetCacheForTests,
 } from "../registry";
-import type { SwarmRow, SwarmCategoryRow } from "../types";
+import type { SwarmRow, SwarmCategoryRow, SwarmIntentRow } from "../types";
 
 type SwarmResult = { data: SwarmRow | null; error: { message: string } | null };
 type CategoriesResult = {
   data: SwarmCategoryRow[] | null;
+  error: { message: string } | null;
+};
+type IntentsResult = {
+  data: SwarmIntentRow[] | null;
   error: { message: string } | null;
 };
 
@@ -26,13 +33,16 @@ type CategoriesResult = {
 function makeAdmin(opts: {
   swarm?: () => SwarmResult;
   categories?: () => CategoriesResult;
+  intents?: () => IntentsResult;
 }): {
   admin: SupabaseClient;
   swarmCalls: { count: number };
   categoryCalls: { count: number };
+  intentCalls: { count: number };
 } {
   const swarmCalls = { count: 0 };
   const categoryCalls = { count: 0 };
+  const intentCalls = { count: 0 };
 
   const swarmsBuilder = {
     select: vi.fn().mockReturnThis(),
@@ -56,15 +66,25 @@ function makeAdmin(opts: {
     }),
   };
 
+  // swarm_intents chain ends at .eq(...) (no .order/.maybeSingle).
+  const intentsChain = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockImplementation(async () => {
+      intentCalls.count += 1;
+      return opts.intents ? opts.intents() : { data: [], error: null };
+    }),
+  };
+
   const admin = {
     from: vi.fn((table: string) => {
       if (table === "swarms") return swarmsBuilder;
       if (table === "swarm_categories") return categoriesChain;
+      if (table === "swarm_intents") return intentsChain;
       throw new Error(`unexpected table: ${table}`);
     }),
   } as unknown as SupabaseClient;
 
-  return { admin, swarmCalls, categoryCalls };
+  return { admin, swarmCalls, categoryCalls, intentCalls };
 }
 
 const sampleSwarm = (swarm_type: string): SwarmRow => ({
@@ -81,6 +101,11 @@ const sampleSwarm = (swarm_type: string): SwarmRow => ({
     default_sort: "created_at desc",
   },
   side_effects: null,
+  stage1_regex_module: null,
+  stage2_entity_resolver: null,
+  stage3_coordinator_agent_key: null,
+  canonical_context_shape: null,
+  entity_brand: null,
 });
 
 const sampleCategory = (
@@ -241,5 +266,146 @@ describe("D-06: loadSwarmCategories — empty fallback, ordering, last-known-goo
     vi.advanceTimersByTime(60_001);
     const second = await loadSwarmCategories(admin, "debtor-email");
     expect(second).toEqual(cats); // last-known-good
+  });
+});
+
+// Phase 68 — registry helpers for swarm_intents + canonical context shape.
+const sampleIntent = (
+  swarm_type: string,
+  intent_key: string,
+  handler_event: string,
+  handler_agent_key: string | null = null,
+): SwarmIntentRow => ({
+  swarm_type,
+  intent_key,
+  handler_agent_key,
+  handler_event,
+  requires_orchestration: false,
+  created_at: "2026-05-04T00:00:00Z",
+  updated_at: "2026-05-04T00:00:00Z",
+});
+
+describe("Phase 68: loadSwarmIntents — TTL cache + last-known-good", () => {
+  beforeEach(() => {
+    __resetCacheForTests();
+    vi.useRealTimers();
+  });
+
+  it("returns 8 rows on first call and caches them", async () => {
+    const intents = [
+      sampleIntent("debtor-email", "copy_document_request", "debtor-email/copy_document_request.requested", "debtor-copy-document-body-agent"),
+      sampleIntent("debtor-email", "payment_dispute", "debtor-email/payment_dispute.requested"),
+      sampleIntent("debtor-email", "address_change", "debtor-email/address_change.requested"),
+      sampleIntent("debtor-email", "peppol_request", "debtor-email/peppol_request.requested"),
+      sampleIntent("debtor-email", "credit_request", "debtor-email/credit_request.requested"),
+      sampleIntent("debtor-email", "contract_inquiry", "debtor-email/contract_inquiry.requested"),
+      sampleIntent("debtor-email", "general_inquiry", "debtor-email/general_inquiry.requested"),
+      sampleIntent("debtor-email", "other", "debtor-email/other.requested"),
+    ];
+    const { admin, intentCalls } = makeAdmin({
+      intents: () => ({ data: intents, error: null }),
+    });
+
+    const first = await loadSwarmIntents(admin, "debtor-email");
+    expect(first).toHaveLength(8);
+    expect(intentCalls.count).toBe(1);
+
+    // Cache hit — no second .from() call.
+    const second = await loadSwarmIntents(admin, "debtor-email");
+    expect(second).toHaveLength(8);
+    expect(intentCalls.count).toBe(1);
+  });
+
+  it("returns last-known-good on Supabase error", async () => {
+    let firstCall = true;
+    const intents = [sampleIntent("debtor-email", "other", "debtor-email/other.requested")];
+    const { admin } = makeAdmin({
+      intents: () => {
+        if (firstCall) {
+          firstCall = false;
+          return { data: intents, error: null };
+        }
+        return { data: null, error: { message: "boom" } };
+      },
+    });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-04T10:00:00Z"));
+    const first = await loadSwarmIntents(admin, "debtor-email");
+    expect(first).toEqual(intents);
+    vi.advanceTimersByTime(60_001);
+    const second = await loadSwarmIntents(admin, "debtor-email");
+    expect(second).toEqual(intents);
+  });
+
+  it("__resetCacheForTests clears INTENTS_CACHE", async () => {
+    const intents = [sampleIntent("debtor-email", "other", "debtor-email/other.requested")];
+    const { admin, intentCalls } = makeAdmin({
+      intents: () => ({ data: intents, error: null }),
+    });
+    await loadSwarmIntents(admin, "debtor-email");
+    expect(intentCalls.count).toBe(1);
+    __resetCacheForTests();
+    await loadSwarmIntents(admin, "debtor-email");
+    expect(intentCalls.count).toBe(2);
+  });
+});
+
+describe("Phase 68: loadHandlerEvent — intent → event lookup", () => {
+  beforeEach(() => {
+    __resetCacheForTests();
+  });
+
+  it("returns the handler_event for a known intent", async () => {
+    const intents = [
+      sampleIntent("debtor-email", "copy_document_request", "debtor-email/copy_document_request.requested", "debtor-copy-document-body-agent"),
+    ];
+    const { admin } = makeAdmin({
+      intents: () => ({ data: intents, error: null }),
+    });
+    const got = await loadHandlerEvent(admin, "debtor-email", "copy_document_request");
+    expect(got).toBe("debtor-email/copy_document_request.requested");
+  });
+
+  it("returns null for an unknown intent", async () => {
+    const intents = [
+      sampleIntent("debtor-email", "other", "debtor-email/other.requested"),
+    ];
+    const { admin } = makeAdmin({
+      intents: () => ({ data: intents, error: null }),
+    });
+    const got = await loadHandlerEvent(admin, "debtor-email", "unknown_intent");
+    expect(got).toBeNull();
+  });
+});
+
+describe("Phase 68: loadCanonicalContextShape", () => {
+  beforeEach(() => {
+    __resetCacheForTests();
+  });
+
+  it("returns the shape with version field when present on swarm row", async () => {
+    const row: SwarmRow = {
+      ...sampleSwarm("debtor-email"),
+      canonical_context_shape: {
+        version: "2026-05-04.v1",
+        fields: {
+          customer_account_id: { type: "string", nullable: true },
+        },
+      },
+    };
+    const { admin } = makeAdmin({
+      swarm: () => ({ data: row, error: null }),
+    });
+    const got = await loadCanonicalContextShape(admin, "debtor-email");
+    expect(got?.version).toBe("2026-05-04.v1");
+    expect(got?.fields.customer_account_id?.type).toBe("string");
+  });
+
+  it("returns null when swarm row absent", async () => {
+    const { admin } = makeAdmin({
+      swarm: () => ({ data: null, error: null }),
+    });
+    const got = await loadCanonicalContextShape(admin, "missing");
+    expect(got).toBeNull();
   });
 });

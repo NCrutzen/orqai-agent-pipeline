@@ -19,6 +19,23 @@ export interface SwarmUiConfig {
   default_sort: string;
 }
 
+// Phase 68 — canonical context shape declaration. Stored as jsonb in
+// swarms.canonical_context_shape; consumed by Stage 2→3 contract.
+export interface CanonicalContextShape {
+  version: string;
+  fields: Record<
+    string,
+    {
+      type: string;
+      nullable?: boolean;
+      enum?: string[];
+      default?: unknown;
+      description?: string;
+      items?: unknown;
+    }
+  >;
+}
+
 // One row in public.swarms.
 export interface SwarmRow {
   swarm_type: string;
@@ -28,7 +45,27 @@ export interface SwarmRow {
   source_table: string;
   enabled: boolean;
   ui_config: SwarmUiConfig;
-  side_effects: Record<string, unknown> | null;
+  // side_effects[] is an array of descriptors (Phase 68 R-01 — kind discriminator).
+  // Typed loosely here; concrete union lives in web/lib/swarms/side-effects.ts so
+  // this types module stays free of the trigger taxonomy.
+  side_effects: unknown[] | null;
+  // Phase 68 — registry-driven stage bindings. Nullable for legacy rows.
+  stage1_regex_module: string | null;
+  stage2_entity_resolver: string | null;
+  stage3_coordinator_agent_key: string | null;
+  canonical_context_shape: CanonicalContextShape | null;
+  entity_brand: string[] | null;
+}
+
+// Phase 68 — one row in public.swarm_intents. Composite PK (swarm_type, intent_key).
+export interface SwarmIntentRow {
+  swarm_type: string;
+  intent_key: string;
+  handler_agent_key: string | null;
+  handler_event: string;
+  requires_orchestration: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 // One row in public.swarm_categories.
