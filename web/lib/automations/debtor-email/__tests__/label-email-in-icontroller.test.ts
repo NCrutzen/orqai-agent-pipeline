@@ -1,10 +1,13 @@
 // Phase 67 Plan 03 Wave 2 — filled-in tests for the labelEmailInIcontroller
-// module. Mocks playwright Page methods + session/screenshot helpers and
-// asserts the four-step DOM dance + brand-mismatch + selection-not-stuck +
-// already-labeled paths.
+// module. Mocks playwright Page methods + screenshot helpers and asserts the
+// four-step DOM dance + brand-mismatch + selection-not-stuck + already-labeled
+// paths.
+//
+// Plan 05 refactor: the module now accepts an existing Page (caller owns
+// session). Tests construct a stub page and pass it via input.page.
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Page } from "playwright-core";
 
-// Mock session + screenshot helpers BEFORE importing module under test.
 const mockPage = {
   goto: vi.fn(async () => undefined),
   waitForSelector: vi.fn(async () => undefined),
@@ -14,16 +17,6 @@ const mockPage = {
   type: vi.fn(async () => undefined),
   $eval: vi.fn(async (_selector: string) => "" as string),
 };
-
-vi.mock("@/lib/automations/icontroller/session", () => ({
-  openIControllerSession: vi.fn(async () => ({
-    browser: {} as unknown,
-    context: {} as unknown,
-    page: mockPage,
-    cfg: { url: "https://test.example", credentialId: "x", sessionKey: "k" },
-  })),
-  closeIControllerSession: vi.fn(async () => undefined),
-}));
 
 vi.mock("@/lib/browser", () => ({
   captureScreenshot: vi.fn(async () => ({
@@ -48,13 +41,10 @@ beforeEach(() => {
 
 describe("labelEmailInIcontroller", () => {
   it("clicks trigger, types customer_id, then clicks highlighted result", async () => {
-    // After click, the after-text should be the assigned label.
     let callCount = 0;
     mockPage.$eval.mockImplementation(async (selector: string) => {
       if (selector === ".select2-container.clients") {
         callCount += 1;
-        // First call (idempotency probe): None selected.
-        // Second call (after-text): assigned.
         return callCount === 1
           ? "None selected"
           : "506909 - Vos Logistics B.V. (Smeba Brandbeveiliging BV)";
@@ -66,7 +56,7 @@ describe("labelEmailInIcontroller", () => {
     });
 
     const result = await labelEmailInIcontroller({
-      icontroller_message_url: "https://test.example/messages/show?msg=1",
+      page: mockPage as unknown as Page,
       customer_account_id: "506909",
       source_mailbox: "debiteuren@smeba.nl",
       entity: "smeba",
@@ -92,14 +82,13 @@ describe("labelEmailInIcontroller", () => {
     mockPage.$eval.mockImplementation(async (selector: string) => {
       if (selector === ".select2-container.clients") return "None selected";
       if (selector.includes("select2-highlighted .select2-result-label")) {
-        // Smeba mailbox but result is from Sicli — must bail.
         return "506909 - Vos Logistics B.V. (Sicli Noord)";
       }
       return "";
     });
 
     const result = await labelEmailInIcontroller({
-      icontroller_message_url: "https://test.example/messages/show?msg=1",
+      page: mockPage as unknown as Page,
       customer_account_id: "506909",
       source_mailbox: "debiteuren@smeba.nl",
       entity: "smeba",
@@ -107,7 +96,6 @@ describe("labelEmailInIcontroller", () => {
 
     expect(result.status).toBe("brand_mismatch");
     expect(result.reason).toMatch(/brand_mismatch/);
-    // Crucially: highlighted-click was NOT called.
     const highlightedClicks = mockPage.click.mock.calls.filter(
       (c) =>
         c[0] ===
@@ -126,7 +114,7 @@ describe("labelEmailInIcontroller", () => {
     });
 
     const result = await labelEmailInIcontroller({
-      icontroller_message_url: "https://test.example/messages/show?msg=1",
+      page: mockPage as unknown as Page,
       customer_account_id: "506909",
       source_mailbox: "debiteuren@smeba.nl",
       entity: "smeba",
@@ -145,14 +133,13 @@ describe("labelEmailInIcontroller", () => {
     });
 
     const result = await labelEmailInIcontroller({
-      icontroller_message_url: "https://test.example/messages/show?msg=1",
+      page: mockPage as unknown as Page,
       customer_account_id: "506909",
       source_mailbox: "debiteuren@smeba.nl",
       entity: "smeba",
     });
 
     expect(result.status).toBe("already_labeled");
-    // Trigger-click NOT called (skipped opening picker).
     expect(mockPage.click).not.toHaveBeenCalled();
   });
 });

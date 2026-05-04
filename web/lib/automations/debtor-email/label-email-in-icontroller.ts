@@ -5,17 +5,22 @@
 //
 // Single-account mode only. Multi-select widget mode (multiple accounts
 // per email) is deferred per SELECTORS.md caveat 2.
+//
+// Plan 05 refactor: this module no longer owns Browserless session lifecycle.
+// The tagger (debtor-email-icontroller-tagger) opens the session, navigates
+// to the mailbox-LIST URL, search-clicks the row to land on the detail page,
+// and passes the existing `page` here. The first selector wait
+// (`.select2-container.clients`) confirms the caller put us on the detail
+// page before invoking.
 
 import { type Page } from "playwright-core";
 import { captureScreenshot } from "@/lib/browser";
-import {
-  openIControllerSession,
-  closeIControllerSession,
-} from "@/lib/automations/icontroller/session";
 import { matchesExpectedBrand } from "@/lib/automations/debtor-email/mailboxes";
 
 export interface LabelEmailInput {
-  icontroller_message_url: string; // mailbox-list URL (R-01); tagger search-clicks the row before calling this on the detail page (Plan 05)
+  // page is provided by the caller — already navigated to the message DETAIL page.
+  // The tagger owns session lifecycle; the label module no longer opens/closes.
+  page: Page;
   customer_account_id: string;
   customer_name?: string;
   source_mailbox: string;
@@ -37,10 +42,6 @@ export interface LabelEmailResult {
   screenshot_after_url: string | null;
 }
 
-const ENV = (process.env.ICONTROLLER_ENV === "production"
-  ? "production"
-  : "acceptance") as "production" | "acceptance";
-
 const ACCOUNTS_TRIGGER = ".select2-container.clients";
 const TYPEAHEAD_INPUT = ".select2-input.select2-focused";
 const ANY_SELECTABLE_RESULT =
@@ -53,18 +54,12 @@ const HIGHLIGHTED_RESULT_LABEL =
 export async function labelEmailInIcontroller(
   input: LabelEmailInput,
 ): Promise<LabelEmailResult> {
-  const session = await openIControllerSession(ENV);
+  const { page } = input;
   let beforeUrl: string | null = null;
   let afterUrl: string | null = null;
   try {
-    const { page } = session;
-
-    // SPA: never networkidle (CLAUDE.md). Tagger has already navigated
-    // to the detail page via search-and-click before invoking this; for
-    // direct calls we navigate to whatever URL was passed.
-    await page.goto(input.icontroller_message_url, {
-      waitUntil: "domcontentloaded",
-    });
+    // Caller already navigated to the detail page; just confirm the
+    // accounts widget is present (acts as a detail-page sanity check).
     await page.waitForSelector(ACCOUNTS_TRIGGER, { timeout: 8000 });
 
     // Idempotency: read current label state BEFORE applying.
@@ -174,7 +169,7 @@ export async function labelEmailInIcontroller(
     };
   } catch (err) {
     try {
-      const errShot = await captureScreenshot(session.page, {
+      const errShot = await captureScreenshot(page, {
         automation: "debtor-email-labeling",
         label: "error",
       });
@@ -188,8 +183,6 @@ export async function labelEmailInIcontroller(
       screenshot_before_url: beforeUrl,
       screenshot_after_url: afterUrl,
     };
-  } finally {
-    await closeIControllerSession(session);
   }
 }
 
