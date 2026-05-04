@@ -430,10 +430,33 @@ The label-tiebreaker row is seeded with `enabled=false` until the operator fills
 
 Future agents (stubs at `Agents/debtor-email-swarm/agents/` waiting for Phase 2 of the swarm rollout): payment-dispute, address-change, contract-inquiry, credit-request, peppol-request, general-inquiry. Add a row in `orq_agents` per agent when its slug is provisioned.
 
+## Phase 68 registry layer (landed 2026-05-04)
+
+After Phase 68 the swarm-specific bindings that used to live as inline literals across the worker code are data in `public.swarms` + `public.swarm_intents`. Onboarding a new swarm is INSERT-only — zero edits to `classifier-verdict-worker`, `classifier-label-resolver`, `coordinator-orchestrator`, or `debtor-email-coordinator`.
+
+| Concern | Old location | Phase 68 location |
+|---|---|---|
+| Stage 1 regex module path | hardcoded `import` | `swarms.stage1_regex_module` (loaded by `loadStage1Classifier`) |
+| Stage 2 entity resolver path | hardcoded `import` | `swarms.stage2_entity_resolver` (loaded by `loadStage2Resolver`; module exports `resolveEntity`) |
+| Stage 3 coordinator agent_key | const in coordinator | `swarms.stage3_coordinator_agent_key` |
+| Canonical Stage 2 → 3 envelope | implicit | `swarms.canonical_context_shape` jsonb (read via `loadCanonicalContextShape`) |
+| Phase 67 icontroller-tag emit | inline `inngest.send` in `classifier-label-resolver.ts:241-279` | `swarms.side_effects[]` descriptor `{ kind: "inngest_event", trigger: "stage2_match_live", ... }` (dispatched via `evaluateSideEffects`) |
+| Phase 56.7 cleanup INSERT | inline `if (swarm_type === 'debtor-email')` in `classifier-verdict-worker.ts:127` | `swarms.side_effects[]` descriptor `{ kind: "automation_run_insert", trigger: "stage1_categorize_archive", ... }` |
+| V2 intent → handler-event mapping | template literal `` `debtor-email/${intent}.requested` `` | `swarm_intents.handler_event` (resolved via `loadHandlerEvent`) |
+
+Helpers exposed by `web/lib/swarms/`:
+
+- `registry.ts` — `loadSwarm`, `loadSwarmCategories`, `loadSwarmIntents`, `loadHandlerEvent`, `loadCanonicalContextShape` (all 60s TTL cached, last-known-good on Supabase error).
+- `side-effects.ts` — `evaluateSideEffects(swarmType, trigger, ctx)` returns descriptors whose trigger matches and whose `gate` equality-matches `ctx`. Discriminated union `SideEffectDescriptor` (`inngest_event` | `automation_run_insert`).
+- `dynamic.ts` — `loadStage1Classifier`, `loadStage2Resolver` (module cache; structured throw when expected export missing).
+
+Note on registry duality: `swarm_categories` (Stage 1 regex-bucket dispatch / operator override) and `swarm_intents` (Stage 3 ranked-intent dispatch) coexist by design. They route different stages and are not redundant — see `docs/agentic-pipeline/stage-3-coordinator.md` "Registry Tables".
+
 ## Roadmap pointers
 
 - Phase 56-02 — async-callback pivot, brand_id filter, callback route, resolver wired (DONE)
 - Phase 56-02 wave 3 part 1 — orq_agents registry + label-resolver Inngest worker + flip `unknown` row (DONE 2026-04-29)
 - Phase 56-02 wave 3 part 2 — invoice-copy handler + flip `invoice_copy_request` row + email_labels feedback columns (DONE 2026-04-30)
-- Phase 56.7 — swarm_registry generalization (in design, see `.planning/phases/56.7-swarm-registry/`)
-- Phase 56.8 — iController DOM step for matched-customer labeling
+- Phase 56.7 — swarm_registry generalization (DONE)
+- Phase 67 — Stage 2 closure / iController DOM tagging (DONE)
+- Phase 68 — swarm registry generalisation + canonical context shape (DONE 2026-05-04)

@@ -80,11 +80,33 @@ Axis 3 signals feed the prompt-tune trigger hook: clusters of intent corrections
 
 - [`../orqai-patterns.md`](../orqai-patterns.md) -- `response_format: json_schema`, fallback model chain, 45s client timeout. Stage 3 uses these patterns; this doc does not duplicate them.
 
+## Registry Tables (Phase 68 — landed 2026-05-04)
+
+Two registry tables coexist; they route different stages and are NOT redundant.
+
+**`public.swarms`** — per-swarm scaffolding. Phase 68 added five columns:
+
+| Column | Purpose |
+|---|---|
+| `stage1_regex_module` | Module path string for the Stage 1 regex classifier (`@/lib/...`); loaded dynamically by `loadStage1Classifier` |
+| `stage2_entity_resolver` | Module path string for the Stage 2 entity resolver; loaded by `loadStage2Resolver` (module exports `resolveEntity`) |
+| `stage3_coordinator_agent_key` | Orq agent key for the coordinator |
+| `canonical_context_shape` | jsonb shape contract for the Stage 2 → 3 envelope |
+| `entity_brand` | jsonb array of brand suffixes used by handler agents |
+| `side_effects[]` | jsonb array of side-effect descriptors (discriminated by `kind`: `inngest_event` or `automation_run_insert`); evaluated by `evaluateSideEffects(swarmType, trigger, ctx)` |
+
+**`public.swarm_intents`** *(NEW)* — Stage 3 ranked-intent dispatch.
+`(swarm_type, intent_key) → handler_event`. Source of truth for V2 ranked-intent fan-out (single-shot path in `debtor-email-coordinator.ts` and N-handler fan-out in `coordinator-orchestrator.ts`). FK ON DELETE CASCADE → `swarms`.
+
+**`public.swarm_categories`** *(existing)* — Stage 1 regex-bucket dispatch.
+Operator-override route — maps a categorized email's `category_key` to a Stage-2 action (`categorize_archive` / `swarm_dispatch` / etc.) and an optional `swarm_dispatch` event for category-driven swarm hops. **Coexists** with `swarm_intents`; the two route different stages.
+
+Adding a new swarm = INSERTs into `swarms` + `swarm_intents` (+ optional `swarm_categories` rows for operator routing) + a handler implementation. Zero code edits to `classifier-verdict-worker`, `classifier-label-resolver`, `coordinator-orchestrator`, or `debtor-email-coordinator`.
+
 ## Forward References
 
 - Stage 3.5 orchestrator-worker full design -- Phase 65 (CORD-02..04).
 - Concrete confidence threshold for escalation -- Phase 71 (LERN-01..05). This RFC names the principle, not the number.
-- `swarm_intents` table -- Phase 68 (SWRM-02). Today there is no canonical intent registry; intents are per-swarm strings.
 
 ## See Also
 
