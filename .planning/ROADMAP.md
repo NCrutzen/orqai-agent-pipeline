@@ -790,7 +790,14 @@ Plans:
   2. The brand list driving handler prompts is read from `swarms.entity_brand` registry rows, not hardcoded enums in agent prompts
   3. Cross-cutting handler agents are declared `swarm_type='cross-cutting'` in `public.orq_agents`; per-swarm specialisation only exists where genuinely required
   4. Onboarding a new entity_brand row produces correct handler output without any agent prompt change (UK/IE backlog scenario validated on fixtures)
-**Plans**: TBD
+**Plans**: 7 plans
+- [ ] 69-01-PLAN.md — Wave 0 scaffolding (migrations, brand-register module, codegen script, test scaffolds)
+- [ ] 69-02-PLAN.md — Wave 1 Supabase MCP migration apply (operator-gated, A1 iccafe disposition)
+- [ ] 69-03-PLAN.md — Wave 2 codegen run + coordinator/types.ts re-export + registry.ts extension
+- [ ] 69-04-PLAN.md — Wave 3 classifier-invoice-copy-handler refactor to brand_register input shape
+- [ ] 69-05-PLAN.md — Wave 4 Orq.ai prompt PATCH via MCP (operator-gated; baseline + verify)
+- [ ] 69-06-PLAN.md — Wave 5 regression fixtures (5 debtor + 3 sales + 1 UK) + LIVE_SMOKE=1 live Orq smoke
+- [ ] 69-07-PLAN.md — Wave 6 docs (stage-4-handler.md, debtor-email-pipeline-architecture.md) + REQUIREMENTS.md CANO-* check-off
 
 ### Phase 70: Telemetry consolidation (pipeline_events)
 **Goal**: Every stage decision flows into a single canonical `pipeline_events` table that becomes the source of truth for Bulk Review and the promotion recommender, while existing tables stay alive as denormalised read-models
