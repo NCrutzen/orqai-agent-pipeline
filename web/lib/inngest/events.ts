@@ -306,35 +306,29 @@ export type Events = {
     };
   };
 
-  // Debtor email swarm — triage (phase 1) / Phase 65 coordinator (in-place rewrite per D-10).
-  // Optional run_id / automation_run_id / budget_run_id / agent_run_id added in Phase 65 to
-  // carry the Stage 0 budget envelope and the coordinator_runs row identifier through to
-  // the new dispatch path. Existing callers that don't set them stay backwards-compatible.
-  "debtor/email.received": {
+  // Debtor email swarm — Stage 3 coordinator trigger.
+  // Phase 66 retargeted from "debtor/email.received" (orphan, no live producer)
+  // to "debtor-email/coordinator.requested" emitted by classifier-label-resolver.
+  // Carries the Stage 0 budget envelope (budget_run_id), the pre-created
+  // agent_runs row (agent_run_id), and the Stage-2-resolved customer fields
+  // (customer_account_id, customer_name) through to the coordinator.
+  "debtor-email/coordinator.requested": {
     data: {
       email_id: string;
-      /** Outlook Graph message-ID — needed to navigate the iController
-       *  mail view when creating the reply-draft. Distinct from
-       *  `email_id` (our internal Supabase UUID). */
-      graph_message_id: string;
+      automation_run_id?: string;
+      run_id?: string;
+      budget_run_id?: string;
+      agent_run_id?: string;
+      entity?: string | null;
       subject: string;
       body_text: string;
       sender_email: string;
-      sender_domain: string;
-      sender_first_name?: string | null;
+      sender_domain?: string;
       mailbox: string;
-      entity: "smeba" | "berki" | "sicli-noord" | "sicli-sud" | "smeba-fire";
       received_at: string;
-      // Phase 65 additions (D-10):
-      /** Coordinator-run identifier — primary key of public.coordinator_runs. */
-      run_id?: string;
-      /** Cross-swarm Bulk Review row identifier. */
-      automation_run_id?: string;
-      /** Stage 0 budget envelope identifier (Phase 64 D-15). */
-      budget_run_id?: string;
-      /** public.agent_runs.id pre-created by upstream emitter; coordinator merges
-       *  intent_first_pass into tool_outputs against this id when present. */
-      agent_run_id?: string;
+      graph_message_id?: string;
+      customer_account_id?: string | null;
+      customer_name?: string | null;
     };
   };
 
