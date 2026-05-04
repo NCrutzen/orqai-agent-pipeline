@@ -1,7 +1,8 @@
 // Phase 65 (D-10) — coordinator function rewritten in-place.
 //
-// This function id "automations/debtor-email-triage" survives Phase 65 per D-10;
-// Phase 66 renames it. Earlier Phase-1 single-label flow (classify → fetch
+// Phase 66 (Plan 01) renamed the function id to
+// "automations/debtor-email-coordinator" (kept the file/const/id aligned).
+// Earlier Phase-1 single-label flow (classify → fetch
 // document → generate body → create iController draft) is removed here — the
 // per-intent handlers move to Plan 65-04 (orchestrator + synthesis) and the
 // existing copy-document handler in web/app/api/automations/debtor*/. Plan 03
@@ -44,9 +45,9 @@ type DynamicSend = (payload: {
   data: Record<string, unknown>;
 }) => Promise<unknown>;
 
-export const debtorEmailTriage = inngest.createFunction(
+export const debtorEmailCoordinator = inngest.createFunction(
   {
-    id: "automations/debtor-email-triage",
+    id: "automations/debtor-email-coordinator",
     name: "Debtor Email Triage (Coordinator V2)",
     retries: 0,
     concurrency: [
