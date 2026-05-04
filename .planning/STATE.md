@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
-status: phase_complete
-stopped_at: Phase 67 closed (2026-05-04) — TAG-01..03 complete
-last_updated: "2026-05-04T10:50:00.000Z"
-last_activity: 2026-05-04 -- Phase 67 closed on production live-smoke + static-audit + unit-test acceptance
+status: unknown
+stopped_at: Phase 68 context gathered (--auto)
+last_updated: "2026-05-04T10:50:12.671Z"
+last_activity: 2026-05-04 -- Phase 67 closed; TAG-01..03 complete
 progress:
   total_phases: 45
   completed_phases: 16
   total_plans: 75
-  completed_plans: 67
-  percent: 89
+  completed_plans: 61
+  percent: 81
 ---
 
 # Project State
@@ -120,10 +120,10 @@ Progress: [█████████░] 89%
 
 ## Session Continuity
 
-Last session: 2026-05-04T10:20:47.260Z
-Stopped at: Completed 67-06-PLAN.md
+Last session: --stopped-at
+Stopped at: Phase 68 context gathered (--auto)
 Resume with: `/gsd-execute-phase 65`
-Resume file: None
+Resume file: --resume-file
 
 ## Deferred Items
 
