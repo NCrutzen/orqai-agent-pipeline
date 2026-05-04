@@ -1,7 +1,7 @@
 // Phase 65 D-02/D-03 — Stage 3.5 orchestrator-planner Inngest function.
 //
-// Listens on `debtor-email/orchestrator.requested` (emitted by
-// debtor-email-triage when the escalation gate fires per CORD-02).
+// Listens on `debtor-email/orchestrator.requested` (emitted by the
+// debtor-email coordinator when the escalation gate fires per CORD-02).
 // Calls debtor-orchestrator-agent to expand the ranked-intent list into
 // a per-handler execution plan, then fans out N parallel handler events
 // (debtor-email/<intent>.requested). Stage 4 handlers fan-in via the

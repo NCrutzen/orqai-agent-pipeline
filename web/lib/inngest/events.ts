@@ -249,9 +249,9 @@ export type Events = {
    * `stage-0/safety-worker`, which runs the regex screen + LLM verdict
    * + per-invocation budget guard before forwarding to the classifier.
    *
-   * Naming choice (RESEARCH Open Question 2): `stage-0/email.received`
-   * deliberately distinct from the legacy `debtor/email.received` triage
-   * event so the two pipelines don't collide.
+   * Naming choice (RESEARCH Open Question 2): `stage-0/email.received` is
+   * deliberately scoped to Stage 0 so it can't be confused with downstream
+   * Stage 2 → 3 seam events (e.g. `debtor-email/coordinator.requested`).
    *
    * `safety_overridden` (Pitfall 5): operator-driven re-emit (Plan 05) sets
    * this true to short-circuit Stage 0. The ingest route NEVER sets it.
@@ -307,8 +307,8 @@ export type Events = {
   };
 
   // Debtor email swarm — Stage 3 coordinator trigger.
-  // Phase 66 retargeted from "debtor/email.received" (orphan, no live producer)
-  // to "debtor-email/coordinator.requested" emitted by classifier-label-resolver.
+  // Emitted by classifier-label-resolver after Stage 2 closes; consumed by
+  // the coordinator (Phase 66 wired Stage 2 → 3 here).
   // Carries the Stage 0 budget envelope (budget_run_id), the pre-created
   // agent_runs row (agent_run_id), and the Stage-2-resolved customer fields
   // (customer_account_id, customer_name) through to the coordinator.
