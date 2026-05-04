@@ -52,7 +52,8 @@
 
 ### Stage 2 closure — iController DOM tagging
 
-- [ ] **TAG-01**: When the resolver returns a matched customer in live mode, an iController DOM step automatically tags the email under that customer account
+- [x] **TAG-01
+**: When the resolver returns a matched customer in live mode, an iController DOM step automatically tags the email under that customer account
 - [ ] **TAG-02**: Tagging step is non-blocking for downstream Stage 3+4 (failure surfaces as a deferred run, doesn't break the coordinator)
 - [ ] **TAG-03**: Operator can audit tagging actions in `email_labels` (existing) plus screenshots before/after
 
