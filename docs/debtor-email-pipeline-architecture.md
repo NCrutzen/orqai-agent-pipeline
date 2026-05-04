@@ -129,9 +129,22 @@ For each invoice candidate:
         - async-callback Zap (nxt.invoice_fetch)
         - returns hydrated PDF (base64) + filename + S3 metadata
         ↓
-Orq.ai Draft Agent (composes body)
-        - Inputs: language, brand context, invoice metadata, customer name
-        - Output: HTML body for the reply
+Orq.ai Draft Agent (composes body) — `debtor-copy-document-body-agent`
+        - Inputs (Phase 69 canonical shape):
+            - `customer_id`, `customer_name`, `language`, `entity_brand` (string code),
+              `recent_documents`, `context_version` (PipelineStageContext)
+            - `brand_register` (object: code, display_name, register_language,
+              register_dialect, signoff_phrase, formal_address, nxt_database_alias,
+              icontroller_company) — resolved per-invocation via
+              `loadBrandRegister(swarm_type, ctx.entity_brand)` from `swarms.entity_brand`
+              jsonb registry. The agent prompt template renders ONE brand at a time via
+              the `<brand_register>` block; the union of brands is never in the prompt.
+            - intent-specifics + email surface fields (subject, body, sender, mailbox)
+            - `body_version` (currently `"2026-05-04.v2"` per Phase 69)
+        - Removed inputs (Phase 69): `email_entity` (replaced by `entity_brand` +
+          `brand_register`), `email_language` (replaced by `language` +
+          `brand_register.register_language`).
+        - Output: HTML body for the reply (`bodyAgentOutputSchema` unchanged)
         ↓
 POST /api/automations/debtor/create-draft
         - mode: 'reply', messageId from Outlook
@@ -423,7 +436,7 @@ Seeded today (see `supabase/migrations/20260429g_orq_agents_registry.sql`):
 | `agent_key` | `orqai_id` | `swarm_type` | Purpose |
 |---|---|---|---|
 | `debtor-intent-agent` | `01KQECK191GE21CH8D8KEMTM9J` | `debtor-email` | Stage 2 LLM classifier on `unknown`; routes into 8 actionable intents |
-| `debtor-copy-document-body-agent` | `01KQECMBEMRKX28E0F0T64A43K` | `debtor-email` | Compose invoice-copy reply HTML body for iController draft |
+| `debtor-copy-document-body-agent` | `01KQECMBEMRKX28E0F0T64A43K` | `cross-cutting` *(Phase 69 CANO-03)* | Compose invoice-copy reply HTML body for iController draft. Phase 69 canonicalised input shape — accepts `PipelineStageContext` + per-invocation `brand_register` from `swarms.entity_brand` registry. `body_version=2026-05-04.v2`. |
 | `label-tiebreaker` | _placeholder, enabled=false_ | `cross-cutting` | Multi-candidate disambiguation in resolveDebtor |
 
 The label-tiebreaker row is seeded with `enabled=false` until the operator fills in the real `orqai_id` and flips the row enabled. Until then `lib/automations/debtor-email/llm-tiebreaker.ts` falls back to `LABEL_TIEBREAKER_AGENT_SLUG` env var transparently.
@@ -460,3 +473,4 @@ Note on registry duality: `swarm_categories` (Stage 1 regex-bucket dispatch / op
 - Phase 56.7 — swarm_registry generalization (DONE)
 - Phase 67 — Stage 2 closure / iController DOM tagging (DONE)
 - Phase 68 — swarm registry generalisation + canonical context shape (DONE 2026-05-04)
+- Phase 69 — handler-agent canonicalisation: `debtor-copy-document-body-agent` accepts `PipelineStageContext` + `brand_register` from `swarms.entity_brand` jsonb registry; `body_version=2026-05-04.v2`; `swarm_type='cross-cutting'`; CANO-04 zero-prompt-edit onboarding proven via `smeba-uk` live smoke (DONE 2026-05-04)

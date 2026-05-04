@@ -159,6 +159,7 @@ const browser = await chromium.connectOverCDP(
 ### Supabase
 - Service role voor automation writes (geen RLS server-side)
 - JSONB double-encoding: `while (typeof state === 'string') state = JSON.parse(state)`
+- **Build-time codegen for registry-driven literal-union TS types** (Phase 69 D-03). Wanneer een registry-tabel kolom (e.g. `swarms.entity_brand` jsonb) source-of-truth is voor een gesloten enumeratie EN de codebase strict TS-typing wil, hardcode de literal-union NIET in code. In plaats daarvan: schrijf een `tsx`-script (`scripts/gen-entity-types.ts`) dat de registry op build-time leest en een `*.generated.ts` file emit met `as const` array + literal-union type. Run via `npm run codegen`. CI gate: `npm run codegen && git diff --exit-code` om drift te detecteren. Pattern: stable diffs vereisen alfabetische sortering van codes in het script. Idempotency: lees bestaande file, skip write als identiek. NOOIT `*.generated.ts` met de hand bewerken. Verlengt het 'registry as source of truth'-principe (Phase 68 swarms/swarm_intents) tot het type-systeem zonder onboarding-friction.
 
 → `docs/supabase-patterns.md`
 

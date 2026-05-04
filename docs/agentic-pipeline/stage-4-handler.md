@@ -1,6 +1,8 @@
 # Stage 4 -- Handler Agents (zapier_tools Registry)
 
 > **Status:** RFC (Phase 63). The `zapier_tools` registry exists today; the `allowed_for_intents` allowlist column is forward-referenced to Phase 64 (BUDG-02).
+>
+> **CANO-01..04 — IMPLEMENTED (Phase 69, 2026-05-04).** Handler-agent canonicalisation for `debtor-copy-document-body-agent` is live. See [Phase 69 implementation summary](#phase-69-implementation-summary) at the bottom of this document for details.
 
 ## Goal
 
@@ -35,7 +37,9 @@ automation_runs row  (consumed by kanban surface; see swarm-bridge-contract.md)
 
 ### Reference handler agent
 
-The canonical handler agent for the debtor swarm is `debtor-copy-document-body-agent` -- the agent that drafts the iController reply for an `invoice_copy_request` intent. Per-swarm canonicalisation (a unified registry of handler agents per swarm) is forward-referenced to Phase 69 (CANO-01..04). Today, agent identity is per-swarm and named directly.
+The canonical handler agent for the debtor swarm is `debtor-copy-document-body-agent` -- the agent that drafts the iController reply for an `invoice_copy_request` intent.
+
+**CANO-01..04 — IMPLEMENTED (Phase 69, 2026-05-04).** Per-swarm canonicalisation is no longer forward-referenced. As of Phase 69 the body agent accepts the canonical `PipelineStageContext` shape (`customer_id`, `customer_name`, `language`, `entity_brand`, `recent_documents`, `context_version`) plus a per-invocation `brand_register` object whose fields are sourced from the `swarms.entity_brand` jsonb registry; the prompt itself never sees the union of brands. Onboarding a new brand (UK/IE backlog 999.1, future sales-email expansion) is a single `INSERT swarms.entity_brand` row + `npm run codegen` — zero agent prompt edits, zero TS enum changes. The empirical proof point: the `smeba-uk` fixture in `web/__tests__/canonicalisation/uk-ie-fixture/smeba-uk.fixture.ts` exercises a brand that was never seeded in the live registry, and the Wave 6 LIVE_SMOKE run produced register-correct output (en-GB, "Kind regards") without any prompt edit. See [`.planning/phases/69-handler-agent-canonicalisation-cross-swarm-reuse/69-06-LIVE-SMOKE.md`](../../.planning/phases/69-handler-agent-canonicalisation-cross-swarm-reuse/69-06-LIVE-SMOKE.md).
 
 ### Tool registry
 
@@ -88,8 +92,48 @@ Axis 4 signals feed the prompt-tune / handler-replacement hook: clusters of `fee
 ## Forward References
 
 - `zapier_tools.allowed_for_intents text[]` column -- Phase 64 (BUDG-02). The tool->intent allowlist is forward-referenced.
-- Handler canonicalisation per swarm -- Phase 69 (CANO-01..04). Today's per-swarm agent naming becomes a canonical registry.
+- ~~Handler canonicalisation per swarm -- Phase 69 (CANO-01..04). Today's per-swarm agent naming becomes a canonical registry.~~ **IMPLEMENTED Phase 69 (2026-05-04).** See [Phase 69 implementation summary](#phase-69-implementation-summary).
 - Per-run cost ceilings (token + cost budget enforcement at the handler boundary) -- Phase 64 (BUDG-01).
+
+## Phase 69 implementation summary
+
+Phase 69 closed CANO-01..04 by canonicalising the `debtor-copy-document-body-agent` against the Phase 68 `PipelineStageContext` contract and migrating the brand list out of the prompt and into the `swarms.entity_brand` jsonb registry. As of 2026-05-04 the live agent's prompt template is fully data-driven: it sees one brand per invocation via a parameterised `<brand_register>` block and never enumerates the brand union.
+
+### CANO-01 — IMPLEMENTED (canonical context shape)
+
+Input shape changed from `email_entity: Entity` (5-value TS literal-union) + `email_language: string` to:
+
+- `entity_brand: string` — registry-driven brand code (`smeba`, `smeba-fire`, `sicli-noord`, `sicli-sud`, `berki`, ...). No literal-union enum at the contract layer.
+- `language: 'nl' | 'fr' | 'en' | 'de'` — canonical `PipelineStageContext.language`.
+- `brand_register: BrandRegister` — per-invocation metadata object: `{ code, display_name, register_language, register_dialect, signoff_phrase, formal_address, nxt_database_alias, icontroller_company }`. Resolved at handler entry via `loadBrandRegister(swarm_type, brand_code)`.
+
+The Orq.ai live agent's `<entity_register>` block (5 hardcoded `<entity>` children with prose register treatment per brand) was replaced by a single `<brand_register>` template referencing the per-invocation object. See `.planning/phases/69-handler-agent-canonicalisation-cross-swarm-reuse/69-05-SUMMARY.md` for the verbatim diff.
+
+### CANO-02 — IMPLEMENTED (data-driven brand list)
+
+`swarms.entity_brand` migrated from `text[]` to jsonb-of-objects via [`supabase/migrations/20260505a_entity_brand_expansion.sql`](../../supabase/migrations/20260505a_entity_brand_expansion.sql). The TS `ENTITY` literal-union at `web/lib/automations/debtor-email/coordinator/types.ts` is now build-time codegen output: `scripts/gen-entity-types.ts` reads the registry and writes `web/lib/automations/debtor-email/coordinator/entity.generated.ts` with the literal-union type. CI runs `npm run codegen && git diff --exit-code` to detect drift. Operators never hand-edit `*.generated.ts`.
+
+### CANO-03 — IMPLEMENTED (cross-cutting swarm_type)
+
+[`supabase/migrations/20260505b_orq_agents_cross_cutting.sql`](../../supabase/migrations/20260505b_orq_agents_cross_cutting.sql) flips `public.orq_agents.swarm_type` to `'cross-cutting'` for `agent_key='debtor-copy-document-body-agent'`. Runtime read path (`loadAgent(agent_key)` in `web/lib/automations/orq-agents/client.ts`) is unchanged — `swarm_type='cross-cutting'` is an organisational hint for tooling and Bulk Review filters, not a routing decision.
+
+### CANO-04 — IMPLEMENTED (zero-prompt-edit onboarding)
+
+The regression suite at `web/__tests__/canonicalisation/` includes a `smeba-uk` fixture (`uk-ie-fixture/smeba-uk.fixture.ts`) using en-GB dialect, "Kind regards" signoff, "you" formal address — a brand form that was never seeded in the live registry. Wave 6 LIVE_SMOKE run executed the body agent against this fixture via the live Orq.ai agent and verified register-correct output without any prompt edit. UK/IE backlog (Phase 999.1) operationally onboards each new brand by `INSERT swarms.entity_brand` row + `npm run codegen` + commit; no agent prompt edit, no Vercel deploy required at the agent boundary. See `69-06-LIVE-SMOKE.md` for the empirical results.
+
+### Code surface (verified by Wave 4–6)
+
+- New module: `web/lib/swarms/brand-register.ts` (lookup + module-level Map cache).
+- Extended: `web/lib/swarms/registry.ts` (loadEntityBrand, loadEntityBrandRegister exports).
+- Refactored: `web/lib/inngest/functions/classifier-invoice-copy-handler.ts` (input-shape rewrite at the body-agent invocation site; `inferLanguageFromEntity` removed).
+- Codegen: `scripts/gen-entity-types.ts`, `npm run codegen`.
+- Migrations: `20260505a_entity_brand_expansion.sql`, `20260505b_orq_agents_cross_cutting.sql`.
+- Live agent: `debtor-copy-document-body-agent` (orqai_id `01KQECMBEMRKX28E0F0T64A43K`) PATCHed via Orq MCP `update_agent` 2026-05-04; `body_version` bumped `2026-04-23.v1` → `2026-05-04.v2`. response_format strict json_schema preserved (per CLAUDE.md learning `cba7352b`).
+- Verification: 52 mocked offline assertions + 4 live smoke invocations (NL + FR + EN cross-swarm + en-GB UK) all green.
+
+### Operator note — trust boundary on `swarms.entity_brand`
+
+`swarms.entity_brand` is operator-managed via SQL migrations only. **Treat brand metadata writes (`signoff_phrase`, `register_language`, `display_name`, etc.) with the same care as Orq agent prompt edits** — content from these fields flows directly into the `<brand_register>` prompt block at runtime via `loadBrandRegister` and is rendered by the body agent into customer-facing drafts. Stage 0 input safety (Phase 64 SAFE-*) defends inbound emails; `brand_register` is internal config and is **not** within Stage 0's scope. Threat model: T-69-01 (mitigated by operator-only write path), T-69-23 (operator awareness — this paragraph).
 
 ## See Also
 

@@ -76,10 +76,10 @@
 
 ### Handler-agent canonicalisation (cross-swarm reuse)
 
-- [ ] **CANO-01**: `debtor-copy-document-body-agent` accepts a canonical context shape; entity_register block parameterized so it works for sales-email, future UK/IE brands, and brand expansions without prompt edits
-- [ ] **CANO-02**: Brand list is data-driven (from `swarms.entity_brand` registry rows), not hardcoded enums in agent prompts
-- [ ] **CANO-03**: All Stage 4 handler-agents declared `swarm_type='cross-cutting'` in `public.orq_agents` where domain-agnostic; per-swarm specialisation only when truly needed
-- [ ] **CANO-04**: Existing UK/IE backlog (999.1) and future brand expansions onboard via `INSERT entity_brand` row, no agent prompt change
+- [x] **CANO-01**: `debtor-copy-document-body-agent` accepts a canonical context shape; entity_register block parameterized so it works for sales-email, future UK/IE brands, and brand expansions without prompt edits
+- [x] **CANO-02**: Brand list is data-driven (from `swarms.entity_brand` registry rows), not hardcoded enums in agent prompts
+- [x] **CANO-03**: All Stage 4 handler-agents declared `swarm_type='cross-cutting'` in `public.orq_agents` where domain-agnostic; per-swarm specialisation only when truly needed
+- [x] **CANO-04**: Existing UK/IE backlog (999.1) and future brand expansions onboard via `INSERT entity_brand` row, no agent prompt change
 
 ### Promotion recommender (graduated automation)
 
@@ -153,10 +153,10 @@ Filled by roadmapper after phase mapping.
 | SWRM-02 | Phase 68 | pending |
 | SWRM-03 | Phase 68 | pending |
 | SWRM-04 | Phase 68 | pending |
-| CANO-01 | Phase 69 | pending |
-| CANO-02 | Phase 69 | pending |
-| CANO-03 | Phase 69 | pending |
-| CANO-04 | Phase 69 | pending |
+| CANO-01 | Phase 69 | complete (input shape + prompt template; live smoke 4/4 green 2026-05-04) |
+| CANO-02 | Phase 69 | complete (jsonb-of-objects registry + TS codegen; migration 20260505a) |
+| CANO-03 | Phase 69 | complete (orq_agents.swarm_type='cross-cutting' for body agent; migration 20260505b) |
+| CANO-04 | Phase 69 | complete (smeba-uk fixture verified zero-prompt-edit onboarding; live smoke green) |
 | TELE-01 | Phase 70 | pending |
 | TELE-02 | Phase 70 | pending |
 | TELE-03 | Phase 70 | pending |
