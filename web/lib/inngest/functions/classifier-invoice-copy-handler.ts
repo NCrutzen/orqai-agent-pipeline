@@ -35,6 +35,9 @@ import {
   type Entity,
   type Language,
 } from "@/lib/automations/debtor-email/triage/types";
+// Phase 65 Plan 04 — orchestrator fan-in wiring.
+import { bodyAgentOutputToHandlerOutput } from "@/lib/automations/debtor-email/handlers/output-adapter";
+import { notifyCoordinatorComplete } from "@/lib/automations/debtor-email/coordinator/coordinator-complete";
 
 const BODY_AGENT_KEY = "debtor-copy-document-body-agent";
 
@@ -50,7 +53,76 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
       swarm_type,
     } = event.data;
 
+    // Phase 65 Plan 04 — orchestrator fan-in wiring. When dispatched from the
+    // orchestrator-planner, the event payload carries from_orchestrator=true and
+    // a coordinator run_id. The handler MUST notify coordinator_complete_handler
+    // on both success and failure paths so the synthesis fan-in counter advances.
+    const evtData = event.data as unknown as {
+      from_orchestrator?: boolean;
+      run_id?: string;
+      intent?: string;
+    };
+    const fromOrchestrator = evtData.from_orchestrator === true;
+    const coordinatorRunId = evtData.run_id;
+    const orchestratorIntent = evtData.intent ?? "copy_document_request";
+
     const admin = createAdminClient();
+
+    // For the orchestrator path, create a per-handler agent_runs row tagged with
+    // coordinator_run_id so coordinator-synthesis can later read HandlerOutput[]
+    // via output-adapter.loadHandlerOutputsForRun.
+    let orchestratorAgentRunId: string | null = null;
+    if (fromOrchestrator && coordinatorRunId) {
+      orchestratorAgentRunId = await step.run("create-orchestrator-agent-run", async () => {
+        const { data, error } = await admin
+          .from("agent_runs")
+          .insert({
+            swarm_type: swarm_type ?? "debtor-email",
+            email_id: message_id,
+            inngest_run_id: event.id ?? `local-${message_id}`,
+            status: "classifying",
+            intent: orchestratorIntent,
+            coordinator_run_id: coordinatorRunId,
+          })
+          .select("id")
+          .single();
+        if (error) {
+          throw new Error(`agent_runs insert failed: ${error.message}`);
+        }
+        return (data as { id: string }).id;
+      });
+    }
+
+    // Wrap the rest of the handler so that on the orchestrator path,
+    // notifyCoordinatorComplete fires regardless of which exit path is taken
+    // (failRun short-circuits, no_invoice_reference early return, normal success,
+    // or thrown exceptions inside step.run boundaries).
+    const notifyOnExitIfOrchestrator = async (failed: boolean): Promise<void> => {
+      if (!fromOrchestrator || !coordinatorRunId) return;
+      await step.run(
+        failed ? "notify-coordinator-failed" : "notify-coordinator-complete",
+        async () => {
+          await notifyCoordinatorComplete(admin, coordinatorRunId, failed);
+        },
+      );
+    };
+
+    try {
+      const result = await runInner();
+      // failRun returns { ok: false, ... } for short-circuit paths; treat those as failed=true.
+      const innerFailed =
+        result &&
+        typeof result === "object" &&
+        "ok" in (result as Record<string, unknown>) &&
+        (result as { ok: unknown }).ok === false;
+      await notifyOnExitIfOrchestrator(innerFailed === true);
+      return result;
+    } catch (err) {
+      await notifyOnExitIfOrchestrator(true);
+      throw err;
+    }
+
+    async function runInner(): Promise<unknown> {
 
     const [emailRow, settingsRow] = await Promise.all([
       step.run("load-email", async () => {
@@ -211,6 +283,32 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
       return bodyAgentOutputSchema.parse(raw);
     });
 
+    // Phase 65 Plan 04 — persist canonical HandlerOutput onto the orchestrator
+    // agent_runs row so coordinator-synthesis can read it via output-adapter.
+    if (fromOrchestrator && orchestratorAgentRunId) {
+      await step.run("persist-handler-output", async () => {
+        const handlerOutput = bodyAgentOutputToHandlerOutput(body, {
+          handler_key: BODY_AGENT_KEY,
+          intent: orchestratorIntent,
+          language,
+          references: invoices.candidates,
+          confidence: "high",
+        });
+        const { error } = await admin
+          .from("agent_runs")
+          .update({
+            tool_outputs: { handler_output: handlerOutput },
+            intent: orchestratorIntent,
+            language,
+            status: "predicted",
+          })
+          .eq("id", orchestratorAgentRunId);
+        if (error) {
+          throw new Error(`agent_runs handler_output persist failed: ${error.message}`);
+        }
+      });
+    }
+
     // ---- 5) Create iController draft -------------------------------------
     const draft = await step.run("create-draft", async () => {
       const url = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/automations/debtor/create-draft`;
@@ -289,6 +387,7 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
       draft_url: (draft as { draftUrl?: string }).draftUrl ?? null,
       category_key,
     };
+    } // end runInner
   },
 );
 
