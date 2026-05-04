@@ -23,7 +23,7 @@ import { syncDebtorEmailBridgeCron } from "@/lib/inngest/functions/debtor-email-
 import { cleanupIControllerDispatch } from "@/lib/inngest/functions/debtor-email-icontroller-cleanup-dispatcher";
 import { cleanupIControllerShardWorker } from "@/lib/inngest/functions/debtor-email-icontroller-cleanup-worker";
 import { browserlessKeepalive } from "@/lib/inngest/functions/browserless-keepalive";
-import { debtorEmailTriage } from "@/lib/inngest/functions/debtor-email-triage";
+import { debtorEmailCoordinator } from "@/lib/inngest/functions/debtor-email-coordinator";
 import { classifierBackfill } from "@/lib/inngest/functions/classifier-backfill";
 import { classifierCorpusBackfill } from "@/lib/inngest/functions/classifier-corpus-backfill";
 import { classifierSpotcheckSampler } from "@/lib/inngest/functions/classifier-spotcheck-sampler";
@@ -54,7 +54,7 @@ export const { GET, POST, PUT } = serve({
     cleanupIControllerDispatch,
     cleanupIControllerShardWorker,
     browserlessKeepalive,
-    debtorEmailTriage,
+    debtorEmailCoordinator,
     classifierBackfill,
     classifierCorpusBackfill,
     classifierSpotcheckSampler,
