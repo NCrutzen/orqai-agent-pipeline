@@ -4,14 +4,14 @@ milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
 stopped_at: Phase 68 context gathered (--auto)
-last_updated: "2026-05-04T10:50:12.671Z"
+last_updated: "2026-05-04T11:08:41.613Z"
 last_activity: 2026-05-04 -- Phase 67 closed; TAG-01..03 complete
 progress:
   total_phases: 45
   completed_phases: 16
-  total_plans: 75
+  total_plans: 84
   completed_plans: 61
-  percent: 81
+  percent: 73
 ---
 
 # Project State
@@ -138,4 +138,4 @@ Items acknowledged at v7.0 close on 2026-04-30 — known-deferred, not gating mi
 
 See .planning/milestones/v7.0-* archive files for full milestone state.
 
-**Planned Phase:** 67 (stage-2-closure-icontroller-dom-tagging) — 7 plans — 2026-05-04T09:45:34.145Z
+**Planned Phase:** 68 (swarm-registry-generalisation-canonical-context-shape) — 9 plans — 2026-05-04T11:08:41.601Z
