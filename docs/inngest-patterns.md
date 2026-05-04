@@ -41,6 +41,31 @@ const result = await step.run('call-api', async () => {
 });
 ```
 
+### Non-Deterministic Values Used as DB Keys Must Also Be Inside step.run()
+
+Subtler corollary: any **non-deterministic value** (UUIDs, timestamps, random ids) that you key DB writes on MUST itself be generated inside `step.run()`. Otherwise replays regenerate the value, your INSERT lands on key-A, your subsequent UPDATE keys on key-B, `.eq()` matches zero rows, and the UPDATE silently no-ops — leaving the row in its insert-defaults state. The function can complete cleanly with no error, even though half its writes never landed.
+
+```ts
+// WRONG -- crypto.randomUUID() regenerates on every replay
+const run_id = event.data.run_id ?? crypto.randomUUID();
+
+await step.run('insert-row', async () => {
+  await db.from('runs').insert({ run_id, status: 'pending' }); // run_id-A
+});
+await step.run('update-row', async () => {
+  await db.from('runs').update({ status: 'done' }).eq('run_id', run_id); // run_id-B → 0 rows affected, no error
+});
+
+// CORRECT -- memoize the value across replays
+const run_id = await step.run('resolve-run-id', async () =>
+  event.data.run_id ?? crypto.randomUUID(),
+);
+```
+
+How to spot this in production: rows that show only the column defaults from the INSERT, even though downstream UPDATE steps logged success. The smoking gun is `agent_runs.tool_outputs` (or wherever the LLM/API result was cached) holding correct data while the canonical row stayed at defaults — the UPDATE never matched. Phase 65 hit this on `coordinator_runs.ranked_intents` staying `[]` with `escalation_decision='single_shot'` (the INSERT defaults) on every event, even though the LLM correctly produced 3-entry ranked output (visible in `agent_runs.tool_outputs.intent_first_pass`).
+
+Same rule applies to `Date.now()`, `Math.random()`, any cryptographic nonce, and any stable cache key derived from those.
+
 ---
 
 ## Critical Patterns
@@ -153,6 +178,29 @@ Standard event names used across the system:
 | `pipeline/approval.decided` | User grants or rejects an approval gate |
 
 Custom events follow the pattern `{domain}/{entity}.{action}` for automation-specific triggers.
+
+### Don't Detach `inngest.send`
+
+`inngest.send` is a method that needs `this` bound to the `inngest` client. Destructuring it into a local binding strips the `this` reference and produces a runtime `TypeError: Cannot read properties of undefined (reading '_send')` the first time it's called.
+
+```ts
+// WRONG -- detaches the method
+const send = inngest.send as unknown as SendFn;
+await Promise.all(handlers.map((h) => send({ name, data })));
+// → TypeError at runtime, only when the fan-out actually executes
+
+// CORRECT -- inline call preserves the JS Reference type
+await Promise.all(
+  handlers.map((h) =>
+    (inngest.send as unknown as SendFn)({ name, data }),
+  ),
+);
+
+// ALSO CORRECT -- explicit bind
+const send = inngest.send.bind(inngest);
+```
+
+The TS cast is purely compile-time; the `const fn = obj.method` assignment is what loses `this`. Mocked tests will not catch this — they replace `inngest.send` directly. Phase 65 hit this in `coordinator-orchestrator.ts` fan-out and only caught it in live smoke.
 
 ---
 

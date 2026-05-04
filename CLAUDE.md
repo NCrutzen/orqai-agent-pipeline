@@ -170,8 +170,10 @@ const browser = await chromium.connectOverCDP(
 - **Cron tijdelijk uit?** → `{ event: "naam.run" }` (handmatig triggerbaar, re-enable = één regel). Niet de file deleten.
 - **Watermark-syncs**: bump `LOOKBACK_WINDOW` zodat de eerste tick na een gap (Mon 06:00) ook weekend-data pakt.
 - **NOOIT** een cron-string letterlijk in een `/** */` JSDoc zetten — `*/N` sluit het comment. Beschrijf in woorden ("every 2 minutes, hours 6-19, Mon-Fri") of gebruik `//` single-line.
+- **Replay-onveilige id-generatie** (Phase 65 leer): élk niet-deterministisch waarde dat als DB-key gebruikt wordt (UUIDs, `Date.now()`, random nonces) MOET binnen `step.run()` worden gegenereerd, niet erbuiten. Buiten step.run regenereert Inngest de waarde op iedere replay → INSERT op key-A, UPDATE op key-B, `.eq()` matcht 0 rijen, UPDATE no-op zonder error. Symptoom: rij blijft op INSERT-defaults staan terwijl `agent_runs.tool_outputs` de echte data wel heeft. Pattern: `const run_id = await step.run("resolve-run-id", async () => event.data.run_id ?? crypto.randomUUID())`.
+- **`inngest.send` niet destructureren**: `const send = inngest.send` verliest `this`-binding → runtime `TypeError: Cannot read properties of undefined (reading '_send')` bij eerste call. Inline aanroepen: `(inngest.send as unknown as SendFn)({...})` of expliciet `inngest.send.bind(inngest)`. Mocked tests vangen dit niet — alleen live smoke. Phase 65 leer (commit `dae6276`).
 
-→ `docs/inngest-patterns.md` · learning `eb434cfd-107e-4a9c-bf8e-c1a443d36802`
+→ `docs/inngest-patterns.md` · learnings `eb434cfd-107e-4a9c-bf8e-c1a443d36802`, Phase 65 commits `dd2583a` (replay-id) + `dae6276` (this-binding)
 
 ### Zapier
 - NXT SQL alleen via Zapier (whitelisted IP)
