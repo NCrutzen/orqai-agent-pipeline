@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 65-03-PLAN.md (Plans 01, 02, 03 done; 04 in progress; 05 pending)
-last_updated: "2026-05-03T07:39:56.763Z"
-last_activity: 2026-05-03 -- Phase 65 Wave 2 in progress
+stopped_at: Phase 66 context gathered (--auto)
+last_updated: "2026-05-04T07:29:42.737Z"
+last_activity: 2026-05-03 -- Phase 65 Wave 2 in progress (Plans 01-03 done)
 progress:
   total_phases: 45
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 63
-  completed_plans: 46
-  percent: 73
+  completed_plans: 49
+  percent: 78
 ---
 
 # Project State
@@ -115,10 +115,10 @@ Progress: [███████░░░] 73%
 
 ## Session Continuity
 
-Last session: 2026-05-03T07:39:50.137Z
-Stopped at: Plans 01-03 complete; Plan 04 in progress; Plan 05 pending
+Last session: --stopped-at
+Stopped at: Phase 66 context gathered (--auto)
 Resume with: `/gsd-execute-phase 65`
-Resume file: None
+Resume file: --resume-file
 
 ## Deferred Items
 
