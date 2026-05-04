@@ -52,9 +52,27 @@ const SETTINGS_ROW = {
   icontroller_company: "smeba",
 };
 
-function makeAdminMock() {
+function makeAdminMock(overrides?: {
+  settings?: typeof SETTINGS_ROW | null;
+  insertedLabelId?: string;
+}) {
   // Per-table builders — only need shapes used by the function.
-  const emailLabelsInsert = vi.fn(async () => ({ data: null, error: null }));
+  const settingsRow = overrides?.settings === undefined ? SETTINGS_ROW : overrides.settings;
+  const insertedLabelId = overrides?.insertedLabelId ?? "label-uuid-stub";
+
+  const emailLabelsInsertedRows: Array<Record<string, unknown>> = [];
+  // Phase 67 — insert(...).select("id").single() chain
+  const emailLabelsInsert = vi.fn((row: Record<string, unknown>) => {
+    emailLabelsInsertedRows.push(row);
+    return {
+      select: vi.fn(() => ({
+        single: vi.fn(async () => ({
+          data: { id: insertedLabelId },
+          error: null,
+        })),
+      })),
+    };
+  });
   const automationRunUpdateEq = vi.fn(async () => ({ data: null, error: null }));
   const automationRunUpdate = vi.fn(() => ({ eq: automationRunUpdateEq }));
 
@@ -70,7 +88,7 @@ function makeAdminMock() {
     const b: Record<string, unknown> = {};
     b.select = vi.fn(() => b);
     b.eq = vi.fn(() => b);
-    b.maybeSingle = vi.fn(async () => ({ data: SETTINGS_ROW, error: null }));
+    b.maybeSingle = vi.fn(async () => ({ data: settingsRow, error: null }));
     return b;
   }
   function emailLabelsBuilder() {
@@ -110,6 +128,7 @@ function makeAdminMock() {
     from: vi.fn(fromImpl),
     __captures: {
       emailLabelsInsert,
+      emailLabelsInsertedRows,
       automationRunUpdate,
       automationRunUpdateEq,
     },
@@ -204,5 +223,158 @@ describe("classifier-label-resolver — Phase 66 D-03 emit", () => {
     expect(data.sender_email).toBe(EMAIL_ROW.sender_email);
     expect(data.entity).toBe(SETTINGS_ROW.entity);
     expect(data.graph_message_id).toBe("msg-graph-1");
+  });
+});
+
+// Phase 67 (D-01, D-09, D-10, R-02) — second emit (icontroller-tag) tests.
+describe("Phase 67 — second emit (icontroller-tag)", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  async function loadHandlerWithSettings(
+    settings: typeof SETTINGS_ROW | null,
+  ): Promise<{
+    handler: typeof handler;
+    captures: ReturnType<typeof makeAdminMock>["__captures"];
+  }> {
+    vi.clearAllMocks();
+    adminMock = makeAdminMock({ settings, insertedLabelId: "label-uuid-stub" });
+    resolveDebtorMock.mockReset();
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../classifier-label-resolver");
+    return {
+      handler: (mod.classifierLabelResolver as unknown as {
+        handler: typeof handler;
+      }).handler,
+      captures: (adminMock as unknown as { __captures: ReturnType<typeof makeAdminMock>["__captures"] }).__captures,
+    };
+  }
+
+  it("matched + dry_run=true → does NOT emit icontroller-tag; INSERT carries skipped_dry_run", async () => {
+    const { handler: h, captures } = await loadHandlerWithSettings({
+      ...SETTINGS_ROW,
+      dry_run: true,
+    });
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "sender_match",
+      customer_account_id: "506909",
+      customer_name: "Klant BV",
+      confidence: "high",
+      candidates_considered: 1,
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const tagCalls = inngestSend.mock.calls.filter(
+      (c) =>
+        (c[0] as { name: string }).name ===
+        "debtor-email/icontroller-tag.requested",
+    );
+    expect(tagCalls.length).toBe(0);
+
+    expect(captures.emailLabelsInsertedRows.length).toBe(1);
+    expect(
+      (captures.emailLabelsInsertedRows[0] as { icontroller_tag_status: string })
+        .icontroller_tag_status,
+    ).toBe("skipped_dry_run");
+  });
+
+  it("matched + live + icontroller_company set → emits icontroller-tag with mailbox-list URL + email_label_id; INSERT carries pending", async () => {
+    const { handler: h, captures } = await loadHandlerWithSettings({
+      ...SETTINGS_ROW,
+      dry_run: false,
+      icontroller_company: "smebabrandbeveiliging",
+      entity: "smeba",
+    });
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "sender_match",
+      customer_account_id: "506909",
+      customer_name: "Klant BV",
+      confidence: "high",
+      candidates_considered: 1,
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const tagCalls = inngestSend.mock.calls.filter(
+      (c) =>
+        (c[0] as { name: string }).name ===
+        "debtor-email/icontroller-tag.requested",
+    );
+    expect(tagCalls.length).toBe(1);
+    const tagData = (tagCalls[0]![0] as { data: Record<string, unknown> }).data;
+    expect(tagData.email_label_id).toBe("label-uuid-stub");
+    expect(tagData.email_id).toBe(EMAIL_ROW.id);
+    expect(tagData.customer_account_id).toBe("506909");
+    expect(tagData.customer_name).toBe("Klant BV");
+    expect(tagData.icontroller_mailbox_id).toBe(4); // smeba
+    expect(tagData.icontroller_company).toBe("smebabrandbeveiliging");
+    expect(tagData.entity).toBe("smeba");
+    expect(tagData.source_mailbox).toBe("debiteuren@smeba.nl");
+    expect(tagData.sender_email).toBe(EMAIL_ROW.sender_email);
+    expect(tagData.subject).toBe(EMAIL_ROW.subject);
+    expect(typeof tagData.received_at).toBe("string");
+    expect(tagData.icontroller_message_url).toContain(
+      "/messages/index/mailbox/4",
+    );
+
+    expect(
+      (captures.emailLabelsInsertedRows[0] as { icontroller_tag_status: string })
+        .icontroller_tag_status,
+    ).toBe("pending");
+  });
+
+  it("matched + live + icontroller_company=null → does NOT emit; INSERT carries skipped_unconfigured", async () => {
+    const { handler: h, captures } = await loadHandlerWithSettings({
+      ...SETTINGS_ROW,
+      dry_run: false,
+      icontroller_company: null as unknown as string,
+    });
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "sender_match",
+      customer_account_id: "506909",
+      customer_name: "Klant BV",
+      confidence: "high",
+      candidates_considered: 1,
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const tagCalls = inngestSend.mock.calls.filter(
+      (c) =>
+        (c[0] as { name: string }).name ===
+        "debtor-email/icontroller-tag.requested",
+    );
+    expect(tagCalls.length).toBe(0);
+
+    expect(
+      (captures.emailLabelsInsertedRows[0] as { icontroller_tag_status: string })
+        .icontroller_tag_status,
+    ).toBe("skipped_unconfigured");
+  });
+
+  it("unresolved (customer_account_id=null) + live → does NOT emit icontroller-tag", async () => {
+    const { handler: h } = await loadHandlerWithSettings({
+      ...SETTINGS_ROW,
+      dry_run: false,
+      icontroller_company: "smebabrandbeveiliging",
+    });
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "unresolved",
+      customer_account_id: null,
+      customer_name: null,
+      confidence: "none",
+      candidates_considered: 0,
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const tagCalls = inngestSend.mock.calls.filter(
+      (c) =>
+        (c[0] as { name: string }).name ===
+        "debtor-email/icontroller-tag.requested",
+    );
+    expect(tagCalls.length).toBe(0);
   });
 });
