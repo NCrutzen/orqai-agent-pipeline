@@ -751,7 +751,14 @@ Plans:
   1. In live mode, a matched-customer email automatically receives an iController account tag with no operator action
   2. A tagging failure surfaces as a deferred run flag and does not break Stage 3 + Stage 4 execution for that email
   3. Operator can audit tagging actions in `email_labels` plus before/after screenshots stored alongside the run
-**Plans**: TBD
+**Plans**: 7 plans
+- [ ] 67-01-PLAN.md — Wave 0 gate-and-scaffold (acceptance probe re-run, migration file, test scaffolds, regression-report skeleton)
+- [ ] 67-02-PLAN.md — Wave 1 apply migration + URL helper buildIcontrollerMessageUrl
+- [ ] 67-03-PLAN.md — Wave 2 fill TODO(probe-artifact) blocks + add brand_mismatch + MAILBOX_BRAND_PATTERNS
+- [ ] 67-04-PLAN.md — Wave 3 add icontroller-tag.requested event + second emit in classifier-label-resolver
+- [ ] 67-05-PLAN.md — Wave 3 NEW debtorEmailIcontrollerTagger Inngest function + route.ts registration
+- [ ] 67-06-PLAN.md — Wave 4 Bulk Review tagging-failure badge + detail-pane screenshot links
+- [ ] 67-07-PLAN.md — Wave 5 acceptance + brand-mismatch + production smoke (operator-gated)
 **UI hint**: yes
 
 ### Phase 68: swarm_registry generalisation + canonical context shape
