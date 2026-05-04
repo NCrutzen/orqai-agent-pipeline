@@ -1,5 +1,5 @@
 /**
- * Phase 65 Plan 03 — CORD-02 + CORD-04 debtor-email-triage coordinator function.
+ * Phase 65 Plan 03 — CORD-02 + CORD-04 debtor-email coordinator function.
  *
  * Mock-step shell mirrored from stage-0-safety-worker.test.ts. The Inngest
  * `inngest.send` and `createAdminClient` are mocked at module-import time so
@@ -150,7 +150,7 @@ const baseRanked = {
 };
 
 // ---- Tests ---------------------------------------------------------------
-describe("CORD-02 + CORD-04 debtor-email-triage coordinator", () => {
+describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
   let handler: (ctx: unknown) => Promise<unknown>;
 
   beforeEach(async () => {
@@ -160,8 +160,8 @@ describe("CORD-02 + CORD-04 debtor-email-triage coordinator", () => {
     supabaseMock = makeSupabaseMock();
     // Re-import the module so the mocked createFunction captures the new handler.
     vi.resetModules();
-    const mod = await import("../debtor-email-triage");
-    handler = (mod.debtorEmailTriage as unknown as { handler: typeof handler })
+    const mod = await import("../debtor-email-coordinator");
+    handler = (mod.debtorEmailCoordinator as unknown as { handler: typeof handler })
       .handler;
   });
 
