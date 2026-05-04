@@ -44,7 +44,7 @@
 
 ### Pipeline consolidation
 
-- [ ] **CONS-01**: Inbound debtor-email automatically goes through `regex → label-resolver → coordinator → handler` (single canonical flow)
+- [x] **CONS-01**: Inbound debtor-email automatically goes through `regex → label-resolver → coordinator → handler` (single canonical flow)
 - [x] **CONS-02
 **: Existing `debtor-email-triage` Inngest function is retired; intent agent role moves to Stage 3 coordinator slot in `classifier-label-resolver`
 - [x] **CONS-03
@@ -141,9 +141,9 @@ Filled by roadmapper after phase mapping.
 | CORD-02 | Phase 65 | complete (verified live 2026-05-04 — all 3 escalation reasons fired) |
 | CORD-03 | Phase 65 | complete (orchestrator + synthesis live; end-to-end handler rename = Phase 66) |
 | CORD-04 | Phase 65 | complete (single-shot fast path verified; quantitative ~80% deferred to live regression backfill) |
-| CONS-01 | Phase 66 | pending |
-| CONS-02 | Phase 66 | pending |
-| CONS-03 | Phase 66 | pending |
+| CONS-01 | Phase 66 | complete (production-data negative assertion: 1,285 regex-matched runs / 0 coordinator rows; unit-test covers Option A label-resolver emit + coordinator subscription; live emit deferred per 66-regression-report) |
+| CONS-02 | Phase 66 | complete (rename + dir move + dead-code delete + 8 import rewrites; static audit returns 0) |
+| CONS-03 | Phase 66 | complete (zero cross-handler imports; emit-site allowlist verified; static audit lock) |
 | TAG-01 | Phase 67 | pending |
 | TAG-02 | Phase 67 | pending |
 | TAG-03 | Phase 67 | pending |
