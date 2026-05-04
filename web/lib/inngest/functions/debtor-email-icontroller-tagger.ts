@@ -69,9 +69,12 @@ function parseMsgIdFromUrl(url: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-const ENV = (process.env.ICONTROLLER_ENV === "production"
-  ? "production"
-  : "acceptance") as "production" | "acceptance";
+// Production-only by design: the acceptance iController host
+// (test-walkerfire-testing.icontroller.billtrust.com) was retired by
+// Billtrust; the live-mode gate in classifier-label-resolver
+// (dry_run=false) already implies production traffic. Mirrors the
+// hard-coded "production" arg in debtor-email-icontroller-cleanup-worker.
+const ENV: "production" = "production";
 
 export const debtorEmailIcontrollerTagger = inngest.createFunction(
   {

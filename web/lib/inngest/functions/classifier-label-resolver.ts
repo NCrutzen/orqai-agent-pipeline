@@ -248,11 +248,13 @@ export const classifierLabelResolver = inngest.createFunction(
       (settingsRow?.icontroller_company ?? null) !== null &&
       isKnownMailbox(source_mailbox)
     ) {
-      const icontrollerEnv =
-        process.env.ICONTROLLER_ENV === "production" ? "production" : "acceptance";
+      // Production-only: the acceptance iController host was retired by
+      // Billtrust; the live-mode gate (dry_run=false) above already implies
+      // production. Mirrors the hard-coded "production" in the tagger and
+      // the cleanup-worker.
       const mailboxListUrl = buildIcontrollerMessageUrl({
         source_mailbox,
-        env: icontrollerEnv,
+        env: "production",
       });
       await step.run("emit-icontroller-tag", async () =>
         (inngest.send as unknown as SendFn)({
