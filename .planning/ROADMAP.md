@@ -770,7 +770,16 @@ Plans:
   2. `swarm_intents` table exists with (`intent_key`, `handler_agent_key`, `handler_event`, `requires_orchestration`) and replaces every hardcoded intent->handler mapping
   3. A dry-run new-swarm onboarding requires zero edits to `verdict-worker` / classifier code - registry INSERTs only
   4. The `verdict-worker` `if swarm_type === 'debtor-email'` gate is replaced by a `side_effects[]` lookup
-**Plans**: TBD
+**Plans**: 9 plans
+- [ ] 68-01-PLAN.md - Wave 1 [BLOCKING] migration: swarms columns + swarm_intents table + backfill (apply via Supabase MCP)
+- [ ] 68-02-PLAN.md - Wave 2 registry helpers: loadSwarmIntents/loadHandlerEvent/loadCanonicalContextShape + side-effects.ts + dynamic.ts + resolveEntity alias
+- [ ] 68-03-PLAN.md - Wave 3 verdict-worker swap: registry-driven categorize_archive dispatch (eliminate swarm_type === gate)
+- [ ] 68-04-PLAN.md - Wave 3 label-resolver swap: Phase 67 icontroller-tag emit via evaluateSideEffects(stage2_match_live)
+- [ ] 68-05-PLAN.md - Wave 3 coordinator-orchestrator swap: template-literal fan-out -> loadHandlerEvent
+- [ ] 68-06-PLAN.md - Wave 3 debtor-email-coordinator swap: single-shot V2 dispatch -> loadHandlerEvent
+- [ ] 68-07-PLAN.md - Wave 4 SWRM-03 sales-email-stub integration test (zero-code-edit onboarding proof)
+- [ ] 68-08-PLAN.md - Wave 5 static audit + docs update (stage-3-coordinator.md, debtor-email-pipeline-architecture.md)
+- [ ] 68-09-PLAN.md - Wave 5 full-suite + Phase 67 live smoke regression (operator-gated)
 
 ### Phase 69: Handler-agent canonicalisation (cross-swarm reuse)
 **Goal**: Existing handler agents accept a canonical context shape with data-driven brand list, so they work across debtor-email, sales-email, and future UK/IE brands without prompt edits
