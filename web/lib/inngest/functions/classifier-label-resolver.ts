@@ -19,6 +19,12 @@ import {
   type ResolveResult,
 } from "@/lib/automations/debtor-email/resolve-debtor";
 
+// Inngest's typed `inngest.send` would reject a runtime-built event name
+// here as well; we know the name statically but use the cast pattern from
+// coordinator-orchestrator.ts:25 to keep CLAUDE.md commit-dae6276 binding-
+// safety: NEVER destructure inngest.send.
+type SendFn = (p: { name: string; data: Record<string, unknown> }) => Promise<unknown>;
+
 export const classifierLabelResolver = inngest.createFunction(
   { id: "classifier/label-resolver", retries: 0 },
   { event: "debtor-email/label-resolve.requested" },
@@ -183,6 +189,31 @@ export const classifierLabelResolver = inngest.createFunction(
         .eq("id", automation_run_id);
       await emitAutomationRunStale(admin, `${swarm_type}-review`);
     });
+
+    // Phase 66 D-03 — Stage 2 → Stage 3 seam. Emit coordinator.requested
+    // with the resolved customer fields so the coordinator runs with full
+    // Stage-2 context (no re-resolve). Wrapped in step.run for replay-
+    // safety: `new Date().toISOString()` is non-deterministic and the
+    // event payload becomes downstream coordinator state. Inline cast on
+    // `inngest.send` per CLAUDE.md commit dae6276 — NEVER destructure.
+    await step.run("emit-coordinator", async () =>
+      (inngest.send as unknown as SendFn)({
+        name: "debtor-email/coordinator.requested",
+        data: {
+          email_id: emailRow.id,
+          automation_run_id,
+          entity: settingsRow?.entity ?? null,
+          subject: emailRow.subject ?? "",
+          body_text: emailRow.body_text ?? "",
+          sender_email: emailRow.sender_email ?? "",
+          mailbox: emailRow.mailbox,
+          received_at: new Date().toISOString(),
+          graph_message_id: message_id,
+          customer_account_id: result.customer_account_id,
+          customer_name: result.customer_name,
+        },
+      }),
+    );
 
     return {
       ok: true,
