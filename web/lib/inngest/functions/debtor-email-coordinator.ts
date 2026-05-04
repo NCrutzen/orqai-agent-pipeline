@@ -30,7 +30,7 @@ import {
   INTENT_VERSION_V2,
   type IntentAgentOutputV2,
 } from "@/lib/automations/debtor-email/coordinator/types";
-import { loadSwarmCategories } from "@/lib/swarms/registry";
+import { loadSwarmCategories, loadHandlerEvent } from "@/lib/swarms/registry";
 import { evaluateEscalationGate } from "@/lib/automations/debtor-email/coordinator/escalation-gate";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 
@@ -211,24 +211,26 @@ export const debtorEmailCoordinator = inngest.createFunction(
       });
 
       if (decision.kind === "single_shot") {
-        // ---- 7a) Single-shot dispatch (CORD-04) — registry-driven --------
-        // Same idiom as classifier-verdict-worker:149-176. The event name is
-        // looked up from swarm_categories.swarm_dispatch for ranked[0].intent.
+        // ---- 7a) Single-shot dispatch — Phase 68 (SWRM-02) registry-driven.
+        // V2 ranked-intent dispatch reads from swarm_intents (per-intent
+        // handler_event), NOT swarm_categories.swarm_dispatch. The two
+        // registries route different stages: swarm_categories is the Stage 1
+        // operator-override path (still consulted at line 196 for category
+        // routing), swarm_intents is the Stage 3 ranked-intent path here.
         const top = output.ranked[0];
-        const categories = await loadSwarmCategories(supabase, SWARM_TYPE);
-        const category = categories.find((c) => c.category_key === top.intent);
-        if (!category?.swarm_dispatch) {
-          // RESEARCH Pitfall 1 — Plan 01 seed migration adds the 8 INTENT
-          // rows. A missing swarm_dispatch here means either the migration
-          // didn't apply OR an intent was added without a registry row.
-          throw new Error(
-            `no swarm_dispatch registered for intent=${top.intent} (verify Plan 01 seed migration applied)`,
-          );
-        }
+        const handler_event = await step.run("resolve-handler-event", async () => {
+          const evt = await loadHandlerEvent(supabase, SWARM_TYPE, top.intent);
+          if (!evt) {
+            throw new Error(
+              `no swarm_intents row for (${SWARM_TYPE}, ${top.intent}) — verify Phase 68 migration applied`,
+            );
+          }
+          return evt;
+        });
 
         await step.run("dispatch-single-shot", async () => {
           await (inngest.send as unknown as DynamicSend)({
-            name: category.swarm_dispatch!,
+            name: handler_event,
             data: {
               run_id,
               email_id,
@@ -260,7 +262,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
           email_id,
           decision: "single_shot" as const,
           intent: top.intent,
-          dispatch_event: category.swarm_dispatch,
+          dispatch_event: handler_event,
         };
       }
 

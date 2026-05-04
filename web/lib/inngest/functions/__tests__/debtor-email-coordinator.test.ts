@@ -88,8 +88,17 @@ vi.mock("@/lib/automations/debtor-email/coordinator/agent-runs", () => ({
 }));
 
 const loadCategoriesMock = vi.fn();
+// Phase 68 (SWRM-02): single-shot dispatch routes ranked-intent → handler
+// event via swarm_intents (loadHandlerEvent), not swarm_categories.
+// Default mock mimics the production backfill — pass-through.
+const loadHandlerEventMock = vi.fn(
+  async (_supabase: unknown, _swarmType: string, intent: string) =>
+    `debtor-email/${intent}.requested`,
+);
 vi.mock("@/lib/swarms/registry", () => ({
   loadSwarmCategories: (...args: unknown[]) => loadCategoriesMock(...args),
+  loadHandlerEvent: (...args: unknown[]) =>
+    (loadHandlerEventMock as unknown as (...a: unknown[]) => unknown)(...args),
 }));
 
 const emitStaleMock = vi.fn().mockResolvedValue(undefined);
@@ -321,5 +330,89 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     );
     expect(failedUpdate).toBeDefined();
     expect(failedUpdate?.patch.error_message).toMatch(/registry boom/);
+  });
+
+  // ---- Phase 68 (SWRM-02) -------------------------------------------------
+  it("SWRM-02 single-shot: dispatch event name comes from loadHandlerEvent (registry-driven)", async () => {
+    loadHandlerEventMock.mockReset();
+    loadHandlerEventMock.mockResolvedValueOnce(
+      "debtor-email/custom-router.requested",
+    );
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          {
+            intent: "copy_document_request",
+            confidence: "high",
+            ...baseRanked,
+          },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("copy_document_request", false),
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    expect(loadHandlerEventMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "debtor-email",
+      "copy_document_request",
+    );
+    const sendNames = inngestSend.mock.calls.map(
+      (c) => (c[0] as { name: string }).name,
+    );
+    expect(sendNames).toContain("debtor-email/custom-router.requested");
+    // Restore default mock for downstream tests in the same describe block.
+    loadHandlerEventMock.mockImplementation(
+      async (_supabase: unknown, _swarmType: string, intent: string) =>
+        `debtor-email/${intent}.requested`,
+    );
+  });
+
+  it("SWRM-02 single-shot: missing swarm_intents row → structured throw + mark-failed", async () => {
+    loadHandlerEventMock.mockReset();
+    loadHandlerEventMock.mockResolvedValueOnce(null);
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          {
+            intent: "copy_document_request",
+            confidence: "high",
+            ...baseRanked,
+          },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("copy_document_request", false),
+    ]);
+
+    await expect(
+      handler({ event: buildEvent(), step: stepStub }),
+    ).rejects.toThrow(
+      /no swarm_intents row for \(debtor-email, copy_document_request\) — verify Phase 68 migration applied/,
+    );
+
+    const failedUpdate = captured.updates.find(
+      (u) => u.table === "automation_runs" && u.patch.status === "failed",
+    );
+    expect(failedUpdate).toBeDefined();
+
+    loadHandlerEventMock.mockImplementation(
+      async (_supabase: unknown, _swarmType: string, intent: string) =>
+        `debtor-email/${intent}.requested`,
+    );
   });
 });
