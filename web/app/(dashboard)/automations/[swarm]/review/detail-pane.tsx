@@ -485,6 +485,58 @@ export function DetailPane({
         )}
       </div>
 
+      {/* 4a. Phase 67-06 (D-08, R-03, TAG-03 surface). Tagging artifacts
+              section — rendered only when the row's iController tagging
+              side-effect failed. Surfaces error text + before/after
+              screenshot links so operators can audit the failure inline.
+              Phase 71 will add a retry-tagging action. */}
+      {row.tagging && (
+        <section className="mt-2" data-testid="tagging-artifacts">
+          <h3 className="text-[13px] font-semibold leading-[1.4] mb-1">
+            Tagging artifacts
+          </h3>
+          <p className="text-[12px] leading-[1.4] text-[var(--v7-muted)] mb-2">
+            Status:{" "}
+            <code className="font-mono">
+              {row.tagging.icontroller_tag_status}
+            </code>
+          </p>
+          {row.tagging.error && (
+            <pre
+              className="text-[11px] leading-[1.4] whitespace-pre-wrap p-2 rounded-[var(--v7-radius-sm)] mb-2 border border-[var(--v7-line)]"
+              style={{
+                background: "rgba(239, 68, 68, 0.10)",
+                color: "var(--v7-text)",
+              }}
+            >
+              {row.tagging.error}
+            </pre>
+          )}
+          <div className="flex gap-3 flex-wrap">
+            {row.tagging.screenshot_before_url && (
+              <a
+                href={row.tagging.screenshot_before_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[12px] underline text-[var(--v7-text)]"
+              >
+                before screenshot
+              </a>
+            )}
+            {row.tagging.screenshot_after_url && (
+              <a
+                href={row.tagging.screenshot_after_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[12px] underline text-[var(--v7-text)]"
+              >
+                after screenshot
+              </a>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* 5. Override dropdown — driven by registry. */}
       <div>
         <label className="block text-[12px] text-[var(--v7-muted)] mb-1">

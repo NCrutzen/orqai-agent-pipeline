@@ -15,6 +15,9 @@ import { BudgetBreachBadge } from "./components/budget-breach-badge";
 // Rendered when the row's coordinator_runs row carries partial_synthesis=true
 // or escalation_decision='orchestrator'. Phase 71 broadens to ranked-list.
 import { CoordinatorBadge } from "../../debtor-email/_components/CoordinatorBadge";
+// Phase 67-06 (D-08, R-03, TAG-03 surface). Deferred-run badge surfacing
+// failed iController DOM tagging on the predicted row strip.
+import { TaggingFailureBadge } from "./components/TaggingFailureBadge";
 
 interface RowStripProps {
   row: PredictedRow;
@@ -96,6 +99,14 @@ export function RowStrip({ row, selected, onSelect }: RowStripProps) {
               escalation_decision={row.coordinator.escalation_decision}
               escalation_reason={row.coordinator.escalation_reason}
             />
+          </div>
+        )}
+        {/* Phase 67-06 (D-08, R-03, TAG-03 surface). iController tagging
+            failure chip — rendered only when the row's email_labels entry
+            carries icontroller_tag_status='failed'. Phase 71 adds retry. */}
+        {row.tagging?.icontroller_tag_status === "failed" && (
+          <div className="mt-1">
+            <TaggingFailureBadge tagging={row.tagging} />
           </div>
         )}
       </div>
