@@ -18,6 +18,11 @@ import {
   resolveDebtor,
   type ResolveResult,
 } from "@/lib/automations/debtor-email/resolve-debtor";
+import { buildIcontrollerMessageUrl } from "@/lib/automations/icontroller/url";
+import {
+  ICONTROLLER_MAILBOXES,
+  isKnownMailbox,
+} from "@/lib/automations/debtor-email/mailboxes";
 
 // Inngest's typed `inngest.send` would reject a runtime-built event name
 // here as well; we know the name statically but use the cast pattern from
@@ -128,13 +133,27 @@ export const classifierLabelResolver = inngest.createFunction(
         ? "pending"
         : "skipped";
 
-    await step.run("write-email-label", async () => {
-      const { error } = await admin
+    // Phase 67 (D-10) — separate iController-tagging outcome from resolver
+    // outcome. The label-resolver writes the initial value; the tagger
+    // (Plan 67-05) UPDATEs to 'tagged'/'failed' on completion.
+    const icontrollerTagStatus: string =
+      result.customer_account_id === null
+        ? "pending" // unresolved — column irrelevant but default-preserving
+        : dryRun
+          ? "skipped_dry_run"
+          : (settingsRow?.icontroller_company ?? null) === null
+            ? "skipped_unconfigured"
+            : "pending";
+
+    const labelInsertResult = await step.run("write-email-label", async () => {
+      const { data, error } = await admin
         .schema("debtor")
         .from("email_labels")
         .insert({
           email_id: emailRow.id,
-          icontroller_mailbox_id: 0, // Wave 3 doesn't drive iController; Phase 56.8 wires the real id.
+          icontroller_mailbox_id: isKnownMailbox(source_mailbox)
+            ? ICONTROLLER_MAILBOXES[source_mailbox]
+            : 0,
           source_mailbox,
           debtor_id: result.customer_account_id,
           debtor_name: result.customer_name,
@@ -149,11 +168,15 @@ export const classifierLabelResolver = inngest.createFunction(
           }),
           nxt_database: nxtDatabase,
           status: labelStatus,
+          icontroller_tag_status: icontrollerTagStatus,
           error: resolverError,
-        });
+        })
+        .select("id")
+        .single();
       if (error) {
         throw new Error(`email_labels insert failed: ${error.message}`);
       }
+      return data as { id: string };
     });
 
     // Close out the automation_run. Status maps to kanban stage:
@@ -214,6 +237,44 @@ export const classifierLabelResolver = inngest.createFunction(
         },
       }),
     );
+
+    // Phase 67 (D-01, D-09, D-10, R-02) — Stage 2 side-effect dispatch.
+    // Gated: matched-customer + live mode + iController configured. Tagger
+    // (debtorEmailIcontrollerTagger) is a separate function; failures land on
+    // email_labels.icontroller_tag_status='failed' without affecting this run.
+    if (
+      result.customer_account_id !== null &&
+      !dryRun &&
+      (settingsRow?.icontroller_company ?? null) !== null &&
+      isKnownMailbox(source_mailbox)
+    ) {
+      const icontrollerEnv =
+        process.env.ICONTROLLER_ENV === "production" ? "production" : "acceptance";
+      const mailboxListUrl = buildIcontrollerMessageUrl({
+        source_mailbox,
+        env: icontrollerEnv,
+      });
+      await step.run("emit-icontroller-tag", async () =>
+        (inngest.send as unknown as SendFn)({
+          name: "debtor-email/icontroller-tag.requested",
+          data: {
+            email_label_id: labelInsertResult.id,
+            email_id: emailRow.id,
+            automation_run_id,
+            customer_account_id: result.customer_account_id as string,
+            customer_name: result.customer_name,
+            source_mailbox,
+            icontroller_mailbox_id: ICONTROLLER_MAILBOXES[source_mailbox],
+            icontroller_company: settingsRow?.icontroller_company ?? null,
+            icontroller_message_url: mailboxListUrl,
+            entity: settingsRow?.entity ?? null,
+            sender_email: emailRow.sender_email ?? "",
+            subject: emailRow.subject ?? "",
+            received_at: new Date().toISOString(),
+          },
+        }),
+      );
+    }
 
     return {
       ok: true,
