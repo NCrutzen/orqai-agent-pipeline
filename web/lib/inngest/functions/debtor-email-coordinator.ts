@@ -48,7 +48,7 @@ type DynamicSend = (payload: {
 export const debtorEmailCoordinator = inngest.createFunction(
   {
     id: "automations/debtor-email-coordinator",
-    name: "Debtor Email Triage (Coordinator V2)",
+    name: "Debtor Email Coordinator (Stage 3)",
     retries: 0,
     concurrency: [
       { key: "event.data.entity", limit: 4 },
