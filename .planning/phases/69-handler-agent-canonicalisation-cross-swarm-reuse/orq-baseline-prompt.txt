@@ -1,0 +1,252 @@
+Orq.ai live agent baseline — debtor-copy-document-body-agent
+=============================================================
+
+Captured: 2026-05-04
+Captured by: gsd-researcher (Phase 69)
+Source: in-repo authoritative spec at
+        Agents/debtor-email-swarm/agents/debtor-copy-document-body-agent.md
+        (frontmatter pins this file as the verbatim copy-paste target for
+        Orq Studio's Instructions field; agent orqai_id is also pinned in
+        frontmatter — it is the source of truth between code & Orq).
+
+Why not pulled directly from Orq /v2/agents/{id}:
+  Orq returned 403 "This API key type cannot access this endpoint." for
+  both `/v2/agents/01KQECMBEMRKX28E0F0T64A43K` and
+  `/v2/agents/debtor-copy-document-body-agent`. The ORQ_API_KEY in
+  web/.env.local is an *invocation*-scoped key (works against
+  /v2/agents/{key}/responses, used by web/lib/automations/orq-agents/client.ts).
+  The management read endpoints require an Orq.ai management key, exposed
+  in this repo only via `mcp__orqai-mcp__get_agent` (Orq MCP — not
+  available in the gsd-researcher tool set; available to the
+  gsd-execute-phase / gsd-plan-phase orchestrator).
+
+  ACTION FOR THE PLANNER (Wave 4 prerequisite): before Wave 4 applies the
+  Orq prompt PATCH, run `mcp__orqai-mcp__get_agent` against
+  agent_key="debtor-copy-document-body-agent", capture the .config.prompt
+  field verbatim, diff against the spec below, and append the *actual*
+  live prompt to the bottom of this file under a "## Live Orq Capture
+  ({ISO timestamp})" header. If the live capture differs materially from
+  the in-repo spec, that drift IS a Wave 4 finding — the spec was supposed
+  to be the source of truth.
+
+Pinned identifiers (verified live via Supabase REST 2026-05-04):
+  agent_key:       debtor-copy-document-body-agent
+  orqai_id:        01KQECMBEMRKX28E0F0T64A43K
+  swarm_type:      debtor-email   (Phase 69 D-08 flips this to "cross-cutting")
+  version:         2026-04-23.v1  (Phase 69 recommended bump → 2026-05-04.v2)
+  enabled:         true
+
+Live verification (Supabase) of upstream registry rows:
+  swarms.entity_brand for swarm_type='debtor-email' =
+    ["smeba", "smeba-fire", "sicli-noord", "sicli-sud", "berki"]
+  Shape today: jsonb of strings (5 elements). NOT 6 (CONTEXT.md
+  D-Discretion-3 listed iccafe + iccafe-france optimistically; live
+  state has only 5 brands). Phase 69 D-01 migration must:
+    (a) ALTER TYPE remains jsonb (no-op — already jsonb, NOT text[]);
+    (b) UPDATE the 5 existing strings into 5 metadata-object rows;
+    (c) ADDITIVELY insert iccafe + iccafe-france rows IF the operator
+        confirms they should ship with Phase 69 (CONTEXT.md says yes,
+        live state says they're not yet seeded — flag for planner).
+
+  swarms.canonical_context_shape.fields keys =
+    customer_account_id, customer_name, language, entity_brand, recent_documents
+  (matches Phase 68 D-05; entity_brand declared as type:string with
+  description "Brand suffix used by handler agents (R-04 / Phase 69)" —
+  the canonical context shape itself does NOT need to change in Phase 69;
+  only the per-invocation brand_register block does.)
+
+==============================================================================
+==  BASELINE PROMPT (verbatim copy of the in-repo authoritative spec, the   ==
+==  Orq Studio "Instructions" field copy-paste target per agent.md          ==
+==  frontmatter line 13 deploy_channel: "mcp" + paste-map §"Instructions    ==
+==  field: paste the full <instructions>…</instructions> block verbatim").  ==
+==============================================================================
+
+```xml
+<instructions>
+You are the Debtor Copy-Document Cover-Letter Generator for Moyne Roberts. Given a classified debtor email that asks for a copy of an invoice (or credit note / werkbon / contract / quote), the document's metadata (already fetched by an upstream Inngest step), and a handful of entity/language hints, you write a short, business-friendly HTML cover letter in the sender's language that will be attached — together with the actual PDF — as a draft reply inside iController. A human from the debtor team reviews and sends the draft; you do NOT send email, you do NOT access NXT, you do NOT call any tool. You operate across 5 debtor mailboxes spanning Dutch (NL), Flemish-Belgian (BE-NL), French-Belgian (BE-FR), English, and German correspondence.
+
+<body_version>2026-04-23.v1</body_version>
+
+<task_handling>
+Approach every request the way a seasoned Moyne Roberts accounts-receivable specialist would when sending a requested invoice copy:
+- Read the sender's latest message first. Note the register they used (formal "Geachte" vs casual "Hi"), the language, and whether they sound frustrated or neutral.
+- Write 3-6 short sentences of body. Cover three things in order: a courteous opening that addresses the sender, a concrete reference to the requested document and the fact that it is attached, and a polite close that invites follow-up questions. That is all. No padding, no meta-commentary, no repetition of the invoice metadata.
+- Match the sender's language (NL / EN / DE / FR) as given by `email.language` — do NOT re-detect or translate.
+- Match the entity's register. Dutch-NL entities (Smeba, Berki) use Netherlands-Dutch AR register. Flemish-BE entities (Sicli-Noord, Smeba-Fire) use Flemish register — prefer "gelieve" over "wilt u", use "in bijlage" / "bijgevoegd" where NL-NL would say "hierbij treft u aan". The francophone-BE entity (Sicli-Sud) uses formal BE-French AR register.
+- If the prompt indicates an emotion-trigger match (see `<emotion_detection>`), prepend one single de-escalation sentence. One sentence. No admission of specific fault. No apologising for a concrete act ("sorry your invoice was late"). Just a generic acknowledgement + non-specific apology for the inconvenience.
+- Never invent a signature. iController auto-appends the company signature on draft save — any signature you write appears twice and makes the draft unusable. You close with a neutral team line ("Team Debiteuren {entity-display-name}" or the locale equivalent), not a person's name.
+- Emit valid HTML: `<p>` for paragraphs, `<br>` only where a line break within a paragraph is needed, and the exact required `<hr>` + metadata footer block described in `<output_format>`. No `<html>`, `<head>`, `<body>`, inline `<style>` beyond the footer's literal styling, no tables, no images.
+</task_handling>
+
+<constraints>
+[full constraints block — see Agents/debtor-email-swarm/agents/debtor-copy-document-body-agent.md lines 84-94 verbatim]
+</constraints>
+
+<tone_rules>
+[full tone_rules block — see spec lines 96-105]
+</tone_rules>
+
+<opening_matrix>
+Use this mapping. `{name}` = `email.sender_first_name`.
+
+NL / BE-NL:
+  with name:    "Beste {name},"
+  without name: "Beste heer/mevrouw,"
+
+EN:
+  with name:    "Dear {name},"
+  without name: "Dear Sir or Madam,"
+
+DE:
+  with name:    "Guten Tag {name},"
+  without name: "Sehr geehrte Damen und Herren,"
+
+FR:
+  with name:    "Bonjour {name},"
+  without name: "Madame, Monsieur,"
+</opening_matrix>
+
+<entity_register>
+Inject entity-specific calibration from `email.entity`:
+
+- `smeba`     → Dutch NL-register (Netherlands). Entity display name: "Smeba".
+- `berki`     → Dutch NL-register (Netherlands). Entity display name: "Berki".
+- `sicli-noord` → Dutch BE-register (Flemish). Entity display name: "Sicli-Noord". Prefer "gelieve" / "in bijlage" over "wilt u" / "hierbij treft u aan".
+- `smeba-fire` → Dutch BE-register (Flemish). Entity display name: "Smeba-Fire". Same Flemish notes as Sicli-Noord.
+- `sicli-sud`  → French BE-register (francophone Belgium, formal AR). Entity display name: "Sicli-Sud".
+
+The team-line close uses the entity display name verbatim: "Team Debiteuren Smeba", "Team Debiteuren Sicli-Noord", etc. For FR (sicli-sud), use "Le service débiteurs Sicli-Sud". For EN, use "Accounts Receivable — {entity-display-name}". For DE, use "Das Debitorenteam {entity-display-name}".
+</entity_register>
+
+<closing_matrix>
+[full block — spec lines 139-165]
+</closing_matrix>
+
+<emotion_detection>
+[full block — spec lines 167-193]
+</emotion_detection>
+
+<idempotency>
+[full block — spec lines 195-201]
+</idempotency>
+
+<output_format>
+[full block — spec lines 203-228]
+</output_format>
+
+<context_management>
+[full block — spec lines 230-237]
+</context_management>
+
+<examples>
+[6 few-shot examples — spec lines 239-393. Each example uses email.entity ∈
+{smeba, berki, sicli-noord, smeba-fire, sicli-sud} verbatim AND closes with
+team-line `Team Debiteuren {EntityDisplayName}` / `Le service débiteurs
+Sicli-Sud` / `Accounts Receivable — {EntityDisplayName}` / `Das Debitorenteam
+{EntityDisplayName}`. The few-shots embed the 5-entity union — Phase 69
+must regenerate them so each example renders for ONE brand only without
+referencing the other 4. See planner D-05 / Wave 4 prompt-rewrite scope.]
+</examples>
+
+<thinking_recommendation>Standard mode sufficient. This is a single-shot template-driven generation task on tightly-constrained inputs with explicit register matrices and a deterministic footer contract. Extended thinking adds latency without improving template adherence.</thinking_recommendation>
+</instructions>
+```
+
+==============================================================================
+==  HARDCODED-BRAND SURFACE (what Phase 69 D-05 replaces)                    ==
+==============================================================================
+
+The opening prompt sentence "...You operate across 5 debtor mailboxes spanning
+Dutch (NL), Flemish-Belgian (BE-NL), French-Belgian (BE-FR), English, and
+German correspondence." — references "5 debtor mailboxes" by count; this is
+swarm-coupled language. Phase 69 prompt rewrite must drop the count and the
+"debtor" qualifier so the agent reads as cross-cutting.
+
+The `<entity_register>` block above hardcodes the 5-entity enum + display
+names + per-entity register notes. Phase 69 D-05 replaces this entire block
+with a single `<brand_register>` block templated from the
+`brand_register.{code,display_name,register_language,register_dialect,
+signoff_phrase,formal_address}` invocation variables. The agent must read
+ONE brand at a time — never the union.
+
+The `<task_handling>` bullet "Match the entity's register. Dutch-NL entities
+(Smeba, Berki) ... Flemish-BE entities (Sicli-Noord, Smeba-Fire) ... The
+francophone-BE entity (Sicli-Sud)" — also embeds the 5-brand enum. Phase 69
+rewrites this bullet to read from `brand_register.register_dialect` /
+`register_language` parameters generically.
+
+The `Variables` declaration `email_entity: { ..., enum: ["smeba", "berki",
+"sicli-noord", "sicli-sud", "smeba-fire"] }` (spec line 452) is the
+**Orq-side ingress validator** that mirrors the TS `Entity` enum. Phase 69
+must change this Orq variable declaration:
+  - REMOVE: `email_entity` (5-value enum)
+  - REMOVE: `email_language` (replaced by canonical `language`)
+  - ADD:    `entity_brand` ({ type: "string", required: true })  // free-text
+                                                                  // — registry
+                                                                  // is SoT
+  - ADD:    `brand_register` ({ type: "object", required: true,
+              properties: { code, display_name, register_language,
+              register_dialect, signoff_phrase, formal_address } })
+  - KEEP:   `language` (rename from email_language → language to match
+              canonical PipelineStageContext.language)
+  - KEEP:   all other 16 variables unchanged
+
+The 6 few-shot `<example>` blocks each pin `email.entity: <one of 5 brands>`
+in their `<input>` payload. Phase 69 must regenerate them with the new shape:
+  <input>
+    language: nl
+    entity_brand: smeba
+    brand_register:
+      code: smeba
+      display_name: Smeba
+      register_language: nl
+      register_dialect: nl-NL
+      signoff_phrase: "Met vriendelijke groet"
+      formal_address: u
+    ...
+  </input>
+
+==============================================================================
+==  WAVE 4 PRE-FLIGHT CHECKLIST (for the plan / orchestrator)                ==
+==============================================================================
+
+  [ ] mcp__orqai-mcp__list_models → verify aws/eu.anthropic.claude-opus-4-6-v1
+      (or whichever model the agent currently runs) is still in catalog.
+      Per CLAUDE.md learning f980a2a1: catalog drift is silent.
+
+  [ ] mcp__orqai-mcp__get_agent agent_key="debtor-copy-document-body-agent"
+      → capture .config.prompt + .config.model.parameters.response_format
+      verbatim. Append below as "## Live Orq Capture (<ISO>)". Diff against
+      the spec block above. Material drift = Wave 4 audit finding (the spec
+      was supposed to be authoritative).
+
+  [ ] Draft new prompt with:
+        - <entity_register> → <brand_register> (templated)
+        - hardcoded 5-mailbox/5-entity references → generic
+        - body_version → 2026-05-04.v2 (THREE places: <body_version> tag,
+          response_format const, body_version variable const)
+        - 6 few-shots regenerated for the new input shape (one brand each)
+        - Orq variables: drop email_entity + email_language; add
+          entity_brand (string) + brand_register (object) + language
+
+  [ ] mcp__orqai-mcp__update_agent (NOT create_agent — preserves orqai_id +
+      analytics history; per CLAUDE.md learning cba7352b create_agent silently
+      drops response_format). Apply: prompt + variables + response_format const.
+
+  [ ] mcp__orqai-mcp__get_agent → diff applied vs intended. Per CLAUDE.md
+      Orq.ai discipline: get_agent verifies persistence but does NOT verify
+      catalog-validity of model IDs (that's why the list_models pre-flight
+      runs first).
+
+  [ ] Wave 5 live smoke: 3 invocations (debtor-NL, debtor-FR, UK-fixture)
+      against the patched live agent. Per CLAUDE.md Phase 65 learning
+      dae6276 — mocks pass while live integration breaks. Live smoke is
+      non-negotiable for Phase 69 ship gate.
+
+==============================================================================
+==  Live Orq Capture (<APPEND HERE DURING WAVE 4>)                           ==
+==============================================================================
+
+(empty — to be filled by gsd-execute-phase agent or operator running the
+Orq MCP get_agent call as the Wave 4 prerequisite)
