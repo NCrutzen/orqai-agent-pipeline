@@ -54,7 +54,13 @@ export interface SwarmRow {
   stage2_entity_resolver: string | null;
   stage3_coordinator_agent_key: string | null;
   canonical_context_shape: CanonicalContextShape | null;
-  entity_brand: string[] | null;
+  // Phase 69 (CANO-02, D-01) — entity_brand transitions from string[] (Phase 68
+  // seed) to an array of BrandRegister metadata objects after migration
+  // 20260505a_entity_brand_expansion.sql. The union below is the transition
+  // shape; the brand-register loader (web/lib/swarms/brand-register.ts) is the
+  // canonical reader and raises MalformedRegistryError when the legacy
+  // string-array shape is still in place post-Wave-1.
+  entity_brand: string[] | Record<string, unknown>[] | null;
 }
 
 // Phase 68 — one row in public.swarm_intents. Composite PK (swarm_type, intent_key).
