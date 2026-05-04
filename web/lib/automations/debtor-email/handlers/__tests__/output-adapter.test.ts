@@ -11,7 +11,7 @@ describe("bodyAgentOutputToHandlerOutput", () => {
     const body: BodyAgentOutput = {
       body_html: "<p>Hi there, here is your invoice copy.</p>",
       detected_tone: "neutral",
-      body_version: "2026-04-23.v1",
+      body_version: "2026-05-04.v2",
     };
     const out = bodyAgentOutputToHandlerOutput(body, {
       handler_key: "debtor-copy-document-body-agent",
@@ -34,7 +34,7 @@ describe("bodyAgentOutputToHandlerOutput", () => {
     const body: BodyAgentOutput = {
       body_html: "<p>I understand the frustration.</p>",
       detected_tone: "de-escalation",
-      body_version: "2026-04-23.v1",
+      body_version: "2026-05-04.v2",
     };
     const out = bodyAgentOutputToHandlerOutput(body, {
       handler_key: "x",
@@ -93,7 +93,7 @@ describe("loadHandlerOutputsForRun", () => {
           body: {
             body_html: "<p>Hello</p>",
             detected_tone: "neutral",
-            body_version: "2026-04-23.v1",
+            body_version: "2026-05-04.v2",
           },
         },
         status: "predicted",

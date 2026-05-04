@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Entity } from "./entity.generated";
 
 // ---------------------------------------------------------------------------
 // Shared enum constants (mirror supabase/migrations/20260423_debtor_agent_runs.sql
@@ -6,13 +7,10 @@ import { z } from "zod";
 // single source of truth.
 // ---------------------------------------------------------------------------
 
-export const ENTITY = [
-  "smeba",
-  "berki",
-  "sicli-noord",
-  "sicli-sud",
-  "smeba-fire",
-] as const;
+// Phase 69 D-03 / CANO-02 — Entity literal-union sourced from registry-driven
+// codegen. DO NOT add brands here; INSERT into swarms.entity_brand + run
+// `npm run codegen` (writes ./entity.generated.ts).
+export { ENTITY_BRANDS as ENTITY, type Entity } from "./entity.generated";
 
 export const INTENT = [
   "copy_document_request",
@@ -64,7 +62,7 @@ export const HUMAN_VERDICT = [
   "rejected_other",
 ] as const;
 
-export type Entity = (typeof ENTITY)[number];
+// Phase 69 — `Entity` is now re-exported from ./entity.generated above.
 export type Intent = (typeof INTENT)[number];
 export type SubType = (typeof SUB_TYPE)[number];
 export type Language = (typeof LANGUAGE)[number];
@@ -75,7 +73,9 @@ export type Status = (typeof STATUS)[number];
 export type HumanVerdict = (typeof HUMAN_VERDICT)[number];
 
 export const INTENT_VERSION = "2026-04-23.v1" as const;
-export const BODY_VERSION = "2026-04-23.v1" as const;
+// Phase 69 D-Discretion — bumped to distinguish pre/post brand_register
+// input shape on agent_runs rows (audit trail).
+export const BODY_VERSION = "2026-05-04.v2" as const;
 
 // ---------------------------------------------------------------------------
 // Intent agent output schema (matches agents/debtor-intent-agent.md §Response Format)
