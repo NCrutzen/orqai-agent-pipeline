@@ -128,13 +128,20 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
 
     const [emailRow, settingsRow] = await Promise.all([
       step.run("load-email", async () => {
+        // The dispatched `message_id` is the Outlook id of the message. Two
+        // ingestion paths populate it under different columns:
+        //   - outlook-zapier (the live debiteuren flow today) writes the
+        //     Outlook Graph id into `source_id` and leaves `internet_message_id`
+        //     null.
+        //   - older Graph-direct ingestions populated `internet_message_id`.
+        // Match on either column so the handler is path-agnostic.
         const { data, error } = await admin
           .schema("email_pipeline")
           .from("emails")
           .select(
             "id, conversation_id, subject, body_text, sender_email, sender_name, mailbox",
           )
-          .eq("internet_message_id", message_id)
+          .or(`source_id.eq.${message_id},internet_message_id.eq.${message_id}`)
           .maybeSingle();
         if (error) {
           throw new Error(`emails lookup failed: ${error.message}`);

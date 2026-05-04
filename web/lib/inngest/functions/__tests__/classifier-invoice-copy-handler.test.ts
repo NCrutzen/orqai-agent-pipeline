@@ -56,6 +56,7 @@ vi.mock("@/lib/supabase/admin", () => {
     const chain: Record<string, unknown> = {};
     chain.select = vi.fn(() => chain);
     chain.eq = vi.fn(() => chain);
+    chain.or = vi.fn(() => chain);
     chain.maybeSingle = vi.fn(() => {
       if (table === "emails") {
         return Promise.resolve({
@@ -65,7 +66,7 @@ vi.mock("@/lib/supabase/admin", () => {
             subject: "Please send copy of invoice INV-1",
             body_text: "Body",
             sender_email: "x@y.com",
-            sender_first_name: "X",
+            sender_name: "X Doe",
             mailbox: "inbox",
           },
           error: null,
