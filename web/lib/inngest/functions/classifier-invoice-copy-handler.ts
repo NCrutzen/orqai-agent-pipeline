@@ -266,14 +266,6 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
           entity,
         }),
       });
-      // Phase 69 Wave 6 diagnostic — capture handler-side secret presence so
-      // Vercel logs show whether process.env.AUTOMATION_WEBHOOK_SECRET is
-      // even reaching this runtime context. Length only — never the value.
-      console.log(
-        `[invoice-copy-handler] fetch-document call: secret_present=${
-          process.env.AUTOMATION_WEBHOOK_SECRET ? "true" : "false"
-        } secret_len=${(process.env.AUTOMATION_WEBHOOK_SECRET ?? "").length} status=${res.status}`,
-      );
       const json = (await res.json().catch(() => ({}))) as
         | {
             found: true;

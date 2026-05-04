@@ -59,12 +59,6 @@ export async function POST(request: NextRequest) {
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   const legacy = request.headers.get("x-automation-secret");
   if (bearer !== WEBHOOK_SECRET && legacy !== WEBHOOK_SECRET) {
-    // Phase 69 Wave 6 diagnostic — log lengths only (never values) so we can
-    // tell if the mismatch is "handler sent empty" vs "handler sent something
-    // different". Lengths leak no secret material.
-    console.log(
-      `[fetch-document] 401 Unauthorized: bearer_len=${(bearer ?? "").length} legacy_len=${(legacy ?? "").length} expected_len=${(WEBHOOK_SECRET ?? "").length} expected_present=${WEBHOOK_SECRET ? "true" : "false"}`,
-    );
     return NextResponse.json(
       { found: false, reason: "upstream_error", details: "Unauthorized" },
       { status: 401 },
