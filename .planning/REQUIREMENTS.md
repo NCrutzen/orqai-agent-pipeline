@@ -45,7 +45,8 @@
 ### Pipeline consolidation
 
 - [ ] **CONS-01**: Inbound debtor-email automatically goes through `regex → label-resolver → coordinator → handler` (single canonical flow)
-- [ ] **CONS-02**: Existing `debtor-email-triage` Inngest function is retired; intent agent role moves to Stage 3 coordinator slot in `classifier-label-resolver`
+- [x] **CONS-02
+**: Existing `debtor-email-triage` Inngest function is retired; intent agent role moves to Stage 3 coordinator slot in `classifier-label-resolver`
 - [ ] **CONS-03**: All Stage 4 handlers (copy-document body agent, future dispute/address-change/etc.) are invoked via canonical `debtor-email/<intent>.requested` events
 
 ### Stage 2 closure — iController DOM tagging
