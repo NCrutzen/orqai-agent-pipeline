@@ -19,17 +19,17 @@
 
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { invokeIntentAgent } from "@/lib/automations/debtor-email/triage/invoke-intent";
+import { invokeIntentAgent } from "@/lib/automations/debtor-email/coordinator/invoke-intent";
 import {
   createRun,
   findCachedOutput,
   mergeToolOutputs,
   updateRun,
-} from "@/lib/automations/debtor-email/triage/agent-runs";
+} from "@/lib/automations/debtor-email/coordinator/agent-runs";
 import {
   INTENT_VERSION_V2,
   type IntentAgentOutputV2,
-} from "@/lib/automations/debtor-email/triage/types";
+} from "@/lib/automations/debtor-email/coordinator/types";
 import { loadSwarmCategories } from "@/lib/swarms/registry";
 import { evaluateEscalationGate } from "@/lib/automations/debtor-email/coordinator/escalation-gate";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";

@@ -28,13 +28,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { extractInvoiceCandidates } from "@/lib/automations/debtor-email/extract-invoices";
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
-import { detectEmotion } from "@/lib/automations/debtor-email/triage/detect-emotion";
+import { detectEmotion } from "@/lib/automations/debtor-email/coordinator/detect-emotion";
 import {
   bodyAgentOutputSchema,
   BODY_VERSION,
   type Entity,
   type Language,
-} from "@/lib/automations/debtor-email/triage/types";
+} from "@/lib/automations/debtor-email/coordinator/types";
 // Phase 65 Plan 04 — orchestrator fan-in wiring.
 import { bodyAgentOutputToHandlerOutput } from "@/lib/automations/debtor-email/handlers/output-adapter";
 import { notifyCoordinatorComplete } from "@/lib/automations/debtor-email/coordinator/coordinator-complete";

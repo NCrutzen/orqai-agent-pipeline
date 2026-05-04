@@ -95,7 +95,7 @@ vi.mock("@/lib/automations/orq-agents/client", () => ({
 }));
 
 const detectEmotionMock = vi.fn((..._args: unknown[]) => ({ match: false }));
-vi.mock("@/lib/automations/debtor-email/triage/detect-emotion", () => ({
+vi.mock("@/lib/automations/debtor-email/coordinator/detect-emotion", () => ({
   detectEmotion: (...args: unknown[]) => detectEmotionMock(...args),
 }));
 

@@ -8,7 +8,7 @@
 //
 // Pure function: no DB, no LLM, no I/O. Testable in isolation.
 
-import type { IntentAgentOutputV2 } from "../triage/types";
+import type { IntentAgentOutputV2 } from "./types";
 import type { SwarmCategoryRow } from "@/lib/swarms/types";
 
 export type EscalationDecision =

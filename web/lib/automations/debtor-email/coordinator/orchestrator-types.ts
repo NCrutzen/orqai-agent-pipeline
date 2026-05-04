@@ -1,6 +1,6 @@
 // Phase 65 D-03 — orchestrator-planner output (zod, mirrors Studio Tool B "debtor-orchestrator-output-v1").
 import { z } from "zod";
-import { INTENT } from "@/lib/automations/debtor-email/triage/types";
+import { INTENT } from "./types";
 
 export const orchestratorHandlerSchema = z.object({
   handler_key: z.string().min(1),

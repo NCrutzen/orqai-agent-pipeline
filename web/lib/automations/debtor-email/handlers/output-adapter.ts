@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { HandlerOutput } from "@/lib/agentic-pipeline/types";
-import type { BodyAgentOutput } from "@/lib/automations/debtor-email/triage/types";
+import type { BodyAgentOutput } from "@/lib/automations/debtor-email/coordinator/types";
 
 export function bodyAgentOutputToHandlerOutput(
   body: BodyAgentOutput,

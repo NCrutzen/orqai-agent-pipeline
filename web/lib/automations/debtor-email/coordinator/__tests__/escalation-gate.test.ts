@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { evaluateEscalationGate } from "../escalation-gate";
-import type { IntentAgentOutputV2 } from "../../triage/types";
+import type { IntentAgentOutputV2 } from "../types";
 import type { SwarmCategoryRow } from "@/lib/swarms/types";
 
 const baseEntry = {

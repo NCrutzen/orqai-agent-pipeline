@@ -4,7 +4,7 @@ import {
   bodyAgentOutputToHandlerOutput,
   loadHandlerOutputsForRun,
 } from "../output-adapter";
-import type { BodyAgentOutput } from "@/lib/automations/debtor-email/triage/types";
+import type { BodyAgentOutput } from "@/lib/automations/debtor-email/coordinator/types";
 
 describe("bodyAgentOutputToHandlerOutput", () => {
   it("maps BodyAgentOutput → HandlerOutput with content_kind=draft_body and forwards detected_tone", () => {

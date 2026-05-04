@@ -28,7 +28,7 @@ vi.mock("@/lib/automations/debtor-email/extract-invoices", () => ({
   extractInvoiceCandidates: vi.fn(() => ({ candidates: ["INV-1"] })),
 }));
 
-vi.mock("@/lib/automations/debtor-email/triage/detect-emotion", () => ({
+vi.mock("@/lib/automations/debtor-email/coordinator/detect-emotion", () => ({
   detectEmotion: vi.fn(async () => ({ match: false })),
 }));
 

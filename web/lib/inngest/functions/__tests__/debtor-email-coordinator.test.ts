@@ -6,7 +6,7 @@
  * the function body's side-effects can be inspected.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { INTENT_VERSION_V2 } from "@/lib/automations/debtor-email/triage/types";
+import { INTENT_VERSION_V2 } from "@/lib/automations/debtor-email/coordinator/types";
 
 // ---- Inngest mock --------------------------------------------------------
 const inngestSend = vi.fn().mockResolvedValue({ ids: ["evt"] });
@@ -72,7 +72,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 // ---- Module-under-test mocks --------------------------------------------
 const invokeIntentMock = vi.fn();
-vi.mock("@/lib/automations/debtor-email/triage/invoke-intent", () => ({
+vi.mock("@/lib/automations/debtor-email/coordinator/invoke-intent", () => ({
   invokeIntentAgent: (...args: unknown[]) => invokeIntentMock(...args),
 }));
 
@@ -80,7 +80,7 @@ const findCachedMock = vi.fn();
 const mergeToolOutputsMock = vi.fn().mockResolvedValue(undefined);
 const updateRunMock = vi.fn().mockResolvedValue(undefined);
 const createRunMock = vi.fn().mockResolvedValue("agent-run-id-fresh");
-vi.mock("@/lib/automations/debtor-email/triage/agent-runs", () => ({
+vi.mock("@/lib/automations/debtor-email/coordinator/agent-runs", () => ({
   findCachedOutput: (...args: unknown[]) => findCachedMock(...args),
   mergeToolOutputs: (...args: unknown[]) => mergeToolOutputsMock(...args),
   updateRun: (...args: unknown[]) => updateRunMock(...args),
