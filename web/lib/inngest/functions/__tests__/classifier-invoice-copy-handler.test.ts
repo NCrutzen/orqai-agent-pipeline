@@ -41,6 +41,16 @@ const supabaseInserts: Array<{ table: string; row: Record<string, unknown> }> = 
 const supabaseUpdates: Array<{ table: string; patch: Record<string, unknown> }> = [];
 const agentRunsInsertId = "ar-handler-1";
 
+// Phase 69 — five-brand registry shape served by the swarms-table mock so
+// loadBrandRegister can resolve a single brand per invocation.
+const FIVE_BRANDS = [
+  { code: "smeba", display_name: "Smeba", register_language: "nl", register_dialect: "nl-NL", signoff_phrase: "Met vriendelijke groet", formal_address: "u", nxt_database_alias: "smeba", icontroller_company: "smeba" },
+  { code: "smeba-fire", display_name: "Smeba-Fire", register_language: "nl", register_dialect: "nl-BE", signoff_phrase: "Met vriendelijke groet", formal_address: "u", nxt_database_alias: "smeba-fire", icontroller_company: "smeba-fire" },
+  { code: "sicli-noord", display_name: "Sicli-Noord", register_language: "nl", register_dialect: "nl-BE", signoff_phrase: "Met vriendelijke groet", formal_address: "u", nxt_database_alias: "sicli-noord", icontroller_company: "sicli-noord" },
+  { code: "sicli-sud", display_name: "Sicli-Sud", register_language: "fr", register_dialect: "fr-BE", signoff_phrase: "Cordialement", formal_address: "vous", nxt_database_alias: "sicli-sud", icontroller_company: "sicli-sud" },
+  { code: "berki", display_name: "Berki", register_language: "nl", register_dialect: "nl-NL", signoff_phrase: "Met vriendelijke groet", formal_address: "u", nxt_database_alias: "berki", icontroller_company: "berki" },
+];
+
 vi.mock("@/lib/supabase/admin", () => {
   function makeChainForTable(table: string) {
     const chain: Record<string, unknown> = {};
@@ -64,6 +74,15 @@ vi.mock("@/lib/supabase/admin", () => {
       if (table === "labeling_settings") {
         return Promise.resolve({
           data: { dry_run: true, entity: "smeba", icontroller_company: null },
+          error: null,
+        });
+      }
+      if (table === "swarms") {
+        return Promise.resolve({
+          data: {
+            swarm_type: "debtor-email",
+            entity_brand: FIVE_BRANDS,
+          },
           error: null,
         });
       }
@@ -246,5 +265,57 @@ describe("CORD-03 classifier-invoice-copy-handler orchestrator wiring", () => {
     // No agent_runs insert in single-shot path.
     const agentRunsInsert = supabaseInserts.find((i) => i.table === "agent_runs");
     expect(agentRunsInsert).toBeUndefined();
+  });
+});
+
+// Phase 69 / CANO-01 / Wave 4 — assert the body-agent invocation uses the
+// canonical input shape (entity_brand + brand_register), not the legacy
+// email_entity / email_language fields.
+describe("CANO-01 classifier-invoice-copy-handler canonical input shape", () => {
+  it("body agent receives entity_brand + brand_register; no email_entity/email_language", async () => {
+    const step = makeStep();
+    await getHandler()({
+      event: {
+        id: "evt-cano-1",
+        data: {
+          automation_run_id: "ar-cano-1",
+          message_id: "msg-cano-1",
+          source_mailbox: "inbox",
+          category_key: "invoice_copy_request",
+          swarm_type: "debtor-email",
+        },
+      },
+      step,
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "debtor-copy-document-body-agent",
+      expect.objectContaining({
+        entity_brand: "smeba",
+        language: "nl",
+        customer_id: expect.any(String),
+        context_version: 1,
+        body_version: "2026-05-04.v2",
+        brand_register: expect.objectContaining({
+          code: "smeba",
+          register_language: "nl",
+          signoff_phrase: "Met vriendelijke groet",
+          formal_address: "u",
+        }),
+      }),
+      expect.objectContaining({ jsonSchemaName: "debtor_copy_document_body_result" }),
+    );
+
+    // Legacy fields must not appear in the inputs.
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "debtor-copy-document-body-agent",
+      expect.not.objectContaining({ email_entity: expect.anything() }),
+      expect.anything(),
+    );
+    expect(mockInvoke).toHaveBeenCalledWith(
+      "debtor-copy-document-body-agent",
+      expect.not.objectContaining({ email_language: expect.anything() }),
+      expect.anything(),
+    );
   });
 });
