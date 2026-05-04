@@ -23,6 +23,7 @@ import {
   ICONTROLLER_MAILBOXES,
   isKnownMailbox,
 } from "@/lib/automations/debtor-email/mailboxes";
+import { evaluateSideEffects } from "@/lib/swarms/side-effects";
 
 // Inngest's typed `inngest.send` would reject a runtime-built event name
 // here as well; we know the name statically but use the cast pattern from
@@ -238,44 +239,56 @@ export const classifierLabelResolver = inngest.createFunction(
       }),
     );
 
-    // Phase 67 (D-01, D-09, D-10, R-02) — Stage 2 side-effect dispatch.
-    // Gated: matched-customer + live mode + iController configured. Tagger
-    // (debtorEmailIcontrollerTagger) is a separate function; failures land on
-    // email_labels.icontroller_tag_status='failed' without affecting this run.
-    if (
-      result.customer_account_id !== null &&
-      !dryRun &&
-      (settingsRow?.icontroller_company ?? null) !== null &&
-      isKnownMailbox(source_mailbox)
-    ) {
-      // Production-only: the acceptance iController host was retired by
-      // Billtrust; the live-mode gate (dry_run=false) above already implies
-      // production. Mirrors the hard-coded "production" in the tagger and
-      // the cleanup-worker.
-      const mailboxListUrl = buildIcontrollerMessageUrl({
-        source_mailbox,
-        env: "production",
-      });
-      await step.run("emit-icontroller-tag", async () =>
-        (inngest.send as unknown as SendFn)({
-          name: "debtor-email/icontroller-tag.requested",
-          data: {
-            email_label_id: labelInsertResult.id,
-            email_id: emailRow.id,
-            automation_run_id,
-            customer_account_id: result.customer_account_id as string,
-            customer_name: result.customer_name,
-            source_mailbox,
-            icontroller_mailbox_id: ICONTROLLER_MAILBOXES[source_mailbox],
-            icontroller_company: settingsRow?.icontroller_company ?? null,
-            icontroller_message_url: mailboxListUrl,
-            entity: settingsRow?.entity ?? null,
-            sender_email: emailRow.sender_email ?? "",
-            subject: emailRow.subject ?? "",
-            received_at: new Date().toISOString(),
-          },
-        }),
+    // Phase 68 (SWRM-04) — Stage 2 side-effect dispatch via swarms.side_effects[].
+    // Call-site guard: isKnownMailbox is a function call, not an equality
+    // match, so it stays inline (registry gates are simple equality only).
+    // Registry gate (dry_run, customer_account_id_present, icontroller_company_present)
+    // mirrors the prior literal AND-chain.
+    if (isKnownMailbox(source_mailbox)) {
+      const dispatches = await evaluateSideEffects(
+        admin,
+        "debtor-email",
+        "stage2_match_live",
+        {
+          dry_run: dryRun,
+          customer_account_id_present: result.customer_account_id !== null,
+          icontroller_company_present:
+            (settingsRow?.icontroller_company ?? null) !== null,
+        },
       );
+      if (dispatches.length > 0) {
+        // Production-only: the acceptance iController host was retired by
+        // Billtrust; the live-mode gate (dry_run=false) above already implies
+        // production. Mirrors the hard-coded "production" in the tagger and
+        // the cleanup-worker.
+        const mailboxListUrl = buildIcontrollerMessageUrl({
+          source_mailbox,
+          env: "production",
+        });
+        for (const dispatch of dispatches) {
+          if (dispatch.kind !== "inngest_event") continue;
+          await step.run(`emit-${dispatch.event}`, async () =>
+            (inngest.send as unknown as SendFn)({
+              name: dispatch.event,
+              data: {
+                email_label_id: labelInsertResult.id,
+                email_id: emailRow.id,
+                automation_run_id,
+                customer_account_id: result.customer_account_id as string,
+                customer_name: result.customer_name,
+                source_mailbox,
+                icontroller_mailbox_id: ICONTROLLER_MAILBOXES[source_mailbox],
+                icontroller_company: settingsRow?.icontroller_company ?? null,
+                icontroller_message_url: mailboxListUrl,
+                entity: settingsRow?.entity ?? null,
+                sender_email: emailRow.sender_email ?? "",
+                subject: emailRow.subject ?? "",
+                received_at: new Date().toISOString(),
+              },
+            }),
+          );
+        }
+      }
     }
 
     return {

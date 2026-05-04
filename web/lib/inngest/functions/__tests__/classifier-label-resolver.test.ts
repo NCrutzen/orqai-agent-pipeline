@@ -29,6 +29,42 @@ vi.mock("@/lib/automations/debtor-email/resolve-debtor", () => ({
   resolveDebtor: (...args: unknown[]) => resolveDebtorMock(...args),
 }));
 
+// ---- side-effects registry mock -----------------------------------------
+// Phase 68 swap (SWRM-04): label-resolver routes the icontroller-tag emit
+// through evaluateSideEffects(stage2_match_live). Mirror the production
+// backfill so existing assertions (dry-run skip, unconfigured skip,
+// unresolved skip) remain valid: a single inngest_event descriptor whose
+// gate matches the prior literal AND-chain.
+const ICONTROLLER_TAG_DESCRIPTOR = {
+  kind: "inngest_event" as const,
+  event: "debtor-email/icontroller-tag.requested",
+  trigger: "stage2_match_live" as const,
+  gate: {
+    dry_run: false,
+    customer_account_id_present: true,
+    icontroller_company_present: true,
+  },
+  phase_origin: "67",
+};
+const evaluateSideEffectsMock = vi.fn(
+  async (
+    _admin: unknown,
+    _swarmType: string,
+    trigger: string,
+    ctx: Record<string, unknown>,
+  ) => {
+    if (trigger !== "stage2_match_live") return [];
+    const matches = Object.entries(ICONTROLLER_TAG_DESCRIPTOR.gate).every(
+      ([k, v]) => ctx[k] === v,
+    );
+    return matches ? [ICONTROLLER_TAG_DESCRIPTOR] : [];
+  },
+);
+vi.mock("@/lib/swarms/side-effects", () => ({
+  evaluateSideEffects: (...args: unknown[]) =>
+    (evaluateSideEffectsMock as unknown as (...a: unknown[]) => unknown)(...args),
+}));
+
 // ---- Supabase admin mock -------------------------------------------------
 //
 // Exhaustive chain shape for the resolver's successful path:
@@ -370,6 +406,86 @@ describe("Phase 67 — second emit (icontroller-tag)", () => {
 
     await h({ event: buildEvent(), step: stepStub });
 
+    const tagCalls = inngestSend.mock.calls.filter(
+      (c) =>
+        (c[0] as { name: string }).name ===
+        "debtor-email/icontroller-tag.requested",
+    );
+    expect(tagCalls.length).toBe(0);
+  });
+});
+
+// Phase 68 (SWRM-04) — registry-driven dispatch path.
+describe("Phase 68 — registry-driven Stage-2 dispatch", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    adminMock = makeAdminMock({
+      settings: {
+        ...SETTINGS_ROW,
+        dry_run: false,
+        icontroller_company: "smebabrandbeveiliging",
+      },
+      insertedLabelId: "label-uuid-stub",
+    });
+    resolveDebtorMock.mockReset();
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../classifier-label-resolver");
+    handler = (mod.classifierLabelResolver as unknown as {
+      handler: typeof handler;
+    }).handler;
+  });
+
+  it("emits the descriptor's event name (registry-sourced, not literal) with the full Phase 67 payload", async () => {
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "sender_match",
+      customer_account_id: "506909",
+      customer_name: "Klant BV",
+      confidence: "high",
+      candidates_considered: 1,
+    });
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    // evaluateSideEffects MUST have been called with the correct trigger + ctx.
+    expect(evaluateSideEffectsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "debtor-email",
+      "stage2_match_live",
+      expect.objectContaining({
+        dry_run: false,
+        customer_account_id_present: true,
+        icontroller_company_present: true,
+      }),
+    );
+
+    // Event name comes from the descriptor returned by the registry mock.
+    const tagCalls = inngestSend.mock.calls.filter(
+      (c) =>
+        (c[0] as { name: string }).name ===
+        "debtor-email/icontroller-tag.requested",
+    );
+    expect(tagCalls.length).toBe(1);
+  });
+
+  it("unknown mailbox short-circuits before evaluateSideEffects is called (call-site guard)", async () => {
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "sender_match",
+      customer_account_id: "506909",
+      customer_name: "Klant BV",
+      confidence: "high",
+      candidates_considered: 1,
+    });
+
+    const event = buildEvent();
+    event.data.source_mailbox = "no-such-mailbox@example.com";
+
+    await handler({ event, step: stepStub });
+
+    expect(evaluateSideEffectsMock).not.toHaveBeenCalled();
     const tagCalls = inngestSend.mock.calls.filter(
       (c) =>
         (c[0] as { name: string }).name ===
