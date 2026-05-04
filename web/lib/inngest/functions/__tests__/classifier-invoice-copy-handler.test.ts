@@ -145,7 +145,7 @@ beforeEach(() => {
     raw: {
       body_html: "<p>Hier is uw kopie van factuur INV-1, in bijlage. Met vriendelijke groet.</p>",
       detected_tone: "neutral",
-      body_version: "2026-04-23.v1",
+      body_version: "2026-05-04.v2",
     },
     agent: {} as unknown,
     usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },

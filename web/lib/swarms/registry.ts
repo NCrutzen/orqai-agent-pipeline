@@ -13,6 +13,12 @@ import type {
   SwarmIntentRow,
   CanonicalContextShape,
 } from "./types";
+import {
+  loadAllBrandRegisters,
+  loadBrandRegister,
+  __resetBrandRegisterCacheForTests,
+  type BrandRegister,
+} from "./brand-register";
 
 const SWARM_CACHE = new Map<string, { value: SwarmRow | null; expires: number }>();
 const CATEGORIES_CACHE = new Map<string, { value: SwarmCategoryRow[]; expires: number }>();
@@ -114,9 +120,16 @@ export async function loadCanonicalContextShape(
   return swarm?.canonical_context_shape ?? null;
 }
 
+// Phase 69 / CANO-02 — entity_brand registry helpers (re-exported from
+// ./brand-register so callers have one canonical import path via swarms/registry).
+export const loadEntityBrand = loadAllBrandRegisters;
+export const loadEntityBrandRegister = loadBrandRegister;
+export type { BrandRegister };
+
 // Test helper. Production callers MUST NOT use this.
 export function __resetCacheForTests(): void {
   SWARM_CACHE.clear();
   CATEGORIES_CACHE.clear();
   INTENTS_CACHE.clear();
+  __resetBrandRegisterCacheForTests();
 }
