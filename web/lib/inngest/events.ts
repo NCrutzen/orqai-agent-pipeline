@@ -332,6 +332,38 @@ export type Events = {
     };
   };
 
+  // Phase 67 (D-01, D-02, R-02) — Stage 2 side-effect: iController DOM tagging.
+  // Emitted by classifier-label-resolver after the coordinator emit, gated on
+  //   result.customer_account_id !== null
+  //   AND labeling_settings.dry_run === false
+  //   AND labeling_settings.icontroller_company !== null
+  // Consumed by debtorEmailIcontrollerTagger (Plan 05). Non-blocking: tagger
+  // catches all errors inline and returns ok:true; deferred state lives on
+  // debtor.email_labels.icontroller_tag_status.
+  //
+  // Payload extends CONTEXT D-02 with sender_email/subject/received_at/
+  // icontroller_mailbox_id (R-02) so the tagger can search-and-click without
+  // a second email lookup. icontroller_message_url is the MAILBOX-LIST URL
+  // (Option A from RESEARCH § URL Construction); the per-message msg_id is
+  // unknown at dispatch time.
+  "debtor-email/icontroller-tag.requested": {
+    data: {
+      email_label_id: string;
+      email_id: string;
+      automation_run_id: string;
+      customer_account_id: string;
+      customer_name: string | null;
+      source_mailbox: string;
+      icontroller_mailbox_id: number;
+      icontroller_company: string | null;
+      icontroller_message_url: string;
+      entity: string | null;
+      sender_email: string;
+      subject: string;
+      received_at: string;
+    };
+  };
+
   // Phase 65 (D-10) — coordinator → orchestrator handoff. Plan 04 builds the
   // listener; Plan 03 emits this event when the escalation gate returns
   // orchestrator. Carries the full ranked-intent array so the planner doesn't
