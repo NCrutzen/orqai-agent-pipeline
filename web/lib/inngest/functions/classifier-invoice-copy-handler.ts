@@ -35,6 +35,8 @@ import {
   type Entity,
   type Language,
 } from "@/lib/automations/debtor-email/coordinator/types";
+// Phase 69 / CANO-01 — registry-driven brand metadata loader.
+import { loadBrandRegister } from "@/lib/swarms/brand-register";
 // Phase 65 Plan 04 — orchestrator fan-in wiring.
 import { bodyAgentOutputToHandlerOutput } from "@/lib/automations/debtor-email/handlers/output-adapter";
 import { notifyCoordinatorComplete } from "@/lib/automations/debtor-email/coordinator/coordinator-complete";
@@ -245,25 +247,40 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
       return json;
     });
 
-    // ---- 3) Detect emotion (deterministic pre-pass) ----------------------
-    const language: Language = inferLanguageFromEntity(entity);
+    // ---- 3) Load brand register (Phase 69 / CANO-01) ---------------------
+    // Wrapped in step.run so result is memoized across replays.
+    const brandReg = await step.run("load-brand-register", async () => {
+      return await loadBrandRegister(admin, swarm_type ?? "debtor-email", entity);
+    });
+
+    // ---- 4) Detect emotion (deterministic pre-pass) ----------------------
+    const language: Language = brandReg.register_language as Language;
     const emotion = await step.run("detect-emotion", () =>
       detectEmotion(emailRow.body_text ?? "", language),
     );
 
-    // ---- 4) Generate body via registry-driven Orq agent ------------------
+    // ---- 5) Generate body via registry-driven Orq agent ------------------
     const body = await step.run("generate-body", async () => {
       const inputs = {
-        email_id: emailRow.id,
-        inngest_run_id: event.id ?? `local-${emailRow.id}`,
-        stage: "generate_body",
-        email_subject: emailRow.subject ?? "",
-        email_body_text: emailRow.body_text ?? "",
-        email_sender_email: emailRow.sender_email ?? "",
-        email_sender_first_name: emailRow.sender_first_name ?? null,
-        email_mailbox: emailRow.mailbox ?? source_mailbox,
-        email_entity: entity,
-        email_language: language,
+        // Phase 69 / CANO-01 — canonical PipelineStageContext fields
+        customer_id: emailRow.id,
+        customer_name: emailRow.sender_email ?? null,
+        language: brandReg.register_language,
+        entity_brand: brandReg.code,
+        recent_documents: [] as Array<unknown>,
+        context_version: 1,
+
+        // Phase 69 — per-invocation brand metadata (single brand only)
+        brand_register: {
+          code: brandReg.code,
+          display_name: brandReg.display_name,
+          register_language: brandReg.register_language,
+          register_dialect: brandReg.register_dialect,
+          signoff_phrase: brandReg.signoff_phrase,
+          formal_address: brandReg.formal_address,
+        },
+
+        // Intent-specifics (unchanged)
         intent_result_intent: "copy_document_request",
         intent_result_sub_type: "invoice",
         intent_result_document_reference: invoiceRef,
@@ -274,6 +291,18 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
         fetched_document_document_type:
           fetchResult.metadata.document_type ?? "invoice",
         fetched_document_created_on: fetchResult.metadata.created_on ?? "",
+
+        // Email surface (unchanged)
+        email_subject: emailRow.subject ?? "",
+        email_body_text: emailRow.body_text ?? "",
+        email_sender_email: emailRow.sender_email ?? "",
+        email_sender_first_name: emailRow.sender_first_name ?? null,
+        email_mailbox: emailRow.mailbox ?? source_mailbox,
+        email_id: emailRow.id,
+        inngest_run_id: event.id ?? `local-${emailRow.id}`,
+        stage: "generate_body",
+
+        // Behavioural
         body_version: BODY_VERSION,
         emotion_trigger_match: emotion.match,
       };
@@ -426,14 +455,3 @@ async function closeRun(
   await emitAutomationRunStale(admin, `${swarm_type}-review`);
 }
 
-/**
- * Map the per-mailbox `entity` to a working draft language. The body agent
- * accepts `nl | en | de | fr` only; Flemish entities use NL with Flemish
- * register words coming from the entity_register block in the prompt. The
- * francophone-BE entity (sicli-sud) gets `fr`. Inbound emails in another
- * language are still drafted in the entity's default — operators can edit
- * before sending.
- */
-function inferLanguageFromEntity(entity: Entity): Language {
-  return entity === "sicli-sud" ? "fr" : "nl";
-}
