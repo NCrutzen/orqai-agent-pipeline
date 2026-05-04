@@ -88,10 +88,9 @@ export const coordinatorOrchestrator = inngest.createFunction(
       // 4. Fan-out via inngest.send. Template-literal event names so adding
       // a new intent = registry change + new handler, no edit here.
       await step.run("fan-out", async () => {
-        const send = inngest.send as unknown as SendFn;
         await Promise.all(
           plan.handlers.map((h) =>
-            send({
+            (inngest.send as unknown as SendFn)({
               name: `debtor-email/${h.intent}.requested`,
               data: {
                 run_id,
