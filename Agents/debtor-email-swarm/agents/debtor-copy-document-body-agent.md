@@ -1,8 +1,9 @@
 ---
 key: debtor-copy-document-body-agent
 role: Debtor Copy-Document Cover-Letter Generator
-version: 2026-04-23.v1
-swarm: debtor-email-swarm
+version: 2026-05-04.v2
+body_version: 2026-05-04.v2
+swarm: cross-cutting
 phase: 1
 pattern: external-orchestration (Inngest)
 orqai_id: "01KQECMBEMRKX28E0F0T64A43K"
@@ -10,8 +11,28 @@ orqai_project_id: "019db9c0-c45a-7000-ab48-ebde3557b891"
 orqai_project_key: "Debtor Team"
 orqai_studio_url: "https://my.orq.ai/cura/agents/01KQECMBEMRKX28E0F0T64A43K"
 deployed_at: "2026-04-30T00:00:00Z"
+patched_at: "2026-05-04T00:00:00Z"
 deploy_channel: "mcp"
+spec_status: out-of-sync
+spec_status_reason: "Live agent was PATCHed via Orq MCP in Phase 69 Wave 5 (entity_register block → brand_register, body_version bump 2026-04-23.v1 → 2026-05-04.v2, swarm_type → cross-cutting). The body of this spec file below STILL reflects the pre-Phase-69 prompt and is preserved as historical reference. To re-sync the live agent FROM this file, you must first capture the live prompt via mcp__orqai-mcp__get_agent and rewrite the body sections accordingly. See .planning/phases/69-handler-agent-canonicalisation-cross-swarm-reuse/69-05-SUMMARY.md for the verbatim diff."
 ---
+
+> **⚠ SPEC OUT OF SYNC WITH LIVE ORQ AGENT (Phase 69, 2026-05-04).**
+>
+> The frontmatter above reflects the **live** state (`body_version=2026-05-04.v2`, `swarm=cross-cutting`, Phase 69 canonical input shape: `entity_brand` + `brand_register` from `swarms.entity_brand` jsonb registry). The **body of this document below** still reflects the pre-Phase-69 prompt (entity_register block, 5-brand union, `body_version=2026-04-23.v1`).
+>
+> **Source of truth: the live Orq agent** at `https://my.orq.ai/cura/agents/01KQECMBEMRKX28E0F0T64A43K`, retrievable via `mcp__orqai-mcp__get_agent debtor-copy-document-body-agent`.
+>
+> **What changed in Phase 69 Wave 5** (per `.planning/phases/69-handler-agent-canonicalisation-cross-swarm-reuse/69-05-SUMMARY.md`):
+> 1. `<body_version>` bumped `2026-04-23.v1` → `2026-05-04.v2` (4 places: header, output_format, 3 example outputs).
+> 2. Removed `<entity_register>` block (5 hardcoded `<entity>` children with prose register treatment).
+> 3. Added `<brand_register>` block describing the per-invocation `brand_register` input object (`code`, `display_name`, `register_language`, `register_dialect`, `signoff_phrase`, `formal_address`). Team-line construction parameterised by `register_language`.
+> 4. `<task_handling>`: hardcoded "Match entity register: NL-NL (Smeba, Berki) vs Flemish-BE..." line replaced with "Match register, dialect, pronoun, signoff, and team line strictly per the `<brand_register>` block — values come from the per-invocation `brand_register` object on the input."
+> 5. `<closing_matrix>`: brand-specific closing rules removed; signoff is now driven by `brand_register.signoff_phrase`. Closing structure made explicit: service line → `<br>` → `signoff_phrase` → `<br>` → team line.
+> 6. `<constraints>`: added "Do NOT mention or speculate about brands other than the one in `brand_register`." (T-69-02 mitigation).
+> 7. Examples (3): updated input shorthand to include `brand_register` object; output `body_version` literals bumped to `2026-05-04.v2`; example 2 demonstrates `en-GB` dialect with "Kind regards" signoff (CANO-04 proof); example 3 (sicli-sud) updated to use `Cordialement,<br>` signoff line.
+>
+> **Re-sync workflow**: when the next prompt edit lands, (1) capture live via `get_agent`, (2) rewrite the body of this file to match verbatim, (3) clear `spec_status: out-of-sync` flag, (4) bump `version`. A future Phase will produce a `prompt-sync` skill that automates this.
 
 # debtor-copy-document-body-agent
 
