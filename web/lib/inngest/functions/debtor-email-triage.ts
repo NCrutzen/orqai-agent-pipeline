@@ -67,11 +67,17 @@ export const debtorEmailTriage = inngest.createFunction(
     // emit) we synthesise one so coordinator_runs always has a key. The
     // synthesised id will not collide with a real Stage-0-emitted run because
     // coordinator_runs.run_id is a uuid PRIMARY KEY.
-    const run_id =
+    // CLAUDE.md / Inngest pitfall: any non-deterministic value used inside
+    // step.run side-effects (DB writes keyed on it) MUST be generated inside
+    // step.run, otherwise replays regenerate it and INSERT/UPDATE race onto
+    // different keys. Phase 65: run_id is the coordinator_runs PK and joins
+    // every downstream step — has to be stable across replays.
+    const run_id = await step.run("resolve-run-id", async () =>
       event.data.run_id ??
-      (typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? (crypto as { randomUUID(): string }).randomUUID()
-        : `local-${email_id}-${Date.now()}`);
+        (typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? (crypto as { randomUUID(): string }).randomUUID()
+          : `local-${email_id}-${Date.now()}`),
+    );
     const automation_run_id = event.data.automation_run_id;
     const budget_run_id = event.data.budget_run_id;
 
