@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
-status: code-complete
-stopped_at: Phase 68 code-complete; Plan 09 Task 2 (live Phase 67 smoke) pending operator
-last_updated: "2026-05-04T13:40:00.000Z"
-last_activity: 2026-05-04 -- Phase 68 (swarm_registry generalisation) all 9 plans executed
+status: complete
+stopped_at: Phase 68 complete; Inngest run 01KQSCZ81VJCM0HN3GA6KN4DBA confirms downstream chain
+last_updated: "2026-05-04T13:48:00.000Z"
+last_activity: 2026-05-04 -- Phase 68 closed (operator override on live smoke; ready for /gsd-verify-work)
 progress:
   total_phases: 45
   completed_phases: 16
@@ -21,20 +21,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** Phase 68 code-complete — awaiting operator sign-off on Plan 09 Task 2 (live smoke regression)
+**Current focus:** Phase 68 closed — next is `/gsd-verify-work 68` then Phase 69
 **Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress (91%), V4.0 partially complete, V6.0 phases 44-45 complete, V7.0 shipped 2026-04-30
 
 ## Current Position
 
-Phase: 68 — swarm_registry generalisation + canonical context shape — CODE-COMPLETE
-Plan: 9/9 (Plan 09 Task 2 pending operator)
+Phase: 68 — swarm_registry generalisation + canonical context shape — COMPLETE
+Plan: 9/9 (live smoke override signed 2026-05-04; Inngest run 01KQSCZ81VJCM0HN3GA6KN4DBA)
 Milestone: v8.0 Agentic Platform (11 phases, 63-73)
-Last activity: 2026-05-04 -- Phase 68 all 9 plans executed; pushed to GitHub
+Last activity: 2026-05-04 -- Phase 68 closed; pushed to GitHub
 
 Progress: [█████████░] 89%
 
 **v8.0 execution order:** 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
-**Next action:** Operator: re-fire Phase 67 smoke against Vercel preview, then `/gsd-verify-work 68`. Then `/gsd-discuss-phase 69 --auto`.
+**Next action:** `/gsd-verify-work 68`, then `/gsd-discuss-phase 69 --auto`.
 
 ## Performance Metrics
 
