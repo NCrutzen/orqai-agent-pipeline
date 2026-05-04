@@ -28,9 +28,14 @@ const hasServiceRole =
 describe.skipIf(!hasServiceRole)(
   "Phase 68 SWRM-03: zero-code-edit swarm onboarding",
   () => {
-    const admin = createAdminClient();
+    // Defer client construction — vitest evaluates the describe callback even
+    // when skipIf is true (it only skips the `it()` bodies). Constructing the
+    // client at module-load time would crash with "supabaseUrl is required"
+    // in any environment without the service-role env vars.
+    let admin: ReturnType<typeof createAdminClient>;
 
     beforeAll(async () => {
+      admin = createAdminClient();
       // Idempotent cleanup in case a prior run left rows behind.
       await admin.from("swarms").delete().eq("swarm_type", STUB_SWARM);
 

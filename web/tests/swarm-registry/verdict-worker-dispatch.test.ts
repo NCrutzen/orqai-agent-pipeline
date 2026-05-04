@@ -75,6 +75,39 @@ vi.mock("@/lib/swarms/registry", () => ({
   loadSwarmCategories: (...args: unknown[]) => loadSwarmCategoriesMock(...args),
 }));
 
+// Phase 68 (SWRM-04) — verdict-worker now reads the cleanup INSERT from
+// swarms.side_effects[] via evaluateSideEffects. Default mock mirrors the
+// production debtor-email backfill (cleanup descriptor for the
+// stage1_categorize_archive trigger when category_action matches). For
+// other swarm_types, return [] so the D-12 isolation invariant holds.
+const CLEANUP_DESCRIPTOR = {
+  kind: "automation_run_insert" as const,
+  automation: "debtor-email-cleanup",
+  trigger: "stage1_categorize_archive" as const,
+  gate: { category_action: "categorize_archive" },
+  result_template: { stage: "icontroller_delete", icontroller: "pending" },
+  phase_origin: "56.7",
+};
+const evaluateSideEffectsMock = vi.fn(
+  async (
+    _admin: unknown,
+    swarmType: string,
+    trigger: string,
+    ctx: Record<string, unknown>,
+  ) => {
+    if (swarmType !== "debtor-email") return [];
+    if (trigger !== "stage1_categorize_archive") return [];
+    const matches = Object.entries(CLEANUP_DESCRIPTOR.gate).every(
+      ([k, v]) => ctx[k] === v,
+    );
+    return matches ? [CLEANUP_DESCRIPTOR] : [];
+  },
+);
+vi.mock("@/lib/swarms/side-effects", () => ({
+  evaluateSideEffects: (...args: unknown[]) =>
+    (evaluateSideEffectsMock as unknown as (...a: unknown[]) => unknown)(...args),
+}));
+
 const categorizeMock = vi.fn(async (..._args: unknown[]) => ({ success: true }));
 const archiveMock = vi.fn(async (..._args: unknown[]) => ({ success: true }));
 
