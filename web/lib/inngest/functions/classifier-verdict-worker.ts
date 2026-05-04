@@ -1,18 +1,15 @@
-// Phase 56.7 Wave 2 (D-02, D-10, D-11, D-12). Registry-driven verdict worker.
+// Phase 56.7 Wave 2 + Phase 68 (SWRM-04). Registry-driven verdict worker.
 //
 // Loads the matching public.swarm_categories row via loadSwarmCategories() and
 // switches on `category.action` instead of branching on hardcoded category
-// keys. After this rewrite, adding a new swarm with a custom side-effect needs
-// only:
-//   1. INSERT swarms row (ui_config + review_route)
+// keys. The categorize_archive branch dispatches per-swarm side-effects via
+// evaluateSideEffects(swarms.side_effects[]) — no swarm_type literals remain.
+// Adding a new swarm with a custom side-effect needs only:
+//   1. INSERT swarms row (ui_config + review_route + side_effects[] descriptors)
 //   2. INSERT swarm_categories row(s) with action='swarm_dispatch' + the new
 //      Inngest event name in swarm_dispatch column
 //   3. A new Inngest worker listening on that event
 // — zero edits to this file.
-//
-// Phase boundaries still in this file:
-//   - D-12: iController-delete is gated on swarm_type === 'debtor-email'.
-//     Phase 56.8 will move it into a generic side_effects jsonb on swarms.
 //
 // retries: 0 — same rationale as before. Each step is independently
 // idempotent at the API layer; failures surface as automation_runs.status
@@ -24,6 +21,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { categorizeEmail, archiveEmail } from "@/lib/outlook";
 import { loadSwarmCategories } from "@/lib/swarms/registry";
+import { evaluateSideEffects } from "@/lib/swarms/side-effects";
 
 export const classifierVerdictWorker = inngest.createFunction(
   { id: "classifier/verdict-worker", retries: 0 },
@@ -123,26 +121,58 @@ export const classifierVerdictWorker = inngest.createFunction(
               }
             });
           }
-          // D-12: iController-delete remains code-coupled for the debtor-email
-          // swarm. Until Phase 56.8 generalizes side_effects, keep this inline
-          // and gated on swarm_type.
-          if (swarm_type === "debtor-email") {
-            await step.run("queue-icontroller-delete", async () => {
-              await admin.from("automation_runs").insert({
-                automation: "debtor-email-cleanup",
-                status: "deferred",
-                swarm_type,
-                result: {
-                  stage: "icontroller_delete",
-                  source_automation_run_id: automation_run_id,
-                  message_id,
-                  source_mailbox,
-                  icontroller: "pending",
-                },
-                triggered_by: "classifier-verdict-worker",
+          // Phase 68 (SWRM-04): registry-driven side-effect dispatch. The
+          // side-effect descriptors in swarms.side_effects[] are filtered by
+          // trigger and gate (equality vs runtime ctx). Each matching
+          // descriptor is dispatched per its `kind`. Adding a new swarm with
+          // a stage1 cleanup hook = INSERT into swarms.side_effects[]; no
+          // edits here.
+          const stage1Dispatches = await evaluateSideEffects(
+            admin,
+            swarm_type,
+            "stage1_categorize_archive",
+            { category_action: "categorize_archive" },
+          );
+          for (const dispatch of stage1Dispatches) {
+            if (dispatch.kind === "automation_run_insert") {
+              await step.run(`queue-${dispatch.automation}`, async () => {
+                await admin.from("automation_runs").insert({
+                  automation: dispatch.automation,
+                  status: "deferred",
+                  swarm_type,
+                  result: {
+                    // Registry owns the schema-level template (stage,
+                    // icontroller defaults). Caller still owns the runtime
+                    // payload identifiers — merge with caller-fields after so
+                    // dynamic values can't be shadowed by a stale template.
+                    ...dispatch.result_template,
+                    source_automation_run_id: automation_run_id,
+                    message_id,
+                    source_mailbox,
+                  },
+                  triggered_by: "classifier-verdict-worker",
+                });
+                await emitAutomationRunStale(admin, dispatch.automation);
               });
-              await emitAutomationRunStale(admin, "debtor-email-cleanup");
-            });
+            } else if (dispatch.kind === "inngest_event") {
+              // Future-proofing — no stage1 inngest_event descriptors today,
+              // but the dispatcher must handle both kinds so onboarding a
+              // new swarm needs zero code edits.
+              await step.run(`emit-${dispatch.event}`, async () => {
+                await (inngest.send as unknown as (payload: {
+                  name: string;
+                  data: Record<string, unknown>;
+                }) => Promise<unknown>)({
+                  name: dispatch.event,
+                  data: {
+                    automation_run_id,
+                    swarm_type,
+                    message_id,
+                    source_mailbox,
+                  },
+                });
+              });
+            }
           }
           break;
         }
