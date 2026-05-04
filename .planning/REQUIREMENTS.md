@@ -38,7 +38,7 @@
 **: Stage 3 coordinator emits an ordered list of intents (primary + secondaries) with confidence scores, not a single label
 - [x] **CORD-02
 **: Coordinator escalates to a Stage 3.5 orchestrator-worker when `confidence < threshold` OR `intent_count >= 3` OR an intent is registry-tagged `requires_orchestration`
-- [ ] **CORD-03**: Orchestrator-worker spawns multiple Stage 4 handlers in parallel and synthesises their outputs into a single iController draft
+- [x] **CORD-03**: Orchestrator-worker spawns multiple Stage 4 handlers in parallel and synthesises their outputs into a single iController draft
 - [x] **CORD-04
 **: Default path (~80% of inbound) remains a single-shot router with no orchestrator overhead
 
@@ -135,10 +135,10 @@ Filled by roadmapper after phase mapping.
 | BUDG-01 | Phase 64 | pending |
 | BUDG-02 | Phase 64 | pending |
 | BUDG-03 | Phase 64 | pending |
-| CORD-01 | Phase 65 | in-progress (foundation in 65-01; full coverage in 65-03/04/05) |
-| CORD-02 | Phase 65 | in-progress (column + seed in 65-01; gate function in 65-03) |
-| CORD-03 | Phase 65 | pending |
-| CORD-04 | Phase 65 | pending |
+| CORD-01 | Phase 65 | complete (verified live 2026-05-04) |
+| CORD-02 | Phase 65 | complete (verified live 2026-05-04 — all 3 escalation reasons fired) |
+| CORD-03 | Phase 65 | complete (orchestrator + synthesis live; end-to-end handler rename = Phase 66) |
+| CORD-04 | Phase 65 | complete (single-shot fast path verified; quantitative ~80% deferred to live regression backfill) |
 | CONS-01 | Phase 66 | pending |
 | CONS-02 | Phase 66 | pending |
 | CONS-03 | Phase 66 | pending |
