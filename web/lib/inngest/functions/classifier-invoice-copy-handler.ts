@@ -132,7 +132,7 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
           .schema("email_pipeline")
           .from("emails")
           .select(
-            "id, conversation_id, subject, body_text, sender_email, sender_first_name, mailbox",
+            "id, conversation_id, subject, body_text, sender_email, sender_name, mailbox",
           )
           .eq("internet_message_id", message_id)
           .maybeSingle();
@@ -296,7 +296,8 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
         email_subject: emailRow.subject ?? "",
         email_body_text: emailRow.body_text ?? "",
         email_sender_email: emailRow.sender_email ?? "",
-        email_sender_first_name: emailRow.sender_first_name ?? null,
+        email_sender_first_name:
+          (emailRow.sender_name ?? "").trim().split(/\s+/)[0] || null,
         email_mailbox: emailRow.mailbox ?? source_mailbox,
         email_id: emailRow.id,
         inngest_run_id: event.id ?? `local-${emailRow.id}`,
