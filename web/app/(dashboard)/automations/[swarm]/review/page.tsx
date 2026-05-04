@@ -29,6 +29,12 @@ import {
   loadCoordinatorRunsForReview,
   type CoordinatorRunSummary,
 } from "../../debtor-email/_lib/coordinator-runs-loader";
+// Phase 67-06 (D-08, R-03, TAG-03 surface). Debtor-email-only enrichment for
+// iController tagging failures. Mirrors the coordinator-runs-loader shape.
+import {
+  loadTaggingFailuresForReview,
+  type TaggingFailureSummary,
+} from "../../debtor-email/_lib/tagging-failures-loader";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +98,13 @@ export interface PredictedRow {
    * (debtor-email today; cross-swarm in Phase 71).
    */
   coordinator?: CoordinatorRunSummary;
+  /**
+   * Phase 67-06 (D-08, R-03, TAG-03 surface). Joined from debtor.email_labels
+   * by email_id (extracted from result.email_id). Present only when the row's
+   * iController tagging side-effect failed; successful and skipped statuses
+   * are not enriched. debtor-email swarm only today.
+   */
+  tagging?: TaggingFailureSummary;
 }
 
 export interface PageData {
@@ -253,6 +266,39 @@ export async function loadPageData(
       if (selectedRow) {
         const coord = coordinatorMap.get(selectedRow.id);
         if (coord) selectedRow = { ...selectedRow, coordinator: coord };
+      }
+    }
+  }
+
+  // 7. Phase 67-06 (D-08, R-03, TAG-03 surface) — debtor-email tagging-failure
+  //    enrichment. Same pattern as the coordinator_runs JOIN above; surfaces
+  //    rows where the iController tagging side-effect failed so Bulk Review
+  //    can render a deferred-run badge + screenshot links. The loader joins
+  //    debtor.email_labels via the email_id extracted from result.email_id.
+  if (swarmType === "debtor-email" && rows.length > 0) {
+    const pairs = rows
+      .map((r) => {
+        const emailId =
+          (r.result as { email_id?: string } | null)?.email_id ?? null;
+        return emailId
+          ? { automation_run_id: r.id, email_id: emailId }
+          : null;
+      })
+      .filter(
+        (p): p is { automation_run_id: string; email_id: string } =>
+          p !== null,
+      );
+    if (pairs.length > 0) {
+      const taggingMap = await loadTaggingFailuresForReview(pairs);
+      if (taggingMap.size > 0) {
+        rows = rows.map((r) => {
+          const t = taggingMap.get(r.id);
+          return t ? { ...r, tagging: t } : r;
+        });
+        if (selectedRow) {
+          const t = taggingMap.get(selectedRow.id);
+          if (t) selectedRow = { ...selectedRow, tagging: t };
+        }
       }
     }
   }
