@@ -22,6 +22,13 @@ import { RowList } from "./row-list";
 import { DetailPane } from "./detail-pane";
 import { KeyboardShortcuts, Cheatsheet } from "./keyboard-shortcuts";
 import { SelectionProvider } from "./selection-context";
+// Phase 65-05 (CORD-03 surface). Debtor-email-only enrichment for now;
+// when Phase 71 broadens the loader to cross-swarm coordinator_runs the
+// import path moves under a generic _lib here. Server-side only.
+import {
+  loadCoordinatorRunsForReview,
+  type CoordinatorRunSummary,
+} from "../../debtor-email/_lib/coordinator-runs-loader";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +86,12 @@ export interface PredictedRow {
   median_cost_cents?: number | null;
   sample_count?: number;
   cost_cents?: number;
+  /**
+   * Phase 65-05 (CORD-03 surface). Joined from public.coordinator_runs by
+   * automation_run_id. Present only for swarms that write coordinator_runs
+   * (debtor-email today; cross-swarm in Phase 71).
+   */
+  coordinator?: CoordinatorRunSummary;
 }
 
 export interface PageData {
@@ -222,6 +235,26 @@ export async function loadPageData(
       .eq("id", params.selected)
       .single();
     selectedRow = (selRes.data as PredictedRow | null) ?? null;
+  }
+
+  // 6. Phase 65-05 (CORD-03 surface) — coordinator_runs join for debtor-email.
+  //    Server-side, single bulk query keyed on the predicted-page row ids;
+  //    rows without a coordinator_runs entry stay un-enriched (loader returns
+  //    a sparse Map). Phase 71 broadens this to cross-swarm.
+  if (swarmType === "debtor-email" && rows.length > 0) {
+    const coordinatorMap = await loadCoordinatorRunsForReview(
+      rows.map((r) => r.id),
+    );
+    if (coordinatorMap.size > 0) {
+      rows = rows.map((r) => {
+        const coord = coordinatorMap.get(r.id);
+        return coord ? { ...r, coordinator: coord } : r;
+      });
+      if (selectedRow) {
+        const coord = coordinatorMap.get(selectedRow.id);
+        if (coord) selectedRow = { ...selectedRow, coordinator: coord };
+      }
+    }
   }
 
   return { counts, rows, promotedToday, candidates, selectedRow };

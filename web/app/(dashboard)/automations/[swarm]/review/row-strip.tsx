@@ -11,6 +11,10 @@
 import type { PredictedRow } from "./page";
 import { prefetchReviewEmailBody } from "./detail-pane";
 import { BudgetBreachBadge } from "./components/budget-breach-badge";
+// Phase 65-05 (CORD-03 surface). Minimal partial_synthesis / multi-intent chip.
+// Rendered when the row's coordinator_runs row carries partial_synthesis=true
+// or escalation_decision='orchestrator'. Phase 71 broadens to ranked-list.
+import { CoordinatorBadge } from "../../debtor-email/_components/CoordinatorBadge";
 
 interface RowStripProps {
   row: PredictedRow;
@@ -80,6 +84,18 @@ export function RowStrip({ row, selected, onSelect }: RowStripProps) {
         {row.topic === "budget_breach" && result.reason && (
           <div className="mt-1">
             <BudgetBreachBadge reason={result.reason} />
+          </div>
+        )}
+        {/* Phase 65-05 (CORD-03 surface). partial_synthesis / multi-intent
+            chip — rendered only when the row has a coordinator_runs entry
+            and the badge logic decides to show. Phase 71 expands. */}
+        {row.coordinator && (
+          <div className="mt-1">
+            <CoordinatorBadge
+              partial_synthesis={row.coordinator.partial_synthesis}
+              escalation_decision={row.coordinator.escalation_decision}
+              escalation_reason={row.coordinator.escalation_reason}
+            />
           </div>
         )}
       </div>
