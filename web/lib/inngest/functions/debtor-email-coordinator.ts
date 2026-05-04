@@ -55,10 +55,22 @@ export const debtorEmailCoordinator = inngest.createFunction(
       { key: "event.data.run_id", limit: 1 },
     ],
   },
-  { event: "debtor/email.received" },
+  { event: "debtor-email/coordinator.requested" },
   async ({ event, step }) => {
     const email = event.data;
-    const { email_id, entity } = email;
+    const { email_id } = email;
+    // Phase 66: event shape widened entity to `string | null | undefined`
+    // (the new coordinator.requested event is producer-agnostic). Coerce to
+    // the strict ENTITY union here — the producer (label-resolver) reads
+    // entity from labeling_settings.entity which is the same union, and a
+    // missing value defaults to "smeba" (debiteuren-mailbox baseline).
+    const entity = (email.entity ?? "smeba") as
+      | "smeba"
+      | "berki"
+      | "sicli-noord"
+      | "sicli-sud"
+      | "smeba-fire";
+    const sender_domain = email.sender_domain ?? "";
     const inngest_run_id = event.id ?? `local-${email_id}`;
     const supabase = createAdminClient();
 
@@ -133,7 +145,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
             subject: email.subject,
             body_text: email.body_text,
             sender_email: email.sender_email,
-            sender_domain: email.sender_domain,
+            sender_domain,
             mailbox: email.mailbox,
             entity,
             received_at: email.received_at,

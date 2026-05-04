@@ -101,7 +101,7 @@ vi.mock("@/lib/automations/runs/emit", () => ({
 function buildEvent(overrides: Record<string, unknown> = {}) {
   return {
     id: "evt-test",
-    name: "debtor/email.received",
+    name: "debtor-email/coordinator.requested",
     data: {
       email_id: "email-1",
       graph_message_id: "graph-1",
