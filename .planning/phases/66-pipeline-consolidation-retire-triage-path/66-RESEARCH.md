@@ -447,14 +447,16 @@ Verified by reading CONTEXT.md `<deferred>` block and cross-checking REQUIREMENT
 | A4 | The 4 smoke email shapes used by Phase 65 produce the listed regex categories | Verification Scaffolding | LOW — regex patterns are stable; spot-check live before running smoke |
 | A5 | `coordinator/` and `triage/` `__tests__/` directories have no file-name collisions | Triage Directory Inventory | LOW — easy to verify before moving |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Is there a Stage 1 worker subscribed to `classifier/screen.requested` somewhere I missed?**
+   - **RESOLVED:** no Stage 1 worker exists; deferred per `66-CONTEXT.md` `<deferred>` Stage 1 entry. Phase 66 explicitly does not require CONS-01 live-acceptance via a real Stage 1 worker — synthetic emit is the acceptance path; building Stage 1 is a future phase.
    - What we know: zero matches in `web/app/api/inngest/route.ts` registered functions; `stage-0-safety-worker.ts` is the only emitter; no subscriber found by grep.
    - What's unclear: whether a worker exists in a feature branch / WIP / outside the registered list.
    - Recommendation: planner asks user before committing to a wave structure. If no Stage 1 worker exists, Phase 66's CONS-01 live-acceptance is structurally unreachable without expanding scope.
 
 2. **Should the renamed `coordinator/types.ts` keep importing from itself or be re-exported through a barrel?**
+   - **RESOLVED:** individual rewrites chosen, see Plan 02 Task 2.2. Diff is 8 sites; clearer than introducing a barrel.
    - What we know: 4 external importers of `triage/types.ts` (see Triage Directory Inventory).
    - What's unclear: whether the planner prefers individual import-path rewrites (clearer diff) or a barrel `coordinator/index.ts` (smaller diff, fewer lines).
    - Recommendation: Claude's discretion (D-01 catch-all). Default = individual rewrites; the diff is small (8 sites).

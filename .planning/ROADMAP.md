@@ -736,7 +736,12 @@ Plans:
   1. Every inbound debtor email passes through `regex -> label-resolver -> coordinator -> handler` with no parallel triage execution observed in telemetry
   2. The `debtor-email-triage` Inngest function is removed (or hard-disabled with a deprecation marker) and its intent-agent role lives only in `classifier-label-resolver`
   3. Every Stage 4 handler (copy-document body agent and any future handlers) is invoked via canonical `debtor-email/<intent>.requested` events; no direct cross-handler invocation remains
-**Plans**: TBD
+**Plans**: 5 plans
+  - [ ] 66-01-PLAN.md — Function rename (file + function id + exported const + route.ts + test rename)
+  - [ ] 66-02-PLAN.md — triage/ → coordinator/ directory move + 8 import-site rewrites + delete 2 dead helpers
+  - [ ] 66-03-PLAN.md — D-03 trigger retarget (new event in events.ts, coordinator subscription, label-resolver emit, delete debtor/email.received)
+  - [ ] 66-04-PLAN.md — CONS-03 cross-handler-import audit + doc reconciliation (debtor-email-pipeline-architecture.md, stage-3-coordinator.md)
+  - [ ] 66-05-PLAN.md — Static-audit grep block + Vercel-preview synthetic-emit live smoke (fills 66-regression-report.md)
 
 ### Phase 67: Stage 2 closure (iController DOM tagging)
 **Goal**: When the resolver returns a matched customer in live mode, the email is automatically tagged under that customer account in iController, with the tagging step non-blocking for downstream coordinator + handler work

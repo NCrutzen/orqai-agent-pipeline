@@ -178,6 +178,8 @@ Out of scope (explicitly deferred):
 - **Bulk Review override UI for ranked output** + **numeric confidence thresholds** + **learning loop** → Phase 71 (LERN-*).
 - **Backfill historical `automation_runs.updated_by` strings** ("inngest:debtor-email-triage" → "...coordinator"). Default: leave history alone — not deferred to a phase, just intentionally not done.
 
+- Stage 1 worker for classifier/screen.requested (Stage 0 → Stage 1 seam) — currently unwired in route.ts; live chain stops at Stage 0. Capture in a future phase.
+
 </deferred>
 
 ---
