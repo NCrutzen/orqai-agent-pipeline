@@ -1,12 +1,10 @@
-// Phase 56-00 (D-15, D-16, D-18, D-19). Browserless label module skeleton.
+// Phase 67 (D-05, R-04). Browserless label module — Wave-2 fill-in.
 //
-// Reuses the default openIControllerSession (shares cookies with cleanup —
-// per RESEARCH §Anti-Patterns, NOT a dedicated session key like drafter).
+// Selectors copied from .planning/briefs/artifacts/debtor-email-label-probe/SELECTORS.md
+// (production-verified 2026-04-29; acceptance re-verified Wave 0 of Phase 67).
 //
-// Selectors are TBD until probe-label-ui.ts artifact lands in Wave 1
-// (.planning/briefs/artifacts/debtor-email-label-probe/candidates.json).
-// Wave 2 fills the TODO(probe-artifact) blocks; for now the apply path
-// throws so callers fall back gracefully.
+// Single-account mode only. Multi-select widget mode (multiple accounts
+// per email) is deferred per SELECTORS.md caveat 2.
 
 import { type Page } from "playwright-core";
 import { captureScreenshot } from "@/lib/browser";
@@ -14,23 +12,27 @@ import {
   openIControllerSession,
   closeIControllerSession,
 } from "@/lib/automations/icontroller/session";
+import { matchesExpectedBrand } from "@/lib/automations/debtor-email/mailboxes";
 
 export interface LabelEmailInput {
-  icontroller_message_url: string; // pre-resolved per D-15
+  icontroller_message_url: string; // mailbox-list URL (R-01); tagger search-clicks the row before calling this on the detail page (Plan 05)
   customer_account_id: string;
   customer_name?: string;
   source_mailbox: string;
+  entity: string | null; // from labeling_settings.entity; required for brand-mismatch defense
 }
 
 export type LabelEmailStatus =
   | "labeled"
   | "already_labeled"
   | "skipped_conflict"
+  | "brand_mismatch"
   | "failed";
 
 export interface LabelEmailResult {
   status: LabelEmailStatus;
   reason?: string;
+  assigned_label?: string;
   screenshot_before_url: string | null;
   screenshot_after_url: string | null;
 }
@@ -38,6 +40,15 @@ export interface LabelEmailResult {
 const ENV = (process.env.ICONTROLLER_ENV === "production"
   ? "production"
   : "acceptance") as "production" | "acceptance";
+
+const ACCOUNTS_TRIGGER = ".select2-container.clients";
+const TYPEAHEAD_INPUT = ".select2-input.select2-focused";
+const ANY_SELECTABLE_RESULT =
+  "ul.select2-results .select2-result-selectable";
+const HIGHLIGHTED_RESULT =
+  "ul.select2-results .select2-result-selectable.select2-highlighted";
+const HIGHLIGHTED_RESULT_LABEL =
+  "ul.select2-results .select2-result-selectable.select2-highlighted .select2-result-label";
 
 export async function labelEmailInIcontroller(
   input: LabelEmailInput,
@@ -48,17 +59,20 @@ export async function labelEmailInIcontroller(
   try {
     const { page } = session;
 
-    // D-18: NEVER 'networkidle' on iController SPA.
+    // SPA: never networkidle (CLAUDE.md). Tagger has already navigated
+    // to the detail page via search-and-click before invoking this; for
+    // direct calls we navigate to whatever URL was passed.
     await page.goto(input.icontroller_message_url, {
       waitUntil: "domcontentloaded",
     });
-    await page.waitForTimeout(1500);
+    await page.waitForSelector(ACCOUNTS_TRIGGER, { timeout: 8000 });
 
-    // D-16: idempotency — read current label state BEFORE applying.
+    // Idempotency: read current label state BEFORE applying.
     const current = await readCurrentLabel(page);
     if (current && current.customer_account_id === input.customer_account_id) {
       return {
         status: "already_labeled",
+        assigned_label: current.text,
         screenshot_before_url: null,
         screenshot_after_url: null,
       };
@@ -82,24 +96,82 @@ export async function labelEmailInIcontroller(
     });
     beforeUrl = before?.url ?? null;
 
-    // TODO(probe-artifact): apply label using selectors from
-    // .planning/briefs/artifacts/debtor-email-label-probe/candidates.json
-    // For now this throws so Wave 2 must replace.
-    throw new Error(
-      "label-DOM selectors pending probe artifact (Wave 1 task 56-03)",
-    );
+    // SELECTORS.md lines 67-110: open picker, type customer_id.
+    await page.click(ACCOUNTS_TRIGGER);
+    await page.waitForSelector(TYPEAHEAD_INPUT, { timeout: 3000 });
+    await page.fill(TYPEAHEAD_INPUT, "");
+    await page.type(TYPEAHEAD_INPUT, input.customer_account_id, { delay: 50 });
+    await page.waitForSelector(ANY_SELECTABLE_RESULT, { timeout: 4000 });
 
-    // Wave-2 path (commented until selectors known):
-    // const after = await captureScreenshot(page, {
-    //   automation: "debtor-email-labeling",
-    //   label: "after",
-    // });
-    // afterUrl = after?.url ?? null;
-    // return {
-    //   status: "labeled",
-    //   screenshot_before_url: beforeUrl,
-    //   screenshot_after_url: afterUrl,
-    // };
+    // SELECTORS.md lines 142-170: brand-mismatch defensive layer (R-04).
+    // Read the highlighted result's parenthesized brand suffix and confirm
+    // it matches the source mailbox's expected pattern. Bail out if not.
+    const highlightedText = await page.$eval(
+      HIGHLIGHTED_RESULT_LABEL,
+      (el) => el.textContent?.trim() ?? "",
+    );
+    const brandMatch = highlightedText.match(/\(([^)]+)\)\s*$/);
+    const annotatedBrand = brandMatch?.[1] ?? null;
+    if (!matchesExpectedBrand(annotatedBrand, input.entity)) {
+      // Capture an "error" screenshot so operator can audit which result
+      // was about to be clicked.
+      try {
+        const errShot = await captureScreenshot(page, {
+          automation: "debtor-email-labeling",
+          label: "brand-mismatch",
+        });
+        afterUrl = errShot?.url ?? null;
+      } catch {
+        /* non-fatal */
+      }
+      return {
+        status: "brand_mismatch",
+        reason: `brand_mismatch: highlighted '${annotatedBrand ?? "unknown"}' did not match entity '${input.entity}'`,
+        screenshot_before_url: beforeUrl,
+        screenshot_after_url: afterUrl,
+      };
+    }
+
+    // SELECTORS.md lines 109-110: click highlighted result. Select2 onSelect
+    // auto-saves (no Save button). Operator-confirmed 2026-04-29.
+    await page.click(HIGHLIGHTED_RESULT);
+    await page.waitForTimeout(800);
+
+    // Verify selection stuck.
+    const after = await page.$eval(
+      ACCOUNTS_TRIGGER,
+      (el) => el.textContent?.trim() ?? "",
+    );
+    if (/none\s+selected/i.test(after)) {
+      try {
+        const errShot = await captureScreenshot(page, {
+          automation: "debtor-email-labeling",
+          label: "selection-not-stuck",
+        });
+        afterUrl = errShot?.url ?? null;
+      } catch {
+        /* non-fatal */
+      }
+      return {
+        status: "failed",
+        reason: "SELECTION_DID_NOT_STICK",
+        screenshot_before_url: beforeUrl,
+        screenshot_after_url: afterUrl,
+      };
+    }
+
+    const afterShot = await captureScreenshot(page, {
+      automation: "debtor-email-labeling",
+      label: "after",
+    });
+    afterUrl = afterShot?.url ?? null;
+
+    return {
+      status: "labeled",
+      assigned_label: after,
+      screenshot_before_url: beforeUrl,
+      screenshot_after_url: afterUrl,
+    };
   } catch (err) {
     try {
       const errShot = await captureScreenshot(session.page, {
@@ -108,7 +180,7 @@ export async function labelEmailInIcontroller(
       });
       afterUrl = errShot?.url ?? null;
     } catch {
-      /* swallow secondary error so we can still close session */
+      /* non-fatal */
     }
     return {
       status: "failed",
@@ -121,11 +193,25 @@ export async function labelEmailInIcontroller(
   }
 }
 
+/**
+ * Idempotency probe: read the Accounts widget's current text and parse the
+ * leading numeric customer_id from `<id> - <name> (<brand>)` format.
+ * Returns null when widget shows "None selected".
+ */
 async function readCurrentLabel(
-  _page: Page,
-): Promise<{ customer_account_id: string | null } | null> {
-  // TODO(probe-artifact): replace with selector(s) from probe candidates.json.
-  // Until probe runs we conservatively return null — the apply path will throw,
-  // surfacing the missing-selector state to operators.
-  return null;
+  page: Page,
+): Promise<{ customer_account_id: string | null; text: string } | null> {
+  const text = await page
+    .$eval(ACCOUNTS_TRIGGER, (el) => el.textContent?.trim() ?? "")
+    .catch(() => "");
+  if (!text) return null;
+  if (/none\s+selected/i.test(text)) {
+    return { customer_account_id: null, text };
+  }
+  // Parse leading numeric id from "<id> - <name> (<brand>)".
+  const idMatch = text.match(/^\s*(\d+)\s*-/);
+  return {
+    customer_account_id: idMatch?.[1] ?? null,
+    text,
+  };
 }
