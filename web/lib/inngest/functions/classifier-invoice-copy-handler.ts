@@ -55,6 +55,18 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
       swarm_type,
     } = event.data;
 
+    // Defense-in-depth (Phase 69 hardening): the message_id is interpolated
+    // into a PostgREST .or() filter when looking up the email row. Outlook
+    // Graph ids are alphanumeric + `-_/=+`. Reject anything outside that
+    // charset to prevent filter-string injection if a future caller passes
+    // user-influenced input. Surfaces in automation_runs.error_message via
+    // the failRun handler at the bottom of this function.
+    if (!/^[A-Za-z0-9_\-/=+.]+$/.test(message_id)) {
+      throw new Error(
+        `invalid message_id format: must match [A-Za-z0-9_-/=+.] (got ${message_id.length} chars)`,
+      );
+    }
+
     // Phase 65 Plan 04 — orchestrator fan-in wiring. When dispatched from the
     // orchestrator-planner, the event payload carries from_orchestrator=true and
     // a coordinator run_id. The handler MUST notify coordinator_complete_handler
@@ -120,6 +132,24 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
       await notifyOnExitIfOrchestrator(innerFailed === true);
       return result;
     } catch (err) {
+      // Phase 69 hardening: surface every unhandled exception in
+      // automation_runs.error_message so Bulk Review operators see WHY a
+      // dispatched override died, not just that the email "disappeared".
+      // Wrapped in step.run so a Supabase failure during failRun doesn't
+      // cascade and lose the original error.
+      const errMsg = err instanceof Error ? err.message : String(err);
+      try {
+        await step.run("failRun-on-unhandled", async () => {
+          await failRun(admin, automation_run_id, swarm_type ?? "debtor-email", errMsg);
+        });
+      } catch (failRunErr) {
+        // Last-resort: log so Inngest run history captures both errors.
+        console.error(
+          `[invoice-copy-handler] failRun side-effect threw while reporting: ${
+            failRunErr instanceof Error ? failRunErr.message : String(failRunErr)
+          } (original: ${errMsg})`,
+        );
+      }
       await notifyOnExitIfOrchestrator(true);
       throw err;
     }
@@ -248,8 +278,13 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
           }
         | { found: false; reason?: string };
       if (!res.ok || json.found === false) {
-        const reason = (json as { reason?: string }).reason ?? "fetch_failed";
-        throw new Error(`fetch-document failed: ${reason}`);
+        const fail = json as { reason?: string; details?: string; request_id?: string };
+        const reason = fail.reason ?? "fetch_failed";
+        const details = fail.details ?? "(no details from route)";
+        const reqId = fail.request_id ?? "n/a";
+        throw new Error(
+          `fetch-document failed: reason=${reason} status=${res.status} request_id=${reqId} details=${details}`,
+        );
       }
       return json;
     });
