@@ -292,19 +292,62 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   // in step.run; there is no step context to wrap into.
   //
   // We emit ONE pipeline_events row per email at the moment of regex
-  // classification (RESEARCH §Open Question Q1 recommendation). The
-  // route's downstream automation_runs.insert branches (categorize-failed,
-  // archive-failed, completed-categorize+archive, pending-icontroller-delete)
-  // are operational outcomes — they DO NOT add additional Stage 1 rows.
+  // classification (RESEARCH §Open Question Q1 recommendation).
   //
-  // email_id: at this point the canonical email_pipeline.emails.id (uuid)
-  // is not yet in scope — it's only resolved later inside fireStage0Event
-  // for the unknown+shadow branch. Per RESEARCH §Pitfall 3, fall back to
-  // email_id: null and stash the Outlook string id in decision_details.
+  // Phase 71-06 — resolve canonical email_pipeline.emails.id BEFORE the
+  // Stage 1 emit. The original Phase 70 carve-out wrote email_id=null
+  // because the Outlook fetcher cron (which writes email_pipeline.emails)
+  // races the Zapier-driven ingest route. But pipeline_events_email_summary
+  // filters `WHERE email_id IS NOT NULL`, so a null Stage 1 row never
+  // surfaces in Bulk Review. Pattern mirrors smeba/write-analysis: SELECT
+  // by source_id, INSERT a minimal stub if missing. The fetcher cron's
+  // own upsert (ON CONFLICT source_id) fills the remaining columns later.
+  let resolvedEmailId: string | null = null;
+  {
+    const { data: existing } = await admin
+      .schema("email_pipeline")
+      .from("emails")
+      .select("id")
+      .eq("source_id", messageId)
+      .maybeSingle();
+    if (existing?.id) {
+      resolvedEmailId = existing.id;
+    } else {
+      const { data: inserted, error: insertError } = await admin
+        .schema("email_pipeline")
+        .from("emails")
+        .insert({
+          source_id: messageId,
+          source: "zapier-debtor-ingest",
+          mailbox: sourceMailbox,
+          subject: msg.subject,
+          body_text: msg.body,
+          sender_email: msg.from,
+          sender_name: msg.fromName,
+          received_at: msg.receivedAt,
+          direction: "inbound",
+        })
+        .select("id")
+        .single();
+      if (insertError) {
+        // Race: fetcher cron just upserted. Re-select.
+        const { data: refetch } = await admin
+          .schema("email_pipeline")
+          .from("emails")
+          .select("id")
+          .eq("source_id", messageId)
+          .maybeSingle();
+        resolvedEmailId = refetch?.id ?? null;
+      } else {
+        resolvedEmailId = inserted?.id ?? null;
+      }
+    }
+  }
+
   await emitPipelineEvent(admin, {
     swarm_type: "debtor-email",
     stage: 1,
-    email_id: null,
+    email_id: resolvedEmailId,
     decision: r.category === "unknown" ? "unknown" : r.category,
     confidence: typeof r.confidence === "number" ? r.confidence : null,
     decision_details: {
@@ -314,7 +357,6 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       source_mailbox: sourceMailbox,
       entity: settings.entity,
     },
-    // Phase 71+ may correlate via automation_run_id; v1 joins via email_id.
     automation_run_id: null,
     triggered_by: "pipeline",
   });

@@ -190,7 +190,7 @@ describe("POST /api/automations/debtor-email/ingest — Stage 1 pipeline_events 
     expect((ev.decision_details as Record<string, unknown>).regex_rule_id).toBe("no_match");
   });
 
-  it("Stage 1 emit decision_details carries the Outlook messageId (canonical uuid not in scope at classify() per Pitfall 3)", async () => {
+  it("Stage 1 emit decision_details carries the Outlook messageId, and email_id is resolved via email_pipeline.emails (Plan 71-06)", async () => {
     const { classify } = await import("@/lib/debtor-email/classify");
     vi.mocked(classify).mockReturnValue({
       category: "auto_reply",
@@ -208,14 +208,15 @@ describe("POST /api/automations/debtor-email/ingest — Stage 1 pipeline_events 
     const events = pipelineEventRows();
     expect(events).toHaveLength(1);
     const ev = events[0].payload;
-    // Per Pitfall 3 fallback: email_id stays null because the canonical
-    // email_pipeline.emails.id (uuid) is not in scope at the classify()
-    // site. The Outlook string id lives in decision_details.
-    expect(ev.email_id).toBeNull();
+    // Plan 71-06: email_id is resolved by SELECT-or-INSERT into
+    // email_pipeline.emails before the Stage 1 emit, so the row aggregates
+    // into pipeline_events_email_summary (which filters email_id IS NOT NULL).
+    // Mock returns "ar-1" from the email_pipeline.emails INSERT path.
+    expect(ev.email_id).toBe("ar-1");
     const details = ev.decision_details as Record<string, unknown>;
     expect(details.outlook_message_id).toBe(outlookMessageId);
-    // Sanity: the Outlook id is NOT a uuid — confirms we are NOT mistakenly
-    // shoving a non-uuid string into the uuid email_id column.
+    // Sanity: the Outlook id is NOT a uuid — it stays in decision_details
+    // even though email_id is now resolved separately.
     expect(UUID_RE.test(outlookMessageId)).toBe(false);
   });
 
