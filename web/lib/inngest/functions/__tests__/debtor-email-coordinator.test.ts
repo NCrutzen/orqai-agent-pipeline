@@ -174,6 +174,65 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
       .handler;
   });
 
+  it("Phase 70 TELE-01: persist-ranked emits a pipeline_events row with stage=3, top intent, ranked details, uuid email_id", async () => {
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          {
+            intent: "copy_document_request",
+            confidence: "high",
+            ...baseRanked,
+          },
+          {
+            intent: "payment_dispute",
+            confidence: "low",
+            ...baseRanked,
+          },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("copy_document_request", false),
+    ]);
+
+    // Use a uuid-shaped email_id to assert the canonical uuid is forwarded.
+    const uuid = "11111111-2222-3333-4444-555555555555";
+    await handler({
+      event: buildEvent({ email_id: uuid }),
+      step: stepStub,
+    });
+
+    const ev = captured.inserts.find(
+      (i) =>
+        i.table === "pipeline_events" &&
+        (i.row as { stage?: number }).stage === 3 &&
+        (i.row as { decision?: string }).decision === "copy_document_request",
+    );
+    expect(ev).toBeTruthy();
+    const row = ev!.row as Record<string, unknown>;
+    expect(row.swarm_type).toBe("debtor-email");
+    expect(row.email_id).toBe(uuid);
+    expect(row.email_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(row.confidence).toBe(0.9); // numericConfidence('high') -> 0.9
+    expect(row.triggered_by).toBe("pipeline");
+    const decision_details = row.decision_details as {
+      ranked: unknown[];
+      language: string;
+      urgency: string;
+    };
+    expect(Array.isArray(decision_details.ranked)).toBe(true);
+    expect(decision_details.ranked.length).toBeGreaterThanOrEqual(1);
+    expect(decision_details.language).toBe("nl");
+    expect(decision_details.urgency).toBe("normal");
+  });
+
   it("CORD-04 single-shot path: emits exactly one debtor-email/<intent>.requested via swarm_dispatch", async () => {
     invokeIntentMock.mockResolvedValueOnce({
       output: {

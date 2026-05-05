@@ -33,6 +33,8 @@ import {
 import { loadSwarmCategories, loadHandlerEvent } from "@/lib/swarms/registry";
 import { evaluateEscalationGate } from "@/lib/automations/debtor-email/coordinator/escalation-gate";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
+import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
+import { numericConfidence } from "@/lib/pipeline-events/types";
 
 const SWARM_TYPE = "debtor-email";
 
@@ -189,6 +191,28 @@ export const debtorEmailCoordinator = inngest.createFunction(
           .update({ ranked_intents: output.ranked })
           .eq("run_id", run_id);
         if (error) throw new Error(`persist-ranked: ${error.message}`);
+
+        // Phase 70 — TELE-01 dual-write (Wave 2 / Plan 04). One pipeline_events
+        // row per Stage 3 decision. Lives inside the SAME step.run as the
+        // coordinator_runs UPDATE per CONTEXT D-09 (single replay boundary).
+        // event.data.email_id IS the canonical email_pipeline.emails.id (uuid)
+        // per RESEARCH §Pitfall 3 — no null/text-id fallback (W-70-04 fix).
+        const top = output.ranked[0];
+        await emitPipelineEvent(supabase, {
+          swarm_type: SWARM_TYPE,
+          stage: 3,
+          email_id,
+          decision: top.intent,
+          confidence: numericConfidence(top.confidence),
+          decision_details: {
+            ranked: output.ranked,
+            language: output.language,
+            urgency: output.urgency,
+          },
+          agent_run_id,
+          automation_run_id: automation_run_id ?? null,
+          triggered_by: "pipeline",
+        });
       });
 
       // ---- 5) Evaluate escalation gate -------------------------------------
