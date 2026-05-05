@@ -160,9 +160,9 @@ Filled by roadmapper after phase mapping.
 | CANO-02 | Phase 69 | complete (jsonb-of-objects registry + TS codegen; migration 20260505a) |
 | CANO-03 | Phase 69 | complete (orq_agents.swarm_type='cross-cutting' for body agent; migration 20260505b) |
 | CANO-04 | Phase 69 | complete (smeba-uk fixture verified zero-prompt-edit onboarding; live smoke green) |
-| TELE-01 | Phase 70 | pending |
-| TELE-02 | Phase 70 | pending |
-| TELE-03 | Phase 70 | pending |
+| TELE-01 | Phase 70 | complete (migration 20260506a applied; pipeline_events schema + 5 stage emit sites green; tests in 70-03/04/05) |
+| TELE-02 | Phase 70 | complete (dual-write pattern verified; legacy tables classifier_rules/agent_runs/email_labels/automation_runs preserved; consumer code unchanged) |
+| TELE-03 | Phase 70 | complete (Bulk Review API rewired to pipeline_events in 70-06; Phase 72 recommender stub shipped per D-15 in 70-07) |
 | REVW-01 | Phase 71 | pending |
 | REVW-02 | Phase 71 | pending |
 | REVW-03 | Phase 71 | pending |
