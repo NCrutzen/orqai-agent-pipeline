@@ -832,7 +832,7 @@ Plans:
 - [x] 71-02-PLAN.md — Override write path: POST /api/automations/debtor-email/override + debtor-email-override-handler Inngest fan-out (REVW-01..05)
 - [x] 71-03-PLAN.md — Read-side rewire: loadPageData → pipeline_events_email_summary view + view shape tests (REVW-06)
 - [x] 71-04-PLAN.md — UI components: 11 NEW components (RecipientChipStrip, PredictedRow, PipelineFlow, StageStep, 4 stage widgets, EvalTypeRadio, OverrideConfirmDialog, IControllerInfoBanner)
-- [ ] 71-05-PLAN.md — UI integration + keyboard shortcuts + manual smoke (8 overrides on acceptance)
+- [x] 71-05-PLAN.md — UI integration + keyboard shortcuts + manual smoke (8 overrides on acceptance)
 **UI hint**: yes
 
 ### Phase 72: Promotion recommender + Learning Inbox
