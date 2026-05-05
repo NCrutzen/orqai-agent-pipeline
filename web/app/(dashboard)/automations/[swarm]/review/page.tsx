@@ -189,6 +189,8 @@ export interface PageData {
   selectedTimeline: PipelineTimelineEvent[];
   /** Phase 71-05. Recipient chip strip data. */
   recipientChips: RecipientChip[];
+  /** Phase 71-08. Pre-fetched body for the selected email. */
+  selectedBody: { bodyText: string; bodyHtml: string | null } | null;
 }
 
 /**
@@ -575,16 +577,45 @@ export async function loadPageData(
   // the URL is now the pipeline_events.id, since the row list comes from
   // pipeline_events.
   let selectedRow: PredictedRow | null = null;
+  // Phase 71-08: Bulk Review row id is now an email_id (uuid in
+  // email_pipeline.emails). Resolve the selected row directly from rows[]
+  // so the detail pane gets the same metadata the row strip already shows.
   if (params.selected) {
-    const selRes = await admin
-      .from("pipeline_events")
-      .select(
-        "id, created_at, swarm_type, stage, email_id, decision, confidence, decision_details, automation_run_id, agent_run_id",
-      )
-      .eq("id", params.selected)
-      .single();
-    const selEvent = (selRes.data as PipelineEventRow | null) ?? null;
-    selectedRow = selEvent ? mapEventToPredictedRow(selEvent) : null;
+    const fromRows = rows.find((r) => r.id === params.selected) ?? null;
+    if (fromRows) {
+      selectedRow = fromRows;
+    } else {
+      // Legacy fallback for callers that still pass a pipeline_events.id.
+      const selRes = await admin
+        .from("pipeline_events")
+        .select(
+          "id, created_at, swarm_type, stage, email_id, decision, confidence, decision_details, automation_run_id, agent_run_id",
+        )
+        .eq("id", params.selected)
+        .single();
+      const selEvent = (selRes.data as PipelineEventRow | null) ?? null;
+      selectedRow = selEvent ? mapEventToPredictedRow(selEvent) : null;
+    }
+  }
+
+  // Phase 71-08 body preload: fetch the selected email's body server-side
+  // and pass to DetailPane via initialSelectedBody. Bypasses the
+  // fetchReviewEmailBody Server Action (which has been timing out in
+  // production for reasons not yet root-caused).
+  let initialSelectedBody: { bodyText: string; bodyHtml: string | null } | null = null;
+  if (selectedRow) {
+    const { data: emailRow } = await admin
+      .schema("email_pipeline")
+      .from("emails")
+      .select("body_text, body_html")
+      .eq("id", selectedRow.id)
+      .maybeSingle();
+    if (emailRow) {
+      initialSelectedBody = {
+        bodyText: (emailRow as { body_text: string | null }).body_text ?? "",
+        bodyHtml: (emailRow as { body_html: string | null }).body_html || null,
+      };
+    }
   }
 
   // 6. Phase 65-05 (CORD-03 surface) — coordinator_runs join for debtor-email.
@@ -682,6 +713,7 @@ export async function loadPageData(
     selectedRow,
     selectedTimeline,
     recipientChips,
+    selectedBody: initialSelectedBody,
   };
 }
 
@@ -749,6 +781,7 @@ export default async function SwarmReviewPage({
             <DetailPane
               rows={data.rows}
               initialSelectedRow={data.selectedRow}
+              initialSelectedBody={data.selectedBody}
               selectedTimeline={data.selectedTimeline}
               swarmType={swarmType}
               categories={categories}

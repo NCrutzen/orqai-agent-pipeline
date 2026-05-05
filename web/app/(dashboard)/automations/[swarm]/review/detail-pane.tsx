@@ -159,6 +159,9 @@ interface DetailPaneProps {
   selectedTimeline?: PipelineTimelineEvent[];
   /** Phase 71-05. Stage 3 widget consumes this. */
   intents?: SwarmIntentRow[];
+  /** Phase 71-08. Pre-fetched body for the initial selected row. Skips the
+   *  Server Action round-trip when the page already loaded the body. */
+  initialSelectedBody?: { bodyText: string; bodyHtml: string | null } | null;
 }
 
 // ---- Phase 71-05. 4-axis dirty-state shape ------------------------------
@@ -195,7 +198,13 @@ export function DetailPane({
   drawerFields: _drawerFields,
   selectedTimeline,
   intents,
+  initialSelectedBody,
 }: DetailPaneProps) {
+  // Phase 71-08: seed module-level cache from server-rendered body so
+  // the first selection paints synchronously with no Server Action round-trip.
+  if (initialSelectedRow && initialSelectedBody && !bodyCache.has(initialSelectedRow.id)) {
+    bodyCache.set(initialSelectedRow.id, initialSelectedBody);
+  }
   const { selectedId, setSelected, pendingRemovalIds, markPendingRemoval } =
     useSelection();
   const router = useRouter();
