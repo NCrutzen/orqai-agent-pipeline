@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Moyne Roberts — AI Agent Workforce</title>
+<style>
+  /* ============= base ============= */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #f5f3ee;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    color: #0e1b2c;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    width: 1240px;
+    margin: 0 auto;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(217,164,65,0.10), transparent 60%),
+      radial-gradient(1000px 600px at -10% 90%, rgba(35,82,124,0.08), transparent 60%),
+      #ffffff;
+    padding: 52px 56px 60px 56px;
+  }
+
+  /* ============= header ============= */
+  .brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #e7e2d6;
+    padding-bottom: 14px;
+    margin-bottom: 22px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #0e1b2c;
+    letter-spacing: 0.18em;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .brand .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: linear-gradient(135deg, #d9a441, #b07a1f);
+    box-shadow: 0 0 0 3px rgba(217,164,65,0.18);
+  }
+  .meta {
+    color: #6a6253;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+
+  h1.title {
+    font-size: 56px;
+    line-height: 1.02;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #0e1b2c;
+    margin-bottom: 12px;
+  }
+  h1.title .accent {
+    background: linear-gradient(120deg, #b07a1f 0%, #d9a441 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  p.lede {
+    font-size: 18px;
+    line-height: 1.5;
+    color: #4a5566;
+    max-width: 880px;
+    margin-bottom: 8px;
+  }
+  .phase-callout {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 18px;
+    padding: 10px 16px;
+    background: #fff8eb;
+    border: 1px solid #ecd9a4;
+    color: #7a5310;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 999px;
+  }
+  .phase-callout .pulse {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #d9a441;
+    box-shadow: 0 0 0 0 rgba(217,164,65,0.7);
+    animation: pulse 1.6s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(217,164,65,0.7); }
+    70%  { box-shadow: 0 0 0 8px rgba(217,164,65,0); }
+    100% { box-shadow: 0 0 0 0 rgba(217,164,65,0); }
+  }
+
+  /* ============= section header ============= */
+  .section {
+    margin-top: 46px;
+  }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    border-top: 2px solid #0e1b2c;
+    padding-top: 18px;
+  }
+  .section-num {
+    font-size: 13px;
+    color: #d9a441;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .section-when {
+    font-size: 13px;
+    color: #6a6253;
+    letter-spacing: 0.04em;
+  }
+  .section-title {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: #0e1b2c;
+    margin-bottom: 6px;
+  }
+  .section-sub {
+    font-size: 16px;
+    color: #4a5566;
+    line-height: 1.5;
+    max-width: 920px;
+    margin-bottom: 22px;
+  }
+
+  /* ============= team band ============= */
+  .team-band {
+    margin-top: 18px;
+  }
+  .team-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .team-label .chip {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    background: #0e1b2c;
+    color: #ffffff;
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+  .team-label .chip.outline {
+    background: transparent;
+    color: #0e1b2c;
+    border: 1px solid #0e1b2c;
+  }
+  .team-label .desc {
+    font-size: 14px;
+    color: #4a5566;
+  }
+
+  /* ============= agent grid ============= */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .grid-7 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; }
+
+  .agent-card {
+    background: #ffffff;
+    border: 1px solid #e7e2d6;
+    border-radius: 14px;
+    padding: 18px 16px 16px 16px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 0 rgba(14,27,44,0.04);
+  }
+  .agent-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, #0e1b2c, #23527c);
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+  }
+  .agent-card.live::before    { background: linear-gradient(90deg, #1B7A3A, #4ca56b); }
+  .agent-card.building::before{ background: linear-gradient(90deg, #B07A1F, #d9a441); }
+  .agent-card.planned::before { background: linear-gradient(90deg, #4A6B8A, #7e95b1); }
+
+  .avatar-wrap {
+    width: 92px; height: 92px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 6px auto 8px auto;
+    border: 3px solid #ffffff;
+    box-shadow: 0 0 0 1px #e7e2d6, 0 6px 18px rgba(14,27,44,0.10);
+    background: #f5f3ee;
+  }
+  .avatar-wrap img { width: 100%; height: 100%; display: block; }
+
+  .agent-card h3 {
+    font-size: 16px;
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: #0e1b2c;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .agent-card .role {
+    font-size: 11px;
+    text-align: center;
+    color: #6a6253;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 999px;
+    margin: 0 auto 10px auto;
+  }
+  .status-row { display: flex; justify-content: center; }
+  .status.live    { background: #e7f5ec; color: #1B7A3A; }
+  .status.building{ background: #fff3dc; color: #8a5a10; }
+  .status.planned { background: #eaf0f7; color: #3c5876; }
+  .status .d { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .bullets {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #2c3a4d;
+  }
+  .bullets li {
+    position: relative;
+    padding: 4px 0 4px 16px;
+  }
+  .bullets li::before {
+    content: '';
+    position: absolute;
+    left: 4px; top: 11px;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #d9a441;
+  }
+  .bullets li b { color: #0e1b2c; font-weight: 700; }
+
+  /* ============= action emphasis box ============= */
+  .action-box {
+    margin-top: 28px;
+    background: linear-gradient(135deg, #0e1b2c 0%, #1a2b44 100%);
+    color: #f5f3ee;
+    border-radius: 14px;
+    padding: 24px 26px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 26px;
+  }
+  .action-box h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: #d9a441;
+    margin-bottom: 8px;
+  }
+  .action-box .head {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    margin-bottom: 12px;
+  }
+  .action-box ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: #d8dce3;
+  }
+  .action-box ul li {
+    padding-left: 20px;
+    position: relative;
+    margin-bottom: 6px;
+  }
+  .action-box ul li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: #d9a441;
+    font-weight: 700;
+  }
+  .action-box .col + .col { border-left: 1px solid rgba(255,255,255,0.12); padding-left: 26px; }
+
+  /* ============= ramp section ============= */
+  .ramp-card {
+    background: #ffffff;
+    border: 1px solid #e7e2d6;
+    border-radius: 14px;
+    padding: 24px 26px;
+    box-shadow: 0 2px 0 rgba(14,27,44,0.04);
+  }
+  .ramp-card .head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .ramp-card .head .num {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800;
+    color: #ffffff;
+    background: linear-gradient(135deg, #b07a1f, #d9a441);
+    font-size: 16px;
+  }
+  .ramp-card h3 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: #0e1b2c;
+  }
+  .ramp-card .phase-tag {
+    margin-left: auto;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #b07a1f;
+    font-weight: 700;
+  }
+  .ramp-card p {
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: #2c3a4d;
+    margin-bottom: 12px;
+  }
+  .ramp-card .reuse-bar {
+    background: #f5f3ee;
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #2c3a4d;
+    line-height: 1.5;
+  }
+  .ramp-card .reuse-bar b { color: #1B7A3A; }
+
+  /* small flow visual */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 14px 0 6px 0;
+  }
+  .flow .node {
+    background: #f5f3ee;
+    border: 1px solid #e7e2d6;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0e1b2c;
+  }
+  .flow .node.new { background: #fff3dc; border-color: #ecd9a4; color: #7a5310; }
+  .flow .arrow { color: #6a6253; font-weight: 700; }
+
+  /* ============= footer ============= */
+  footer {
+    margin-top: 50px;
+    padding-top: 22px;
+    border-top: 1px solid #e7e2d6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #6a6253;
+    font-size: 12px;
+  }
+  footer .left { font-weight: 700; color: #0e1b2c; letter-spacing: 0.04em; }
+  footer .center { font-style: italic; }
+  footer .right { letter-spacing: 0.04em; }
+  .legend {
+    display: flex;
+    gap: 14px;
+    margin-top: 12px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #6a6253;
+  }
+  .legend .pill { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .pill .d { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ============= page break tweaks for PDF ============= */
+  @media print {
+    .page { box-shadow: none; }
+    .agent-card, .ramp-card, .action-box { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ============= HEADER ============= -->
+  <div class="brand-row">
+    <div class="brand"><span class="dot"></span> Moyne Roberts · Agent Workforce</div>
+    <div class="meta">Internal · Executive Briefing · April 2026</div>
+  </div>
+
+  <h1 class="title">An <span class="accent">AI Agent Team</span><br/>that runs Debtor Email — and is ready for Sales.</h1>
+  <p class="lede">
+    Eleven specialised agents process every customer email end-to-end across Outlook and iController. They sort the noise,
+    identify the customer, decide what's being asked, and draft the reply — leaving humans to do only the work that
+    actually needs human judgment.
+  </p>
+  <p class="lede" style="margin-top:8px;">
+    The same team is being prepared to run Sales Email next, and to learn-and-promote new patterns autonomously after that.
+  </p>
+  <div class="phase-callout"><span class="pulse"></span> Phase 64 just shipped: Stage 0 (input safety + per-run cost ceilings) is live. Platform is hardened and ready to scale.</div>
+
+  <!-- ============= SECTION 1: TODAY ============= -->
+  <section class="section">
+    <div class="section-head">
+      <div class="section-num">Section 1 · Today</div>
+      <div class="section-when">In production · debtor email shared mailboxes</div>
+    </div>
+    <div class="section-title">The Debtor Email Pipeline</div>
+    <div class="section-sub">
+      Every email lands in Outlook, gets passed across the team, and ends up either auto-handled or as a ready-to-send draft inside iController. We never auto-send — humans always have the final click.
+    </div>
+
+    <!-- Team A: Triage -->
+    <div class="team-band">
+      <div class="team-label">
+        <span class="chip">Team A · Triage</span>
+        <span class="desc">Every inbound email goes through these four agents, in order.</span>
+      </div>
+      <div class="grid-4">
+
+        <!-- Safety -->
+        <div class="agent-card live">
+          <div class="avatar-wrap"><img src="avatars/safety.svg" alt="Safety Agent" /></div>
+          <h3>Safety Agent</h3>
+          <div class="role">Stage 0 · Input safety</div>
+          <div class="status-row"><span class="status live"><span class="d"></span>Live</span></div>
+          <ul class="bullets">
+            <li>Detects <b>prompt-injection</b> attempts before any other agent reads the email.</li>
+            <li>Enforces a <b>hard cost ceiling</b> per email — no run can spiral.</li>
+            <li>Suspicious mail goes to a <b>human-only review lane</b>.</li>
+          </ul>
+        </div>
+
+        <!-- Triage / Regex -->
+        <div class="agent-card live">
+          <div class="avatar-wrap"><img src="avatars/triage.svg" alt="Triage Agent" /></div>
+          <h3>Triage Agent</h3>
+          <div class="role">Stage 1 · Deterministic sort</div>
+          <div class="status-row"><span class="status live"><span class="d"></span>Live</span></div>
+          <ul class="bullets">
+            <li>Auto-handles three noise categories end-to-end with <b>zero human touch and zero AI cost</b>: out-of-office, auto-replies, payment confirmations.</li>
+            <li>Outlook: <b>applies category label</b> + <b>archives</b> the message.</li>
+            <li>iController: <b>removes</b> the email from the operator queue.</li>
+          </ul>
+        </div>
+
+        <!-- Customer-ID -->
+        <div class="agent-card live">
+          <div class="avatar-wrap"><img src="avatars/customerid.svg" alt="Customer-ID Agent" /></div>
+          <h3>Customer-ID Agent</h3>
+          <div class="role">Stage 2 · Resolver</div>
+          <div class="status-row"><span class="status live"><span class="d"></span>Live</span></div>
+          <ul class="bullets">
+            <li>4-layer match: <b>thread → sender → invoice number → AI tiebreaker</b>.</li>
+            <li>Looks up customers in <b>NXT</b>; brand-aware (Smeba, Sicli, Berki, Fire Control…).</li>
+            <li>iController: <b>tags the email</b> under the matched account.</li>
+          </ul>
+        </div>
+
+        <!-- Intent-Routing -->
+        <div class="agent-card live">
+          <div class="avatar-wrap"><img src="avatars/intent.svg" alt="Intent-Routing Agent" /></div>
+          <h3>Intent-Routing Agent</h3>
+          <div class="role">Stage 3 · Coordinator</div>
+          <div class="status-row"><span class="status live"><span class="d"></span>Live</span></div>
+          <ul class="bullets">
+            <li>Reads the email and picks <b>one of 8 intents</b>: copy doc, dispute, address change, credit, contract, peppol, general…</li>
+            <li>Multilingual: <b>NL · EN · DE · FR</b>.</li>
+            <li>Hands off to the right specialist below.</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Team B: Handlers -->
+    <div class="team-band" style="margin-top: 32px;">
+      <div class="team-label">
+        <span class="chip outline">Team B · Handlers</span>
+        <span class="desc">Specialists. Each does one job in iController, in the customer's language.</span>
+      </div>
+      <div class="grid-4" style="margin-bottom: 18px;">
+
+        <!-- Invoice copy LIVE -->
+        <div class="agent-card live">
+          <div class="avatar-wrap"><img src="avatars/invoicecopy.svg" alt="Invoice-Copy Drafter" /></div>
+          <h3>Invoice-Copy Drafter</h3>
+          <div class="role">Stage 4 · Handler</div>
+          <div class="status-row"><span class="status live"><span class="d"></span>Live</span></div>
+          <ul class="bullets">
+            <li>Pulls the right invoice <b>PDF from NXT</b>.</li>
+            <li>iController: <b>composes a draft reply</b> with the PDF attached, in the customer's language.</li>
+            <li>Operator hits <b>Send</b>. We never auto-send.</li>
+          </ul>
+        </div>
+
+        <!-- Payment dispute -->
+        <div class="agent-card planned">
+          <div class="avatar-wrap"><img src="avatars/dispute.svg" alt="Payment-Dispute Specialist" /></div>
+          <h3>Payment-Dispute Specialist</h3>
+          <div class="role">Stage 4 · Handler</div>
+          <div class="status-row"><span class="status planned"><span class="d"></span>Planned</span></div>
+          <ul class="bullets">
+            <li>Drafts an <b>empathetic acknowledgment</b> in the customer's language.</li>
+            <li>Tags dispute type: <b>already paid · wrong amount · service issue</b>.</li>
+            <li>Routes to the <b>debtor team queue</b> with full context.</li>
+          </ul>
+        </div>
+
+        <!-- Address change -->
+        <div class="agent-card planned">
+          <div class="avatar-wrap"><img src="avatars/address.svg" alt="Address-Change Specialist" /></div>
+          <h3>Address-Change Specialist</h3>
+          <div class="role">Stage 4 · Handler</div>
+          <div class="status-row"><span class="status planned"><span class="d"></span>Planned</span></div>
+          <ul class="bullets">
+            <li>Extracts <b>street, postcode, city, country</b> from free-text mail.</li>
+            <li>Proposes a structured <b>NXT customer-record update</b>.</li>
+            <li>Human confirms before any data is written.</li>
+          </ul>
+        </div>
+
+        <!-- Credit -->
+        <div class="agent-card planned">
+          <div class="avatar-wrap"><img src="avatars/credit.svg" alt="Credit-Note Specialist" /></div>
+          <h3>Credit-Note Specialist</h3>
+          <div class="role">Stage 4 · Handler</div>
+          <div class="status-row"><span class="status planned"><span class="d"></span>Planned</span></div>
+          <ul class="bullets">
+            <li>Captures <b>invoice ref, amount, reason</b> for the credit request.</li>
+            <li>Sends a <b>holding reply</b>, routes to debtor team for approval.</li>
+            <li>Logs all credit requests for trend reporting.</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="grid-4">
+
+        <!-- Contract -->
+        <div class="agent-card planned">
+          <div class="avatar-wrap"><img src="avatars/contract.svg" alt="Contract-Inquiry Specialist" /></div>
+          <h3>Contract-Inquiry Specialist</h3>
+          <div class="role">Stage 4 · Handler</div>
+          <div class="status-row"><span class="status planned"><span class="d"></span>Planned</span></div>
+          <ul class="bullets">
+            <li>Classifies <b>renewal · termination · pricing</b> question.</li>
+            <li>Routes to the <b>contract owner</b> with a one-paragraph summary.</li>
+            <li>Optional holding reply to the customer.</li>
+          </ul>
+        </div>
+
+        <!-- Peppol -->
+        <div class="agent-card planned">
+          <div class="avatar-wrap"><img src="avatars/peppol.svg" alt="Peppol Specialist" /></div>
+          <h3>Peppol Specialist</h3>
+          <div class="role">Stage 4 · Handler</div>
+          <div class="status-row"><span class="status planned"><span class="d"></span>Planned</span></div>
+          <ul class="bullets">
+            <li>Replies to <b>e-invoicing / Peppol enrollment</b> requests.</li>
+            <li>Looks up the <b>entity-specific Peppol endpoint</b>.</li>
+            <li>Sends the right NL/BE instructions automatically.</li>
+          </ul>
+        </div>
+
+        <!-- General inquiry -->
+        <div class="agent-card planned">
+          <div class="avatar-wrap"><img src="avatars/general.svg" alt="General-Inquiry Drafter" /></div>
+          <h3>General-Inquiry Drafter</h3>
+          <div class="role">Stage 4 · Handler</div>
+          <div class="status-row"><span class="status planned"><span class="d"></span>Planned</span></div>
+          <ul class="bullets">
+            <li>Catch-all polite <b>holding reply</b> in the right language.</li>
+            <li>Promises a follow-up SLA (e.g. <em>"binnen X werkdagen"</em>).</li>
+            <li>Escalates to the human queue with classification.</li>
+          </ul>
+        </div>
+
+        <!-- Spacer card with summary stat -->
+        <div class="agent-card" style="background: linear-gradient(135deg, #fff8eb, #fdf1d4); border-color: #ecd9a4;">
+          <div style="text-align:center; padding: 10px 4px 0 4px;">
+            <div style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #7a5310; font-weight: 700; margin-bottom: 4px;">Handlers live</div>
+            <div style="font-size: 40px; font-weight: 800; color: #0e1b2c; line-height: 1;">1 <span style="color:#b07a1f; font-size:24px;">/ 7</span></div>
+            <div style="font-size: 12.5px; color: #4a5566; margin: 4px 0 12px 0;">six more designed and ready to switch on</div>
+
+            <div style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #7a5310; font-weight: 700; margin-bottom: 4px;">Mailboxes</div>
+            <div style="font-size: 26px; font-weight: 800; color: #0e1b2c; line-height: 1;">2 <span style="color:#b07a1f; font-size:18px;">→ 4</span></div>
+            <div style="font-size: 12px; color: #4a5566; margin: 4px 0 10px 0;">Smeba + Berki live · Fire Control + Smeba Fire next week</div>
+
+            <div style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #7a5310; font-weight: 700; margin-bottom: 4px;">Copy-doc volume</div>
+            <div style="font-size: 22px; font-weight: 800; color: #0e1b2c; line-height: 1;">~45 <span style="color:#b07a1f; font-size:14px;">/ month</span></div>
+            <div style="font-size: 11.5px; color: #4a5566; margin-top: 4px;">13-mo telemetry · debtor + sales combined</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Action emphasis box -->
+    <div class="action-box">
+      <div class="col">
+        <h4>What the team does in Outlook</h4>
+        <div class="head">Inbox stays clean — automatically.</div>
+        <ul>
+          <li>Reads inbound email from the shared mailbox</li>
+          <li>Applies a colour-coded category label per intent</li>
+          <li>Archives noise (out-of-office, auto-replies, payment confirmations)</li>
+          <li>Leaves only emails that need a human in the inbox</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>What the team does in iController</h4>
+        <div class="head">Drafts ready, queue cleared.</div>
+        <ul>
+          <li>Logs into iController via secure browser automation</li>
+          <li>Tags each email under the matched customer account</li>
+          <li>Removes auto-handled emails from the operator queue</li>
+          <li>Saves a draft reply with the right PDF attached — never sends</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============= SECTION 2: NEXT (Sales) ============= -->
+  <section class="section">
+    <div class="section-head">
+      <div class="section-num">Section 2 · Next</div>
+      <div class="section-when">Phase 73 · onboards in under a day</div>
+    </div>
+    <div class="section-title">The same team learns Sales Email.</div>
+    <div class="section-sub">
+      The pipeline was designed cross-domain from day one. To onboard the Sales mailbox into the same workforce we add only two parts: a SugarCRM customer lookup and a Sales-specific Intent-Routing Agent. Every other agent — Safety, Triage, all the Handlers — is reused as-is.
+    </div>
+
+    <div class="ramp-card">
+      <div class="head">
+        <div class="num">2</div>
+        <h3>Sales Email Swarm — built by registry insert, not by code</h3>
+        <span class="phase-tag">Phase 73</span>
+      </div>
+      <p>
+        Adding a swarm at Moyne Roberts is now a configuration row, not a project. Sales reuses the entire Triage and Handler team and only contributes its CRM-specific lookup and intent set.
+      </p>
+      <div class="flow">
+        <span class="node">Sales mail inbox</span><span class="arrow">→</span>
+        <span class="node">Safety</span><span class="arrow">→</span>
+        <span class="node">Triage</span><span class="arrow">→</span>
+        <span class="node new">Customer-ID (SugarCRM)</span><span class="arrow">→</span>
+        <span class="node new">Sales Intent-Routing</span><span class="arrow">→</span>
+        <span class="node">existing Handlers</span>
+      </div>
+      <div class="reuse-bar">
+        <b>Reuse:</b> 9 of 11 agents — Safety, Triage, all 7 Handler specialists. New: 1 SugarCRM resolver + 1 Sales coordinator. Estimated onboarding effort: <b>under one day</b>.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============= SECTION 3: AFTER (Autonomous) ============= -->
+  <section class="section">
+    <div class="section-head">
+      <div class="section-num">Section 3 · After</div>
+      <div class="section-when">Phases 71 → 72 · the platform learns from every override</div>
+    </div>
+    <div class="section-title">Autonomous promotion — the workforce gets cheaper every week.</div>
+    <div class="section-sub">
+      When the operator corrects an agent in Bulk Review, the platform writes that signal into a "Learning Inbox". Any pattern that an LLM keeps handling the same way gets promoted to a deterministic rule — faster, cheaper, more reliable. We graduate work down the cost curve automatically.
+    </div>
+
+    <div class="grid-2">
+      <div class="ramp-card">
+        <div class="head">
+          <div class="num">3a</div>
+          <h3>Bulk Review · 4-axis override</h3>
+          <span class="phase-tag">Phase 71</span>
+        </div>
+        <p>
+          Each email gets one row showing <b>category · customer · intent · output</b>. Operators correct any one axis with a single click. Every correction is its own learning signal — we know exactly which agent missed.
+        </p>
+        <div class="flow">
+          <span class="node">Wrong category?</span>
+          <span class="node">Wrong customer?</span>
+          <span class="node">Wrong intent?</span>
+          <span class="node">Wrong reply?</span>
+        </div>
+      </div>
+
+      <div class="ramp-card">
+        <div class="head">
+          <div class="num">3b</div>
+          <h3>Learning Inbox · graduated automation</h3>
+          <span class="phase-tag">Phase 72</span>
+        </div>
+        <p>
+          Patterns the AI keeps handling identically become free regex rules. Recurring senders become permanent customer mappings. Operator approves a candidate; the rule deploys with a full audit trail and can be rolled back in one click.
+        </p>
+        <div class="flow">
+          <span class="node">LLM handled</span>
+          <span class="arrow">→</span>
+          <span class="node">Pattern detected</span>
+          <span class="arrow">→</span>
+          <span class="node">Operator approves</span>
+          <span class="arrow">→</span>
+          <span class="node new">Free rule live</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============= LEGEND + FOOTER ============= -->
+  <div class="legend" style="margin-top: 36px;">
+    <span class="pill"><span class="d" style="background:#1B7A3A;"></span>Live in production</span>
+    <span class="pill"><span class="d" style="background:#d9a441;"></span>Building now</span>
+    <span class="pill"><span class="d" style="background:#4A6B8A;"></span>Planned (Phase 65–73)</span>
+  </div>
+
+  <footer>
+    <div class="left">Moyne Roberts · Agent Workforce</div>
+    <div class="center">Built on Vercel, Supabase, Inngest, Orq.ai, Browserless, Zapier.</div>
+    <div class="right">v8.0 · Apr 2026</div>
+  </footer>
+
+</div>
+</body>
+</html>

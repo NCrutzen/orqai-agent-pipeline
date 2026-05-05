@@ -116,12 +116,35 @@ export function StageStep({ stage, onMarkDirty }: StageStepProps) {
           )}
           {stage.state === "dirty" && stage.widget}
           {stage.state === "skipped" && (
-            <span
-              className="text-[12px] leading-[1.3]"
-              style={{ color: "var(--v7-muted)", opacity: 0.6 }}
-            >
-              — Stage skipped
-            </span>
+            // Phase 71-07: even for stages that never ran, the operator can
+            // still override (the override row IS the first decision). Show
+            // the same "override stage" affordance as the 'ok' branch.
+            <div className="flex items-center justify-between gap-3">
+              <span
+                className="text-[12px] leading-[1.3]"
+                style={{ color: "var(--v7-muted)", opacity: 0.7 }}
+              >
+                Stage didn't run — override to set
+              </span>
+              <button
+                type="button"
+                onClick={onMarkDirty}
+                className="text-[12px] leading-[1.3] underline-offset-2 hover:underline transition-colors duration-150 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{
+                  color: "var(--v7-brand-secondary)",
+                  outlineColor: "var(--v7-brand-secondary)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "var(--v7-brand-primary)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "var(--v7-brand-secondary)";
+                }}
+                aria-label={`Override Stage ${stage.n}`}
+              >
+                override stage
+              </button>
+            </div>
           )}
         </div>
       </div>

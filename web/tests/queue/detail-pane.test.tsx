@@ -6,7 +6,7 @@
 // submit path.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, act, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 // ---- next/navigation mock — DetailPane calls useRouter().replace() after
@@ -303,26 +303,27 @@ describe("DetailPane: optimistic removal", () => {
 
 describe("DetailPane: body fetch error surfaces real message", () => {
   it("renders the action's error string when ok=false", async () => {
+    // Phase 71-07: body fetch fires automatically on row mount (bodyOpen
+    // defaults to true). Fail-path bubbles the error string into the pane
+    // without needing a Show-email click.
     fetchBodyMock.mockResolvedValueOnce({
       ok: false,
       error: "outlook fetch failed: graph 401 Unauthorized",
     });
-    const row = makeRow("row-1");
+    // Phase 71-07: use a unique row id so module-level bodyCache from prior
+    // tests does not satisfy the load and bypass the fetch.
+    const row = makeRow("error-row-unique");
     render(
       withSelection(
-        "row-1",
+        "error-row-unique",
         <DetailPane rows={[row]} initialSelectedRow={null} />,
       ),
     );
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Show full email/i }));
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(
-      screen.getByText(/outlook fetch failed: graph 401 Unauthorized/),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByText(/outlook fetch failed: graph 401 Unauthorized/),
+      ).toBeInTheDocument(),
+    );
   });
 });

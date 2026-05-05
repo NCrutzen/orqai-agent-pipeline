@@ -232,7 +232,9 @@ export function DetailPane({
   const [override, setOverride] = useState<string | undefined>(undefined);
   const [notes, setNotes] = useState("");
 
-  const [bodyOpen, setBodyOpen] = useState(false);
+  // Phase 71-07: email body defaults open — operators were always toggling
+  // it manually as the first action.
+  const [bodyOpen, setBodyOpen] = useState(true);
   const [bodyLoading, setBodyLoading] = useState(false);
   const [bodyError, setBodyError] = useState<string | null>(null);
   const [bodyText, setBodyText] = useState<string | null>(null);
@@ -253,10 +255,25 @@ export function DetailPane({
     setStatus("predicted");
     setOverride(undefined);
     setNotes("");
-    setBodyOpen(false);
+    // Phase 71-07: keep email body open across row changes; auto-fetch.
+    setBodyOpen(true);
     setBodyLoading(false);
     setBodyError(null);
-    setBodyText(row && bodyCache.has(row.id) ? bodyCache.get(row.id)!.bodyText : null);
+    const cached = row && bodyCache.has(row.id) ? bodyCache.get(row.id)!.bodyText : null;
+    setBodyText(cached);
+    if (row && cached === null) {
+      setBodyLoading(true);
+      fetchReviewEmailBody(row.id)
+        .then((res) => {
+          if (res.ok) {
+            bodyCache.set(row.id, { bodyText: res.bodyText, bodyHtml: res.bodyHtml });
+            setBodyText(res.bodyText);
+          } else {
+            setBodyError(res.error);
+          }
+        })
+        .finally(() => setBodyLoading(false));
+    }
     // Phase 71-05 — reset 4-axis state when selection changes.
     setDirty({});
     setEvalType("regression");
@@ -1024,90 +1041,12 @@ export function DetailPane({
         onDismiss={() => setConfirmOpen(false)}
       />
 
-      {/* 5. Override dropdown — driven by registry. */}
-      <div>
-        <label className="block text-[12px] text-[var(--v7-muted)] mb-1">
-          {isUnknownBucket ? "Set rule (category)" : "Override category"}
-        </label>
-        <Select
-          value={override ?? ""}
-          onValueChange={(v) => setOverride(v)}
-        >
-          <SelectTrigger ref={overrideTriggerRef} className="w-full">
-            <SelectValue
-              placeholder={
-                isUnknownBucket
-                  ? "Pick a category for this email"
-                  : "Use predicted category"
-              }
-            />
-          </SelectTrigger>
-          <SelectContent>
-            {overrideOptions.map((c) => (
-              <SelectItem key={c.category_key} value={c.category_key}>
-                {c.display_label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* 6. Notes textarea */}
-      <div>
-        <label className="block text-[12px] text-[var(--v7-muted)] mb-1">
-          {isUnknownBucket
-            ? hasOverride
-              ? `Why is this ${overrideLabel}?`
-              : "Briefly describe this email — helps us build a rule"
-            : "Notes"}
-          {notesRequired && <span className="text-[var(--v7-red)]"> *</span>}
-        </label>
-        <Textarea
-          ref={notesRef}
-          rows={3}
-          maxLength={2000}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder={
-            isUnknownBucket
-              ? hasOverride
-                ? "e.g. Sender always sends remittance advice for invoices"
-                : "Who sent this? What is it about? What action is expected?"
-              : "Notes (optional)"
-          }
-          aria-required={notesRequired}
-          aria-invalid={notesRequired && !notesValid}
-          className="text-[13px]"
-        />
-      </div>
-
-      {/* 7. Action bar */}
+      {/* Phase 71-07: legacy "Set rule (category) + describe + Save & Skip"
+          chrome removed. The 4-axis Pipeline overrides flow above is the
+          canonical surface. Approve/Reject for non-override rows is reachable
+          via keyboard (Enter / Space / n) handled in keyboard-shortcuts.tsx. */}
       <div className="flex items-center gap-2 mt-2 flex-wrap">
-        {hasOverride ? (
-          <Button
-            onClick={() => submit("approve")}
-            disabled={busy || (notesRequired && !notesValid)}
-            style={{ background: "var(--v7-brand-primary)", color: "#fff" }}
-          >
-            <Check size={16} className="mr-1.5" />
-            {`Apply ${overrideLabel}`}
-            <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
-              ⏎
-            </kbd>
-          </Button>
-        ) : isUnknownBucket ? (
-          <Button
-            onClick={() => submit("skip")}
-            disabled={busy || (notesRequired && !notesValid)}
-            style={{ background: "var(--v7-brand-primary)", color: "#fff" }}
-          >
-            <SkipForward size={16} className="mr-1.5" />
-            Save & Skip
-            <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
-              ⏎
-            </kbd>
-          </Button>
-        ) : (
+        {!hasOverride && !isUnknownBucket && (
           <>
             <Button
               onClick={() => submit("approve")}

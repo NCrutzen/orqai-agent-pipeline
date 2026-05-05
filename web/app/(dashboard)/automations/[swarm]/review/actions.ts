@@ -477,14 +477,34 @@ export async function escalateToKanban(
 }
 
 export async function fetchReviewEmailBody(
-  automationRunId: string,
+  rowId: string,
 ): Promise<ReviewEmailBodyResult> {
   try {
     const admin = createAdminClient();
+
+    // Phase 71-07: Bulk Review rows are now keyed on email_pipeline.emails.id
+    // (the new pipeline_events_email_summary view aggregates per email). Try
+    // email_pipeline first; fall back to automation_runs for legacy callers.
+    {
+      const { data: emailRow } = await admin
+        .schema("email_pipeline")
+        .from("emails")
+        .select("body_text, body_html")
+        .eq("id", rowId)
+        .maybeSingle();
+      if (emailRow) {
+        return {
+          ok: true,
+          bodyText: emailRow.body_text ?? "",
+          bodyHtml: emailRow.body_html || null,
+        };
+      }
+    }
+
     const { data, error } = await admin
       .from("automation_runs")
       .select("result, triggered_by")
-      .eq("id", automationRunId)
+      .eq("id", rowId)
       .single();
     if (error || !data) {
       return { ok: false, error: "automation_run not found" };
@@ -531,7 +551,7 @@ export async function fetchReviewEmailBody(
     };
   } catch (e) {
     const msg = (e as Error).message ?? String(e);
-    console.error("[fetchReviewEmailBody]", automationRunId, msg);
+    console.error("[fetchReviewEmailBody]", rowId, msg);
     return { ok: false, error: `outlook fetch failed: ${msg}` };
   }
 }

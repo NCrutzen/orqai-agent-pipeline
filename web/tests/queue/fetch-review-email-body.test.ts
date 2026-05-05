@@ -12,6 +12,12 @@ let selectData: { result: Record<string, unknown> | null } | null = {
   result: { message_id: "msg-1", source_mailbox: "x@y.nl" },
 };
 
+// Phase 71-07: fetchReviewEmailBody now tries email_pipeline.emails by id
+// FIRST (the view-driven Bulk Review keys rows on email_pipeline.emails.id),
+// then falls back to automation_runs. The legacy tests below exercise the
+// fallback path; the email_pipeline branch is mocked to return null so the
+// fallback runs.
+let emailPipelineRow: { body_text: string | null; body_html: string | null } | null = null;
 const adminClientMock = {
   from: vi.fn((_table: string) => ({
     select: (_cols: string) => ({
@@ -25,6 +31,16 @@ const adminClientMock = {
       }),
     }),
   })),
+  schema: (_s: string) => ({
+    from: (_table: string) => ({
+      select: (_cols: string) => ({
+        eq: (_col: string, _val: unknown) => ({
+          maybeSingle: () =>
+            Promise.resolve({ data: emailPipelineRow, error: null }),
+        }),
+      }),
+    }),
+  }),
 };
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -52,6 +68,7 @@ import { fetchReviewEmailBody } from "@/app/(dashboard)/automations/[swarm]/revi
 beforeEach(() => {
   selectError = null;
   selectData = { result: { message_id: "msg-1", source_mailbox: "x@y.nl" } };
+  emailPipelineRow = null; // Phase 71-07: force fallback to automation_runs path.
   adminClientMock.from.mockClear();
   fetchMessageBodyMock.mockReset();
   fetchMessageBodyMock.mockResolvedValue({

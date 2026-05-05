@@ -650,7 +650,7 @@ export default async function SwarmReviewPage({
         initialSelectedId={sp.selected ?? null}
         rowIds={rowIds}
       >
-        <div className="px-6 pt-12 pb-12 max-w-[1600px] mx-auto">
+        <div className="px-6 pt-12 pb-12 w-full">
           <h1 className="text-[28px] font-semibold leading-[1.2] font-[family-name:var(--font-cabinet)]">
             {swarm.display_name ? `${swarm.display_name} — Bulk Review` : "Bulk Review"}
           </h1>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Debbie — Team Orchestrator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #f5f3ee;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    color: #0e1b2c;
+    -webkit-font-smoothing: antialiased;
+  }
+  .stage {
+    width: 720px;
+    padding: 40px;
+  }
+  .card {
+    background: #ffffff;
+    border: 1px solid #e7e2d6;
+    border-radius: 22px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 6px 24px rgba(14,27,44,0.08);
+    position: relative;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 6px;
+    background: linear-gradient(90deg, #8a5a2b 0%, #d9a441 50%, #8a5a2b 100%);
+  }
+
+  .head {
+    background:
+      radial-gradient(560px 220px at 80% -20%, rgba(217,164,65,0.20), transparent 70%),
+      radial-gradient(420px 220px at -10% 100%, rgba(138,90,43,0.14), transparent 70%),
+      #fff8eb;
+    padding: 40px 36px 28px 36px;
+    text-align: center;
+    border-bottom: 1px solid #f0e7d3;
+  }
+
+  .avatar {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    margin: 0 auto 18px auto;
+    overflow: hidden;
+    border: 5px solid #ffffff;
+    box-shadow:
+      0 0 0 1px #ecd9a4,
+      0 12px 28px rgba(138,90,43,0.18);
+    background: #fbe5cf;
+  }
+  .avatar img { width: 100%; height: 100%; display: block; }
+
+  .name {
+    font-size: 48px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #0e1b2c;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .role {
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #7a5310;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff3dc;
+    color: #8a5a10;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    border: 1px solid #ecd9a4;
+  }
+  .status .d {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #d9a441;
+  }
+
+  .tagline {
+    margin-top: 18px;
+    font-style: italic;
+    color: #6a5230;
+    font-size: 16px;
+    line-height: 1.45;
+  }
+  .tagline b { color: #5d3a1a; font-style: normal; font-weight: 700; }
+
+  .body {
+    padding: 28px 36px 32px 36px;
+  }
+  .body h3 {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #6a6253;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .body ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: #2c3a4d;
+  }
+  .body ul li {
+    position: relative;
+    padding: 8px 0 8px 24px;
+    border-top: 1px solid #f1ede1;
+  }
+  .body ul li:first-child { border-top: none; }
+  .body ul li::before {
+    content: '';
+    position: absolute;
+    left: 6px; top: 16px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #b07a1f, #d9a441);
+  }
+  .body ul li b { color: #0e1b2c; font-weight: 700; }
+
+  .footer-bar {
+    background: linear-gradient(135deg, #0e1b2c 0%, #1a2b44 100%);
+    color: #f5f3ee;
+    padding: 16px 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+  .footer-bar .left {
+    color: #d9a441;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 11px;
+  }
+  .footer-bar .right { color: #b8c1d0; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="card">
+
+    <div class="head">
+      <div class="avatar"><img src="avatars/debbie.svg" alt="Debbie" /></div>
+      <div class="name">Debbie</div>
+      <div class="role">Team Orchestrator · Debtor Handlers</div>
+      <div class="status"><span class="d"></span>Up Next · Phase 65</div>
+      <div class="tagline">"Howdy. I keep the Handlers movin' in the right direction —<br/>and I split a job across the team when one email needs more than one of 'em."</div>
+    </div>
+
+    <div class="body">
+      <h3>What Debbie does</h3>
+      <ul>
+        <li><b>Wrangles the seven Handlers.</b> When the Intent-Routing Agent surfaces a clear single intent, Debbie hands the email straight to the right specialist.</li>
+        <li><b>Splits the job when needed.</b> An email with two intents — "send me invoice 12345 AND change my address" — gets broken into parallel jobs. Debbie spawns multiple Handlers and waits for them to finish.</li>
+        <li><b>Stitches their outputs together.</b> Synthesises the parallel Handler results into a <b>single iController draft</b> so the operator gets one reply, not three.</li>
+        <li><b>Knows when to escalate.</b> Low confidence, three+ intents, or a registry-flagged "needs orchestration" intent → Debbie pulls a human in instead of guessing.</li>
+        <li><b>Keeps cost predictable.</b> Default 80% of inbound stays on the cheap single-shot path; only the genuinely complex emails pay for the orchestrator step.</li>
+      </ul>
+    </div>
+
+    <div class="footer-bar">
+      <div class="left">Moyne Roberts · Agent Workforce</div>
+      <div class="right">Stage 3.5 · Orchestrator-Worker pattern</div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
