@@ -4,6 +4,7 @@ import { categorizeEmail, archiveEmail, fetchMessageBody, getMessageMeta } from 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inngest } from "@/lib/inngest/client";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
+import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { readWhitelist } from "@/lib/classifier/cache";
 import { ICONTROLLER_MAILBOXES } from "@/lib/automations/debtor-email/mailboxes";
 
@@ -281,6 +282,42 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
 
   // Classify
   const r = classify({ subject: msg.subject, from: msg.from, bodySnippet: msg.body.slice(0, 1000) });
+
+  // Phase 70 — TELE-01 Stage 1 emit. CARVE-OUT FROM D-09:
+  // D-09 ("every emit lives inside an Inngest step.run") is RELAXED here.
+  // This site is a synchronous Next.js API route handler, not an Inngest
+  // function — Vercel runs it once per HTTP request with no replay
+  // machinery. A plain awaited INSERT is therefore replay-safe by
+  // construction (RESEARCH §Pattern 2). Do NOT "fix" this by wrapping
+  // in step.run; there is no step context to wrap into.
+  //
+  // We emit ONE pipeline_events row per email at the moment of regex
+  // classification (RESEARCH §Open Question Q1 recommendation). The
+  // route's downstream automation_runs.insert branches (categorize-failed,
+  // archive-failed, completed-categorize+archive, pending-icontroller-delete)
+  // are operational outcomes — they DO NOT add additional Stage 1 rows.
+  //
+  // email_id: at this point the canonical email_pipeline.emails.id (uuid)
+  // is not yet in scope — it's only resolved later inside fireStage0Event
+  // for the unknown+shadow branch. Per RESEARCH §Pitfall 3, fall back to
+  // email_id: null and stash the Outlook string id in decision_details.
+  await emitPipelineEvent(admin, {
+    swarm_type: "debtor-email",
+    stage: 1,
+    email_id: null,
+    decision: r.category === "unknown" ? "unknown" : r.category,
+    confidence: typeof r.confidence === "number" ? r.confidence : null,
+    decision_details: {
+      regex_rule_id: r.matchedRule,
+      matched: r.category !== "unknown",
+      outlook_message_id: messageId,
+      source_mailbox: sourceMailbox,
+      entity: settings.entity,
+    },
+    // Phase 71+ may correlate via automation_run_id; v1 joins via email_id.
+    automation_run_id: null,
+    triggered_by: "pipeline",
+  });
 
   const isWhitelistMatch = whitelist.has(r.matchedRule);
   const autoActionAllowed = isWhitelistMatch && settings.auto_label_enabled;
