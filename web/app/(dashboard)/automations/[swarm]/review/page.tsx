@@ -480,6 +480,16 @@ export async function loadPageData(
         .in("source_id", predictedMessageIds);
       predictedEmailIds = ((peRes.data ?? []) as Array<{ id: string }>).map((e) => e.id);
     }
+    console.log(
+      "[bulk-review.diag]",
+      JSON.stringify({
+        swarmType,
+        predictedRunsCount: predictedRunsRes.data?.length ?? 0,
+        predictedMessageIdsCount: predictedMessageIds.length,
+        predictedEmailIdsCount: predictedEmailIds.length,
+        predictedRunsErr: (predictedRunsRes as { error?: { message?: string } }).error?.message ?? null,
+      }),
+    );
 
     const listQuery = (admin.from("pipeline_events_email_summary") as unknown as SummaryQuery)
       .select(
