@@ -14,6 +14,7 @@
 
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchMessageBody } from "@/lib/outlook";
 import { AutomationRealtimeProvider } from "@/components/automations/automation-realtime-provider";
 import {
   loadSwarm,
@@ -615,16 +616,58 @@ export async function loadPageData(
     const { data: emailBodies } = await admin
       .schema("email_pipeline")
       .from("emails")
-      .select("id, body_text, body_html")
+      .select("id, source_id, mailbox, body_text, body_html")
       .in("id", allEmailIds);
-    for (const e of (emailBodies as Array<{ id: string; body_text: string | null; body_html: string | null }> | null) ?? []) {
+    const bodyRowsByEmailId = new Map<
+      string,
+      { source_id: string | null; mailbox: string | null; body_text: string | null; body_html: string | null }
+    >();
+    for (const e of (emailBodies as Array<{
+      id: string;
+      source_id: string | null;
+      mailbox: string | null;
+      body_text: string | null;
+      body_html: string | null;
+    }> | null) ?? []) {
+      bodyRowsByEmailId.set(e.id, e);
       initialBodyMap[e.id] = {
         bodyText: e.body_text ?? "",
         bodyHtml: e.body_html || null,
       };
     }
-    if (selectedRow && initialBodyMap[selectedRow.id]) {
-      initialSelectedBody = initialBodyMap[selectedRow.id];
+    // Phase 71-08: Outlook fallback for the selected row only. Historical
+    // emails backfilled by SQL have body_text=NULL because the Phase 70
+    // dual-write didn't capture them. Fetch from Microsoft Graph as a one-off
+    // for the row the operator is actually looking at, so the detail pane
+    // doesn't render an empty blob.
+    if (selectedRow) {
+      const stored = bodyRowsByEmailId.get(selectedRow.id);
+      if (stored && (stored.body_text ?? "").trim().length === 0 && stored.source_id && stored.mailbox) {
+        try {
+          const fetched = await fetchMessageBody(stored.mailbox, stored.source_id);
+          if (fetched.bodyText || fetched.bodyHtml) {
+            initialBodyMap[selectedRow.id] = {
+              bodyText: fetched.bodyText ?? "",
+              bodyHtml: fetched.bodyHtml || null,
+            };
+            // Persist for next time so we don't re-hit Graph.
+            await admin
+              .schema("email_pipeline")
+              .from("emails")
+              .update({
+                body_text: fetched.bodyText ?? null,
+                body_html: fetched.bodyHtml ?? null,
+              })
+              .eq("id", selectedRow.id);
+          }
+        } catch {
+          // Outlook fetch failed (deleted message, auth issue, etc). Leave
+          // the empty body in place so the operator sees the metadata at least.
+        }
+      }
+      if (initialBodyMap[selectedRow.id]) {
+        initialSelectedBody = initialBodyMap[selectedRow.id];
+      }
     }
   }
 
