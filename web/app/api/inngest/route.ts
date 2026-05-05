@@ -36,6 +36,7 @@ import { stage0SafetyWorker } from "@/lib/inngest/functions/stage-0-safety-worke
 import { budgetBreachHandler } from "@/lib/inngest/functions/budget-breach-handler";
 import { coordinatorOrchestrator } from "@/lib/inngest/functions/coordinator-orchestrator";
 import { coordinatorSynthesis } from "@/lib/inngest/functions/coordinator-synthesis";
+import { debtorEmailOverrideHandler } from "@/lib/inngest/functions/debtor-email-override-handler";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -68,5 +69,6 @@ export const { GET, POST, PUT } = serve({
     budgetBreachHandler,
     coordinatorOrchestrator,
     coordinatorSynthesis,
+    debtorEmailOverrideHandler,
   ],
 });
