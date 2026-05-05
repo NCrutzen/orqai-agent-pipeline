@@ -191,6 +191,10 @@ export interface PageData {
   recipientChips: RecipientChip[];
   /** Phase 71-08. Pre-fetched body for the selected email. */
   selectedBody: { bodyText: string; bodyHtml: string | null } | null;
+  /** Phase 71-08. Pre-fetched bodies for all visible rows, keyed by email_id.
+   *  Used to seed the client-side bodyCache so clicking any row paints
+   *  synchronously (selection-context updates don't re-render the server). */
+  bodyMap: Record<string, { bodyText: string; bodyHtml: string | null }>;
 }
 
 /**
@@ -598,23 +602,29 @@ export async function loadPageData(
     }
   }
 
-  // Phase 71-08 body preload: fetch the selected email's body server-side
-  // and pass to DetailPane via initialSelectedBody. Bypasses the
-  // fetchReviewEmailBody Server Action (which has been timing out in
-  // production for reasons not yet root-caused).
+  // Phase 71-08 body preload: fetch bodies for ALL rows server-side and
+  // pass to DetailPane via initialBodyMap. Client-side row selection updates
+  // selection-context without re-rendering this server component, so seeding
+  // only the initial selected row's body wasn't enough — clicking a different
+  // row would fall through to the (hanging) fetchReviewEmailBody Server Action.
+  // Bulk preload is cheap: ~30 rows × ~500 char body = ~15KB payload.
+  let initialBodyMap: Record<string, { bodyText: string; bodyHtml: string | null }> = {};
   let initialSelectedBody: { bodyText: string; bodyHtml: string | null } | null = null;
-  if (selectedRow) {
-    const { data: emailRow } = await admin
+  if (rows.length > 0) {
+    const allEmailIds = rows.map((r) => r.id).filter(Boolean);
+    const { data: emailBodies } = await admin
       .schema("email_pipeline")
       .from("emails")
-      .select("body_text, body_html")
-      .eq("id", selectedRow.id)
-      .maybeSingle();
-    if (emailRow) {
-      initialSelectedBody = {
-        bodyText: (emailRow as { body_text: string | null }).body_text ?? "",
-        bodyHtml: (emailRow as { body_html: string | null }).body_html || null,
+      .select("id, body_text, body_html")
+      .in("id", allEmailIds);
+    for (const e of (emailBodies as Array<{ id: string; body_text: string | null; body_html: string | null }> | null) ?? []) {
+      initialBodyMap[e.id] = {
+        bodyText: e.body_text ?? "",
+        bodyHtml: e.body_html || null,
       };
+    }
+    if (selectedRow && initialBodyMap[selectedRow.id]) {
+      initialSelectedBody = initialBodyMap[selectedRow.id];
     }
   }
 
@@ -714,6 +724,7 @@ export async function loadPageData(
     selectedTimeline,
     recipientChips,
     selectedBody: initialSelectedBody,
+    bodyMap: initialBodyMap,
   };
 }
 
@@ -782,6 +793,7 @@ export default async function SwarmReviewPage({
               rows={data.rows}
               initialSelectedRow={data.selectedRow}
               initialSelectedBody={data.selectedBody}
+              initialBodyMap={data.bodyMap}
               selectedTimeline={data.selectedTimeline}
               swarmType={swarmType}
               categories={categories}

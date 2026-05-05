@@ -162,6 +162,10 @@ interface DetailPaneProps {
   /** Phase 71-08. Pre-fetched body for the initial selected row. Skips the
    *  Server Action round-trip when the page already loaded the body. */
   initialSelectedBody?: { bodyText: string; bodyHtml: string | null } | null;
+  /** Phase 71-08. Pre-fetched bodies for all visible rows. Seeds the
+   *  module-level bodyCache so client-side row selection paints
+   *  synchronously without a Server Action. */
+  initialBodyMap?: Record<string, { bodyText: string; bodyHtml: string | null }>;
 }
 
 // ---- Phase 71-05. 4-axis dirty-state shape ------------------------------
@@ -199,9 +203,17 @@ export function DetailPane({
   selectedTimeline,
   intents,
   initialSelectedBody,
+  initialBodyMap,
 }: DetailPaneProps) {
-  // Phase 71-08: seed module-level cache from server-rendered body so
-  // the first selection paints synchronously with no Server Action round-trip.
+  // Phase 71-08: seed module-level cache from server-rendered bodies so
+  // every row paints synchronously with no Server Action round-trip.
+  if (initialBodyMap) {
+    for (const [emailId, body] of Object.entries(initialBodyMap)) {
+      if (!bodyCache.has(emailId)) {
+        bodyCache.set(emailId, body);
+      }
+    }
+  }
   if (initialSelectedRow && initialSelectedBody && !bodyCache.has(initialSelectedRow.id)) {
     bodyCache.set(initialSelectedRow.id, initialSelectedBody);
   }
