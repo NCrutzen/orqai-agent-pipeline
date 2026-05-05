@@ -479,6 +479,7 @@ export async function escalateToKanban(
 export async function fetchReviewEmailBody(
   rowId: string,
 ): Promise<ReviewEmailBodyResult> {
+  console.log("[fetchReviewEmailBody.diag] start", rowId);
   try {
     const admin = createAdminClient();
 
@@ -486,12 +487,21 @@ export async function fetchReviewEmailBody(
     // (the new pipeline_events_email_summary view aggregates per email). Try
     // email_pipeline first; fall back to automation_runs for legacy callers.
     {
-      const { data: emailRow } = await admin
+      const { data: emailRow, error: epErr } = await admin
         .schema("email_pipeline")
         .from("emails")
         .select("body_text, body_html")
         .eq("id", rowId)
         .maybeSingle();
+      console.log(
+        "[fetchReviewEmailBody.diag] email_pipeline lookup",
+        JSON.stringify({
+          rowId,
+          hit: !!emailRow,
+          err: epErr?.message ?? null,
+          bodyLen: emailRow?.body_text?.length ?? null,
+        }),
+      );
       if (emailRow) {
         return {
           ok: true,
