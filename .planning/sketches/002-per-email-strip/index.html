@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 002 — Per-email row strip (4 stages)</title>
+<link rel="stylesheet" href="../themes/default.css" />
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; }
+  .page { flex: 1; overflow: auto; padding: var(--space-6); }
+  .panel-title { font-size: var(--fs-md); margin-bottom: var(--space-2); }
+  .panel-sub { color: var(--text-muted); font-size: var(--fs-sm); margin-bottom: var(--space-5); }
+
+  /* Shared row container */
+  .row {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-2);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .row:hover { background: var(--bg-hover); }
+  .row.selected { border-color: var(--accent); background: var(--bg-selected); }
+
+  /* === Variant A: 4-column stage strip === */
+  .va-row { display: grid; grid-template-columns: 280px 1fr 90px 56px; gap: var(--space-4); align-items: center; }
+  .va-meta .from { font-weight: 500; }
+  .va-meta .subj { color: var(--text-muted); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .va-stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-1); }
+  .va-stage {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    font-size: var(--fs-xs);
+    line-height: 1.3;
+    position: relative;
+    overflow: hidden;
+  }
+  .va-stage .lbl { color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; }
+  .va-stage .val { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .va-stage.overridden { border-color: var(--accent); background: var(--accent-soft); }
+  .va-stage.overridden::after {
+    content: "↻"; position: absolute; right: 6px; top: 4px;
+    color: var(--accent); font-size: 11px;
+  }
+  .va-cost { font-family: var(--font-mono); color: var(--text-muted); font-size: var(--fs-sm); text-align: right; }
+  .va-flag { text-align: right; }
+  .pill {
+    display: inline-block; padding: 2px 6px; border-radius: var(--radius-sm);
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+  }
+  .pill.regression { background: var(--danger-soft); color: var(--danger); }
+  .pill.capability { background: var(--success-soft); color: var(--success); }
+
+  /* === Variant B: Single-line glyphs === */
+  .vb-row { display: flex; align-items: center; gap: var(--space-3); }
+  .vb-from { width: 200px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vb-subj { flex: 1; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vb-pipeline { display: flex; align-items: center; gap: 0; }
+  .vb-glyph {
+    width: 26px; height: 26px; display: grid; place-items: center;
+    border-radius: var(--radius-sm); background: var(--bg-panel);
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .vb-glyph.ok { color: var(--success); }
+  .vb-glyph.overridden { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .vb-glyph.overridden::after {
+    content: ""; position: absolute; top: -2px; right: -2px;
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  }
+  .vb-arrow { color: var(--text-dim); font-size: 11px; padding: 0 2px; }
+  .vb-cost { font-family: var(--font-mono); color: var(--text-muted); width: 60px; text-align: right; font-size: var(--fs-sm); }
+
+  /* === Variant C: Breadcrumb path === */
+  .vc-row { display: block; }
+  .vc-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .vc-from { font-weight: 500; }
+  .vc-meta { color: var(--text-dim); font-size: var(--fs-xs); font-family: var(--font-mono); }
+  .vc-subj { color: var(--text-muted); font-size: var(--fs-sm); margin-bottom: var(--space-2); }
+  .vc-path { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .vc-step {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px; font-size: var(--fs-xs); display: flex; gap: 6px; align-items: center;
+  }
+  .vc-step .stage-num {
+    background: var(--bg); padding: 0 5px; border-radius: 3px;
+    font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
+  }
+  .vc-step.overridden { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+  .vc-step.overridden .stage-num { color: var(--accent); }
+  .vc-sep { color: var(--text-dim); }
+
+  /* Header for list */
+  .col-head {
+    display: grid; grid-template-columns: 280px 1fr 90px 56px;
+    gap: var(--space-4); padding: var(--space-2) var(--space-4);
+    color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .col-head .stages-head { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-1); }
+</style>
+</head>
+<body>
+
+<div class="variant-tabs">
+  <button class="active" onclick="show('a', this)">Variant A: Column strip</button>
+  <button onclick="show('b', this)">Variant B: Glyph pipeline</button>
+  <button onclick="show('c', this)">Variant C: Breadcrumb path</button>
+</div>
+
+<div class="page">
+  <div class="panel-title">Bulk Review — Predicted rows</div>
+  <div class="panel-sub">One row per email · 4 pipeline stages · override flags · cost rollup</div>
+
+  <!-- ============ Variant A ============ -->
+  <div id="va" class="variant">
+    <div class="col-head">
+      <div>From / Subject</div>
+      <div class="stages-head"><div>Stage 1 · category</div><div>Stage 2 · customer</div><div>Stage 3 · intent</div><div>Stage 4 · output</div></div>
+      <div style="text-align:right">Cost</div>
+      <div></div>
+    </div>
+
+    <div class="row va-row selected">
+      <div class="va-meta">
+        <div class="from">facturen@klantbedrijf.nl</div>
+        <div class="subj">Re: Factuur 2026-04812 — kopie aub</div>
+      </div>
+      <div class="va-stages">
+        <div class="va-stage"><div class="lbl">Stage 1</div><div class="val">invoice_request</div></div>
+        <div class="va-stage overridden"><div class="lbl">Stage 2</div><div class="val">Klantbedrijf BV</div></div>
+        <div class="va-stage"><div class="lbl">Stage 3</div><div class="val">invoice_copy_handler</div></div>
+        <div class="va-stage"><div class="lbl">Stage 4</div><div class="val">draft → iController #4812</div></div>
+      </div>
+      <div class="va-cost">€0.024</div>
+      <div class="va-flag"><span class="pill regression">reg</span></div>
+    </div>
+
+    <div class="row va-row">
+      <div class="va-meta">
+        <div class="from">no-reply@bouwbedrijf.com</div>
+        <div class="subj">Out-of-office: terug op 12 mei</div>
+      </div>
+      <div class="va-stages">
+        <div class="va-stage overridden"><div class="lbl">Stage 1</div><div class="val">noise (was: invoice)</div></div>
+        <div class="va-stage" style="opacity:.4"><div class="lbl">Stage 2</div><div class="val">—</div></div>
+        <div class="va-stage" style="opacity:.4"><div class="lbl">Stage 3</div><div class="val">—</div></div>
+        <div class="va-stage" style="opacity:.4"><div class="lbl">Stage 4</div><div class="val">—</div></div>
+      </div>
+      <div class="va-cost">€0.003</div>
+      <div class="va-flag"><span class="pill capability">cap</span></div>
+    </div>
+
+    <div class="row va-row">
+      <div class="va-meta">
+        <div class="from">administratie@zorgcentrum-noord.nl</div>
+        <div class="subj">Vraag over openstaand saldo Q1</div>
+      </div>
+      <div class="va-stages">
+        <div class="va-stage"><div class="lbl">Stage 1</div><div class="val">balance_inquiry</div></div>
+        <div class="va-stage"><div class="lbl">Stage 2</div><div class="val">Zorgcentrum Noord</div></div>
+        <div class="va-stage overridden"><div class="lbl">Stage 3</div><div class="val">balance_handler</div></div>
+        <div class="va-stage overridden"><div class="lbl">Stage 4</div><div class="val">quality 2/5</div></div>
+      </div>
+      <div class="va-cost">€0.041</div>
+      <div class="va-flag"><span class="pill regression">reg</span></div>
+    </div>
+
+    <div class="row va-row">
+      <div class="va-meta">
+        <div class="from">m.dejong@klant.nl</div>
+        <div class="subj">betaling onderweg, excuses voor de vertraging</div>
+      </div>
+      <div class="va-stages">
+        <div class="va-stage"><div class="lbl">Stage 1</div><div class="val">payment_promise</div></div>
+        <div class="va-stage"><div class="lbl">Stage 2</div><div class="val">M. de Jong (factuur 4781)</div></div>
+        <div class="va-stage"><div class="lbl">Stage 3</div><div class="val">payment_promise_handler</div></div>
+        <div class="va-stage"><div class="lbl">Stage 4</div><div class="val">draft → iController #4781</div></div>
+      </div>
+      <div class="va-cost">€0.019</div>
+      <div class="va-flag"></div>
+    </div>
+  </div>
+
+  <!-- ============ Variant B ============ -->
+  <div id="vb" class="variant" style="display:none">
+    <div class="row vb-row selected">
+      <div class="vb-from">facturen@klantbedrijf.nl</div>
+      <div class="vb-subj">Re: Factuur 2026-04812 — kopie aub</div>
+      <div class="vb-pipeline">
+        <div class="vb-glyph ok" title="Stage 1: invoice_request">1</div>
+        <span class="vb-arrow">→</span>
+        <div class="vb-glyph overridden" title="Stage 2 OVERRIDDEN: Klantbedrijf BV">2</div>
+        <span class="vb-arrow">→</span>
+        <div class="vb-glyph ok" title="Stage 3: invoice_copy_handler">3</div>
+        <span class="vb-arrow">→</span>
+        <div class="vb-glyph ok" title="Stage 4: draft created">4</div>
+      </div>
+      <div class="vb-cost">€0.024</div>
+      <span class="pill regression">reg</span>
+    </div>
+
+    <div class="row vb-row">
+      <div class="vb-from">no-reply@bouwbedrijf.com</div>
+      <div class="vb-subj">Out-of-office: terug op 12 mei</div>
+      <div class="vb-pipeline">
+        <div class="vb-glyph overridden" title="Stage 1 OVERRIDDEN: noise">1</div>
+        <span class="vb-arrow">→</span>
+        <div class="vb-glyph" style="opacity:.3" title="not reached">2</div>
+        <span class="vb-arrow" style="opacity:.3">→</span>
+        <div class="vb-glyph" style="opacity:.3">3</div>
+        <span class="vb-arrow" style="opacity:.3">→</span>
+        <div class="vb-glyph" style="opacity:.3">4</div>
+      </div>
+      <div class="vb-cost">€0.003</div>
+      <span class="pill capability">cap</span>
+    </div>
+
+    <div class="row vb-row">
+      <div class="vb-from">administratie@zorgcentrum-noord.nl</div>
+      <div class="vb-subj">Vraag over openstaand saldo Q1</div>
+      <div class="vb-pipeline">
+        <div class="vb-glyph ok">1</div>
+        <span class="vb-arrow">→</span>
+        <div class="vb-glyph ok">2</div>
+        <span class="vb-arrow">→</span>
+        <div class="vb-glyph overridden">3</div>
+        <span class="vb-arrow">→</span>
+        <div class="vb-glyph overridden">4</div>
+      </div>
+      <div class="vb-cost">€0.041</div>
+      <span class="pill regression">reg</span>
+    </div>
+
+    <div class="row vb-row">
+      <div class="vb-from">m.dejong@klant.nl</div>
+      <div class="vb-subj">betaling onderweg, excuses voor de vertraging</div>
+      <div class="vb-pipeline">
+        <div class="vb-glyph ok">1</div>
+        <span class="vb-arrow">→</span>
+        <div class="vb-glyph ok">2</div>
+        <span class="vb-arrow">→</span>
+        <div class="vb-glyph ok">3</div>
+        <span class="vb-arrow">→</span>
+        <div class="vb-glyph ok">4</div>
+      </div>
+      <div class="vb-cost">€0.019</div>
+    </div>
+  </div>
+
+  <!-- ============ Variant C ============ -->
+  <div id="vc" class="variant" style="display:none">
+    <div class="row vc-row selected">
+      <div class="vc-top">
+        <div class="vc-from">facturen@klantbedrijf.nl</div>
+        <div class="vc-meta">€0.024 · 2 tools · <span class="pill regression">regression</span></div>
+      </div>
+      <div class="vc-subj">Re: Factuur 2026-04812 — kopie aub</div>
+      <div class="vc-path">
+        <span class="vc-step"><span class="stage-num">S1</span> invoice_request</span>
+        <span class="vc-sep">›</span>
+        <span class="vc-step overridden"><span class="stage-num">S2</span> Klantbedrijf BV ↻</span>
+        <span class="vc-sep">›</span>
+        <span class="vc-step"><span class="stage-num">S3</span> invoice_copy_handler</span>
+        <span class="vc-sep">›</span>
+        <span class="vc-step"><span class="stage-num">S4</span> draft → iController #4812</span>
+      </div>
+    </div>
+
+    <div class="row vc-row">
+      <div class="vc-top">
+        <div class="vc-from">no-reply@bouwbedrijf.com</div>
+        <div class="vc-meta">€0.003 · <span class="pill capability">capability</span></div>
+      </div>
+      <div class="vc-subj">Out-of-office: terug op 12 mei</div>
+      <div class="vc-path">
+        <span class="vc-step overridden"><span class="stage-num">S1</span> noise (was invoice) ↻</span>
+        <span class="vc-sep" style="opacity:.3">›</span>
+        <span class="vc-step" style="opacity:.4">stages 2-4 skipped</span>
+      </div>
+    </div>
+
+    <div class="row vc-row">
+      <div class="vc-top">
+        <div class="vc-from">administratie@zorgcentrum-noord.nl</div>
+        <div class="vc-meta">€0.041 · 4 tools · <span class="pill regression">regression</span></div>
+      </div>
+      <div class="vc-subj">Vraag over openstaand saldo Q1</div>
+      <div class="vc-path">
+        <span class="vc-step"><span class="stage-num">S1</span> balance_inquiry</span>
+        <span class="vc-sep">›</span>
+        <span class="vc-step"><span class="stage-num">S2</span> Zorgcentrum Noord</span>
+        <span class="vc-sep">›</span>
+        <span class="vc-step overridden"><span class="stage-num">S3</span> balance_handler ↻</span>
+        <span class="vc-sep">›</span>
+        <span class="vc-step overridden"><span class="stage-num">S4</span> quality 2/5 ↻</span>
+      </div>
+    </div>
+
+    <div class="row vc-row">
+      <div class="vc-top">
+        <div class="vc-from">m.dejong@klant.nl</div>
+        <div class="vc-meta">€0.019 · 2 tools</div>
+      </div>
+      <div class="vc-subj">betaling onderweg, excuses voor de vertraging</div>
+      <div class="vc-path">
+        <span class="vc-step"><span class="stage-num">S1</span> payment_promise</span>
+        <span class="vc-sep">›</span>
+        <span class="vc-step"><span class="stage-num">S2</span> M. de Jong</span>
+        <span class="vc-sep">›</span>
+        <span class="vc-step"><span class="stage-num">S3</span> payment_promise_handler</span>
+        <span class="vc-sep">›</span>
+        <span class="vc-step"><span class="stage-num">S4</span> draft → iController #4781</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sketch-toolbar">
+  <span class="badge">SKETCH 002</span>
+  <span>per-email-strip</span>
+</div>
+
+<script>
+function show(v, btn) {
+  ['a','b','c'].forEach(x => document.getElementById('v'+x).style.display = (x===v?'block':'none'));
+  document.querySelectorAll('.variant-tabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>
