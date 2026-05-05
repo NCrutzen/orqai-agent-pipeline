@@ -101,17 +101,57 @@ export const debtorEmailOverrideHandler = inngest.createFunction(
     // STEP 2: per-axis side effect.
     switch (axis) {
       case "stage_1_category": {
-        // D-04: re-dispatch existing classifier/verdict.recorded so the
-        // verdict-worker performs the reroute (categorize/archive/swarm_dispatch).
-        // The triggered_by=operator-override marker lets downstream observe
-        // that this dispatch chain originated from an override.
+        // Phase 71-09 — fix payload shape mismatch with classifier-verdict-worker.
+        // The worker reads automation_run_id, swarm_type, decision,
+        // predicted_category, override_category, message_id, source_mailbox.
+        // The original Plan 71-02 payload sent {email_id, decision, new_category_key},
+        // which the worker silently ignored — Outlook side-effects never fired.
         await step.run("axis-1-redispatch-verdict", async () => {
+          // Look up the predicted automation_run for this email. For the
+          // debtor-email swarm the message_id (Outlook id) is stored in
+          // automation_runs.result.message_id and email_pipeline.emails.source_id.
+          const { data: emailRow } = await admin
+            .schema("email_pipeline")
+            .from("emails")
+            .select("source_id, mailbox")
+            .eq("id", email_id)
+            .maybeSingle();
+          const sourceId = (emailRow as { source_id?: string } | null)?.source_id;
+          const sourceMailbox = (emailRow as { mailbox?: string } | null)?.mailbox;
+          if (!sourceId || !sourceMailbox) {
+            throw new Error(
+              `axis-1 override: cannot resolve source_id/mailbox for email_id=${email_id}`,
+            );
+          }
+          // Find the most recent predicted automation_run keyed on the Outlook id.
+          // Falls back to the latest run for that email if no predicted row exists
+          // (e.g. the row was previously auto-actioned but operator wants a redo).
+          const { data: runs } = await admin
+            .from("automation_runs")
+            .select("id, result, status")
+            .eq("swarm_type", "debtor-email")
+            .filter("result->>message_id", "eq", sourceId)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          const run = (runs ?? [])[0] as
+            | { id: string; result: { predicted?: { category?: string } } | null; status: string }
+            | undefined;
+          if (!run) {
+            throw new Error(
+              `axis-1 override: no automation_runs row for source_id=${sourceId}`,
+            );
+          }
+          const predictedCategory = run.result?.predicted?.category ?? null;
           await (inngest.send as unknown as SendFn)({
             name: "classifier/verdict.recorded",
             data: {
-              email_id,
+              automation_run_id: run.id,
+              swarm_type: "debtor-email",
               decision: "approve",
-              new_category_key: decision,
+              message_id: sourceId,
+              source_mailbox: sourceMailbox,
+              predicted_category: predictedCategory,
+              override_category: decision,
               triggered_by: "operator-override",
               operator_id,
             },

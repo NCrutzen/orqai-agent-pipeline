@@ -346,6 +346,12 @@ export async function loadPageData(
     interface SummaryRow {
       email_id: string;
       swarm_type: string;
+      // Phase 71-08: email metadata joined from email_pipeline.emails.
+      subject: string | null;
+      sender_email: string | null;
+      sender_name: string | null;
+      recipient_mailbox: string | null;
+      email_received_at: string | null;
       stage_0_decision: string | null;
       stage_1_decision: string | null;
       stage_2_decision: string | null;
@@ -410,8 +416,20 @@ export async function loadPageData(
         topic: row.stage_1_decision ?? null,
         entity: null,
         mailbox_id: null,
-        result: { email_id: row.email_id },
-        created_at: row.last_event_at ?? new Date(0).toISOString(),
+        // Phase 71-08: surface email metadata from the view JOIN to email_pipeline.emails
+        // so the row strip and detail pane render real subject + sender + recipient
+        // instead of "(no subject)" / "unknown sender".
+        result: {
+          email_id: row.email_id,
+          subject: row.subject ?? undefined,
+          from: row.sender_email ?? undefined,
+          fromName: row.sender_name ?? undefined,
+          source_mailbox: row.recipient_mailbox ?? undefined,
+          predicted: row.stage_1_decision
+            ? { category: row.stage_1_decision }
+            : undefined,
+        },
+        created_at: row.email_received_at ?? row.last_event_at ?? new Date(0).toISOString(),
         stage_decisions: {
           0: row.stage_0_decision,
           1: row.stage_1_decision,
@@ -441,9 +459,31 @@ export async function loadPageData(
       limit: (n: number) => SummaryQuery;
       then: <T>(cb: (v: { data: SummaryRow[] | null; error: unknown }) => T) => Promise<T>;
     }
+    // Phase 71-08: filter to emails awaiting operator review. The view aggregates
+    // every email with a Stage 1 emit — including auto-actioned ones whose
+    // automation_runs row is already 'completed'. Resolve the predicted-status
+    // email_ids via automation_runs.result.message_id → email_pipeline.emails.id.
+    const predictedRunsRes = await admin
+      .from("automation_runs")
+      .select("result")
+      .eq("swarm_type", swarmType)
+      .eq("status", "predicted");
+    const predictedMessageIds = ((predictedRunsRes.data ?? []) as Array<{ result: { message_id?: string } | null }>)
+      .map((r) => r.result?.message_id)
+      .filter((m): m is string => typeof m === "string" && m.length > 0);
+    let predictedEmailIds: string[] = [];
+    if (predictedMessageIds.length > 0) {
+      const peRes = await admin
+        .schema("email_pipeline")
+        .from("emails")
+        .select("id")
+        .in("source_id", predictedMessageIds);
+      predictedEmailIds = ((peRes.data ?? []) as Array<{ id: string }>).map((e) => e.id);
+    }
+
     const listQuery = (admin.from("pipeline_events_email_summary") as unknown as SummaryQuery)
       .select(
-        "email_id, swarm_type, " +
+        "email_id, swarm_type, subject, sender_email, sender_name, recipient_mailbox, email_received_at, " +
           "stage_0_decision, stage_1_decision, stage_2_decision, stage_3_decision, stage_4_decision, " +
           "stage_1_overridden, stage_2_overridden, stage_3_overridden, stage_4_overridden, " +
           "total_cost_cents, tool_call_count, first_event_at, last_event_at",
@@ -452,14 +492,14 @@ export async function loadPageData(
       .order("last_event_at", { ascending: false })
       .limit(100);
     if (params.before) listQuery.lt("last_event_at", params.before);
-    if (filterEmailIds !== null) {
-      // No matches → empty list; explicitly constrain to an empty array so
-      // the query returns nothing rather than every row.
-      listQuery.in(
-        "email_id",
-        filterEmailIds.length > 0 ? filterEmailIds : ["__no_match__"],
-      );
-    }
+    // Intersect predicted-only filter with any user filter (topic/entity/etc).
+    const effectiveFilter = filterEmailIds === null
+      ? predictedEmailIds
+      : predictedEmailIds.filter((id) => filterEmailIds!.includes(id));
+    listQuery.in(
+      "email_id",
+      effectiveFilter.length > 0 ? effectiveFilter : ["__no_match__"],
+    );
     const listRes = await listQuery;
     const summaryRows = (listRes.data as SummaryRow[] | null) ?? [];
     rows = summaryRows.map(mapSummaryToPredictedRow);

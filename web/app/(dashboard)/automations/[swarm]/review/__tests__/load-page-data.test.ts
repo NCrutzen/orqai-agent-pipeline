@@ -335,8 +335,11 @@ describe("loadPageData — Phase 71-03 D-10 view-driven predicted-row feed", () 
     expect(fromCalls).toContain("pipeline_events_email_summary");
     // No selected param → no detail fetch → raw pipeline_events not hit.
     expect(fromCalls.filter((t) => t === "pipeline_events")).toHaveLength(0);
-    // The predicted-row feed must NOT hit automation_runs as a primary list.
-    expect(fromCalls.filter((t) => t === "automation_runs")).toHaveLength(0);
+    // Phase 71-08: loadPageData now does ONE automation_runs read to resolve
+    // the predicted-status email_id whitelist (filters auto-actioned emails
+    // out of the view-driven feed). The view itself remains the predicted-row
+    // SOURCE — automation_runs is a filter step, not the data source.
+    expect(fromCalls.filter((t) => t === "automation_runs")).toHaveLength(1);
   });
 
   it("Test 2: predicted-row feed filters by swarm_type and orders by last_event_at DESC", async () => {

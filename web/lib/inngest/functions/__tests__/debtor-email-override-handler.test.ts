@@ -27,6 +27,21 @@ const { insertedPipelineEvents, coordinatorUpdates } = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
+    schema: (_s: string) => ({
+      // Phase 71-09 axis-1 fix looks up email_pipeline.emails by id for
+      // source_id + mailbox to populate the verdict-worker payload.
+      from: (_table: string) => ({
+        select: (_cols: string) => ({
+          eq: (_col: string, _val: unknown) => ({
+            maybeSingle: () =>
+              Promise.resolve({
+                data: { source_id: "outlook-msg-id-fixture", mailbox: "debiteuren@smeba.nl" },
+                error: null,
+              }),
+          }),
+        }),
+      }),
+    }),
     from: (table: string) => {
       if (table === "coordinator_runs") {
         return {
@@ -37,6 +52,27 @@ vi.mock("@/lib/supabase/admin", () => ({
             },
           }),
         };
+      }
+      if (table === "automation_runs") {
+        // Phase 71-09 axis-1 fix: chain ends with .limit() returning rows.
+        const chain: Record<string, unknown> = {
+          select: () => chain,
+          eq: () => chain,
+          filter: () => chain,
+          order: () => chain,
+          limit: () =>
+            Promise.resolve({
+              data: [
+                {
+                  id: "ar-fixture-id",
+                  result: { predicted: { category: "unknown" } },
+                  status: "predicted",
+                },
+              ],
+              error: null,
+            }),
+        };
+        return chain;
       }
       throw new Error(`unexpected table in test: ${table}`);
     },
