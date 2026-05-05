@@ -40,6 +40,7 @@ import { loadBrandRegister } from "@/lib/swarms/brand-register";
 // Phase 65 Plan 04 — orchestrator fan-in wiring.
 import { bodyAgentOutputToHandlerOutput } from "@/lib/automations/debtor-email/handlers/output-adapter";
 import { notifyCoordinatorComplete } from "@/lib/automations/debtor-email/coordinator/coordinator-complete";
+import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 
 const BODY_AGENT_KEY = "debtor-copy-document-body-agent";
 
@@ -139,6 +140,18 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
       // cascade and lose the original error.
       const errMsg = err instanceof Error ? err.message : String(err);
       try {
+        // Phase 70 W-70-01: failRun emit wrapped in fresh step.run because the catch boundary is outside any existing step. Plain await would be lost on Inngest replay; the doubled step count for the failure branch is acceptable.
+        // PII: sanitize before exposing in Bulk Review (T-70-04-02) — emit only error.message, not full stack.
+        await step.run("emit-stage4-failrun", async () => {
+          await emitPipelineEvent(admin, {
+            swarm_type: swarm_type ?? "debtor-email",
+            stage: 4,
+            decision: "failed",
+            decision_details: { failure_reason: errMsg },
+            automation_run_id,
+            triggered_by: "pipeline",
+          });
+        });
         await step.run("failRun-on-unhandled", async () => {
           await failRun(admin, automation_run_id, swarm_type ?? "debtor-email", errMsg);
         });
@@ -237,6 +250,19 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
         if (error) {
           throw new Error(`email_labels insert failed: ${error.message}`);
         }
+
+        // Phase 70 — TELE-01 dual-write (Wave 2 / Plan 04). Stage 4 failure
+        // emit for the no_invoice_reference early-return branch. Lives inside
+        // the SAME step.run as the email_labels INSERT per CONTEXT D-09.
+        await emitPipelineEvent(admin, {
+          swarm_type: swarm_type ?? "debtor-email",
+          stage: 4,
+          email_id: emailRow.id,
+          decision: "failed",
+          decision_details: { failure_reason: "no_invoice_reference" },
+          automation_run_id,
+          triggered_by: "pipeline",
+        });
       });
       await closeRun(admin, automation_run_id, swarm_type, {
         status: "predicted",
@@ -436,6 +462,27 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
       if (error) {
         throw new Error(`email_labels insert failed: ${error.message}`);
       }
+
+      // Phase 70 — TELE-01 dual-write (Wave 2 / Plan 04). Stage 4 success
+      // emit. Lives inside the SAME step.run as the email_labels INSERT per
+      // CONTEXT D-09 (single replay boundary).
+      await emitPipelineEvent(admin, {
+        swarm_type: swarm_type ?? "debtor-email",
+        stage: 4,
+        email_id: emailRow.id,
+        decision: "completed",
+        confidence: 0.9,
+        decision_details: {
+          handler_key: BODY_AGENT_KEY,
+          invoice_ref: invoiceRef,
+          body_version: body.body_version,
+          detected_tone: body.detected_tone,
+          draft_url: (draft as { draftUrl?: string }).draftUrl ?? null,
+          dry_run: dryRun,
+        },
+        automation_run_id,
+        triggered_by: "pipeline",
+      });
     });
 
     // ---- 7) Close run ----------------------------------------------------

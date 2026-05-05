@@ -112,10 +112,12 @@ vi.mock("@/lib/supabase/admin", () => {
 
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
 import { notifyCoordinatorComplete } from "@/lib/automations/debtor-email/coordinator/coordinator-complete";
+import { extractInvoiceCandidates } from "@/lib/automations/debtor-email/extract-invoices";
 import { classifierInvoiceCopyHandler } from "../classifier-invoice-copy-handler";
 
 const mockInvoke = invokeOrqAgent as unknown as ReturnType<typeof vi.fn>;
 const mockNotify = notifyCoordinatorComplete as unknown as ReturnType<typeof vi.fn>;
+const mockExtract = extractInvoiceCandidates as unknown as ReturnType<typeof vi.fn>;
 
 const fetchMock = vi.fn();
 (globalThis as unknown as { fetch: unknown }).fetch = fetchMock;
@@ -217,6 +219,20 @@ describe("CORD-03 classifier-invoice-copy-handler orchestrator wiring", () => {
     // 3) notifyCoordinatorComplete called with p_failed=false on success.
     expect(mockNotify).toHaveBeenCalledTimes(1);
     expect(mockNotify).toHaveBeenCalledWith(expect.anything(), "coord-run-1", false);
+
+    // 4) Phase 70 TELE-01 — Stage 4 'completed' emit lives inside write-email-label step.run.
+    const stage4Completed = supabaseInserts.find(
+      (i) =>
+        i.table === "pipeline_events" &&
+        (i.row as { stage?: number }).stage === 4 &&
+        (i.row as { decision?: string }).decision === "completed",
+    );
+    expect(stage4Completed).toBeDefined();
+    const details = (stage4Completed!.row as { decision_details?: Record<string, unknown> })
+      .decision_details!;
+    expect(details.handler_key).toBe("debtor-copy-document-body-agent");
+    expect(details.invoice_ref).toBe("INV-1");
+    expect((stage4Completed!.row as { triggered_by?: string }).triggered_by).toBe("pipeline");
   });
 
   it("from_orchestrator=true failure path → notify p_failed=true and original error re-throws", async () => {
@@ -318,5 +334,79 @@ describe("CANO-01 classifier-invoice-copy-handler canonical input shape", () => 
       expect.not.objectContaining({ email_language: expect.anything() }),
       expect.anything(),
     );
+  });
+});
+
+// Phase 70 / TELE-01 / Plan 04 — Stage 4 dual-write: failure-branch emits.
+describe("Phase 70 TELE-01 classifier-invoice-copy-handler Stage 4 failure emits", () => {
+  it("emits stage=4 failed when no_invoice_reference branch hit", async () => {
+    // Force the extractor to return zero candidates → early-return branch.
+    mockExtract.mockReturnValueOnce({ candidates: [] });
+
+    const step = makeStep();
+    await getHandler()({
+      event: {
+        id: "evt-no-inv-1",
+        data: {
+          automation_run_id: "ar-no-inv-1",
+          message_id: "msg-no-inv-1",
+          source_mailbox: "inbox",
+          category_key: "invoice_copy_request",
+          swarm_type: "debtor-email",
+        },
+      },
+      step,
+    });
+
+    const ev = supabaseInserts.find(
+      (i) =>
+        i.table === "pipeline_events" &&
+        (i.row as { stage?: number }).stage === 4 &&
+        (i.row as { decision?: string }).decision === "failed" &&
+        ((i.row as { decision_details?: { failure_reason?: string } })
+          .decision_details?.failure_reason === "no_invoice_reference"),
+    );
+    expect(ev).toBeDefined();
+    expect((ev!.row as { automation_run_id?: string }).automation_run_id).toBe("ar-no-inv-1");
+    expect((ev!.row as { triggered_by?: string }).triggered_by).toBe("pipeline");
+  });
+
+  it("emits stage=4 failed when handler throws unhandled (failRun branch)", async () => {
+    // Body-agent invocation throws → catch boundary → emit-stage4-failrun → failRun → re-throw.
+    mockInvoke.mockRejectedValueOnce(new Error("body agent boom"));
+
+    const step = makeStep();
+    await expect(
+      getHandler()({
+        event: {
+          id: "evt-failrun-1",
+          data: {
+            automation_run_id: "ar-failrun-1",
+            message_id: "msg-failrun-1",
+            source_mailbox: "inbox",
+            category_key: "invoice_copy_request",
+            swarm_type: "debtor-email",
+          },
+        },
+        step,
+      }),
+    ).rejects.toThrow(/boom/);
+
+    // Stage 4 failed event captured at the catch boundary.
+    const ev = supabaseInserts.find(
+      (i) =>
+        i.table === "pipeline_events" &&
+        (i.row as { stage?: number }).stage === 4 &&
+        (i.row as { decision?: string }).decision === "failed" &&
+        ((i.row as { decision_details?: { failure_reason?: string } })
+          .decision_details?.failure_reason ?? "").includes("boom"),
+    );
+    expect(ev).toBeDefined();
+
+    // TELE-02 — legacy automation_runs failed-status UPDATE still occurs.
+    const failedUpdate = supabaseUpdates.find(
+      (u) => u.table === "automation_runs" && u.patch.status === "failed",
+    );
+    expect(failedUpdate).toBeDefined();
   });
 });
