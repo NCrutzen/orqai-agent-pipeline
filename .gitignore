@@ -8,6 +8,10 @@ supabase/.temp.local-backup/
 
 # Claude Code local state
 .claude/scheduled_tasks.lock
+.claude/worktrees/
+
+# Root-level node_modules (project source lives in web/, this is from accidental top-level npm install)
+node_modules/
 
 # Local debugging scripts (kept on disk, not tracked)
 web/lib/automations/debtor-email-cleanup/test-*.ts
