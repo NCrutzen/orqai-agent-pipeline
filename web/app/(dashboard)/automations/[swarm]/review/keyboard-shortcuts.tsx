@@ -30,6 +30,15 @@ const ACTION_EVENTS = {
   focusOverride: "bulk-review:focus-override",
   focusNotes: "bulk-review:focus-notes",
   toggleCheatsheet: "bulk-review:toggle-cheatsheet",
+  // Phase 71-05 — 4-axis Bulk Review keyboard hooks.
+  stage1Focus: "bulk-review:stage-1-focus",
+  stage2Focus: "bulk-review:stage-2-focus",
+  stage3Focus: "bulk-review:stage-3-focus",
+  stage4Focus: "bulk-review:stage-4-focus",
+  evalTypeCapability: "bulk-review:eval-type-capability",
+  evalTypeRegression: "bulk-review:eval-type-regression",
+  overrideSubmit: "bulk-review:override-submit",
+  overrideDiscard: "bulk-review:override-discard",
 } as const;
 
 export const KEYBOARD_EVENTS = ACTION_EVENTS;
@@ -83,9 +92,22 @@ export function KeyboardShortcuts({
         return;
       }
 
+      // Phase 71-05 — Cmd/Ctrl+Enter MUST be checked before bare Enter so the
+      // override-submit shortcut isn't shadowed by the legacy Approve action.
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent(ACTION_EVENTS.overrideSubmit));
+        return;
+      }
       if (e.key === "Enter") {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent(ACTION_EVENTS.approve));
+        return;
+      }
+      // Phase 71-05 — Esc => Discard changes (matches submit-bar button).
+      if (e.key === "Escape") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent(ACTION_EVENTS.overrideDiscard));
         return;
       }
       if (e.key === " ") {
@@ -114,6 +136,32 @@ export function KeyboardShortcuts({
         window.dispatchEvent(new CustomEvent(ACTION_EVENTS.toggleCheatsheet));
         return;
       }
+      // Phase 71-05 — focus per-stage override widgets.
+      if (e.key === "1") {
+        window.dispatchEvent(new CustomEvent(ACTION_EVENTS.stage1Focus));
+        return;
+      }
+      if (e.key === "2") {
+        window.dispatchEvent(new CustomEvent(ACTION_EVENTS.stage2Focus));
+        return;
+      }
+      if (e.key === "3") {
+        window.dispatchEvent(new CustomEvent(ACTION_EVENTS.stage3Focus));
+        return;
+      }
+      if (e.key === "4") {
+        window.dispatchEvent(new CustomEvent(ACTION_EVENTS.stage4Focus));
+        return;
+      }
+      // Phase 71-05 — eval-type toggles.
+      if (e.key === "c") {
+        window.dispatchEvent(new CustomEvent(ACTION_EVENTS.evalTypeCapability));
+        return;
+      }
+      if (e.key === "g") {
+        window.dispatchEvent(new CustomEvent(ACTION_EVENTS.evalTypeRegression));
+        return;
+      }
     };
 
     window.addEventListener("keydown", handler);
@@ -136,6 +184,15 @@ const SHORTCUTS: ShortcutRow[] = [
   { keys: ["n"], description: "Skip (record reject, advance)" },
   { keys: ["e"], description: "Toggle full email body" },
   { keys: ["r"], description: "Focus override category" },
+  // Phase 71-05 — 4-axis Bulk Review bindings.
+  { keys: ["1"], description: "Override Stage 1 (category)" },
+  { keys: ["2"], description: "Override Stage 2 (customer)" },
+  { keys: ["3"], description: "Override Stage 3 (intent)" },
+  { keys: ["4"], description: "Override Stage 4 (handler output)" },
+  { keys: ["c"], description: "Eval type — capability" },
+  { keys: ["g"], description: "Eval type — regression" },
+  { keys: ["⌘⏎", "Ctrl+⏎"], description: "Submit override" },
+  { keys: ["Esc"], description: "Discard changes" },
   { keys: ["/"], description: "Focus notes textarea" },
   { keys: ["?"], description: "Show this cheatsheet" },
 ];

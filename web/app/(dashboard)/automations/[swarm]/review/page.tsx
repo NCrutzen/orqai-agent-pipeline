@@ -15,8 +15,16 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AutomationRealtimeProvider } from "@/components/automations/automation-realtime-provider";
-import { loadSwarm, loadSwarmCategories } from "@/lib/swarms/registry";
-import type { SwarmCategoryRow, SwarmRow } from "@/lib/swarms/types";
+import {
+  loadSwarm,
+  loadSwarmCategories,
+  loadSwarmIntents,
+} from "@/lib/swarms/registry";
+import type {
+  SwarmCategoryRow,
+  SwarmIntentRow,
+  SwarmRow,
+} from "@/lib/swarms/types";
 import { QueueTree } from "./queue-tree";
 import { RowList } from "./row-list";
 import { DetailPane } from "./detail-pane";
@@ -140,12 +148,47 @@ export interface PredictedRow {
   tagging?: TaggingFailureSummary;
 }
 
+/**
+ * Phase 71-05. Raw pipeline_events row used to drive the detail-pane's
+ * N-stage PipelineFlow. We expose the full timeline (all stages for the
+ * selected email) rather than just the single ?selected= row so the
+ * detail-pane can mark stages as ok / dirty / skipped per UI-SPEC.
+ */
+export interface PipelineTimelineEvent {
+  id: string;
+  created_at: string;
+  swarm_type: string;
+  stage: number;
+  email_id: string | null;
+  decision: string;
+  confidence: number | null;
+  decision_details: Record<string, unknown> | null;
+  override: Record<string, unknown> | null;
+  eval_type: "capability" | "regression" | null;
+  triggered_by: string | null;
+}
+
+/**
+ * Phase 71-05 (UI-SPEC §Recipient chip strip). One chip per recipient
+ * inbox in the predicted-row feed. brand drives the deterministic
+ * brand-dot colour via brandColorToken.
+ */
+export interface RecipientChip {
+  inbox: string;
+  brand: string;
+  rowCount: number;
+}
+
 export interface PageData {
   counts: QueueCountRow[];
   rows: PredictedRow[];
   promotedToday: PromotedRule[];
   candidates: ClassifierCandidate[];
   selectedRow: PredictedRow | null;
+  /** Phase 71-05. Full pipeline_events timeline for the selected email. */
+  selectedTimeline: PipelineTimelineEvent[];
+  /** Phase 71-05. Recipient chip strip data. */
+  recipientChips: RecipientChip[];
 }
 
 /**
@@ -528,7 +571,49 @@ export async function loadPageData(
     }
   }
 
-  return { counts, rows, promotedToday, candidates, selectedRow };
+  // 8. Phase 71-05. Full pipeline_events timeline for the selected email.
+  //    Detail pane renders this as the N-stage PipelineFlow. We key on
+  //    email_id (not the single selected pipeline_events.id) so all stages
+  //    appear, not just the one referenced by ?selected=.
+  let selectedTimeline: PipelineTimelineEvent[] = [];
+  if (selectedRow) {
+    const emailId =
+      (selectedRow.result as { email_id?: string } | null)?.email_id ?? null;
+    if (emailId) {
+      const tlRes = await admin
+        .from("pipeline_events")
+        .select(
+          "id, created_at, swarm_type, stage, email_id, decision, confidence, decision_details, override, eval_type, triggered_by",
+        )
+        .eq("swarm_type", swarmType)
+        .eq("email_id", emailId)
+        .order("stage", { ascending: true })
+        .order("created_at", { ascending: true })
+        .limit(50);
+      selectedTimeline =
+        (tlRes.data as PipelineTimelineEvent[] | null) ?? [];
+    }
+  }
+
+  // 9. Phase 71-05 (UI-SPEC §Recipient chip strip). Recipient chip data.
+  //    The pipeline_events_email_summary view does NOT expose recipient
+  //    inbox today; computing chips would require a per-page JOIN to
+  //    email_pipeline.emails (sender/recipient mailbox). Out-of-scope for
+  //    Plan 71-05's "minimal precise additions" envelope. Strip renders
+  //    with the "All" chip only; per-recipient filtering is wired via
+  //    the ?inbox= URL parameter pattern but yields no chips today.
+  //    Promoted to a follow-up plan if operators need per-recipient counts.
+  const recipientChips: RecipientChip[] = [];
+
+  return {
+    counts,
+    rows,
+    promotedToday,
+    candidates,
+    selectedRow,
+    selectedTimeline,
+    recipientChips,
+  };
 }
 
 interface PageProps {
@@ -553,6 +638,8 @@ export default async function SwarmReviewPage({
     admin,
     swarmType,
   );
+  // Phase 71-05. Stage 3 widget consumes swarm_intents.
+  const intents: SwarmIntentRow[] = await loadSwarmIntents(admin, swarmType);
 
   const data = await loadPageData(sp, admin, swarmType);
   const rowIds = data.rows.map((r) => r.id);
@@ -588,12 +675,15 @@ export default async function SwarmReviewPage({
               selection={sp}
               swarmType={swarmType}
               columns={swarm.ui_config.row_columns}
+              recipientChips={data.recipientChips}
             />
             <DetailPane
               rows={data.rows}
               initialSelectedRow={data.selectedRow}
+              selectedTimeline={data.selectedTimeline}
               swarmType={swarmType}
               categories={categories}
+              intents={intents}
               drawerFields={swarm.ui_config.drawer_fields}
             />
           </div>

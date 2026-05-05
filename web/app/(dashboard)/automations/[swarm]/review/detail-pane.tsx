@@ -31,11 +31,34 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { fetchReviewEmailBody, recordVerdict } from "./actions";
-import type { PredictedRow } from "./page";
-import type { SwarmCategoryRow } from "@/lib/swarms/types";
+import type { PredictedRow, PipelineTimelineEvent } from "./page";
+import type { SwarmCategoryRow, SwarmIntentRow } from "@/lib/swarms/types";
 import { useSelection } from "./selection-context";
 import { SafetyDetailPane } from "./components/safety-detail-pane";
 import { CostOutlierAxisCard } from "./components/cost-outlier-axis-card";
+// Phase 71-05 — 4-axis override flow components (Plan 71-04 outputs).
+import {
+  PipelineFlow,
+  type StageData,
+  type StageState,
+} from "./components/pipeline-flow";
+import { Stage1Widget } from "./components/stage-1-widget";
+import {
+  Stage2Widget,
+  type CustomerSelection,
+} from "./components/stage-2-widget";
+import { Stage3Widget } from "./components/stage-3-widget";
+import {
+  Stage4Widget,
+  type Stage4Quality,
+} from "./components/stage-4-widget";
+import { EvalTypeRadio, type EvalType } from "./components/eval-type-radio";
+import {
+  OverrideConfirmDialog,
+  type OverrideConfirmTrigger,
+} from "./components/override-confirm-dialog";
+import { IControllerInfoBanner } from "./components/icontroller-info-banner";
+import type { OverrideAxis } from "@/lib/pipeline-events/types";
 
 // ---- Body cache (module-level so prefetch survives detail-pane remounts) -
 
@@ -132,7 +155,35 @@ interface DetailPaneProps {
   swarmType: string;
   categories: SwarmCategoryRow[];
   drawerFields: string[];
+  /** Phase 71-05. Full pipeline_events timeline for the selected email. */
+  selectedTimeline?: PipelineTimelineEvent[];
+  /** Phase 71-05. Stage 3 widget consumes this. */
+  intents?: SwarmIntentRow[];
 }
+
+// ---- Phase 71-05. 4-axis dirty-state shape ------------------------------
+
+interface DirtyState {
+  stage_1?: { categoryKey: string };
+  stage_2?: { customer: CustomerSelection; reRun: boolean };
+  stage_3?: { intentKey: string };
+  stage_4?: { quality: Stage4Quality; reason: string };
+}
+
+const STAGE_TITLES: Record<number, string> = {
+  1: "Category",
+  2: "Customer",
+  3: "Intent",
+  4: "Handler output",
+};
+
+const STAGE_AXES: Record<number, OverrideAxis | null> = {
+  0: null,
+  1: "stage_1_category",
+  2: "stage_2_customer",
+  3: "stage_3_intent",
+  4: "stage_4_handler_output",
+};
 
 export function DetailPane({
   rows,
@@ -142,6 +193,8 @@ export function DetailPane({
   // drawerFields reserved for future config-driven meta-grid; the existing
   // 6-field grid matches debtor-email's drawer_fields seed verbatim.
   drawerFields: _drawerFields,
+  selectedTimeline,
+  intents,
 }: DetailPaneProps) {
   const { selectedId, setSelected, pendingRemovalIds, markPendingRemoval } =
     useSelection();
@@ -184,6 +237,15 @@ export function DetailPane({
   const [bodyError, setBodyError] = useState<string | null>(null);
   const [bodyText, setBodyText] = useState<string | null>(null);
 
+  // Phase 71-05. 4-axis override state.
+  const [dirty, setDirty] = useState<DirtyState>({});
+  const [evalType, setEvalType] = useState<EvalType>("regression");
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTrigger, setConfirmTrigger] =
+    useState<OverrideConfirmTrigger>("multi_axis");
+  const [showICBanner, setShowICBanner] = useState(false);
+
   const overrideTriggerRef = useRef<HTMLButtonElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
@@ -195,6 +257,12 @@ export function DetailPane({
     setBodyLoading(false);
     setBodyError(null);
     setBodyText(row && bodyCache.has(row.id) ? bodyCache.get(row.id)!.bodyText : null);
+    // Phase 71-05 — reset 4-axis state when selection changes.
+    setDirty({});
+    setEvalType("regression");
+    setSubmitting(false);
+    setConfirmOpen(false);
+    setShowICBanner(false);
   }, [row?.id]);
 
   const toggleBody = useCallback(async () => {
@@ -313,6 +381,320 @@ export function DetailPane({
     ],
   );
 
+  // ---- Phase 71-05. 4-axis override flow ---------------------------------
+
+  // Build per-axis StageData for PipelineFlow from the timeline + dirty state.
+  const stagesData: StageData[] = useMemo(() => {
+    if (!row) return [];
+    // Latest event per stage (timeline is ordered by stage asc, created_at asc).
+    const byStage = new Map<number, PipelineTimelineEvent>();
+    for (const ev of selectedTimeline ?? []) {
+      byStage.set(ev.stage, ev);
+    }
+    const out: StageData[] = [];
+    for (const n of [1, 2, 3, 4] as const) {
+      const ev = byStage.get(n);
+      const dirtyKey = (`stage_${n}` as keyof DirtyState);
+      const isDirty = dirty[dirtyKey] !== undefined;
+      let state: StageState;
+      if (isDirty) state = "dirty";
+      else if (!ev) state = "skipped";
+      else state = "ok";
+      const currentValue = ev?.decision ?? undefined;
+
+      let widget: React.ReactNode = null;
+      if (isDirty) {
+        if (n === 1) {
+          widget = (
+            <Stage1Widget
+              categories={categories}
+              value={dirty.stage_1?.categoryKey ?? null}
+              onChange={(categoryKey) =>
+                setDirty((d) => ({ ...d, stage_1: { categoryKey } }))
+              }
+            />
+          );
+        } else if (n === 2) {
+          widget = (
+            <Stage2Widget
+              value={dirty.stage_2?.customer ?? null}
+              onChange={(customer) =>
+                setDirty((d) => ({
+                  ...d,
+                  stage_2: { customer, reRun: d.stage_2?.reRun ?? false },
+                }))
+              }
+              reRun={dirty.stage_2?.reRun ?? false}
+              onReRunChange={(reRun) =>
+                setDirty((d) => ({
+                  ...d,
+                  stage_2: d.stage_2
+                    ? { ...d.stage_2, reRun }
+                    : {
+                        customer: {
+                          customer_account_id: "",
+                          customer_name: "",
+                        },
+                        reRun,
+                      },
+                }))
+              }
+            />
+          );
+        } else if (n === 3) {
+          widget = (
+            <Stage3Widget
+              intents={intents ?? []}
+              value={dirty.stage_3?.intentKey ?? null}
+              onChange={(intentKey) =>
+                setDirty((d) => ({ ...d, stage_3: { intentKey } }))
+              }
+            />
+          );
+        } else if (n === 4) {
+          widget = (
+            <Stage4Widget
+              quality={dirty.stage_4?.quality ?? null}
+              onQualityChange={(quality) =>
+                setDirty((d) => ({
+                  ...d,
+                  stage_4: { quality, reason: d.stage_4?.reason ?? "" },
+                }))
+              }
+              reason={dirty.stage_4?.reason ?? ""}
+              onReasonChange={(reason) =>
+                setDirty((d) => ({
+                  ...d,
+                  stage_4: d.stage_4
+                    ? { ...d.stage_4, reason }
+                    : { quality: 3, reason },
+                }))
+              }
+            />
+          );
+        }
+      }
+
+      out.push({
+        n,
+        title: STAGE_TITLES[n],
+        axis: STAGE_AXES[n],
+        state,
+        currentValue,
+        widget,
+      });
+    }
+    return out;
+  }, [row, selectedTimeline, dirty, categories, intents]);
+
+  const dirtyAxes = useMemo<OverrideAxis[]>(() => {
+    const axes: OverrideAxis[] = [];
+    if (dirty.stage_1) axes.push("stage_1_category");
+    if (dirty.stage_2) axes.push("stage_2_customer");
+    if (dirty.stage_3) axes.push("stage_3_intent");
+    if (dirty.stage_4) axes.push("stage_4_handler_output");
+    return axes;
+  }, [dirty]);
+
+  const dirtyCount = dirtyAxes.length;
+
+  const onMarkDirty = useCallback((stageN: number) => {
+    setDirty((d) => {
+      const next: DirtyState = { ...d };
+      if (stageN === 1 && !next.stage_1)
+        next.stage_1 = { categoryKey: "" };
+      if (stageN === 2 && !next.stage_2)
+        next.stage_2 = {
+          customer: { customer_account_id: "", customer_name: "" },
+          reRun: false,
+        };
+      if (stageN === 3 && !next.stage_3) next.stage_3 = { intentKey: "" };
+      if (stageN === 4 && !next.stage_4)
+        next.stage_4 = { quality: 3, reason: "" };
+      return next;
+    });
+  }, []);
+
+  const discardOverride = useCallback(() => {
+    setDirty({});
+    setEvalType("regression");
+    setConfirmOpen(false);
+  }, []);
+
+  // Build per-axis payload + POST /api/automations/debtor-email/override.
+  const submitOverride = useCallback(async () => {
+    if (!row) return;
+    if (dirtyCount === 0) return;
+    if (submitting) return;
+    const emailId =
+      (row.result as { email_id?: string } | null)?.email_id ?? null;
+    if (!emailId) {
+      toast.error("Missing email_id — cannot submit override");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const timeline = selectedTimeline ?? [];
+      // Last event per stage gives us original_event_id + original_decision.
+      const byStage = new Map<number, PipelineTimelineEvent>();
+      for (const ev of timeline) byStage.set(ev.stage, ev);
+
+      const payloads: Array<Record<string, unknown>> = [];
+
+      if (dirty.stage_1) {
+        const ev = byStage.get(1);
+        payloads.push({
+          axis: "stage_1_category",
+          email_id: emailId,
+          original_event_id: ev?.id ?? "00000000-0000-0000-0000-000000000000",
+          original_decision: ev?.decision ?? "",
+          decision: dirty.stage_1.categoryKey,
+          decision_details: { category_key: dirty.stage_1.categoryKey },
+          eval_type: evalType,
+        });
+      }
+      if (dirty.stage_2) {
+        const ev = byStage.get(2);
+        payloads.push({
+          axis: "stage_2_customer",
+          email_id: emailId,
+          original_event_id: ev?.id ?? "00000000-0000-0000-0000-000000000000",
+          original_decision: ev?.decision ?? "",
+          decision: dirty.stage_2.customer.customer_account_id,
+          decision_details: {
+            customer_account_id: dirty.stage_2.customer.customer_account_id,
+            customer_name: dirty.stage_2.customer.customer_name,
+          },
+          eval_type: evalType,
+          re_run_downstream: dirty.stage_2.reRun,
+        });
+      }
+      if (dirty.stage_3) {
+        const ev = byStage.get(3);
+        payloads.push({
+          axis: "stage_3_intent",
+          email_id: emailId,
+          original_event_id: ev?.id ?? "00000000-0000-0000-0000-000000000000",
+          original_decision: ev?.decision ?? "",
+          decision: dirty.stage_3.intentKey,
+          decision_details: { intent_key: dirty.stage_3.intentKey },
+          eval_type: evalType,
+        });
+      }
+      if (dirty.stage_4) {
+        const ev = byStage.get(4);
+        payloads.push({
+          axis: "stage_4_handler_output",
+          email_id: emailId,
+          original_event_id: ev?.id ?? "00000000-0000-0000-0000-000000000000",
+          original_decision: ev?.decision ?? "",
+          decision: "draft_quality_rated",
+          decision_details: {
+            draft_quality: dirty.stage_4.quality,
+            reason: dirty.stage_4.reason,
+          },
+          eval_type: evalType,
+          reason: dirty.stage_4.reason || undefined,
+        });
+      }
+
+      // POST each axis sequentially. Plan 02's route handles one axis per call.
+      for (const body of payloads) {
+        const res = await fetch("/api/automations/debtor-email/override", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "(no body)");
+          throw new Error(`Override POST failed (${res.status}): ${errText}`);
+        }
+      }
+
+      const subj =
+        (row.result as ResultPayload | null)?.subject ?? "(no subject)";
+      toast.success(`Override recorded for ${subj}`);
+      // iController info banner — Stage 3 or Stage 4 override AND draft exists
+      // (we infer "draft exists" from coordinator presence; stricter signal
+      // would require a draft check API).
+      const fired34 = dirty.stage_3 || dirty.stage_4;
+      const draftExists = !!row.coordinator;
+      if (fired34 && draftExists) {
+        setShowICBanner(true);
+      }
+      // Reset dirty + optimistic remove + advance.
+      setDirty({});
+      setConfirmOpen(false);
+      markPendingRemoval(row.id);
+      const idx = rows.findIndex((r) => r.id === row.id);
+      const isAvailable = (r: PredictedRow) =>
+        r.id !== row.id && !pendingRemovalIds.has(r.id);
+      let nextRow: PredictedRow | null = null;
+      for (let i = idx + 1; i < rows.length; i++) {
+        if (isAvailable(rows[i])) { nextRow = rows[i]; break; }
+      }
+      if (!nextRow) {
+        for (let i = idx - 1; i >= 0; i--) {
+          if (isAvailable(rows[i])) { nextRow = rows[i]; break; }
+        }
+      }
+      const advance = () => {
+        setSelected(nextRow?.id ?? null);
+        const qs = new URLSearchParams(window.location.search);
+        if (nextRow) qs.set("selected", nextRow.id);
+        else qs.delete("selected");
+        router.replace(`${window.location.pathname}?${qs.toString()}`, {
+          scroll: false,
+        });
+      };
+      // Defer advance briefly so banner registers if it should.
+      setTimeout(advance, 400);
+    } catch (e) {
+      const msg = (e as Error).message ?? String(e);
+      toast.error(`Override failed: ${msg}`);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [
+    row,
+    rows,
+    pendingRemovalIds,
+    markPendingRemoval,
+    setSelected,
+    router,
+    selectedTimeline,
+    dirty,
+    evalType,
+    dirtyCount,
+    submitting,
+  ]);
+
+  // Click-Submit handler — fires confirm dialog when triggers apply, else
+  // submits directly.
+  const onClickSubmit = useCallback(() => {
+    if (dirtyCount === 0 || submitting) return;
+    // Trigger conditions per UI-SPEC §Confirmation modal:
+    //   1. Stage 2 override with re_run_downstream=true.
+    //   2. Stage 3 override (always).
+    //   3. ≥2 axes dirty in same submission.
+    if (dirtyCount >= 2) {
+      setConfirmTrigger("multi_axis");
+      setConfirmOpen(true);
+      return;
+    }
+    if (dirty.stage_3) {
+      setConfirmTrigger("stage_3");
+      setConfirmOpen(true);
+      return;
+    }
+    if (dirty.stage_2 && dirty.stage_2.reRun) {
+      setConfirmTrigger("stage_2_rerun");
+      setConfirmOpen(true);
+      return;
+    }
+    void submitOverride();
+  }, [dirty, dirtyCount, submitting, submitOverride]);
+
   useEffect(() => {
     const computeState = () => {
       if (!row) {
@@ -345,12 +727,30 @@ export function DetailPane({
     const onToggleBody = () => void toggleBody();
     const onFocusOverride = () => overrideTriggerRef.current?.focus();
     const onFocusNotes = () => notesRef.current?.focus();
+    // Phase 71-05 — new keyboard hooks.
+    const onStageFocus = (n: number) => () => onMarkDirty(n);
+    const onStage1 = onStageFocus(1);
+    const onStage2 = onStageFocus(2);
+    const onStage3 = onStageFocus(3);
+    const onStage4 = onStageFocus(4);
+    const onEvalCap = () => setEvalType("capability");
+    const onEvalReg = () => setEvalType("regression");
+    const onOverrideSubmit = () => onClickSubmit();
+    const onOverrideDiscard = () => discardOverride();
     window.addEventListener("bulk-review:approve", onApprove);
     window.addEventListener("bulk-review:reject", onReject);
     window.addEventListener("bulk-review:skip", onSkip);
     window.addEventListener("bulk-review:toggle-body", onToggleBody);
     window.addEventListener("bulk-review:focus-override", onFocusOverride);
     window.addEventListener("bulk-review:focus-notes", onFocusNotes);
+    window.addEventListener("bulk-review:stage-1-focus", onStage1);
+    window.addEventListener("bulk-review:stage-2-focus", onStage2);
+    window.addEventListener("bulk-review:stage-3-focus", onStage3);
+    window.addEventListener("bulk-review:stage-4-focus", onStage4);
+    window.addEventListener("bulk-review:eval-type-capability", onEvalCap);
+    window.addEventListener("bulk-review:eval-type-regression", onEvalReg);
+    window.addEventListener("bulk-review:override-submit", onOverrideSubmit);
+    window.addEventListener("bulk-review:override-discard", onOverrideDiscard);
     return () => {
       window.removeEventListener("bulk-review:approve", onApprove);
       window.removeEventListener("bulk-review:reject", onReject);
@@ -358,8 +758,16 @@ export function DetailPane({
       window.removeEventListener("bulk-review:toggle-body", onToggleBody);
       window.removeEventListener("bulk-review:focus-override", onFocusOverride);
       window.removeEventListener("bulk-review:focus-notes", onFocusNotes);
+      window.removeEventListener("bulk-review:stage-1-focus", onStage1);
+      window.removeEventListener("bulk-review:stage-2-focus", onStage2);
+      window.removeEventListener("bulk-review:stage-3-focus", onStage3);
+      window.removeEventListener("bulk-review:stage-4-focus", onStage4);
+      window.removeEventListener("bulk-review:eval-type-capability", onEvalCap);
+      window.removeEventListener("bulk-review:eval-type-regression", onEvalReg);
+      window.removeEventListener("bulk-review:override-submit", onOverrideSubmit);
+      window.removeEventListener("bulk-review:override-discard", onOverrideDiscard);
     };
-  }, [submit, toggleBody, row, override]);
+  }, [submit, toggleBody, row, override, onMarkDirty, onClickSubmit, discardOverride]);
 
   if (!row) {
     return (
@@ -536,6 +944,85 @@ export function DetailPane({
           </div>
         </section>
       )}
+
+      {/* Phase 71-05. 4-axis pipeline override flow.
+          Renders above the legacy single-stage Override dropdown so the
+          existing approve/reject keyboard semantics keep working while
+          operators learn the new flow. The legacy Select is preserved for
+          back-compat per Plan 71-05 §preserve existing behavior. */}
+      {stagesData.length > 0 && (
+        <section
+          className="mt-2 flex flex-col gap-3"
+          aria-label="Pipeline overrides"
+          data-testid="pipeline-overrides"
+        >
+          <h3 className="text-[14px] font-semibold leading-[1.3]">
+            Pipeline overrides
+          </h3>
+          <PipelineFlow stages={stagesData} onMarkDirty={onMarkDirty} />
+
+          {dirtyCount > 0 && (
+            <>
+              <EvalTypeRadio value={evalType} onChange={setEvalType} />
+              <div className="flex items-center justify-end gap-2 mt-2">
+                <Button
+                  variant="ghost"
+                  onClick={discardOverride}
+                  disabled={submitting}
+                >
+                  Discard changes
+                  <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
+                    Esc
+                  </kbd>
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={onClickSubmit}
+                  disabled={submitting || dirtyCount === 0}
+                  style={{
+                    background: "var(--v7-brand-primary)",
+                    color: "#fff",
+                  }}
+                >
+                  {submitting
+                    ? "Submitting override…"
+                    : dirtyCount === 1
+                      ? "Submit override (1 stage dirty)"
+                      : `Submit override (${dirtyCount} stages dirty)`}
+                  <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
+                    ⌘⏎
+                  </kbd>
+                </Button>
+              </div>
+            </>
+          )}
+
+          {showICBanner && (
+            <IControllerInfoBanner
+              iControllerDraftId={
+                row.tagging?.icontroller_tag_status ?? "unknown"
+              }
+              onDismiss={() => setShowICBanner(false)}
+            />
+          )}
+        </section>
+      )}
+
+      <OverrideConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        trigger={confirmTrigger}
+        extra={{
+          handler_key: dirty.stage_3?.intentKey,
+          axis_count: dirtyCount,
+          axis_list: dirtyAxes,
+        }}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          void submitOverride();
+        }}
+        onDismiss={() => setConfirmOpen(false)}
+      />
 
       {/* 5. Override dropdown — driven by registry. */}
       <div>
