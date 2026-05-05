@@ -14,6 +14,8 @@
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
+import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
+import { numericConfidence } from "@/lib/pipeline-events/types";
 import {
   resolveDebtor,
   type ResolveResult,
@@ -177,6 +179,51 @@ export const classifierLabelResolver = inngest.createFunction(
       if (error) {
         throw new Error(`email_labels insert failed: ${error.message}`);
       }
+
+      // Phase 70 — TELE-01 dual-write
+      // Three branches share this step.run; emit one pipeline_events row
+      // reflecting which one we're in:
+      //  - resolver-error  → decision='unresolved', confidence=null,
+      //                      decision_details.failure_reason set
+      //  - matched         → decision='resolved', confidence from numericConfidence
+      //  - no-match        → decision='unresolved', confidence from numericConfidence
+      const isResolved = result.customer_account_id !== null;
+      const decision = isResolved ? "resolved" : "unresolved";
+      const confidence = resolverError
+        ? null
+        : numericConfidence(
+            result.confidence as
+              | "high"
+              | "medium"
+              | "low"
+              | "none"
+              | null
+              | undefined,
+          );
+      await emitPipelineEvent(admin, {
+        swarm_type: swarm_type ?? "debtor-email",
+        stage: 2,
+        email_id: emailRow.id,
+        decision,
+        confidence,
+        decision_details: resolverError
+          ? {
+              failure_reason: resolverError,
+              customer_account_id: result.customer_account_id,
+              customer_name: result.customer_name,
+              method: result.method,
+              candidates_considered: result.candidates_considered ?? null,
+            }
+          : {
+              customer_account_id: result.customer_account_id,
+              customer_name: result.customer_name,
+              method: result.method,
+              candidates_considered: result.candidates_considered ?? null,
+            },
+        automation_run_id: automation_run_id ?? null,
+        triggered_by: "pipeline",
+      });
+
       return data as { id: string };
     });
 

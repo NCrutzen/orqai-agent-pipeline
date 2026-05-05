@@ -96,10 +96,15 @@ function makeAdminMock(overrides?: {
   const settingsRow = overrides?.settings === undefined ? SETTINGS_ROW : overrides.settings;
   const insertedLabelId = overrides?.insertedLabelId ?? "label-uuid-stub";
 
+  // Phase 70 — capture cross-table inserts so dual-write assertions can
+  // distinguish email_labels from pipeline_events.
+  const supabaseInserts: Array<{ table: string; payload: Record<string, unknown> }> = [];
+
   const emailLabelsInsertedRows: Array<Record<string, unknown>> = [];
   // Phase 67 — insert(...).select("id").single() chain
   const emailLabelsInsert = vi.fn((row: Record<string, unknown>) => {
     emailLabelsInsertedRows.push(row);
+    supabaseInserts.push({ table: "email_labels", payload: row });
     return {
       select: vi.fn(() => ({
         single: vi.fn(async () => ({
@@ -108,6 +113,11 @@ function makeAdminMock(overrides?: {
         })),
       })),
     };
+  });
+  // Phase 70 — admin.from("pipeline_events").insert(payload) sink
+  const pipelineEventsInsert = vi.fn(async (row: Record<string, unknown>) => {
+    supabaseInserts.push({ table: "pipeline_events", payload: row });
+    return { data: null, error: null };
   });
   const automationRunUpdateEq = vi.fn(async () => ({ data: null, error: null }));
   const automationRunUpdate = vi.fn(() => ({ eq: automationRunUpdateEq }));
@@ -156,6 +166,7 @@ function makeAdminMock(overrides?: {
 
   const fromImpl = (table: string) => {
     if (table === "automation_runs") return automationRunsBuilder();
+    if (table === "pipeline_events") return { insert: pipelineEventsInsert };
     return { update: vi.fn(() => ({ eq: vi.fn(async () => ({})) })) };
   };
 
@@ -167,6 +178,8 @@ function makeAdminMock(overrides?: {
       emailLabelsInsertedRows,
       automationRunUpdate,
       automationRunUpdateEq,
+      pipelineEventsInsert,
+      supabaseInserts,
     },
   };
 }
@@ -314,6 +327,25 @@ describe("Phase 67 — second emit (icontroller-tag)", () => {
       (captures.emailLabelsInsertedRows[0] as { icontroller_tag_status: string })
         .icontroller_tag_status,
     ).toBe("skipped_dry_run");
+
+    // Phase 70 — TELE-01 dual-write: pipeline_events row with decision='resolved'.
+    const pipelineEventInsert = captures.supabaseInserts.find(
+      (i) =>
+        i.table === "pipeline_events" &&
+        (i.payload as { stage?: number }).stage === 2 &&
+        (i.payload as { decision?: string }).decision === "resolved",
+    );
+    expect(pipelineEventInsert).toBeTruthy();
+    expect(pipelineEventInsert!.payload).toMatchObject({
+      swarm_type: "debtor-email",
+      email_id: EMAIL_ROW.id,
+      triggered_by: "pipeline",
+      decision_details: expect.objectContaining({
+        customer_account_id: "506909",
+        customer_name: "Klant BV",
+        method: "sender_match",
+      }),
+    });
   });
 
   it("matched + live + icontroller_company set → emits icontroller-tag with mailbox-list URL + email_label_id; INSERT carries pending", async () => {
@@ -391,7 +423,7 @@ describe("Phase 67 — second emit (icontroller-tag)", () => {
   });
 
   it("unresolved (customer_account_id=null) + live → does NOT emit icontroller-tag", async () => {
-    const { handler: h } = await loadHandlerWithSettings({
+    const { handler: h, captures } = await loadHandlerWithSettings({
       ...SETTINGS_ROW,
       dry_run: false,
       icontroller_company: "smebabrandbeveiliging",
@@ -405,6 +437,20 @@ describe("Phase 67 — second emit (icontroller-tag)", () => {
     });
 
     await h({ event: buildEvent(), step: stepStub });
+
+    // Phase 70 — TELE-01 dual-write: pipeline_events row with stage:2,
+    // decision='unresolved'.
+    const pipelineEventInsert = captures.supabaseInserts.find(
+      (i) => i.table === "pipeline_events" && (i.payload as { stage?: number }).stage === 2,
+    );
+    expect(pipelineEventInsert).toBeTruthy();
+    expect(pipelineEventInsert!.payload).toMatchObject({
+      stage: 2,
+      decision: "unresolved",
+      swarm_type: "debtor-email",
+      email_id: EMAIL_ROW.id,
+      triggered_by: "pipeline",
+    });
 
     const tagCalls = inngestSend.mock.calls.filter(
       (c) =>
@@ -492,5 +538,75 @@ describe("Phase 68 — registry-driven Stage-2 dispatch", () => {
         "debtor-email/icontroller-tag.requested",
     );
     expect(tagCalls.length).toBe(0);
+  });
+});
+
+// Phase 70 — TELE-01 Stage 2 dual-write coverage.
+describe("Phase 70 — TELE-01 Stage 2 dual-write", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  async function loadHandler(): Promise<{
+    handler: typeof handler;
+    captures: ReturnType<typeof makeAdminMock>["__captures"];
+  }> {
+    vi.clearAllMocks();
+    adminMock = makeAdminMock();
+    resolveDebtorMock.mockReset();
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../classifier-label-resolver");
+    return {
+      handler: (mod.classifierLabelResolver as unknown as {
+        handler: typeof handler;
+      }).handler,
+      captures: (adminMock as unknown as {
+        __captures: ReturnType<typeof makeAdminMock>["__captures"];
+      }).__captures,
+    };
+  }
+
+  it("resolver error → emits pipeline_events row with decision='unresolved' and decision_details.failure_reason", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockRejectedValueOnce(new Error("nxt timeout"));
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const pipelineEventInsert = captures.supabaseInserts.find(
+      (i) =>
+        i.table === "pipeline_events" &&
+        (i.payload as { stage?: number }).stage === 2,
+    );
+    expect(pipelineEventInsert).toBeTruthy();
+    expect(pipelineEventInsert!.payload).toMatchObject({
+      stage: 2,
+      decision: "unresolved",
+      confidence: null,
+      decision_details: expect.objectContaining({
+        failure_reason: "nxt timeout",
+      }),
+    });
+  });
+
+  it("numericConfidence: 'high' → 0.9 in pipeline_events row", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "sender_match",
+      customer_account_id: "506909",
+      customer_name: "Klant BV",
+      confidence: "high",
+      candidates_considered: 1,
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const pipelineEventInsert = captures.supabaseInserts.find(
+      (i) =>
+        i.table === "pipeline_events" &&
+        (i.payload as { stage?: number }).stage === 2 &&
+        (i.payload as { decision?: string }).decision === "resolved",
+    );
+    expect(pipelineEventInsert).toBeTruthy();
+    expect((pipelineEventInsert!.payload as { confidence?: number }).confidence).toBe(0.9);
   });
 });
