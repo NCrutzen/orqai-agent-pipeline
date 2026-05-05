@@ -49,6 +49,10 @@ export async function POST(request: NextRequest) {
 
   const env: IControllerEnv = body.env === "production" ? "production" : "acceptance";
   const mode = body.mode === "new" ? "new" : "reply";
+  const fromMailbox =
+    typeof body.fromMailbox === "string" && body.fromMailbox.trim().length > 0
+      ? body.fromMailbox.trim()
+      : undefined;
 
   if (!body.pdfBase64 || typeof body.pdfBase64 !== "string") {
     return NextResponse.json(
@@ -84,6 +88,7 @@ export async function POST(request: NextRequest) {
       pdfBase64: body.pdfBase64,
       filename: body.filename,
       env,
+      fromMailbox,
     };
     logMessageId = `new:${body.to}`;
   } else {
@@ -104,6 +109,7 @@ export async function POST(request: NextRequest) {
       pdfBase64: body.pdfBase64,
       filename: body.filename,
       env,
+      fromMailbox,
     };
     logMessageId = String(body.messageId);
   }

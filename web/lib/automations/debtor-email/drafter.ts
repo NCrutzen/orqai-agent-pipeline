@@ -42,6 +42,7 @@ export type CreateDraftInput =
       pdfBase64: string;
       filename: string;
       env?: IControllerEnv;
+      fromMailbox?: string;
     }
   | {
       mode: "new";
@@ -51,6 +52,7 @@ export type CreateDraftInput =
       pdfBase64: string;
       filename: string;
       env?: IControllerEnv;
+      fromMailbox?: string;
     };
 
 export type DraftFailureReason =
@@ -58,7 +60,8 @@ export type DraftFailureReason =
   | "message_not_found"
   | "attach_failed"
   | "save_failed"
-  | "composer_failed";
+  | "composer_failed"
+  | "from_select_failed";
 
 export interface CreateDraftSuccess {
   success: true;
@@ -363,6 +366,94 @@ async function injectBody(
 }
 
 /**
+ * Select the From mailbox in the reply composer. iController renders this as a
+ * Select2-styled native `<select>`; if no option is picked, Save-as-draft is
+ * blocked with a "Selecteer een item in de lijst" validation popover.
+ *
+ * Match strategy: every option's visible text carries the mailbox email in
+ * `<...>` (e.g. `smebabrandbeveiliging <debiteuren@smeba.nl>`), so we match by
+ * email instead of by label — robust against label drift across brands.
+ */
+async function selectFromMailbox(page: Page, fromMailbox: string): Promise<void> {
+  const result = await page.evaluate((email: string) => {
+    const findFromSelect = (): HTMLSelectElement | null => {
+      const labelLikeNodes = Array.from(
+        document.querySelectorAll<HTMLElement>("label, th, dt, .control-label, .form-label"),
+      );
+      const fromLabel = labelLikeNodes.find((el) =>
+        /^(from|van)\s*:?\s*$/i.test((el.textContent ?? "").trim()),
+      );
+      if (fromLabel) {
+        const forId = fromLabel.getAttribute("for");
+        if (forId) {
+          const byId = document.getElementById(forId);
+          if (byId && byId.tagName === "SELECT") return byId as HTMLSelectElement;
+        }
+        let container: Element | null = fromLabel;
+        for (let depth = 0; depth < 6 && container; depth++) {
+          const nested = container.querySelector<HTMLSelectElement>("select");
+          if (nested) return nested;
+          container = container.parentElement;
+        }
+      }
+      // Fallback: pick the first <select> whose options contain mailbox emails.
+      const allSelects = Array.from(document.querySelectorAll<HTMLSelectElement>("select"));
+      return (
+        allSelects.find((s) =>
+          Array.from(s.options).some((o) => /<[^>]+@[^>]+>/.test(o.textContent ?? "")),
+        ) ?? null
+      );
+    };
+
+    const select = findFromSelect();
+    if (!select) {
+      return { ok: false as const, reason: "from_select_not_found" as const };
+    }
+
+    const needle = `<${email.toLowerCase()}>`;
+    const match = Array.from(select.options).find((o) =>
+      (o.textContent ?? "").toLowerCase().includes(needle),
+    );
+    if (!match) {
+      const available = Array.from(select.options)
+        .map((o) => (o.textContent ?? "").trim())
+        .filter(Boolean);
+      return { ok: false as const, reason: "no_option_for_mailbox" as const, available };
+    }
+
+    select.value = match.value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    // Select2 v3/v4 syncs via jQuery 'change'. iController loads jQuery for the
+    // composer's Select2 widgets (recipient chips, From dropdown).
+    const jq = (window as unknown as { jQuery?: (el: Element) => { trigger: (e: string) => void } }).jQuery;
+    try {
+      jq?.(select).trigger("change");
+    } catch {
+      /* non-fatal */
+    }
+    return {
+      ok: true as const,
+      value: match.value,
+      label: (match.textContent ?? "").trim(),
+    };
+  }, fromMailbox);
+
+  if (!result.ok) {
+    const detail =
+      "available" in result
+        ? ` available_options=${JSON.stringify(result.available).slice(0, 600)}`
+        : "";
+    throw new Error(
+      `from_select_failed: ${result.reason} for fromMailbox=${fromMailbox}${detail}`,
+    );
+  }
+
+  console.log(
+    `[debtor-email-drafter] selected From mailbox: ${result.label} (value=${result.value})`,
+  );
+}
+
+/**
  * Click the Save-as-draft button. The probe artifact confirms a single
  * match: `<button type="submit" class="save-as-draft" data-save-draft-button="1">Save as draft</button>`.
  * We target by class first (most stable), then by text as a fallback.
@@ -488,6 +579,26 @@ export async function createIcontrollerDraft(
     if (input.bodyHtml && input.bodyHtml.trim().length > 0) {
       injectionPath = await injectBody(page, input.bodyHtml);
       console.log(`[debtor-email-drafter] body injected via: ${injectionPath}`);
+    }
+
+    // Select From mailbox (required by iController to allow Save-as-draft).
+    // Skipped when caller didn't supply one — preserves backwards compatibility
+    // for older callers; new callers (invoice-copy-handler) always supply.
+    if (input.fromMailbox && input.fromMailbox.trim().length > 0) {
+      try {
+        await selectFromMailbox(page, input.fromMailbox.trim());
+      } catch (err) {
+        const shot = await captureScreenshot(page, {
+          automation: AUTOMATION_NAME,
+          label: "error-from-select",
+        }).catch(() => ({ path: null, url: null }));
+        return {
+          success: false,
+          reason: "from_select_failed",
+          screenshot: shot,
+          details: String(err),
+        };
+      }
     }
 
     // Screenshot BEFORE save

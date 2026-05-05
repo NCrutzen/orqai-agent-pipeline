@@ -397,6 +397,10 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
           pdfBase64: fetchResult.pdf.base64,
           filename: fetchResult.pdf.filename,
           env: dryRun ? "acceptance" : "production",
+          // From-mailbox is required by iController to allow Save-as-draft.
+          // source_mailbox is the inbox we're replying from; same address
+          // serves as the outgoing mailbox in iController's From dropdown.
+          fromMailbox: source_mailbox,
         }),
       });
       const json = (await res.json().catch(() => ({}))) as
