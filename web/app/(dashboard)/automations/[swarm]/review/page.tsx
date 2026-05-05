@@ -511,6 +511,15 @@ export async function loadPageData(
       effectiveFilter.length > 0 ? effectiveFilter : ["__no_match__"],
     );
     const listRes = await listQuery;
+    console.log(
+      "[bulk-review.diag] listRes",
+      JSON.stringify({
+        dataCount: (listRes.data as SummaryRow[] | null)?.length ?? 0,
+        err: (listRes as { error?: { message?: string } }).error?.message ?? null,
+        effectiveFilterSample: effectiveFilter.slice(0, 3),
+        effectiveFilterCount: effectiveFilter.length,
+      }),
+    );
     const summaryRows = (listRes.data as SummaryRow[] | null) ?? [];
     rows = summaryRows.map(mapSummaryToPredictedRow);
   }
