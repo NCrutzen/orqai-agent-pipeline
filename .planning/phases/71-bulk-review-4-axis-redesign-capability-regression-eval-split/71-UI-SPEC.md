@@ -1,11 +1,13 @@
 ---
 phase: 71
 slug: bulk-review-4-axis-redesign-capability-regression-eval-split
-status: draft
+status: approved
 shadcn_initialized: true
 preset: existing (web/components/ui — Button, Card, Dialog, Select, Sheet, Tabs, Tooltip, etc.)
 created: 2026-05-05
 revised: 2026-05-05
+reviewed_at: 2026-05-05
+checker_verdict: APPROVED (5 PASS, 1 FLAG — type scale 1px-stepped, differentiated via weight/case/font-family/chrome)
 ---
 
 # Phase 71 — UI Design Contract
