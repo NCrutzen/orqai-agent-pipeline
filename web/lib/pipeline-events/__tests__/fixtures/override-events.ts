@@ -1,3 +1,12 @@
+/**
+ * Phase 71 — canonical override-event payloads per axis × {capability, regression}.
+ *
+ * Imported by override route tests and override-handler tests. Plan 71-01
+ * is the authoritative producer of this fixtures module; Plan 71-02 also
+ * ships it locally to keep the worktrees independently typed-clean. The
+ * orchestrator reconciles on merge — both copies are byte-equivalent by
+ * design (CONTEXT D-01, VALIDATION Override Coverage Matrix).
+ */
 import type { OverrideAxis } from "../../types";
 
 export interface OverrideEventPayload {

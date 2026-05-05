@@ -59,6 +59,36 @@ export interface PipelineEventInput {
 }
 
 /**
+ * Phase 71 D-01 / D-03 — 4-axis override vocabulary.
+ *
+ * Closed literal-union; no DB CHECK constraint (matches Phase 70 stance).
+ * Compile-time enforcement via TypeScript is sufficient.
+ *
+ * NOTE: this type is also produced by Plan 71-01. When 71-01 lands first the
+ * orchestrator merges; when 71-02 lands first this declaration carries the
+ * contract. Either way the literal-union is stable and identical.
+ */
+export type OverrideAxis =
+  | "stage_1_category"
+  | "stage_2_customer"
+  | "stage_3_intent"
+  | "stage_4_handler_output";
+
+/**
+ * Shape stored in pipeline_events.override jsonb (D-01).
+ * `eval_type` lives on its own pipeline_events column — NOT inside this jsonb
+ * (D-01 rationale: simpler indexing, no jsonb path queries on hot read path).
+ */
+export interface OverrideJson {
+  axis: OverrideAxis;
+  original_decision: string;     // verbatim copy of decision being overridden
+  original_event_id: string;     // uuid — the pipeline_events.id of first-pass row
+  operator_id: string;           // uuid (auth.uid()) — server-stamped per D-13
+  reason: string | null;         // free text, max 1000 chars (D-14), null when omitted
+  submitted_at: string;          // ISO timestamptz; MUST be generated inside step.run (Pitfall 2)
+}
+
+/**
  * Map legacy text-confidence vocabulary used by `email_labels`,
  * `agent_runs`, and Stage-2/3 outputs to the numeric(4,3) shape required
  * by `pipeline_events.confidence`.
