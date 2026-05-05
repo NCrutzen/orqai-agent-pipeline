@@ -25,6 +25,7 @@
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
+import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { regexScreen } from "@/lib/stage-0/regex-screen";
 import { llmInjectionVerdict } from "@/lib/stage-0/llm-verdict";
 import {
@@ -149,6 +150,24 @@ export const stage0SafetyWorker = inngest.createFunction(
       if (error) {
         throw new Error(`automation_runs insert failed: ${error.message}`);
       }
+
+      // Phase 70 — TELE-01 dual-write
+      await emitPipelineEvent(admin, {
+        swarm_type: "debtor-email",
+        stage: 0,
+        email_id,
+        decision: llmResult.verdict,
+        confidence: null,
+        decision_details: {
+          regex_matched: regexResult.matched,
+          llm_reason: llmResult.reason,
+          matched_span: llmResult.matched_span,
+          safety_overridden: false,
+        },
+        cost_cents: llmResult.usage.cost_cents,
+        automation_run_id: automation_run_id ?? null,
+        triggered_by: "pipeline",
+      });
     });
 
     // Step 5 — forward to classifier ONLY on safe verdict.

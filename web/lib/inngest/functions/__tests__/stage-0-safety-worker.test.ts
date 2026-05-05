@@ -32,13 +32,33 @@ vi.mock("@/lib/inngest/client", () => ({
 }));
 
 vi.mock("@/lib/supabase/admin", () => {
-  const insert = vi.fn().mockResolvedValue({ data: null, error: null });
+  // Phase 70 — capture inserts per-table so the dual-write assertion can
+  // distinguish automation_runs vs pipeline_events.
+  const supabaseInserts: Array<{ table: string; payload: any }> = [];
+  const insert = vi.fn(async (payload: any) => {
+    // last-table tracking is set by `from(table)` below
+    supabaseInserts.push({ table: lastTable, payload });
+    return { data: null, error: null };
+  });
+  let lastTable = "";
   const eq = vi.fn().mockResolvedValue({ data: null, error: null });
   const update = vi.fn(() => ({ eq }));
-  const from = vi.fn(() => ({ insert, update }));
+  const from = vi.fn((table: string) => {
+    lastTable = table;
+    return { insert, update };
+  });
   return {
     createAdminClient: vi.fn(() => ({ from })),
-    __mocks__: { from, insert, update, eq },
+    __mocks__: {
+      from,
+      insert,
+      update,
+      eq,
+      supabaseInserts,
+      _resetInserts: () => {
+        supabaseInserts.length = 0;
+      },
+    },
   };
 });
 
@@ -76,6 +96,7 @@ beforeEach(() => {
   adminMocks.insert.mockClear();
   adminMocks.update.mockClear();
   adminMocks.eq.mockClear();
+  adminMocks._resetInserts();
 });
 
 describe("SAFE-02/SAFE-03: happy path — verdict=safe forwards to classifier", () => {
@@ -123,6 +144,24 @@ describe("SAFE-02/SAFE-03: happy path — verdict=safe forwards to classifier", 
     );
     expect(safeInsert).toBeDefined();
     expect(safeInsert.topic).toBeNull();
+
+    // Phase 70 — TELE-01 dual-write: pipeline_events row with stage:0 + decision:'safe'.
+    const pipelineEventInsert = adminMocks.supabaseInserts.find(
+      (i: any) =>
+        i.table === "pipeline_events" &&
+        i.payload?.stage === 0 &&
+        i.payload?.decision === "safe",
+    );
+    expect(pipelineEventInsert).toBeTruthy();
+    expect(pipelineEventInsert.payload.swarm_type).toBe("debtor-email");
+    expect(pipelineEventInsert.payload.email_id).toBe("e-safe");
+    expect(pipelineEventInsert.payload.confidence).toBeNull();
+    expect(pipelineEventInsert.payload.automation_run_id).toBe("ar-1");
+    expect(pipelineEventInsert.payload.triggered_by).toBe("pipeline");
+    expect(pipelineEventInsert.payload.decision_details).toMatchObject({
+      regex_matched: null,
+      safety_overridden: false,
+    });
   });
 });
 
@@ -167,6 +206,66 @@ describe("SAFE-02: injection_suspected — does NOT forward to classifier", () =
 
     const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
     expect(sendNames).not.toContain("classifier/screen.requested");
+
+    // Phase 70 — TELE-01 dual-write: pipeline_events row with decision='injection_suspected'.
+    const pipelineEventInsert = adminMocks.supabaseInserts.find(
+      (i: any) =>
+        i.table === "pipeline_events" &&
+        i.payload?.stage === 0 &&
+        i.payload?.decision === "injection_suspected",
+    );
+    expect(pipelineEventInsert).toBeTruthy();
+    expect(pipelineEventInsert.payload.email_id).toBe("e-inj");
+    expect(pipelineEventInsert.payload.cost_cents).toBe(4);
+    expect(pipelineEventInsert.payload.decision_details).toMatchObject({
+      regex_matched: "ignore_previous",
+      matched_span: "ignore previous",
+      safety_overridden: false,
+    });
+  });
+});
+
+describe("Phase 70 — TELE-01 dual-write idempotency", () => {
+  it("does not duplicate pipeline_events row on replay (handler invoked twice with same event)", async () => {
+    mockRegex.mockReturnValue({ matched: null });
+    mockLlm.mockResolvedValue({
+      verdict: "safe",
+      reason: "no signals",
+      matched_span: null,
+      usage: {
+        prompt_tokens: 80,
+        completion_tokens: 10,
+        total_tokens: 90,
+        cost_cents: 1,
+      },
+    });
+    mockBudget.mockReturnValue({ breached: false });
+
+    // The unit-test step harness re-runs every step.run callback (no
+    // memoization). Inngest runtime is the real replay boundary (see
+    // CONTEXT D-09). This test asserts that, given the test harness's
+    // single-pass behaviour, exactly one pipeline_events row is emitted
+    // per handler invocation. NOTE: replay-safety against duplicate rows
+    // when Inngest replays a step is enforced by Inngest's step.run
+    // memoization at runtime, not by this unit test.
+    const step = makeStep();
+    const handler = getHandler();
+    await handler({
+      event: {
+        data: {
+          email_id: "e-replay",
+          body: "x",
+          subject: "y",
+          automation_run_id: "ar-replay",
+        },
+      },
+      step,
+    });
+
+    const pipelineRows = adminMocks.supabaseInserts.filter(
+      (i: any) => i.table === "pipeline_events" && i.payload?.stage === 0,
+    );
+    expect(pipelineRows.length).toBe(1);
   });
 });
 
