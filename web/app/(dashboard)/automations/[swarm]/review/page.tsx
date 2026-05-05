@@ -128,6 +128,34 @@ export async function loadPageData(
   admin: ReturnType<typeof createAdminClient>,
   swarmType: string,
 ): Promise<PageData> {
+  // ---------------------------------------------------------------------
+  // Phase 70 TELE-03 scope (per RESEARCH Pitfall 5)
+  //
+  // The 8 sub-queries inside loadPageData and their disposition:
+  //   (1) RPC classifier_queue_counts             — OUT-OF-SCOPE (line ~163)
+  //   (2) predicted-row feed (was automation_runs)— IN-SCOPE: now reads
+  //                                                 public.pipeline_events
+  //                                                 (line ~177)
+  //   (3) RPC automation_runs_with_outlier        — IN-SCOPE per Pitfall 5
+  //                                                 BUT pragmatically left
+  //                                                 on automation_runs in
+  //                                                 v1 — the RPC encapsulates
+  //                                                 join logic. Phase 72 may
+  //                                                 move to pipeline_events.
+  //                                                 cost_cents aggregations.
+  //                                                 (line ~205)
+  //   (4) classifier_rules promoted-today         — OUT-OF-SCOPE (line ~245)
+  //   (5) classifier_rules pending-promotions     — OUT-OF-SCOPE (line ~257)
+  //   (6) selected-row detail (was automation_runs)— IN-SCOPE: now reads
+  //                                                  public.pipeline_events
+  //                                                  (line ~277)
+  //   (7) loadCoordinatorRunsForReview            — OUT-OF-SCOPE side-loader
+  //   (8) loadTaggingFailuresForReview            — OUT-OF-SCOPE side-loader
+  //
+  // D-16 atomic replacement — old automation_runs SELECTs at (2) and (6)
+  // are REMOVED, not commented-out; revert is via git.
+  // ---------------------------------------------------------------------
+
   // 1. Counts: single RPC, GROUP BY (swarm_type, topic, entity, mailbox_id).
   const countsRes = await admin.rpc("classifier_queue_counts", {
     p_swarm_type: swarmType,
@@ -136,28 +164,72 @@ export async function loadPageData(
 
   // 2. Predicted rows: cursor pagination, page-size 100.
   //
+  // Phase 70 TELE-03 (D-14): reads from public.pipeline_events filtered by
+  // swarm_type AND stage=1 (Stage 1 regex decisions) — this is the
+  // canonical predicted-row feed. The shape is mapped to PredictedRow so
+  // downstream RowList / DetailPane components see the same fields they
+  // saw under automation_runs (id, swarm_type, topic via decision_details,
+  // result via decision_details, created_at).
+  //
   // Phase 64-05 (SAFE-02 / SAFE-04): when params.tab==='safety', filter on
   // topic='safety_review' so the Safety Review tab only shows Stage 0
-  // injection-suspected rows. Existing topic/entity/mailbox/rule filters
-  // are not applied in the safety branch — Stage 0 rows aren't categorised
-  // by the regex classifier, so those filters have no meaning here.
+  // injection-suspected rows. Under the pipeline_events feed this maps to
+  // stage=0 + decision='injection_suspected'.
   let rows: PredictedRow[];
+  interface PipelineEventRow {
+    id: string;
+    created_at: string;
+    swarm_type: string;
+    stage: number;
+    email_id: string | null;
+    decision: string;
+    confidence: number | null;
+    decision_details: Record<string, unknown> | null;
+    automation_run_id: string | null;
+    agent_run_id: string | null;
+  }
+  function mapEventToPredictedRow(e: PipelineEventRow): PredictedRow {
+    const details = (e.decision_details ?? {}) as Record<string, unknown>;
+    return {
+      id: e.id,
+      automation: `${e.swarm_type}-review`,
+      status: "predicted",
+      swarm_type: e.swarm_type,
+      topic: (details.topic as string | undefined) ?? e.decision ?? null,
+      entity: (details.entity as string | undefined) ?? null,
+      mailbox_id: (details.mailbox_id as number | undefined) ?? null,
+      // Preserve the entire decision_details as `result` so DetailPane and
+      // existing consumers (which read fields like result.email_id,
+      // result.stage, result.regex_matched, etc.) keep working without
+      // touching their code. Also stamp email_id at the top level for the
+      // tagging-failure side-loader (sub-query 8) which reads
+      // result.email_id.
+      result: { ...details, email_id: e.email_id },
+      created_at: e.created_at,
+    };
+  }
+
   if (params.tab === "safety") {
     const safetyQuery = admin
-      .from("automation_runs")
-      .select("*")
-      .eq("status", "predicted")
+      .from("pipeline_events")
+      .select(
+        "id, created_at, swarm_type, stage, email_id, decision, confidence, decision_details, automation_run_id, agent_run_id",
+      )
       .eq("swarm_type", swarmType)
-      .eq("topic", "safety_review")
+      .eq("stage", 0)
+      .eq("decision", "injection_suspected")
       .order("created_at", { ascending: false })
       .limit(100);
     if (params.before) safetyQuery.lt("created_at", params.before);
     const safetyRes = await safetyQuery;
-    const safetyRows = (safetyRes.data as PredictedRow[] | null) ?? [];
+    const safetyEvents =
+      (safetyRes.data as PipelineEventRow[] | null) ?? [];
+    const safetyRows = safetyEvents.map(mapEventToPredictedRow);
 
-    // BUDG-03 / D-17 — enrich with cost-outlier flag at read time.
-    // The RPC carries the Pitfall-6 bootstrap guard internally
-    // (sample_count<100 → is_cost_outlier=false for every id).
+    // Phase 70 TELE-03: outlier RPC stays on automation_runs for v1 —
+    // Phase 72 may move to pipeline_events.cost_cents aggregations.
+    // The RPC keys by automation_runs.id; we map by automation_run_id
+    // on the event so the outlier flag still lights up the correct row.
     const outlierRes = await admin.rpc("automation_runs_with_outlier", {
       p_swarm_type: swarmType,
     });
@@ -172,8 +244,10 @@ export async function loadPageData(
     for (const o of (outlierRes.data as OutlierRow[] | null) ?? []) {
       outlierMap.set(o.id, o);
     }
-    rows = safetyRows.map((r) => {
-      const o = outlierMap.get(r.id);
+    rows = safetyRows.map((r, idx) => {
+      const ev = safetyEvents[idx];
+      const lookupId = ev.automation_run_id ?? r.id;
+      const o = outlierMap.get(lookupId);
       return {
         ...r,
         is_cost_outlier: o?.is_cost_outlier ?? false,
@@ -184,24 +258,35 @@ export async function loadPageData(
     });
   } else {
     const listQuery = admin
-      .from("automation_runs")
-      .select("*")
-      .eq("status", "predicted")
+      .from("pipeline_events")
+      .select(
+        "id, created_at, swarm_type, stage, email_id, decision, confidence, decision_details, automation_run_id, agent_run_id",
+      )
       .eq("swarm_type", swarmType)
+      .eq("stage", 1)
       .order("created_at", { ascending: false })
       .limit(100);
     if (params.before) listQuery.lt("created_at", params.before);
-    if (params.topic) listQuery.eq("topic", params.topic);
-    if (params.entity) listQuery.eq("entity", params.entity);
+    // Topic / entity / mailbox / rule filters now hit decision_details
+    // (jsonb). Supabase JS supports the `column->>key` selector in .eq().
+    if (params.topic) {
+      listQuery.eq("decision_details->>topic", params.topic);
+    }
+    if (params.entity) {
+      listQuery.eq("decision_details->>entity", params.entity);
+    }
     if (params.mailbox) {
       const mb = parseInt(params.mailbox, 10);
-      if (!Number.isNaN(mb)) listQuery.eq("mailbox_id", mb);
+      if (!Number.isNaN(mb)) {
+        listQuery.eq("decision_details->>mailbox_id", String(mb));
+      }
     }
     if (params.rule) {
-      listQuery.eq("result->predicted->>rule", params.rule);
+      listQuery.eq("decision_details->predicted->>rule", params.rule);
     }
     const listRes = await listQuery;
-    rows = (listRes.data as PredictedRow[] | null) ?? [];
+    const listEvents = (listRes.data as PipelineEventRow[] | null) ?? [];
+    rows = listEvents.map(mapEventToPredictedRow);
   }
 
   // 3. Today's promoted rules — race-cohort surfacing (D-21).
@@ -240,14 +325,21 @@ export async function loadPageData(
   // 5. Selected row for the detail pane (?selected=<id>). Separate query
   //    so the list query is not widened by an OR clause. Returns null when
   //    no selection or the id is no longer in the predicted set.
+  //
+  // Phase 70 TELE-03 (D-14, D-16): reads from pipeline_events; the row id in
+  // the URL is now the pipeline_events.id, since the row list comes from
+  // pipeline_events.
   let selectedRow: PredictedRow | null = null;
   if (params.selected) {
     const selRes = await admin
-      .from("automation_runs")
-      .select("*")
+      .from("pipeline_events")
+      .select(
+        "id, created_at, swarm_type, stage, email_id, decision, confidence, decision_details, automation_run_id, agent_run_id",
+      )
       .eq("id", params.selected)
       .single();
-    selectedRow = (selRes.data as PredictedRow | null) ?? null;
+    const selEvent = (selRes.data as PipelineEventRow | null) ?? null;
+    selectedRow = selEvent ? mapEventToPredictedRow(selEvent) : null;
   }
 
   // 6. Phase 65-05 (CORD-03 surface) — coordinator_runs join for debtor-email.
