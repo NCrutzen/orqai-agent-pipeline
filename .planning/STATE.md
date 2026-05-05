@@ -4,14 +4,14 @@ milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
 stopped_at: Phase 70 context gathered
-last_updated: "2026-05-05T07:26:23.279Z"
+last_updated: "2026-05-05T07:52:36.196Z"
 last_activity: 2026-05-04 -- Phase --phase execution started
 progress:
   total_phases: 45
   completed_phases: 18
-  total_plans: 91
+  total_plans: 98
   completed_plans: 77
-  percent: 85
+  percent: 79
 ---
 
 # Project State
@@ -138,4 +138,4 @@ Items acknowledged at v7.0 close on 2026-04-30 — known-deferred, not gating mi
 
 See .planning/milestones/v7.0-* archive files for full milestone state.
 
-**Planned Phase:** 69 (handler-agent-canonicalisation-cross-swarm-reuse) — 7 plans — 2026-05-04T12:31:42.673Z
+**Planned Phase:** 70 (Telemetry consolidation (pipeline_events)) — 7 plans — 2026-05-05T07:52:36.176Z
