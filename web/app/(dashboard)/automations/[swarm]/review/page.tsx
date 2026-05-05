@@ -643,8 +643,20 @@ export async function loadPageData(
     if (selectedRow) {
       const stored = bodyRowsByEmailId.get(selectedRow.id);
       if (stored && (stored.body_text ?? "").trim().length === 0 && stored.source_id && stored.mailbox) {
+        console.log(
+          "[bulk-review.outlook-fallback] attempting",
+          JSON.stringify({ emailId: selectedRow.id, mailbox: stored.mailbox }),
+        );
         try {
           const fetched = await fetchMessageBody(stored.mailbox, stored.source_id);
+          console.log(
+            "[bulk-review.outlook-fallback] fetched",
+            JSON.stringify({
+              emailId: selectedRow.id,
+              bodyLen: fetched.bodyText?.length ?? 0,
+              hasHtml: !!fetched.bodyHtml,
+            }),
+          );
           if (fetched.bodyText || fetched.bodyHtml) {
             initialBodyMap[selectedRow.id] = {
               bodyText: fetched.bodyText ?? "",
@@ -660,9 +672,16 @@ export async function loadPageData(
               })
               .eq("id", selectedRow.id);
           }
-        } catch {
+        } catch (e) {
           // Outlook fetch failed (deleted message, auth issue, etc). Leave
           // the empty body in place so the operator sees the metadata at least.
+          console.log(
+            "[bulk-review.outlook-fallback] failed",
+            JSON.stringify({
+              emailId: selectedRow.id,
+              error: e instanceof Error ? e.message : String(e),
+            }),
+          );
         }
       }
       if (initialBodyMap[selectedRow.id]) {

@@ -894,7 +894,7 @@ export function DetailPane({
         <dt className="text-[var(--v7-muted)]">Sent</dt>
         <dd style={{ fontVariantNumeric: "tabular-nums" }}>{sentTime}</dd>
         <dt className="text-[var(--v7-muted)]">Mailbox</dt>
-        <dd>{mailboxLabel(row.mailbox_id, swarmType)}</dd>
+        <dd>{result.source_mailbox || mailboxLabel(row.mailbox_id, swarmType)}</dd>
         <dt className="text-[var(--v7-muted)]">Topic/Entity</dt>
         <dd className="truncate min-w-0">
           {row.topic ?? "(no topic)"} · {row.entity ?? "(no entity)"}
