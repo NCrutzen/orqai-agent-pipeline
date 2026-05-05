@@ -321,11 +321,17 @@ describe("loadPageData — ?tab=safety branch (Phase 64-05 + Phase 70-06 TELE-03
     // @ts-expect-error — admin shape is structurally compatible for test.
     await loadPageData(params, adminClientMock, "debtor-email");
 
-    expect(lastListBuilder).not.toBeNull();
-    const eqCols = lastListBuilder!._eqCalls.map((c) => `${c.col}=${c.val}`);
-    expect(eqCols).not.toContain("decision=injection_suspected");
-    // Default branch hits pipeline_events with stage=1.
-    expect(eqCols).toContain("swarm_type=debtor-email");
-    expect(eqCols).toContain("stage=1");
+    // Phase 71-03 D-10: the default-branch predicted-row feed now reads
+    // public.pipeline_events_email_summary (per-email aggregate view), not
+    // raw public.pipeline_events with stage=1. The from('pipeline_events')
+    // builder may not be touched at all on this branch — assert via the
+    // .from() call log instead of lastListBuilder.
+    expect(fromCalls).toContain("pipeline_events_email_summary");
+    // It must NOT add a decision=injection_suspected filter (that is the
+    // safety-tab signature; we are on the default tab here).
+    if (lastListBuilder) {
+      const eqCols = lastListBuilder._eqCalls.map((c) => `${c.col}=${c.val}`);
+      expect(eqCols).not.toContain("decision=injection_suspected");
+    }
   });
 });

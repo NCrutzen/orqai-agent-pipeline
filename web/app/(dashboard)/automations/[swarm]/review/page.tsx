@@ -79,6 +79,39 @@ export interface PredictedRow {
   result: unknown;
   created_at: string;
   /**
+   * Phase 71-03 D-10. Per-stage decisions sourced from
+   * public.pipeline_events_email_summary (view-driven feed). Plan 04 UI
+   * renders these as per-stage cells in the row strip. Stage 0 is included
+   * (safety) for completeness; downstream UI may choose to ignore it.
+   */
+  stage_decisions?: {
+    0?: string | null;
+    1?: string | null;
+    2?: string | null;
+    3?: string | null;
+    4?: string | null;
+  };
+  /**
+   * Phase 71-03 D-10. Per-stage override flags for stages 1..4. True when
+   * any pipeline_events row at that stage carries a non-null override
+   * jsonb. Sourced from the view's bool_or aggregate.
+   */
+  stage_overridden?: {
+    1?: boolean | null;
+    2?: boolean | null;
+    3?: boolean | null;
+    4?: boolean | null;
+  };
+  /**
+   * Phase 71-03 D-10. View-derived rollups. total_cost_cents SUMs all
+   * pipeline_events rows for the email (cross-stage). tool_call_count
+   * counts Stage-4 events with decision_details ? 'tool_calls'.
+   */
+  total_cost_cents?: number | null;
+  tool_call_count?: number | null;
+  first_event_at?: string | null;
+  last_event_at?: string | null;
+  /**
    * Phase 64-05 (BUDG-03 / D-17). Computed at read time by the
    * `automation_runs_with_outlier` RPC. False when the 7-day sample
    * window has <100 entries (Pitfall 6 bootstrap guard) or when the
@@ -257,36 +290,136 @@ export async function loadPageData(
       };
     });
   } else {
-    const listQuery = admin
-      .from("pipeline_events")
+    // Phase 71-03 D-10. Predicted-row feed reads from the per-email
+    // aggregate view (one row per email). Selected-row detail (sub-query 5
+    // below) STAYS on raw public.pipeline_events for the per-stage timeline.
+    //
+    // Filter handling (decision_details->>topic / entity / mailbox_id / rule):
+    // the view does not denormalise decision_details. v1 simplification —
+    // when filters are active, JOIN-back to raw pipeline_events to find
+    // matching email_ids first, then constrain the view query to that set.
+    // Promote the filter into the view (or a new RPC) if perf becomes an
+    // issue (RESEARCH §Pitfall 7).
+    interface SummaryRow {
+      email_id: string;
+      swarm_type: string;
+      stage_0_decision: string | null;
+      stage_1_decision: string | null;
+      stage_2_decision: string | null;
+      stage_3_decision: string | null;
+      stage_4_decision: string | null;
+      stage_1_overridden: boolean | null;
+      stage_2_overridden: boolean | null;
+      stage_3_overridden: boolean | null;
+      stage_4_overridden: boolean | null;
+      total_cost_cents: number | null;
+      tool_call_count: number | null;
+      first_event_at: string | null;
+      last_event_at: string | null;
+    }
+
+    let filterEmailIds: string[] | null = null;
+    const hasFilters = !!(
+      params.topic ||
+      params.entity ||
+      params.mailbox ||
+      params.rule
+    );
+    if (hasFilters) {
+      // JOIN-back: collect email_ids from raw pipeline_events that match the
+      // active filter (Stage-1 events; matches the Phase 70-06 semantics).
+      const filterQuery = admin
+        .from("pipeline_events")
+        .select("email_id")
+        .eq("swarm_type", swarmType)
+        .eq("stage", 1)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (params.topic) filterQuery.eq("decision_details->>topic", params.topic);
+      if (params.entity) filterQuery.eq("decision_details->>entity", params.entity);
+      if (params.mailbox) {
+        const mb = parseInt(params.mailbox, 10);
+        if (!Number.isNaN(mb)) {
+          filterQuery.eq("decision_details->>mailbox_id", String(mb));
+        }
+      }
+      if (params.rule) {
+        filterQuery.eq("decision_details->predicted->>rule", params.rule);
+      }
+      const filterRes = await filterQuery;
+      const filterRows =
+        (filterRes.data as Array<{ email_id: string | null }> | null) ?? [];
+      filterEmailIds = Array.from(
+        new Set(
+          filterRows
+            .map((r) => r.email_id)
+            .filter((id): id is string => !!id),
+        ),
+      );
+    }
+
+    function mapSummaryToPredictedRow(row: SummaryRow): PredictedRow {
+      return {
+        id: row.email_id,
+        automation: `${row.swarm_type}-review`,
+        status: "predicted",
+        swarm_type: row.swarm_type,
+        topic: row.stage_1_decision ?? null,
+        entity: null,
+        mailbox_id: null,
+        result: { email_id: row.email_id },
+        created_at: row.last_event_at ?? new Date(0).toISOString(),
+        stage_decisions: {
+          0: row.stage_0_decision,
+          1: row.stage_1_decision,
+          2: row.stage_2_decision,
+          3: row.stage_3_decision,
+          4: row.stage_4_decision,
+        },
+        stage_overridden: {
+          1: row.stage_1_overridden,
+          2: row.stage_2_overridden,
+          3: row.stage_3_overridden,
+          4: row.stage_4_overridden,
+        },
+        total_cost_cents: row.total_cost_cents,
+        tool_call_count: row.tool_call_count,
+        first_event_at: row.first_event_at,
+        last_event_at: row.last_event_at,
+      };
+    }
+
+    interface SummaryQuery {
+      select: (cols: string) => SummaryQuery;
+      eq: (col: string, val: unknown) => SummaryQuery;
+      lt: (col: string, val: unknown) => SummaryQuery;
+      in: (col: string, vals: unknown[]) => SummaryQuery;
+      order: (col: string, opts?: unknown) => SummaryQuery;
+      limit: (n: number) => SummaryQuery;
+      then: <T>(cb: (v: { data: SummaryRow[] | null; error: unknown }) => T) => Promise<T>;
+    }
+    const listQuery = (admin.from("pipeline_events_email_summary") as unknown as SummaryQuery)
       .select(
-        "id, created_at, swarm_type, stage, email_id, decision, confidence, decision_details, automation_run_id, agent_run_id",
+        "email_id, swarm_type, " +
+          "stage_0_decision, stage_1_decision, stage_2_decision, stage_3_decision, stage_4_decision, " +
+          "stage_1_overridden, stage_2_overridden, stage_3_overridden, stage_4_overridden, " +
+          "total_cost_cents, tool_call_count, first_event_at, last_event_at",
       )
       .eq("swarm_type", swarmType)
-      .eq("stage", 1)
-      .order("created_at", { ascending: false })
+      .order("last_event_at", { ascending: false })
       .limit(100);
-    if (params.before) listQuery.lt("created_at", params.before);
-    // Topic / entity / mailbox / rule filters now hit decision_details
-    // (jsonb). Supabase JS supports the `column->>key` selector in .eq().
-    if (params.topic) {
-      listQuery.eq("decision_details->>topic", params.topic);
-    }
-    if (params.entity) {
-      listQuery.eq("decision_details->>entity", params.entity);
-    }
-    if (params.mailbox) {
-      const mb = parseInt(params.mailbox, 10);
-      if (!Number.isNaN(mb)) {
-        listQuery.eq("decision_details->>mailbox_id", String(mb));
-      }
-    }
-    if (params.rule) {
-      listQuery.eq("decision_details->predicted->>rule", params.rule);
+    if (params.before) listQuery.lt("last_event_at", params.before);
+    if (filterEmailIds !== null) {
+      // No matches → empty list; explicitly constrain to an empty array so
+      // the query returns nothing rather than every row.
+      listQuery.in(
+        "email_id",
+        filterEmailIds.length > 0 ? filterEmailIds : ["__no_match__"],
+      );
     }
     const listRes = await listQuery;
-    const listEvents = (listRes.data as PipelineEventRow[] | null) ?? [];
-    rows = listEvents.map(mapEventToPredictedRow);
+    const summaryRows = (listRes.data as SummaryRow[] | null) ?? [];
+    rows = summaryRows.map(mapSummaryToPredictedRow);
   }
 
   // 3. Today's promoted rules — race-cohort surfacing (D-21).
