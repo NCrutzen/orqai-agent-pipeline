@@ -13,6 +13,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { RowStrip } from "./row-strip";
 import { RaceCohortBanner } from "./race-cohort-banner";
+import { RecipientChipStrip } from "./recipient-chip-strip";
 import { useSelection } from "./selection-context";
 import type { SwarmUiConfig } from "@/lib/swarms/types";
 import type {
@@ -20,6 +21,7 @@ import type {
   PageSearchParams,
   PredictedRow,
   PromotedRule,
+  RecipientChip,
 } from "./page";
 
 interface RowListProps {
@@ -29,6 +31,8 @@ interface RowListProps {
   selection: PageSearchParams;
   swarmType: string;
   columns: SwarmUiConfig["row_columns"];
+  /** Phase 71-05 (UI-SPEC §Recipient chip strip). One chip per recipient. */
+  recipientChips?: RecipientChip[];
 }
 
 interface RowResult {
@@ -48,6 +52,7 @@ export function RowList({
   candidates,
   selection,
   swarmType,
+  recipientChips,
 }: RowListProps) {
   const { selectedId, setSelected, pendingRemovalIds } = useSelection();
   const isPending = selection.tab === "pending";
@@ -114,6 +119,13 @@ export function RowList({
     return qs.toString() ? `${basePath}?${qs.toString()}` : basePath;
   })();
 
+  // Phase 71-05 (UI-SPEC §Recipient chip strip). The chip strip is rendered
+  // above the predicted-row list. Active inbox is read from ?inbox= URL
+  // param; "all" is the default. The chip data array is empty in v1 — see
+  // page.tsx loadPageData step 9 for the rationale.
+  const activeInbox = selection.mailbox ?? "all";
+  const totalChipCount = visibleRows.length;
+
   return (
     <section className="flex flex-col gap-3 min-w-0 motion-reduce:[--row-duration:0ms]">
       <style>{`
@@ -125,6 +137,12 @@ export function RowList({
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+
+      <RecipientChipStrip
+        chips={recipientChips ?? []}
+        activeInbox={activeInbox}
+        totalCount={totalChipCount}
+      />
 
       {ruleFilterActive && (
         <div className="flex items-center gap-2 text-[13px] text-[var(--v7-muted)] min-w-0">
