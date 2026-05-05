@@ -2,7 +2,8 @@
 sketch: 002
 name: per-email-strip
 question: "How should the 4-stage decision path render in Bulk Review's predicted-row feed (one row per email × 4 stages × override flag × cost)?"
-winner: null
+winner: A
+winner_note: "Direction A picked; refined into sketch 004 with V7 tokens + recipient filter."
 tags: [layout, bulk-review, phase-71, pipeline-events]
 ---
 

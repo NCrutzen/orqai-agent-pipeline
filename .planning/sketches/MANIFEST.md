@@ -19,16 +19,22 @@ Frontend voor Andrew (engelstalige reviewer) om door Smeba sales-AI gegenereerde
 | # | Name | Design Question | Winner | Tags |
 |---|------|----------------|--------|------|
 | 001 | review-layout | Which page layout works best for Andrew's draft review? | **A — Classic 3-panel** | layout, review, smeba |
-| 002 | per-email-strip | How should the 4-stage decision path render in Bulk Review's predicted-row feed? | _tbd_ | layout, bulk-review, phase-71, pipeline-events |
-| 003 | four-axis-override-panel | How do we surface 4 stage-override widgets without burying the common case? | _tbd_ | interaction, override, phase-71, bulk-review-detail |
+| 002 | per-email-strip | How should the 4-stage decision path render in Bulk Review's predicted-row feed? | **A — Column strip** (refined in 004) | layout, bulk-review, phase-71, pipeline-events |
+| 003 | four-axis-override-panel | How do we surface 4 stage-override widgets without burying the common case? | **C — Vertical pipeline** (refined in 004) | interaction, override, phase-71, bulk-review-detail |
+| 004 | phase-71-synthesis | Combine 002A + 003C, reskinned to V7 tokens, plus inbox-filter and N-stage scaling | **A — Synthesis** | synthesis, phase-71, v7-design-system |
 
 ## Phase 71 — Bulk Review redesign (UX exploration, 2026-05-05)
 
-Sketches 002 and 003 explore the two highest-risk surfaces of Phase 71's Bulk Review redesign:
+Sketches 002 and 003 explored the two highest-risk surfaces of Phase 71's Bulk Review redesign:
 the **predicted-row list** (one row per email aggregating 4 stages, backed by `pipeline_events_email_summary`)
 and the **drill-in detail pane** (4-axis override widgets + eval_type tagging).
 
-Theme + tokens reused unchanged from sketch 001 (dark / amber / `themes/default.css`) since this
-is the same dashboard surface (`web/app/(dashboard)/automations/[swarm]/review/`).
+Sketch 004 is the **synthesis** that lands the design in production: 002 Variant A (column strip)
++ 003 Variant C (vertical pipeline), reskinned to the V7 design system (`themes/v7.css` mirrors
+`web/app/globals.css [data-theme="dark"]` V7 namespace), with two feedback items resolved:
+**(a)** per-recipient inbox filtering via a chip strip + recipient column on every row, and
+**(b)** N-stage scaling — the detail pane's pipeline renders from a data array, so swarms with
+5/6 stages work without redesign (toggle `4 stages ↔ 6 stages` in the sketch toolbar).
+
 Phase 71 CONTEXT (`.planning/phases/71-.../71-CONTEXT.md` §D-04..D-10) is the ground truth for
-field shapes and behaviour referenced inside the mockups.
+field shapes and behaviour referenced inside the mockups. Sketch 004 is the input for `/gsd-ui-phase 71`.

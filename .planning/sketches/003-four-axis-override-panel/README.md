@@ -2,7 +2,8 @@
 sketch: 003
 name: four-axis-override-panel
 question: "When the operator drills into one email, how do we surface 4 stage-override widgets (D-04..D-07) without losing the linear pipeline mental model and without overwhelming the common case (touching only 1 stage)?"
-winner: null
+winner: C
+winner_note: "Direction C picked; refined into sketch 004 with V7 tokens + N-stage data-driven layout."
 tags: [interaction, override, phase-71, bulk-review-detail]
 ---
 
