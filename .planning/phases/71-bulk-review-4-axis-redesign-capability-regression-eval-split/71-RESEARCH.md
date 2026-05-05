@@ -569,22 +569,20 @@ UI-SPEC § "Recipient chip strip behaviour" locks the contract: clicking a chip 
 | A5 | The Stage 3 → Stage 4 dispatch event for each handler is `swarm_intents.handler_event` (registry column) and re-dispatching it with the corrected intent is sufficient | Pattern 1 axis-3 path | Low — `loadSwarmIntents` already returns `handler_event` field per `web/lib/swarms/types.ts:71`. |
 | A6 | Bulk Review's existing `__tests__/load-page-data.test.ts` vitest setup is the correct test harness for the view rewire (mock admin client + assertion patterns) | Validation Architecture | Low — file exists at `web/app/(dashboard)/automations/[swarm]/review/__tests__/load-page-data.test.ts`. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Which table backs the Stage 2 customer search?**
    - What we know: UI-SPEC names `email_pipeline.customer_index`, but no such table exists in the codebase. `resolve-debtor.ts` does customer resolution against `email_labels` + live NXT via Zapier SDK (`nxt-zap-client.ts`).
-   - What's unclear: Whether a denormalised customer-name index exists somewhere in `email_pipeline` schema (the `email_pipeline` schema is mentioned in MEMORY.md but not exposed via the project's PostgREST config per pending-todo `postgrest-exposed-schemas-for-email-insights`).
-   - Recommendation: Wave 0 spike (≤30min). If no fast typeahead source: (a) add a thin search RPC over `coordinator_runs DISTINCT customer_account_id, customer_name` (existing data, no migration needed), or (b) accept latency and call live NXT-via-Zapier with a 250ms debounce. Plan should pick one and lock.
+   - What's unclear: Whether a denormalised customer-name index exists somewhere in `email_pipeline` schema.
+   - **RESOLVED:** Plan 71-01 Task 6 (Wave 0 spike, ≤30min) locks the source. Default path: thin search RPC over `coordinator_runs DISTINCT customer_account_id, customer_name` (existing data, no migration). Fallback: live NXT-via-Zapier with 250ms debounce.
 
 2. **Should `auth.uid()` be the supabase auth user OR a project-members-table operator id?**
    - What we know: D-13 says `auth.uid()`. Phase 48 added project_members gating + Azure AD SSO.
-   - What's unclear: Whether UI-tooltip operator-display name pulls from `project_members` or directly from `auth.users.email`.
-   - Recommendation: Store `auth.users.id` in `override.operator_id` (D-13 verbatim); when rendering "overridden by {operator email} on {date}" tooltip (UI-SPEC § Row interactions), JOIN against `auth.users.email` server-side. No new schema.
+   - **RESOLVED:** Store `auth.users.id` in `override.operator_id` (D-13 verbatim). For the "overridden by {operator email} on {date}" tooltip (UI-SPEC § Row interactions), JOIN against `auth.users.email` server-side at render time. No new schema, no project_members coupling.
 
 3. **Stage 1 override into a category whose `action='swarm_dispatch'` — what swarm_dispatch event fires?**
    - What we know: D-04 reuses verdict-worker's existing dispatch logic (lines 91-160 of `classifier-verdict-worker.ts`).
-   - What's unclear: For an override INTO a category like `payment_admittance` (action='categorize_archive'), the existing path archives + categorizes. For an override INTO `unknown` or a swarm-dispatch category, a new Inngest event fires. Is duplicate dispatch (original first-pass already fired one event) acceptable? (Yes — the original event already ran and is audited. Override fires a second event for the new category.)
-   - Recommendation: Document this explicitly in plan's REVW-01 task as "Stage 1 override may produce a second swarm-dispatched downstream event; this is intentional audit semantics."
+   - **RESOLVED:** Duplicate dispatch is intentional audit semantics. The original first-pass event already fired and is preserved. Override fires a second event for the new category. Plan 71-02's REVW-01 task documents this explicitly: "Stage 1 override may produce a second swarm-dispatched downstream event; this is intentional audit semantics."
 
 ## Environment Availability
 
