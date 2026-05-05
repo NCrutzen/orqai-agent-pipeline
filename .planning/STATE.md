@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 70-05-PLAN.md
-last_updated: "2026-05-05T08:32:41.002Z"
+stopped_at: Completed 70-06-PLAN.md
+last_updated: "2026-05-05T08:41:15.199Z"
 last_activity: 2026-05-05 -- Phase --phase execution started
 progress:
   total_phases: 45
   completed_phases: 18
   total_plans: 98
-  completed_plans: 81
-  percent: 83
+  completed_plans: 83
+  percent: 85
 ---
 
 # Project State
@@ -31,7 +31,7 @@ Plan: 1 of --name
 Milestone: v8.0 Agentic Platform (11 phases, 63-73)
 Last activity: 2026-05-05 -- Phase --phase execution started
 
-Progress: [████████░░] 83%
+Progress: [█████████░] 85%
 
 **v8.0 execution order:** 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 **Next action:** `/gsd-verify-work 68`, then `/gsd-discuss-phase 69 --auto`.
@@ -59,6 +59,7 @@ Progress: [████████░░] 83%
 | Phase 67 P03 | 10m | 3 tasks | 3 files |
 | Phase 67 P06 | 18 | 3 tasks | 6 files |
 | Phase 70 P05 | 12m | 2 tasks | 2 files |
+| Phase 70 P06 | 6 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,7 @@ Progress: [████████░░] 83%
 - Phase 65-02: fallback_models lives at AGENT ROOT level on Orq PATCH; nested-form silently no-ops
 - Phase 65 Plan 03 — coordinator V2 rewritten in-place; SwarmCategoryRow.requires_orchestration optional in TS to keep legacy fixtures assignable; debtor/email.received payload extended with optional run_id/automation_run_id/budget_run_id (back-compat)
 - 66-04: CONS-03 invariant locked via audit-as-artifact (no source-code changes; allowlist captured in summary)
+- Plan 70-06 (Wave 3): Bulk Review loadPageData rewired to pipeline_events for predicted-row feed (sub-queries 2 + 6); cost-outlier RPC stays on automation_runs in v1; D-16 atomic replacement honored.
 
 ### Blockers/Concerns
 
@@ -121,8 +123,8 @@ Progress: [████████░░] 83%
 
 ## Session Continuity
 
-Last session: 2026-05-05T08:32:40.994Z
-Stopped at: Completed 70-05-PLAN.md
+Last session: 2026-05-05T08:41:15.192Z
+Stopped at: Completed 70-06-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 

@@ -95,7 +95,8 @@
 **: Single canonical `pipeline_events` table records every stage decision (`swarm_type`, `stage`, `decision`, `confidence`, `override?`, `eval_type`)
 - [x] **TELE-02
 **: Existing tables (`classifier_rules`, `agent_runs`, `email_labels`, `automation_runs`) preserved as denormalized read-models — no consumer breakage
-- [ ] **TELE-03**: Promotion recommender + Bulk Review consume from `pipeline_events` (single source of truth) instead of fragile multi-table joins
+- [x] **TELE-03
+**: Promotion recommender + Bulk Review consume from `pipeline_events` (single source of truth) instead of fragile multi-table joins
 
 ### Second-swarm validation (sales-email)
 
