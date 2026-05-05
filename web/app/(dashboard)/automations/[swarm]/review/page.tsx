@@ -491,6 +491,15 @@ export async function loadPageData(
       }),
     );
 
+    // Phase 71-08: filter via in-memory JS rather than .in() with 80+ uuids,
+    // which can produce a PostgREST URL >8KB and time out / fail silently.
+    // Fetch the most-recent 200 view rows for this swarm, then filter to the
+    // predicted whitelist and slice to 100. Cheap because the view is small.
+    const effectiveFilterSet = new Set<string>(
+      filterEmailIds === null
+        ? predictedEmailIds
+        : predictedEmailIds.filter((id) => filterEmailIds!.includes(id)),
+    );
     const listQuery = (admin.from("pipeline_events_email_summary") as unknown as SummaryQuery)
       .select(
         "email_id, swarm_type, subject, sender_email, sender_name, recipient_mailbox, email_received_at, " +
@@ -500,27 +509,22 @@ export async function loadPageData(
       )
       .eq("swarm_type", swarmType)
       .order("last_event_at", { ascending: false })
-      .limit(100);
+      .limit(200);
     if (params.before) listQuery.lt("last_event_at", params.before);
-    // Intersect predicted-only filter with any user filter (topic/entity/etc).
-    const effectiveFilter = filterEmailIds === null
-      ? predictedEmailIds
-      : predictedEmailIds.filter((id) => filterEmailIds!.includes(id));
-    listQuery.in(
-      "email_id",
-      effectiveFilter.length > 0 ? effectiveFilter : ["__no_match__"],
-    );
     const listRes = await listQuery;
     console.log(
       "[bulk-review.diag] listRes",
       JSON.stringify({
         dataCount: (listRes.data as SummaryRow[] | null)?.length ?? 0,
         err: (listRes as { error?: { message?: string } }).error?.message ?? null,
-        effectiveFilterSample: effectiveFilter.slice(0, 3),
-        effectiveFilterCount: effectiveFilter.length,
+        effectiveFilterCount: effectiveFilterSet.size,
       }),
     );
-    const summaryRows = (listRes.data as SummaryRow[] | null) ?? [];
+    const summaryRows = (
+      ((listRes.data as SummaryRow[] | null) ?? []).filter((r) =>
+        effectiveFilterSet.has(r.email_id),
+      )
+    ).slice(0, 100);
     rows = summaryRows.map(mapSummaryToPredictedRow);
   }
 
