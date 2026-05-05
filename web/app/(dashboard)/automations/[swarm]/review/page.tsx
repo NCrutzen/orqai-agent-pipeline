@@ -384,7 +384,11 @@ export async function loadPageData(
         .eq("stage", 1)
         .order("created_at", { ascending: false })
         .limit(500);
-      if (params.topic) filterQuery.eq("decision_details->>topic", params.topic);
+      // Phase 71-08 fix: the legacy automation_runs.topic column held the
+      // matched category (e.g. "unknown" / "payment_admittance"). For the
+      // view-driven feed the equivalent lives on pipeline_events.decision
+      // for Stage 1 emits. ?topic=unknown therefore maps to decision='unknown'.
+      if (params.topic) filterQuery.eq("decision", params.topic);
       if (params.entity) filterQuery.eq("decision_details->>entity", params.entity);
       if (params.mailbox) {
         const mb = parseInt(params.mailbox, 10);
@@ -392,8 +396,10 @@ export async function loadPageData(
           filterQuery.eq("decision_details->>mailbox_id", String(mb));
         }
       }
+      // Stage 1 emit stores the regex rule_key at decision_details.regex_rule_id
+      // (not decision_details.predicted.rule).
       if (params.rule) {
-        filterQuery.eq("decision_details->predicted->>rule", params.rule);
+        filterQuery.eq("decision_details->>regex_rule_id", params.rule);
       }
       const filterRes = await filterQuery;
       const filterRows =
