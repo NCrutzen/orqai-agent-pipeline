@@ -67,10 +67,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Pitfall 3 / D-13: dispatch via Inngest. operator_id is server-stamped here,
   // not from the client. The zod schema does not include operator_id, so the
   // spread of parsed.data cannot smuggle a fake.
-  await (inngest.send as unknown as SendFn)({
-    name: "debtor-email/override.submitted",
-    data: { ...parsed.data, operator_id: user.id },
-  });
+  try {
+    await (inngest.send as unknown as SendFn)({
+      name: "debtor-email/override.submitted",
+      data: { ...parsed.data, operator_id: user.id },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[override-route] inngest.send failed", msg);
+    return NextResponse.json(
+      { error: `inngest dispatch failed: ${msg}` },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }
