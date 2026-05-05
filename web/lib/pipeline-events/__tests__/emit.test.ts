@@ -1,49 +1,111 @@
-// Phase 70 Plan 01 — Wave 0 scaffold for `emitPipelineEvent` helper.
+// Phase 70 Plan 02 — helper-level tests for `emitPipelineEvent` and the
+// `numericConfidence` mapping helper.
 //
-// This file is a deterministic-FAIL scaffold. The helper module
-// (`web/lib/pipeline-events/emit.ts` + `types.ts`) does NOT exist yet —
-// Plan 02 introduces it. Until then every test below stays `it.skip(...)`
-// so vitest discovers the file but reports the cases as skipped (suite
-// exits 0).
-//
-// Reference patterns for Plan 02 wire-up:
-//   - `web/lib/inngest/functions/__tests__/classifier-invoice-copy-handler.test.ts`
-//     (see `supabaseInserts` array at ~line 40 — the canonical chainable
-//     supabase admin stub used to assert payload shape on `.insert(...)`).
-//   - `70-RESEARCH.md` §Pattern 3 — helper signature, throw-on-error semantics,
-//     `PipelineEventInput` shape.
-//
-// When Plan 02 wires up `emitPipelineEvent`:
-//   1. Remove `.skip` from each `it`.
-//   2. Replace `expect.fail(...)` with the real assertion against the
-//      supabaseInserts mock.
-//   3. Import `emitPipelineEvent` from `@/lib/pipeline-events/emit`.
+// Mock pattern modeled on
+// `web/lib/inngest/functions/__tests__/classifier-invoice-copy-handler.test.ts`
+// (`supabaseInserts` array): each `.from(table).insert(payload)` call pushes
+// `{ table, payload }` into a shared array we assert against.
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
+import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
+import { numericConfidence, Stage } from "@/lib/pipeline-events/types";
+import type { PipelineEventInput } from "@/lib/pipeline-events/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-describe("emitPipelineEvent — pipeline_events helper (Wave 0 scaffold)", () => {
-  it.skip("inserts a row into pipeline_events with the supplied payload", () => {
-    // TODO Plan 02: implement
-    // Arrange a chainable supabase admin stub (see classifier-invoice-copy-handler.test.ts
-    // supabaseInserts pattern), call emitPipelineEvent(admin, payload), assert one
-    // INSERT was made against table "pipeline_events" with the exact payload.
-    expect.fail("not implemented — Plan 02 wires this up");
+type SupabaseInsert = { table: string; payload: unknown };
+
+function makeAdmin(opts: { error?: { message: string } | null } = {}): {
+  admin: SupabaseClient;
+  inserts: SupabaseInsert[];
+} {
+  const inserts: SupabaseInsert[] = [];
+  const admin = {
+    from: (table: string) => ({
+      insert: (payload: unknown) => {
+        inserts.push({ table, payload });
+        return Promise.resolve({ data: null, error: opts.error ?? null });
+      },
+    }),
+  } as unknown as SupabaseClient;
+  return { admin, inserts };
+}
+
+describe("emitPipelineEvent — pipeline_events helper", () => {
+  let admin: SupabaseClient;
+  let inserts: SupabaseInsert[];
+
+  beforeEach(() => {
+    ({ admin, inserts } = makeAdmin());
   });
 
-  it.skip("throws when admin.from('pipeline_events').insert returns an error", () => {
-    // TODO Plan 02: implement
-    // Program the supabase stub to return { error: { message: "boom" } } from
-    // .insert(...). Assert emitPipelineEvent rejects with an Error containing
-    // "pipeline_events insert failed: boom" so the surrounding step.run replays.
-    expect.fail("not implemented — Plan 02 wires this up");
+  it("inserts a row into pipeline_events with the supplied payload", async () => {
+    const payload: PipelineEventInput = {
+      swarm_type: "debtor-email",
+      stage: Stage.Stage1_Regex,
+      email_id: "11111111-1111-1111-1111-111111111111",
+      decision: "invoice_copy_request",
+      confidence: 0.9,
+      decision_details: { rule_id: "rule-1", evidence: ["INV-1"] },
+      triggered_by: "pipeline",
+    };
+
+    await emitPipelineEvent(admin, payload);
+
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].table).toBe("pipeline_events");
+    expect(inserts[0].payload).toEqual(payload);
   });
 
-  it.skip("passes nullable optional fields (override, eval_type, case_id) through unchanged", () => {
-    // TODO Plan 02: implement
-    // Call emitPipelineEvent with override:null, eval_type:null, case_id:null
-    // (Phase 70 forward-compat fields, see CONTEXT D-10/D-11/D-12) and assert
-    // the inserted row preserves the explicit nulls (does not coerce to undefined
-    // or drop the keys before INSERT).
-    expect.fail("not implemented — Plan 02 wires this up");
+  it("throws when admin.from('pipeline_events').insert returns an error", async () => {
+    const { admin: errAdmin } = makeAdmin({ error: { message: "boom" } });
+    const payload: PipelineEventInput = {
+      swarm_type: "debtor-email",
+      stage: Stage.Stage0_Safety,
+      decision: "safe",
+    };
+
+    await expect(emitPipelineEvent(errAdmin, payload)).rejects.toThrow(
+      /pipeline_events insert failed: boom/,
+    );
+  });
+
+  it("passes nullable optional fields (override, eval_type, case_id) through unchanged", async () => {
+    const payload: PipelineEventInput = {
+      swarm_type: "debtor-email",
+      stage: Stage.Stage2_Entity,
+      email_id: "22222222-2222-2222-2222-222222222222",
+      case_id: null,
+      decision: "resolved",
+      override: null,
+      eval_type: null,
+      confidence: 0.7,
+    };
+
+    await emitPipelineEvent(admin, payload);
+
+    expect(inserts).toHaveLength(1);
+    const inserted = inserts[0].payload as Record<string, unknown>;
+    expect(inserted).toHaveProperty("override", null);
+    expect(inserted).toHaveProperty("eval_type", null);
+    expect(inserted).toHaveProperty("case_id", null);
+  });
+});
+
+describe("numericConfidence — legacy text → numeric(4,3) mapping", () => {
+  it("maps high to 0.9", () => {
+    expect(numericConfidence("high")).toBe(0.9);
+  });
+  it("maps medium to 0.7", () => {
+    expect(numericConfidence("medium")).toBe(0.7);
+  });
+  it("maps low to 0.4", () => {
+    expect(numericConfidence("low")).toBe(0.4);
+  });
+  it("maps none to null", () => {
+    expect(numericConfidence("none")).toBeNull();
+  });
+  it("maps null/undefined to null", () => {
+    expect(numericConfidence(null)).toBeNull();
+    expect(numericConfidence(undefined)).toBeNull();
   });
 });
