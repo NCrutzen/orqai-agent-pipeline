@@ -807,7 +807,14 @@ Plans:
   1. Every stage decision is recorded in `pipeline_events` with `swarm_type`, `stage`, `decision`, `confidence`, `override?`, `eval_type`
   2. Existing tables (`classifier_rules`, `agent_runs`, `email_labels`, `automation_runs`) continue to populate without consumer breakage
   3. Bulk Review and the promotion recommender both read from `pipeline_events` instead of joining 3+ legacy tables
-**Plans**: TBD
+**Plans**: 7 plans
+- [ ] 70-01-PLAN.md — Wave 0 vitest scaffolds for the two test gaps (emit.test.ts, ingest route.test.ts)
+- [ ] 70-02-PLAN.md — Wave 1 migration 20260506a + emit.ts + types.ts + helper test (BLOCKING checkpoint: operator applies migration via Supabase MCP)
+- [ ] 70-03-PLAN.md — Wave 2 Stage 0 safety + Stage 2 label-resolver dual-write inside step.run
+- [ ] 70-04-PLAN.md — Wave 2 Stage 3 coordinator + Stage 4 invoice-copy handler dual-write inside step.run (3 Stage 4 paths)
+- [ ] 70-05-PLAN.md — Wave 3 Stage 1 ingest-route emit (D-09 carve-out documented) + route.test.ts
+- [ ] 70-06-PLAN.md — Wave 4 Bulk Review loadPageData rewire (3 of 8 sub-queries; atomic per D-16)
+- [ ] 70-07-PLAN.md — Wave 5 docs/agentic-pipeline/promotion-recommender.md stub + REQUIREMENTS.md TELE-* check-off
 
 ### Phase 71: Bulk Review 4-axis redesign + capability/regression eval split
 **Goal**: Operators can override at any of the 4 stages independently, with each override producing a distinct learning signal tagged as either a new capability or a regression
