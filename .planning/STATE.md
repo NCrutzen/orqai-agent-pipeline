@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Phase 70 complete — 7 plans, pipeline_events dual-write live, Bulk Review reads pipeline_events, TELE-01..03 ticked
-last_updated: "2026-05-05T08:47:05.885Z"
+stopped_at: Phase 71 context gathered — 17 decisions; UI hint=yes, /gsd-ui-phase 71 next
+last_updated: "2026-05-05T09:01:41.574Z"
 last_activity: 2026-05-05 -- Phase --phase execution started
 progress:
   total_phases: 45
@@ -124,9 +124,9 @@ Progress: [█████████░] 85%
 ## Session Continuity
 
 Last session: --stopped-at
-Stopped at: Phase 70 complete — 7 plans, pipeline_events dual-write live, Bulk Review reads pipeline_events, TELE-01..03 ticked
+Stopped at: Phase 71 context gathered — 17 decisions; UI hint=yes, /gsd-ui-phase 71 next
 Resume with: `/gsd-execute-phase 65`
-Resume file: None
+Resume file: --resume-file
 
 ## Deferred Items
 
