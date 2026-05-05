@@ -828,10 +828,10 @@ Plans:
   5. Every override is tagged `eval_type ∈ {capability, regression}` so model swaps can be measured against a stable regression set
   6. Each email occupies one row aggregating all 4 stage decisions plus per-run cost and tool calls
 **Plans**: 5 plans
-- [ ] 71-01-PLAN.md — Wave 0 foundation: per-email view migration, OverrideAxis types, shadcn Switch+RadioGroup vendor, brand-color helper, override-event fixtures, Stage-2 customer-search source spike
-- [ ] 71-02-PLAN.md — Override write path: POST /api/automations/debtor-email/override + debtor-email-override-handler Inngest fan-out (REVW-01..05)
-- [ ] 71-03-PLAN.md — Read-side rewire: loadPageData → pipeline_events_email_summary view + view shape tests (REVW-06)
-- [ ] 71-04-PLAN.md — UI components: 11 NEW components (RecipientChipStrip, PredictedRow, PipelineFlow, StageStep, 4 stage widgets, EvalTypeRadio, OverrideConfirmDialog, IControllerInfoBanner)
+- [x] 71-01-PLAN.md — Wave 0 foundation: per-email view migration, OverrideAxis types, shadcn Switch+RadioGroup vendor, brand-color helper, override-event fixtures, Stage-2 customer-search source spike
+- [x] 71-02-PLAN.md — Override write path: POST /api/automations/debtor-email/override + debtor-email-override-handler Inngest fan-out (REVW-01..05)
+- [x] 71-03-PLAN.md — Read-side rewire: loadPageData → pipeline_events_email_summary view + view shape tests (REVW-06)
+- [x] 71-04-PLAN.md — UI components: 11 NEW components (RecipientChipStrip, PredictedRow, PipelineFlow, StageStep, 4 stage widgets, EvalTypeRadio, OverrideConfirmDialog, IControllerInfoBanner)
 - [ ] 71-05-PLAN.md — UI integration + keyboard shortcuts + manual smoke (8 overrides on acceptance)
 **UI hint**: yes
 
