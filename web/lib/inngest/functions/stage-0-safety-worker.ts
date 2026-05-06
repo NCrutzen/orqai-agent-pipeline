@@ -33,8 +33,6 @@ import {
   type BudgetState,
 } from "@/lib/stage-0/budget-counter";
 
-const STALE_CHANNEL = "debtor-email-review";
-
 export const stage0SafetyWorker = inngest.createFunction(
   { id: "stage-0/safety-worker", retries: 0 },
   { event: "stage-0/email.received" },
@@ -52,6 +50,8 @@ export const stage0SafetyWorker = inngest.createFunction(
       entity?: string | null;
       mailbox_id?: number | null;
       safety_overridden?: boolean;
+      // Phase 74 D-01 / D-02 — threaded from ingest route.
+      swarm_type?: string;
     };
 
     const {
@@ -65,6 +65,18 @@ export const stage0SafetyWorker = inngest.createFunction(
       mailbox_id = null,
     } = data;
     const body = data.body_text ?? data.body ?? "";
+    // Phase 74 D-01 — swarm_type is threaded from the ingest route via
+    // events.ts schema (required field). The Stage-1 worker (Plan 04)
+    // dispatches registry lookups per-swarm based on this value.
+    if (!data.swarm_type) {
+      throw new Error(
+        "stage-0/safety-worker: missing event.data.swarm_type (required per Phase 74 D-01)",
+      );
+    }
+    const swarm_type = data.swarm_type;
+    // Phase 74 — staleChannel derived per-swarm so future swarms
+    // (sales-email etc.) get their own realtime channel without code change.
+    const staleChannel = `${swarm_type}-review`;
 
     const admin = createAdminClient();
 
@@ -80,6 +92,9 @@ export const stage0SafetyWorker = inngest.createFunction(
             source_mailbox,
             subject,
             body_text: body,
+            // Phase 74 D-01 / D-02 — threaded passthrough.
+            swarm_type,
+            entity,
             safety_overridden: true,
           },
         }),
@@ -117,7 +132,7 @@ export const stage0SafetyWorker = inngest.createFunction(
           },
         }),
       );
-      await emitAutomationRunStale(admin, STALE_CHANNEL);
+      await emitAutomationRunStale(admin, staleChannel);
       return { halted: true } as const;
     }
 
@@ -125,9 +140,9 @@ export const stage0SafetyWorker = inngest.createFunction(
     const isInjection = llmResult.verdict === "injection_suspected";
     await step.run("persist-verdict", async () => {
       const { error } = await admin.from("automation_runs").insert({
-        automation: "debtor-email-review",
+        automation: staleChannel,
         status: isInjection ? "predicted" : "completed",
-        swarm_type: "debtor-email",
+        swarm_type,
         topic: isInjection ? "safety_review" : null,
         entity,
         mailbox_id,
@@ -153,7 +168,7 @@ export const stage0SafetyWorker = inngest.createFunction(
 
       // Phase 70 — TELE-01 dual-write
       await emitPipelineEvent(admin, {
-        swarm_type: "debtor-email",
+        swarm_type,
         stage: 0,
         email_id,
         decision: llmResult.verdict,
@@ -182,12 +197,15 @@ export const stage0SafetyWorker = inngest.createFunction(
             source_mailbox,
             subject,
             body_text: body,
+            // Phase 74 D-01 / D-02 — threaded passthrough.
+            swarm_type,
+            entity,
           },
         }),
       );
     }
 
-    await emitAutomationRunStale(admin, STALE_CHANNEL);
+    await emitAutomationRunStale(admin, staleChannel);
 
     return {
       verdict: llmResult.verdict,
