@@ -29,6 +29,7 @@ import { classifierBackfill } from "@/lib/inngest/functions/classifier-backfill"
 import { classifierCorpusBackfill } from "@/lib/inngest/functions/classifier-corpus-backfill";
 import { classifierSpotcheckSampler } from "@/lib/inngest/functions/classifier-spotcheck-sampler";
 import { classifierPromotionCron } from "@/lib/inngest/functions/classifier-promotion-cron";
+import { classifierScreenWorker } from "@/lib/inngest/functions/classifier-screen-worker";
 import { classifierVerdictWorker } from "@/lib/inngest/functions/classifier-verdict-worker";
 import { classifierLabelResolver } from "@/lib/inngest/functions/classifier-label-resolver";
 import { classifierInvoiceCopyHandler } from "@/lib/inngest/functions/classifier-invoice-copy-handler";
@@ -62,6 +63,7 @@ export const { GET, POST, PUT } = serve({
     classifierCorpusBackfill,
     classifierSpotcheckSampler,
     classifierPromotionCron,
+    classifierScreenWorker,
     classifierVerdictWorker,
     classifierLabelResolver,
     classifierInvoiceCopyHandler,
