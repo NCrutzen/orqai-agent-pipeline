@@ -635,58 +635,68 @@ export async function loadPageData(
         bodyHtml: e.body_html || null,
       };
     }
-    // Phase 71-08: Outlook fallback for the selected row only. Historical
-    // emails backfilled by SQL have body_text=NULL because the Phase 70
-    // dual-write didn't capture them. Fetch from Microsoft Graph as a one-off
-    // for the row the operator is actually looking at, so the detail pane
-    // doesn't render an empty blob.
-    if (selectedRow) {
-      const stored = bodyRowsByEmailId.get(selectedRow.id);
-      if (stored && (stored.body_text ?? "").trim().length === 0 && stored.source_id && stored.mailbox) {
-        console.log(
-          "[bulk-review.outlook-fallback] attempting",
-          JSON.stringify({ emailId: selectedRow.id, mailbox: stored.mailbox }),
-        );
-        try {
-          const fetched = await fetchMessageBody(stored.mailbox, stored.source_id);
-          console.log(
-            "[bulk-review.outlook-fallback] fetched",
-            JSON.stringify({
-              emailId: selectedRow.id,
-              bodyLen: fetched.bodyText?.length ?? 0,
-              hasHtml: !!fetched.bodyHtml,
-            }),
-          );
-          if (fetched.bodyText || fetched.bodyHtml) {
-            initialBodyMap[selectedRow.id] = {
-              bodyText: fetched.bodyText ?? "",
-              bodyHtml: fetched.bodyHtml || null,
-            };
-            // Persist for next time so we don't re-hit Graph.
-            await admin
-              .schema("email_pipeline")
-              .from("emails")
-              .update({
-                body_text: fetched.bodyText ?? null,
-                body_html: fetched.bodyHtml ?? null,
-              })
-              .eq("id", selectedRow.id);
+    // Phase 71-08: Outlook fallback for ALL rows with empty bodies. Client-
+    // side row clicks don't re-render this server component (selection-context
+    // uses history.replaceState), so we must populate every visible row up
+    // front. After the Graph round-trip we persist body_text back into
+    // email_pipeline.emails so this is one-shot per email forever.
+    const needsFallback = rows
+      .map((r) => ({ row: r, stored: bodyRowsByEmailId.get(r.id) }))
+      .filter(
+        ({ stored }) =>
+          stored &&
+          (stored.body_text ?? "").trim().length === 0 &&
+          stored.source_id &&
+          stored.mailbox,
+      );
+    if (needsFallback.length > 0) {
+      console.log(
+        "[bulk-review.outlook-fallback] batch",
+        JSON.stringify({ count: needsFallback.length }),
+      );
+      // Concurrency cap so we don't slam Graph; Microsoft tolerates ~10
+      // parallel reads per mailbox without throttling on a normal tier.
+      const CONCURRENCY = 8;
+      let i = 0;
+      async function worker() {
+        while (i < needsFallback.length) {
+          const idx = i++;
+          const { row, stored } = needsFallback[idx];
+          if (!stored?.source_id || !stored.mailbox) continue;
+          try {
+            const fetched = await fetchMessageBody(stored.mailbox, stored.source_id);
+            if (fetched.bodyText || fetched.bodyHtml) {
+              initialBodyMap[row.id] = {
+                bodyText: fetched.bodyText ?? "",
+                bodyHtml: fetched.bodyHtml || null,
+              };
+              await admin
+                .schema("email_pipeline")
+                .from("emails")
+                .update({
+                  body_text: fetched.bodyText ?? null,
+                  body_html: fetched.bodyHtml ?? null,
+                })
+                .eq("id", row.id);
+            }
+          } catch (e) {
+            // Deleted / auth fail / not found — keep empty, metadata still renders.
+            console.log(
+              "[bulk-review.outlook-fallback] failed",
+              JSON.stringify({
+                emailId: row.id,
+                error: e instanceof Error ? e.message : String(e),
+              }),
+            );
           }
-        } catch (e) {
-          // Outlook fetch failed (deleted message, auth issue, etc). Leave
-          // the empty body in place so the operator sees the metadata at least.
-          console.log(
-            "[bulk-review.outlook-fallback] failed",
-            JSON.stringify({
-              emailId: selectedRow.id,
-              error: e instanceof Error ? e.message : String(e),
-            }),
-          );
         }
       }
-      if (initialBodyMap[selectedRow.id]) {
-        initialSelectedBody = initialBodyMap[selectedRow.id];
-      }
+      await Promise.all(
+        Array.from({ length: Math.min(CONCURRENCY, needsFallback.length) }, () => worker()),
+      );
+    }
+    if (selectedRow && initialBodyMap[selectedRow.id]) {
+      initialSelectedBody = initialBodyMap[selectedRow.id];
     }
   }
 
