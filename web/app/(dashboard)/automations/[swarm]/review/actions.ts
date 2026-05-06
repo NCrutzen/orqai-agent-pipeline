@@ -252,10 +252,11 @@ async function loadSafetyRow(
   entity: string | null;
   mailbox_id: number | null;
   status: string | null;
+  swarm_type: string | null;
 }> {
   const { data, error } = await admin
     .from("automation_runs")
-    .select("result, entity, mailbox_id, status")
+    .select("result, entity, mailbox_id, status, swarm_type")
     .eq("id", automation_run_id)
     .single();
   if (error || !data) {
@@ -267,6 +268,7 @@ async function loadSafetyRow(
     entity: data.entity ?? null,
     mailbox_id: data.mailbox_id ?? null,
     status: data.status ?? null,
+    swarm_type: (data as { swarm_type?: string | null }).swarm_type ?? null,
   };
 }
 
@@ -300,7 +302,10 @@ export async function markSafeAndReprocess(
     throw new Error("markSafeAndReprocess: automation_run_id required");
   }
   const admin = createAdminClient();
-  const { result, status } = await loadSafetyRow(admin, automation_run_id);
+  const { result, status, swarm_type, entity } = await loadSafetyRow(
+    admin,
+    automation_run_id,
+  );
   assertActionable(status, "markSafeAndReprocess");
   if (!result.message_id || !result.source_mailbox || !result.email_id) {
     throw new Error(
@@ -353,6 +358,9 @@ export async function markSafeAndReprocess(
   }
 
   // Re-emit Stage 0 with safety_overridden=true (Pitfall 5 short-circuit).
+  // Phase 74 D-01 — swarm_type threaded from the source automation_runs
+  // row; falls back to "debtor-email" only for legacy rows persisted
+  // before Phase 74 (this surface predates the column migration).
   await inngest.send({
     name: "stage-0/email.received",
     data: {
@@ -362,6 +370,8 @@ export async function markSafeAndReprocess(
       source_mailbox: result.source_mailbox,
       subject,
       body_text: bodyText,
+      swarm_type: swarm_type ?? "debtor-email",
+      entity: entity ?? null,
       safety_overridden: true,
     },
   });

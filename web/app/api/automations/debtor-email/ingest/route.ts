@@ -638,6 +638,15 @@ async function fireStage0Event(params: {
         source_mailbox: params.sourceMailbox,
         subject: params.subject,
         body_text: params.bodyText,
+        // Phase 74 D-01 — swarm_type is deterministic at this ingest
+        // boundary (the route path /api/automations/debtor-email/ingest
+        // encodes it). This is the source-of-truth derivation point;
+        // shared workers downstream must read swarm_type from event.data
+        // and never re-hardcode the literal.
+        swarm_type: "debtor-email",
+        // Phase 74 D-02 — thread entity so Plan 04's Stage-1 worker can
+        // write pipeline_events without re-deriving it.
+        entity: params.entity ?? null,
         // safety_overridden intentionally omitted — Pitfall 5.
       },
     });

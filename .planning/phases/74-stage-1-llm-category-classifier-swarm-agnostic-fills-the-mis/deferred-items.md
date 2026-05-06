@@ -26,3 +26,11 @@ the emit-sites have not been updated). The latter two are unrelated test
 fixture drift.
 
 **No action in Plan 74-01.** Recorded for Plan 74-02 / Plan 74-04 to pick up.
+## Pre-existing tsc errors observed during Plan 74-02 execution
+
+Confirmed via `git stash`: these errors exist on `main` BEFORE Plan 74-02 changes. Out of scope per executor SCOPE BOUNDARY rule.
+
+- `web/lib/inngest/functions/__tests__/debtor-email-coordinator.test.ts(440,48)` — `Argument of type 'null' is not assignable to parameter of type 'string'`
+- `web/lib/inngest/functions/__tests__/debtor-email-orchestrator.test.ts(265,44)` — `Argument of type 'null' is not assignable to parameter of type 'string'`
+
+Plan 74-02 introduced zero new tsc failures.
