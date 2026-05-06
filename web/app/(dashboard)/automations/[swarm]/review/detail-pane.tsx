@@ -155,8 +155,16 @@ interface DetailPaneProps {
   swarmType: string;
   categories: SwarmCategoryRow[];
   drawerFields: string[];
-  /** Phase 71-05. Full pipeline_events timeline for the selected email. */
+  /** Phase 71-05. Full pipeline_events timeline for the selected email.
+   *  Server-side fallback for the initial selection. Prefer `timelineMap`
+   *  for everything else — selection-context updates the URL via
+   *  history.replaceState and does NOT re-render the server component, so
+   *  this static prop is empty for any row other than the initial ?selected=. */
   selectedTimeline?: PipelineTimelineEvent[];
+  /** Pre-fetched per-stage timelines for all visible rows, keyed by email_id.
+   *  Looked up by the current client-side selectedId so every row's stage
+   *  cards reflect their own pipeline_events, not just the initial selection. */
+  timelineMap?: Record<string, PipelineTimelineEvent[]>;
   /** Phase 71-05. Stage 3 widget consumes this. */
   intents?: SwarmIntentRow[];
   /** Phase 71-08. Pre-fetched body for the initial selected row. Skips the
@@ -201,6 +209,7 @@ export function DetailPane({
   // 6-field grid matches debtor-email's drawer_fields seed verbatim.
   drawerFields: _drawerFields,
   selectedTimeline,
+  timelineMap,
   intents,
   initialSelectedBody,
   initialBodyMap,
@@ -220,6 +229,14 @@ export function DetailPane({
   const { selectedId, setSelected, pendingRemovalIds, markPendingRemoval } =
     useSelection();
   const router = useRouter();
+
+  // Resolve the timeline for the currently-selected row. Prefer the
+  // preloaded map (covers every visible row) over the static prop (only
+  // populated for the initial ?selected= server render).
+  const effectiveTimeline: PipelineTimelineEvent[] =
+    (selectedId && timelineMap?.[selectedId]) ||
+    selectedTimeline ||
+    [];
 
   // Override candidates: registry rows whose action is NOT 'reject'.
   // Reject-action rows (e.g. 'unknown' for debtor-email) are the skip path,
@@ -426,7 +443,7 @@ export function DetailPane({
     if (!row) return [];
     // Latest event per stage (timeline is ordered by stage asc, created_at asc).
     const byStage = new Map<number, PipelineTimelineEvent>();
-    for (const ev of selectedTimeline ?? []) {
+    for (const ev of effectiveTimeline) {
       byStage.set(ev.stage, ev);
     }
     const out: StageData[] = [];
@@ -523,7 +540,7 @@ export function DetailPane({
       });
     }
     return out;
-  }, [row, selectedTimeline, dirty, categories, intents]);
+  }, [row, effectiveTimeline, dirty, categories, intents]);
 
   const dirtyAxes = useMemo<OverrideAxis[]>(() => {
     const axes: OverrideAxis[] = [];
@@ -572,7 +589,7 @@ export function DetailPane({
     }
     setSubmitting(true);
     try {
-      const timeline = selectedTimeline ?? [];
+      const timeline = effectiveTimeline;
       // Last event per stage gives us original_event_id + original_decision.
       const byStage = new Map<number, PipelineTimelineEvent>();
       for (const ev of timeline) byStage.set(ev.stage, ev);
@@ -700,7 +717,7 @@ export function DetailPane({
     markPendingRemoval,
     setSelected,
     router,
-    selectedTimeline,
+    effectiveTimeline,
     dirty,
     evalType,
     dirtyCount,

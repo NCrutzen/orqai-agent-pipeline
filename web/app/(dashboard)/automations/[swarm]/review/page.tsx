@@ -14,7 +14,6 @@
 
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchMessageBody } from "@/lib/outlook";
 import { AutomationRealtimeProvider } from "@/components/automations/automation-realtime-provider";
 import {
   loadSwarm,
@@ -196,6 +195,13 @@ export interface PageData {
    *  Used to seed the client-side bodyCache so clicking any row paints
    *  synchronously (selection-context updates don't re-render the server). */
   bodyMap: Record<string, { bodyText: string; bodyHtml: string | null }>;
+  /** Pre-fetched per-stage timelines for all visible rows, keyed by email_id.
+   *  Same rationale as bodyMap: client-side row selection updates the URL via
+   *  history.replaceState and does not re-render the server component, so the
+   *  per-row timeline must be available for every visible row up front.
+   *  Without this, clicking any non-initial row leaves DetailPane with an
+   *  empty selectedTimeline → every stage card renders "Stage didn't run". */
+  timelineMap: Record<string, PipelineTimelineEvent[]>;
 }
 
 /**
@@ -603,179 +609,111 @@ export async function loadPageData(
     }
   }
 
-  // Phase 71-08 body preload: fetch bodies for ALL rows server-side and
-  // pass to DetailPane via initialBodyMap. Client-side row selection updates
-  // selection-context without re-rendering this server component, so seeding
-  // only the initial selected row's body wasn't enough — clicking a different
-  // row would fall through to the (hanging) fetchReviewEmailBody Server Action.
-  // Bulk preload is cheap: ~30 rows × ~500 char body = ~15KB payload.
-  let initialBodyMap: Record<string, { bodyText: string; bodyHtml: string | null }> = {};
+  // Body preload — single SELECT against email_pipeline.emails for all visible
+  // rows. Rows whose body_text is empty paint with metadata only; the detail
+  // pane lazy-fetches missing bodies on row click via fetchReviewEmailBody
+  // (which itself falls back to Outlook Graph and persists the result).
+  // Doing the Graph backfill here on SSR previously blocked page render
+  // for 1-3s on backlogs where bodies weren't populated yet; it's now off
+  // the critical path.
+  //
+  // The four row-keyed loaders below (bodies, timeline, coordinator, tagging)
+  // are independent and run in parallel. Previously each was its own awaited
+  // round-trip, which serialized 4 × ~50-150ms of latency for no reason.
+  const initialBodyMap: Record<string, { bodyText: string; bodyHtml: string | null }> = {};
   let initialSelectedBody: { bodyText: string; bodyHtml: string | null } | null = null;
+  const timelineMap: Record<string, PipelineTimelineEvent[]> = {};
+  let coordinatorMap: Awaited<ReturnType<typeof loadCoordinatorRunsForReview>> | null = null;
+  let taggingMap: Awaited<ReturnType<typeof loadTaggingFailuresForReview>> | null = null;
   if (rows.length > 0) {
-    const allEmailIds = rows.map((r) => r.id).filter(Boolean);
-    const { data: emailBodies } = await admin
+    const emailIds = rows.map((r) => r.id).filter(Boolean);
+    const taggingPairs = rows
+      .map((r) => {
+        const eid = (r.result as { email_id?: string } | null)?.email_id ?? null;
+        return eid ? { automation_run_id: r.id, email_id: eid } : null;
+      })
+      .filter((p): p is { automation_run_id: string; email_id: string } => p !== null);
+
+    const bodiesPromise = admin
       .schema("email_pipeline")
       .from("emails")
-      .select("id, source_id, mailbox, body_text, body_html")
-      .in("id", allEmailIds);
-    const bodyRowsByEmailId = new Map<
-      string,
-      { source_id: string | null; mailbox: string | null; body_text: string | null; body_html: string | null }
-    >();
-    for (const e of (emailBodies as Array<{
+      .select("id, body_text, body_html")
+      .in("id", emailIds);
+
+    const timelinePromise = admin
+      .from("pipeline_events")
+      .select(
+        "id, created_at, swarm_type, stage, email_id, decision, confidence, decision_details, override, eval_type, triggered_by",
+      )
+      .eq("swarm_type", swarmType)
+      .in("email_id", emailIds)
+      .order("stage", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    const coordinatorPromise =
+      swarmType === "debtor-email"
+        ? loadCoordinatorRunsForReview(rows.map((r) => r.id))
+        : Promise.resolve(null as Awaited<ReturnType<typeof loadCoordinatorRunsForReview>> | null);
+
+    const taggingPromise =
+      swarmType === "debtor-email" && taggingPairs.length > 0
+        ? loadTaggingFailuresForReview(taggingPairs)
+        : Promise.resolve(null as Awaited<ReturnType<typeof loadTaggingFailuresForReview>> | null);
+
+    const [bodiesRes, timelineRes, coord, tag] = await Promise.all([
+      bodiesPromise,
+      timelinePromise,
+      coordinatorPromise,
+      taggingPromise,
+    ]);
+
+    for (const e of (bodiesRes.data as Array<{
       id: string;
-      source_id: string | null;
-      mailbox: string | null;
       body_text: string | null;
       body_html: string | null;
     }> | null) ?? []) {
-      bodyRowsByEmailId.set(e.id, e);
       initialBodyMap[e.id] = {
         bodyText: e.body_text ?? "",
         bodyHtml: e.body_html || null,
       };
     }
-    // Phase 71-08: Outlook fallback for ALL rows with empty bodies. Client-
-    // side row clicks don't re-render this server component (selection-context
-    // uses history.replaceState), so we must populate every visible row up
-    // front. After the Graph round-trip we persist body_text back into
-    // email_pipeline.emails so this is one-shot per email forever.
-    const needsFallback = rows
-      .map((r) => ({ row: r, stored: bodyRowsByEmailId.get(r.id) }))
-      .filter(
-        ({ stored }) =>
-          stored &&
-          (stored.body_text ?? "").trim().length === 0 &&
-          stored.source_id &&
-          stored.mailbox,
-      );
-    if (needsFallback.length > 0) {
-      console.log(
-        "[bulk-review.outlook-fallback] batch",
-        JSON.stringify({ count: needsFallback.length }),
-      );
-      // Concurrency cap so we don't slam Graph; Microsoft tolerates ~10
-      // parallel reads per mailbox without throttling on a normal tier.
-      const CONCURRENCY = 8;
-      let i = 0;
-      async function worker() {
-        while (i < needsFallback.length) {
-          const idx = i++;
-          const { row, stored } = needsFallback[idx];
-          if (!stored?.source_id || !stored.mailbox) continue;
-          try {
-            const fetched = await fetchMessageBody(stored.mailbox, stored.source_id);
-            if (fetched.bodyText || fetched.bodyHtml) {
-              initialBodyMap[row.id] = {
-                bodyText: fetched.bodyText ?? "",
-                bodyHtml: fetched.bodyHtml || null,
-              };
-              await admin
-                .schema("email_pipeline")
-                .from("emails")
-                .update({
-                  body_text: fetched.bodyText ?? null,
-                  body_html: fetched.bodyHtml ?? null,
-                })
-                .eq("id", row.id);
-            }
-          } catch (e) {
-            // Deleted / auth fail / not found — keep empty, metadata still renders.
-            console.log(
-              "[bulk-review.outlook-fallback] failed",
-              JSON.stringify({
-                emailId: row.id,
-                error: e instanceof Error ? e.message : String(e),
-              }),
-            );
-          }
-        }
-      }
-      await Promise.all(
-        Array.from({ length: Math.min(CONCURRENCY, needsFallback.length) }, () => worker()),
-      );
+    for (const ev of (timelineRes.data as PipelineTimelineEvent[] | null) ?? []) {
+      const key = ev.email_id;
+      if (!key) continue;
+      (timelineMap[key] ??= []).push(ev);
     }
+    coordinatorMap = coord;
+    taggingMap = tag;
+
     if (selectedRow && initialBodyMap[selectedRow.id]) {
       initialSelectedBody = initialBodyMap[selectedRow.id];
     }
   }
 
-  // 6. Phase 65-05 (CORD-03 surface) — coordinator_runs join for debtor-email.
-  //    Server-side, single bulk query keyed on the predicted-page row ids;
-  //    rows without a coordinator_runs entry stay un-enriched (loader returns
-  //    a sparse Map). Phase 71 broadens this to cross-swarm.
-  if (swarmType === "debtor-email" && rows.length > 0) {
-    const coordinatorMap = await loadCoordinatorRunsForReview(
-      rows.map((r) => r.id),
-    );
-    if (coordinatorMap.size > 0) {
-      rows = rows.map((r) => {
-        const coord = coordinatorMap.get(r.id);
-        return coord ? { ...r, coordinator: coord } : r;
-      });
-      if (selectedRow) {
-        const coord = coordinatorMap.get(selectedRow.id);
-        if (coord) selectedRow = { ...selectedRow, coordinator: coord };
-      }
+  // Apply coordinator + tagging enrichments (loaded in parallel above).
+  if (coordinatorMap && coordinatorMap.size > 0) {
+    rows = rows.map((r) => {
+      const coord = coordinatorMap!.get(r.id);
+      return coord ? { ...r, coordinator: coord } : r;
+    });
+    if (selectedRow) {
+      const coord = coordinatorMap.get(selectedRow.id);
+      if (coord) selectedRow = { ...selectedRow, coordinator: coord };
     }
   }
-
-  // 7. Phase 67-06 (D-08, R-03, TAG-03 surface) — debtor-email tagging-failure
-  //    enrichment. Same pattern as the coordinator_runs JOIN above; surfaces
-  //    rows where the iController tagging side-effect failed so Bulk Review
-  //    can render a deferred-run badge + screenshot links. The loader joins
-  //    debtor.email_labels via the email_id extracted from result.email_id.
-  if (swarmType === "debtor-email" && rows.length > 0) {
-    const pairs = rows
-      .map((r) => {
-        const emailId =
-          (r.result as { email_id?: string } | null)?.email_id ?? null;
-        return emailId
-          ? { automation_run_id: r.id, email_id: emailId }
-          : null;
-      })
-      .filter(
-        (p): p is { automation_run_id: string; email_id: string } =>
-          p !== null,
-      );
-    if (pairs.length > 0) {
-      const taggingMap = await loadTaggingFailuresForReview(pairs);
-      if (taggingMap.size > 0) {
-        rows = rows.map((r) => {
-          const t = taggingMap.get(r.id);
-          return t ? { ...r, tagging: t } : r;
-        });
-        if (selectedRow) {
-          const t = taggingMap.get(selectedRow.id);
-          if (t) selectedRow = { ...selectedRow, tagging: t };
-        }
-      }
+  if (taggingMap && taggingMap.size > 0) {
+    rows = rows.map((r) => {
+      const t = taggingMap!.get(r.id);
+      return t ? { ...r, tagging: t } : r;
+    });
+    if (selectedRow) {
+      const t = taggingMap.get(selectedRow.id);
+      if (t) selectedRow = { ...selectedRow, tagging: t };
     }
   }
-
-  // 8. Phase 71-05. Full pipeline_events timeline for the selected email.
-  //    Detail pane renders this as the N-stage PipelineFlow. We key on
-  //    email_id (not the single selected pipeline_events.id) so all stages
-  //    appear, not just the one referenced by ?selected=.
-  let selectedTimeline: PipelineTimelineEvent[] = [];
-  if (selectedRow) {
-    const emailId =
-      (selectedRow.result as { email_id?: string } | null)?.email_id ?? null;
-    if (emailId) {
-      const tlRes = await admin
-        .from("pipeline_events")
-        .select(
-          "id, created_at, swarm_type, stage, email_id, decision, confidence, decision_details, override, eval_type, triggered_by",
-        )
-        .eq("swarm_type", swarmType)
-        .eq("email_id", emailId)
-        .order("stage", { ascending: true })
-        .order("created_at", { ascending: true })
-        .limit(50);
-      selectedTimeline =
-        (tlRes.data as PipelineTimelineEvent[] | null) ?? [];
-    }
-  }
+  const selectedTimeline: PipelineTimelineEvent[] = selectedRow
+    ? timelineMap[selectedRow.id] ?? []
+    : [];
 
   // 9. Phase 71-05 (UI-SPEC §Recipient chip strip). Recipient chip data.
   //    The pipeline_events_email_summary view does NOT expose recipient
@@ -797,6 +735,7 @@ export async function loadPageData(
     recipientChips,
     selectedBody: initialSelectedBody,
     bodyMap: initialBodyMap,
+    timelineMap,
   };
 }
 
@@ -867,6 +806,7 @@ export default async function SwarmReviewPage({
               initialSelectedBody={data.selectedBody}
               initialBodyMap={data.bodyMap}
               selectedTimeline={data.selectedTimeline}
+              timelineMap={data.timelineMap}
               swarmType={swarmType}
               categories={categories}
               intents={intents}
