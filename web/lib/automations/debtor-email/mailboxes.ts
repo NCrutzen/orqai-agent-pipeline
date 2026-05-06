@@ -11,6 +11,9 @@ export const ICONTROLLER_MAILBOXES = {
   "debiteuren@sicli-noord.nl": 15,
   "debiteuren@sicli-sud.nl": 16,
   "debiteuren@smeba-fire.nl": 5,
+  // Phase 74 — operator-confirmed 2026-05-06 for Friday rollout.
+  "debiteuren@smeba-fire.be": 5,
+  "administratie@fire-control.nl": 12,
 } as const;
 
 export type SourceMailbox = keyof typeof ICONTROLLER_MAILBOXES;
