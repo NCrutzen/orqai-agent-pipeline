@@ -182,7 +182,7 @@ export const classifierScreenWorker = inngest.createFunction(
             const finalKey =
               parsed.confidence === "low" ? "unknown" : parsed.category_key;
 
-            await admin.from("agent_runs").insert({
+            const insertSuccess = await admin.from("agent_runs").insert({
               id,
               swarm_type,
               automation_run_id: automation_run_id ?? null,
@@ -197,6 +197,18 @@ export const classifierScreenWorker = inngest.createFunction(
                 gated_to: finalKey,
               },
             });
+            if (insertSuccess.error) {
+              // Log + throw so the catch block writes a 'failed' agent_runs
+              // row AND surfaces the schema/CHECK violation in the Inngest
+              // run log instead of silently no-op'ing.
+              console.error(
+                `[classifier-screen-worker] agent_runs insert failed:`,
+                insertSuccess.error,
+              );
+              throw new Error(
+                `agent_runs insert failed: ${insertSuccess.error.message}`,
+              );
+            }
 
             return {
               id,
@@ -211,7 +223,7 @@ export const classifierScreenWorker = inngest.createFunction(
             // AND tool_outputs.error. Do NOT rethrow — the run continues
             // through pipeline_events emit + verdict emit.
             const msg = err instanceof Error ? err.message : String(err);
-            await admin.from("agent_runs").insert({
+            const failureInsert = await admin.from("agent_runs").insert({
               id,
               swarm_type,
               automation_run_id: automation_run_id ?? null,
@@ -224,6 +236,15 @@ export const classifierScreenWorker = inngest.createFunction(
               error_message: msg,
               tool_outputs: { error: msg },
             });
+            if (failureInsert.error) {
+              // Even the failure-path INSERT failed — log loudly so the
+              // Inngest run log shows the underlying schema issue. Do NOT
+              // re-throw (D-11: pipeline must continue to emit verdict).
+              console.error(
+                `[classifier-screen-worker] failure-path agent_runs insert ALSO failed:`,
+                failureInsert.error,
+              );
+            }
             return {
               id,
               category_key: "unknown",
