@@ -443,6 +443,25 @@ export async function deleteEmailOnPage(
       },
     );
 
+    // Post-delete verification (2026-05-06): selectAndDelete previously
+    // returned success on click-without-throw, even if the delete XHR
+    // failed silently or the modal mis-clicked. Re-search the inbox to
+    // confirm the row is actually gone before reporting deleted.
+    await page.goto(`${cfg.url}/messages`, { waitUntil: "domcontentloaded" });
+    await page
+      .waitForSelector("#messages-list", { timeout: 6000 })
+      .catch(() => null);
+    const stillPresentIndex = await findEmailViaSearch(page, email);
+    if (stillPresentIndex !== -1) {
+      return {
+        success: false,
+        emailFound: true,
+        screenshots: { before: audit.before, after: audit.after },
+        error:
+          "Delete verification failed: email still present after click sequence (silent XHR failure or modal mis-click suspected)",
+      };
+    }
+
     return {
       success: true,
       emailFound: true,
