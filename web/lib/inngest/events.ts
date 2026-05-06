@@ -264,6 +264,11 @@ export type Events = {
       source_mailbox: string;
       subject: string;
       body_text: string;
+      // Phase 74 D-01 — required swarm_type so Stage 0 can thread it
+      // through to classifier/screen.requested without a DB lookup.
+      swarm_type: string;
+      // Phase 74 D-02 — optional/nullable: sales-email has no entity concept.
+      entity?: string | null;
       safety_overridden?: boolean;
     };
   };
@@ -302,6 +307,13 @@ export type Events = {
       source_mailbox: string;
       subject: string;
       body_text: string;
+      // Phase 74 D-01 — required swarm_type so the Stage-1 classifier-screen
+      // worker (Plan 04) can dispatch registry lookups per-swarm without a
+      // round-trip to resolve it from automation_run_id.
+      swarm_type: string;
+      // Phase 74 D-02 — passthrough so Plan 04 can write pipeline_events
+      // rows without re-deriving entity. Optional/nullable for sales-email.
+      entity?: string | null;
       safety_overridden?: boolean;
     };
   };
