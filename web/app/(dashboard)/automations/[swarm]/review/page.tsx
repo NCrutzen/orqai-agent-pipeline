@@ -205,6 +205,21 @@ export interface PageData {
 }
 
 /**
+ * Initial page size for the predicted-row list.
+ *
+ * Sized to roughly fit one viewport plus a small scroll buffer. The detail
+ * pane preloads bodies, timeline, coordinator runs, and tagging failures
+ * for every row in the list — those are O(rows.length) round-trips, so
+ * keeping the initial fetch viewport-sized is the dominant lever on first
+ * paint. Older revs returned 100 rows by default which paid the enrichment
+ * cost on rows the operator never scrolled to.
+ *
+ * Cursor pagination via `?before=<last_event_at>` is unchanged; the row
+ * list grows as the operator scrolls / paginates.
+ */
+const PAGE_SIZE = 25;
+
+/**
  * Test-friendly data loader. Pure function over an admin-client-shaped
  * dependency. Used by the React server component below and by the
  * vitest queue tests directly (no need to render the JSX shell).
@@ -245,10 +260,25 @@ export async function loadPageData(
   // are REMOVED, not commented-out; revert is via git.
   // ---------------------------------------------------------------------
 
-  // 1. Counts: single RPC, GROUP BY (swarm_type, topic, entity, mailbox_id).
-  const countsRes = await admin.rpc("classifier_queue_counts", {
-    p_swarm_type: swarmType,
-  });
+  // Upper-half parallel group: counts (RPC), promoted-rules, and candidate
+  // rules are independent of each other and of the row-list pipeline. Was
+  // three sequential awaits totalling ~150-300ms; now bounded by the slowest.
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  const [countsRes, promotedRes, candRes] = await Promise.all([
+    admin.rpc("classifier_queue_counts", { p_swarm_type: swarmType }),
+    admin
+      .from("classifier_rules")
+      .select("rule_key, promoted_at")
+      .eq("swarm_type", swarmType)
+      .eq("status", "promoted")
+      .gte("promoted_at", todayMidnight.toISOString()),
+    admin
+      .from("classifier_rules")
+      .select("rule_key, status, n, ci_lo")
+      .eq("swarm_type", swarmType)
+      .eq("status", "candidate"),
+  ]);
   const counts = (countsRes.data as QueueCountRow[] | null) ?? [];
 
   // 2. Predicted rows: cursor pagination, page-size 100.
@@ -380,17 +410,18 @@ export async function loadPageData(
       last_event_at: string | null;
     }
 
-    let filterEmailIds: string[] | null = null;
     const hasFilters = !!(
       params.topic ||
       params.entity ||
       params.mailbox ||
       params.rule
     );
-    if (hasFilters) {
-      // JOIN-back: collect email_ids from raw pipeline_events that match the
-      // active filter (Stage-1 events; matches the Phase 70-06 semantics).
-      const filterQuery = admin
+    // JOIN-back filter (only when query params filter the queue): collect
+    // email_ids from raw pipeline_events that match. Built as a promise so
+    // it can run alongside predictedRunsRes + listQuery below.
+    const filterPromise: Promise<string[] | null> = (async () => {
+      if (!hasFilters) return null;
+      const q = admin
         .from("pipeline_events")
         .select("email_id")
         .eq("swarm_type", swarmType)
@@ -401,30 +432,19 @@ export async function loadPageData(
       // matched category (e.g. "unknown" / "payment_admittance"). For the
       // view-driven feed the equivalent lives on pipeline_events.decision
       // for Stage 1 emits. ?topic=unknown therefore maps to decision='unknown'.
-      if (params.topic) filterQuery.eq("decision", params.topic);
-      if (params.entity) filterQuery.eq("decision_details->>entity", params.entity);
+      if (params.topic) q.eq("decision", params.topic);
+      if (params.entity) q.eq("decision_details->>entity", params.entity);
       if (params.mailbox) {
         const mb = parseInt(params.mailbox, 10);
-        if (!Number.isNaN(mb)) {
-          filterQuery.eq("decision_details->>mailbox_id", String(mb));
-        }
+        if (!Number.isNaN(mb)) q.eq("decision_details->>mailbox_id", String(mb));
       }
-      // Stage 1 emit stores the regex rule_key at decision_details.regex_rule_id
-      // (not decision_details.predicted.rule).
-      if (params.rule) {
-        filterQuery.eq("decision_details->>regex_rule_id", params.rule);
-      }
-      const filterRes = await filterQuery;
-      const filterRows =
-        (filterRes.data as Array<{ email_id: string | null }> | null) ?? [];
-      filterEmailIds = Array.from(
-        new Set(
-          filterRows
-            .map((r) => r.email_id)
-            .filter((id): id is string => !!id),
-        ),
+      if (params.rule) q.eq("decision_details->>regex_rule_id", params.rule);
+      const r = await q;
+      const rs = (r.data as Array<{ email_id: string | null }> | null) ?? [];
+      return Array.from(
+        new Set(rs.map((x) => x.email_id).filter((id): id is string => !!id)),
       );
-    }
+    })();
 
     function mapSummaryToPredictedRow(row: SummaryRow): PredictedRow {
       return {
@@ -478,15 +498,39 @@ export async function loadPageData(
       limit: (n: number) => SummaryQuery;
       then: <T>(cb: (v: { data: SummaryRow[] | null; error: unknown }) => T) => Promise<T>;
     }
+    // Build the summary view query (independent of predictedRunsRes /
+    // filterPromise — those just constrain the in-memory filter that runs
+    // after both resolve).
+    const listQuery = (admin.from("pipeline_events_email_summary") as unknown as SummaryQuery)
+      .select(
+        "email_id, swarm_type, subject, sender_email, sender_name, recipient_mailbox, email_received_at, " +
+          "stage_0_decision, stage_1_decision, stage_2_decision, stage_3_decision, stage_4_decision, " +
+          "stage_1_overridden, stage_2_overridden, stage_3_overridden, stage_4_overridden, " +
+          "total_cost_cents, tool_call_count, first_event_at, last_event_at",
+      )
+      .eq("swarm_type", swarmType)
+      .order("last_event_at", { ascending: false })
+      // Buffer = 4× page size so the post-filter slice (predicted-status
+      // whitelist) still has enough rows to cover a viewport even on swarms
+      // with high auto-action throughput. View is small; 4×PAGE_SIZE is cheap.
+      .limit(PAGE_SIZE * 4);
+    if (params.before) listQuery.lt("last_event_at", params.before);
+
     // Phase 71-08: filter to emails awaiting operator review. The view aggregates
     // every email with a Stage 1 emit — including auto-actioned ones whose
     // automation_runs row is already 'completed'. Resolve the predicted-status
     // email_ids via automation_runs.result.message_id → email_pipeline.emails.id.
-    const predictedRunsRes = await admin
-      .from("automation_runs")
-      .select("result")
-      .eq("swarm_type", swarmType)
-      .eq("status", "predicted");
+    // predictedRuns + listRes + filterEmailIds run in parallel; peRes runs
+    // after predictedRunsRes since it depends on the message_ids it returns.
+    const [predictedRunsRes, listRes, filterEmailIds] = await Promise.all([
+      admin
+        .from("automation_runs")
+        .select("result")
+        .eq("swarm_type", swarmType)
+        .eq("status", "predicted"),
+      listQuery,
+      filterPromise,
+    ]);
     const predictedMessageIds = ((predictedRunsRes.data ?? []) as Array<{ result: { message_id?: string } | null }>)
       .map((r) => r.result?.message_id)
       .filter((m): m is string => typeof m === "string" && m.length > 0);
@@ -499,86 +543,27 @@ export async function loadPageData(
         .in("source_id", predictedMessageIds);
       predictedEmailIds = ((peRes.data ?? []) as Array<{ id: string }>).map((e) => e.id);
     }
-    console.log(
-      "[bulk-review.diag]",
-      JSON.stringify({
-        swarmType,
-        predictedRunsCount: predictedRunsRes.data?.length ?? 0,
-        predictedMessageIdsCount: predictedMessageIds.length,
-        predictedEmailIdsCount: predictedEmailIds.length,
-        predictedRunsErr: (predictedRunsRes as { error?: { message?: string } }).error?.message ?? null,
-      }),
-    );
 
     // Phase 71-08: filter via in-memory JS rather than .in() with 80+ uuids,
     // which can produce a PostgREST URL >8KB and time out / fail silently.
-    // Fetch the most-recent 200 view rows for this swarm, then filter to the
-    // predicted whitelist and slice to 100. Cheap because the view is small.
     const effectiveFilterSet = new Set<string>(
       filterEmailIds === null
         ? predictedEmailIds
-        : predictedEmailIds.filter((id) => filterEmailIds!.includes(id)),
-    );
-    const listQuery = (admin.from("pipeline_events_email_summary") as unknown as SummaryQuery)
-      .select(
-        "email_id, swarm_type, subject, sender_email, sender_name, recipient_mailbox, email_received_at, " +
-          "stage_0_decision, stage_1_decision, stage_2_decision, stage_3_decision, stage_4_decision, " +
-          "stage_1_overridden, stage_2_overridden, stage_3_overridden, stage_4_overridden, " +
-          "total_cost_cents, tool_call_count, first_event_at, last_event_at",
-      )
-      .eq("swarm_type", swarmType)
-      .order("last_event_at", { ascending: false })
-      .limit(200);
-    if (params.before) listQuery.lt("last_event_at", params.before);
-    const listRes = await listQuery;
-    console.log(
-      "[bulk-review.diag] listRes",
-      JSON.stringify({
-        dataCount: (listRes.data as SummaryRow[] | null)?.length ?? 0,
-        err: (listRes as { error?: { message?: string } }).error?.message ?? null,
-        effectiveFilterCount: effectiveFilterSet.size,
-      }),
+        : predictedEmailIds.filter((id) => filterEmailIds.includes(id)),
     );
     const summaryRows = (
       ((listRes.data as SummaryRow[] | null) ?? []).filter((r) =>
         effectiveFilterSet.has(r.email_id),
       )
-    ).slice(0, 100);
+    ).slice(0, PAGE_SIZE);
     rows = summaryRows.map(mapSummaryToPredictedRow);
   }
 
-  // 3. Today's promoted rules — race-cohort surfacing (D-21).
-  const todayMidnight = new Date();
-  todayMidnight.setHours(0, 0, 0, 0);
-  const promotedRes = await admin
-    .from("classifier_rules")
-    .select("rule_key, promoted_at")
-    .eq("swarm_type", swarmType)
-    .eq("status", "promoted")
-    .gte("promoted_at", todayMidnight.toISOString());
+  // promoted-rules + candidates were fetched in parallel at the top of the
+  // function. classifier_rules is small enough that the previous if/else
+  // (full-payload-when-pending vs tree-badge-count) was identical anyway.
   const promotedToday = (promotedRes.data as PromotedRule[] | null) ?? [];
-
-  // 4. Pending-promotion candidates. In Phase 61-02 the Pending node lives
-  //    in the queue tree as a sibling, so we always fetch the count.
-  //    classifier_rules is small; the added cost is negligible.
-  let candidates: ClassifierCandidate[] = [];
-  if (params.tab === "pending") {
-    // Full payload only when the pending pane is rendered.
-    const candRes = await admin
-      .from("classifier_rules")
-      .select("rule_key, status, n, ci_lo")
-      .eq("swarm_type", swarmType)
-      .eq("status", "candidate");
-    candidates = (candRes.data as ClassifierCandidate[] | null) ?? [];
-  } else {
-    // Tree-badge count only — fetch the rule_key list (cheap).
-    const candRes = await admin
-      .from("classifier_rules")
-      .select("rule_key, status, n, ci_lo")
-      .eq("swarm_type", swarmType)
-      .eq("status", "candidate");
-    candidates = (candRes.data as ClassifierCandidate[] | null) ?? [];
-  }
+  const candidates = (candRes.data as ClassifierCandidate[] | null) ?? [];
 
   // 5. Selected row for the detail pane (?selected=<id>). Separate query
   //    so the list query is not widened by an OR clause. Returns null when
