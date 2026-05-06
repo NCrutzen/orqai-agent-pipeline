@@ -109,8 +109,19 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     : sugar.description_html
       ? sugar.description_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
       : "";
-  const senderName = sugar.from_addr_name?.trim() || null;
-  const senderEmail = sugar.from_addr_email?.trim() || null;
+  // SugarCRM's from_addr_name often contains the email embedded in
+  // RFC 822 form (e.g., "Lauren Labram <lauren@walkerfire.com>").
+  // SugarAI does NOT expose a separate from_addr_email field, so we
+  // parse the email from from_addr_name when from_addr_email is absent.
+  const rawFromName = sugar.from_addr_name?.trim() || null;
+  const fromAddrEmailExplicit = sugar.from_addr_email?.trim() || null;
+  const embeddedEmailMatch = rawFromName?.match(/<([^>\s]+@[^>\s]+)>/);
+  const senderEmail =
+    fromAddrEmailExplicit || embeddedEmailMatch?.[1] || null;
+  // If from_addr_name had an embedded email, strip it for the display name.
+  const senderName = rawFromName
+    ? rawFromName.replace(/\s*<[^>]+>\s*/, "").trim() || rawFromName
+    : null;
   const receivedAt = sugar.date_sent || sugar.date_entered || new Date().toISOString();
   // Synthesize a stable internet_message_id when SugarCRM doesn't carry one.
   // This keeps the column populated + unique without colliding with real
