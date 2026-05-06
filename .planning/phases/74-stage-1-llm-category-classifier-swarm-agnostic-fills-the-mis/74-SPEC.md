@@ -21,7 +21,7 @@ When the existing regex Stage 1 returns `category_key='unknown'`, a swarm-agnost
 - Sales-email swarm (Phase 73) has no rows in `swarm_categories`.
 
 **What triggers this work:**
-End-of-week rollout target — Friday 2026-05-08: enable two debtor mailboxes (firecontrol@, SMEBA fire@) plus one sales-email inbox. Sales-email has no regex rules and no historical telemetry, so without an LLM Stage 1, every sales-email message would route directly through the expensive entity→coordinator chain. The LLM closes that gap with one swarm-agnostic agent.
+End-of-week rollout target — Friday 2026-05-08: enable two debtor mailboxes (administratie@fire-control.nl (iController id 12), debiteuren@smeba-fire.be (iController id 5)) plus one sales-email inbox. Sales-email has no regex rules and no historical telemetry, so without an LLM Stage 1, every sales-email message would route directly through the expensive entity→coordinator chain. The LLM closes that gap with one swarm-agnostic agent.
 
 ## Requirements
 
@@ -57,7 +57,7 @@ End-of-week rollout target — Friday 2026-05-08: enable two debtor mailboxes (f
 
 7. **End-to-end production flow on three mailboxes**: After deploy, the full chain Stage 0 → Stage 1 (regex+LLM) → verdict-worker → registry-driven dispatch is live for two debtor mailboxes and one sales mailbox.
    - Current: Stage 0 → Stage 1 seam empty; sales-email is not ingesting at all.
-   - Target: Sales-email ingestion is enabled for one designated inbox (operator chooses which during phase execution); both debtor mailboxes (firecontrol@, SMEBA fire@) route through the new Stage-1 LLM path; pipeline_events shows Stage-1 rows arriving for live traffic.
+   - Target: Sales-email ingestion is enabled for one designated inbox (operator chooses which during phase execution); both debtor mailboxes (administratie@fire-control.nl (iController id 12), debiteuren@smeba-fire.be (iController id 5)) route through the new Stage-1 LLM path; pipeline_events shows Stage-1 rows arriving for live traffic.
    - Acceptance: 24 hours after deploy, `select count(*) from pipeline_events where stage='stage-1' and created_at > deploy_ts` is > 0 for each of the three target mailboxes; no `automation_runs.status='failed'` rows for these mailboxes are caused by the new worker (errors caused by upstream/unrelated issues are excluded).
 
 ## Boundaries
@@ -70,7 +70,7 @@ End-of-week rollout target — Friday 2026-05-08: enable two debtor mailboxes (f
 - Phase 70 dual-write of Stage-1 decisions to `pipeline_events` + legacy read-models.
 - `swarm_categories` seed rows for `swarm_type='sales-email'` (5 keys, mirroring debtor-email).
 - `swarms` row for sales-email (or update if it exists) sufficient to make the registry-driven worker function.
-- End-to-end production rollout on firecontrol@, SMEBA fire@, and one sales mailbox.
+- End-to-end production rollout on administratie@fire-control.nl (iController id 12), debiteuren@smeba-fire.be (iController id 5), and one sales mailbox.
 
 **Out of scope:**
 - **Promotion of common LLM picks → new regex rules** — Phase 72 (promotion-recommender + Learning Inbox) territory.
@@ -101,7 +101,7 @@ End-of-week rollout target — Friday 2026-05-08: enable two debtor mailboxes (f
 - [ ] Each Stage-1 decision writes exactly one `pipeline_events` row; LLM-invoked branch additionally writes one `agent_runs` row.
 - [ ] `select count(*) from public.swarm_categories where swarm_type='sales-email'` returns exactly 5 (`auto_reply, ooo_temporary, ooo_permanent, payment_admittance, unknown`).
 - [ ] No string literal `'sales-email'` or `'debtor-email'` appears in branch conditions inside `classifier-screen-worker.ts`.
-- [ ] After production deploy, within 24 hours `pipeline_events` shows ≥1 Stage-1 row for each of: firecontrol@ mailbox, SMEBA fire@ mailbox, the designated sales-email mailbox.
+- [ ] After production deploy, within 24 hours `pipeline_events` shows ≥1 Stage-1 row for each of: `administratie@fire-control.nl` (iController id 12, debtor-email), `debiteuren@smeba-fire.be` (iController id 5, debtor-email), `verkoop@smeba.nl` (sales-email).
 - [ ] No `automation_runs.status='failed'` rows for the three target mailboxes whose root cause is the new worker.
 - [ ] All Orq model ids referenced (primary + fallbacks) verified present in `list_models` output before `update_agent` is called.
 
