@@ -2,40 +2,33 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inngest } from "@/lib/inngest/client";
+import { getMessageMeta, fetchMessageBody } from "@/lib/outlook";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 /**
- * Sales-email ingest webhook (Phase 74-05, refactored 2026-05-06 for Outlook).
+ * Sales-email ingest webhook (Phase 74-05, Outlook + Graph variant).
  *
- * Source-of-truth wiring (operator-confirmed 2026-05-06): the production
- * Zapier zap polls Microsoft Outlook for new mail in `verkoop@smeba.nl`
- * and POSTs each new message to this route. Earlier iteration polled
- * SugarCRM directly; the operator switched to Outlook because (a) the
- * Outlook trigger surfaces subject/body/from in trigger output (no
- * downstream Graph fetch needed), (b) Sugar is downstream of Outlook
- * anyway, and (c) Sugar cleanup becomes an OPTIONAL agent-tool concern
- * rather than a forced dispatch in the pipeline (Phase 75 territory).
- *
- * The route mirrors the debtor-email/ingest contract for the parts
- * that overlap (auth, INSERT into email_pipeline.emails, emit
- * stage-0/email.received) but hardcodes swarm_type='sales-email' +
- * entity=null at this ingest BOUNDARY.
+ * Mirrors the debtor-email/ingest pattern: the Zap sends only
+ * `{messageId, source_mailbox}` and we fetch the authoritative
+ * subject/body/from from Microsoft Graph (via the existing Zapier-SDK-
+ * proxied helpers in web/lib/outlook). Body fidelity matters because
+ * the Stage-1 LLM classifier reads body_text — Zapier's Outlook trigger
+ * frequently truncates or omits plain-text body, so we go to the
+ * source.
  *
  * D-01 / D-02 (Phase 74 CONTEXT): swarm_type and entity are derived at
- * the ingest boundary (the route path encodes the swarm) and threaded
+ * the ingest BOUNDARY (the route path encodes the swarm) and threaded
  * through the event so downstream registry-driven workers
  * (classifier-screen-worker, classifier-verdict-worker) never re-derive
  * them via DB lookup or string literal.
  *
- * Auth: shared-secret BODY field (per CLAUDE.md zapier-patterns.md —
+ * Auth: shared-secret BODY field `auth` (per CLAUDE.md zapier-patterns —
  * Catch Hooks don't expose headers reliably in Zapier's field picker).
- * Env var: ZAPIER_INGEST_SECRET. NEVER use a request-header
- * auth scheme here (Bearer / X-*-Secret style); always read auth from the
- * JSON body field.
+ * Env var: ZAPIER_INGEST_SECRET (same as debtor-email/ingest).
  *
- * Idempotency: Outlook's internet message-id is stable. We upsert
+ * Idempotency: Outlook's message id is stable. We upsert
  * email_pipeline.emails on (source, source_id) so Zapier retries don't
  * double-emit stage-0/email.received.
  *
@@ -49,24 +42,14 @@ const SALES_SOURCE = "outlook" as const;
 
 type SendFn = (p: { name: string; data: Record<string, unknown> }) => Promise<unknown>;
 
-/** Outlook (Zapier "New Email" trigger) record subset used by this ingest.
- *  Field names match Zapier's typical Outlook output. We accept extra
- *  fields via passthrough; only the ones below are read. */
-const OutlookEmailSchema = z
+/** Zapier sends just the auth + Outlook message identifier; everything
+ *  else is fetched from Graph. source_mailbox is optional and defaults
+ *  to verkoop@smeba.nl (the only sales mailbox in Phase 74 scope). */
+const SalesIngestSchema = z
   .object({
     auth: z.string().min(1),
-    // Either id or message_id is required (we prefer id when present).
-    id: z.string().nullable().optional(),
-    message_id: z.string().nullable().optional(),
-    // Outlook trigger field names — Zapier typically surfaces these.
-    subject: z.string().nullable().optional(),
-    body_preview: z.string().nullable().optional(),
-    body_plain: z.string().nullable().optional(),
-    body: z.string().nullable().optional(), // raw body (may be html or plain)
-    body_html: z.string().nullable().optional(),
-    from_address: z.string().nullable().optional(),
-    from_name: z.string().nullable().optional(),
-    received_at: z.string().nullable().optional(),
+    messageId: z.string().min(1),
+    source_mailbox: z.string().nullable().optional(),
   })
   .passthrough();
 
@@ -95,7 +78,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 });
   }
 
-  const parsed = OutlookEmailSchema.safeParse(raw);
+  const parsed = SalesIngestSchema.safeParse(raw);
   if (!parsed.success) {
     return NextResponse.json(
       { ok: false, error: `validation: ${parsed.error.issues.map((i) => i.path.join(".") + ":" + i.message).join("; ")}` },
@@ -108,40 +91,50 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const outlook = parsed.data;
-  // Prefer Outlook's stable message_id (RFC 822) as source_id; fall back to
-  // Zapier's `id` field which is also stable for a given Outlook trigger.
-  const sourceId = (outlook.message_id?.trim() || outlook.id?.trim() || "").trim();
-  if (!sourceId) {
-    return NextResponse.json(
-      { ok: false, error: "either message_id or id is required" },
-      { status: 400 },
-    );
-  }
-
-  const subject = outlook.subject?.trim() || "(no subject)";
-  // Pick the best available body source. Plain text wins; fall back to
-  // body (which may itself be plain or html); fall back to a stripped
-  // version of body_html; fall back to the preview.
-  const rawBody =
-    outlook.body_plain?.trim() ||
-    outlook.body?.trim() ||
-    (outlook.body_html?.trim()
-      ? outlook.body_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
-      : "") ||
-    outlook.body_preview?.trim() ||
-    "";
-
-  const senderEmail = outlook.from_address?.trim() || null;
-  const senderName = outlook.from_name?.trim() || null;
-  const receivedAt = outlook.received_at?.trim() || new Date().toISOString();
-  const internetMessageId = outlook.message_id?.trim() || sourceId;
+  const messageId = parsed.data.messageId.trim();
+  const sourceMailbox =
+    parsed.data.source_mailbox?.trim() || SALES_SOURCE_MAILBOX;
 
   const admin = createAdminClient();
   const isoNow = new Date().toISOString();
 
-  // 1) Upsert email_pipeline.emails on (source, source_id) for idempotency.
-  //    Pattern mirrors debtor-email/ingest's resolveOrCreateEmailRow.
+  // 1) Fetch authoritative subject/body/from from Graph (via Zapier SDK).
+  let meta: { subject: string; from: string; fromName: string; receivedAt: string };
+  let bodyText: string;
+  let bodyHtml: string;
+  try {
+    const [m, b] = await Promise.all([
+      getMessageMeta(sourceMailbox, messageId),
+      fetchMessageBody(sourceMailbox, messageId),
+    ]);
+    meta = {
+      subject: m.subject,
+      from: m.from,
+      fromName: m.fromName,
+      receivedAt: m.receivedAt,
+    };
+    bodyText = b.bodyText;
+    bodyHtml = b.bodyHtml;
+  } catch (err) {
+    const errText = String(err);
+    const is404 = /\b404\b/.test(errText);
+    console.error(
+      `[sales-email/ingest] Graph fetch failed for ${messageId}@${sourceMailbox}:`,
+      errText,
+    );
+    return NextResponse.json(
+      {
+        ok: false,
+        source_id: messageId,
+        error: is404 ? "graph_not_found" : `graph_fetch_failed: ${errText}`,
+      },
+      { status: is404 ? 200 : 502 },
+    );
+  }
+
+  const subject = meta.subject?.trim() || "(no subject)";
+
+  // 2) Upsert email_pipeline.emails on (source, source_id) for idempotency.
   let emailId: string | null = null;
   {
     const { data: existing } = await admin
@@ -149,7 +142,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       .from("emails")
       .select("id")
       .eq("source", SALES_SOURCE)
-      .eq("source_id", sourceId)
+      .eq("source_id", messageId)
       .maybeSingle();
 
     if (existing?.id) {
@@ -160,16 +153,16 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
         .from("emails")
         .insert({
           source: SALES_SOURCE,
-          source_id: sourceId,
-          mailbox: SALES_SOURCE_MAILBOX,
+          source_id: messageId,
+          mailbox: sourceMailbox,
           subject,
-          body_text: rawBody,
-          body_html: outlook.body_html ?? null,
-          sender_email: senderEmail,
-          sender_name: senderName,
-          received_at: receivedAt,
+          body_text: bodyText,
+          body_html: bodyHtml || null,
+          sender_email: meta.from || null,
+          sender_name: meta.fromName || null,
+          received_at: meta.receivedAt || isoNow,
           direction: "inbound",
-          internet_message_id: internetMessageId,
+          internet_message_id: messageId,
         })
         .select("id")
         .single();
@@ -182,16 +175,16 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
           .from("emails")
           .select("id")
           .eq("source", SALES_SOURCE)
-          .eq("source_id", sourceId)
+          .eq("source_id", messageId)
           .maybeSingle();
         emailId = refetch?.id ?? null;
         if (!emailId) {
           console.error(
-            `[sales-email/ingest] failed to upsert email_pipeline.emails for ${sourceId}:`,
+            `[sales-email/ingest] failed to upsert email_pipeline.emails for ${messageId}:`,
             insertError,
           );
           return NextResponse.json(
-            { ok: false, source_id: sourceId, error: `email upsert failed: ${insertError?.message ?? "unknown"}` },
+            { ok: false, source_id: messageId, error: `email upsert failed: ${insertError?.message ?? "unknown"}` },
             { status: 500 },
           );
         }
@@ -201,9 +194,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     }
   }
 
-  // 2) Create the automation_runs row (status='pending') so the rest of
-  //    the pipeline (Stage 0 safety, Stage 1 classifier, downstream
-  //    handlers) has a stable id to attach verdicts and statuses to.
+  // 3) Create the automation_runs row (status='pending').
   const { data: runRow, error: runError } = await admin
     .from("automation_runs")
     .insert({
@@ -215,10 +206,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       mailbox_id: null,
       result: {
         stage: "stage_0_safety_pending",
-        message_id: sourceId,
-        source_mailbox: SALES_SOURCE_MAILBOX,
+        message_id: messageId,
+        source_mailbox: sourceMailbox,
         subject,
-        from: senderEmail,
+        from: meta.from,
       },
       triggered_by: "zapier:outlook-ingest",
     })
@@ -227,44 +218,38 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
 
   if (runError || !runRow?.id) {
     console.error(
-      `[sales-email/ingest] failed to create automation_runs row for ${sourceId}:`,
+      `[sales-email/ingest] failed to create automation_runs row for ${messageId}:`,
       runError,
     );
     return NextResponse.json(
-      { ok: false, source_id: sourceId, email_id: emailId, error: `automation_runs insert failed: ${runError?.message ?? "unknown"}` },
+      { ok: false, source_id: messageId, email_id: emailId, error: `automation_runs insert failed: ${runError?.message ?? "unknown"}` },
       { status: 500 },
     );
   }
   const automationRunId = runRow.id as string;
 
-  // 3) Emit stage-0/email.received with the Phase 74 extended payload
-  //    (swarm_type required, entity nullable). Plan 02 made these required
-  //    on the event type; the payload shape here matches debtor-email/ingest.
+  // 4) Emit stage-0/email.received with the Phase 74 extended payload.
   try {
     await (inngest.send as unknown as SendFn)({
       name: "stage-0/email.received",
       data: {
         automation_run_id: automationRunId,
         email_id: emailId,
-        message_id: sourceId,
-        source_mailbox: SALES_SOURCE_MAILBOX,
+        message_id: messageId,
+        source_mailbox: sourceMailbox,
         subject,
-        body_text: rawBody,
+        body_text: bodyText,
         // Phase 74 D-01 — swarm_type derived at ingest boundary.
         swarm_type: "sales-email",
         // Phase 74 D-02 — sales-email has no entity concept.
         entity: null,
-        // safety_overridden intentionally omitted — only operator-driven
-        // re-emit sets it true.
       },
     });
   } catch (err) {
     console.error(
-      `[sales-email/ingest] inngest.send failed for ${sourceId}:`,
+      `[sales-email/ingest] inngest.send failed for ${messageId}:`,
       err,
     );
-    // Mark the run failed so it's visible in observability rather than
-    // hanging in 'pending'.
     await admin
       .from("automation_runs")
       .update({
@@ -274,7 +259,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       })
       .eq("id", automationRunId);
     return NextResponse.json(
-      { ok: false, source_id: sourceId, email_id: emailId, automation_run_id: automationRunId, error: "stage-0 emit failed" },
+      { ok: false, source_id: messageId, email_id: emailId, automation_run_id: automationRunId, error: "stage-0 emit failed" },
       { status: 502 },
     );
   }
@@ -283,6 +268,6 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     ok: true,
     automation_run_id: automationRunId,
     email_id: emailId,
-    source_id: sourceId,
+    source_id: messageId,
   });
 }
