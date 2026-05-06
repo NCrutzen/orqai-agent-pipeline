@@ -217,7 +217,7 @@ export interface PageData {
  * Cursor pagination via `?before=<last_event_at>` is unchanged; the row
  * list grows as the operator scrolls / paginates.
  */
-const PAGE_SIZE = 25;
+export const PAGE_SIZE = 25;
 
 /**
  * Test-friendly data loader. Pure function over an admin-client-shaped
@@ -784,6 +784,7 @@ export default async function SwarmReviewPage({
               swarmType={swarmType}
               columns={swarm.ui_config.row_columns}
               recipientChips={data.recipientChips}
+              pageSize={PAGE_SIZE}
             />
             <DetailPane
               rows={data.rows}

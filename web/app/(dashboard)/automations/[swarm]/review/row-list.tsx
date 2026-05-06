@@ -33,6 +33,11 @@ interface RowListProps {
   columns: SwarmUiConfig["row_columns"];
   /** Phase 71-05 (UI-SPEC §Recipient chip strip). One chip per recipient. */
   recipientChips?: RecipientChip[];
+  /** Initial page size used by the server loader. The "Load older"
+   *  affordance is hidden when fewer rows came back than this — that's
+   *  the cursor-pagination signal that we've reached the tail. Threaded
+   *  via prop so server (page.tsx) and client (this file) stay in sync. */
+  pageSize: number;
 }
 
 interface RowResult {
@@ -53,6 +58,7 @@ export function RowList({
   selection,
   swarmType,
   recipientChips,
+  pageSize,
 }: RowListProps) {
   const { selectedId, setSelected, pendingRemovalIds } = useSelection();
   const isPending = selection.tab === "pending";
@@ -85,7 +91,7 @@ export function RowList({
 
   const cohortCount = cohortRows.length;
   const oldest = rows.length > 0 ? rows[rows.length - 1].created_at : null;
-  const isLastPage = rows.length < 100;
+  const isLastPage = rows.length < pageSize;
   const totalLabel = visibleRows.length;
 
   const basePath = `/automations/${swarmType}/review`;
