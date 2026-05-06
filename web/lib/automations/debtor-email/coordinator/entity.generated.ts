@@ -6,6 +6,7 @@
 
 export const ENTITY_BRANDS = [
   "berki",
+  "fire-control",
   "sicli-noord",
   "sicli-sud",
   "smeba",

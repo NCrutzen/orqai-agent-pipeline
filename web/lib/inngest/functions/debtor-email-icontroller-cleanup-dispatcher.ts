@@ -53,7 +53,11 @@ export const cleanupIControllerDispatch = inngest.createFunction(
       const { data, error } = await admin
         .from("automation_runs")
         .select("id, result")
-        .eq("automation", "debtor-email-review")
+        // The classifier-verdict-worker inserts categorize_archive rows with
+        // automation=swarms.side_effects[].automation, currently 'debtor-email-cleanup'
+        // (per the swarms registry). The cleanup-worker also writes its in-progress
+        // and final updates with this same value. Dispatcher must match.
+        .eq("automation", "debtor-email-cleanup")
         .in("status", ["deferred", "pending"])
         .eq("result->>stage", "icontroller_delete")
         .eq("result->>icontroller", "pending")
