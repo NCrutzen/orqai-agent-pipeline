@@ -264,6 +264,18 @@ Plans:
 
 ---
 
+### Phase 75: Sugar resolve dispatch + verdict-worker side_effects refactor — sales-email noise emails (auto_reply, ooo_*, payment_admittance) classified by Phase 74's LLM but currently sit in `manual_review` because `classifier-verdict-worker.ts` hardcodes `categorize_archive` to Outlook. Phase 75 ships: (1) registry-driven refactor of verdict-worker to evaluate `swarms.side_effects[]` per-swarm instead of hardcoding Outlook; (2) new `/api/automations/sales-email/resolve` route + `zapier_tools` row for "Sugar Update Record → status=archived"; (3) re-flip the 4 noise sales-email categories from `manual_review` back to `categorize_archive` so the LLM verdict auto-archives in Sugar.
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 74
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 75 to break down)
+
+---
+
 ## Phases
 
 ### V3.0 Web UI & Dashboard (Phases 34-38)
@@ -331,6 +343,8 @@ Plans:
 - [ ] **Phase 71: Bulk Review 4-axis redesign + capability/regression eval split** - Stage 1/2/3/4 independent override controls; per-row aggregated decision view + per-run cost + tool calls; `eval_type ∈ {capability, regression}` tagging on every override
 - [ ] **Phase 72: Promotion recommender + Learning Inbox** - `promotion_candidates` table aggregates per-stage telemetry; Inngest cron generates actionable recommendations; Learning Inbox UI lets operator approve candidates -> auto-creates migration/PR/config change with rollback audit trail
 - [ ] **Phase 73: Sales-email swarm (SugarCRM) - validation** - Onboard second swarm via registry INSERTs only; reuse canonicalised body agent; Bulk Review surface emerges from registry-driven UI without new components; proves cross-swarm reuse claim
+- [ ] **Phase 74: Stage 1 LLM Category Classifier (swarm-agnostic)** - Fills Stage 0 → Stage 1 LLM seam: new Orq agent stage-1-category-classifier + new classifier-screen-worker; cross-swarm via swarm_categories registry; sales-email gets day-1 classification on the same agent (operator rolls out Friday 2026-05-08 on 3 mailboxes)
+- [ ] **Phase 75: Sugar resolve dispatch + verdict-worker side_effects refactor** - Replace verdict-worker's hardcoded Outlook dispatch with registry-driven `swarms.side_effects[]` evaluation; ship `/api/automations/sales-email/resolve` route + `zapier_tools` row for Sugar archive; flip sales-email noise categories from `manual_review` back to `categorize_archive` for end-to-end automation
 
 <details>
 <summary>V5.0 Cross-Swarm Intelligence -- DEFINED</summary>
