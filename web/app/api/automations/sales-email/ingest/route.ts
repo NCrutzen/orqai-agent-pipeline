@@ -25,7 +25,7 @@ export const maxDuration = 30;
  *
  * Auth: shared-secret BODY field (per CLAUDE.md zapier-patterns.md —
  * Catch Hooks don't expose headers reliably in Zapier's field picker).
- * Env var: DEBTOR_FETCH_WEBHOOK_SECRET. NEVER use a request-header
+ * Env var: ZAPIER_INGEST_SECRET. NEVER use a request-header
  * auth scheme here (Bearer / X-*-Secret style); always read auth from the
  * JSON body field.
  *
@@ -70,10 +70,10 @@ interface IngestResponse {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse<IngestResponse>> {
-  const secret = process.env.DEBTOR_FETCH_WEBHOOK_SECRET;
+  const secret = process.env.ZAPIER_INGEST_SECRET;
   if (!secret) {
     return NextResponse.json(
-      { ok: false, error: "DEBTOR_FETCH_WEBHOOK_SECRET not configured" },
+      { ok: false, error: "ZAPIER_INGEST_SECRET not configured" },
       { status: 500 },
     );
   }
