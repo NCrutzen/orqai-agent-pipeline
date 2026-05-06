@@ -248,6 +248,20 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd-plan-phase 62 to break down)
 
+### Phase 74: Stage 1 LLM Category Classifier (swarm-agnostic) — fills the missing Stage 0 to Stage 1 LLM seam: new Orq agent stage-1-category-classifier (Haiku-class, registry-driven via swarm_categories) + new classifier-screen-worker Inngest function listening on classifier/screen.requested, emits classifier/verdict.recorded with Phase 70 dual-write so verdict-worker dispatches per swarm_categories.action. Cross-swarm reusable for sales-email and future swarms.
+
+**Goal:** When the existing regex Stage 1 returns category_key=unknown, a swarm-agnostic LLM agent re-classifies into one of the swarms enabled swarm_categories (or defers back to unknown); the verdict flows through classifier/verdict.recorded and existing registry-driven dispatch so cheap-noise rows skip the entity→coordinator chain and sales-email (no regex rules yet) gets day-1 classification on the same agent. Production rollout Friday 2026-05-08 on firecontrol@, SMEBA fire@, and one sales mailbox.
+**Requirements**: SPEC-REQ-1, SPEC-REQ-2, SPEC-REQ-3, SPEC-REQ-4, SPEC-REQ-5, SPEC-REQ-6, SPEC-REQ-7 (locked in 74-SPEC.md)
+**Depends on:** Phase 73
+**Plans:** 5 plans
+
+Plans:
+- [ ] 74-01-PLAN.md — Wave 1: DB foundation (agent_runs.entity nullable + sales-email registry seed + orq_agents row + ICONTROLLER_MAILBOXES)
+- [ ] 74-02-PLAN.md — Wave 1: Event swarm_type threading (events.ts schema + stage-0-safety-worker de-hardcode + debtor ingest emit)
+- [ ] 74-03-PLAN.md — Wave 2: Orq agent provisioning ritual (list_models → create → Studio JSON Schema → update → get_agent verify; activation migration)
+- [ ] 74-04-PLAN.md — Wave 3: classifier-screen-worker implementation + RED tests + Inngest registration
+- [ ] 74-05-PLAN.md — Wave 4: Sales-email ingest route + zapier_tools registry + 24h production rollout verification
+
 ---
 
 ## Phases
