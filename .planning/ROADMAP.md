@@ -301,6 +301,51 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd-plan-phase 76 to break down)
 
+### Phase 77: Stage 2 / Stage 3 end-to-end verification (debtor-email)
+
+**Goal:** Confirm the debtor-email pipeline reaches Stage 3 in production with sensible output, before any Stage 4 handler work. No new handlers ship in this phase. Deliverables: (a) confirm `classifier-label-resolver` (Stage 2) maps incoming emails to the correct iController customer for ≥90% of non-noise emails, with the remaining ≤10% surfaced via Phase 76's Kanban `low_confidence` lane; (b) confirm `debtor-email-coordinator` / `coordinator-orchestrator` (Stage 3) produces a ranked-intent list whose top pick aligns with operator judgement on a manually-graded 50-email sample; (c) every bug surfaced during a/b is fixed inside this phase, no carryover.
+
+**Why now:** Phase 75's noise-vs-intent cleanup just landed and yesterday's data showed 100% of emails halting at Stage 1. Whether that was solely the Stage 1 LLM picking intents (now fixed) or also a Stage 2/3 wiring issue is unverified. Building Stage 4 handlers without verifying Stage 2/3 means committing to requirements we haven't observed.
+
+**Out of scope:** Building any new Stage 4 handler. The 8 missing handlers stay missing — Phase 76's Kanban lane catches their would-be output until v8.2 prioritizes them.
+
+**Depends on:** Phase 76 (Kanban visibility is the prerequisite — without it we can't see what the pipeline is actually producing).
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 77 to break down)
+
+### Phase 78: Sales-email Stage 0 to Stage 3 onboarding (verkoop@smeba.nl)
+
+**Goal:** Onboard the sales-email swarm (verkoop@smeba.nl, ~15-25 emails/day) through Stages 0→1→2→3 using only registry inserts + the existing cross-swarm architecture. No new code paths in `classifier-screen-worker`, `classifier-verdict-worker`, or `coordinator-orchestrator` — if any of those need swarm-specific branches, that's a cross-swarm architecture bug to fix here. Deliverables: (a) sales-email rows in `swarms`, `swarm_noise_categories`, `swarm_intents` populated; (b) Stage 2 entity resolver wired (SugarCRM customer lookup, distinct from iController); (c) Stage 3 coordinator agent prompted for sales-email intents; (d) verkoop@smeba.nl traffic visibly progressing past Stage 1 with sensible intent picks within 7 days of cutover.
+
+**Why parallel with Phase 77:** The whole point of cross-swarm architecture is that adding a swarm is a registry insert. Validating that claim while still validating debtor-email catches architectural drift early. If sales-email reveals an edge case the architecture can't accommodate, far better to learn it now than after debtor-email is "done."
+
+**Subsumes:** Phase 73 (Sales-email swarm validation) from the existing roadmap. Either close 73 as merged-into-78 or repurpose it.
+
+**Depends on:** Phase 76 only (Kanban visibility). Runs in parallel with Phase 77, NOT after it.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 78 to break down)
+
+### Phase 79: Learning loop — intent surfacing dashboard
+
+**Goal:** Surface the data needed to make Stage 4 handler prioritization data-driven, not guesswork. Build a small dashboard / query layer that shows, for each swarm: intent volume per week, top-N intent picks ranked by frequency, Stage 3 confidence distributions, operator override rates per intent, Kanban-lane stuck-row counts by `kanban_reason`. The output is the input to v8.2's handler-priority decisions.
+
+**Why this is the milestone closer:** Once 76, 77, 78 ship we have data flowing but no synthesis surface. Without 79, picking which Stage 4 handler to build first remains a stakeholder-pain guess. With 79, we can say "credit_request shows up 40 times/week with average Stage 3 confidence 0.78 and operator override rate 12% — that's the highest-value automation target right now."
+
+**Out of scope:** Building any Stage 4 handler. The dashboard ranks them; v8.2 builds them.
+
+**Depends on:** Phase 76, 77, AND 78 (needs both swarms' data for cross-swarm comparisons).
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 79 to break down)
+
 ---
 
 ## Phases
