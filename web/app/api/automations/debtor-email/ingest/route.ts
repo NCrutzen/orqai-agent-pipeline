@@ -563,8 +563,13 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   // 2026-04-23-cleanup-worker-multi-mailbox.md.
   const icontrollerCompany =
     settings.icontroller_company ?? LEGACY_DEFAULT_ICONTROLLER_COMPANY;
+  // Phase 76 hotfix (2026-05-07): producer migrated from
+  // 'debtor-email-review' to 'debtor-email-cleanup' to match the cleanup
+  // dispatcher filter (commit 1ac79d5). The dispatcher temporarily accepts
+  // both names so legacy in-flight rows keep draining; new rows go straight
+  // to the new name.
   await admin.from("automation_runs").insert({
-    automation: "debtor-email-review",
+    automation: "debtor-email-cleanup",
     status: "pending",
     swarm_type: "debtor-email",
     topic: r.category ?? null,
@@ -584,7 +589,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     triggered_by: "zapier:ingest",
     completed_at: isoNow,
   });
-  await emitAutomationRunStale(admin, "debtor-email-review");
+  await emitAutomationRunStale(admin, "debtor-email-cleanup");
 
   return NextResponse.json({
     action: "labeled",

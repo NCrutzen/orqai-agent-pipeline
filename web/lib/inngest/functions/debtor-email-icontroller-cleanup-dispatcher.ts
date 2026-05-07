@@ -56,8 +56,13 @@ export const cleanupIControllerDispatch = inngest.createFunction(
         // The classifier-verdict-worker inserts categorize_archive rows with
         // automation=swarms.side_effects[].automation, currently 'debtor-email-cleanup'
         // (per the swarms registry). The cleanup-worker also writes its in-progress
-        // and final updates with this same value. Dispatcher must match.
-        .eq("automation", "debtor-email-cleanup")
+        // and final updates with this same value.
+        // Phase 76 hotfix (2026-05-07): the legacy zapier:ingest path still
+        // produces rows with automation='debtor-email-review'. Match both so
+        // the legacy backlog drains while the producer migration ships. The
+        // worker rewrites automation→'debtor-email-cleanup' on update, so
+        // each row only matches the legacy branch on its first dispatch.
+        .in("automation", ["debtor-email-cleanup", "debtor-email-review"])
         .in("status", ["deferred", "pending"])
         .eq("result->>stage", "icontroller_delete")
         .eq("result->>icontroller", "pending")

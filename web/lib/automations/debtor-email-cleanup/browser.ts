@@ -59,6 +59,26 @@ async function findEmailViaSearch(
   email: EmailIdentifiers,
   maxPages = 10,
 ): Promise<number> {
+  // Phase 76 hotfix (2026-05-07): fail fast with a typed error when the
+  // queue payload is missing identifiers. Without this guard, Playwright
+  // throws the generic `locator.fill: value: expected string, got undefined`,
+  // which masks the real cause (a producer not merging email fields into
+  // the automation_runs.result jsonb).
+  if (typeof email.from !== "string" || !email.from) {
+    throw new Error(
+      "findEmailViaSearch: missing email.from on queue payload (producer schema drift)",
+    );
+  }
+  if (typeof email.subject !== "string") {
+    throw new Error(
+      "findEmailViaSearch: missing email.subject on queue payload (producer schema drift)",
+    );
+  }
+  if (typeof email.receivedAt !== "string") {
+    throw new Error(
+      "findEmailViaSearch: missing email.receivedAt on queue payload (producer schema drift)",
+    );
+  }
   // Try a few common placeholders / selectors for the search input. The
   // "Search in mails..." placeholder was observed in production.
   const searchSelectors = [

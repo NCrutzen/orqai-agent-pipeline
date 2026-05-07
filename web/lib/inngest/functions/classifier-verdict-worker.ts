@@ -133,6 +133,43 @@ export const classifierVerdictWorker = inngest.createFunction(
             "stage1_categorize_archive",
             { category_action: "categorize_archive" },
           );
+          // Phase 76 hotfix (2026-05-07): the cleanup-worker reads
+          // `from`/`subject`/`received_at` off the queued row's `result`
+          // jsonb and feeds them to Playwright `.fill()`. The registry
+          // `result_template` only carries `{stage, icontroller}`, so we
+          // must look up the email's identifiers here and merge them in.
+          // Without this, every dispatched row crashes at
+          // `findEmailViaSearch` with "expected string, got undefined".
+          // Also load labeling_settings for entity/company parity with
+          // the legacy zapier:ingest producer (kanban relies on these).
+          const [emailRow, settingsRow] = stage1Dispatches.length > 0
+            ? await Promise.all([
+                step.run("load-email-for-cleanup", async () => {
+                  const { data, error } = await admin
+                    .schema("email_pipeline")
+                    .from("emails")
+                    .select("sender_email, subject, received_at")
+                    .or(
+                      `source_id.eq.${message_id},internet_message_id.eq.${message_id}`,
+                    )
+                    .maybeSingle();
+                  if (error) {
+                    throw new Error(`emails lookup failed: ${error.message}`);
+                  }
+                  return data;
+                }),
+                step.run("load-settings-for-cleanup", async () => {
+                  const { data } = await admin
+                    .schema("debtor")
+                    .from("labeling_settings")
+                    .select("entity, icontroller_company")
+                    .eq("source_mailbox", source_mailbox)
+                    .maybeSingle();
+                  return data;
+                }),
+              ])
+            : [null, null];
+
           for (const dispatch of stage1Dispatches) {
             if (dispatch.kind === "automation_run_insert") {
               await step.run(`queue-${dispatch.automation}`, async () => {
@@ -149,6 +186,11 @@ export const classifierVerdictWorker = inngest.createFunction(
                     source_automation_run_id: automation_run_id,
                     message_id,
                     source_mailbox,
+                    from: emailRow?.sender_email ?? null,
+                    subject: emailRow?.subject ?? null,
+                    received_at: emailRow?.received_at ?? null,
+                    entity: settingsRow?.entity ?? null,
+                    company: settingsRow?.icontroller_company ?? null,
                   },
                   triggered_by: "classifier-verdict-worker",
                 });
