@@ -357,7 +357,13 @@ export function DetailPane({
     async (kind: "approve" | "reject" | "skip") => {
       if (!row) return;
       const result = readResult(row);
-      const ruleKey = result.predicted?.rule ?? "no_match";
+      // Mirror the render-time logic: prefer the Stage 1 event's
+      // decision_details.regex_rule_id when the timeline carries it.
+      const stage1Event = effectiveTimeline.find((e) => e.stage === 1);
+      const stage1RuleId =
+        (stage1Event?.decision_details as { regex_rule_id?: string } | null | undefined)
+          ?.regex_rule_id ?? null;
+      const ruleKey = stage1RuleId ?? result.predicted?.rule ?? "no_match";
       const predictedCategory =
         result.predicted?.category ?? row.topic ?? "unknown";
 
@@ -433,6 +439,7 @@ export function DetailPane({
       markPendingRemoval,
       swarmType,
       categoryLabelByKey,
+      effectiveTimeline,
     ],
   );
 
@@ -868,7 +875,16 @@ export function DetailPane({
   const sender = result.fromName
     ? `${result.fromName} <${result.from ?? "unknown"}>`
     : (result.from ?? "unknown sender");
-  const ruleKey = result.predicted?.rule ?? "no_match";
+  // Stage 1 (regex routing) emits decision_details.regex_rule_id when a
+  // rule fires. The view-driven row mapper doesn't expose that field, so
+  // read it from the preloaded timeline first; fall back to legacy
+  // result.predicted.rule for callers that still pass automation_runs
+  // shapes through.
+  const stage1Event = effectiveTimeline.find((e) => e.stage === 1);
+  const stage1RuleId =
+    (stage1Event?.decision_details as { regex_rule_id?: string } | null | undefined)
+      ?.regex_rule_id ?? null;
+  const ruleKey = stage1RuleId ?? result.predicted?.rule ?? "no_match";
   const predictedCategory =
     result.predicted?.category ?? row.topic ?? "unknown";
   const sentTime = new Date(row.created_at).toLocaleString("en-GB");
