@@ -83,3 +83,71 @@ From RESEARCH.md `## Validation Architecture > Wave 0 Gaps`:
 - [ ] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
+
+---
+
+## Phase 76 Validation Results — Plan 76-08 (executor pass)
+
+Recorded 2026-05-07 by Plan 76-08 executor on branch `gsd/phase-76-stage-3-kanban`. Tasks 1+2 executed autonomously; Task 3 (live-DB end-to-end verification) is **PAUSED PENDING USER CONFIRMATION** because it requires synthetic test rows to be written to the production Supabase project.
+
+### A. Redirect verification (Task 1)
+
+| Step | Result | Evidence |
+|------|--------|----------|
+| Pure-helper unit tests for `resolveReviewRedirect` | ✅ PASS (8/8) | `cd web && npx vitest run __tests__/middleware-review-redirect.test.ts` — 8 passed |
+| /review (no query) → /stage-1 | ✅ PASS (helper) | covered by test "redirects /automations/<swarm>/review (no query) to /stage-1" |
+| /review?tab=safety → /stage-0 | ✅ PASS (helper) | covered by test "redirects ?tab=safety to /stage-0" |
+| /review?tab=pending → /stage-1?sub=pending | ✅ PASS (helper) | covered by test "redirects ?tab=pending to /stage-1?sub=pending" |
+| Open-redirect threat T-76-08-01 | ✅ PASS (helper) | covered by test "does not honor an attacker-controlled tab value" |
+| Live HTTP redirect at runtime (308 status) | ⏸ DEFERRED | requires `npm run dev` smoke; covered by Task 3 step A in plan |
+
+Commit: `afaab2e`.
+
+### B. Stage 0 + Stage 1 wrappers (Task 2)
+
+| Step | Result | Evidence |
+|------|--------|----------|
+| `web/app/(dashboard)/automations/[swarm]/stage-0/page.tsx` exists | ✅ PASS | `git ls-files` |
+| `web/app/(dashboard)/automations/[swarm]/stage-1/page.tsx` exists | ✅ PASS | `git ls-files` |
+| `tsc --noEmit` clean | ✅ PASS | `cd web && npx tsc --noEmit` returns no output / exit 0 |
+| Stage 1 re-exports review/page.tsx default + dynamic | ✅ PASS | re-export `export { default, dynamic } from "../review/page"` |
+| Stage 0 spoofing gate (T-76-08-03) | ✅ PASS | `loadSwarm` → `notFound()` on unknown swarm, mirrors Stage 3 page pattern |
+| Browser smoke at /automations/debtor-email/stage-0 + /stage-1 | ⏸ DEFERRED | requires `npm run dev` |
+
+Commit: `8cbdc3f`.
+
+### C. Pipeline runtime verification (3 triggers) — Task 3, PAUSED
+
+**Status:** ⏸ PAUSED PENDING USER CONFIRMATION (live-DB writes required)
+
+What needs to happen, table-by-table, when the user authorizes:
+
+| Trigger | Synthetic write target | Row contents (sketch) | Cleanup |
+|---------|------------------------|------------------------|---------|
+| `no_handler` | `email_pipeline.emails` (test row) + emit `debtor-email/email.received` via Inngest CLI/admin → Stage 1 LLM picks an intent backed by `swarm_intents.handler_status='placeholder'` (e.g. address_change) | `swarm_type='debtor-email'`, isolated test mailbox, subject `[PHASE-76 TEST] no_handler trigger` | DELETE the inserted email row + matching automation_runs after verification (do not delete production data) |
+| `low_confidence` | Same fixture path; Stage 3 coordinator returns confidence below threshold | identical synthetic email with body crafted to trigger low-confidence path | same |
+| `handler_error` | Trigger `invoice_copy_request` with a temporarily mis-set env var (e.g. `OUTLOOK_API_BASE`) so the Stage 4 handler raises | synthetic invoice-copy request | restore env var; delete the inserted automation_runs / Kanban row |
+
+**Risk:** all three writes touch the live `email_pipeline.emails` + `automation_runs` + `pipeline_events` tables in production Supabase. Per Auto Mode Rule 5 these need explicit user approval. The plan document already calls this out at line 327 as a `checkpoint:human-verify` gate.
+
+**Resume signal:** "phase-76-verified" once the user has run the three triggers and confirmed Kanban rows + Realtime broadcasts.
+
+### D. Operator action verification — PAUSED
+
+Same blocker as section C: requires live Kanban rows to act on. Will be verified in the same session.
+
+### E. Cross-swarm sanity
+
+| Step | Result | Evidence |
+|------|--------|----------|
+| `/automations/sales-email/stage-3` → 404 | ⏸ DEFERRED | requires browser; expected behaviour pending |
+| Cross-swarm grep: zero literal swarm-name matches in Phase 76 surfaces | ⏳ NOT YET RUN | `grep -rE "['\"](debtor-email\|sales-email)['\"]" web/app/(dashboard)/automations/[swarm]/{stage-3,stage-4,_shell,_actions,_lib}` — to be captured during user-approved verification pass |
+
+### F. Test suite + build
+
+| Step | Result | Evidence |
+|------|--------|----------|
+| `npx tsc --noEmit` | ✅ PASS | exit 0, no output |
+| Plan 76-08 unit tests (`__tests__/middleware-review-redirect.test.ts`) | ✅ PASS (8/8) | see section A |
+| Full vitest suite | ⚠️ 22 PRE-EXISTING FAILURES | All in `app/(dashboard)/automations/[swarm]/review/__tests__/safety-review-loader.test.ts` — `TypeError: admin.schema is not a function` from a mock that pre-dates Phase 71-08's email_pipeline schema usage. Logged to `deferred-items.md`. Pass count outside this file: **673 passed / 16 skipped / 95 todo**. Plan 76-08 introduces zero new failures. |
+| `npx next build` | ⏸ NOT RUN | Plan acceptance criteria allows `tsc --noEmit` clean as TS-level gate; `next build` deferred to live verification pass |
