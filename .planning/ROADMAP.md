@@ -1162,20 +1162,22 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready to scope)
 
-### Phase 999.5: Switch Stage 0/1 single-shot classifiers from Orq Router to Orq Deployments — restore cost tracking (BACKLOG)
+### Phase 999.5: Restore Stage 0/1 cost_cents via Orq trace reconciliation (BACKLOG)
 
-**Goal:** 999.4 Fix C swapped Stage 0 (`stage-0-safety-classifier`) and Stage 1 (`stage-1-category-classifier`) onto the Orq Router endpoint (`POST /v2/router/chat/completions`) to escape the Agents-product queue. Trade-off accepted at the time: Router returns no per-call billing, so `agent_runs.cost_cents = 0` for all Stage 0/1 traffic post-999.4. Switch to **Orq Deployments** (`POST /v2/deployments/invoke`) — different product from Agents (no shared queue) but versioned in Studio with full cost+trace observability. Restores `cost_cents` and centralises model+fallback+prompt+JSON schema in Studio (versioned), retiring the in-repo `orq_agents.system_prompt` mirror column added in 999.4.
+**Goal:** 999.4 Fix C swapped Stage 0 (`stage-0-safety-classifier`) and Stage 1 (`stage-1-category-classifier`) onto the Orq Router endpoint (`POST /v2/router/chat/completions`). Trade-off accepted: Router returns no per-call billing, so `agent_runs.result.cost_cents = 0`. **Orq's `/v2/deployments/invoke`, `/v3/router/responses`, and `/v2/router/chat/completions` ALL return only `usage` (token counts) on the response — none surface per-call cost** (verified 2026-05-07 against Orq docs). Swapping transports does not restore cost. Cost lives exclusively in Orq's **traces/observability** layer. Approach: keep the current Router transport, build an async reconciliation pipeline that queries Orq's traces API on a recurring cadence, joins back to `agent_runs` by correlation key, and writes `result.cost_cents`. Re-arms `web/lib/stage-0/budget-counter.ts` (which currently silently bypasses the budget gate while cost reads zero).
 
-**Why backlogged:** raised 2026-05-07 immediately after 999.4 verification. 999.4 ships as-is (Router) for the queue-bypass + 45s deadline win; cost-tracking gap is a quality-of-service follow-up, not a blocker.
+**Why backlogged:** raised 2026-05-07 immediately after 999.4 verification. Original premise (switch to Deployments to get cost on the response) was invalidated when Wave 0 doc-gating revealed no Orq invoke endpoint returns cost. Re-scoped from "transport swap" to "trace reconciliation" 2026-05-07.
 
-**Approach (resolve at /gsd-discuss-phase):**
-1. Create deployments in Orq via MCP (`mcp__orqai-mcp__create_deployment`) — one for `stage-0-safety-classifier`, one for `stage-1-category-classifier`. Each carries: model (Bedrock EU Haiku 4.5 primary), fallbacks (Sonnet 4.5), system prompt, JSON schema (`anyOf` for nullable per CLAUDE.md learning `3970bad9`), temperature, max_tokens.
-2. Refactor `web/lib/automations/orq-agents/client.ts` — replace `invokeOrqModel`'s Router POST with a Deployments POST. Body shape: `{ key: <deployment_key>, inputs: { ... } }`. Response carries `cost`/`billing` — surface as `cost_cents`.
-3. Update registry rows in `orq_agents` to point at deployment keys instead of (or alongside) raw Router model IDs. Drop `orq_agents.system_prompt` column once Stage 0 + Stage 1 callers no longer read it.
-4. Smoke + RED-then-GREEN for the new transport (mirrors 999.4 Wave 0 pattern). Confirm `cost_cents > 0` on a live trace.
-5. Verify Stage 0/1 latency stays under the 45s `OrqClientTimeoutError` deadline (Deployments shouldn't queue, but verify before retiring the Router fallback).
+**Superseded approach (rejected — kept for record):** earlier 4-wave plan to swap Stage 0/1 onto `POST /v2/deployments/invoke` via per-row `transport` flag. Two empirical blockers surfaced before plans were re-cut: (a) MCP `create_deployment` persists `model.parameters` at a path Orq's runtime doesn't read (mirrors `cba7352b` learning for `create_agent`), forcing manual Studio config, and (b) the deployments-invoke response carries no cost field anyway. Two empty deployments remain in Studio (`stage_0_safety_classifier` `82f5239c-3272-4ea8-8d8e-8ac8a12c9b39`, `stage_1_category_classifier` `01979a45-c6f2-41da-a22c-4bd65670960a`) — safe to delete; they were never wired to traffic.
+
+**Re-scoped approach (resolve at /gsd-discuss-phase or /gsd-plan-phase):**
+1. Research Orq's traces/spans API: endpoint shape, auth (admin key needed — Router key won't work), correlation-key options (`gen_ai.request.id`, `x-orq-trace-id` header from invoke response, custom `metadata` field passed at invoke time).
+2. Capture a correlation key on every Stage 0/1 `invokeOrqModel` call. Either (a) read `x-orq-trace-id` from the response headers and persist on `agent_runs.tool_outputs.orq_trace_id`, or (b) generate our own UUID, pass via `extra_params.metadata`, and rely on Orq echoing it back. Wave 0 smoke decides which is reliable.
+3. Add Inngest cron sweeper (mirrors 999.4 D-09 sweeper pattern): `TZ=Europe/Amsterdam */15 6-19 * * 1-5`. Selects `agent_runs` rows from the last N hours where `result.cost_cents = 0` AND `tool_outputs.orq_trace_id IS NOT NULL`. Calls Orq traces API in batches, extracts cost per trace, computes cents, UPDATEs `agent_runs.result.cost_cents`. Replay-safe per CLAUDE.md (cutoff inside `step.run`, per-row JSONB merge).
+4. Verify `web/lib/stage-0/budget-counter.ts` re-arms once cost reconciliation has flushed ~24h of historical traffic.
+5. Document the lag (cost lands ~15min after invoke) in CLAUDE.md so the budget gate's effective semantics are clear.
 
 **Plans:** TBD
 
 Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready to scope)
+- [ ] TBD (replan after this re-scope is confirmed)
