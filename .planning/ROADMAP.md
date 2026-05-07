@@ -1162,22 +1162,18 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready to scope)
 
-### Phase 999.5: Restore Stage 0/1 cost_cents via Orq trace reconciliation (BACKLOG)
+### Phase 999.5: ~~Restore Stage 0/1 cost_cents~~ — CANCELLED 2026-05-07
 
-**Goal:** 999.4 Fix C swapped Stage 0 (`stage-0-safety-classifier`) and Stage 1 (`stage-1-category-classifier`) onto the Orq Router endpoint (`POST /v2/router/chat/completions`). Trade-off accepted: Router returns no per-call billing, so `agent_runs.result.cost_cents = 0`. **Orq's `/v2/deployments/invoke`, `/v3/router/responses`, and `/v2/router/chat/completions` ALL return only `usage` (token counts) on the response — none surface per-call cost** (verified 2026-05-07 against Orq docs). Swapping transports does not restore cost. Cost lives exclusively in Orq's **traces/observability** layer. Approach: keep the current Router transport, build an async reconciliation pipeline that queries Orq's traces API on a recurring cadence, joins back to `agent_runs` by correlation key, and writes `result.cost_cents`. Re-arms `web/lib/stage-0/budget-counter.ts` (which currently silently bypasses the budget gate while cost reads zero).
+**Status:** CANCELLED. The phase premise (cost_cents = 0 after Plan 03 Router swap) is no longer applicable — Plan 03 was reverted (see commit `31fc9ce`) after empirical evidence on 2026-05-07 showed the Orq Agents-product queue-stuck issue isn't chronic (50 most recent Stage 0/1 traces all healthy, median ~1.5s, p99 < 8s, zero outliers >10s). Stage 0/1 stays on the Agents path (`/v2/agents/{key}/responses`), which already returns per-call billing on the response — `cost_cents > 0` keeps working without any reconciliation pipeline.
 
-**Why backlogged:** raised 2026-05-07 immediately after 999.4 verification. Original premise (switch to Deployments to get cost on the response) was invalidated when Wave 0 doc-gating revealed no Orq invoke endpoint returns cost. Re-scoped from "transport swap" to "trace reconciliation" 2026-05-07.
+**Findings worth preserving (locked while researching):**
+- Cost field path on Orq traces: `attributes.orq.billing.total_cost` (USD float, e.g. `0.003193` for one Stage 0 call). Available for both `product=agents` and `product=router` traces.
+- Trace `name` field equals our `agent_key` exactly (`stage-0-safety-classifier`, `stage-1-category-classifier`) — easy correlation if we ever need trace reconciliation.
+- Custom `metadata.*` is arbitrary key/value, persisted on the trace — pass `metadata: { agent_run_id }` at invoke for 1:1 correlation back to `agent_runs.id`.
+- MCP `list_traces` filters: model, entity_key, time, search — no native name/metadata filter, so reconciliation would need full-text search or time-window scan + client-side join.
+- No Orq invoke endpoint (`/v2/deployments/invoke`, `/v3/router/responses`, `/v2/router/chat/completions`) returns per-call cost on the response — only token usage. Cost lives only in traces.
+- Two empty deployments remain in Studio from the abandoned exploration (`stage_0_safety_classifier` id `82f5239c-3272-4ea8-8d8e-8ac8a12c9b39`, `stage_1_category_classifier` id `01979a45-c6f2-41da-a22c-4bd65670960a`) — safe to delete; never wired to traffic.
 
-**Superseded approach (rejected — kept for record):** earlier 4-wave plan to swap Stage 0/1 onto `POST /v2/deployments/invoke` via per-row `transport` flag. Two empirical blockers surfaced before plans were re-cut: (a) MCP `create_deployment` persists `model.parameters` at a path Orq's runtime doesn't read (mirrors `cba7352b` learning for `create_agent`), forcing manual Studio config, and (b) the deployments-invoke response carries no cost field anyway. Two empty deployments remain in Studio (`stage_0_safety_classifier` `82f5239c-3272-4ea8-8d8e-8ac8a12c9b39`, `stage_1_category_classifier` `01979a45-c6f2-41da-a22c-4bd65670960a`) — safe to delete; they were never wired to traffic.
+**If reopened in the future:** the trace-reconciliation approach (Inngest cron polls Orq traces API, joins by `metadata.agent_run_id`, writes `agent_runs.result.cost_cents`) is the right shape. The Wave 0 research above is reusable.
 
-**Re-scoped approach (resolve at /gsd-discuss-phase or /gsd-plan-phase):**
-1. Research Orq's traces/spans API: endpoint shape, auth (admin key needed — Router key won't work), correlation-key options (`gen_ai.request.id`, `x-orq-trace-id` header from invoke response, custom `metadata` field passed at invoke time).
-2. Capture a correlation key on every Stage 0/1 `invokeOrqModel` call. Either (a) read `x-orq-trace-id` from the response headers and persist on `agent_runs.tool_outputs.orq_trace_id`, or (b) generate our own UUID, pass via `extra_params.metadata`, and rely on Orq echoing it back. Wave 0 smoke decides which is reliable.
-3. Add Inngest cron sweeper (mirrors 999.4 D-09 sweeper pattern): `TZ=Europe/Amsterdam */15 6-19 * * 1-5`. Selects `agent_runs` rows from the last N hours where `result.cost_cents = 0` AND `tool_outputs.orq_trace_id IS NOT NULL`. Calls Orq traces API in batches, extracts cost per trace, computes cents, UPDATEs `agent_runs.result.cost_cents`. Replay-safe per CLAUDE.md (cutoff inside `step.run`, per-row JSONB merge).
-4. Verify `web/lib/stage-0/budget-counter.ts` re-arms once cost reconciliation has flushed ~24h of historical traffic.
-5. Document the lag (cost lands ~15min after invoke) in CLAUDE.md so the budget gate's effective semantics are clear.
-
-**Plans:** TBD
-
-Plans:
-- [ ] TBD (replan after this re-scope is confirmed)
+**Plans:** 0 (cancelled)
