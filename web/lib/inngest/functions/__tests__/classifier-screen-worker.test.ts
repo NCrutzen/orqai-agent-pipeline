@@ -37,9 +37,22 @@ vi.mock("@/lib/pipeline-events/emit", () => ({
 }));
 
 // ---- Orq agent mock ------------------------------------------------------
+// Phase 999.4 Fix C — Stage 1 swapped from invokeOrqAgent to invokeOrqModel.
+// Mock BOTH so the existing T-B-style assertions on invokeOrqAgentMock keep
+// reading the same shape post-swap. We point both at the same vi.fn so a
+// single .mockResolvedValue(...) covers both call sites.
 const invokeOrqAgentMock = vi.fn();
 vi.mock("@/lib/automations/orq-agents/client", () => ({
   invokeOrqAgent: (...args: unknown[]) => invokeOrqAgentMock(...args),
+  invokeOrqModel: (...args: unknown[]) => invokeOrqAgentMock(...args),
+  // OrqClientTimeoutError is required for the Phase 999.4 T-B5 second
+  // describe block (it overrides this mock with vi.importActual).
+  OrqClientTimeoutError: class OrqClientTimeoutError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "OrqClientTimeoutError";
+    }
+  },
 }));
 
 // ---- Regex module mock — debtor-email's classify ------------------------
@@ -521,7 +534,13 @@ import {
 // invokeOrqAgent mock. Wave 2 swaps Stage 1 from invokeOrqAgent →
 // invokeOrqModel; the D-11 catch must still coerce category_key='unknown' on
 // timeout.
-const invokeOrqModelMock = vi.fn();
+// Phase 999.4 Fix C — Stage 1 swapped invokeOrqAgent → invokeOrqModel.
+// Both names route through invokeOrqAgentMock so the first describe block's
+// .mockResolvedValue / .mockRejectedValue setups continue to drive the
+// (now-renamed) call site. T-B5 in the second describe block uses
+// invokeOrqAgentMock.mockRejectedValue(<OrqClientTimeoutError>) and asserts
+// the same `.toHaveBeenCalled` shape — the typed timeout still flows through.
+const invokeOrqModelMock = invokeOrqAgentMock;
 vi.mock("@/lib/automations/orq-agents/client", async () => {
   const actual = await vi.importActual<
     typeof import("@/lib/automations/orq-agents/client")
@@ -529,7 +548,7 @@ vi.mock("@/lib/automations/orq-agents/client", async () => {
   return {
     ...actual,
     invokeOrqAgent: (...args: unknown[]) => invokeOrqAgentMock(...args),
-    invokeOrqModel: (...args: unknown[]) => invokeOrqModelMock(...args),
+    invokeOrqModel: (...args: unknown[]) => invokeOrqAgentMock(...args),
   };
 });
 

@@ -5,30 +5,38 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Phase 999.4 Fix C — llm-verdict swapped invokeOrqAgent → invokeOrqModel.
+// We mock all three names so legacy `configureBothMocks` setups continue to
+// drive the (now-renamed) call site.
 vi.mock("@/lib/automations/orq-agents/client", () => ({
   invokeOrqAgent: vi.fn(),
   invokeOrqAgentWithUsage: vi.fn(),
+  invokeOrqModel: vi.fn(),
 }));
 
 import { llmInjectionVerdict } from "../llm-verdict";
 import {
   invokeOrqAgent,
   invokeOrqAgentWithUsage,
+  invokeOrqModel,
 } from "@/lib/automations/orq-agents/client";
 
 const mockInvoke = invokeOrqAgent as unknown as ReturnType<typeof vi.fn>;
 const mockInvokeWithUsage = invokeOrqAgentWithUsage as unknown as ReturnType<
   typeof vi.fn
 >;
+const mockInvokeModel = invokeOrqModel as unknown as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   mockInvoke.mockReset();
   mockInvokeWithUsage.mockReset();
+  mockInvokeModel.mockReset();
 });
 
 function configureBothMocks(value: unknown) {
   mockInvoke.mockResolvedValue(value);
   mockInvokeWithUsage.mockResolvedValue(value);
+  mockInvokeModel.mockResolvedValue(value);
 }
 
 describe("SAFE-01: llmInjectionVerdict — safe verdict, sub-cent cost rounds to 0", () => {
@@ -109,11 +117,13 @@ describe("SAFE-01: llmInjectionVerdict — registry-driven invocation key", () =
       subject: "subj",
     });
 
-    // Plan 02 may use either invokeOrqAgent or invokeOrqAgentWithUsage —
-    // assert at least one was called with the canonical agent key.
+    // Phase 999.4 Fix C — call site swapped to invokeOrqModel. Accept any
+    // of the three transport names so this assertion remains stable across
+    // future transport rewrites.
     const calls = [
       ...mockInvoke.mock.calls,
       ...mockInvokeWithUsage.mock.calls,
+      ...mockInvokeModel.mock.calls,
     ];
     expect(calls.length).toBeGreaterThan(0);
     const firstArgs = calls.map((c) => c[0]);

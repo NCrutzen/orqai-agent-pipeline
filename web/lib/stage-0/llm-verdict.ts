@@ -15,7 +15,7 @@
  */
 
 import { z } from "zod";
-import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
+import { invokeOrqModel } from "@/lib/automations/orq-agents/client";
 
 const VerdictSchema = z.object({
   verdict: z.enum(["safe", "injection_suspected"]),
@@ -37,14 +37,16 @@ export async function llmInjectionVerdict(args: {
   body: string;
   subject: string;
 }): Promise<StageZeroVerdict> {
-  const result = await invokeOrqAgent(
+  // Phase 999.4 Fix C — Router-direct path. JSON schema enforcement is
+  // derived inside invokeOrqModel from agent.output_schema (registry SSOT);
+  // no per-call `jsonSchemaName` arg needed.
+  const result = await invokeOrqModel(
     "stage-0-safety-classifier",
     {
       email_id: args.email_id,
       email_subject: args.subject,
       email_body: args.body,
     },
-    { jsonSchemaName: "stage_0_safety_verdict" },
   );
 
   const parsed = VerdictSchema.safeParse(result.raw);
@@ -55,7 +57,7 @@ export async function llmInjectionVerdict(args: {
   }
 
   // The mock surface in Plan 01 RED tests returns { raw, usage, billing }
-  // (no precomputed cost_cents). Production invokeOrqAgent additionally
+  // (no precomputed cost_cents). Production invokeOrqModel additionally
   // returns cost_cents. Helper handles both shapes.
   const usage = result.usage ?? {
     prompt_tokens: 0,
@@ -63,7 +65,7 @@ export async function llmInjectionVerdict(args: {
     total_tokens: 0,
   };
   // Plan 01 mock returns { raw, usage, billing } (no precomputed cost_cents).
-  // Production extended invokeOrqAgent additionally returns cost_cents. Accept
+  // Production extended invokeOrqModel additionally returns cost_cents. Accept
   // both shapes by preferring cost_cents if present, falling back to billing.
   const r = result as {
     cost_cents?: number;
