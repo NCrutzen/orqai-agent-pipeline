@@ -296,10 +296,17 @@ Plans:
 
 **Verification:** After this phase ships, the per-stage `pipeline_events` query that today shows "100% of emails halt at Stage 1" should show every non-noise email progressing past Stage 2 and either completing through Stage 4 OR landing in the Kanban human lane with a reason. Zero silent dead-letters.
 
-**Plans:** 0 plans
+**Plans:** 8 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 76 to break down)
+- [ ] 76-01-PLAN.md — handler_status migration + types + test scaffolds
+- [ ] 76-02-PLAN.md — [BLOCKING] supabase db push schema apply
+- [ ] 76-03-PLAN.md — Pipeline runtime: no_handler + low_confidence (escalation-gate repurpose)
+- [ ] 76-04-PLAN.md — handler_error onFailure on classifier-invoice-copy-handler
+- [ ] 76-05-PLAN.md — Server Actions: Close, Replay (D-01), Reclassify-as-noise (D-03)
+- [ ] 76-06-PLAN.md — Stage-keyed shell + Stage 3 tab UI
+- [ ] 76-07-PLAN.md — Stage 4 handler-error tab UI
+- [ ] 76-08-PLAN.md — Backwards-compat redirects + end-to-end verification
 
 ### Phase 77: Stage 2 / Stage 3 end-to-end verification (debtor-email)
 

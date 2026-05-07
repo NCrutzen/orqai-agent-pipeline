@@ -54,9 +54,11 @@ From RESEARCH.md `## Validation Architecture > Wave 0 Gaps`:
 - [ ] Extend `web/lib/inngest/functions/__tests__/debtor-email-coordinator.test.ts` — add `no_handler` and `low_confidence`-now-Kanban suites.
 - [ ] Extend `web/lib/inngest/functions/__tests__/classifier-invoice-copy-handler.test.ts` — add `onFailure` Kanban-write suite.
 - [ ] Extend or create `web/lib/swarms/__tests__/registry.test.ts` — `handler_status` row-shape coverage; `loadSwarmIntents` includes the new column.
-- [ ] Create `web/app/(dashboard)/automations/[swarm]/kanban/actions/__tests__/{close,replay,reclassify-noise}.test.ts` — Server Action unit tests with mocked `inngest.send` + Supabase admin.
-- [ ] Create `web/app/(dashboard)/automations/[swarm]/kanban/_lib/__tests__/kanban-loader.test.ts` — SELECT shape + filter logic.
+- [ ] Create Server Action unit tests with mocked `inngest.send` + Supabase admin. **Path note:** Plan 05 creates these under `kanban/actions/__tests__/` (`close.test.ts`, `replay.test.ts`, `reclassify-noise.test.ts`); Plan 06 Task 1 then `git mv`s them to `_actions/__tests__/`. The post-Plan-06 canonical location is `web/app/(dashboard)/automations/[swarm]/_actions/__tests__/{close,replay,reclassify-noise}.test.ts`.
+- [ ] Create `web/app/(dashboard)/automations/[swarm]/_lib/__tests__/kanban-loader.test.ts` (Plan 05 creates at `kanban/_lib/__tests__/kanban-loader.test.ts`; Plan 06 Task 1 `git mv`s to `_lib/__tests__/`). Post-Plan-06 canonical location shown.
 - [ ] Migration: add `supabase/migrations/2026MMDD_swarm_intents_handler_status.sql`.
+
+> Path-rewrite contract (W1 fix): Plan 06 Task 1's `git mv` block (lines 151-159 of 76-06-PLAN.md) IS the authoritative rewrite step. After Plan 06 Task 1 completes, the only valid paths for the four Server Action tests + the kanban-loader test are the `_actions/` / `_lib/` paths above. No grep over `kanban/actions/` or `kanban/_lib/` should match anywhere in the tree.
 
 ---
 
