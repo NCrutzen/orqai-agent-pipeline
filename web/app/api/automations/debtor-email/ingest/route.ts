@@ -431,10 +431,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     // 'safety_review' (verdict=injection_suspected). Pitfall 5: this route
     // NEVER sets safety_overridden — only operator-driven re-emit (Plan 05) does.
     let triageFired = false;
-    if (isLlmBound && stage0RunId) {
+    if (isLlmBound && stage0RunId && resolvedEmailId) {
       triageFired = await fireStage0Event({
-        admin,
         automation_run_id: stage0RunId,
+        email_id: resolvedEmailId,
         messageId,
         sourceMailbox,
         entity: settings.entity!,
@@ -614,8 +614,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
  * operator-driven re-emit path (Plan 05) sets it true.
  */
 async function fireStage0Event(params: {
-  admin: ReturnType<typeof createAdminClient>;
   automation_run_id: string;
+  email_id: string;
   messageId: string;
   sourceMailbox: string;
   entity: EntityKey;
@@ -626,14 +626,11 @@ async function fireStage0Event(params: {
   receivedAt: string;
 }): Promise<boolean> {
   try {
-    const emailId = await resolveOrCreateEmailRow(params);
-    if (!emailId) return false;
-
     await inngest.send({
       name: "stage-0/email.received",
       data: {
         automation_run_id: params.automation_run_id,
-        email_id: emailId,
+        email_id: params.email_id,
         message_id: params.messageId,
         source_mailbox: params.sourceMailbox,
         subject: params.subject,
@@ -658,65 +655,6 @@ async function fireStage0Event(params: {
     );
     return false;
   }
-}
-
-/**
- * Resolve the email_pipeline.emails row for this Zapier-triggered message,
- * creating a minimal row if none exists.
- *
- * The upstream email-ingest pipeline (separate process) uses
- * `source='outlook'` with its own Graph message-ID encoding. Zapier's
- * webhook trigger delivers a DIFFERENT Graph ID encoding for the same
- * message. To avoid silently failing the lookup (which blocked the very
- * first smoke-test on 2026-04-23), we key Zapier-ingested rows under
- * `source='outlook-zapier'` + the Zapier-provided messageId. Rows
- * inserted here stay isolated from upstream rows — no collisions.
- */
-async function resolveOrCreateEmailRow(params: {
-  admin: ReturnType<typeof createAdminClient>;
-  messageId: string;
-  sourceMailbox: string;
-  subject: string;
-  from: string;
-  fromName: string;
-  bodyText: string;
-  receivedAt: string;
-}): Promise<string | null> {
-  const existing = await params.admin
-    .schema("email_pipeline")
-    .from("emails")
-    .select("id")
-    .eq("source", "outlook-zapier")
-    .eq("source_id", params.messageId)
-    .maybeSingle();
-
-  if (existing.data?.id) return existing.data.id;
-
-  const inserted = await params.admin
-    .schema("email_pipeline")
-    .from("emails")
-    .insert({
-      source: "outlook-zapier",
-      source_id: params.messageId,
-      mailbox: params.sourceMailbox,
-      subject: params.subject,
-      sender_email: params.from,
-      sender_name: params.fromName || null,
-      body_text: params.bodyText,
-      received_at: params.receivedAt,
-      direction: "inbound",
-    })
-    .select("id")
-    .single();
-
-  if (inserted.error || !inserted.data?.id) {
-    console.error(
-      `[debtor-email/ingest] failed to upsert email_pipeline.emails for ${params.messageId}:`,
-      inserted.error,
-    );
-    return null;
-  }
-  return inserted.data.id;
 }
 
 function firstNameFromDisplayName(displayName: string): string | null {
