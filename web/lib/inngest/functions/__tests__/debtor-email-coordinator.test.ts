@@ -475,3 +475,43 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 76: Stage 3 Kanban human-lane wiring — RED scaffolds.
+// These tests fail until Plan 03 (no_handler dispatch) and Plan 04 (low_confidence
+// orchestrator-decision Kanban write) implement the runtime behavior. The
+// `swarm_intents.handler_status` registry column added in Plan 01 is the
+// source-of-truth that Plan 03 reads.
+// ---------------------------------------------------------------------------
+
+describe("Phase 76: no_handler trigger", () => {
+  it('writes Kanban row when intent.handler_status === "placeholder"', () => {
+    // Wave 0 RED — Plan 03 turns GREEN.
+    // Expected: coordinator INSERTs into automation_runs with status='pending'
+    // and result.kanban_reason='no_handler' when the dispatched intent's
+    // swarm_intents.handler_status is 'placeholder'.
+    expect(false).toBe(true);
+  });
+
+  it('does NOT call inngest.send when handler_status === "placeholder"', () => {
+    // Wave 0 RED — Plan 03 turns GREEN.
+    // Expected: zero inngest.send calls for handler_event when registry says
+    // the handler is a placeholder; Kanban row replaces dispatch.
+    expect(false).toBe(true);
+  });
+});
+
+describe("Phase 76: low_confidence trigger", () => {
+  it('writes Kanban row when escalation-gate decision.kind === "orchestrator"', () => {
+    // Wave 0 RED — Plan 04 turns GREEN.
+    // Expected: when the escalation gate returns an orchestrator decision,
+    // coordinator INSERTs Kanban row with kanban_reason='low_confidence'
+    // INSTEAD of dispatching debtor-email/orchestrator.requested.
+    expect(false).toBe(true);
+  });
+
+  it("does NOT dispatch debtor-email/orchestrator.requested", () => {
+    // Wave 0 RED — Plan 04 turns GREEN.
+    expect(false).toBe(true);
+  });
+});
