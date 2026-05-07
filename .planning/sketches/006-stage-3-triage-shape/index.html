@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 006 — Stage 3 triage tab layout</title>
+<link rel="stylesheet" href="../themes/v7.css" />
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+
+  .sketch-toolbar {
+    background: var(--bg-2); border-bottom: 1px solid var(--border);
+    padding: var(--space-3) var(--space-5);
+    display: flex; align-items: center; gap: var(--space-4);
+    font-size: var(--fs-sm);
+  }
+  .sketch-toolbar h1 { font-size: var(--fs-md); font-weight: 600; margin: 0; }
+  .sketch-toolbar h1 .meta { color: var(--text-muted); font-weight: 400; margin-left: var(--space-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
+  .sketch-toolbar .grow { flex: 1; }
+  .sketch-toolbar .question { color: var(--text-muted); }
+  .sketch-toolbar .question strong { color: var(--text); }
+
+  .variant-tabs {
+    display: flex; background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 0 var(--space-5);
+  }
+  .variant-tabs button {
+    background: transparent; color: var(--text-muted); border: none;
+    border-bottom: 2px solid transparent;
+    padding: var(--space-3) var(--space-4);
+    font-family: var(--font-sans); font-size: var(--fs-base); cursor: pointer;
+  }
+  .variant-tabs button:hover { color: var(--text); }
+  .variant-tabs button.active { color: var(--text); border-bottom-color: var(--brand-primary); font-weight: 500; }
+  .variant-tabs .star { color: var(--brand-primary); margin-right: 4px; }
+
+  .variant-body { flex: 1; overflow: auto; padding: 0; display: none; flex-direction: column; }
+  .variant-body.active { display: flex; }
+
+  /* ===== Page header (shared) ===== */
+  .page-header {
+    background: var(--bg-2); border-bottom: 1px solid var(--border);
+    padding: var(--space-4) var(--space-5);
+  }
+  .page-header h2 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+  .page-header .sub { color: var(--text-muted); font-size: var(--fs-sm); margin-top: 2px; font-family: var(--font-mono); }
+
+  .stage-tab-strip {
+    display: flex; background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 0 var(--space-5);
+  }
+  .stage-tab-strip a {
+    color: var(--text-muted); text-decoration: none;
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--fs-base);
+    border-bottom: 2px solid transparent;
+    display: flex; align-items: center; gap: var(--space-2);
+  }
+  .stage-tab-strip a:hover { color: var(--text); }
+  .stage-tab-strip a.current { color: var(--text); border-bottom-color: var(--brand-primary); font-weight: 500; }
+  .stage-tab-strip .badge { background: var(--brand-primary-soft); color: var(--brand-primary); font-size: var(--fs-xs); padding: 1px 6px; border-radius: 999px; font-family: var(--font-mono); }
+  .stage-tab-strip .badge.zero { background: transparent; color: var(--text-dim); }
+  .stage-tab-strip .meta-link {
+    margin-left: auto; color: var(--text-dim); font-size: var(--fs-xs);
+    padding: var(--space-3) var(--space-2); text-decoration: underline;
+  }
+
+  /* ===== Reason filter chips (used by B + C) ===== */
+  .chip-strip {
+    display: flex; gap: var(--space-2); padding: var(--space-3) var(--space-5);
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    font-size: var(--fs-sm);
+  }
+  .chip-strip .chip {
+    padding: 4px 12px; border-radius: 999px;
+    background: var(--bg-2); border: 1px solid var(--border);
+    color: var(--text-muted); cursor: pointer;
+    font-family: var(--font-mono); font-size: var(--fs-xs);
+  }
+  .chip-strip .chip:hover { background: var(--bg-hover); color: var(--text); }
+  .chip-strip .chip.active { background: var(--brand-primary-soft); color: var(--brand-primary); border-color: var(--brand-primary); }
+  .chip-strip .chip .count { color: var(--text-dim); margin-left: 6px; }
+  .chip-strip .chip.active .count { color: var(--brand-primary); }
+
+  /* ===== Pseudo-row ===== */
+  .row-list { padding: 0; }
+  .row {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--fs-sm);
+  }
+  .row:hover { background: var(--bg-hover); cursor: pointer; }
+  .row.selected { background: var(--bg-selected); border-left: 2px solid var(--brand-primary); padding-left: 14px; }
+  .row .pill {
+    font-size: var(--fs-xs); padding: 2px 8px; border-radius: 999px;
+    font-family: var(--font-mono); white-space: nowrap;
+  }
+  .pill.no-handler { background: var(--blue-soft); color: var(--blue); }
+  .pill.low-conf { background: var(--amber-soft); color: var(--amber); }
+  .pill.error { background: var(--red-soft); color: var(--red); }
+  .pill.intent { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+  .row .subject { color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .meta { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-xs); white-space: nowrap; }
+  .row .conf-bar {
+    width: 40px; height: 4px; background: var(--bg); border-radius: 2px;
+    overflow: hidden; position: relative;
+  }
+  .row .conf-bar > span {
+    display: block; height: 100%;
+  }
+  .conf-low { background: var(--amber); }
+  .conf-med { background: var(--blue); }
+  .conf-high { background: var(--success); }
+
+  /* ===== Variant A: column-board ===== */
+  .a-board {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3); padding: var(--space-4) var(--space-5);
+    flex: 1; overflow: auto; align-items: start;
+  }
+  .a-column {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: var(--space-3);
+    display: flex; flex-direction: column; gap: var(--space-2);
+    min-height: 200px;
+  }
+  .a-column h3 {
+    margin: 0; font-size: var(--fs-sm); font-weight: 600;
+    color: var(--text); display: flex; align-items: center; gap: var(--space-2);
+    padding-bottom: var(--space-2); border-bottom: 1px solid var(--border);
+  }
+  .a-column h3 .count {
+    background: var(--bg); color: var(--text-muted);
+    padding: 2px 8px; border-radius: 999px;
+    font-family: var(--font-mono); font-size: var(--fs-xs);
+    margin-left: auto;
+  }
+  .a-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+    cursor: grab;
+    font-size: var(--fs-sm);
+  }
+  .a-card:hover { border-color: var(--border-strong); }
+  .a-card .subject { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .a-card .meta { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-xs); display: flex; gap: var(--space-2); align-items: center; }
+  .a-card .intent-pill { background: rgba(255,255,255,0.06); color: var(--text); padding: 1px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: var(--fs-xs); }
+
+  /* ===== Variant C: hybrid (chip + grouped sections) ===== */
+  .c-section {
+    margin: 0 var(--space-5) var(--space-4) var(--space-5);
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden;
+  }
+  .c-section:first-of-type { margin-top: var(--space-4); }
+  .c-section-header {
+    padding: 10px 16px;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--fs-sm);
+    display: flex; align-items: center; gap: var(--space-3);
+    cursor: pointer;
+  }
+  .c-section-header .chevron { color: var(--text-dim); }
+  .c-section-header h3 { margin: 0; font-size: var(--fs-base); font-weight: 600; flex: 1; }
+  .c-section-header .pill { font-size: var(--fs-xs); padding: 2px 8px; border-radius: 999px; font-family: var(--font-mono); }
+
+  /* ===== Annotation footer ===== */
+  .variant-note {
+    margin: var(--space-4) var(--space-5);
+    padding: var(--space-4);
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-left: 3px solid var(--brand-primary);
+    border-radius: 6px;
+    font-size: var(--fs-sm); line-height: 1.6;
+  }
+  .variant-note h4 { margin: 0 0 var(--space-2) 0; font-size: var(--fs-base); color: var(--text); }
+  .variant-note p { margin: 0; color: var(--text-muted); }
+  .variant-note .pros, .variant-note .cons { margin-top: var(--space-2); }
+  .variant-note .pros::before { content: "✓ "; color: var(--success); }
+  .variant-note .cons::before { content: "✗ "; color: var(--danger); }
+
+  /* ===== Detail-pane stub (used by all variants for parity) ===== */
+  .body-with-pane { display: grid; grid-template-columns: 1fr 360px; flex: 1; overflow: hidden; }
+  .body-with-pane > .left { overflow: auto; }
+  .body-with-pane > .right {
+    border-left: 1px solid var(--border);
+    background: var(--bg-2);
+    overflow: auto;
+    padding: var(--space-4);
+    font-size: var(--fs-sm);
+  }
+  .pane-h { font-family: var(--font-display); font-size: var(--fs-md); font-weight: 600; margin: 0 0 var(--space-2) 0; }
+  .pane-meta { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-xs); margin-bottom: var(--space-3); }
+  .pane-actions { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
+  .pane-actions button {
+    padding: 8px 12px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); font-size: var(--fs-sm);
+    text-align: left; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .pane-actions button:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .pane-actions button.primary { background: var(--brand-primary); color: var(--text-inverse); border-color: var(--brand-primary); font-weight: 600; }
+  .pane-actions button .kbd { font-family: var(--font-mono); font-size: var(--fs-xs); opacity: 0.6; padding: 2px 6px; background: rgba(255,255,255,0.08); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="sketch-toolbar">
+  <h1>Sketch 006 <span class="meta">phase-76 · stage-3-triage-shape</span></h1>
+  <div class="grow"></div>
+  <div class="question">Inside the <strong>Stage 3 · Intent</strong> tab, what's the layout? <em>(Stage 4 likely mirrors the winner.)</em></div>
+</div>
+
+<div class="variant-tabs">
+  <button onclick="showVariant('A', this)">Variant A · Column-board</button>
+  <button class="active" onclick="showVariant('B', this)"><span class="star">★</span>Variant B · Filtered table</button>
+  <button onclick="showVariant('C', this)">Variant C · Chip filter + grouped sections</button>
+</div>
+
+<!-- =========================================================== -->
+<!-- VARIANT A — Column-board                                     -->
+<!-- =========================================================== -->
+<div id="variant-A" class="variant-body">
+  <div class="page-header">
+    <h2>Debtor Email</h2>
+    <div class="sub">debiteuren@smeba.nl · debiteuren@berki.com · debiteuren@smeba-fire.be</div>
+  </div>
+
+  <div class="stage-tab-strip">
+    <a href="#"><span>Stage 0 · Safety</span><span class="badge zero">0</span></a>
+    <a href="#"><span>Stage 1 · Noise</span><span class="badge">12</span></a>
+    <a href="#"><span>Stage 2 · Customer</span><span class="badge zero">0</span></a>
+    <a href="#" class="current"><span>Stage 3 · Intent</span><span class="badge">7</span></a>
+    <a href="#"><span>Stage 4 · Handler</span><span class="badge">2</span></a>
+    <a href="#" class="meta-link">↗ Swarm operations dashboard</a>
+  </div>
+
+  <div class="a-board">
+    <div class="a-column">
+      <h3>📭 No handler <span class="count">4</span></h3>
+      <div class="a-card">
+        <div class="subject">Re: Factuur 17341388 — credit_request</div>
+        <div class="meta"><span class="intent-pill">credit_request</span><span>smeba</span><span>·</span><span>12m</span></div>
+      </div>
+      <div class="a-card">
+        <div class="subject">Peppol activatie aanvraag</div>
+        <div class="meta"><span class="intent-pill">peppol_request</span><span>smeba-fire</span><span>·</span><span>2h</span></div>
+      </div>
+      <div class="a-card">
+        <div class="subject">Adres wijziging klant 4501</div>
+        <div class="meta"><span class="intent-pill">address_change</span><span>berki</span><span>·</span><span>3h</span></div>
+      </div>
+      <div class="a-card">
+        <div class="subject">Klacht over factuur 17341274</div>
+        <div class="meta"><span class="intent-pill">payment_dispute</span><span>smeba</span><span>·</span><span>4h</span></div>
+      </div>
+    </div>
+
+    <div class="a-column">
+      <h3>🤔 Low confidence <span class="count">3</span></h3>
+      <div class="a-card">
+        <div class="subject">Vraag over openstaande factuur</div>
+        <div class="meta"><span class="intent-pill">general_inquiry</span><span>berki</span><span>·</span><span>38m</span><span>·</span><span style="color: var(--amber);">conf 0.42</span></div>
+      </div>
+      <div class="a-card">
+        <div class="subject">Re: niet correcte tenaamstelling</div>
+        <div class="meta"><span class="intent-pill">other</span><span>smeba</span><span>·</span><span>3h</span><span>·</span><span style="color: var(--amber);">conf 0.51</span></div>
+      </div>
+      <div class="a-card">
+        <div class="subject">Contact opnemen vragen</div>
+        <div class="meta"><span class="intent-pill">general_inquiry</span><span>smeba-fire</span><span>·</span><span>5h</span><span>·</span><span style="color: var(--amber);">conf 0.48</span></div>
+      </div>
+    </div>
+
+    <div class="a-column" style="opacity: 0.4;">
+      <h3>(Stage 4 errors live in Stage 4 tab) <span class="count">—</span></h3>
+      <div style="color: var(--text-dim); font-size: var(--fs-xs); padding: var(--space-3); text-align: center;">handler_error rows render in the Stage 4 tab, not here, since they're a different pipeline failure.</div>
+    </div>
+  </div>
+
+  <div class="variant-note">
+    <h4>Variant A — Column-board (literal Kanban)</h4>
+    <p>Two columns within the Stage 3 tab: <strong>No handler</strong> and <strong>Low confidence</strong>. Each row becomes a card with subject + intent-pill + entity + age + confidence (when applicable). Drag-and-drop is technically implementable but conceptually wrong here — operators don't <em>move</em> rows between reasons; the system already classified them.</p>
+    <div class="pros">Counts visually obvious. Cards have room for richer per-row info (intent + confidence + age all visible without truncation). Consistent with V7 KanbanBoard mental model elsewhere in the app (familiar pattern for engineers).</div>
+    <div class="cons">Drag-and-drop is dead weight — operators reclassify intent via the detail-pane action, not by dragging columns. Two columns waste horizontal space when there are 4-7 rows. With 100+ rows, columns become tall scrolling lists no denser than a table. Mixing columns with the row-strip pattern from Bulk Review (Stage 1 tab) creates inconsistency across stage tabs.</div>
+  </div>
+</div>
+
+<!-- =========================================================== -->
+<!-- VARIANT B — Filtered table                                   -->
+<!-- =========================================================== -->
+<div id="variant-B" class="variant-body active">
+  <div class="page-header">
+    <h2>Debtor Email</h2>
+    <div class="sub">debiteuren@smeba.nl · debiteuren@berki.com · debiteuren@smeba-fire.be</div>
+  </div>
+
+  <div class="stage-tab-strip">
+    <a href="#"><span>Stage 0 · Safety</span><span class="badge zero">0</span></a>
+    <a href="#"><span>Stage 1 · Noise</span><span class="badge">12</span></a>
+    <a href="#"><span>Stage 2 · Customer</span><span class="badge zero">0</span></a>
+    <a href="#" class="current"><span>Stage 3 · Intent</span><span class="badge">7</span></a>
+    <a href="#"><span>Stage 4 · Handler</span><span class="badge">2</span></a>
+    <a href="#" class="meta-link">↗ Swarm operations dashboard</a>
+  </div>
+
+  <div class="chip-strip">
+    <div class="chip active">All <span class="count">7</span></div>
+    <div class="chip">No handler <span class="count">4</span></div>
+    <div class="chip">Low confidence <span class="count">3</span></div>
+    <div style="flex:1;"></div>
+    <div class="chip" style="background: transparent; border: none; color: var(--text-dim);">↓ Sort: oldest first</div>
+  </div>
+
+  <div class="body-with-pane">
+    <div class="left">
+      <div class="row-list">
+        <div class="row">
+          <span class="pill no-handler">no_handler</span>
+          <span class="pill intent">credit_request</span>
+          <span class="subject">Re: Factuur 17341388 — credit_request</span>
+          <span class="meta">smeba · 12m</span>
+        </div>
+        <div class="row">
+          <span class="pill low-conf">low_conf</span>
+          <span class="pill intent">general_inquiry</span>
+          <span class="subject">Vraag over openstaande factuur</span>
+          <span class="conf-bar"><span class="conf-low" style="width:42%;"></span></span>
+          <span class="meta">berki · 38m</span>
+        </div>
+        <div class="row selected">
+          <span class="pill no-handler">no_handler</span>
+          <span class="pill intent">peppol_request</span>
+          <span class="subject">Peppol activatie aanvraag</span>
+          <span class="meta">smeba-fire · 2h</span>
+        </div>
+        <div class="row">
+          <span class="pill no-handler">no_handler</span>
+          <span class="pill intent">address_change</span>
+          <span class="subject">Adres wijziging klant 4501</span>
+          <span class="meta">berki · 3h</span>
+        </div>
+        <div class="row">
+          <span class="pill low-conf">low_conf</span>
+          <span class="pill intent">other</span>
+          <span class="subject">Re: niet correcte tenaamstelling</span>
+          <span class="conf-bar"><span class="conf-low" style="width:51%;"></span></span>
+          <span class="meta">smeba · 3h</span>
+        </div>
+        <div class="row">
+          <span class="pill no-handler">no_handler</span>
+          <span class="pill intent">payment_dispute</span>
+          <span class="subject">Klacht over factuur 17341274</span>
+          <span class="meta">smeba · 4h</span>
+        </div>
+        <div class="row">
+          <span class="pill low-conf">low_conf</span>
+          <span class="pill intent">general_inquiry</span>
+          <span class="subject">Contact opnemen vragen</span>
+          <span class="conf-bar"><span class="conf-low" style="width:48%;"></span></span>
+          <span class="meta">smeba-fire · 5h</span>
+        </div>
+      </div>
+    </div>
+    <div class="right">
+      <h3 class="pane-h">Peppol activatie aanvraag</h3>
+      <div class="pane-meta">no_handler · smeba-fire · 2h ago</div>
+
+      <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-bottom: var(--space-3);">
+        <div style="color: var(--text-muted); font-size: var(--fs-xs); margin-bottom: 4px;">Stage 3 ranked output</div>
+        <div style="font-family: var(--font-mono); font-size: var(--fs-xs);">
+          <div>1. <strong style="color:var(--text);">peppol_request</strong> · 0.91 ✓ picked</div>
+          <div style="color: var(--text-muted);">2. general_inquiry · 0.06</div>
+          <div style="color: var(--text-muted);">3. other · 0.03</div>
+        </div>
+      </div>
+
+      <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-bottom: var(--space-3); font-size: var(--fs-xs); color: var(--text-muted);">
+        Email body preview (clickable to expand)…<br>
+        <span style="color:var(--text);">Beste Smeba-fire, Wij zouden graag zien dat onze facturen via Peppol verlopen…</span>
+      </div>
+
+      <div class="pane-actions">
+        <button class="primary">✓ Replay through Stage 4 <span class="kbd">⏎</span></button>
+        <button>↶ Reclassify as noise <span class="kbd">N</span></button>
+        <button>✕ Close (manual) <span class="kbd">Space</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-note">
+    <h4>Variant B — Filtered table + detail pane (★ candidate)</h4>
+    <p>Reuses the Bulk Review pattern almost verbatim: dense table on the left, detail pane on the right. Chip strip filters by reason (<code>All</code> / <code>No handler</code> / <code>Low confidence</code>), with optional sort and bulk-select later. Each row carries a reason pill + intent pill + subject + (for low-conf) confidence bar + recipient + age. Selected row populates the detail pane with Stage 3 ranked output, body preview, and the three operator actions. Stage 4 tab inherits the same shape with reason='handler_error' and an "error_detail" expanding section in the pane.</p>
+    <div class="pros">Visual + interaction consistency with the Stage 1 (Bulk Review) tab — operators learn one row pattern. Density: 30+ rows visible without scroll on a typical laptop. Detail pane fits the Replay editor (intent dropdown), Reclassify dropdown, and Stage 3 ranked output without modal-juggling. Keyboard shortcuts (⏎ approve / N reclassify / Space close) match the existing Bulk Review keyboard cheat-sheet. Stage 4 tab can reuse the entire shape — only the reason values + detail-pane fields change.</div>
+    <div class="cons">"All" filter merges no_handler + low_confidence into one list — fine for triage but slightly less visually grouped than Variant A. Confidence bar adds visual noise on rows where it doesn't apply (no_handler rows have no meaningful confidence). Solution: only render the bar for low-conf rows (already implemented in this mock).</div>
+  </div>
+</div>
+
+<!-- =========================================================== -->
+<!-- VARIANT C — Hybrid: chip filter + grouped sections           -->
+<!-- =========================================================== -->
+<div id="variant-C" class="variant-body">
+  <div class="page-header">
+    <h2>Debtor Email</h2>
+    <div class="sub">debiteuren@smeba.nl · debiteuren@berki.com · debiteuren@smeba-fire.be</div>
+  </div>
+
+  <div class="stage-tab-strip">
+    <a href="#"><span>Stage 0 · Safety</span><span class="badge zero">0</span></a>
+    <a href="#"><span>Stage 1 · Noise</span><span class="badge">12</span></a>
+    <a href="#"><span>Stage 2 · Customer</span><span class="badge zero">0</span></a>
+    <a href="#" class="current"><span>Stage 3 · Intent</span><span class="badge">7</span></a>
+    <a href="#"><span>Stage 4 · Handler</span><span class="badge">2</span></a>
+    <a href="#" class="meta-link">↗ Swarm operations dashboard</a>
+  </div>
+
+  <div class="chip-strip">
+    <div class="chip active">All <span class="count">7</span></div>
+    <div class="chip">No handler <span class="count">4</span></div>
+    <div class="chip">Low confidence <span class="count">3</span></div>
+    <div style="flex:1;"></div>
+    <div class="chip" style="background: transparent; border: none; color: var(--text-dim);">↓ Sort: oldest first</div>
+  </div>
+
+  <div style="overflow: auto; flex: 1;">
+    <div class="c-section">
+      <div class="c-section-header">
+        <span class="chevron">▾</span>
+        <h3>📭 No handler</h3>
+        <span class="pill no-handler">4 emails</span>
+        <span style="color: var(--text-dim); font-size: var(--fs-xs); font-family: var(--font-mono);">— intent picked, no Stage 4 worker registered yet</span>
+      </div>
+      <div class="row-list">
+        <div class="row">
+          <span class="pill intent">credit_request</span>
+          <span class="subject">Re: Factuur 17341388 — credit_request</span>
+          <span class="meta">smeba · 12m</span>
+        </div>
+        <div class="row">
+          <span class="pill intent">peppol_request</span>
+          <span class="subject">Peppol activatie aanvraag</span>
+          <span class="meta">smeba-fire · 2h</span>
+        </div>
+        <div class="row">
+          <span class="pill intent">address_change</span>
+          <span class="subject">Adres wijziging klant 4501</span>
+          <span class="meta">berki · 3h</span>
+        </div>
+        <div class="row">
+          <span class="pill intent">payment_dispute</span>
+          <span class="subject">Klacht over factuur 17341274</span>
+          <span class="meta">smeba · 4h</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="c-section">
+      <div class="c-section-header">
+        <span class="chevron">▾</span>
+        <h3>🤔 Low confidence</h3>
+        <span class="pill low-conf">3 emails</span>
+        <span style="color: var(--text-dim); font-size: var(--fs-xs); font-family: var(--font-mono);">— Stage 3 unsure / multiple intents close together</span>
+      </div>
+      <div class="row-list">
+        <div class="row">
+          <span class="pill intent">general_inquiry</span>
+          <span class="subject">Vraag over openstaande factuur</span>
+          <span class="conf-bar"><span class="conf-low" style="width:42%;"></span></span>
+          <span class="meta">berki · 38m</span>
+        </div>
+        <div class="row">
+          <span class="pill intent">other</span>
+          <span class="subject">Re: niet correcte tenaamstelling</span>
+          <span class="conf-bar"><span class="conf-low" style="width:51%;"></span></span>
+          <span class="meta">smeba · 3h</span>
+        </div>
+        <div class="row">
+          <span class="pill intent">general_inquiry</span>
+          <span class="subject">Contact opnemen vragen</span>
+          <span class="conf-bar"><span class="conf-low" style="width:48%;"></span></span>
+          <span class="meta">smeba-fire · 5h</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-note">
+    <h4>Variant C — Hybrid (chip filter + grouped sections)</h4>
+    <p>Same chip strip as Variant B for global filtering. When "All" is active, rows render in collapsible sections grouped by reason. Section header shows count + a one-sentence explainer. When a chip filters to one reason, sections collapse to just that one. No detail pane in this mock (would slot in identically to B).</p>
+    <div class="pros">Visual grouping by reason is explicit — operator immediately sees how many rows per reason without reading individual pills. Section headers double as documentation ("intent picked, no Stage 4 worker registered yet" — explains the reason inline). Empty sections collapse cleanly when one reason is empty.</div>
+    <div class="cons">Chrome-heavy: every section adds ~40px of header height. When all reasons have rows, the page has 2-3 section headers eating viewport space. Doesn't share row-pattern parity with Stage 1 (Bulk Review) tab — Stage 1 is a flat list, Stage 3 would be grouped — small inconsistency. The "explainer text" inside section headers is nice for first-time operators but becomes visual noise for daily users (could collapse to a tooltip?).</div>
+  </div>
+</div>
+
+<script>
+function showVariant(letter, btn) {
+  document.querySelectorAll('.variant-tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.variant-body').forEach(v => v.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('variant-' + letter).classList.add('active');
+}
+</script>
+</body>
+</html>
