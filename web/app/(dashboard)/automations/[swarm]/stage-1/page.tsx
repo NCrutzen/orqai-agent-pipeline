@@ -15,4 +15,8 @@
 // `unknown`) and writes verdicts back through swarm_noise_categories —
 // it never blurs into swarm_intents (Stage 3).
 
-export { default, dynamic } from "../review/page";
+// Next.js 16 + Turbopack reject re-exported route segment config (`dynamic`)
+// because the value must be statically parsed at compile-time. Inline it here
+// and only re-export the default page component.
+export const dynamic = "force-dynamic";
+export { default } from "../review/page";
