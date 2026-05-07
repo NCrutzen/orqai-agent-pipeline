@@ -379,11 +379,15 @@ export function DetailPane({
         return;
       }
 
+      // Phase 71-08: row.id is the email_id (stable client-side key);
+      // recordVerdict needs the real automation_runs.id for the UPDATE +
+      // agent_runs FK. The page loader threads it on as automation_run_id.
+      const automationRunId = row.automation_run_id ?? row.id;
       setStatus(kind === "approve" ? "approving" : "rejecting");
       try {
         await recordVerdict({
           swarm_type: swarmType,
-          automation_run_id: row.id,
+          automation_run_id: automationRunId,
           rule_key: ruleKey,
           decision: kind === "skip" ? "reject" : kind,
           message_id: result.message_id ?? "",

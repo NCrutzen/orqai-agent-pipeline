@@ -77,7 +77,22 @@ export interface ClassifierCandidate {
 }
 
 export interface PredictedRow {
+  /**
+   * Stable client-side row identifier. Phase 71-08 switched this from
+   * automation_runs.id to email_pipeline.emails.id so the row strip,
+   * URL ?selected=, and timeline lookup all key off the same value.
+   *
+   * For verdict writes (recordVerdict / agent_runs FK) the loader resolves
+   * and threads `automation_run_id` separately — see below.
+   */
   id: string;
+  /**
+   * Real automation_runs.id for the predicted row. Required by the
+   * recordVerdict server action: it UPDATEs automation_runs.status and
+   * INSERTs an FK-constrained row into agent_runs. Resolved server-side
+   * by joining email_pipeline.emails.source_id ↔ automation_runs.result.message_id.
+   */
+  automation_run_id?: string | null;
   automation: string;
   status: string;
   swarm_type: string | null;
@@ -449,6 +464,7 @@ export async function loadPageData(
     function mapSummaryToPredictedRow(row: SummaryRow): PredictedRow {
       return {
         id: row.email_id,
+        automation_run_id: emailIdToAutomationRunId.get(row.email_id) ?? null,
         automation: `${row.swarm_type}-review`,
         status: "predicted",
         swarm_type: row.swarm_type,
@@ -525,23 +541,43 @@ export async function loadPageData(
     const [predictedRunsRes, listRes, filterEmailIds] = await Promise.all([
       admin
         .from("automation_runs")
-        .select("result")
+        .select("id, result")
         .eq("swarm_type", swarmType)
         .eq("status", "predicted"),
       listQuery,
       filterPromise,
     ]);
-    const predictedMessageIds = ((predictedRunsRes.data ?? []) as Array<{ result: { message_id?: string } | null }>)
-      .map((r) => r.result?.message_id)
-      .filter((m): m is string => typeof m === "string" && m.length > 0);
+    // Build message_id → automation_run_id index. Used twice below: to
+    // resolve the predicted-status email_id whitelist (via the matching
+    // emails.source_id), AND to thread the real automation_runs.id onto
+    // each PredictedRow so recordVerdict can UPDATE the right row + insert
+    // a valid agent_runs FK.
+    const predictedRunsByMessageId = new Map<string, string>();
+    for (const r of (predictedRunsRes.data ?? []) as Array<{
+      id: string;
+      result: { message_id?: string } | null;
+    }>) {
+      const mid = r.result?.message_id;
+      if (typeof mid === "string" && mid.length > 0) {
+        predictedRunsByMessageId.set(mid, r.id);
+      }
+    }
+    const predictedMessageIds = Array.from(predictedRunsByMessageId.keys());
+    const emailIdToAutomationRunId = new Map<string, string>();
     let predictedEmailIds: string[] = [];
     if (predictedMessageIds.length > 0) {
       const peRes = await admin
         .schema("email_pipeline")
         .from("emails")
-        .select("id")
+        .select("id, source_id")
         .in("source_id", predictedMessageIds);
-      predictedEmailIds = ((peRes.data ?? []) as Array<{ id: string }>).map((e) => e.id);
+      const emailRows = (peRes.data ?? []) as Array<{ id: string; source_id: string | null }>;
+      for (const e of emailRows) {
+        if (!e.source_id) continue;
+        const arId = predictedRunsByMessageId.get(e.source_id);
+        if (arId) emailIdToAutomationRunId.set(e.id, arId);
+      }
+      predictedEmailIds = emailRows.map((e) => e.id);
     }
 
     // Phase 71-08: filter via in-memory JS rather than .in() with 80+ uuids,
