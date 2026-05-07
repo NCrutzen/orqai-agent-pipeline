@@ -1,10 +1,11 @@
 ---
 phase: 76
 slug: stage-3-kanban-human-lane-wiring
-status: draft
+status: approved
 shadcn_initialized: true
 preset: existing — web/components.json (V7 namespace, OKLCH dark-first)
 created: 2026-05-07
+reviewed_at: 2026-05-07
 ---
 
 # Phase 76 — UI Design Contract
