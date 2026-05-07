@@ -155,4 +155,4 @@ For Task 3 the user must (a) confirm authorization to write synthetic rows to th
 
 ---
 *Phase: 76-stage-3-kanban-human-lane-wiring*
-*Completed: 2026-05-07 (Tasks 1+2 only; Task 3 paused pending user approval)*
+*Completed: 2026-05-07 (Tasks 1+2+3; Task 3 executed by orchestrator via Supabase MCP after user approval — see 76-VALIDATION.md "orchestrator-direct live-DB pass" section)*
