@@ -24,7 +24,7 @@ import { loadSwarmNoiseCategories } from "@/lib/swarms/registry";
 import { evaluateSideEffects } from "@/lib/swarms/side-effects";
 
 export const classifierVerdictWorker = inngest.createFunction(
-  { id: "classifier/verdict-worker", retries: 0 },
+  { id: "classifier/verdict-worker", retries: 2 },
   { event: "classifier/verdict.recorded" },
   async ({ event, step }) => {
     const {
