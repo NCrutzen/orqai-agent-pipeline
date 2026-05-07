@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 999.4-03-PLAN.md
-last_updated: "2026-05-07T11:55:23.052Z"
+stopped_at: Completed 999.4-04-PLAN.md
+last_updated: "2026-05-07T12:00:37.729Z"
 last_activity: 2026-05-07 -- Phase --phase execution started
 progress:
   total_phases: 54
-  completed_phases: 20
+  completed_phases: 21
   total_plans: 120
-  completed_plans: 96
-  percent: 80
+  completed_plans: 97
+  percent: 81
 ---
 
 # Project State
@@ -31,7 +31,7 @@ Plan: 1 of --name
 Milestone: v8.0 Agentic Platform (11 phases, 63-73)
 Last activity: 2026-05-07 -- Phase --phase execution started
 
-Progress: [████████░░] 80%
+Progress: [████████░░] 81%
 
 **v8.0 execution order:** 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 **Next action:** `/gsd-verify-work 68`, then `/gsd-discuss-phase 69 --auto`.
@@ -65,6 +65,7 @@ Progress: [████████░░] 80%
 | Phase 999.4 P01 | 2h | 3 tasks | 5 files |
 | Phase 999.4 P02 | 5m | 2 tasks | 2 files |
 | Phase 999.4 P03 | 1 session | 2 tasks | 7 files |
+| Phase 999.4 P04 | 10m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,7 @@ Progress: [████████░░] 80%
 - 999.4-02: 45s client deadline at Orq fetch boundary; OrqClientTimeoutError → verdict='safe' fail-open coercion in Stage 0 worker
 - Phase 999.4-03: Source system_prompt from Supabase registry (column added) instead of separate get_agent HTTP call — matches T-C3 cache contract, single source for cache count
 - Phase 999.4-03: Add agent_runs.result jsonb to mirror gated category_key + confidence — replaces ad-hoc tool_outputs reconstruction
+- Phase 999.4-04: stage0StaleSweeper file lives at automation-runs-sweeper.ts (test-import authoritative); plan path stage-0-stale-sweeper.ts not used
 
 ### Blockers/Concerns
 
@@ -139,8 +141,8 @@ Progress: [████████░░] 80%
 
 ## Session Continuity
 
-Last session: 2026-05-07T11:55:16.338Z
-Stopped at: Completed 999.4-03-PLAN.md
+Last session: 2026-05-07T12:00:37.722Z
+Stopped at: Completed 999.4-04-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 
