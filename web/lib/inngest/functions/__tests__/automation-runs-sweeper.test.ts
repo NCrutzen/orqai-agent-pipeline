@@ -7,7 +7,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ---- Inngest client mock -------------------------------------------------
-const inngestSend = vi.fn().mockResolvedValue({ ids: ["evt"] });
+const { inngestSend, emitAutomationRunStaleMock } = vi.hoisted(() => ({
+  inngestSend: vi.fn().mockResolvedValue({ ids: ["evt"] }),
+  emitAutomationRunStaleMock: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@/lib/inngest/client", () => ({
   inngest: {
     send: inngestSend,
@@ -19,7 +22,6 @@ vi.mock("@/lib/inngest/client", () => ({
 }));
 
 // ---- emitAutomationRunStale mock ----------------------------------------
-const emitAutomationRunStaleMock = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/automations/runs/emit", () => ({
   emitAutomationRunStale: (...args: unknown[]) =>
     emitAutomationRunStaleMock(...args),
@@ -32,13 +34,19 @@ const fixtureRows: Array<Record<string, unknown>> = [];
 const updateCalls: Array<{ id: string; payload: Record<string, unknown> }> = [];
 
 function makeAdminMock() {
-  const selectChain = {
+  const selectChain: {
+    eq: ReturnType<typeof vi.fn>;
+    lt: ReturnType<typeof vi.fn>;
+    in: ReturnType<typeof vi.fn>;
+    like: ReturnType<typeof vi.fn>;
+  } = {
     eq: vi.fn(() => selectChain),
     lt: vi.fn(async () => ({
       data: [...fixtureRows],
       error: null,
     })),
     in: vi.fn(() => selectChain),
+    like: vi.fn(() => selectChain),
   };
   const updateEqMock = vi.fn(
     async (_col: string, id: string, payload?: Record<string, unknown>) => ({
@@ -239,7 +247,7 @@ describe("Sweeper — emit stale channel (T-D4)", () => {
 
     expect(emitAutomationRunStaleMock).toHaveBeenCalledTimes(2);
     const channels = emitAutomationRunStaleMock.mock.calls.map(
-      (c) => c[0] as string,
+      (c) => c[1] as string,
     );
     expect(channels.sort()).toEqual(
       ["debtor-email-review", "sales-email-review"].sort(),
