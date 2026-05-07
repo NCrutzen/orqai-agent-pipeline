@@ -80,9 +80,9 @@ Axis 3 signals feed the prompt-tune trigger hook: clusters of intent corrections
 
 - [`../orqai-patterns.md`](../orqai-patterns.md) -- `response_format: json_schema`, fallback model chain, 45s client timeout. Stage 3 uses these patterns; this doc does not duplicate them.
 
-## Registry Tables (Phase 68 — landed 2026-05-04)
+## Registry Tables (Phase 68 — landed 2026-05-04, refined Phase 75)
 
-Two registry tables coexist; they route different stages and are NOT redundant.
+Two registry tables, **non-overlapping responsibilities**:
 
 **`public.swarms`** — per-swarm scaffolding. Phase 68 added five columns:
 
@@ -95,13 +95,17 @@ Two registry tables coexist; they route different stages and are NOT redundant.
 | `entity_brand` | jsonb array of brand suffixes used by handler agents |
 | `side_effects[]` | jsonb array of side-effect descriptors (discriminated by `kind`: `inngest_event` or `automation_run_insert`); evaluated by `evaluateSideEffects(swarmType, trigger, ctx)` |
 
-**`public.swarm_intents`** *(NEW)* — Stage 3 ranked-intent dispatch.
-`(swarm_type, intent_key) → handler_event`. Source of truth for V2 ranked-intent fan-out (single-shot path in `debtor-email-coordinator.ts` and N-handler fan-out in `coordinator-orchestrator.ts`). FK ON DELETE CASCADE → `swarms`.
+**`public.swarm_intents`** — **Stage 3** ranked-intent dispatch.
+`(swarm_type, intent_key) → handler_event`. Source of truth for ranked-intent fan-out (single-shot path in `debtor-email-coordinator.ts` and N-handler fan-out in `coordinator-orchestrator.ts`). FK ON DELETE CASCADE → `swarms`. Real intents only: `payment_dispute`, `credit_request`, `invoice_copy_request`, `address_change`, `contract_inquiry`, `copy_document_request`, `general_inquiry`, `peppol_request`, `other`.
 
-**`public.swarm_categories`** *(existing)* — Stage 1 regex-bucket dispatch.
-Operator-override route — maps a categorized email's `category_key` to a Stage-2 action (`categorize_archive` / `swarm_dispatch` / etc.) and an optional `swarm_dispatch` event for category-driven swarm hops. **Coexists** with `swarm_intents`; the two route different stages.
+**`public.swarm_noise_categories`** *(renamed from `swarm_categories` in Phase 75)* — **Stage 1** noise-filter dispatch.
+Maps a noise-filter `noise_key` (e.g. `auto_reply`, `ooo_temporary`, `payment_admittance`, `unknown`) to a terminal action (`categorize_archive` for noise; `swarm_dispatch` for the `unknown` fall-through only, which forwards to Stage 2 via `debtor-email/label-resolve.requested`).
 
-Adding a new swarm = INSERTs into `swarms` + `swarm_intents` (+ optional `swarm_categories` rows for operator routing) + a handler implementation. Zero code edits to `classifier-verdict-worker`, `classifier-label-resolver`, `coordinator-orchestrator`, or `debtor-email-coordinator`.
+### Hard separation rule
+
+A row exists in **exactly one** of `swarm_noise_categories` or `swarm_intents` — never both. Stage 1 chooses noise vs. enter-pipeline; Stage 3 chooses intent. Conflating the two — e.g. listing `payment_dispute` in `swarm_noise_categories` so the Stage 1 LLM can pick it directly — bypasses Stage 2 entity enrichment and Stage 3's ranked output, which is the canonical drift this RFC's Phase 75 cleanup eliminates.
+
+Adding a new swarm = INSERTs into `swarms` + `swarm_intents` + (the small set of) noise rows in `swarm_noise_categories` + a handler implementation per intent. Zero code edits to `classifier-verdict-worker`, `classifier-label-resolver`, `coordinator-orchestrator`, or `debtor-email-coordinator`.
 
 ## Forward References
 

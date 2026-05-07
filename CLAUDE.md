@@ -2,10 +2,18 @@
 
 Centraal platform voor AI-driven automations bij Moyne Roberts.
 
+## ⚠️ READ-FIRST for pipeline work
+
+**When asked anything about pipeline runtime behavior — what Stage X does, why a row didn't progress, where an Inngest event lands, why Bulk Review shows what it shows — READ the architecture docs below BEFORE answering. Do NOT infer the architecture from code shape; the runtime evolves through phases (most recent: Phase 74 LLM 2nd-pass at Stage 1, Phase 75 noise-vs-intent registry split) and the docs are the locked source of truth.**
+
+This block exists because past sessions drifted by reasoning from `web/lib/inngest/functions/*` straight to architectural conclusions, missing the locked RFC. The RFC always wins.
+
 ## Canonical Architecture Docs
 
-- **Agentic Pipeline (cross-swarm canonical)** → `docs/agentic-pipeline/README.md` — the v8.0 5-stage funnel architecture (Stage 0 safety → Stage 1 regex → Stage 2 entity → Stage 3 coordinator → Stage 4 handler), Stage 2→3 context-shape contract, 4-axis override model, graduated-automation hooks. Read this BEFORE designing any new agentic pipeline or extending an existing swarm.
-- **Debtor Email Pipeline (swarm-specific implementation)** → `docs/debtor-email-pipeline-architecture.md` — implementation map for the debtor-email swarm specifically: Outlook ingest, classifier, swarm_categories registry, per-category handlers (label-resolver, invoice-copy), Bulk Review vs Kanban surfaces. Read this before editing any file in `web/lib/automations/debtor-email/` or `web/app/api/automations/debtor*/`.
+- **Agentic Pipeline (cross-swarm canonical)** → `docs/agentic-pipeline/README.md` — the v8.0 5-stage funnel architecture (Stage 0 safety → Stage 1 regex+LLM noise filter → Stage 2 entity → Stage 3 coordinator → Stage 4 handler), Stage 2→3 context-shape contract, 4-axis override model, graduated-automation hooks. Read this BEFORE designing any new agentic pipeline or extending an existing swarm.
+  - **Stage 1 specifics** → `docs/agentic-pipeline/stage-1-regex.md` — two-pass noise filter (regex Pass 1, LLM `stage-1-category-classifier` Pass 2 on `unknown`); closed list = noise keys + `unknown` only.
+  - **Stage 3 specifics** → `docs/agentic-pipeline/stage-3-coordinator.md` — ranked-intent classifier; uses `swarm_intents` for handler dispatch. Hard separation: a row exists in **exactly one** of `swarm_noise_categories` (Stage 1) or `swarm_intents` (Stage 3) — never both.
+- **Debtor Email Pipeline (swarm-specific implementation)** → `docs/debtor-email-pipeline-architecture.md` — implementation map for the debtor-email swarm specifically: Outlook ingest, classifier, swarm_noise_categories registry, per-category handlers (label-resolver, invoice-copy), Bulk Review vs Kanban surfaces. Read this before editing any file in `web/lib/automations/debtor-email/` or `web/app/api/automations/debtor*/`.
 
 ## Auto-loaded Skills
 - **Sketch findings voor agent-workforce** (design decisions, CSS patterns, visual direction voor Smeba Draft Review frontend) → `Skill("sketch-findings-agent-workforce")`

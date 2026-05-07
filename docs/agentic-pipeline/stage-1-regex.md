@@ -1,65 +1,84 @@
-# Stage 1 -- Regex Classifier (Routing)
+# Stage 1 -- Noise Filter (Regex + LLM 2nd-pass)
 
-> **Status:** RFC (Phase 63). Implements the routing pattern using the already-shipped `swarm_categories` registry.
-> **Today-state:** SHIPPED for the debtor-email swarm. Worked example below uses real category keys.
+> **Status:** RFC (Phase 63), evolved Phase 74 (LLM 2nd-pass). Implements the routing pattern using the `swarm_noise_categories` registry (renamed from `swarm_categories` to make purpose explicit).
+> **Today-state:** SHIPPED for the debtor-email swarm.
 
 ## Goal
 
-Deterministically classify an inbound message into a `category_key` (e.g. `auto_reply`, `payment_admittance`, `unknown`). Cheap, fast, auditable. The classifier returns `{category, confidence, matchedRule}`; no LLM, no I/O. Categories that match a known noise template (auto-replies, OoO, payment confirmations) are routed straight to `categorize_archive`. The `unknown` bucket falls through to Stage 2 + Stage 3 for entity enrichment and intent reasoning.
+Filter inbound messages into one of two paths:
+- **Noise** (auto-replies, out-of-office, payment confirmations) → `categorize_archive` terminal. Outlook label + archive. No human, no LLM intent reasoning.
+- **Non-noise** → `unknown` → falls through to Stage 2 (entity enrichment) → Stage 3 (LLM intent classifier) → Stage 4 (handler).
+
+Stage 1's job is **noise filtering only**. It does NOT decide intent — that's Stage 3's job. The closed category list at Stage 1 is therefore exclusively the noise list plus the `unknown` fall-through.
+
+## Two-Pass Classification
+
+Stage 1 runs in two passes:
+
+1. **Pass 1 — Regex.** Pure deterministic rules ordered by specificity, first match wins. Returns `{category, confidence, matchedRule}`. No LLM, no I/O. See `web/lib/debtor-email/classify.ts`.
+
+2. **Pass 2 — LLM (only when Pass 1 returned `unknown`).** A cross-cutting Orq agent (`stage-1-category-classifier`) is invoked with the closed noise-category list and asked: "did the regex miss noise?" Output: one of the noise keys, or `unknown`. The LLM's job is **noise recovery only** — it cannot pick intents like `payment_dispute` or `credit_request` because those keys are not in `swarm_noise_categories`.
+
+Pass 2 was added in Phase 74 to recover OoO / auto-reply messages with formats the regex didn't anticipate. It exists at Stage 1 (not Stage 3) because noise is a fast, narrow, closed-list problem; promoting it to Stage 3 would waste the entity-enrichment + ranked-intent machinery on an email that just needs archiving.
 
 ## Anthropic Pattern Mapping
 
-This is Anthropic's "routing" pattern: classify input, then dispatch to a specialised follow-up (`https://www.anthropic.com/engineering/building-effective-agents`). The dispatch switch is the `swarm_categories.action` column -- `categorize_archive` versus `swarm_dispatch`. The classifier picks a category; the registry decides what happens next. No LLM is involved at the routing decision; the LLM only enters the picture when `swarm_dispatch` fans out to a Stage 2/3/4 chain.
+This is Anthropic's "routing" pattern with a two-step refiner: classify input, then dispatch (`https://www.anthropic.com/engineering/building-effective-agents`). The dispatch switch is the `swarm_noise_categories.action` column -- `categorize_archive` for noise versus `swarm_dispatch` (only `unknown` uses this) to forward to Stage 2.
 
 ## Architecture
 
 ```
 inbound (post Stage 0)
         ↓
-┌──────────────────────┐
-│ Stage 1: regex match │  -> {category, confidence, matchedRule}
-└──────────┬───────────┘
+┌──────────────────────────────┐
+│ Pass 1: regex                │  -> {category, confidence, matchedRule}
+└──────────┬───────────────────┘
            ↓
-┌──────────────────────────┐
-│ swarm_categories lookup  │  (swarm_type, category_key) -> action
-└──────────┬───────────────┘
+       category == 'unknown'?
+           │
+       no  ┴── (regex matched a noise key)
+       yes ↓
+┌──────────────────────────────┐
+│ Pass 2: LLM noise-recovery   │  Orq agent: stage-1-category-classifier
+│ (closed noise list + unknown)│  -> {category_key, confidence, reasoning}
+└──────────┬───────────────────┘
+           ↓
+┌──────────────────────────────┐
+│ swarm_noise_categories lookup│  (swarm_type, noise_key) -> action
+└──────────┬───────────────────┘
            ↓
    ┌───────┴────────────────────────────────┐
    │                                        │
-   ↓                                        ↓
+   ↓ (noise key)                            ↓ (unknown)
 categorize_archive               swarm_dispatch -> Stage 2 -> Stage 3 -> Stage 4
-   (auto label + archive +
+   (auto label + archive +         (label-resolver / coordinator / handler)
     queue cleanup automation)
-                                            ↑
-                                            │
-                                  unknown ──┘ (fall-through)
 ```
 
 ## Today-State (Debtor-Email Worked Example)
 
-### Reference implementation
+### Reference implementations
 
-[`web/lib/debtor-email/classify.ts`](../../web/lib/debtor-email/classify.ts) is the canonical Stage 1 implementation: pure regex rules ordered by specificity, first match wins, returns `{category, confidence, matchedRule}`. No LLM, no I/O.
+- **Pass 1 (regex):** [`web/lib/debtor-email/classify.ts`](../../web/lib/debtor-email/classify.ts) — pure regex rules ordered by specificity, first match wins, returns `{category, confidence, matchedRule}`. No LLM, no I/O.
+- **Pass 2 (LLM):** [`web/lib/inngest/functions/classifier-screen-worker.ts`](../../web/lib/inngest/functions/classifier-screen-worker.ts) — invokes the Orq agent `stage-1-category-classifier` only when Pass 1 returned `unknown`. Closed-list output enforced by `response_format: json_schema`. Errors coerce to `unknown` (graceful degradation, never blocks the pipeline).
 
 ### Dispatch worker
 
-[`web/lib/inngest/functions/classifier-verdict-worker.ts`](../../web/lib/inngest/functions/classifier-verdict-worker.ts) loads the matching `swarm_categories` row for `(swarm_type='debtor-email', category_key=<x>)` and switches on `swarm_categories.action`: `categorize_archive` bundles three side effects (Outlook label + Outlook archive + queue iController cleanup `automation_run`); `swarm_dispatch` emits the Inngest event named in `swarm_categories.swarm_dispatch` to wake the per-category handler chain.
+[`web/lib/inngest/functions/classifier-verdict-worker.ts`](../../web/lib/inngest/functions/classifier-verdict-worker.ts) loads the matching `swarm_noise_categories` row for `(swarm_type='debtor-email', noise_key=<x>)` and switches on `swarm_noise_categories.action`: `categorize_archive` bundles three side effects (Outlook label + Outlook archive + queue iController cleanup `automation_run`); the only row with `action='swarm_dispatch'` is `unknown` itself, which fires `debtor-email/label-resolve.requested` to wake Stage 2.
 
-### Category registry
+### Noise-category registry
 
-`public.swarm_categories` is the dispatch table: one row per `(swarm_type, category_key)` carrying `action` (`categorize_archive` | `swarm_dispatch`), `outlook_label`, and `swarm_dispatch` (the Inngest event name fired on dispatch). Adding a new category for a swarm is a registry insert; no code change.
+`public.swarm_noise_categories` is the noise-filter dispatch table: one row per `(swarm_type, noise_key)` carrying `action` (`categorize_archive` for noise, `swarm_dispatch` for the `unknown` fall-through only), `outlook_label`, and `swarm_dispatch` (the Inngest event name fired on dispatch). Real intents (payment_dispute, credit_request, …) live in `public.swarm_intents` and are decided at Stage 3 — they never appear in this table.
 
-### Real category keys
-
-Verified at write-time from [`web/lib/debtor-email/classify.ts`](../../web/lib/debtor-email/classify.ts):
+### Real noise keys (debtor-email)
 
 - `auto_reply` -- system-sender + automated subject patterns.
 - `ooo_temporary` -- temporary out-of-office indicators.
 - `ooo_permanent` -- permanent out-of-office (mailbox retired, person left).
 - `payment_admittance` -- bank / AP-system payment confirmations.
-- `unknown` -- no rule matched; falls through to Stage 2 + Stage 3.
+- `unknown` -- no rule matched and the LLM 2nd-pass also couldn't classify as noise; falls through to Stage 2 + Stage 3.
 
-The first four route to `categorize_archive`. `unknown` is the only key that hands off to the LLM stages of the funnel.
+The first four route to `categorize_archive`. `unknown` is the only key that hands off to the LLM stages of the funnel via `debtor-email/label-resolve.requested`.
 
 ## Sales-Email Parallel Block
 
