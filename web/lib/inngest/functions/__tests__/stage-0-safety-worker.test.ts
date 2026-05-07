@@ -341,3 +341,123 @@ describe("Pitfall 5: safety_overridden skip", () => {
     expect(sendNames).toContain("classifier/screen.requested");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 999.4 RED scaffold — failing imports gate Wave 1+ implementation. Do
+// not fix by stubbing — implement the contract.
+// Covers test-map IDs T-B2, T-B3, T-B4 from RESEARCH.md.
+// ---------------------------------------------------------------------------
+
+import { OrqClientTimeoutError } from "@/lib/automations/orq-agents/client";
+
+describe("Phase 999.4 — Stage 0 worker — timeout coercion (T-B2)", () => {
+  it("catches OrqClientTimeoutError and persists verdict='safe' with result.llm_reason='timeout: client_deadline_exceeded'", async () => {
+    mockRegex.mockReturnValue({ matched: null });
+    mockLlm.mockRejectedValueOnce(
+      new OrqClientTimeoutError(
+        "Orq router deadline exceeded after 45000ms",
+      ),
+    );
+    mockBudget.mockReturnValue({ breached: false });
+
+    const step = makeStep();
+    const handler = getHandler();
+    const result = await handler({
+      event: {
+        data: {
+          email_id: "e-timeout",
+          body: "normal",
+          subject: "subj",
+          automation_run_id: "ar-timeout",
+          swarm_type: "debtor-email",
+        },
+      },
+      step,
+    });
+
+    // Coerced: pipeline forwards to Stage 1 as if safe.
+    expect(result.verdict).toBe("safe");
+
+    // automation_runs row carries the timeout reason.
+    const insertArgs = adminMocks.insert.mock.calls.map((c: any[]) => c[0]);
+    const coercedInsert = insertArgs.find(
+      (row: any) => row?.result?.llm_reason?.includes?.("timeout"),
+    );
+    expect(coercedInsert).toBeDefined();
+    expect(coercedInsert.result.verdict).toBe("safe");
+    expect(coercedInsert.result.llm_reason).toContain(
+      "timeout: client_deadline_exceeded",
+    );
+    expect(coercedInsert.status).toBe("completed");
+
+    // Forwarded to Stage 1 (classifier/screen.requested).
+    const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
+    expect(sendNames).toContain("classifier/screen.requested");
+    // Did NOT route to safety_review.
+    expect(sendNames).not.toContain("safety/review.requested");
+    expect(
+      insertArgs.some((row: any) => row?.topic === "safety_review"),
+    ).toBe(false);
+  });
+});
+
+describe("Phase 999.4 — Stage 0 worker — non-timeout errors rethrown (T-B3)", () => {
+  it("does NOT coerce on parse / schema errors (only OrqClientTimeoutError)", async () => {
+    mockRegex.mockReturnValue({ matched: null });
+    mockLlm.mockRejectedValueOnce(
+      new Error("Stage 0 verdict parse failed: bad json"),
+    );
+    mockBudget.mockReturnValue({ breached: false });
+
+    const step = makeStep();
+    const handler = getHandler();
+
+    await expect(
+      handler({
+        event: {
+          data: {
+            email_id: "e-parse-err",
+            body: "x",
+            subject: "y",
+            automation_run_id: "ar-parse",
+            swarm_type: "debtor-email",
+          },
+        },
+        step,
+      }),
+    ).rejects.toThrow(/parse failed/);
+
+    const insertArgs = adminMocks.insert.mock.calls.map((c: any[]) => c[0]);
+    const coercedSafe = insertArgs.find(
+      (row: any) =>
+        row?.result?.verdict === "safe" &&
+        row?.result?.llm_reason?.includes?.("timeout"),
+    );
+    expect(coercedSafe).toBeUndefined();
+  });
+});
+
+describe("Phase 999.4 — Stage 0 worker — safety_overridden short-circuit unchanged (T-B4)", () => {
+  it("safety_overridden=true emits classifier/screen.requested without invoking llmInjectionVerdict", async () => {
+    const step = makeStep();
+    const handler = getHandler();
+    const result = await handler({
+      event: {
+        data: {
+          email_id: "e-override-994",
+          body: "anything",
+          subject: "anything",
+          automation_run_id: "ar-override-994",
+          swarm_type: "debtor-email",
+          safety_overridden: true,
+        },
+      },
+      step,
+    });
+
+    expect(result.skipped).toBe("safety_overridden");
+    expect(mockLlm).not.toHaveBeenCalled();
+    const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
+    expect(sendNames).toContain("classifier/screen.requested");
+  });
+});

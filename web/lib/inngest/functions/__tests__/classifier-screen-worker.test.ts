@@ -505,3 +505,92 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 999.4 RED scaffold — failing imports gate Wave 1+ implementation. Do
+// not fix by stubbing — implement the contract.
+// Covers test-map ID T-B5 from RESEARCH.md.
+// ---------------------------------------------------------------------------
+
+import {
+  OrqClientTimeoutError,
+  invokeOrqModel,
+} from "@/lib/automations/orq-agents/client";
+
+// Re-mock to expose invokeOrqModel as a vitest mock alongside the existing
+// invokeOrqAgent mock. Wave 2 swaps Stage 1 from invokeOrqAgent →
+// invokeOrqModel; the D-11 catch must still coerce category_key='unknown' on
+// timeout.
+const invokeOrqModelMock = vi.fn();
+vi.mock("@/lib/automations/orq-agents/client", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/automations/orq-agents/client")
+  >("@/lib/automations/orq-agents/client");
+  return {
+    ...actual,
+    invokeOrqAgent: (...args: unknown[]) => invokeOrqAgentMock(...args),
+    invokeOrqModel: (...args: unknown[]) => invokeOrqModelMock(...args),
+  };
+});
+
+describe("Phase 999.4 — Classifier screen worker — deadline triggers existing D-11 catch (T-B5)", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    agentRunsInserts.length = 0;
+    adminMock = makeAdminMock();
+    loadSwarmMock.mockReset();
+    loadSwarmNoiseCategoriesMock.mockReset();
+    emitPipelineEventMock.mockReset();
+    emitPipelineEventMock.mockResolvedValue(undefined);
+    invokeOrqAgentMock.mockReset();
+    invokeOrqModelMock.mockReset();
+    classifyMock.mockReset();
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../classifier-screen-worker");
+    handler = (
+      mod.classifierScreenWorker as unknown as {
+        handler: typeof handler;
+      }
+    ).handler;
+  });
+
+  it("when invokeOrqModel throws OrqClientTimeoutError, D-11 catch coerces to category_key='unknown', confidence='low'", async () => {
+    loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
+
+    // Wave 2: Stage 1 will use invokeOrqModel. Until then, also mock the
+    // current invokeOrqAgent path with the same timeout so this test is
+    // robust pre/post swap.
+    const timeout = new OrqClientTimeoutError(
+      "Orq router deadline exceeded after 45000ms",
+    );
+    invokeOrqModelMock.mockRejectedValue(timeout);
+    invokeOrqAgentMock.mockRejectedValue(timeout);
+
+    const cache: StepCache = new Map();
+    await handler({
+      event: baseEvent({ swarm_type: "sales-email", entity: null }),
+      step: makeStepStub(cache),
+    });
+
+    // D-11 catch — agent_runs row records the unknown verdict.
+    expect(agentRunsInserts.length).toBe(1);
+    const row = agentRunsInserts[0] as {
+      result: { category_key: string; confidence: string };
+    };
+    expect(row.result.category_key).toBe("unknown");
+    expect(row.result.confidence).toBe("low");
+
+    // Downstream verdict event carries category_key='unknown'.
+    expect(inngestSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "classifier/verdict.recorded",
+        data: expect.objectContaining({ predicted_category: "unknown" }),
+      }),
+    );
+  });
+});
