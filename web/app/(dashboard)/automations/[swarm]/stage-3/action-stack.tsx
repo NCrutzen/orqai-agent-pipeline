@@ -2,7 +2,13 @@
 
 // Phase 76 Plan 06 Task 3 — Action stack (UI-SPEC §Action stack, sketch 007).
 //
-// Three buttons. Click semantics:
+// Up to three buttons, controlled by the optional `actions` prop (Phase 76
+// Plan 07: parameterized to enable Stage 4 reuse without duplication —
+// Stage 4 passes `['reclassify', 'close']` because handler-errors have no
+// Replay-edit). Default = `['replay', 'reclassify', 'close']` so Stage 3
+// callers continue to render unchanged.
+//
+// Click semantics:
 //   - Replay: if same-intent path is the only registered choice, fires
 //     directly. If multiple intents exist, opens the inline-editor (Replay
 //     variant). v1 always opens the editor so operator confirms intent.
@@ -10,6 +16,7 @@
 //   - Close: fires closeKanbanRow Server Action immediately.
 //
 // Keyboard: ⏎ Replay, N Reclassify, Space Close (UI-SPEC §Accessibility).
+// Keyboard shortcuts only fire for buttons in the visible `actions` set.
 // Sibling buttons dim to 0.45 + non-interactive when an editor is active.
 
 import { useEffect, useState, useTransition } from "react";
@@ -26,6 +33,7 @@ import {
 import { useSelection } from "./selection-context";
 
 type EditorMode = null | "replay" | "reclassify";
+export type ActionKey = "replay" | "reclassify" | "close";
 
 interface Props {
   row: KanbanRow;
@@ -33,7 +41,12 @@ interface Props {
   operatorId: string;
   intents: SwarmIntentRow[];
   noiseCategories: SwarmNoiseCategoryRow[];
+  /** Subset of action buttons to render, in the given order.
+   *  Defaults to all three (Stage 3). Stage 4 passes ['reclassify','close']. */
+  actions?: ReadonlyArray<ActionKey>;
 }
+
+const DEFAULT_ACTIONS: ReadonlyArray<ActionKey> = ["replay", "reclassify", "close"];
 
 const STACK: React.CSSProperties = {
   display: "flex",
@@ -74,11 +87,15 @@ export function ActionStack({
   operatorId,
   intents,
   noiseCategories,
+  actions = DEFAULT_ACTIONS,
 }: Props) {
   const [editor, setEditor] = useState<EditorMode>(null);
   const [error, setError] = useState<string | null>(null);
   const [isClosePending, startClose] = useTransition();
   const { markPendingRemoval } = useSelection();
+  const showReplay = actions.includes("replay");
+  const showReclassify = actions.includes("reclassify");
+  const showClose = actions.includes("close");
 
   function onClose() {
     setError(null);
@@ -99,9 +116,9 @@ export function ActionStack({
         if (ev.key === "Escape") setEditor(null);
         return;
       }
-      if (ev.key === "Enter") setEditor("replay");
-      else if (ev.key === "n" || ev.key === "N") setEditor("reclassify");
-      else if (ev.key === " ") {
+      if (ev.key === "Enter" && showReplay) setEditor("replay");
+      else if ((ev.key === "n" || ev.key === "N") && showReclassify) setEditor("reclassify");
+      else if (ev.key === " " && showClose) {
         ev.preventDefault();
         onClose();
       }
@@ -109,7 +126,7 @@ export function ActionStack({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, row.id]);
+  }, [editor, row.id, showReplay, showReclassify, showClose]);
 
   const editorActive = editor !== null;
   const dimStyle: React.CSSProperties = editorActive
@@ -122,80 +139,86 @@ export function ActionStack({
         <div style={{ fontSize: "11px", color: "var(--v7-red)" }}>{error}</div>
       ) : null}
 
-      {editor === "replay" ? (
-        <InlineEditorReplay
-          row={row}
-          swarmType={swarmType}
-          operatorId={operatorId}
-          intents={intents}
-          onCancel={() => setEditor(null)}
-          onError={(m) => {
-            setError(m);
-            setEditor(null);
-          }}
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setEditor("replay")}
-          style={{
-            ...BTN_BASE,
-            ...dimStyle,
-            background: "var(--v7-brand-primary)",
-            color: "var(--v7-bg)",
-            border: "1px solid var(--v7-brand-primary)",
-            fontWeight: 500,
-          }}
-        >
-          ✓ Replay through Stage 4
-          <span style={KBD}>⏎</span>
-        </button>
-      )}
+      {showReplay ? (
+        editor === "replay" ? (
+          <InlineEditorReplay
+            row={row}
+            swarmType={swarmType}
+            operatorId={operatorId}
+            intents={intents}
+            onCancel={() => setEditor(null)}
+            onError={(m) => {
+              setError(m);
+              setEditor(null);
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditor("replay")}
+            style={{
+              ...BTN_BASE,
+              ...dimStyle,
+              background: "var(--v7-brand-primary)",
+              color: "var(--v7-bg)",
+              border: "1px solid var(--v7-brand-primary)",
+              fontWeight: 500,
+            }}
+          >
+            ✓ Replay through Stage 4
+            <span style={KBD}>⏎</span>
+          </button>
+        )
+      ) : null}
 
-      {editor === "reclassify" ? (
-        <InlineEditorReclassify
-          row={row}
-          swarmType={swarmType}
-          operatorId={operatorId}
-          noiseCategories={noiseCategories}
-          onCancel={() => setEditor(null)}
-          onError={(m) => {
-            setError(m);
-            setEditor(null);
-          }}
-        />
-      ) : (
+      {showReclassify ? (
+        editor === "reclassify" ? (
+          <InlineEditorReclassify
+            row={row}
+            swarmType={swarmType}
+            operatorId={operatorId}
+            noiseCategories={noiseCategories}
+            onCancel={() => setEditor(null)}
+            onError={(m) => {
+              setError(m);
+              setEditor(null);
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditor("reclassify")}
+            style={{
+              ...BTN_BASE,
+              ...dimStyle,
+              background: "transparent",
+              color: "var(--v7-text)",
+              border: "1px solid var(--v7-border)",
+            }}
+          >
+            ↶ Reclassify as noise
+            <span style={KBD}>N</span>
+          </button>
+        )
+      ) : null}
+
+      {showClose ? (
         <button
           type="button"
-          onClick={() => setEditor("reclassify")}
+          onClick={onClose}
+          disabled={isClosePending || editorActive}
           style={{
             ...BTN_BASE,
             ...dimStyle,
             background: "transparent",
-            color: "var(--v7-text)",
+            color: "var(--v7-text-muted)",
             border: "1px solid var(--v7-border)",
           }}
         >
-          ↶ Reclassify as noise
-          <span style={KBD}>N</span>
+          ✕ Close (manual)
+          <span style={KBD}>Space</span>
         </button>
-      )}
-
-      <button
-        type="button"
-        onClick={onClose}
-        disabled={isClosePending || editorActive}
-        style={{
-          ...BTN_BASE,
-          ...dimStyle,
-          background: "transparent",
-          color: "var(--v7-text-muted)",
-          border: "1px solid var(--v7-border)",
-        }}
-      >
-        ✕ Close (manual)
-        <span style={KBD}>Space</span>
-      </button>
+      ) : null}
     </div>
   );
 }
