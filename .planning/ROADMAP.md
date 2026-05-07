@@ -1161,3 +1161,21 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready to scope)
+
+### Phase 999.5: Switch Stage 0/1 single-shot classifiers from Orq Router to Orq Deployments — restore cost tracking (BACKLOG)
+
+**Goal:** 999.4 Fix C swapped Stage 0 (`stage-0-safety-classifier`) and Stage 1 (`stage-1-category-classifier`) onto the Orq Router endpoint (`POST /v2/router/chat/completions`) to escape the Agents-product queue. Trade-off accepted at the time: Router returns no per-call billing, so `agent_runs.cost_cents = 0` for all Stage 0/1 traffic post-999.4. Switch to **Orq Deployments** (`POST /v2/deployments/invoke`) — different product from Agents (no shared queue) but versioned in Studio with full cost+trace observability. Restores `cost_cents` and centralises model+fallback+prompt+JSON schema in Studio (versioned), retiring the in-repo `orq_agents.system_prompt` mirror column added in 999.4.
+
+**Why backlogged:** raised 2026-05-07 immediately after 999.4 verification. 999.4 ships as-is (Router) for the queue-bypass + 45s deadline win; cost-tracking gap is a quality-of-service follow-up, not a blocker.
+
+**Approach (resolve at /gsd-discuss-phase):**
+1. Create deployments in Orq via MCP (`mcp__orqai-mcp__create_deployment`) — one for `stage-0-safety-classifier`, one for `stage-1-category-classifier`. Each carries: model (Bedrock EU Haiku 4.5 primary), fallbacks (Sonnet 4.5), system prompt, JSON schema (`anyOf` for nullable per CLAUDE.md learning `3970bad9`), temperature, max_tokens.
+2. Refactor `web/lib/automations/orq-agents/client.ts` — replace `invokeOrqModel`'s Router POST with a Deployments POST. Body shape: `{ key: <deployment_key>, inputs: { ... } }`. Response carries `cost`/`billing` — surface as `cost_cents`.
+3. Update registry rows in `orq_agents` to point at deployment keys instead of (or alongside) raw Router model IDs. Drop `orq_agents.system_prompt` column once Stage 0 + Stage 1 callers no longer read it.
+4. Smoke + RED-then-GREEN for the new transport (mirrors 999.4 Wave 0 pattern). Confirm `cost_cents > 0` on a live trace.
+5. Verify Stage 0/1 latency stays under the 45s `OrqClientTimeoutError` deadline (Deployments shouldn't queue, but verify before retiring the Router fallback).
+
+**Plans:** TBD
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready to scope)
