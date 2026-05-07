@@ -1177,3 +1177,29 @@ Plans:
 **If reopened in the future:** the trace-reconciliation approach (Inngest cron polls Orq traces API, joins by `metadata.agent_run_id`, writes `agent_runs.result.cost_cents`) is the right shape. The Wave 0 research above is reusable.
 
 **Plans:** 0 (cancelled)
+
+### Phase 999.6: Stage 1 noise rule for Ariba / SAP Business Network notifications (BACKLOG)
+
+**Goal:** Promote a Stage 1 Pass-1 regex rule that classifies SAP Business Network / Ariba onboarding-and-connection emails as terminal noise (`category_key='system_notification'` or similar) so they short-circuit before the LLM Pass-2 + Layer-2/3 NXT lookup tax.
+
+**Why:** Today these emails flow through to `category_key='unknown'`, burn an LLM call, then waste an NXT contact + identifier lookup, and finally surface as "unresolved" at Stage 2 — pure noise the resolver can't help with anyway.
+
+**Concrete sample (2026-05-07):**
+- email_id `365cc739-5973-4362-8a47-a7d489a3b0f6`
+- Subject: "IKEA would like to connect with you on SAP Business Network"
+- Sender: `noreply@us.bn.cloud.ariba.com`
+- Hit both `debiteuren@smeba.nl` and `debiteuren@smeba-fire.be` simultaneously
+- Discovered during `/gsd-debug stage1-unknown-no-dispatch` deep-dive
+
+**Pattern candidates (to validate before promotion):**
+- Sender domain regex: `\.bn\.cloud\.ariba\.com$`
+- Subject regex (case-insensitive): `SAP Business Network|would like to connect|ariba network`
+
+**Evidence-scope constraint:** per `feedback_classifier_evidence_scope.md`, all promoted classifier rules must have multi-entity evidence. Today's evidence is `debiteuren@smeba.nl` + `debiteuren@smeba-fire.be` only. Collect 2–3 more samples across berki / iccafe before promoting (Bulk Review search filter `from:ariba.com` over a 30-day window should surface them).
+
+**Requirements:** TBD
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when 2-3 cross-entity samples are collected)
