@@ -16,6 +16,36 @@ const ORQ_API_KEY = process.env.ORQ_API_KEY;
 const ORQ_BASE_URL = "https://api.orq.ai/v2/agents";
 const REGISTRY_CACHE_TTL_MS = 60_000; // matches zapier_tools cadence
 
+/**
+ * Phase 999.4 Fix B (D-01) — client-side hard deadline at the Orq.ai fetch
+ * boundary. Replaces per-agent `timeout_ms` for the OUTER deadline so any
+ * caller (Stage 0, future agent-product callers) gets a 45s upper bound on
+ * the wall-clock wait — covering both queue-wait + chat-completion span.
+ *
+ * Why 45s and not the registry value: Orq.ai's internal retry tier is 31s
+ * (CLAUDE.md §Orq.ai). 45s leaves a 14s buffer above the retry tier and
+ * sits well below Vercel Pro's 60s function ceiling. The registry's
+ * `timeout_ms` (90s / 120s) was sized for the OLD agents-path queue and
+ * is now superseded by this constant for the abort signal — `timeout_ms`
+ * remains in the registry for read-only reference + Wave 2 Router clients.
+ */
+const CLIENT_DEADLINE_MS = 45_000;
+
+/**
+ * Typed error thrown when the Orq.ai client fetch exceeds CLIENT_DEADLINE_MS
+ * and the AbortController fires. Callers (Stage 0 worker, Stage 1 D-11
+ * catch) discriminate on `err.name === "OrqClientTimeoutError"` to decide
+ * fail-open coercion vs rethrow. Non-timeout errors (HTTP 500, JSON parse
+ * failures, schema rejection) MUST surface as their original error type
+ * — see Phase 999.4 Plan 02 / RESEARCH §Pitfalls 1.
+ */
+export class OrqClientTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OrqClientTimeoutError";
+  }
+}
+
 export type OrqAgentRow = {
   agent_key: string;
   orqai_id: string;
@@ -127,10 +157,14 @@ export async function invokeOrqAgent(
   // the interpretation — keeps client.ts generic across all agent keys.
   const userText = JSON.stringify(inputs, null, 2);
 
+  // Phase 999.4 Fix B (D-01) — 45s client-side deadline. Wraps ONLY the
+  // fetch; response parsing / JSON.parse / billing math live outside this
+  // try/catch so their errors keep their original type (Pitfall 1).
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), agent.timeout_ms);
+  const timer = setTimeout(() => ctrl.abort(), CLIENT_DEADLINE_MS);
+  let res: Response;
   try {
-    const res = await fetch(`${ORQ_BASE_URL}/${agent.agent_key}/responses`, {
+    res = await fetch(`${ORQ_BASE_URL}/${agent.agent_key}/responses`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -145,53 +179,60 @@ export async function invokeOrqAgent(
       }),
       signal: ctrl.signal,
     });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(
-        `Orq invoke ${agent_key} failed: HTTP ${res.status} ${text.slice(0, 200)}`,
+  } catch (err) {
+    if ((err as { name?: string } | undefined)?.name === "AbortError") {
+      throw new OrqClientTimeoutError(
+        `Orq agents-path deadline exceeded for ${agent_key} after ${CLIENT_DEADLINE_MS}ms`,
       );
     }
-    const json = (await res.json()) as {
-      output?: Array<{
-        role?: string;
-        parts?: Array<{ kind?: string; text?: string }>;
-      }>;
-      usage?: {
-        input_tokens?: number;
-        output_tokens?: number;
-        total_tokens?: number;
-      };
-    };
-
-    const rawText = json.output?.[0]?.parts?.[0]?.text ?? "";
-    if (!rawText) {
-      throw new Error(`Orq invoke ${agent_key}: empty output text`);
-    }
-    const stripped = rawText
-      .trim()
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/i, "");
-    let raw: unknown;
-    try {
-      raw = JSON.parse(stripped);
-    } catch (e) {
-      throw new Error(
-        `Orq invoke ${agent_key}: JSON.parse failed: ${(e as Error).message}`,
-      );
-    }
-
-    const usage = {
-      prompt_tokens: json.usage?.input_tokens ?? 0,
-      completion_tokens: json.usage?.output_tokens ?? 0,
-      total_tokens: json.usage?.total_tokens ?? 0,
-    };
-    // Orq /responses does not return cost — see header comment.
-    const billing = { total_cost: 0 };
-    const cost_cents = 0;
-    return { raw, agent, usage, billing, cost_cents };
+    throw err;
   } finally {
     clearTimeout(timer);
   }
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Orq invoke ${agent_key} failed: HTTP ${res.status} ${text.slice(0, 200)}`,
+    );
+  }
+  const json = (await res.json()) as {
+    output?: Array<{
+      role?: string;
+      parts?: Array<{ kind?: string; text?: string }>;
+    }>;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      total_tokens?: number;
+    };
+  };
+
+  const rawText = json.output?.[0]?.parts?.[0]?.text ?? "";
+  if (!rawText) {
+    throw new Error(`Orq invoke ${agent_key}: empty output text`);
+  }
+  const stripped = rawText
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "");
+  let raw: unknown;
+  try {
+    raw = JSON.parse(stripped);
+  } catch (e) {
+    throw new Error(
+      `Orq invoke ${agent_key}: JSON.parse failed: ${(e as Error).message}`,
+    );
+  }
+
+  const usage = {
+    prompt_tokens: json.usage?.input_tokens ?? 0,
+    completion_tokens: json.usage?.output_tokens ?? 0,
+    total_tokens: json.usage?.total_tokens ?? 0,
+  };
+  // Orq /responses does not return cost — see header comment.
+  const billing = { total_cost: 0 };
+  const cost_cents = 0;
+  return { raw, agent, usage, billing, cost_cents };
 }
 
 /**
