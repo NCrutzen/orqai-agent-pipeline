@@ -9,13 +9,13 @@
 //   2. write public.agent_runs telemetry row (D-01)
 //   3. fire the verdict-recorded Inngest event — the registry-driven
 //      classifier-verdict-worker (Phase 56.7-02) does the slow side-effects
-//      based on the swarm_categories row (action='categorize_archive' |
+//      based on the swarm_noise_categories row (action='categorize_archive' |
 //      'reject' | 'manual_review' | 'swarm_dispatch'). No swarm-specific
 //      branching here.
 //   4. emit single broadcast for the queue-UI invalidation
 //
 // override_category is validated as a free-form string at the schema level
-// (Pitfall 5) and post-validated against `loadSwarmCategories(admin,
+// (Pitfall 5) and post-validated against `loadSwarmNoiseCategories(admin,
 // swarm_type)` so unknown values for the active swarm are rejected without
 // re-deploying the route when a new category is seeded. The static
 // per-swarm enum that used to live in ./categories is gone — registry is
@@ -27,7 +27,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { inngest } from "@/lib/inngest/client";
 import { fetchMessageBody } from "@/lib/outlook";
-import { loadSwarmCategories } from "@/lib/swarms/registry";
+import { loadSwarmNoiseCategories } from "@/lib/swarms/registry";
 import type { ReviewEmailBodyResult, VerdictInput } from "./categories";
 
 // IMPORTANT: this file MUST export only async functions. Next 15 /
@@ -47,7 +47,7 @@ const verdictSchema = z.object({
   entity: z.string(),
   predicted_category: z.string(),
   // D-15 / Pitfall 5: registry-driven validation, not z.enum on a static
-  // per-swarm const. The swarm_categories table is the source of truth.
+  // per-swarm const. The swarm_noise_categories table is the source of truth.
   override_category: z.string().nullable().optional(),
   notes: z.string().max(2000).optional(),
 });
@@ -59,7 +59,7 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
   // Pitfall 5: post-validate override_category against the registry's live
   // category list for this swarm. Allows new categories without code change.
   if (parsed.override_category != null && parsed.override_category !== "") {
-    const cats = await loadSwarmCategories(admin, parsed.swarm_type);
+    const cats = await loadSwarmNoiseCategories(admin, parsed.swarm_type);
     const known = cats.find((c) => c.category_key === parsed.override_category);
     if (!known) {
       throw new Error(

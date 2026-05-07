@@ -17,11 +17,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { AutomationRealtimeProvider } from "@/components/automations/automation-realtime-provider";
 import {
   loadSwarm,
-  loadSwarmCategories,
+  loadSwarmNoiseCategories,
   loadSwarmIntents,
 } from "@/lib/swarms/registry";
 import type {
-  SwarmCategoryRow,
+  SwarmNoiseCategoryRow,
   SwarmIntentRow,
   SwarmRow,
 } from "@/lib/swarms/types";
@@ -778,7 +778,7 @@ export default async function SwarmReviewPage({
   if (!swarm || !swarm.enabled) {
     notFound();
   }
-  const categories: SwarmCategoryRow[] = await loadSwarmCategories(
+  const categories: SwarmNoiseCategoryRow[] = await loadSwarmNoiseCategories(
     admin,
     swarmType,
   );

@@ -4,7 +4,7 @@
 // Was originally debtor-email-review/detail-pane.tsx (Phase 61-02).
 //
 // Genericization:
-//   - Override dropdown options come from `categories` prop (loadSwarmCategories
+//   - Override dropdown options come from `categories` prop (loadSwarmNoiseCategories
 //     output). Categories with action='reject' are filtered out — those are
 //     the skip path, not real overrides.
 //   - recordVerdict is threaded with `swarm_type` (Pitfall 5).
@@ -32,7 +32,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { fetchReviewEmailBody, recordVerdict } from "./actions";
 import type { PredictedRow, PipelineTimelineEvent } from "./page";
-import type { SwarmCategoryRow, SwarmIntentRow } from "@/lib/swarms/types";
+import type { SwarmNoiseCategoryRow, SwarmIntentRow } from "@/lib/swarms/types";
 import { useSelection } from "./selection-context";
 import { SafetyDetailPane } from "./components/safety-detail-pane";
 import { CostOutlierAxisCard } from "./components/cost-outlier-axis-card";
@@ -153,7 +153,7 @@ interface DetailPaneProps {
   rows: PredictedRow[];
   initialSelectedRow: PredictedRow | null;
   swarmType: string;
-  categories: SwarmCategoryRow[];
+  categories: SwarmNoiseCategoryRow[];
   drawerFields: string[];
   /** Phase 71-05. Full pipeline_events timeline for the selected email.
    *  Server-side fallback for the initial selection. Prefer `timelineMap`

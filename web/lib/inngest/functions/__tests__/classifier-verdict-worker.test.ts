@@ -31,7 +31,7 @@ vi.mock("@/lib/outlook", () => ({
 // ---- Registry mocks ------------------------------------------------------
 const loadCategoriesMock = vi.fn();
 vi.mock("@/lib/swarms/registry", () => ({
-  loadSwarmCategories: (...args: unknown[]) => loadCategoriesMock(...args),
+  loadSwarmNoiseCategories: (...args: unknown[]) => loadCategoriesMock(...args),
 }));
 
 const evaluateSideEffectsMock = vi.fn();

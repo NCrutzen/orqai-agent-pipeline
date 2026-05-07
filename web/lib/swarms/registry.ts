@@ -1,6 +1,6 @@
 // Phase 56.7-01 (D-06). Swarm registry loader/cache: 60s in-memory TTL keyed
 // by swarm_type. On Supabase error, returns last-known-good cached value;
-// otherwise null (loadSwarm) / [] (loadSwarmCategories).
+// otherwise null (loadSwarm) / [] (loadSwarmNoiseCategories).
 //
 // Mirrors the shape of web/lib/classifier/cache.ts. Cron, verdict-worker,
 // and SSR routes all read through this layer so the registry stays a
@@ -9,7 +9,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   SwarmRow,
-  SwarmCategoryRow,
+  SwarmNoiseCategoryRow,
   SwarmIntentRow,
   CanonicalContextShape,
 } from "./types";
@@ -21,7 +21,7 @@ import {
 } from "./brand-register";
 
 const SWARM_CACHE = new Map<string, { value: SwarmRow | null; expires: number }>();
-const CATEGORIES_CACHE = new Map<string, { value: SwarmCategoryRow[]; expires: number }>();
+const CATEGORIES_CACHE = new Map<string, { value: SwarmNoiseCategoryRow[]; expires: number }>();
 // Phase 68 — per-swarm cache for swarm_intents rows. Same TTL contract as
 // the other caches (D-06 read-heavy, mutation-rare).
 const INTENTS_CACHE = new Map<string, { value: SwarmIntentRow[]; expires: number }>();
@@ -51,16 +51,16 @@ export async function loadSwarm(
   return value;
 }
 
-export async function loadSwarmCategories(
+export async function loadSwarmNoiseCategories(
   admin: SupabaseClient,
   swarmType: string,
-): Promise<SwarmCategoryRow[]> {
+): Promise<SwarmNoiseCategoryRow[]> {
   const now = Date.now();
   const hit = CATEGORIES_CACHE.get(swarmType);
   if (hit && hit.expires > now) return hit.value;
 
   const { data, error } = await admin
-    .from("swarm_categories")
+    .from("swarm_noise_categories")
     .select("*")
     .eq("swarm_type", swarmType)
     .eq("enabled", true)
@@ -70,13 +70,13 @@ export async function loadSwarmCategories(
     if (hit) return hit.value;
     return [];
   }
-  const value = (data as SwarmCategoryRow[] | null) ?? [];
+  const value = (data as SwarmNoiseCategoryRow[] | null) ?? [];
   CATEGORIES_CACHE.set(swarmType, { value, expires: now + TTL_MS });
   return value;
 }
 
 // Phase 68 — load swarm_intents for a swarm_type. Mirrors the TTL +
-// last-known-good pattern used by loadSwarmCategories.
+// last-known-good pattern used by loadSwarmNoiseCategories.
 export async function loadSwarmIntents(
   admin: SupabaseClient,
   swarmType: string,

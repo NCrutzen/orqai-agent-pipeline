@@ -7,17 +7,17 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   loadSwarm,
-  loadSwarmCategories,
+  loadSwarmNoiseCategories,
   loadSwarmIntents,
   loadHandlerEvent,
   loadCanonicalContextShape,
   __resetCacheForTests,
 } from "../registry";
-import type { SwarmRow, SwarmCategoryRow, SwarmIntentRow } from "../types";
+import type { SwarmRow, SwarmNoiseCategoryRow, SwarmIntentRow } from "../types";
 
 type SwarmResult = { data: SwarmRow | null; error: { message: string } | null };
 type CategoriesResult = {
-  data: SwarmCategoryRow[] | null;
+  data: SwarmNoiseCategoryRow[] | null;
   error: { message: string } | null;
 };
 type IntentsResult = {
@@ -27,7 +27,7 @@ type IntentsResult = {
 
 // Build a programmable mock SupabaseClient where each .from(<table>) returns a
 // chainable builder ending in `.maybeSingle()` (for swarms) or `.order(...)`
-// (for swarm_categories). Both ultimately resolve a per-call result via
+// (for swarm_noise_categories). Both ultimately resolve a per-call result via
 // the supplied result-getter.
 
 function makeAdmin(opts: {
@@ -78,7 +78,7 @@ function makeAdmin(opts: {
   const admin = {
     from: vi.fn((table: string) => {
       if (table === "swarms") return swarmsBuilder;
-      if (table === "swarm_categories") return categoriesChain;
+      if (table === "swarm_noise_categories") return categoriesChain;
       if (table === "swarm_intents") return intentsChain;
       throw new Error(`unexpected table: ${table}`);
     }),
@@ -112,7 +112,7 @@ const sampleCategory = (
   swarm_type: string,
   category_key: string,
   display_order: number,
-): SwarmCategoryRow => ({
+): SwarmNoiseCategoryRow => ({
   swarm_type,
   category_key,
   display_label: category_key,
@@ -210,7 +210,7 @@ describe("D-06: loadSwarm — 60s TTL cache", () => {
   });
 });
 
-describe("D-06: loadSwarmCategories — empty fallback, ordering, last-known-good", () => {
+describe("D-06: loadSwarmNoiseCategories — empty fallback, ordering, last-known-good", () => {
   beforeEach(() => {
     __resetCacheForTests();
     vi.useRealTimers();
@@ -220,7 +220,7 @@ describe("D-06: loadSwarmCategories — empty fallback, ordering, last-known-goo
     const { admin } = makeAdmin({
       categories: () => ({ data: null, error: null }),
     });
-    const got = await loadSwarmCategories(admin, "debtor-email");
+    const got = await loadSwarmNoiseCategories(admin, "debtor-email");
     expect(Array.isArray(got)).toBe(true);
     expect(got).toEqual([]);
   });
@@ -238,7 +238,7 @@ describe("D-06: loadSwarmCategories — empty fallback, ordering, last-known-goo
       from: vi.fn().mockReturnValue(chain),
     } as unknown as SupabaseClient;
 
-    await loadSwarmCategories(admin, "debtor-email");
+    await loadSwarmNoiseCategories(admin, "debtor-email");
     expect(orderSpy).toHaveBeenCalledWith("display_order", { ascending: true });
   });
 
@@ -260,11 +260,11 @@ describe("D-06: loadSwarmCategories — empty fallback, ordering, last-known-goo
 
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-29T10:00:00Z"));
-    const first = await loadSwarmCategories(admin, "debtor-email");
+    const first = await loadSwarmNoiseCategories(admin, "debtor-email");
     expect(first).toHaveLength(2);
 
     vi.advanceTimersByTime(60_001);
-    const second = await loadSwarmCategories(admin, "debtor-email");
+    const second = await loadSwarmNoiseCategories(admin, "debtor-email");
     expect(second).toEqual(cats); // last-known-good
   });
 });

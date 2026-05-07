@@ -1,7 +1,7 @@
 // Phase 56-02 wave 3 part 2: classifier-invoice-copy-handler Inngest worker.
 //
 // Listens on `debtor-email/invoice-copy.requested` (emitted by
-// classifier-verdict-worker when the swarm_categories row for
+// classifier-verdict-worker when the swarm_noise_categories row for
 // (debtor-email, invoice_copy_request) has action='swarm_dispatch').
 //
 // Operator-driven flow today: an operator override in Bulk Review

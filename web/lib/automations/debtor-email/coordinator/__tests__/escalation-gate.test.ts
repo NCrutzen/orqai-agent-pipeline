@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import { evaluateEscalationGate } from "../escalation-gate";
 import type { IntentAgentOutputV2 } from "../types";
-import type { SwarmCategoryRow } from "@/lib/swarms/types";
+import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
 
 const baseEntry = {
   document_reference: null,
@@ -27,7 +27,7 @@ function buildOutput(
 function buildCategory(
   key: string,
   requires_orchestration: boolean,
-): SwarmCategoryRow {
+): SwarmNoiseCategoryRow {
   return {
     swarm_type: "debtor-email",
     category_key: key,

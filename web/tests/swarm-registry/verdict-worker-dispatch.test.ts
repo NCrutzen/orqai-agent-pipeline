@@ -1,6 +1,6 @@
 // Phase 56.7 Wave 2 (D-02, D-10, D-11, D-12). Tests for the registry-driven
 // classifier-verdict-worker. After Task 2's rewrite, the worker loads the
-// matching swarm_categories row and switches on `category.action`. These tests
+// matching swarm_noise_categories row and switches on `category.action`. These tests
 // pin every branch:
 //
 //   - decision='reject' short-circuit (no registry lookup)
@@ -19,7 +19,7 @@
 // exhaustive check). That's enforced by tsc, not by a runtime test here.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { SwarmCategoryRow } from "@/lib/swarms/types";
+import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -66,13 +66,13 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 // Programmable category list per test.
-let categoriesToReturn: SwarmCategoryRow[] = [];
-const loadSwarmCategoriesMock = vi.fn(
+let categoriesToReturn: SwarmNoiseCategoryRow[] = [];
+const loadSwarmNoiseCategoriesMock = vi.fn(
   async (..._args: unknown[]) => categoriesToReturn,
 );
 
 vi.mock("@/lib/swarms/registry", () => ({
-  loadSwarmCategories: (...args: unknown[]) => loadSwarmCategoriesMock(...args),
+  loadSwarmNoiseCategories: (...args: unknown[]) => loadSwarmNoiseCategoriesMock(...args),
 }));
 
 // Phase 68 (SWRM-04) — verdict-worker now reads the cleanup INSERT from
@@ -183,7 +183,7 @@ function baseEvent(overrides: Partial<EventData> = {}): EventData {
   };
 }
 
-function row(partial: Partial<SwarmCategoryRow>): SwarmCategoryRow {
+function row(partial: Partial<SwarmNoiseCategoryRow>): SwarmNoiseCategoryRow {
   return {
     swarm_type: "debtor-email",
     category_key: "payment",
@@ -207,7 +207,7 @@ beforeEach(() => {
   updateMock.mockClear();
   insertMock.mockClear();
   eqMock.mockClear();
-  loadSwarmCategoriesMock.mockClear();
+  loadSwarmNoiseCategoriesMock.mockClear();
   categorizeMock.mockClear();
   archiveMock.mockClear();
   emitStaleMock.mockClear();
@@ -219,7 +219,7 @@ describe("classifier-verdict-worker: registry-driven dispatch", () => {
   it("Test 1: decision=reject short-circuits without registry lookup", async () => {
     await invokeWorker(baseEvent({ decision: "reject" }));
 
-    expect(loadSwarmCategoriesMock).not.toHaveBeenCalled();
+    expect(loadSwarmNoiseCategoriesMock).not.toHaveBeenCalled();
     expect(categorizeMock).not.toHaveBeenCalled();
     expect(archiveMock).not.toHaveBeenCalled();
     expect(inngestSendMock).not.toHaveBeenCalled();
@@ -386,7 +386,7 @@ describe("classifier-verdict-worker: registry-driven dispatch", () => {
     categoriesToReturn = []; // no matching row
     await expect(
       invokeWorker(baseEvent({ predicted_category: "bogus" })),
-    ).rejects.toThrow(/no swarm_categories row for \(debtor-email, bogus\)/);
+    ).rejects.toThrow(/no swarm_noise_categories row for \(debtor-email, bogus\)/);
 
     const failed = fromCalls.find(
       (c) =>
@@ -397,7 +397,7 @@ describe("classifier-verdict-worker: registry-driven dispatch", () => {
     expect(failed).toBeDefined();
     expect(
       (failed!.payload as { error_message?: string }).error_message,
-    ).toMatch(/no swarm_categories row for \(debtor-email, bogus\)/);
+    ).toMatch(/no swarm_noise_categories row for \(debtor-email, bogus\)/);
   });
 
   it("Test 9: predicted_category='payment_admittance' resolves to its own seeded alias row (NOT normalized)", async () => {

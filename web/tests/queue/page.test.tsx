@@ -17,10 +17,10 @@ import { resolve } from "node:path";
 // ---- Mocks --------------------------------------------------------------
 
 const loadSwarmMock = vi.fn();
-const loadSwarmCategoriesMock = vi.fn();
+const loadSwarmNoiseCategoriesMock = vi.fn();
 vi.mock("@/lib/swarms/registry", () => ({
   loadSwarm: (...a: unknown[]) => loadSwarmMock(...a),
-  loadSwarmCategories: (...a: unknown[]) => loadSwarmCategoriesMock(...a),
+  loadSwarmNoiseCategories: (...a: unknown[]) => loadSwarmNoiseCategoriesMock(...a),
 }));
 
 const notFoundMock = vi.fn(() => {
@@ -88,7 +88,7 @@ function buildMockAdmin(): {
 
 beforeEach(() => {
   loadSwarmMock.mockReset();
-  loadSwarmCategoriesMock.mockReset();
+  loadSwarmNoiseCategoriesMock.mockReset();
   notFoundMock.mockClear();
 });
 
@@ -114,7 +114,7 @@ describe.skip("D-10: page reads automation_runs.status='predicted' only (no Outl
     expect(src).toMatch(/classifier_queue_counts/);
     expect(src).toMatch(/AutomationRealtimeProvider/);
     expect(src).toMatch(/loadSwarm\(admin/);
-    expect(src).toMatch(/loadSwarmCategories\(/);
+    expect(src).toMatch(/loadSwarmNoiseCategories\(/);
     expect(src).toMatch(/notFound\(\)/);
   });
 
@@ -243,7 +243,7 @@ describe.skip("loadPageData threads swarmType through every Supabase call", () =
 describe("swarm-aware: registry-driven page entry point", () => {
   it("calls notFound() when loadSwarm returns null (unknown swarm)", async () => {
     loadSwarmMock.mockResolvedValue(null);
-    loadSwarmCategoriesMock.mockResolvedValue([]);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue([]);
     const Page = (
       await import("@/app/(dashboard)/automations/[swarm]/review/page")
     ).default;
@@ -272,7 +272,7 @@ describe("swarm-aware: registry-driven page entry point", () => {
       canonical_context_shape: null,
       entity_brand: null,
     });
-    loadSwarmCategoriesMock.mockResolvedValue([]);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue([]);
     const Page = (
       await import("@/app/(dashboard)/automations/[swarm]/review/page")
     ).default;

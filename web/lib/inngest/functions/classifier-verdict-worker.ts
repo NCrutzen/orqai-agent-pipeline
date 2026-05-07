@@ -1,12 +1,12 @@
 // Phase 56.7 Wave 2 + Phase 68 (SWRM-04). Registry-driven verdict worker.
 //
-// Loads the matching public.swarm_categories row via loadSwarmCategories() and
+// Loads the matching public.swarm_noise_categories row via loadSwarmNoiseCategories() and
 // switches on `category.action` instead of branching on hardcoded category
 // keys. The categorize_archive branch dispatches per-swarm side-effects via
 // evaluateSideEffects(swarms.side_effects[]) — no swarm_type literals remain.
 // Adding a new swarm with a custom side-effect needs only:
 //   1. INSERT swarms row (ui_config + review_route + side_effects[] descriptors)
-//   2. INSERT swarm_categories row(s) with action='swarm_dispatch' + the new
+//   2. INSERT swarm_noise_categories row(s) with action='swarm_dispatch' + the new
 //      Inngest event name in swarm_dispatch column
 //   3. A new Inngest worker listening on that event
 // — zero edits to this file.
@@ -20,7 +20,7 @@ import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { categorizeEmail, archiveEmail } from "@/lib/outlook";
-import { loadSwarmCategories } from "@/lib/swarms/registry";
+import { loadSwarmNoiseCategories } from "@/lib/swarms/registry";
 import { evaluateSideEffects } from "@/lib/swarms/side-effects";
 
 export const classifierVerdictWorker = inngest.createFunction(
@@ -69,12 +69,12 @@ export const classifierVerdictWorker = inngest.createFunction(
     const finalCategoryKey = override_category ?? predicted_category;
 
     const categories = await step.run("load-categories", () =>
-      loadSwarmCategories(admin, swarm_type),
+      loadSwarmNoiseCategories(admin, swarm_type),
     );
     const category = categories.find((c) => c.category_key === finalCategoryKey);
 
     if (!category) {
-      const errMsg = `no swarm_categories row for (${swarm_type}, ${finalCategoryKey})`;
+      const errMsg = `no swarm_noise_categories row for (${swarm_type}, ${finalCategoryKey})`;
       await step.run("mark-failed-no-category", async () => {
         await admin
           .from("automation_runs")

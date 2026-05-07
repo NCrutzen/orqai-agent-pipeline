@@ -89,14 +89,14 @@ vi.mock("@/lib/automations/debtor-email/coordinator/agent-runs", () => ({
 
 const loadCategoriesMock = vi.fn();
 // Phase 68 (SWRM-02): single-shot dispatch routes ranked-intent → handler
-// event via swarm_intents (loadHandlerEvent), not swarm_categories.
+// event via swarm_intents (loadHandlerEvent), not swarm_noise_categories.
 // Default mock mimics the production backfill — pass-through.
 const loadHandlerEventMock = vi.fn(
   async (_supabase: unknown, _swarmType: string, intent: string) =>
     `debtor-email/${intent}.requested`,
 );
 vi.mock("@/lib/swarms/registry", () => ({
-  loadSwarmCategories: (...args: unknown[]) => loadCategoriesMock(...args),
+  loadSwarmNoiseCategories: (...args: unknown[]) => loadCategoriesMock(...args),
   loadHandlerEvent: (...args: unknown[]) =>
     (loadHandlerEventMock as unknown as (...a: unknown[]) => unknown)(...args),
 }));
@@ -360,7 +360,7 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     expect(sendNames).toContain("debtor-email/copy_document_request.requested");
   });
 
-  it("failure path: loadSwarmCategories throws → mark-failed runs + handler re-throws", async () => {
+  it("failure path: loadSwarmNoiseCategories throws → mark-failed runs + handler re-throws", async () => {
     invokeIntentMock.mockResolvedValueOnce({
       output: {
         ranked: [

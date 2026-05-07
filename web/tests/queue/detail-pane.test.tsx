@@ -47,12 +47,12 @@ vi.mock("sonner", () => ({
 import { DetailPane as RawDetailPane } from "@/app/(dashboard)/automations/[swarm]/review/detail-pane";
 import { SelectionProvider } from "@/app/(dashboard)/automations/[swarm]/review/selection-context";
 import type { PredictedRow } from "@/app/(dashboard)/automations/[swarm]/review/page";
-import type { SwarmCategoryRow } from "@/lib/swarms/types";
+import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
 
 // Phase 56.7-03: DetailPane now requires `swarmType`, `categories`, and
 // `drawerFields` props (registry-driven). Provide debtor-email defaults
 // here so the existing assertions don't all need to thread them through.
-const TEST_CATEGORIES: SwarmCategoryRow[] = [
+const TEST_CATEGORIES: SwarmNoiseCategoryRow[] = [
   { swarm_type: "debtor-email", category_key: "payment", display_label: "Payment", outlook_label: "Payment", action: "categorize_archive", swarm_dispatch: null, display_order: 10, enabled: true },
   { swarm_type: "debtor-email", category_key: "auto_reply", display_label: "Auto-reply", outlook_label: "Auto-Reply", action: "categorize_archive", swarm_dispatch: null, display_order: 20, enabled: true },
   { swarm_type: "debtor-email", category_key: "ooo_temporary", display_label: "OOO (temporary)", outlook_label: "OoO Temp", action: "categorize_archive", swarm_dispatch: null, display_order: 30, enabled: true },

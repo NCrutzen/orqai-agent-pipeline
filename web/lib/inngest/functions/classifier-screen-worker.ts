@@ -5,7 +5,7 @@
 // registry-driven regex-then-LLM classification.
 //
 // D-16 step ordering:
-//   1. load-swarm-row     — swarms + swarm_categories for event.data.swarm_type
+//   1. load-swarm-row     — swarms + swarm_noise_categories for event.data.swarm_type
 //   2. regex              — dynamic-import swarms.stage1_regex_module (D-03/D-04)
 //                           and call its `classify({subject, from, bodySnippet})`.
 //                           Skipped (regex outcome 'unknown') when stage1_regex_module
@@ -25,7 +25,7 @@
 //                            inngest.send).
 //
 // REQ-6: ZERO `swarm_type === 'X'` literal branches. Everything is registry-
-// driven via swarms + swarm_categories. The static-check test in
+// driven via swarms + swarm_noise_categories. The static-check test in
 // classifier-screen-worker.test.ts enforces this with a regex grep.
 //
 // Pitfall 6: empty categories list short-circuits to 'unknown' BEFORE the
@@ -39,7 +39,7 @@
 import { z } from "zod";
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loadSwarm, loadSwarmCategories } from "@/lib/swarms/registry";
+import { loadSwarm, loadSwarmNoiseCategories } from "@/lib/swarms/registry";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { numericConfidence } from "@/lib/pipeline-events/types";
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
@@ -100,7 +100,7 @@ export const classifierScreenWorker = inngest.createFunction(
         if (!sw) {
           throw new Error(`swarms row not found for ${swarm_type}`);
         }
-        const cats = await loadSwarmCategories(admin, swarm_type);
+        const cats = await loadSwarmNoiseCategories(admin, swarm_type);
         return { swarmRow: sw, categories: cats };
       },
     );
@@ -293,7 +293,7 @@ export const classifierScreenWorker = inngest.createFunction(
     // ───── Step 5: emit verdict (D-16.5) ──────────────────────────────
     // CLAUDE.md commit dae6276 — inline cast, NEVER destructure inngest.send.
     // decision='approve' matches the existing classifier-verdict-worker
-    // contract: verdict-worker dispatches via swarm_categories.action, not
+    // contract: verdict-worker dispatches via swarm_noise_categories.action, not
     // via decision; preserve those semantics.
     await step.run("emit-verdict", async () =>
       (inngest.send as unknown as SendFn)({

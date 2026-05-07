@@ -2,7 +2,7 @@
 // swarm-agnostic:
 //   - swarm_type threads through agent_runs.swarm_type, the Inngest event
 //     payload, and the broadcast automation name (`${swarm_type}-review`).
-//   - override_category is validated against loadSwarmCategories at runtime
+//   - override_category is validated against loadSwarmNoiseCategories at runtime
 //     (NOT against a static OVERRIDE_CATEGORIES const).
 //   - Pre-existing 60-06 / 61-01 contracts are intact (status flip, agent_runs
 //     telemetry, jsonb merge, decision routing, notes max 2000).
@@ -85,13 +85,13 @@ const DEBTOR_CATS = [
   { swarm_type: "debtor-email", category_key: "invoice_copy_request", display_label: "Invoice copy request", outlook_label: "Invoice Copy Request", action: "categorize_archive", swarm_dispatch: null, display_order: 50, enabled: true },
   { swarm_type: "debtor-email", category_key: "unknown", display_label: "Skip (label-only)", outlook_label: null, action: "reject", swarm_dispatch: null, display_order: 60, enabled: true },
 ];
-const loadSwarmCategoriesMock = vi.fn(async (_admin: unknown, swarmType: string) => {
+const loadSwarmNoiseCategoriesMock = vi.fn(async (_admin: unknown, swarmType: string) => {
   if (swarmType === "debtor-email") return DEBTOR_CATS;
   return [];
 });
 vi.mock("@/lib/swarms/registry", () => ({
-  loadSwarmCategories: (admin: unknown, swarmType: string) =>
-    loadSwarmCategoriesMock(admin, swarmType),
+  loadSwarmNoiseCategories: (admin: unknown, swarmType: string) =>
+    loadSwarmNoiseCategoriesMock(admin, swarmType),
   loadSwarm: vi.fn(),
 }));
 
@@ -122,7 +122,7 @@ beforeEach(() => {
   adminClientMock.from.mockClear();
   sendMock.mockClear();
   emitMock.mockClear();
-  loadSwarmCategoriesMock.mockClear();
+  loadSwarmNoiseCategoriesMock.mockClear();
 });
 
 // ---- D-16 contract preserved ---------------------------------------------
@@ -235,7 +235,7 @@ describe("D-16: recordVerdict — verdict-write only, no inline side-effects", (
     const actionsPath = resolve(__dirname, "../../app/(dashboard)/automations/[swarm]/review/actions.ts");
     const src = readFileSync(actionsPath, "utf8");
     expect(src).not.toMatch(/OVERRIDE_CATEGORIES/);
-    expect(src).toMatch(/loadSwarmCategories/);
+    expect(src).toMatch(/loadSwarmNoiseCategories/);
   });
 });
 
@@ -360,7 +360,7 @@ describe("Phase 61-01 contracts (preserved by 56.7-03)", () => {
 // ---- 56.7-03: swarm-aware contracts ---------------------------------------
 
 describe("swarm-aware: registry-driven override_category validation (Pitfall 5)", () => {
-  it("accepts a known override_category for the swarm (looked up via loadSwarmCategories)", async () => {
+  it("accepts a known override_category for the swarm (looked up via loadSwarmNoiseCategories)", async () => {
     await expect(
       recordVerdict({
         ...baseInput,
@@ -369,7 +369,7 @@ describe("swarm-aware: registry-driven override_category validation (Pitfall 5)"
       }),
     ).resolves.toEqual({ ok: true });
     // Registry was consulted with the input's swarm_type
-    expect(loadSwarmCategoriesMock).toHaveBeenCalledWith(adminClientMock, "debtor-email");
+    expect(loadSwarmNoiseCategoriesMock).toHaveBeenCalledWith(adminClientMock, "debtor-email");
   });
 
   it("rejects an override_category not in the registry for that swarm", async () => {
@@ -394,7 +394,7 @@ describe("swarm-aware: registry-driven override_category validation (Pitfall 5)"
   it("a different swarm_type would emit on its own channel (e.g. 'sales-email-review')", async () => {
     // Arrange: registry returns a category list for sales-email so the
     // post-validation step doesn't reject the test's override.
-    loadSwarmCategoriesMock.mockImplementationOnce(async () => [
+    loadSwarmNoiseCategoriesMock.mockImplementationOnce(async () => [
       { swarm_type: "sales-email", category_key: "lead", display_label: "Lead", outlook_label: null, action: "categorize_archive", swarm_dispatch: null, display_order: 10, enabled: true },
     ]);
     await recordVerdict({

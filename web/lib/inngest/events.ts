@@ -416,7 +416,7 @@ export type Events = {
 
   // Phase 65 — per-intent dispatch events emitted by the coordinator's
   // single-shot fast-path (CORD-04). The actual event name is read from
-  // public.swarm_categories.swarm_dispatch (registry-driven dispatch — same
+  // public.swarm_noise_categories.swarm_dispatch (registry-driven dispatch — same
   // idiom as classifier-verdict-worker:149-176). These typed entries make
   // them well-known names so downstream Plan 04+ handlers can declare them
   // statically. Payload shape mirrors the orchestrator event minus the

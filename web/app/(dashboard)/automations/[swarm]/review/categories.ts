@@ -1,7 +1,7 @@
 // Phase 56.7-03 (D-15). Type-only helpers for the generic queue route.
 // The OVERRIDE_CATEGORIES const that used to live here is gone — categories
-// are loaded from public.swarm_categories at request time via
-// `loadSwarmCategories(admin, swarmType)`. See ./actions.ts.
+// are loaded from public.swarm_noise_categories at request time via
+// `loadSwarmNoiseCategories(admin, swarmType)`. See ./actions.ts.
 //
 // Why this file still exists: Next 15 / Turbopack's "use server" codegen
 // emits a runtime `module.exports.X = X` for every export from a "use
@@ -17,8 +17,8 @@ export interface VerdictInput {
   source_mailbox: string;
   entity: string;
   predicted_category: string;
-  /** Free-form string (e.g. swarm_categories.category_key). Validated
-   *  server-side against `loadSwarmCategories(admin, swarm_type)`. */
+  /** Free-form string (e.g. swarm_noise_categories.category_key). Validated
+   *  server-side against `loadSwarmNoiseCategories(admin, swarm_type)`. */
   override_category?: string | null;
   notes?: string;
 }

@@ -30,7 +30,7 @@ import {
   INTENT_VERSION_V2,
   type IntentAgentOutputV2,
 } from "@/lib/automations/debtor-email/coordinator/types";
-import { loadSwarmCategories, loadHandlerEvent } from "@/lib/swarms/registry";
+import { loadSwarmNoiseCategories, loadHandlerEvent } from "@/lib/swarms/registry";
 import { evaluateEscalationGate } from "@/lib/automations/debtor-email/coordinator/escalation-gate";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
@@ -40,7 +40,7 @@ const SWARM_TYPE = "debtor-email";
 
 // Inngest's typed `inngest.send` rejects dynamic event names because the
 // registry-driven dispatch chooses the event name at runtime from
-// swarm_categories.swarm_dispatch. Cast through unknown — same pattern as
+// swarm_noise_categories.swarm_dispatch. Cast through unknown — same pattern as
 // classifier-verdict-worker.ts:162-165.
 type DynamicSend = (payload: {
   name: string;
@@ -217,7 +217,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
 
       // ---- 5) Evaluate escalation gate -------------------------------------
       const decision = await step.run("evaluate-escalation-gate", async () => {
-        const categories = await loadSwarmCategories(supabase, SWARM_TYPE);
+        const categories = await loadSwarmNoiseCategories(supabase, SWARM_TYPE);
         return evaluateEscalationGate(output, categories);
       });
 
@@ -237,8 +237,8 @@ export const debtorEmailCoordinator = inngest.createFunction(
       if (decision.kind === "single_shot") {
         // ---- 7a) Single-shot dispatch — Phase 68 (SWRM-02) registry-driven.
         // V2 ranked-intent dispatch reads from swarm_intents (per-intent
-        // handler_event), NOT swarm_categories.swarm_dispatch. The two
-        // registries route different stages: swarm_categories is the Stage 1
+        // handler_event), NOT swarm_noise_categories.swarm_dispatch. The two
+        // registries route different stages: swarm_noise_categories is the Stage 1
         // operator-override path (still consulted at line 196 for category
         // routing), swarm_intents is the Stage 3 ranked-intent path here.
         const top = output.ranked[0];

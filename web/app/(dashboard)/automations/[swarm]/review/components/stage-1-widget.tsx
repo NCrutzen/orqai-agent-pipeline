@@ -7,7 +7,7 @@
  *   - Single Select dropdown.
  *   - Items: synthetic { key:'noise', label:'Noise / spam' } and
  *            { key:'archive', label:'Archive without action' } at TOP,
- *     a separator, then enabled categories from loadSwarmCategories.
+ *     a separator, then enabled categories from loadSwarmNoiseCategories.
  *   - Placeholder: "Pick a category…".
  */
 import {
@@ -19,10 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { SwarmCategoryRow } from "@/lib/swarms/types";
+import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
 
 interface Stage1WidgetProps {
-  categories: SwarmCategoryRow[];
+  categories: SwarmNoiseCategoryRow[];
   value: string | null;
   onChange: (categoryKey: string) => void;
 }

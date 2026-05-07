@@ -23,11 +23,11 @@ vi.mock("@/lib/inngest/client", () => ({
 
 // ---- Registry mocks ------------------------------------------------------
 const loadSwarmMock = vi.fn();
-const loadSwarmCategoriesMock = vi.fn();
+const loadSwarmNoiseCategoriesMock = vi.fn();
 vi.mock("@/lib/swarms/registry", () => ({
   loadSwarm: (...args: unknown[]) => loadSwarmMock(...args),
-  loadSwarmCategories: (...args: unknown[]) =>
-    loadSwarmCategoriesMock(...args),
+  loadSwarmNoiseCategories: (...args: unknown[]) =>
+    loadSwarmNoiseCategoriesMock(...args),
 }));
 
 // ---- emitPipelineEvent mock ---------------------------------------------
@@ -217,7 +217,7 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
     agentRunsInserts.length = 0;
     adminMock = makeAdminMock();
     loadSwarmMock.mockReset();
-    loadSwarmCategoriesMock.mockReset();
+    loadSwarmNoiseCategoriesMock.mockReset();
     emitPipelineEventMock.mockReset();
     emitPipelineEventMock.mockResolvedValue(undefined);
     invokeOrqAgentMock.mockReset();
@@ -235,7 +235,7 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 
   it("REQ-3 / regex hit → skips LLM, no agent_runs row, verdict carries regex category (debtor-email)", async () => {
     loadSwarmMock.mockResolvedValue(DEBTOR_SWARM_ROW);
-    loadSwarmCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
     classifyMock.mockReturnValue({
       category: "payment_admittance",
       confidence: 0.9,
@@ -267,7 +267,7 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 
   it("REQ-3 / sales-email no-regex → LLM-only path", async () => {
     loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
-    loadSwarmCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
     invokeOrqAgentMock.mockResolvedValue({
       raw: { category_key: "auto_reply", confidence: "high", reasoning: null },
       agent: { agent_key: "stage-1-category-classifier" },
@@ -306,7 +306,7 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 
   it("REQ-4 / LLM low confidence → coerced to 'unknown' but agent_runs row stays at confidence='low'", async () => {
     loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
-    loadSwarmCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
     invokeOrqAgentMock.mockResolvedValue({
       raw: { category_key: "auto_reply", confidence: "low", reasoning: "unsure" },
       agent: { agent_key: "stage-1-category-classifier" },
@@ -332,7 +332,7 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 
   it("REQ-4 / LLM medium confidence → category_key passes through", async () => {
     loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
-    loadSwarmCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
     invokeOrqAgentMock.mockResolvedValue({
       raw: {
         category_key: "ooo_temporary",
@@ -363,7 +363,7 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 
   it("D-11 / LLM throws → agent_runs status='failed', error_message set, verdict still emits with predicted_category='unknown'", async () => {
     loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
-    loadSwarmCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
     invokeOrqAgentMock.mockRejectedValue(new Error("Orq timeout"));
 
     const cache: StepCache = new Map();
@@ -395,7 +395,7 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 
   it("REQ-5 / pipeline_events row count is exactly 1 per worker invocation (regex-hit path)", async () => {
     loadSwarmMock.mockResolvedValue(DEBTOR_SWARM_ROW);
-    loadSwarmCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
     classifyMock.mockReturnValue({
       category: "auto_reply",
       confidence: 0.95,
@@ -410,7 +410,7 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 
   it("REQ-5 / agent_runs row only when LLM invoked (no insert on regex-hit path)", async () => {
     loadSwarmMock.mockResolvedValue(DEBTOR_SWARM_ROW);
-    loadSwarmCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
     classifyMock.mockReturnValue({
       category: "auto_reply",
       confidence: 0.95,
@@ -425,7 +425,7 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 
   it("REQ-6 / sales-email payload processes without throwing; handler returns trace shape", async () => {
     loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
-    loadSwarmCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
     invokeOrqAgentMock.mockResolvedValue({
       raw: { category_key: "auto_reply", confidence: "high", reasoning: null },
       agent: { agent_key: "stage-1-category-classifier" },
@@ -452,7 +452,7 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 
   it("Pitfall 4 / replay-id stability: two invocations with same event.id do NOT double-insert agent_runs", async () => {
     loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
-    loadSwarmCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
     invokeOrqAgentMock.mockResolvedValue({
       raw: { category_key: "auto_reply", confidence: "high", reasoning: null },
       agent: { agent_key: "stage-1-category-classifier" },
@@ -478,7 +478,7 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 
   it("Pitfall 6 / empty categories list → coerce to 'unknown', no LLM call", async () => {
     loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
-    loadSwarmCategoriesMock.mockResolvedValue([]); // empty registry result
+    loadSwarmNoiseCategoriesMock.mockResolvedValue([]); // empty registry result
 
     const cache: StepCache = new Map();
     await handler({

@@ -1,5 +1,5 @@
 // Phase 56.7-01 (D-00, D-01, D-03). Shared types for the swarm registry.
-// Mirrored to the public.swarms / public.swarm_categories tables created in
+// Mirrored to the public.swarms / public.swarm_noise_categories tables created in
 // supabase/migrations/20260429b_swarm_registry.sql.
 
 // D-01: literal union must match the DB CHECK constraint verbatim.
@@ -74,8 +74,8 @@ export interface SwarmIntentRow {
   updated_at: string;
 }
 
-// One row in public.swarm_categories.
-export interface SwarmCategoryRow {
+// One row in public.swarm_noise_categories.
+export interface SwarmNoiseCategoryRow {
   swarm_type: string;
   category_key: string;
   display_label: string;

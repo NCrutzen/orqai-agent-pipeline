@@ -9,7 +9,7 @@
 // Pure function: no DB, no LLM, no I/O. Testable in isolation.
 
 import type { IntentAgentOutputV2 } from "./types";
-import type { SwarmCategoryRow } from "@/lib/swarms/types";
+import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
 
 export type EscalationDecision =
   | { kind: "single_shot" }
@@ -23,7 +23,7 @@ export type EscalationDecision =
 
 export function evaluateEscalationGate(
   output: IntentAgentOutputV2,
-  categories: SwarmCategoryRow[],
+  categories: SwarmNoiseCategoryRow[],
 ): EscalationDecision {
   // 1. low_confidence checked FIRST — a low-confidence top-1 always escalates,
   //    even when ranked.length >= 3 (priority test in escalation-gate.test.ts).
@@ -37,7 +37,7 @@ export function evaluateEscalationGate(
   }
 
   // 3. requires_orchestration registry flag — any candidate intent whose
-  //    swarm_categories row is flagged forces orchestrator path.
+  //    swarm_noise_categories row is flagged forces orchestrator path.
   const flagged = output.ranked.some(
     (r) =>
       categories.find((c) => c.category_key === r.intent)
@@ -47,6 +47,6 @@ export function evaluateEscalationGate(
     return { kind: "orchestrator", reason: "requires_orchestration_flag" };
   }
 
-  // 4. Fast path: single-shot dispatch via swarm_categories.swarm_dispatch.
+  // 4. Fast path: single-shot dispatch via swarm_noise_categories.swarm_dispatch.
   return { kind: "single_shot" };
 }
