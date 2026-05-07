@@ -3,24 +3,163 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Sun, Moon, Mic, MicOff } from "lucide-react";
 
 type Message = { role: "user" | "assistant"; content: string };
+type Theme = "light" | "dark";
 
-const NAVY = "#071c2e";
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((e: SpeechRecognitionEventLike) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+};
+
+type SpeechRecognitionEventLike = {
+  resultIndex: number;
+  results: ArrayLike<{
+    isFinal: boolean;
+    0: { transcript: string };
+  }>;
+};
+
 const ORANGE = "#dc4c19";
-const BORDER = "#e2e6ea";
-const MUTED = "#6c757d";
-const PANEL = "#f5f7fa";
+
+const THEMES = {
+  light: {
+    bg: "#ffffff",
+    panel: "#f5f7fa",
+    border: "#e2e6ea",
+    text: "#071c2e",
+    muted: "#6c757d",
+    headerBg: "#ffffff",
+    inputBg: "#ffffff",
+    code: "#ffffff",
+    userBubbleBg: "#071c2e",
+    userBubbleText: "#ffffff",
+    botBubbleBg: "#f5f7fa",
+    botBubbleText: "#071c2e",
+    logoBgPad: "transparent",
+  },
+  dark: {
+    bg: "#0a1620",
+    panel: "#11202e",
+    border: "rgba(255,255,255,0.08)",
+    text: "#e8eef5",
+    muted: "#8b97a4",
+    headerBg: "#0d1a25",
+    inputBg: "#11202e",
+    code: "#1a2a3a",
+    userBubbleBg: "#dc4c19",
+    userBubbleText: "#ffffff",
+    botBubbleBg: "#11202e",
+    botBubbleText: "#e8eef5",
+    logoBgPad: "#ffffff",
+  },
+} as const;
+
+const STORAGE_KEY = "mr-chatbot-theme";
 
 export function ChatUI({ displayName }: { displayName: string }) {
+  const [theme, setTheme] = useState<Theme>("light");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [statusLine, setStatusLine] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const inputBaseRef = useRef<string>("");
+
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    if (stored === "light" || stored === "dark") {
+      setTheme(stored);
+    } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      setTheme("dark");
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const w = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    setSpeechSupported(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
+    return () => {
+      recognitionRef.current?.abort();
+    };
+  }, []);
+
+  function toggleRecording() {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const w = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!Ctor) {
+      setError("Spraakherkenning wordt niet ondersteund in deze browser.");
+      return;
+    }
+
+    const rec = new Ctor();
+    rec.lang = navigator.language || "nl-NL";
+    rec.continuous = true;
+    rec.interimResults = true;
+
+    inputBaseRef.current = input.length > 0 ? input + " " : "";
+
+    rec.onresult = (e) => {
+      let finalText = "";
+      let interimText = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText += r[0].transcript;
+        else interimText += r[0].transcript;
+      }
+      if (finalText) {
+        inputBaseRef.current += finalText;
+      }
+      setInput((inputBaseRef.current + interimText).trimStart());
+    };
+    rec.onend = () => {
+      setIsRecording(false);
+      recognitionRef.current = null;
+    };
+    rec.onerror = (e) => {
+      if (e.error !== "aborted" && e.error !== "no-speech") {
+        setError(`Spraakherkenning: ${e.error}`);
+      }
+      setIsRecording(false);
+      recognitionRef.current = null;
+    };
+
+    try {
+      rec.start();
+      recognitionRef.current = rec;
+      setIsRecording(true);
+      setError(null);
+    } catch (err) {
+      setError(`Kon mic niet starten: ${(err as Error).message}`);
+    }
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -28,6 +167,8 @@ export function ChatUI({ displayName }: { displayName: string }) {
       behavior: "smooth",
     });
   }, [messages, statusLine]);
+
+  const t = THEMES[theme];
 
   async function sendMessage() {
     const trimmed = input.trim();
@@ -111,24 +252,32 @@ export function ChatUI({ displayName }: { displayName: string }) {
   const showWelcome = messages.length === 0;
 
   return (
-    <div className="flex h-screen flex-col bg-white">
+    <div
+      className="flex h-screen flex-col"
+      style={{ background: t.bg, color: t.text }}
+    >
       <header
-        className="border-b bg-white px-6 py-4"
-        style={{ borderColor: BORDER }}
+        className="border-b px-6 py-4"
+        style={{ borderColor: t.border, background: t.headerBg }}
       >
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <div className="flex items-center gap-4">
-            <Image
-              src="/brand/moyne-roberts-logo.png"
-              alt="Moyne Roberts"
-              width={180}
-              height={30}
-              priority
-              className="h-8 w-auto"
-            />
+            <div
+              className="rounded px-2 py-1"
+              style={{ background: t.logoBgPad }}
+            >
+              <Image
+                src="/brand/moyne-roberts-logo.png"
+                alt="Moyne Roberts"
+                width={180}
+                height={30}
+                priority
+                className="h-8 w-auto"
+              />
+            </div>
             <div
               className="hidden h-6 w-px sm:block"
-              style={{ background: BORDER }}
+              style={{ background: t.border }}
             />
             <div className="hidden sm:block">
               <div
@@ -139,14 +288,34 @@ export function ChatUI({ displayName }: { displayName: string }) {
               </div>
               <div
                 className="text-sm font-medium"
-                style={{ color: NAVY }}
+                style={{ color: t.text }}
               >
                 Trusted Safety Solutions
               </div>
             </div>
           </div>
-          <div className="text-sm" style={{ color: MUTED }}>
-            Hoi {displayName}
+          <div className="flex items-center gap-3">
+            <span
+              className="hidden text-sm sm:inline"
+              style={{ color: t.muted }}
+            >
+              Hoi {displayName}
+            </span>
+            <button
+              type="button"
+              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+              aria-label={
+                theme === "light" ? "Schakel donkere modus in" : "Schakel lichte modus in"
+              }
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors"
+              style={{ borderColor: t.border, color: t.text, background: "transparent" }}
+            >
+              {theme === "light" ? (
+                <Moon className="h-4 w-4" />
+              ) : (
+                <Sun className="h-4 w-4" />
+              )}
+            </button>
           </div>
         </div>
       </header>
@@ -156,32 +325,32 @@ export function ChatUI({ displayName }: { displayName: string }) {
           {showWelcome && (
             <div
               className="rounded-lg border p-6"
-              style={{ borderColor: BORDER, background: PANEL }}
+              style={{ borderColor: t.border, background: t.panel }}
             >
               <h2
                 className="text-base font-semibold"
-                style={{ color: NAVY }}
+                style={{ color: t.text }}
               >
                 Stel je vraag
               </h2>
-              <p className="mt-2 text-sm" style={{ color: NAVY }}>
+              <p className="mt-2 text-sm" style={{ color: t.text }}>
                 IT, processen, &quot;hoe doe ik X&quot; — ik geef je een
                 concreet antwoord, geen linkjes-zoektocht.
               </p>
-              <p className="mt-2 text-xs" style={{ color: MUTED }}>
+              <p className="mt-2 text-xs" style={{ color: t.muted }}>
                 Antwoord in jouw taal · NL · EN · FR · DE
               </p>
             </div>
           )}
 
           {messages.map((m, i) => (
-            <MessageBubble key={i} message={m} />
+            <MessageBubble key={i} message={m} theme={theme} />
           ))}
 
           {statusLine && (
             <div
               className="flex items-center gap-2 text-sm"
-              style={{ color: MUTED }}
+              style={{ color: t.muted }}
             >
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               <span>{statusLine}</span>
@@ -194,7 +363,7 @@ export function ChatUI({ displayName }: { displayName: string }) {
               style={{
                 borderColor: "#dc35454d",
                 background: "#dc35450d",
-                color: "#a52834",
+                color: theme === "dark" ? "#f5a8a8" : "#a52834",
               }}
             >
               {error}
@@ -204,28 +373,64 @@ export function ChatUI({ displayName }: { displayName: string }) {
       </div>
 
       <footer
-        className="border-t bg-white px-4 py-4"
-        style={{ borderColor: BORDER }}
+        className="border-t px-4 py-4"
+        style={{ borderColor: t.border, background: t.headerBg }}
       >
         <div className="mx-auto flex max-w-3xl items-end gap-2">
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              if (!isRecording) inputBaseRef.current = e.target.value;
+            }}
             onKeyDown={handleKeyDown}
-            placeholder="Stel je vraag..."
+            placeholder={isRecording ? "Aan het luisteren..." : "Stel je vraag..."}
             rows={1}
             disabled={isStreaming}
             className="flex-1 resize-none rounded-md border px-4 py-3 text-sm focus:outline-none disabled:opacity-50"
             style={{
-              borderColor: BORDER,
-              background: "white",
-              color: NAVY,
+              borderColor: isRecording ? "#dc3545" : t.border,
+              background: t.inputBg,
+              color: t.text,
               maxHeight: "180px",
             }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = ORANGE)}
-            onBlur={(e) => (e.currentTarget.style.borderColor = BORDER)}
+            onFocus={(e) => {
+              if (!isRecording) e.currentTarget.style.borderColor = ORANGE;
+            }}
+            onBlur={(e) => {
+              if (!isRecording) e.currentTarget.style.borderColor = t.border;
+            }}
           />
+          {speechSupported && (
+            <button
+              type="button"
+              onClick={toggleRecording}
+              disabled={isStreaming}
+              aria-label={isRecording ? "Stop dictaat" : "Start dictaat"}
+              title={isRecording ? "Stop dictaat" : "Start dictaat"}
+              className="inline-flex h-12 w-12 items-center justify-center rounded-md border transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              style={
+                isRecording
+                  ? {
+                      background: "#dc3545",
+                      color: "white",
+                      borderColor: "#dc3545",
+                    }
+                  : {
+                      background: "transparent",
+                      color: t.text,
+                      borderColor: t.border,
+                    }
+              }
+            >
+              {isRecording ? (
+                <MicOff className="h-4 w-4 animate-pulse" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </button>
+          )}
           <button
             type="button"
             onClick={sendMessage}
@@ -245,7 +450,8 @@ export function ChatUI({ displayName }: { displayName: string }) {
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({ message, theme }: { message: Message; theme: Theme }) {
+  const t = THEMES[theme];
   const isUser = message.role === "user";
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -253,20 +459,47 @@ function MessageBubble({ message }: { message: Message }) {
         className="max-w-[85%] rounded-lg px-4 py-3"
         style={
           isUser
-            ? { background: NAVY, color: "white" }
-            : { background: PANEL, color: NAVY, border: `1px solid ${BORDER}` }
+            ? { background: t.userBubbleBg, color: t.userBubbleText }
+            : {
+                background: t.botBubbleBg,
+                color: t.botBubbleText,
+                border: `1px solid ${t.border}`,
+              }
         }
       >
         {isUser ? (
           <p className="whitespace-pre-wrap text-sm">{message.content}</p>
         ) : (
-          <div className="prose prose-sm max-w-none text-sm leading-relaxed [&_a]:text-[#dc4c19] [&_a]:underline [&_code]:rounded [&_code]:bg-white [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[#071c2e] [&_ol]:my-2 [&_p]:my-1 [&_ul]:my-2 [&_strong]:text-[#071c2e]">
+          <div
+            className="prose prose-sm max-w-none text-sm leading-relaxed [&_a]:underline [&_code]:rounded [&_code]:px-1.5 [&_code]:py-0.5 [&_ol]:my-2 [&_p]:my-1 [&_ul]:my-2"
+            style={
+              {
+                "--tw-prose-body": t.botBubbleText,
+                "--tw-prose-headings": t.botBubbleText,
+                "--tw-prose-bold": t.botBubbleText,
+                "--tw-prose-links": ORANGE,
+                "--tw-prose-code": t.botBubbleText,
+                color: t.botBubbleText,
+              } as React.CSSProperties
+            }
+          >
             {message.content ? (
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+              <div
+                style={
+                  {
+                    // inline code background per theme
+                  } as React.CSSProperties
+                }
+              >
+                <style>{`.bot-md code { background: ${t.code} !important; color: ${t.botBubbleText} !important; }`}</style>
+                <div className="bot-md">
+                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                </div>
+              </div>
             ) : (
               <span
                 className="inline-flex items-center gap-2"
-                style={{ color: MUTED }}
+                style={{ color: t.muted }}
               >
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 <span>denkt na...</span>
