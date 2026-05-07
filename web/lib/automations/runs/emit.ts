@@ -21,11 +21,7 @@ export async function emitAutomationRunStale(
   const channelName = `automations:${automation}:stale`;
   try {
     const ch = admin.channel(channelName);
-    await ch.send({
-      type: "broadcast",
-      event: "stale",
-      payload: { automation, at: new Date().toISOString() },
-    });
+    await ch.httpSend("stale", { automation, at: new Date().toISOString() });
     await admin.removeChannel(ch);
   } catch (err) {
     console.warn("[emitAutomationRunStale] broadcast failed", {
