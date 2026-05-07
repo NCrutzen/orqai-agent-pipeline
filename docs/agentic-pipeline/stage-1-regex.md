@@ -80,6 +80,18 @@ categorize_archive               swarm_dispatch -> Stage 2 -> Stage 3 -> Stage 4
 
 The first four route to `categorize_archive`. `unknown` is the only key that hands off to the LLM stages of the funnel via `debtor-email/label-resolve.requested`.
 
+### Source-of-truth invariant — noise-key enum (Phase 78 codegen)
+
+The closed list of noise keys exists in three places that must agree:
+
+1. The TypeScript validator for the Stage 1 LLM 2nd-pass output.
+2. The `swarm_noise_categories.category_key` rows in Postgres.
+3. The `enum` field inside the Orq agent `stage-1-category-classifier`'s `response_format: json_schema`.
+
+**Same rule as Stage 3** — see [`./stage-3-coordinator.md#source-of-truth-invariant--intent-enum-phase-78-codegen`](./stage-3-coordinator.md) for the full pattern. The registry is the single source of truth; the TS literal-union is build-time generated; the Orq JSON schema is regenerated from the same registry read; CI gate prevents drift. Phase 78's codegen pass covers both `swarm_noise_categories` and `swarm_intents` in one script.
+
+Onboarding a new swarm = INSERT noise rows + run codegen + commit the regenerated file. Never hand-edit `*.generated.ts`.
+
 ## Sales-Email Parallel Block
 
 Sales-email is Phase 73; the actual category vocabulary ships there. Illustrative-only categories the same registry shape would carry: `new_lead`, `follow_up`, `unsubscribe`. Each row in `swarm_categories` would carry the same `(action, outlook_label, swarm_dispatch)` columns; the routing pattern is identical. *(illustrative -- Phase 73 ships actual sales-email categories)*

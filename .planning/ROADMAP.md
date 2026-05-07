@@ -318,9 +318,19 @@ Plans:
 
 ### Phase 78: Sales-email Stage 0 to Stage 3 onboarding (verkoop@smeba.nl)
 
-**Goal:** Onboard the sales-email swarm (verkoop@smeba.nl, ~15-25 emails/day) through Stages 0→1→2→3 using only registry inserts + the existing cross-swarm architecture. No new code paths in `classifier-screen-worker`, `classifier-verdict-worker`, or `coordinator-orchestrator` — if any of those need swarm-specific branches, that's a cross-swarm architecture bug to fix here. Deliverables: (a) sales-email rows in `swarms`, `swarm_noise_categories`, `swarm_intents` populated; (b) Stage 2 entity resolver wired (SugarCRM customer lookup, distinct from iController); (c) Stage 3 coordinator agent prompted for sales-email intents; (d) verkoop@smeba.nl traffic visibly progressing past Stage 1 with sensible intent picks within 7 days of cutover.
+**Goal:** Onboard the sales-email swarm (verkoop@smeba.nl, ~15-25 emails/day) through Stages 0→1→2→3 using only registry inserts + the existing cross-swarm architecture. No new code paths in `classifier-screen-worker`, `classifier-verdict-worker`, or `coordinator-orchestrator` — if any of those need swarm-specific branches, that's a cross-swarm architecture bug to fix here.
+
+**Deliverable order matters here. Codegen comes BEFORE the registry inserts so 78 actually proves the cross-swarm thesis instead of silently violating it:**
+
+1. **Build-time codegen for `swarm_intents` literal-union types** (foundational — must ship first). Today the intent enum is hand-maintained in three places: `web/lib/automations/debtor-email/coordinator/types.ts` (TS const), `swarm_intents` table, and the Orq agent's JSON schema. Onboarding sales-email by adding a parallel TS const would *double* the drift. Replicate the existing Phase 69 D-03 pattern: a `tsx` script reads `swarm_intents` and emits `web/lib/swarms/intents.generated.ts` with `as const` array + literal-union type. CI gate: `npm run codegen && git diff --exit-code`. Same pattern applied to `swarm_noise_categories` so the Stage 1 LLM closed list also stays auto-generated. After this lands, adding any new intent to any swarm is a registry INSERT — no TypeScript edit, no Orq prompt edit. *(Architectural prerequisite, not a side-task.)*
+2. **Sales-email rows in `swarms`, `swarm_noise_categories`, `swarm_intents`** — registry inserts only.
+3. **Stage 2 entity resolver wired** — SugarCRM customer lookup module (distinct from iController), plugged into `swarms.stage2_entity_resolver`.
+4. **Stage 3 coordinator agent prompted for sales-email intents** — uses the now-generated enum so the prompt stays in sync automatically.
+5. **verkoop@smeba.nl traffic visibly progressing past Stage 1** with sensible intent picks within 7 days of cutover.
 
 **Why parallel with Phase 77:** The whole point of cross-swarm architecture is that adding a swarm is a registry insert. Validating that claim while still validating debtor-email catches architectural drift early. If sales-email reveals an edge case the architecture can't accommodate, far better to learn it now than after debtor-email is "done."
+
+**Why deliverable #1 is non-negotiable:** Without the codegen, deliverable #2's "registry inserts only" claim is a lie — we'd silently be hand-editing TS consts and Orq prompts to match. The whole milestone v8.1 thesis ("validate cross-swarm before automating") depends on this being honest.
 
 **Subsumes:** Phase 73 (Sales-email swarm validation) from the existing roadmap. Either close 73 as merged-into-78 or repurpose it.
 
@@ -331,15 +341,31 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd-plan-phase 78 to break down)
 
-### Phase 79: Learning loop — intent surfacing dashboard
+### Phase 79: Learning loop — intent surfacing dashboard + open-set discovery
 
-**Goal:** Surface the data needed to make Stage 4 handler prioritization data-driven, not guesswork. Build a small dashboard / query layer that shows, for each swarm: intent volume per week, top-N intent picks ranked by frequency, Stage 3 confidence distributions, operator override rates per intent, Kanban-lane stuck-row counts by `kanban_reason`. The output is the input to v8.2's handler-priority decisions.
+**Goal:** Make Stage 4 handler prioritization data-driven AND make the intent registry self-extending. Today's Stage 3 is closed-set: the LLM is forced to pick from 8 hardcoded intents and bucket every novel email as `other` or `general_inquiry`, hiding real new intents from the learning loop. Phase 79 adds open-set discovery on top of the closed-set runtime, plus the dashboard that turns both signals into a prioritization tool.
 
-**Why this is the milestone closer:** Once 76, 77, 78 ship we have data flowing but no synthesis surface. Without 79, picking which Stage 4 handler to build first remains a stakeholder-pain guess. With 79, we can say "credit_request shows up 40 times/week with average Stage 3 confidence 0.78 and operator override rate 12% — that's the highest-value automation target right now."
+**Deliverables:**
 
-**Out of scope:** Building any Stage 4 handler. The dashboard ranks them; v8.2 builds them.
+1. **Two-tier intent capture (open-set discovery without breaking runtime).** Bump the Stage 3 LLM output schema from V2 to V3:
+   - `intent: enum(...)` — closed list, drives Stage 4 dispatch (deterministic, unchanged).
+   - `intent_proposal: string | null` — free-text snake_case label the LLM fills *only* when the email doesn't fit any existing intent cleanly.
+   - `proposal_reason: string | null` — one-sentence justification. Drives the dashboard cluster summary.
+   The closed-list `enum` itself comes from the codegen pattern shipped in Phase 78 — so adding a new approved intent to `swarm_intents` automatically widens the LLM's allowed values on next deploy. No manual prompt edit.
+2. **Intent surfacing dashboard.** Per-swarm cross-cuts:
+   - intent volume per week (top-N by frequency)
+   - Stage 3 confidence distributions per intent
+   - operator override rates per intent (Bulk Review axis-3 corrections)
+   - Kanban-lane stuck-row counts by `kanban_reason`
+   - **NEW: clustered intent_proposal feed** — group similar proposals (string-similarity + per-cluster sample emails), counted weekly. This is the discovery surface.
+3. **Promote-to-registry action.** When a clustered proposal hits a threshold (e.g. ≥10 occurrences in 7 days), the dashboard offers a one-click "promote this to a real intent" button that INSERTs a `swarm_intents` row with a stub `handler_event` placeholder (lands as Kanban `no_handler` until Stage 4 ships, but at least it's named and counted distinctly going forward). Stage 3 picks it up on next deploy via the codegen.
+4. **Operator workflow doc.** Half-page runbook in `docs/agentic-pipeline/learning-loop.md` describing the weekly cycle: review proposals → promote what's real → mark noise as suppressed → handler-priority readout.
 
-**Depends on:** Phase 76, 77, AND 78 (needs both swarms' data for cross-swarm comparisons).
+**Why this is the milestone closer:** Once 76, 77, 78 ship we have data flowing but no synthesis surface AND no discovery for novel intents. Without 79, picking which Stage 4 handler to build first remains a stakeholder-pain guess, AND the system can never see beyond its 8 pre-defined buckets. With 79, the system can say "credit_request shows up 40 times/week with average Stage 3 confidence 0.78 and operator override rate 12% — that's the highest-value automation target right now" AND "we've also seen 14 emails clustered as `direct_debit_setup` over the past two weeks — should that be promoted to a real intent?"
+
+**Out of scope:** Building any Stage 4 handler. The dashboard ranks existing handlers and surfaces new candidates; v8.2 builds them.
+
+**Depends on:** Phase 76, 77, AND 78 (needs both swarms' data for cross-swarm comparisons; also needs 78's codegen pattern in place so the closed enum auto-grows when proposals are promoted).
 
 **Plans:** 0 plans
 
