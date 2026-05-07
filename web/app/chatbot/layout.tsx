@@ -16,8 +16,6 @@ export default async function ChatbotLayout({
   }
 
   return (
-    <div className="min-h-screen bg-[var(--v7-bg)] text-[var(--v7-text)]">
-      {children}
-    </div>
+    <div className="min-h-screen bg-white text-[#071c2e]">{children}</div>
   );
 }
