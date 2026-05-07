@@ -28,6 +28,7 @@ import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { regexScreen } from "@/lib/stage-0/regex-screen";
 import { llmInjectionVerdict } from "@/lib/stage-0/llm-verdict";
+import { OrqClientTimeoutError } from "@/lib/automations/orq-agents/client";
 import {
   check as budgetCheck,
   type BudgetState,
@@ -106,9 +107,40 @@ export const stage0SafetyWorker = inngest.createFunction(
     const regexResult = await step.run("regex-screen", () => regexScreen(body));
 
     // Step 2 — LLM verdict (Orq.ai, registry-driven).
-    const llmResult = await step.run("llm-verdict", () =>
-      llmInjectionVerdict({ email_id, body, subject }),
-    );
+    //
+    // Phase 999.4 Fix B (D-02) — fail-open coercion on client deadline:
+    // when the Orq fetch hits CLIENT_DEADLINE_MS (45s) and throws
+    // OrqClientTimeoutError, return a synthetic verdict='safe' so the
+    // pipeline forwards to Stage 1 (`classifier/screen.requested`) instead
+    // of stranding the row in safety_review. The infrastructure failure
+    // is auditable via `result.llm_reason` starting `timeout: client_deadline_exceeded`.
+    //
+    // Selectivity (Pitfall 1) — ONLY OrqClientTimeoutError is coerced.
+    // Parse / schema / non-abort transport errors propagate so genuine
+    // bugs surface in the worker's failure path.
+    const llmResult = await step.run("llm-verdict", async () => {
+      try {
+        return await llmInjectionVerdict({ email_id, body, subject });
+      } catch (err) {
+        if (
+          err instanceof OrqClientTimeoutError ||
+          (err as { name?: string } | undefined)?.name === "OrqClientTimeoutError"
+        ) {
+          return {
+            verdict: "safe" as const,
+            reason: `timeout: client_deadline_exceeded — ${(err as Error).message}`,
+            matched_span: null,
+            usage: {
+              prompt_tokens: 0,
+              completion_tokens: 0,
+              total_tokens: 0,
+              cost_cents: 0,
+            },
+          };
+        }
+        throw err;
+      }
+    });
 
     // Step 3 — per-invocation budget guard (D-15).
     const budgetState: BudgetState = {
