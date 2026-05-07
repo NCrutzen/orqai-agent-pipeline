@@ -59,7 +59,7 @@ V7 tokens. Sizes locked by sketch findings; total = 4 sizes, 2 weights — withi
 | Body / row text | 13px (`--fs-sm`) | 400 (regular) | 1.45 |
 | Section label / pill / kbd | 11px (`--fs-xs`) | 500 (medium), uppercase + 0.05em letter-spacing for section labels | 1.3 |
 | Tab + button | 14px (`--fs-base`) | 500 (medium) on active tab/primary CTA, 400 elsewhere | 1.4 |
-| Page heading (`<h2>`) | 22px | 600 (semibold) — display font (Cabinet Grotesk via `--font-display`) | 1.2 |
+| Page heading (`<h2>`) | 22px | 500 (medium) — display font (Cabinet Grotesk via `--font-display`) | 1.2 |
 
 Mono (`--font-mono` — Geist Mono) reserved for: row IDs, intent keys / noise keys (pill text), keyboard shortcut affordances (`<span class="kbd">⏎</span>`), tab badge counts, page-header sub (mailbox list).
 
@@ -315,7 +315,7 @@ No `npx shadcn add` invocations in Phase 76. If planning surfaces a need for a n
 - [ ] Dimension 1 Copywriting: PASS — all CTAs, empty states, error states, and inline-editor strings are specified verbatim
 - [ ] Dimension 2 Visuals: PASS — layout, components, and HTML structures sourced from locked sketches 005/006/007
 - [ ] Dimension 3 Color: PASS — 60/30/10 V7 split with explicit accent reserved-for list; semantic colors scoped to reason pills + confidence bar only
-- [ ] Dimension 4 Typography: PASS — 4 sizes, 2 weights, mono reserved for IDs/keys/shortcuts
+- [ ] Dimension 4 Typography: PASS — 4 sizes, 2 weights (400 regular + 500 medium), mono reserved for IDs/keys/shortcuts
 - [ ] Dimension 5 Spacing: PASS — 4px scale (--space-1..6); single documented exception (10px row vertical from sketch lock)
 - [ ] Dimension 6 Registry Safety: PASS — no new shadcn blocks; no third-party registries
 
