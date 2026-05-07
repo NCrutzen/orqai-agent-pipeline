@@ -419,12 +419,101 @@ describe("Phase 70 TELE-01 classifier-invoice-copy-handler Stage 4 failure emits
 // ---------------------------------------------------------------------------
 
 describe("Phase 76: onFailure → handler_error Kanban row", () => {
-  it("captures createFunction config with onFailure handler that writes Kanban row", () => {
-    // Wave 0 RED — Plan 06 turns GREEN.
-    // Expected: createFunction call config carries an `onFailure` function;
-    // when invoked with (error, event), it calls
-    // admin.from('automation_runs').insert({status:'pending',
-    // result:{kanban_reason:'handler_error', ...}}).
-    expect(false).toBe(true);
+  it("createFunction config carries an onFailure callback", () => {
+    const cfg = (classifierInvoiceCopyHandler as unknown as { __config: { onFailure?: unknown } })
+      .__config;
+    expect(typeof cfg.onFailure).toBe("function");
+  });
+
+  it("onFailure writes Kanban row with kanban_reason=handler_error", async () => {
+    supabaseInserts.length = 0;
+    const cfg = (classifierInvoiceCopyHandler as unknown as {
+      __config: {
+        onFailure: (ctx: {
+          error: Error;
+          event: { data: { event: { data: Record<string, unknown> } } };
+          step: { run: (id: string, fn: () => Promise<unknown>) => Promise<unknown> };
+        }) => Promise<void>;
+      };
+    }).__config;
+
+    await cfg.onFailure({
+      error: new Error("Orq timeout"),
+      event: {
+        data: {
+          event: {
+            data: {
+              swarm_type: "debtor-email",
+              intent: "invoice_copy_request",
+              email_id: "em-1",
+              automation_run_id: "run-1",
+            },
+          },
+        },
+      },
+      step: { run: async (_id: string, fn: () => Promise<unknown>) => fn() },
+    });
+
+    const kanbanInsert = supabaseInserts.find(
+      (i) =>
+        i.table === "automation_runs" &&
+        (i.row as { result?: { kanban_reason?: string } }).result?.kanban_reason ===
+          "handler_error",
+    );
+    expect(kanbanInsert).toBeDefined();
+    const row = kanbanInsert!.row as {
+      automation: string;
+      swarm_type: string;
+      status: string;
+      topic: string;
+      triggered_by: string;
+      result: {
+        kanban_reason: string;
+        error_detail: string;
+        intent: string;
+        email_id: string;
+        automation_run_id: string;
+      };
+    };
+    expect(row.automation).toBe("debtor-email-kanban");
+    expect(row.swarm_type).toBe("debtor-email");
+    expect(row.status).toBe("pending");
+    expect(row.topic).toBe("invoice_copy_request");
+    expect(row.triggered_by).toBe("stage-4-onFailure");
+    expect(row.result.kanban_reason).toBe("handler_error");
+    expect(row.result.error_detail).toBe("Orq timeout");
+    expect(row.result.intent).toBe("invoice_copy_request");
+    expect(row.result.email_id).toBe("em-1");
+    expect(row.result.automation_run_id).toBe("run-1");
+  });
+
+  it("onFailure defaults swarm_type to 'debtor-email' when payload omits it", async () => {
+    supabaseInserts.length = 0;
+    const cfg = (classifierInvoiceCopyHandler as unknown as {
+      __config: {
+        onFailure: (ctx: {
+          error: Error;
+          event: { data: { event: { data: Record<string, unknown> } } };
+          step: { run: (id: string, fn: () => Promise<unknown>) => Promise<unknown> };
+        }) => Promise<void>;
+      };
+    }).__config;
+
+    await cfg.onFailure({
+      error: new Error("boom"),
+      event: { data: { event: { data: { intent: "invoice_copy_request" } } } },
+      step: { run: async (_id: string, fn: () => Promise<unknown>) => fn() },
+    });
+
+    const kanbanInsert = supabaseInserts.find(
+      (i) =>
+        i.table === "automation_runs" &&
+        (i.row as { result?: { kanban_reason?: string } }).result?.kanban_reason ===
+          "handler_error",
+    );
+    expect(kanbanInsert).toBeDefined();
+    expect((kanbanInsert!.row as { automation: string }).automation).toBe(
+      "debtor-email-kanban",
+    );
   });
 });
