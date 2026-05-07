@@ -45,7 +45,57 @@ import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 const BODY_AGENT_KEY = "debtor-copy-document-body-agent";
 
 export const classifierInvoiceCopyHandler = inngest.createFunction(
-  { id: "classifier/invoice-copy-handler", retries: 0 },
+  {
+    id: "classifier/invoice-copy-handler",
+    retries: 0,
+    // Phase 76 Plan 04 — handler_error Kanban surfacing.
+    //
+    // When this handler throws unrecoverably (Orq.ai timeout, downstream API
+    // rejection, deadlock, etc.), Inngest fires this onFailure callback after
+    // retries are exhausted. With retries:0 it fires on the first failure.
+    // The callback writes a Kanban row (automation_runs with
+    // automation='${swarm_type}-kanban', status='pending',
+    // result.kanban_reason='handler_error') so the email surfaces in the
+    // Stage 4 Kanban lane instead of disappearing into Inngest's failed-run
+    // log. Operator can Replay or Close the row from there.
+    //
+    // Pattern reference for the 8 future Stage 4 handlers — when each ships,
+    // it MUST add the same shape (see also pipeline.ts:70 and
+    // briefing-refresh.ts:29 for canonical onFailure usage).
+    //
+    // All DB writes wrapped in step.run per Phase 65 replay-safety. The
+    // event payload here is Inngest's failure-event wrapper:
+    //   event.data.event.data → original handler trigger payload.
+    onFailure: async ({ error, event, step }) => {
+      const admin = createAdminClient();
+      const orig = (event.data as unknown as { event: { data: Record<string, unknown> } })
+        .event.data;
+      await step.run("kanban-handler-error", async () => {
+        const swarmType = (orig.swarm_type as string) ?? "debtor-email";
+        const { error: insertError } = await admin
+          .from("automation_runs")
+          .insert({
+            automation: `${swarmType}-kanban`,
+            swarm_type: swarmType,
+            status: "pending",
+            topic: (orig.intent as string) ?? "invoice_copy_request",
+            result: {
+              kanban_reason: "handler_error",
+              intent: orig.intent ?? "invoice_copy_request",
+              email_id: orig.email_id ?? orig.message_id,
+              automation_run_id: orig.automation_run_id,
+              error_detail: error.message,
+              error_name: error.name,
+            },
+            triggered_by: "stage-4-onFailure",
+          });
+        if (insertError) {
+          throw new Error(`kanban-handler-error insert: ${insertError.message}`);
+        }
+        await emitAutomationRunStale(admin, `${swarmType}-kanban`);
+      });
+    },
+  },
   { event: "debtor-email/invoice-copy.requested" },
   async ({ event, step }) => {
     const {

@@ -19,16 +19,42 @@ vi.mock("@/lib/automations/runs/emit", () => ({
   emitAutomationRunStale: vi.fn().mockResolvedValue(undefined),
 }));
 
-// Phase 68 (SWRM-02) — registry resolves intent → handler_event. Default
-// mock mimics the production swarm_intents backfill: every intent maps to
-// `debtor-email/<intent>.requested`. Tests can override per-case.
-const loadHandlerEventMock = vi.fn(
-  async (_admin: unknown, _swarmType: string, intent: string) =>
-    `debtor-email/${intent}.requested`,
+// Phase 68 (SWRM-02) — registry resolves intent → handler_event. Phase 76
+// switches the orchestrator to read the FULL swarm_intents row via
+// loadSwarmIntents so handler_status (registered | placeholder) is
+// available for the defensive Kanban check.
+type IntentRow = {
+  swarm_type: string;
+  intent_key: string;
+  handler_agent_key: string | null;
+  handler_event: string;
+  handler_status: "registered" | "placeholder";
+  requires_orchestration: boolean;
+  created_at: string;
+  updated_at: string;
+};
+const defaultIntentRow = (intent: string): IntentRow => ({
+  swarm_type: "debtor-email",
+  intent_key: intent,
+  handler_agent_key: null,
+  handler_event: `debtor-email/${intent}.requested`,
+  handler_status: "registered",
+  requires_orchestration: false,
+  created_at: "2026-05-07T00:00:00Z",
+  updated_at: "2026-05-07T00:00:00Z",
+});
+const loadSwarmIntentsMock = vi.fn(
+  async (_admin: unknown, _swarmType: string): Promise<IntentRow[]> => [
+    defaultIntentRow("copy_document_request"),
+    defaultIntentRow("address_change"),
+    defaultIntentRow("credit_request"),
+    defaultIntentRow("payment_dispute"),
+    defaultIntentRow("general_inquiry"),
+  ],
 );
 vi.mock("@/lib/swarms/registry", () => ({
-  loadHandlerEvent: (...args: unknown[]) =>
-    (loadHandlerEventMock as unknown as (...a: unknown[]) => unknown)(...args),
+  loadSwarmIntents: (...args: unknown[]) =>
+    (loadSwarmIntentsMock as unknown as (...a: unknown[]) => unknown)(...args),
 }));
 
 // Build a chainable supabase admin stub. .from(...).select(...).eq(...).maybeSingle()
@@ -100,10 +126,15 @@ beforeEach(() => {
   mockSend.mockReset();
   mockSend.mockResolvedValue({ ids: ["evt"] });
   supabaseCalls.length = 0;
-  loadHandlerEventMock.mockReset();
-  loadHandlerEventMock.mockImplementation(
-    async (_admin: unknown, _swarmType: string, intent: string) =>
-      `debtor-email/${intent}.requested`,
+  loadSwarmIntentsMock.mockReset();
+  loadSwarmIntentsMock.mockImplementation(
+    async (_admin: unknown, _swarmType: string) => [
+      defaultIntentRow("copy_document_request"),
+      defaultIntentRow("address_change"),
+      defaultIntentRow("credit_request"),
+      defaultIntentRow("payment_dispute"),
+      defaultIntentRow("general_inquiry"),
+    ],
   );
 });
 
@@ -166,14 +197,14 @@ describe("CORD-03 coordinator-orchestrator function", () => {
       (c) => c.kind === "update" && (c.args[0] as Record<string, unknown>).expected_handlers === 2,
     );
     expect(updateCall).toBeDefined();
-    // Phase 68 — step names are now per-intent (resolve-handler-{intent},
-    // fan-out-{intent}). update-expected-count must precede the first fan-out.
+    // Phase 68 — step names are per-intent. Phase 76 renamed the resolve
+    // step to resolve-intent-{intent} (it now returns the full swarm_intents
+    // row, not just handler_event).
     const idxUpdate = callOrder.indexOf("update-expected-count");
     const firstFanoutIdx = callOrder.findIndex((n) => n.startsWith("fan-out-"));
     expect(idxUpdate).toBeGreaterThan(-1);
     expect(firstFanoutIdx).toBeGreaterThan(idxUpdate);
-    // resolve-handler step also exists per intent.
-    expect(callOrder).toContain("resolve-handler-copy_document_request");
+    expect(callOrder).toContain("resolve-intent-copy_document_request");
     expect(callOrder).toContain("fan-out-copy_document_request");
   });
 
@@ -219,18 +250,16 @@ describe("CORD-03 coordinator-orchestrator function", () => {
   });
 });
 
-// Phase 68 (SWRM-02) — registry-driven fan-out.
-describe("Phase 68 — registry-driven handler-event resolution", () => {
-  it("uses the descriptor's handler_event from loadHandlerEvent (not a literal)", async () => {
-    // Custom mapping: copy_document_request → a non-default event name to
-    // prove the orchestrator routes through the registry rather than a
-    // template literal in code.
-    loadHandlerEventMock.mockImplementation(
-      async (_admin: unknown, _swarmType: string, intent: string) =>
-        intent === "copy_document_request"
-          ? "debtor-email/custom-handler.requested"
-          : `debtor-email/${intent}.requested`,
-    );
+// Phase 68 (SWRM-02) — registry-driven fan-out. Phase 76 reads the full
+// swarm_intents row via loadSwarmIntents.
+describe("Phase 68 / 76 — registry-driven handler resolution", () => {
+  it("uses the row's handler_event from swarm_intents (not a literal)", async () => {
+    loadSwarmIntentsMock.mockResolvedValueOnce([
+      {
+        ...defaultIntentRow("copy_document_request"),
+        handler_event: "debtor-email/custom-handler.requested",
+      },
+    ]);
 
     mockInvoke.mockResolvedValue({
       raw: {
@@ -248,10 +277,9 @@ describe("Phase 68 — registry-driven handler-event resolution", () => {
     const { step } = makeStep();
     await getHandler()({ event: { data: baseEventData }, step });
 
-    expect(loadHandlerEventMock).toHaveBeenCalledWith(
+    expect(loadSwarmIntentsMock).toHaveBeenCalledWith(
       expect.anything(),
       "debtor-email",
-      "copy_document_request",
     );
     expect(mockSend).toHaveBeenCalledTimes(1);
     expect((mockSend.mock.calls[0]![0] as { name: string }).name).toBe(
@@ -259,10 +287,8 @@ describe("Phase 68 — registry-driven handler-event resolution", () => {
     );
   });
 
-  it("throws structured error when loadHandlerEvent returns null (D-12, no fallback)", async () => {
-    // The orchestratorOutputSchema enumerates valid intents — use a real one
-    // but make the registry return null to simulate an unregistered handler.
-    loadHandlerEventMock.mockResolvedValue(null);
+  it("throws structured error when swarm_intents row is missing (D-12, no fallback)", async () => {
+    loadSwarmIntentsMock.mockResolvedValueOnce([]);
     mockInvoke.mockResolvedValue({
       raw: {
         handlers: [
@@ -284,7 +310,7 @@ describe("Phase 68 — registry-driven handler-event resolution", () => {
     expect(callOrder).toContain("mark-failed");
   });
 
-  it("loadHandlerEvent runs inside step.run for replay-safety", async () => {
+  it("loadSwarmIntents runs inside step.run for replay-safety", async () => {
     mockInvoke.mockResolvedValue({
       raw: {
         handlers: [
@@ -301,12 +327,51 @@ describe("Phase 68 — registry-driven handler-event resolution", () => {
     const { step, callOrder } = makeStep();
     await getHandler()({ event: { data: baseEventData }, step });
 
-    // Each intent gets a dedicated `resolve-handler-{intent}` step that
-    // wraps the registry lookup. Inngest memoises step return values across
-    // replays — wrapping the lookup is what makes the fan-out replay-safe.
-    expect(callOrder).toContain("resolve-handler-copy_document_request");
-    const idxResolve = callOrder.indexOf("resolve-handler-copy_document_request");
+    expect(callOrder).toContain("resolve-intent-copy_document_request");
+    const idxResolve = callOrder.indexOf("resolve-intent-copy_document_request");
     const idxFanout = callOrder.indexOf("fan-out-copy_document_request");
     expect(idxResolve).toBeLessThan(idxFanout);
+  });
+});
+
+// Phase 76 — defensive handler_status check inside fan-out loop (R-5/Pitfall 6).
+describe("Phase 76 — defensive handler_status check in fan-out", () => {
+  it("writes Kanban no_handler row + does NOT inngest.send when handler_status='placeholder'", async () => {
+    loadSwarmIntentsMock.mockResolvedValueOnce([
+      {
+        ...defaultIntentRow("address_change"),
+        handler_status: "placeholder",
+      },
+    ]);
+    mockInvoke.mockResolvedValue({
+      raw: {
+        handlers: [
+          { handler_key: "h1", intent: "address_change", context_payload: {} },
+        ],
+        ordering: "parallel",
+      },
+      agent: {} as unknown,
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      billing: { total_cost: 0 },
+      cost_cents: 0,
+    });
+
+    const { step, callOrder } = makeStep();
+    await getHandler()({ event: { data: baseEventData }, step });
+
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(callOrder).toContain("kanban-no-handler-address_change");
+    const kanban = supabaseCalls.find(
+      (c) =>
+        c.kind === "insert" &&
+        ((c.args[0] as { result?: { kanban_reason?: string } }).result
+          ?.kanban_reason === "no_handler"),
+    );
+    expect(kanban).toBeDefined();
+    const row = kanban!.args[0] as Record<string, unknown>;
+    expect(row.automation).toBe("debtor-email-kanban");
+    expect(row.triggered_by).toBe("stage-3-no-handler-fanout");
+    const result = row.result as Record<string, unknown>;
+    expect(result.via).toBe("orchestrator-fanout");
   });
 });

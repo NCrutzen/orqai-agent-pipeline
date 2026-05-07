@@ -69,6 +69,12 @@ export interface SwarmIntentRow {
   intent_key: string;
   handler_agent_key: string | null;
   handler_event: string;
+  // Phase 76 — registry source-of-truth for Stage 4 handler registration.
+  // 'registered' → handler exists, Stage 3 dispatches inngest.send.
+  // 'placeholder' → no handler, Stage 3 writes Kanban human-lane row
+  //   (automation_runs.status='pending', result.kanban_reason='no_handler').
+  // Migration: supabase/migrations/20260507_phase76_swarm_intents_handler_status.sql
+  handler_status: "registered" | "placeholder";
   requires_orchestration: boolean;
   created_at: string;
   updated_at: string;
