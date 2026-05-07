@@ -23,6 +23,13 @@
  * Per Pitfall 1: cost field path is NOT hard-coded — recursive grep surfaces candidates.
  */
 
+// Mark this file as a module so its top-level `const`s are module-scoped,
+// not global. The sibling `smoke-orq-router-direct.ts` also declares
+// `ORQ_API_KEY` at top level; without an export here, both files share the
+// global script scope and tsc fails with "Cannot redeclare block-scoped
+// variable" during the Vercel build's TypeScript pass.
+export {};
+
 const ORQ_API_KEY = process.env.ORQ_API_KEY;
 if (!ORQ_API_KEY) {
   console.error("ORQ_API_KEY is not set in environment");
