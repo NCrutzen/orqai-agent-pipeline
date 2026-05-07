@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 999.4-02-PLAN.md (Wave 1 Fix B)
-last_updated: "2026-05-07T11:44:31.974Z"
+stopped_at: Completed 999.4-03-PLAN.md
+last_updated: "2026-05-07T11:55:23.052Z"
 last_activity: 2026-05-07 -- Phase --phase execution started
 progress:
   total_phases: 54
   completed_phases: 20
   total_plans: 120
-  completed_plans: 95
-  percent: 79
+  completed_plans: 96
+  percent: 80
 ---
 
 # Project State
@@ -31,7 +31,7 @@ Plan: 1 of --name
 Milestone: v8.0 Agentic Platform (11 phases, 63-73)
 Last activity: 2026-05-07 -- Phase --phase execution started
 
-Progress: [████████░░] 79%
+Progress: [████████░░] 80%
 
 **v8.0 execution order:** 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 **Next action:** `/gsd-verify-work 68`, then `/gsd-discuss-phase 69 --auto`.
@@ -64,6 +64,7 @@ Progress: [████████░░] 79%
 | Phase 74 P05 | 20m | 3 tasks | 2 files |
 | Phase 999.4 P01 | 2h | 3 tasks | 5 files |
 | Phase 999.4 P02 | 5m | 2 tasks | 2 files |
+| Phase 999.4 P03 | 1 session | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,8 @@ Progress: [████████░░] 79%
 - Phase 74-05: sales-email source IS SugarCRM (not Outlook); production zap 'MR || Sales email analyzer' replaces step 3 (Orq direct call) with POST to /api/automations/sales-email/ingest
 - Phase 999.4 Wave 0 smoke PASS — Router transport (A1+A2+A3) confirmed; Wave 1+ proceeds without CONTEXT.md amendment
 - 999.4-02: 45s client deadline at Orq fetch boundary; OrqClientTimeoutError → verdict='safe' fail-open coercion in Stage 0 worker
+- Phase 999.4-03: Source system_prompt from Supabase registry (column added) instead of separate get_agent HTTP call — matches T-C3 cache contract, single source for cache count
+- Phase 999.4-03: Add agent_runs.result jsonb to mirror gated category_key + confidence — replaces ad-hoc tool_outputs reconstruction
 
 ### Blockers/Concerns
 
@@ -136,8 +139,8 @@ Progress: [████████░░] 79%
 
 ## Session Continuity
 
-Last session: 2026-05-07T11:44:31.966Z
-Stopped at: Completed 999.4-02-PLAN.md (Wave 1 Fix B)
+Last session: 2026-05-07T11:55:16.338Z
+Stopped at: Completed 999.4-03-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 
