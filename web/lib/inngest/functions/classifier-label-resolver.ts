@@ -56,7 +56,7 @@ export const classifierLabelResolver = inngest.createFunction(
           .select(
             "id, conversation_id, subject, body_text, sender_email, mailbox",
           )
-          .eq("internet_message_id", message_id)
+          .or(`source_id.eq.${message_id},internet_message_id.eq.${message_id}`)
           .maybeSingle();
         if (error) {
           throw new Error(`emails lookup failed: ${error.message}`);

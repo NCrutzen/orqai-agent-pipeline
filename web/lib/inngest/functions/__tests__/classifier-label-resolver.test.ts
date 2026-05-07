@@ -123,10 +123,19 @@ function makeAdminMock(overrides?: {
   const automationRunUpdate = vi.fn(() => ({ eq: automationRunUpdateEq }));
 
   // schema("email_pipeline").from("emails") chain
+  // Phase 74 fix: production uses `.or("source_id.eq.X,internet_message_id.eq.X")`
+  // to handle both outlook-zapier (source_id) and Graph-direct (internet_message_id)
+  // ingestion paths. Capture the .or() filter so tests can assert the lookup
+  // columns are correct.
+  const emailsOrFilters: string[] = [];
   function emailsBuilder() {
     const b: Record<string, unknown> = {};
     b.select = vi.fn(() => b);
     b.eq = vi.fn(() => b);
+    b.or = vi.fn((filter: string) => {
+      emailsOrFilters.push(filter);
+      return b;
+    });
     b.maybeSingle = vi.fn(async () => ({ data: EMAIL_ROW, error: null }));
     return b;
   }
@@ -180,6 +189,7 @@ function makeAdminMock(overrides?: {
       automationRunUpdateEq,
       pipelineEventsInsert,
       supabaseInserts,
+      emailsOrFilters,
     },
   };
 }
@@ -586,6 +596,27 @@ describe("Phase 70 — TELE-01 Stage 2 dual-write", () => {
         failure_reason: "nxt timeout",
       }),
     });
+  });
+
+  it("email lookup uses source_id OR internet_message_id (Phase 74 regression — outlook-zapier writes Graph id to source_id)", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "sender_match",
+      customer_account_id: "506909",
+      customer_name: "Klant BV",
+      confidence: "high",
+      candidates_considered: 1,
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    // Must query both columns so the resolver finds the email row regardless
+    // of which ingestion path populated email_pipeline.emails. Single-column
+    // .eq("internet_message_id", …) was the Phase 74 dispatch-break bug.
+    expect(captures.emailsOrFilters.length).toBeGreaterThan(0);
+    const filter = captures.emailsOrFilters[0];
+    expect(filter).toContain("source_id.eq.msg-graph-1");
+    expect(filter).toContain("internet_message_id.eq.msg-graph-1");
   });
 
   it("numericConfidence: 'high' → 0.9 in pipeline_events row", async () => {
