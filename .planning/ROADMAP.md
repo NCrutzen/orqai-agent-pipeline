@@ -274,6 +274,33 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd-plan-phase 75 to break down)
 
+### Phase 76: Stage 3 → Kanban human-lane wiring (unhandled-intent triage surface)
+
+**Goal:** Wire the existing Stage 3 intent coordinator output into a "needs human" Kanban lane so every email that leaves Stage 1 either (i) reaches a registered Stage 4 handler and completes, or (ii) lands in the Kanban human lane with a clear reason — never silently disappears.
+
+**Three Kanban-trigger conditions** (rolled into a single lane with a `reason` field):
+1. **`no_handler`** — Stage 3 picked an intent but no Inngest worker is registered for the `swarm_intents.handler_event`. Today this hits 8 of 9 debtor-email intents (only `invoice_copy_request` has `classifierInvoiceCopyHandler`).
+2. **`low_confidence`** — Stage 3 returned ranked intents but top confidence is below the (Phase 71-deferred) Wilson-CI threshold, OR the top-1 / top-2 gap is too tight.
+3. **`handler_error`** — A Stage 4 handler ran but threw / hit a deadlock / was rejected by a downstream system.
+
+**Lane mechanics:**
+- Reuses existing `automation_runs status='pending'` surface (the existing Kanban backend).
+- Each Kanban row carries `result.kanban_reason ∈ {no_handler, low_confidence, handler_error}` plus `result.intent`, `result.confidence`, `result.error_detail`, plus the source `email_id` so the operator can inspect.
+- Two operator actions per row:
+  - **Close (resolved manually)** — operator handled it outside the system, mark resolved.
+  - **Replay through Stage 4** — re-emit `handler_event` after operator picks/edits the intent (typically used after a new handler ships and the operator wants to drain backlog).
+
+**Depends on:** Phase 75 noise-vs-intent registry split (shipped 2026-05-07 via 66c0379 — data migration + table rename `swarm_categories → swarm_noise_categories` + atomic code refactor + agentic-pipeline doc updates locking the hard separation rule).
+
+**Out of scope (separate phases):** building the 8 missing Stage 4 handlers themselves (address_change, contract_inquiry, copy_document_request, credit_request, general_inquiry, peppol_request, payment_dispute, other). Each of these handlers ships in its own dedicated phase as the business priority and integration shape becomes clear; this Phase 76 just ensures none of them are silent dead-letters in the meantime.
+
+**Verification:** After this phase ships, the per-stage `pipeline_events` query that today shows "100% of emails halt at Stage 1" should show every non-noise email progressing past Stage 2 and either completing through Stage 4 OR landing in the Kanban human lane with a reason. Zero silent dead-letters.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 76 to break down)
+
 ---
 
 ## Phases
