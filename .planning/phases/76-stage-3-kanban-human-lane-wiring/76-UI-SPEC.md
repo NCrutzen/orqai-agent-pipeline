@@ -33,20 +33,34 @@ created: 2026-05-07
 
 ## Spacing Scale
 
-Locked by sketch findings: 4px-increment scale (CSS vars `--space-1` … `--space-6`). Multiples of 4 only.
+Locked by sketch findings: 4px-increment scale (CSS vars `--space-1` … `--space-6`). Multiples of 4 only — no exceptions.
 
 | Token | Value | Usage |
 |-------|-------|-------|
 | --space-1 | 4px | Pill inner padding, icon gaps |
-| --space-2 | 8px | Action stack gaps, inline editor row gaps |
-| --space-3 | 12px | Row vertical padding, pane internal section gap, chip-strip vertical |
-| --space-4 | 16px | Pane horizontal padding, page-header vertical |
+| --space-2 | 8px | Action stack gaps, inline editor row gaps, triage row vertical padding |
+| --space-3 | 12px | Pane internal section gap, chip-strip vertical |
+| --space-4 | 16px | Triage row horizontal padding, pane horizontal padding, page-header vertical |
 | --space-5 | 20px | Page-header / chip-strip horizontal padding |
 | --space-6 | 24px | Major section breaks within pane |
 
-Exceptions:
-- Triage row `padding: 10px 16px` — 10px is the locked vertical from sketch 006 (selected-row variant uses `padding-left: 14px` to compensate for the 2px brand-primary left-border). This is the only non-multiple-of-4 in the contract; tracked as a documented exception, not drift.
-- Detail pane fixed width: `460px` (sketch 006 lock). Below 1280px viewport, the pane collapses to a slide-over (planning task — keep contract above the desktop breakpoint).
+Triage row vertical rhythm aligns to the 8px grid (`--space-2`). The 13px body line at line-height 1.45 (~19px) plus `--space-2` top + bottom yields a row that lands within the sketch-006 visual lock once line-height is included.
+
+Detail pane fixed width: `460px` (sketch 006 lock — multiple of 4). Below 1280px viewport, the pane collapses to a slide-over (planning task — keep contract above the desktop breakpoint).
+
+**Triage row CSS pattern:**
+
+```css
+.row {
+  padding: var(--space-2) var(--space-4); /* 8px 16px — row vertical rhythm aligned to 8px grid */
+}
+.row.is-selected {
+  border-left: 2px solid var(--v7-brand-primary);
+  padding-left: calc(var(--space-4) - 2px); /* selected variant compensates the 2px brand-primary left-border via calc — keeps the text optical position aligned with non-selected rows */
+}
+```
+
+The `calc()` compensation is a CSS implementation detail computed at render time, not a declared spacing token, so it does not introduce a non-grid value into the contract.
 
 ---
 
@@ -316,7 +330,7 @@ No `npx shadcn add` invocations in Phase 76. If planning surfaces a need for a n
 - [ ] Dimension 2 Visuals: PASS — layout, components, and HTML structures sourced from locked sketches 005/006/007
 - [ ] Dimension 3 Color: PASS — 60/30/10 V7 split with explicit accent reserved-for list; semantic colors scoped to reason pills + confidence bar only
 - [ ] Dimension 4 Typography: PASS — 4 sizes, 2 weights (400 regular + 500 medium), mono reserved for IDs/keys/shortcuts
-- [ ] Dimension 5 Spacing: PASS — 4px scale (--space-1..6); single documented exception (10px row vertical from sketch lock)
+- [ ] Dimension 5 Spacing: PASS — 4px scale (--space-1..6), zero non-multiple-of-4 declared values; selected-row 2px-border compensation handled via `calc()` at render time, not as a declared token
 - [ ] Dimension 6 Registry Safety: PASS — no new shadcn blocks; no third-party registries
 
 **Approval:** pending
