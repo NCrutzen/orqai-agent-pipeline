@@ -16,7 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
 import { orchestratorOutputSchema } from "@/lib/automations/debtor-email/coordinator/orchestrator-types";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
-import { loadHandlerEvent } from "@/lib/swarms/registry";
+import { loadSwarmIntents } from "@/lib/swarms/registry";
 
 const ORCHESTRATOR_AGENT_KEY = "debtor-orchestrator-agent";
 const SWARM_TYPE = "debtor-email";
@@ -88,22 +88,57 @@ export const coordinatorOrchestrator = inngest.createFunction(
       });
 
       // 4. Fan-out via inngest.send. Phase 68 (SWRM-02): handler event names
-      // resolve through loadHandlerEvent(swarm_intents). Missing intent ⇒
-      // structured throw (no fallback per D-12). Lookups live inside step.run
-      // so Inngest memoises across replays.
+      // resolve through loadSwarmIntents(swarm_intents). Missing intent ⇒
+      // structured throw (no fallback per D-12). Phase 76 (R-5/Pitfall 6
+      // defensive): when an intent's handler_status is 'placeholder', write
+      // a Kanban human-lane row + continue the loop instead of dispatching
+      // to a non-existent handler. Today this branch is unreachable (the
+      // coordinator no longer fires orchestrator.requested post-Plan 76-03
+      // Task 2), but the check keeps future Stage 3.5 re-enablement
+      // graceful. Lookups live inside step.run so Inngest memoises across
+      // replays.
       for (const h of plan.handlers) {
-        const handler_event = await step.run(
-          `resolve-handler-${h.intent}`,
+        const intentRow = await step.run(
+          `resolve-intent-${h.intent}`,
           async () => {
-            const evt = await loadHandlerEvent(admin, SWARM_TYPE, h.intent);
-            if (!evt) {
-              throw new Error(
-                `no handler for intent "${h.intent}" in swarm "${SWARM_TYPE}"`,
-              );
-            }
-            return evt;
+            const intents = await loadSwarmIntents(admin, SWARM_TYPE);
+            return intents.find((i) => i.intent_key === h.intent) ?? null;
           },
         );
+        if (!intentRow) {
+          throw new Error(
+            `no handler for intent "${h.intent}" in swarm "${SWARM_TYPE}"`,
+          );
+        }
+        if (intentRow.handler_status === "placeholder") {
+          // Phase 76 defensive: Kanban row, do NOT throw, do NOT inngest.send.
+          await step.run(`kanban-no-handler-${h.intent}`, async () => {
+            const { error } = await admin.from("automation_runs").insert({
+              automation: `${SWARM_TYPE}-kanban`,
+              swarm_type: SWARM_TYPE,
+              status: "pending",
+              topic: h.intent,
+              entity: null,
+              result: {
+                kanban_reason: "no_handler",
+                intent: h.intent,
+                email_id,
+                automation_run_id: automation_run_id ?? null,
+                coordinator_run_id: run_id,
+                via: "orchestrator-fanout",
+              },
+              triggered_by: "stage-3-no-handler-fanout",
+            });
+            if (error) {
+              throw new Error(
+                `kanban-no-handler-fanout insert: ${error.message}`,
+              );
+            }
+            await emitAutomationRunStale(admin, `${SWARM_TYPE}-kanban`);
+          });
+          continue;
+        }
+        const handler_event = intentRow.handler_event;
         await step.run(`fan-out-${h.intent}`, async () => {
           await (inngest.send as unknown as SendFn)({
             name: handler_event,
