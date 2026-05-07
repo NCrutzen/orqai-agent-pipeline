@@ -275,11 +275,13 @@ const sampleIntent = (
   intent_key: string,
   handler_event: string,
   handler_agent_key: string | null = null,
+  handler_status: "registered" | "placeholder" = "registered",
 ): SwarmIntentRow => ({
   swarm_type,
   intent_key,
   handler_agent_key,
   handler_event,
+  handler_status,
   requires_orchestration: false,
   created_at: "2026-05-04T00:00:00Z",
   updated_at: "2026-05-04T00:00:00Z",
@@ -407,5 +409,54 @@ describe("Phase 68: loadCanonicalContextShape", () => {
     });
     const got = await loadCanonicalContextShape(admin, "missing");
     expect(got).toBeNull();
+  });
+});
+
+// Phase 76 — handler_status registry column. Stage 3 dispatch checks this
+// before inngest.send. Migration:
+//   supabase/migrations/20260507_phase76_swarm_intents_handler_status.sql
+describe("Phase 76: handler_status row-shape coverage", () => {
+  beforeEach(() => {
+    __resetCacheForTests();
+  });
+
+  it("returns handler_status for each intent row (registered + placeholder)", async () => {
+    const intents = [
+      sampleIntent(
+        "debtor-email",
+        "invoice_copy_request",
+        "debtor-email/invoice_copy_request.requested",
+        "debtor-invoice-copy-agent",
+        "registered",
+      ),
+      sampleIntent(
+        "debtor-email",
+        "address_change",
+        "debtor-email/address_change.requested",
+        null,
+        "placeholder",
+      ),
+      sampleIntent(
+        "debtor-email",
+        "other",
+        "debtor-email/other.requested",
+        null,
+        "placeholder",
+      ),
+    ];
+    const { admin } = makeAdmin({
+      intents: () => ({ data: intents, error: null }),
+    });
+
+    const rows = await loadSwarmIntents(admin, "debtor-email");
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+    expect(
+      rows.every(
+        (r) => r.handler_status === "registered" || r.handler_status === "placeholder",
+      ),
+    ).toBe(true);
+    // At least one of each value flows through unchanged.
+    expect(rows.some((r) => r.handler_status === "registered")).toBe(true);
+    expect(rows.some((r) => r.handler_status === "placeholder")).toBe(true);
   });
 });
