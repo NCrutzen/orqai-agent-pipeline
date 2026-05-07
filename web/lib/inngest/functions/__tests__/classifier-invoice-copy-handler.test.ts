@@ -410,3 +410,21 @@ describe("Phase 70 TELE-01 classifier-invoice-copy-handler Stage 4 failure emits
     expect(failedUpdate).toBeDefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 76: handler_error onFailure capture — RED scaffold.
+// Fails until Plan 06 wires onFailure on classifier-invoice-copy-handler to
+// INSERT a Kanban row (automation_runs status='pending',
+// result.kanban_reason='handler_error') when the handler throws unrecoverably.
+// ---------------------------------------------------------------------------
+
+describe("Phase 76: onFailure → handler_error Kanban row", () => {
+  it("captures createFunction config with onFailure handler that writes Kanban row", () => {
+    // Wave 0 RED — Plan 06 turns GREEN.
+    // Expected: createFunction call config carries an `onFailure` function;
+    // when invoked with (error, event), it calls
+    // admin.from('automation_runs').insert({status:'pending',
+    // result:{kanban_reason:'handler_error', ...}}).
+    expect(false).toBe(true);
+  });
+});

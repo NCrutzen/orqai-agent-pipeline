@@ -43,6 +43,25 @@ import { loadSwarm, loadSwarmNoiseCategories } from "@/lib/swarms/registry";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { numericConfidence } from "@/lib/pipeline-events/types";
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
+import { classify as debtorEmailClassify } from "@/lib/debtor-email/classify";
+
+// Static dispatch map for stage-1 regex modules. The DB column
+// `swarms.stage1_regex_module` selects which module runs; this map
+// resolves the string to a statically-imported handler so the bundler
+// (Webpack/Turbopack on Vercel) can include it in the build. A fully
+// dynamic `await import(swarmRow.stage1_regex_module)` throws
+// "Cannot find module as expression is too dynamic" at runtime — Vite
+// is the only bundler that resolves that pattern, and Vercel is not Vite.
+// Onboarding a new swarm: add an INSERT to `swarms.stage1_regex_module`
+// AND a new line to this map. CI keeps them in sync via the codegen check.
+type Stage1ClassifyFn = (input: {
+  subject: string;
+  from: string;
+  bodySnippet?: string;
+}) => { category: string; matchedRule: string | null };
+const STAGE1_REGEX_MODULES: Record<string, { classify: Stage1ClassifyFn }> = {
+  "@/lib/debtor-email/classify": { classify: debtorEmailClassify as Stage1ClassifyFn },
+};
 
 // D-06 output shape. `reasoning` allowed nullable for telemetry-only field.
 const Stage1OutputSchema = z.object({
@@ -115,16 +134,16 @@ export const classifierScreenWorker = inngest.createFunction(
           matchedRule: null as string | null,
         };
       }
-      // D-04: dynamic import. Errors throw → run fails (D-12). Vite/Vitest
-      // resolves the path through its module graph (test mocks the module
-      // at the canonical alias).
-      const mod = (await import(swarmRow.stage1_regex_module)) as {
-        classify: (input: {
-          subject: string;
-          from: string;
-          bodySnippet: string;
-        }) => { category: string; matchedRule: string | null };
-      };
+      // D-04: registry-keyed static dispatch. The DB string selects the
+      // module; STAGE1_REGEX_MODULES resolves it to a statically-imported
+      // handler so Webpack/Turbopack can bundle it. Errors throw → run
+      // fails (D-12).
+      const mod = STAGE1_REGEX_MODULES[swarmRow.stage1_regex_module];
+      if (!mod) {
+        throw new Error(
+          `stage1_regex_module not registered: "${swarmRow.stage1_regex_module}" — add it to STAGE1_REGEX_MODULES`,
+        );
+      }
       const result = mod.classify({
         subject: subject ?? "",
         // sender_email is not on the classifier/screen.requested payload
