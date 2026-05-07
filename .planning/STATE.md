@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Phase 76 UI-SPEC approved
-last_updated: "2026-05-07T11:27:15.324Z"
-last_activity: 2026-05-05 -- Phase --phase execution started
+stopped_at: Completed 999.4-01-PLAN.md (Wave 0 smoke + RED scaffolds)
+last_updated: "2026-05-07T11:39:08.339Z"
+last_activity: 2026-05-07 -- Phase --phase execution started
 progress:
   total_phases: 54
   completed_phases: 20
   total_plans: 120
-  completed_plans: 93
+  completed_plans: 94
   percent: 78
 ---
 
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** Phase --phase — 71
+**Current focus:** Phase --phase — 999.4
 **Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress (91%), V4.0 partially complete, V6.0 phases 44-45 complete, V7.0 shipped 2026-04-30
 
 ## Current Position
 
-Phase: --phase (71) — EXECUTING
+Phase: --phase (999.4) — EXECUTING
 Plan: 1 of --name
 Milestone: v8.0 Agentic Platform (11 phases, 63-73)
-Last activity: 2026-05-05 -- Phase --phase execution started
+Last activity: 2026-05-07 -- Phase --phase execution started
 
-Progress: [█████████░] 86%
+Progress: [████████░░] 78%
 
 **v8.0 execution order:** 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 **Next action:** `/gsd-verify-work 68`, then `/gsd-discuss-phase 69 --auto`.
@@ -62,6 +62,7 @@ Progress: [█████████░] 86%
 | Phase 70 P06 | 6 | 2 tasks | 3 files |
 | Phase 74 P02 | 10min | 3 tasks | 5 files |
 | Phase 74 P05 | 20m | 3 tasks | 2 files |
+| Phase 999.4 P01 | 2h | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,7 @@ Progress: [█████████░] 86%
 - 66-04: CONS-03 invariant locked via audit-as-artifact (no source-code changes; allowlist captured in summary)
 - Plan 70-06 (Wave 3): Bulk Review loadPageData rewired to pipeline_events for predicted-row feed (sub-queries 2 + 6); cost-outlier RPC stays on automation_runs in v1; D-16 atomic replacement honored.
 - Phase 74-05: sales-email source IS SugarCRM (not Outlook); production zap 'MR || Sales email analyzer' replaces step 3 (Orq direct call) with POST to /api/automations/sales-email/ingest
+- Phase 999.4 Wave 0 smoke PASS — Router transport (A1+A2+A3) confirmed; Wave 1+ proceeds without CONTEXT.md amendment
 
 ### Blockers/Concerns
 
@@ -132,10 +134,10 @@ Progress: [█████████░] 86%
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 76 UI-SPEC approved
+Last session: 2026-05-07T11:39:08.332Z
+Stopped at: Completed 999.4-01-PLAN.md (Wave 0 smoke + RED scaffolds)
 Resume with: `/gsd-execute-phase 65`
-Resume file: --resume-file
+Resume file: None
 
 ## Deferred Items
 

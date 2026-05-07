@@ -1112,7 +1112,7 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 999.4-01-PLAN.md — Wave 0: live Orq Router smoke (gate A1+A2+A3) + RED test scaffolds for client.test, stage-0-safety-worker.test, classifier-screen-worker.test, automation-runs-sweeper.test
+- [x] 999.4-01-PLAN.md — Wave 0: live Orq Router smoke (gate A1+A2+A3) + RED test scaffolds for client.test, stage-0-safety-worker.test, classifier-screen-worker.test, automation-runs-sweeper.test
 - [ ] 999.4-02-PLAN.md — Fix B: OrqClientTimeoutError class + 45s AbortController deadline at the existing invokeOrqAgent fetch boundary; Stage 0 worker try/catch coerces verdict=safe ONLY on OrqClientTimeoutError (D-01..D-04)
 - [ ] 999.4-03-PLAN.md — Fix C: invokeOrqModel sibling helper + 60s system-prompt cache; swap stage-0-safety-classifier and stage-1-category-classifier call sites onto POST /v2/router/chat/completions (D-05..D-08)
 - [ ] 999.4-04-PLAN.md — D-09 cron sweeper: TZ=Europe/Amsterdam */10 6-19 * * 1-5 marks stuck Stage 0 automation_runs failed with result.llm_reason=inngest_cancelled_stale, per-row JSONB merge, register in app/api/inngest/route.ts
