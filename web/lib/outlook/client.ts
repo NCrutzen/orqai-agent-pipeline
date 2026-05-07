@@ -38,9 +38,10 @@ async function graphFetch(
     fetchOptions.body = JSON.stringify(options.body);
   }
 
-  // Retry socket-level failures (UND_ERR_SOCKET, ECONNRESET, fetch failed).
-  // Sequential Graph calls over a warm undici pool occasionally get a dropped
-  // connection mid-pagination; Graph itself is fine on retry.
+  // Retry transient transport failures: socket drops over the undici pool
+  // mid-pagination, plus Zapier-relay 504 ReadTimeouts (Vercel→Zapier→Graph
+  // hop occasionally exceeds the relay's read timeout even when Graph is
+  // healthy). Graph itself is fine on retry in both cases.
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -48,14 +49,21 @@ async function graphFetch(
     } catch (err) {
       lastErr = err;
       const msg = String(err);
+      const e = err as { code?: string; statusCode?: number; name?: string };
       const retriable =
-        /UND_ERR_SOCKET|ECONNRESET|fetch failed|socket hang up|ETIMEDOUT/i.test(msg);
+        /UND_ERR_SOCKET|ECONNRESET|fetch failed|socket hang up|ETIMEDOUT|ReadTimeout/i.test(msg) ||
+        e.code === "ZAPIER_RELAY_ERROR" ||
+        e.statusCode === 504 ||
+        e.statusCode === 502 ||
+        e.statusCode === 503;
       if (!retriable || attempt === 2) break;
       await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
     }
   }
   throw lastErr;
 }
+
+const enc = encodeURIComponent;
 
 export interface OutlookActionResult {
   success: boolean;
@@ -103,7 +111,7 @@ export async function listInboxMessages(
   const filter = options.before
     ? `&$filter=${encodeURIComponent(`receivedDateTime lt ${options.before}`)}`
     : "";
-  let url: string | null = `${GRAPH_BASE}/users/${mailbox}/mailFolders/inbox/messages?$top=${pageSize}&$orderby=receivedDateTime desc&$select=${fields}${filter}`;
+  let url: string | null = `${GRAPH_BASE}/users/${enc(mailbox)}/mailFolders/inbox/messages?$top=${pageSize}&$orderby=receivedDateTime desc&$select=${fields}${filter}`;
 
   const out: OutlookMessage[] = [];
   while (url && out.length < max) {
@@ -156,7 +164,7 @@ export async function getMessageMeta(
 ): Promise<{ subject: string; from: string; fromName: string; receivedAt: string; categories: string[] }> {
   const fields = "id,subject,from,receivedDateTime,categories";
   const res = await graphFetch(
-    `/users/${mailbox}/messages/${messageId}?$select=${fields}`,
+    `/users/${enc(mailbox)}/messages/${enc(messageId)}?$select=${fields}`,
   );
   if (!res.ok) {
     throw new Error(`getMessageMeta ${res.status}: ${await res.text()}`);
@@ -186,7 +194,7 @@ export async function fetchMessageBody(
   messageId: string,
 ): Promise<{ bodyText: string; bodyHtml: string; bodyType: "text" | "html" }> {
   const res = await graphFetch(
-    `/users/${mailbox}/messages/${messageId}?$select=body,uniqueBody`,
+    `/users/${enc(mailbox)}/messages/${enc(messageId)}?$select=body,uniqueBody`,
   );
   if (!res.ok) {
     throw new Error(`fetchMessageBody ${res.status}: ${await res.text()}`);
@@ -233,7 +241,7 @@ export async function categorizeEmail(
 ): Promise<OutlookActionResult> {
   // First get existing categories on the message
   const getRes = await graphFetch(
-    `/users/${mailbox}/messages/${messageId}?$select=categories`,
+    `/users/${enc(mailbox)}/messages/${enc(messageId)}?$select=categories`,
   );
 
   if (!getRes.ok) {
@@ -244,7 +252,7 @@ export async function categorizeEmail(
   const categories = [...new Set([...(msg.categories || []), category])];
 
   // Update with the new category added
-  const res = await graphFetch(`/users/${mailbox}/messages/${messageId}`, {
+  const res = await graphFetch(`/users/${enc(mailbox)}/messages/${enc(messageId)}`, {
     method: "PATCH",
     body: { categories },
   });
@@ -271,7 +279,7 @@ export async function archiveEmail(
     return { success: false, error: "Archive folder not found in mailbox" };
   }
 
-  const res = await graphFetch(`/users/${mailbox}/messages/${messageId}/move`, {
+  const res = await graphFetch(`/users/${enc(mailbox)}/messages/${enc(messageId)}/move`, {
     method: "POST",
     body: { destinationId: folderId },
   });
@@ -294,7 +302,7 @@ async function findFolder(
   // Try well-known name first
   const wellKnown = displayName.toLowerCase().replace(/\s+/g, "");
   const tryRes = await graphFetch(
-    `/users/${mailbox}/mailFolders/${wellKnown}?$select=id`,
+    `/users/${enc(mailbox)}/mailFolders/${enc(wellKnown)}?$select=id`,
   );
 
   if (tryRes.ok) {
@@ -304,7 +312,7 @@ async function findFolder(
 
   // Fall back to searching by display name
   const searchRes = await graphFetch(
-    `/users/${mailbox}/mailFolders?$filter=displayName eq '${displayName}'&$select=id,displayName`,
+    `/users/${enc(mailbox)}/mailFolders?$filter=displayName eq '${displayName}'&$select=id,displayName`,
   );
 
   if (searchRes.ok) {
