@@ -79,6 +79,43 @@ export function ChatUI({ displayName }: { displayName: string }) {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const inputBaseRef = useRef<string>("");
 
+  // Easter egg: triple-click op het MR-logo onthult de credits.
+  // (Voor de nieuwsgierige ontwikkelaar staat ook een ASCII signature in de console.)
+  const [logoClicks, setLogoClicks] = useState(0);
+  const [showCredits, setShowCredits] = useState(false);
+  const logoClickResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleLogoClick() {
+    setLogoClicks((n) => {
+      const next = n + 1;
+      if (next >= 3) {
+        setShowCredits(true);
+        if (logoClickResetRef.current) clearTimeout(logoClickResetRef.current);
+        setTimeout(() => setShowCredits(false), 4500);
+        return 0;
+      }
+      if (logoClickResetRef.current) clearTimeout(logoClickResetRef.current);
+      logoClickResetRef.current = setTimeout(() => setLogoClicks(0), 800);
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    // Console signature — de tweede laag van het easter egg, voor wie devtools opent.
+    if (typeof window !== "undefined") {
+      // eslint-disable-next-line no-console
+      console.log(
+        "%cMR Helper%c\nCrafted with care by %cRon Fraats%c × %cDanny Vaessens%c\nTip: triple-click het Moyne Roberts logo.",
+        "font-weight:bold;font-size:14px;color:#dc4c19",
+        "color:#6c757d",
+        "color:#071c2e;font-weight:bold",
+        "color:#6c757d",
+        "color:#071c2e;font-weight:bold",
+        "color:#6c757d",
+      );
+    }
+  }, []);
+
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
     if (stored === "light" || stored === "dark") {
@@ -253,17 +290,43 @@ export function ChatUI({ displayName }: { displayName: string }) {
 
   return (
     <div
-      className="flex h-screen flex-col"
+      className="relative flex h-screen flex-col"
       style={{ background: t.bg, color: t.text }}
     >
+      {showCredits && (
+        <div
+          className="pointer-events-none fixed left-1/2 top-20 z-50 -translate-x-1/2 animate-[fadein_0.3s_ease-out]"
+          style={{
+            background: theme === "dark" ? "#11202e" : "#071c2e",
+            color: "#ffffff",
+            border: `1px solid ${ORANGE}`,
+            borderRadius: "10px",
+            padding: "14px 22px",
+            boxShadow: "0 18px 50px rgba(7,28,46,0.35)",
+          }}
+        >
+          <div className="flex items-center gap-3 text-sm">
+            <span style={{ color: ORANGE, fontSize: "18px" }}>★</span>
+            <div>
+              <div className="text-xs uppercase tracking-[0.18em]" style={{ color: ORANGE }}>
+                Made by
+              </div>
+              <div className="font-semibold">Ron Fraats × Danny Vaessens</div>
+            </div>
+          </div>
+        </div>
+      )}
       <header
         className="border-b px-6 py-4"
         style={{ borderColor: t.border, background: t.headerBg }}
       >
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <div className="flex items-center gap-4">
-            <div
-              className="rounded px-2 py-1"
+            <button
+              type="button"
+              onClick={handleLogoClick}
+              aria-label="Moyne Roberts"
+              className="rounded px-2 py-1 transition-transform hover:scale-[1.02] active:scale-95"
               style={{ background: t.logoBgPad }}
             >
               <Image
@@ -274,7 +337,7 @@ export function ChatUI({ displayName }: { displayName: string }) {
                 priority
                 className="h-8 w-auto"
               />
-            </div>
+            </button>
             <div
               className="hidden h-6 w-px sm:block"
               style={{ background: t.border }}
@@ -386,14 +449,16 @@ export function ChatUI({ displayName }: { displayName: string }) {
             }}
             onKeyDown={handleKeyDown}
             placeholder={isRecording ? "Aan het luisteren..." : "Stel je vraag..."}
-            rows={1}
+            rows={2}
             disabled={isStreaming}
-            className="flex-1 resize-none rounded-md border px-4 py-3 text-sm focus:outline-none disabled:opacity-50"
+            className="flex-1 rounded-md border px-4 py-3 text-sm focus:outline-none disabled:opacity-50"
             style={{
               borderColor: isRecording ? "#dc3545" : t.border,
               background: t.inputBg,
               color: t.text,
-              maxHeight: "180px",
+              minHeight: "64px",
+              maxHeight: "60vh",
+              resize: "vertical",
             }}
             onFocus={(e) => {
               if (!isRecording) e.currentTarget.style.borderColor = ORANGE;
