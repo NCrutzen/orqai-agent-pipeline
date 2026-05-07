@@ -1135,3 +1135,26 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready to scope)
+
+### Phase 999.4: Stage 0 LLM-verdict timeout / Orq fallback-chain hardening (BACKLOG)
+
+**Goal:** Stage 0 safety-worker's `llm-verdict` step intermittently exceeds Inngest's per-step timeout (~90s observed) when Orq.ai's primary model fails and the fallback chain (Bedrock → Anthropic-direct → Gemini → Mistral) takes over. Orq trace data shows Stage 0 latency tail with outliers at **43s, 58s, 64s, 89s, 105s, 190s, 380s, 498s, 761s, 1052s** (17 minutes!) and Stage 1 outliers at **88s, 165s, 209s, 960s** (16 minutes). When the Orq call eventually completes, the Inngest run has long been Cancelled with `state and stack mismatch: <hash> not found in state; the function has probably ended` — observed 5 times in 2h on 2026-05-07. Result: emails get a stale `automation_runs.status='pending'` row and never advance past Stage 0. Vercel `maxDuration=300` is already set, so Vercel function timeout is NOT the limiting factor.
+
+**Why backlogged:** raised 2026-05-07 while validating the Stage 0 + screen-worker structural fixes (commits `d49b919`, `cf8d29f`). The structural blockers are dead; this is a quality-of-service issue with a known graceful-degradation pattern available. Not blocking ingest end-to-end (most calls complete in 1-2s), but tail latency creates intermittent stuck rows that need cleanup.
+
+**Two fix options** (resolve at /gsd-discuss-phase):
+
+1. **Fix B — Tighten Orq client timeout + graceful degradation in code.** ~15-line change in `web/lib/inngest/functions/stage-0-safety-worker.ts`. Set explicit 45s deadline on `llmInjectionVerdict()`. Wrap `step.run("llm-verdict", ...)` in try/catch. On timeout/error, coerce `verdict='safe'` (let email through; assume non-injection). Mirrors the Phase 74 D-11 pattern already in place for `classifier-screen-worker.ts:226-256`. **Pro:** in-tree fix, deterministic, doesn't depend on Orq dashboard work. **Con:** masks underlying Orq performance issue; one less signal to fix root cause.
+
+2. **Fix C — Tune Orq agent fallback chain.** Inspect `stage-0-safety-classifier` (and `stage-1-category-classifier` — same symptom) in Orq dashboard. Identify which primary model is failing and falling through. Options: pin to a faster, more reliable primary; trim fallback list to 2 hops max; remove cross-region hops. **Pro:** addresses root cause. **Con:** requires Orq dashboard access + monitoring; primary failures may be transient (Bedrock cold-start, regional outage).
+
+**Recommendation:** ship Fix B first (immediate stability) then file Fix C as observability work to track Orq tail latency over time. Both could ship in one phase.
+
+**Related signals** (worth correlating):
+- Pre-existing 405 OData / ZapierRelayError ReadTimeout errors in Vercel logs (different Inngest function, `categorize` step) likely share root cause: Zapier-relayed external calls timing out under load.
+- The 11,758-token Stage 0 outlier suggests body truncation upstream may also be useful.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready to scope)
