@@ -1106,3 +1106,25 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready to scope)
+
+### Phase 999.3: Phase out legacy `source='outlook'` Outlook auto-fetcher for debtor mailboxes (BACKLOG)
+
+**Goal:** Make Zapier the **single, unambiguous trigger** for debtor-email ingest. Today `email_pipeline.emails` has 44k+ rows under `source='outlook'` (the column default), with the most recent debtor-mailbox writes from 2026-04-14 to 04-22 — so the legacy auto-fetcher has been mostly silent for those mailboxes for ~3 weeks but the wiring is still there. Architectural intent (confirmed 2026-05-07): Zapier is the canonical trigger so per-mailbox enable/disable is managed by toggling the Zap, not by code or cron config. The `outlook` ingestion path should be shut down for the 5 debtor mailboxes (smeba, smeba-fire, sicli-noord, sicli-sud, berki) to remove ambiguity.
+
+**Why backlogged:** raised 2026-05-07 while patching the Stage 0 ingest collision (commit `d49b919`). The collision fix unblocks the immediate production issue; this phase removes the latent footgun. Not urgent — the legacy fetcher is already mostly silent — but worth a clean shutdown so the next regression-hunter doesn't lose a day to it.
+
+**Open questions** (resolve at start of /gsd-discuss-phase):
+1. Where does the legacy fetcher live? `web/debtor-email-analyzer/src/fetch-emails.ts` is a CLI (not a cron) that writes without `source` (so rows default to `'outlook'`). Are there other writers? Is anything still calling it?
+2. Are downstream consumers of `source='outlook'` rows (e.g. `web/lib/automations/email-insights/configs/debtor.json` which filters on `source='outlook'`) impacted by switching to `source='zapier-debtor-ingest'`? If yes, decide: rewrite filters, or backfill/migrate the source label.
+3. Sales-email uses `source='sugarcrm'` (34k rows) and is unaffected — confirm scope is debtor-only.
+
+**Recommended staging:**
+1. Audit who/what writes `source='outlook'` for debtor mailboxes today (likely: nobody actively, but verify).
+2. Disable any active writer (cron job / CLI invocation / Zapier task).
+3. Update analyzer filters to read from `source IN ('outlook', 'zapier-debtor-ingest')` for historical continuity, OR backfill old `source='outlook'` debtor rows to a unified label.
+4. Remove the now-dead code path.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready to scope)
