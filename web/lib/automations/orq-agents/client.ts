@@ -17,6 +17,19 @@ const ORQ_BASE_URL = "https://api.orq.ai/v2/agents";
 const REGISTRY_CACHE_TTL_MS = 60_000; // matches zapier_tools cadence
 
 /**
+ * Phase 999.4 Fix C (D-06, D-07) — LLM Router direct-path endpoint.
+ * Bypasses the Orq Agents-product queued path (`/v2/agents/{key}/responses`)
+ * for single-shot JSON classifiers (Stage 0 safety, Stage 1 category).
+ * Trace evidence (CONTEXT.md §trace_evidence) shows 6–17 min stuck rows
+ * are queue-wait inside the Agents product; the Router endpoint does not
+ * queue.
+ */
+const ROUTER_URL = "https://api.orq.ai/v2/router/chat/completions";
+
+/** Per-key system-prompt + registry-row cache TTL (60s). Same cadence as REGISTRY_CACHE_TTL_MS. */
+const SYSTEM_PROMPT_CACHE_TTL_MS = 60_000;
+
+/**
  * Phase 999.4 Fix B (D-01) — client-side hard deadline at the Orq.ai fetch
  * boundary. Replaces per-agent `timeout_ms` for the OUTER deadline so any
  * caller (Stage 0, future agent-product callers) gets a 45s upper bound on
@@ -49,14 +62,21 @@ export class OrqClientTimeoutError extends Error {
 export type OrqAgentRow = {
   agent_key: string;
   orqai_id: string;
-  description: string;
-  swarm_type: string;
-  version: string;
-  input_schema: Record<string, unknown>;
+  description?: string;
+  swarm_type?: string;
+  version?: string;
+  input_schema?: Record<string, unknown>;
   output_schema: Record<string, unknown>;
   model_config: Record<string, unknown>;
-  timeout_ms: number;
+  timeout_ms?: number;
   enabled: boolean;
+  /**
+   * Phase 999.4 Fix C — system prompt cached on the registry row. SSOT remains
+   * Studio (Operations re-syncs into the registry on prompt changes); the
+   * Router-direct path reads from here so we don't make an extra get_agent
+   * HTTP call per invocation.
+   */
+  system_prompt?: string;
 };
 
 let cache: { fetched_at: number; agents: Map<string, OrqAgentRow> } | null =
@@ -244,7 +264,179 @@ export async function invokeOrqAgent(
  */
 export const invokeOrqAgentWithUsage = invokeOrqAgent;
 
+/**
+ * Phase 999.4 Fix C — sibling helper to invokeOrqAgent that hits the LLM
+ * Router direct path. Same `OrqClientTimeoutError` + 45s `AbortController`
+ * deadline as `invokeOrqAgent`, different transport: bypasses the Orq
+ * Agents-product queue.
+ *
+ * Per-agent_key cache (60s TTL) folds the registry row + system_prompt
+ * into one supabase fetch. SSOT for the system prompt remains Studio;
+ * the registry mirrors it. The cache TTL bounds prompt-drift to 60s.
+ *
+ * Throws on:
+ *   - agent not in registry / disabled
+ *   - registry row missing model_config.primary or system_prompt
+ *   - ORQ_API_KEY missing
+ *   - timeout (> CLIENT_DEADLINE_MS) → OrqClientTimeoutError
+ *   - non-2xx response
+ *   - JSON parse failure on choices[0].message.content
+ */
+type AgentByKeyCacheEntry = { row: OrqAgentRow; fetched_at: number };
+const agentByKeyCache = new Map<string, AgentByKeyCacheEntry>();
+
+async function loadAgentByKeyCached(agent_key: string): Promise<OrqAgentRow> {
+  const now = Date.now();
+  const hit = agentByKeyCache.get(agent_key);
+  if (hit && now - hit.fetched_at < SYSTEM_PROMPT_CACHE_TTL_MS) return hit.row;
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("orq_agents")
+    .select(
+      "agent_key, orqai_id, description, swarm_type, version, input_schema, output_schema, model_config, timeout_ms, enabled, system_prompt",
+    )
+    .eq("agent_key", agent_key)
+    .single();
+  if (error) {
+    throw new Error(
+      `orq_agents registry read failed for ${agent_key}: ${error.message}`,
+    );
+  }
+  if (!data) {
+    throw new Error(`orq_agents: agent_key="${agent_key}" not found`);
+  }
+  const row = data as OrqAgentRow;
+  if (!row.enabled) {
+    throw new Error(`orq_agents: agent_key="${agent_key}" is not enabled`);
+  }
+  agentByKeyCache.set(agent_key, { row, fetched_at: now });
+  return row;
+}
+
+export async function invokeOrqModel(
+  agent_key: string,
+  inputs: Record<string, unknown>,
+): Promise<InvokeResult> {
+  if (!ORQ_API_KEY) {
+    throw new Error("ORQ_API_KEY is not set");
+  }
+
+  const agent = await loadAgentByKeyCached(agent_key);
+
+  const mc = (agent.model_config ?? {}) as {
+    primary?: string;
+    fallbacks?: string[];
+    temperature?: number;
+    max_tokens?: number;
+  };
+  const model = mc.primary;
+  if (!model) {
+    throw new Error(
+      `Orq agent ${agent_key} registry row missing model_config.primary`,
+    );
+  }
+
+  const systemPrompt = agent.system_prompt;
+  if (!systemPrompt) {
+    throw new Error(
+      `Orq agent ${agent_key} registry row missing system_prompt — populate via Studio sync before invoking via Router-direct path`,
+    );
+  }
+
+  const requestBody = {
+    model,
+    fallback_models: mc.fallbacks ?? [],
+    temperature: mc.temperature ?? 0,
+    max_tokens: mc.max_tokens ?? 600,
+    messages: [
+      { role: "system" as const, content: systemPrompt },
+      { role: "user" as const, content: JSON.stringify(inputs, null, 2) },
+    ],
+    response_format: {
+      type: "json_schema" as const,
+      json_schema: {
+        name: agent.agent_key.replace(/-/g, "_"),
+        strict: true as const,
+        schema: agent.output_schema,
+      },
+    },
+  };
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CLIENT_DEADLINE_MS);
+  let res: Response;
+  try {
+    res = await fetch(ROUTER_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${ORQ_API_KEY}`,
+      },
+      body: JSON.stringify(requestBody),
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    if ((err as { name?: string } | undefined)?.name === "AbortError") {
+      throw new OrqClientTimeoutError(
+        `Orq router deadline exceeded for ${agent_key} after ${CLIENT_DEADLINE_MS}ms`,
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Orq router invoke ${agent_key} failed: HTTP ${res.status} ${text.slice(0, 200)}`,
+    );
+  }
+  const json = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      total_tokens?: number;
+    };
+  };
+  const rawText = json.choices?.[0]?.message?.content ?? "";
+  if (!rawText) {
+    throw new Error(
+      `Orq router invoke ${agent_key}: empty content in response`,
+    );
+  }
+  const stripped = rawText
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "");
+  let raw: unknown;
+  try {
+    raw = JSON.parse(stripped);
+  } catch (e) {
+    throw new Error(
+      `Orq router invoke ${agent_key}: JSON.parse failed: ${(e as Error).message}`,
+    );
+  }
+
+  return {
+    raw,
+    agent,
+    usage: {
+      prompt_tokens: json.usage?.prompt_tokens ?? 0,
+      completion_tokens: json.usage?.completion_tokens ?? 0,
+      total_tokens: json.usage?.total_tokens ?? 0,
+    },
+    // Router /chat/completions does not currently surface per-call billing.
+    // Documented limitation — see Phase 999.4 Plan 03 SUMMARY.
+    billing: { total_cost: 0 },
+    cost_cents: 0,
+  };
+}
+
 /** Test-only: clear the in-memory registry cache. */
 export function __resetCacheForTests() {
   cache = null;
+  agentByKeyCache.clear();
 }
