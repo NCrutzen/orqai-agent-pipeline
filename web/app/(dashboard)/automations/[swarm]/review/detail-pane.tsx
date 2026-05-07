@@ -606,6 +606,11 @@ export function DetailPane({
       for (const ev of timeline) byStage.set(ev.stage, ev);
 
       const payloads: Array<Record<string, unknown>> = [];
+      // Operator notes flow through as `reason` on every axis payload (the
+      // override-handler stores it on pipeline_events.override.reason). For
+      // stage_4 the existing per-axis reason is the rating rationale — we
+      // keep that behaviour and don't overwrite it with the global notes.
+      const operatorNotes = notes.trim() || undefined;
 
       if (dirty.stage_1) {
         const ev = byStage.get(1);
@@ -617,6 +622,7 @@ export function DetailPane({
           decision: dirty.stage_1.categoryKey,
           decision_details: { category_key: dirty.stage_1.categoryKey },
           eval_type: evalType,
+          reason: operatorNotes,
         });
       }
       if (dirty.stage_2) {
@@ -633,6 +639,7 @@ export function DetailPane({
           },
           eval_type: evalType,
           re_run_downstream: dirty.stage_2.reRun,
+          reason: operatorNotes,
         });
       }
       if (dirty.stage_3) {
@@ -645,6 +652,7 @@ export function DetailPane({
           decision: dirty.stage_3.intentKey,
           decision_details: { intent_key: dirty.stage_3.intentKey },
           eval_type: evalType,
+          reason: operatorNotes,
         });
       }
       if (dirty.stage_4) {
@@ -733,12 +741,43 @@ export function DetailPane({
     evalType,
     dirtyCount,
     submitting,
+    notes,
   ]);
 
   // Click-Submit handler — fires confirm dialog when triggers apply, else
   // submits directly.
   const onClickSubmit = useCallback(() => {
     if (dirtyCount === 0 || submitting) return;
+
+    // Notes gate (2026-05-07). Required when the predicted bucket is unknown
+    // (operator describes the email so we can build a rule for it) OR when
+    // the override is tagged as a regression (notes are the highest-leverage
+    // input for prompt fixes). Mirrors the render-scope `notesRequired`
+    // computation; recomputed here so the validation runs BEFORE we open
+    // any confirmation dialog.
+    if (row) {
+      const result = readResult(row);
+      const stage1Event = effectiveTimeline.find((e) => e.stage === 1);
+      const stage1RuleId =
+        (stage1Event?.decision_details as { regex_rule_id?: string } | null | undefined)
+          ?.regex_rule_id ?? null;
+      const ruleKey = stage1RuleId ?? result.predicted?.rule ?? "no_match";
+      const predictedCategory =
+        result.predicted?.category ?? row.topic ?? "unknown";
+      const isUnknown =
+        predictedCategory === "unknown" || ruleKey === "no_match";
+      const requiresNotes = isUnknown || evalType === "regression";
+      if (requiresNotes && notes.trim().length < 10) {
+        notesRef.current?.focus();
+        toast.error(
+          isUnknown
+            ? "Briefly describe this email so we can build a rule for it"
+            : "Regression overrides need a note — what changed?",
+        );
+        return;
+      }
+    }
+
     // Trigger conditions per UI-SPEC §Confirmation modal:
     //   1. Stage 2 override with re_run_downstream=true.
     //   2. Stage 3 override (always).
@@ -759,7 +798,16 @@ export function DetailPane({
       return;
     }
     void submitOverride();
-  }, [dirty, dirtyCount, submitting, submitOverride]);
+  }, [
+    dirty,
+    dirtyCount,
+    submitting,
+    submitOverride,
+    row,
+    effectiveTimeline,
+    evalType,
+    notes,
+  ]);
 
   useEffect(() => {
     const computeState = () => {
@@ -898,7 +946,12 @@ export function DetailPane({
   const isUnknownBucket =
     predictedCategory === "unknown" || ruleKey === "no_match";
   const hasOverride = !!override;
-  const notesRequired = isUnknownBucket;
+  // Notes required when (a) unknown bucket — we have no rule yet, operator
+  // describes what the email is about — OR (b) regression override — the
+  // highest-leverage data for prompt fixes ("model said X, it's actually Y,
+  // *because…*"). Capability overrides keep notes optional since a brand-new
+  // pattern is often self-evident from the email body.
+  const notesRequired = isUnknownBucket || evalType === "regression";
   const notesValid = !notesRequired || notes.trim().length >= 10;
   const overrideLabel = override
     ? categoryLabelByKey.get(override) ?? override
@@ -1038,6 +1091,59 @@ export function DetailPane({
 
           {dirtyCount > 0 && (
             <>
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="override-notes"
+                  className="text-[14px] font-semibold leading-[1.3] inline-flex items-center gap-1.5"
+                >
+                  Notes
+                  {notesRequired ? (
+                    <span
+                      className="text-[11px] uppercase tracking-wide px-1.5 py-0.5 rounded-[var(--v7-radius-pill)]"
+                      style={{
+                        background: "rgba(255,107,122,0.16)",
+                        color: "var(--v7-red)",
+                      }}
+                    >
+                      required
+                    </span>
+                  ) : (
+                    <span className="text-[12px] font-normal text-[var(--v7-muted)]">
+                      (optional)
+                    </span>
+                  )}
+                </label>
+                <p className="text-[12px] leading-[1.4] text-[var(--v7-muted)]">
+                  {isUnknownBucket
+                    ? "Briefly describe what the email is about — feeds the rule-graduation backlog."
+                    : evalType === "regression"
+                      ? "Why is the model wrong here? Notes on regressions feed prompt fixes."
+                      : "Optional context. New patterns feed the capability backlog."}
+                </p>
+                <Textarea
+                  id="override-notes"
+                  ref={notesRef}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={
+                    notesRequired
+                      ? "Required (≥10 chars)…"
+                      : "Optional context for downstream eval…"
+                  }
+                  rows={3}
+                  maxLength={1000}
+                  aria-required={notesRequired}
+                  aria-invalid={notesRequired && !notesValid}
+                />
+                {notesRequired && !notesValid && notes.length > 0 && (
+                  <p
+                    className="text-[12px] leading-[1.4]"
+                    style={{ color: "var(--v7-red)" }}
+                  >
+                    {`Need at least ${10 - notes.trim().length} more character${10 - notes.trim().length === 1 ? "" : "s"}.`}
+                  </p>
+                )}
+              </div>
               <EvalTypeRadio value={evalType} onChange={setEvalType} />
               <div className="flex items-center justify-end gap-2 mt-2">
                 <Button
@@ -1053,7 +1159,7 @@ export function DetailPane({
                 <Button
                   variant="default"
                   onClick={onClickSubmit}
-                  disabled={submitting || dirtyCount === 0}
+                  disabled={submitting || dirtyCount === 0 || !notesValid}
                   style={{
                     background: "var(--v7-brand-primary)",
                     color: "#fff",
