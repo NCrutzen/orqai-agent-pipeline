@@ -77,7 +77,7 @@ completed: 2026-05-07
 
 1. **Task 1: Backwards-compat middleware (D-05.6)** — `afaab2e` (feat) — TDD: test (in same commit) + impl. 8 unit tests added.
 2. **Task 2: Stage 0 + Stage 1 route wrappers** — `8cbdc3f` (feat).
-3. **Task 3: End-to-end verification + 76-VALIDATION.md** — **PAUSED PENDING USER CONFIRMATION** (live-DB writes required). Non-destructive results captured in 76-VALIDATION.md.
+3. **Task 3: End-to-end verification + 76-VALIDATION.md** — **STILL DEFERRED** after a Round-2 resume attempt (2026-05-07 with `phase-76-verified` user approval). Resume-executor could not reach the live DB: Supabase MCP tools are not bound to the subagent's tool list, `psql` is absent from `$PATH`, no `web/.env.local` exists in this worktree, and the repo isn't linked to a Vercel project. Per orchestrator `<auth>` instruction, the executor stopped without guessing credentials and instead pre-staged the three synthetic Strategy-A INSERTs (with deterministic `result.test_marker` tags), the loader-shape verification SELECTs, and the cleanup DELETE — all appended to 76-VALIDATION.md so a follow-up agent with MCP binding can execute the live-DB pass in one minute.
 
 Out-of-band:
 - `bf6e256` (chore) — log pre-existing safety-review-loader vitest failures to `deferred-items.md`.
