@@ -346,7 +346,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
       // ---- 7b) Phase 76 (low_confidence trigger / D-07 + D-09) -------------
       // The escalation gate decision (low_confidence | high_intent_count |
       // requires_orchestration_flag) writes a Kanban human-lane row instead
-      // of dispatching debtor-email/orchestrator.requested. The orchestrator
+      // of dispatching the orchestrator.requested event. The orchestrator
       // worker stays in the codebase (CONTEXT D-07 — "Things to NOT touch")
       // but is no longer triggered from here. escalation-gate.ts stays a
       // pure function (D-09).
