@@ -983,3 +983,28 @@ v8.0: 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when first UK/IE mailbox lands)
+
+### Phase 999.2: Unified Email Bulk Review surface — cross-swarm inbox with permission scoping (BACKLOG)
+
+**Goal:** Replace the per-swarm `/automations/[swarm]/review` page with a single cross-swarm "Email Inbox" surface aggregating debtor-email + sales-email (+ future email-source swarms), with per-user mailbox-scoped access and review-level gating. Today every email-source swarm has its own review URL; operators with multi-mailbox responsibility have to context-switch. The unified surface gives one queue, with filters, scoped to what each user is allowed to see.
+
+**Open architectural questions** (resolve at start of /gsd-discuss-phase):
+
+1. **Where does the email/non-email boundary live?** Likely a new `swarms.kind` column (`'email' | 'voice' | 'document'`) so the inbox query becomes `WHERE swarms.kind = 'email'`. Future non-email swarms get their own kind without touching the email surface.
+2. **New URL alongside, or replace?** Three options: (A) add `/automations/email/review` and keep `[swarm]/review`; (B) make `[swarm]/review` accept `[swarm]='email'` as a meta-group (one URL pattern, bookmarks survive); (C) full replacement. Recommendation: B for the first ship.
+3. **What does "review level" mean concretely?** Stage gates (Stage-0 safety only vs Stage-1..4 full override)? Action depth (read-only viewer vs approver vs rule-promoter)? Risk classes (low-cost-bucket only)? The data model for permissions depends on the answer.
+4. **Do user/role/mailbox permission tables already exist?** If yes, extend; if no, this becomes a greenfield auth-schema phase. Big difference in scope.
+
+**Recommended staging** (each step independently shippable + revertible):
+
+1. **Migration only** — add `swarms.kind` and `user_mailboxes` (or equivalent) join table, no UI. Backfill data, verify reads.
+2. **Read-only unified inbox** — ship parallel surface (option A above for risk reduction), mailbox filter from `user_mailboxes`, no review-level gating yet, no actions changed.
+3. **Add review-level gating** once levels are defined.
+4. **Deprecate per-swarm surfaces** (or keep as power-user views).
+
+**Why backlogged:** raised 2026-05-07 mid-perf-tuning of the existing surface; not the right time for a structural rewrite. Yesterday's fixes (timeline preload, automation_run_id threading, parallelization, viewport-sized PAGE_SIZE) make the existing surface workable in the meantime.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready to scope)
