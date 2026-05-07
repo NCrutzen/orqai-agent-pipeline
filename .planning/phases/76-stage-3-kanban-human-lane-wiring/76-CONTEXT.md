@@ -28,10 +28,16 @@ Three Kanban-trigger conditions, single lane per swarm, `result.kanban_reason` f
 - **D-02:** Replay does NOT re-run Stage 3. The coordinator's original ranked output stays as the canonical Stage 3 telemetry; the operator's correction is layered on top as an axis-3 override (matches `docs/agentic-pipeline/override-model.md`).
 - **D-03:** Third operator action — **"Reclassify as noise"** — beyond Close and Replay. Drop-down picks one of the 5 active noise keys (`auto_reply`, `ooo_permanent`, `ooo_temporary`, `payment_admittance`, plus an internal `unknown` reset). Writes an axis-1 `pipeline_events` override at `stage=1` with the chosen noise key, fires the existing `categorize_archive` action for that key (Outlook label + archive + queue iController cleanup automation_run), and closes the Kanban row. This action is a Stage 1 LLM precision signal: "the email got through to Kanban but was actually noise — the regex AND the LLM 2nd-pass both missed it." Phase 79's learning loop must surface a count of these per week per noise key as a Stage 1 LLM precision metric.
 
-### UI surface for Kanban rows (Area 2 — discussed)
+### UI surface for Kanban rows (Area 2 — discussed; revised after sketch 005)
 
-- **D-04:** New per-swarm route at `/automations/[swarm]/kanban`. Sibling to the existing `/automations/[swarm]/review` (Bulk Review) page. Bookmarkable, shares the same dynamic `[swarm]` segment + swarm-registry resolution pattern, swarm-scoped via the URL param.
-- **D-05:** Bulk Review and Kanban remain conceptually distinct surfaces with different operator workflows. Bulk Review = noise QA + Stage 1 promotion (the existing surface). Kanban = real work on emails the pipeline couldn't fully resolve. Do NOT mix them on one page — operators have different pull cadences for each.
+> **Revision history:** Sketch 005 (2026-05-07) replaced the original "Bulk Review vs Kanban as distinct surfaces" model with a stage-keyed tab shell. The original D-04 / D-05 are preserved below for audit; the **REVISED** versions are authoritative.
+
+- **D-04 (REVISED):** Per-swarm tab shell at `/automations/[swarm]/stage-N` (path-based) or `/automations/[swarm]?stage=N` (query-string — final choice during planning). Tabs are pipeline stages, not feature names. Stage 0 = existing safety-review surface (today's `?tab=safety`). Stage 1 = today's Bulk Review (default tab) with Pending Promotion as a sub-view (today's `?tab=pending`). Stage 2 = customer-mapping queue (empty today; Phase 77 ships content). Stage 3 = Phase 76's intent triage (low_confidence + no_handler). Stage 4 = Phase 76's handler-error queue. Tab badges show per-stage backlog counts. The swarm-ops dashboard at `/swarm/[swarmId]` stays separate via a small "↗ Swarm operations dashboard" link in the tab strip.
+  - **D-04 (ORIGINAL, superseded):** "New per-swarm route at `/automations/[swarm]/kanban`. Sibling to the existing `/automations/[swarm]/review` (Bulk Review) page."
+- **D-05 (REVISED):** Bulk Review and Kanban are both views of the per-stage operator surface — they're not distinct surfaces. Stage 1 tab carries today's Bulk Review behavior (noise QA + Pending Promotion sub-view). Stage 3 + Stage 4 tabs carry what Phase 76 was originally scoped as "Kanban." "Bulk Review" stops being a UI noun (becomes the operator-action verb on the Stage 1 tab). "Kanban" disappears as a UI label entirely.
+  - **D-05 (ORIGINAL, superseded):** "Bulk Review and Kanban remain conceptually distinct surfaces with different operator workflows."
+- **D-05.5 (NEW):** The tab list is **registry-driven**, not hardcoded per swarm. Which stages render as tabs comes from the `swarms` registry row (e.g. derived from `stage1_regex_module IS NOT NULL`, `stage2_entity_resolver IS NOT NULL`, etc.). Sales-email (Phase 78) inherits the shell by registry insert — no swarm-specific tab list anywhere in the UI code.
+- **D-05.6 (NEW):** Existing `/automations/[swarm]/review`, `?tab=safety`, `?tab=pending` URLs redirect to their stage-keyed equivalents (`/stage-1`, `/stage-0`, `/stage-1?sub=pending` or similar). Old URLs stay alive as backwards-compat aliases for at least one milestone after this ships so existing bookmarks survive the rename.
 - **D-06:** Phase 999.2 (unified email inbox, already in backlog) is the migration target when operator persona / mailbox-scoped permissions / review-level gating are locked. Phase 76 builds the per-swarm shape; consolidation is a separate phase later. Don't pre-build Phase 999.2 inside 76.
 
 ### `low_confidence` trigger vs existing escalation-gate (Area 3 — discussed)
@@ -42,7 +48,7 @@ Three Kanban-trigger conditions, single lane per swarm, `result.kanban_reason` f
 
 ### Per-swarm vs cross-swarm Kanban (Area 4 — discussed)
 
-- **D-10:** Per-swarm only. `/automations/[swarm]/kanban` for each swarm. `swarm_type` filter applied via the URL param against `automation_runs.swarm_type` (column already exists per Phase 75 work).
+- **D-10 (REVISED, follows D-04):** Per-swarm only. The stage-keyed tab shell lives at `/automations/[swarm]/stage-N` (or `?stage=N`) per swarm. Cross-swarm aggregation is Phase 999.2. `swarm_type` filter applied via the URL `[swarm]` segment against `automation_runs.swarm_type` (column already exists per Phase 75 work).
 - **D-11:** Cross-swarm aggregation is Phase 999.2 territory. Phase 76 ships nothing cross-swarm. Operators with multi-mailbox responsibility today open multiple browser tabs; that's acceptable until Phase 999.2 ships.
 
 ### Claude's Discretion
