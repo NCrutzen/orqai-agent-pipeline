@@ -37,23 +37,16 @@ vi.mock("@/lib/pipeline-events/emit", () => ({
 }));
 
 // ---- Orq agent mock ------------------------------------------------------
-// Phase 999.4 Fix C — Stage 1 swapped from invokeOrqAgent to invokeOrqModel.
-// Mock BOTH so the existing T-B-style assertions on invokeOrqAgentMock keep
-// reading the same shape post-swap. We point both at the same vi.fn so a
-// single .mockResolvedValue(...) covers both call sites.
 const invokeOrqAgentMock = vi.fn();
-vi.mock("@/lib/automations/orq-agents/client", () => ({
-  invokeOrqAgent: (...args: unknown[]) => invokeOrqAgentMock(...args),
-  invokeOrqModel: (...args: unknown[]) => invokeOrqAgentMock(...args),
-  // OrqClientTimeoutError is required for the Phase 999.4 T-B5 second
-  // describe block (it overrides this mock with vi.importActual).
-  OrqClientTimeoutError: class OrqClientTimeoutError extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = "OrqClientTimeoutError";
-    }
-  },
-}));
+vi.mock("@/lib/automations/orq-agents/client", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/automations/orq-agents/client")
+  >("@/lib/automations/orq-agents/client");
+  return {
+    ...actual,
+    invokeOrqAgent: (...args: unknown[]) => invokeOrqAgentMock(...args),
+  };
+});
 
 // ---- Regex module mock — debtor-email's classify ------------------------
 // The worker dynamically imports swarmRow.stage1_regex_module at runtime.
@@ -525,32 +518,13 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 // Covers test-map ID T-B5 from RESEARCH.md.
 // ---------------------------------------------------------------------------
 
-import {
-  OrqClientTimeoutError,
-  invokeOrqModel,
-} from "@/lib/automations/orq-agents/client";
+import { OrqClientTimeoutError } from "@/lib/automations/orq-agents/client";
 
-// Re-mock to expose invokeOrqModel as a vitest mock alongside the existing
-// invokeOrqAgent mock. Wave 2 swaps Stage 1 from invokeOrqAgent →
-// invokeOrqModel; the D-11 catch must still coerce category_key='unknown' on
-// timeout.
-// Phase 999.4 Fix C — Stage 1 swapped invokeOrqAgent → invokeOrqModel.
-// Both names route through invokeOrqAgentMock so the first describe block's
-// .mockResolvedValue / .mockRejectedValue setups continue to drive the
-// (now-renamed) call site. T-B5 in the second describe block uses
-// invokeOrqAgentMock.mockRejectedValue(<OrqClientTimeoutError>) and asserts
-// the same `.toHaveBeenCalled` shape — the typed timeout still flows through.
-const invokeOrqModelMock = invokeOrqAgentMock;
-vi.mock("@/lib/automations/orq-agents/client", async () => {
-  const actual = await vi.importActual<
-    typeof import("@/lib/automations/orq-agents/client")
-  >("@/lib/automations/orq-agents/client");
-  return {
-    ...actual,
-    invokeOrqAgent: (...args: unknown[]) => invokeOrqAgentMock(...args),
-    invokeOrqModel: (...args: unknown[]) => invokeOrqAgentMock(...args),
-  };
-});
+// Phase 999.4 ships Plans 02 + 04 only. Plan 03 (Router transport swap) was
+// reverted 2026-05-07 after empirical evidence showed the queue-stuck issue
+// isn't chronic. Stage 1 remains on invokeOrqAgent. The D-11 catch must
+// still coerce category_key='unknown' on OrqClientTimeoutError from that
+// path — which is what this test verifies.
 
 describe("Phase 999.4 — Classifier screen worker — deadline triggers existing D-11 catch (T-B5)", () => {
   let handler: (ctx: unknown) => Promise<unknown>;
@@ -564,7 +538,6 @@ describe("Phase 999.4 — Classifier screen worker — deadline triggers existin
     emitPipelineEventMock.mockReset();
     emitPipelineEventMock.mockResolvedValue(undefined);
     invokeOrqAgentMock.mockReset();
-    invokeOrqModelMock.mockReset();
     classifyMock.mockReset();
     inngestSend.mockReset();
     inngestSend.mockResolvedValue({ ids: ["evt"] });
@@ -577,17 +550,13 @@ describe("Phase 999.4 — Classifier screen worker — deadline triggers existin
     ).handler;
   });
 
-  it("when invokeOrqModel throws OrqClientTimeoutError, D-11 catch coerces to category_key='unknown', confidence='low'", async () => {
+  it("when invokeOrqAgent throws OrqClientTimeoutError, D-11 catch coerces to category_key='unknown', confidence='low'", async () => {
     loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
     loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
 
-    // Wave 2: Stage 1 will use invokeOrqModel. Until then, also mock the
-    // current invokeOrqAgent path with the same timeout so this test is
-    // robust pre/post swap.
     const timeout = new OrqClientTimeoutError(
-      "Orq router deadline exceeded after 45000ms",
+      "Orq client deadline exceeded after 45000ms",
     );
-    invokeOrqModelMock.mockRejectedValue(timeout);
     invokeOrqAgentMock.mockRejectedValue(timeout);
 
     const cache: StepCache = new Map();
@@ -596,13 +565,16 @@ describe("Phase 999.4 — Classifier screen worker — deadline triggers existin
       step: makeStepStub(cache),
     });
 
-    // D-11 catch — agent_runs row records the unknown verdict.
+    // D-11 catch — agent_runs failure row written.
     expect(agentRunsInserts.length).toBe(1);
     const row = agentRunsInserts[0] as {
-      result: { category_key: string; confidence: string };
+      status: string;
+      confidence: string;
+      tool_outputs: { error?: string };
     };
-    expect(row.result.category_key).toBe("unknown");
-    expect(row.result.confidence).toBe("low");
+    expect(row.status).toBe("failed");
+    expect(row.confidence).toBe("low");
+    expect(row.tool_outputs.error).toContain("Orq client deadline exceeded");
 
     // Downstream verdict event carries category_key='unknown'.
     expect(inngestSend).toHaveBeenCalledWith(

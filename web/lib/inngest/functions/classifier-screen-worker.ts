@@ -42,7 +42,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSwarm, loadSwarmNoiseCategories } from "@/lib/swarms/registry";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { numericConfidence } from "@/lib/pipeline-events/types";
-import { invokeOrqModel } from "@/lib/automations/orq-agents/client";
+import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
 import { classify as debtorEmailClassify } from "@/lib/debtor-email/classify";
 
 // Static dispatch map for stage-1 regex modules. The DB column
@@ -185,13 +185,7 @@ export const classifierScreenWorker = inngest.createFunction(
           const id = crypto.randomUUID();
           const inngestRunId = event.id ?? `local-${message_id}`;
           try {
-            // Phase 999.4 Fix C — Router-direct path. invokeOrqModel
-            // bypasses the Agents-product queue and inherits the same 45s
-            // OrqClientTimeoutError deadline. The D-11 catch below already
-            // coerces ANY throw to ('unknown', 'low'); inheriting the
-            // typed timeout means the catch fires on hangs, not just LLM
-            // errors.
-            const result = await invokeOrqModel(
+            const result = await invokeOrqAgent(
               "stage-1-category-classifier",
               {
                 subject: subject ?? "",
@@ -217,14 +211,6 @@ export const classifierScreenWorker = inngest.createFunction(
               status: "predicted",
               confidence: parsed.confidence,
               reasoning: parsed.reasoning,
-              // Phase 999.4 Fix C — explicit `result` jsonb captures the
-              // gated category + confidence in one place so downstream
-              // observers don't have to reconstruct the verdict from
-              // (confidence column) + (tool_outputs.gated_to).
-              result: {
-                category_key: finalKey,
-                confidence: parsed.confidence,
-              },
               tool_outputs: {
                 stage1_category: parsed.category_key,
                 gated_to: finalKey,
@@ -267,14 +253,6 @@ export const classifierScreenWorker = inngest.createFunction(
               confidence: "low",
               reasoning: null,
               error_message: msg,
-              // Phase 999.4 Fix C / D-11 — explicit `result` jsonb mirrors
-              // the success-path shape so consumers can dispatch on
-              // result.category_key uniformly. On failure the gated key is
-              // 'unknown' with confidence='low'.
-              result: {
-                category_key: "unknown",
-                confidence: "low",
-              },
               tool_outputs: { error: msg },
             });
             if (failureInsert.error) {
