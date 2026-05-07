@@ -88,17 +88,42 @@ vi.mock("@/lib/automations/debtor-email/coordinator/agent-runs", () => ({
 }));
 
 const loadCategoriesMock = vi.fn();
-// Phase 68 (SWRM-02): single-shot dispatch routes ranked-intent → handler
-// event via swarm_intents (loadHandlerEvent), not swarm_noise_categories.
-// Default mock mimics the production backfill — pass-through.
-const loadHandlerEventMock = vi.fn(
-  async (_supabase: unknown, _swarmType: string, intent: string) =>
-    `debtor-email/${intent}.requested`,
+// Phase 76: coordinator now reads the FULL swarm_intents row (handler_event +
+// handler_status) via loadSwarmIntents instead of loadHandlerEvent. Default
+// mock returns rows with handler_status='registered' so existing dispatch
+// tests stay GREEN; Phase 76 no_handler tests override per-test with
+// handler_status='placeholder'.
+type IntentRow = {
+  swarm_type: string;
+  intent_key: string;
+  handler_agent_key: string | null;
+  handler_event: string;
+  handler_status: "registered" | "placeholder";
+  requires_orchestration: boolean;
+  created_at: string;
+  updated_at: string;
+};
+const defaultIntentRow = (intent: string): IntentRow => ({
+  swarm_type: "debtor-email",
+  intent_key: intent,
+  handler_agent_key: null,
+  handler_event: `debtor-email/${intent}.requested`,
+  handler_status: "registered",
+  requires_orchestration: false,
+  created_at: "2026-05-07T00:00:00Z",
+  updated_at: "2026-05-07T00:00:00Z",
+});
+const loadSwarmIntentsMock = vi.fn(
+  async (_supabase: unknown, _swarmType: string): Promise<IntentRow[]> => [
+    defaultIntentRow("copy_document_request"),
+    defaultIntentRow("payment_dispute"),
+    defaultIntentRow("address_change"),
+  ],
 );
 vi.mock("@/lib/swarms/registry", () => ({
   loadSwarmNoiseCategories: (...args: unknown[]) => loadCategoriesMock(...args),
-  loadHandlerEvent: (...args: unknown[]) =>
-    (loadHandlerEventMock as unknown as (...a: unknown[]) => unknown)(...args),
+  loadSwarmIntents: (...args: unknown[]) =>
+    (loadSwarmIntentsMock as unknown as (...a: unknown[]) => unknown)(...args),
 }));
 
 const emitStaleMock = vi.fn().mockResolvedValue(undefined);
@@ -264,7 +289,7 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     expect(sendNames.filter((n) => n.endsWith(".requested")).length).toBe(1);
   });
 
-  it("CORD-02 escalation by requires_orchestration flag: emits orchestrator + reason='requires_orchestration_flag'", async () => {
+  it("CORD-02 escalation by requires_orchestration flag: writes Kanban low_confidence row + records reason='requires_orchestration_flag' (Phase 76 D-07)", async () => {
     invokeIntentMock.mockResolvedValueOnce({
       output: {
         ranked: [
@@ -283,11 +308,12 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
 
     await handler({ event: buildEvent(), step: stepStub });
 
+    // Phase 76: orchestrator dispatch is replaced by Kanban write.
     const orchEmits = inngestSend.mock.calls.filter(
       (c) =>
         (c[0] as { name: string }).name === "debtor-email/orchestrator.requested",
     );
-    expect(orchEmits.length).toBe(1);
+    expect(orchEmits.length).toBe(0);
 
     const reasonUpdate = captured.updates.find(
       (u) => u.table === "coordinator_runs" && "escalation_reason" in u.patch,
@@ -295,9 +321,20 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     expect(reasonUpdate?.patch.escalation_reason).toBe(
       "requires_orchestration_flag",
     );
+
+    const kanban = captured.inserts.find(
+      (i) =>
+        i.table === "automation_runs" &&
+        (i.row.result as { kanban_reason?: string } | undefined)
+          ?.kanban_reason === "low_confidence",
+    );
+    expect(kanban).toBeTruthy();
+    expect(
+      (kanban!.row.result as { gate_reason?: string }).gate_reason,
+    ).toBe("requires_orchestration_flag");
   });
 
-  it("CORD-02 escalation by low confidence: emits orchestrator + reason='low_confidence'", async () => {
+  it("CORD-02 escalation by low confidence: writes Kanban low_confidence row + records reason='low_confidence' (Phase 76 D-07)", async () => {
     invokeIntentMock.mockResolvedValueOnce({
       output: {
         ranked: [
@@ -324,12 +361,23 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
       (c) =>
         (c[0] as { name: string }).name === "debtor-email/orchestrator.requested",
     );
-    expect(orchEmits.length).toBe(1);
+    expect(orchEmits.length).toBe(0);
 
     const reasonUpdate = captured.updates.find(
       (u) => u.table === "coordinator_runs" && "escalation_reason" in u.patch,
     );
     expect(reasonUpdate?.patch.escalation_reason).toBe("low_confidence");
+
+    const kanban = captured.inserts.find(
+      (i) =>
+        i.table === "automation_runs" &&
+        (i.row.result as { kanban_reason?: string } | undefined)
+          ?.kanban_reason === "low_confidence",
+    );
+    expect(kanban).toBeTruthy();
+    expect(
+      (kanban!.row.result as { gate_reason?: string }).gate_reason,
+    ).toBe("low_confidence");
   });
 
   it("CORD-04 cache hit: invokeIntentAgent NOT called; dispatch still happens", async () => {
@@ -391,12 +439,15 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     expect(failedUpdate?.patch.error_message).toMatch(/registry boom/);
   });
 
-  // ---- Phase 68 (SWRM-02) -------------------------------------------------
-  it("SWRM-02 single-shot: dispatch event name comes from loadHandlerEvent (registry-driven)", async () => {
-    loadHandlerEventMock.mockReset();
-    loadHandlerEventMock.mockResolvedValueOnce(
-      "debtor-email/custom-router.requested",
-    );
+  // ---- Phase 68 (SWRM-02) — Phase 76 reads full intent row via loadSwarmIntents
+  it("SWRM-02 single-shot: dispatch event name comes from swarm_intents.handler_event (registry-driven)", async () => {
+    loadSwarmIntentsMock.mockReset();
+    loadSwarmIntentsMock.mockResolvedValueOnce([
+      {
+        ...defaultIntentRow("copy_document_request"),
+        handler_event: "debtor-email/custom-router.requested",
+      },
+    ]);
     invokeIntentMock.mockResolvedValueOnce({
       output: {
         ranked: [
@@ -419,25 +470,26 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
 
     await handler({ event: buildEvent(), step: stepStub });
 
-    expect(loadHandlerEventMock).toHaveBeenCalledWith(
+    expect(loadSwarmIntentsMock).toHaveBeenCalledWith(
       expect.anything(),
       "debtor-email",
-      "copy_document_request",
     );
     const sendNames = inngestSend.mock.calls.map(
       (c) => (c[0] as { name: string }).name,
     );
     expect(sendNames).toContain("debtor-email/custom-router.requested");
-    // Restore default mock for downstream tests in the same describe block.
-    loadHandlerEventMock.mockImplementation(
-      async (_supabase: unknown, _swarmType: string, intent: string) =>
-        `debtor-email/${intent}.requested`,
+    loadSwarmIntentsMock.mockImplementation(
+      async (_supabase: unknown, _swarmType: string) => [
+        defaultIntentRow("copy_document_request"),
+        defaultIntentRow("payment_dispute"),
+        defaultIntentRow("address_change"),
+      ],
     );
   });
 
   it("SWRM-02 single-shot: missing swarm_intents row → structured throw + mark-failed", async () => {
-    loadHandlerEventMock.mockReset();
-    loadHandlerEventMock.mockResolvedValueOnce(null);
+    loadSwarmIntentsMock.mockReset();
+    loadSwarmIntentsMock.mockResolvedValueOnce([]);
     invokeIntentMock.mockResolvedValueOnce({
       output: {
         ranked: [
@@ -469,9 +521,12 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     );
     expect(failedUpdate).toBeDefined();
 
-    loadHandlerEventMock.mockImplementation(
-      async (_supabase: unknown, _swarmType: string, intent: string) =>
-        `debtor-email/${intent}.requested`,
+    loadSwarmIntentsMock.mockImplementation(
+      async (_supabase: unknown, _swarmType: string) => [
+        defaultIntentRow("copy_document_request"),
+        defaultIntentRow("payment_dispute"),
+        defaultIntentRow("address_change"),
+      ],
     );
   });
 });
@@ -485,33 +540,250 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
 // ---------------------------------------------------------------------------
 
 describe("Phase 76: no_handler trigger", () => {
-  it('writes Kanban row when intent.handler_status === "placeholder"', () => {
-    // Wave 0 RED — Plan 03 turns GREEN.
-    // Expected: coordinator INSERTs into automation_runs with status='pending'
-    // and result.kanban_reason='no_handler' when the dispatched intent's
-    // swarm_intents.handler_status is 'placeholder'.
-    expect(false).toBe(true);
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    captured.inserts.length = 0;
+    captured.updates.length = 0;
+    supabaseMock = makeSupabaseMock();
+    loadSwarmIntentsMock.mockReset();
+    loadSwarmIntentsMock.mockImplementation(
+      async (_supabase: unknown, _swarmType: string) => [
+        {
+          ...defaultIntentRow("address_change"),
+          handler_status: "placeholder",
+        },
+      ],
+    );
+    vi.resetModules();
+    const mod = await import("../debtor-email-coordinator");
+    handler = (mod.debtorEmailCoordinator as unknown as { handler: typeof handler })
+      .handler;
   });
 
-  it('does NOT call inngest.send when handler_status === "placeholder"', () => {
-    // Wave 0 RED — Plan 03 turns GREEN.
-    // Expected: zero inngest.send calls for handler_event when registry says
-    // the handler is a placeholder; Kanban row replaces dispatch.
-    expect(false).toBe(true);
+  it('writes Kanban row when intent.handler_status === "placeholder"', async () => {
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          { intent: "address_change", confidence: "high", ...baseRanked },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("address_change", false),
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const kanban = captured.inserts.find(
+      (i) =>
+        i.table === "automation_runs" &&
+        (i.row.result as { kanban_reason?: string } | undefined)
+          ?.kanban_reason === "no_handler",
+    );
+    expect(kanban).toBeTruthy();
+    expect(kanban!.row.automation).toBe("debtor-email-kanban");
+    expect(kanban!.row.swarm_type).toBe("debtor-email");
+    expect(kanban!.row.status).toBe("pending");
+    expect(kanban!.row.topic).toBe("address_change");
+    expect(kanban!.row.triggered_by).toBe("stage-3-no-handler");
+    const result = kanban!.row.result as Record<string, unknown>;
+    expect(result.intent).toBe("address_change");
+    expect(result.email_id).toBe("email-1");
+  });
+
+  it('does NOT call inngest.send when handler_status === "placeholder"', async () => {
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          { intent: "address_change", confidence: "high", ...baseRanked },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("address_change", false),
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const sendNames = inngestSend.mock.calls.map(
+      (c) => (c[0] as { name: string }).name,
+    );
+    expect(sendNames).not.toContain("debtor-email/address_change.requested");
+    expect(sendNames).not.toContain("debtor-email/orchestrator.requested");
+  });
+
+  it("registered handler_status (regression): inngest.send fires, no no_handler Kanban row", async () => {
+    loadSwarmIntentsMock.mockReset();
+    loadSwarmIntentsMock.mockImplementation(
+      async (_supabase: unknown, _swarmType: string) => [
+        defaultIntentRow("address_change"),
+      ],
+    );
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          { intent: "address_change", confidence: "high", ...baseRanked },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("address_change", false),
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const sendNames = inngestSend.mock.calls.map(
+      (c) => (c[0] as { name: string }).name,
+    );
+    expect(sendNames).toContain("debtor-email/address_change.requested");
+
+    const noHandlerKanban = captured.inserts.find(
+      (i) =>
+        i.table === "automation_runs" &&
+        (i.row.result as { kanban_reason?: string } | undefined)
+          ?.kanban_reason === "no_handler",
+    );
+    expect(noHandlerKanban).toBeFalsy();
   });
 });
 
 describe("Phase 76: low_confidence trigger", () => {
-  it('writes Kanban row when escalation-gate decision.kind === "orchestrator"', () => {
-    // Wave 0 RED — Plan 04 turns GREEN.
-    // Expected: when the escalation gate returns an orchestrator decision,
-    // coordinator INSERTs Kanban row with kanban_reason='low_confidence'
-    // INSTEAD of dispatching debtor-email/orchestrator.requested.
-    expect(false).toBe(true);
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    captured.inserts.length = 0;
+    captured.updates.length = 0;
+    supabaseMock = makeSupabaseMock();
+    loadSwarmIntentsMock.mockReset();
+    loadSwarmIntentsMock.mockImplementation(
+      async (_supabase: unknown, _swarmType: string) => [
+        defaultIntentRow("copy_document_request"),
+        defaultIntentRow("payment_dispute"),
+        defaultIntentRow("address_change"),
+      ],
+    );
+    vi.resetModules();
+    const mod = await import("../debtor-email-coordinator");
+    handler = (mod.debtorEmailCoordinator as unknown as { handler: typeof handler })
+      .handler;
   });
 
-  it("does NOT dispatch debtor-email/orchestrator.requested", () => {
-    // Wave 0 RED — Plan 04 turns GREEN.
-    expect(false).toBe(true);
+  it('writes Kanban row when escalation-gate decision.kind === "orchestrator" (low_confidence)', async () => {
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          {
+            intent: "copy_document_request",
+            confidence: "low",
+            ...baseRanked,
+          },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("copy_document_request", false),
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const kanban = captured.inserts.find(
+      (i) =>
+        i.table === "automation_runs" &&
+        (i.row.result as { kanban_reason?: string } | undefined)
+          ?.kanban_reason === "low_confidence",
+    );
+    expect(kanban).toBeTruthy();
+    expect(kanban!.row.automation).toBe("debtor-email-kanban");
+    expect(kanban!.row.triggered_by).toBe("stage-3-low-confidence");
+    const result = kanban!.row.result as Record<string, unknown>;
+    expect(result.gate_reason).toBe("low_confidence");
+    expect(Array.isArray(result.ranked)).toBe(true);
+  });
+
+  it('writes Kanban row with gate_reason=high_intent_count when ranked.length>=3', async () => {
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          { intent: "copy_document_request", confidence: "high", ...baseRanked },
+          { intent: "payment_dispute", confidence: "high", ...baseRanked },
+          { intent: "address_change", confidence: "high", ...baseRanked },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("copy_document_request", false),
+      buildCategory("payment_dispute", false),
+      buildCategory("address_change", false),
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const kanban = captured.inserts.find(
+      (i) =>
+        i.table === "automation_runs" &&
+        (i.row.result as { kanban_reason?: string } | undefined)
+          ?.kanban_reason === "low_confidence",
+    );
+    expect(kanban).toBeTruthy();
+    expect(
+      (kanban!.row.result as { gate_reason?: string }).gate_reason,
+    ).toBe("high_intent_count");
+  });
+
+  it("does NOT dispatch debtor-email/orchestrator.requested", async () => {
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          {
+            intent: "copy_document_request",
+            confidence: "low",
+            ...baseRanked,
+          },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("copy_document_request", false),
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const sendNames = inngestSend.mock.calls.map(
+      (c) => (c[0] as { name: string }).name,
+    );
+    expect(sendNames).not.toContain("debtor-email/orchestrator.requested");
   });
 });

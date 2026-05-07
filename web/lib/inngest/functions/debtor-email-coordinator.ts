@@ -30,7 +30,7 @@ import {
   INTENT_VERSION_V2,
   type IntentAgentOutputV2,
 } from "@/lib/automations/debtor-email/coordinator/types";
-import { loadSwarmNoiseCategories, loadHandlerEvent } from "@/lib/swarms/registry";
+import { loadSwarmNoiseCategories, loadSwarmIntents } from "@/lib/swarms/registry";
 import { evaluateEscalationGate } from "@/lib/automations/debtor-email/coordinator/escalation-gate";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
@@ -242,15 +242,68 @@ export const debtorEmailCoordinator = inngest.createFunction(
         // operator-override path (still consulted at line 196 for category
         // routing), swarm_intents is the Stage 3 ranked-intent path here.
         const top = output.ranked[0];
-        const handler_event = await step.run("resolve-handler-event", async () => {
-          const evt = await loadHandlerEvent(supabase, SWARM_TYPE, top.intent);
-          if (!evt) {
-            throw new Error(
-              `no swarm_intents row for (${SWARM_TYPE}, ${top.intent}) — verify Phase 68 migration applied`,
-            );
-          }
-          return evt;
+        const intent = await step.run("resolve-intent-row", async () => {
+          const intents = await loadSwarmIntents(supabase, SWARM_TYPE);
+          return intents.find((i) => i.intent_key === top.intent) ?? null;
         });
+        if (!intent) {
+          throw new Error(
+            `no swarm_intents row for (${SWARM_TYPE}, ${top.intent}) — verify Phase 68 migration applied`,
+          );
+        }
+
+        // Phase 76 (no_handler trigger): when the resolved intent's
+        // handler_status is 'placeholder', no Stage 4 worker is registered.
+        // Write a Kanban human-lane row instead of dispatching to a
+        // non-existent handler. Closes the silent-dead-letter loop for the
+        // 8-of-9 placeholder intents.
+        if (intent.handler_status === "placeholder") {
+          await step.run("kanban-no-handler", async () => {
+            const { error } = await supabase.from("automation_runs").insert({
+              automation: `${SWARM_TYPE}-kanban`,
+              swarm_type: SWARM_TYPE,
+              status: "pending",
+              topic: top.intent,
+              entity,
+              result: {
+                kanban_reason: "no_handler",
+                intent: top.intent,
+                confidence: top.confidence,
+                email_id,
+                automation_run_id: automation_run_id ?? null,
+                coordinator_run_id: run_id,
+              },
+              triggered_by: "stage-3-no-handler",
+            });
+            if (error) {
+              throw new Error(`kanban-no-handler insert: ${error.message}`);
+            }
+            await emitAutomationRunStale(supabase, `${SWARM_TYPE}-kanban`);
+          });
+          await step.run("mark-coordinator-deferred", async () => {
+            const { error } = await supabase
+              .from("coordinator_runs")
+              .update({
+                completed_at: new Date().toISOString(),
+                completed_handlers: 0,
+              })
+              .eq("run_id", run_id);
+            if (error) {
+              throw new Error(
+                `mark-coordinator-deferred: ${error.message}`,
+              );
+            }
+            await emitAutomationRunStale(supabase, "debtor-email-review");
+          });
+          return {
+            run_id,
+            email_id,
+            decision: "kanban_no_handler" as const,
+            intent: top.intent,
+          };
+        }
+
+        const handler_event = intent.handler_event;
 
         await step.run("dispatch-single-shot", async () => {
           await (inngest.send as unknown as DynamicSend)({
@@ -290,31 +343,55 @@ export const debtorEmailCoordinator = inngest.createFunction(
         };
       }
 
-      // ---- 7b) Orchestrator dispatch ---------------------------------------
-      // Plan 04's orchestrator function listens on this event, runs the
-      // planner agent, and updates coordinator_runs.expected_handlers to N
-      // before fanning out per-intent handlers.
-      await step.run("dispatch-orchestrator", async () => {
-        await (inngest.send as unknown as DynamicSend)({
-          name: "debtor-email/orchestrator.requested",
-          data: {
-            run_id,
-            email_id,
-            automation_run_id,
+      // ---- 7b) Phase 76 (low_confidence trigger / D-07 + D-09) -------------
+      // The escalation gate decision (low_confidence | high_intent_count |
+      // requires_orchestration_flag) writes a Kanban human-lane row instead
+      // of dispatching debtor-email/orchestrator.requested. The orchestrator
+      // worker stays in the codebase (CONTEXT D-07 — "Things to NOT touch")
+      // but is no longer triggered from here. escalation-gate.ts stays a
+      // pure function (D-09).
+      await step.run("kanban-low-confidence", async () => {
+        const { error } = await supabase.from("automation_runs").insert({
+          automation: `${SWARM_TYPE}-kanban`,
+          swarm_type: SWARM_TYPE,
+          status: "pending",
+          topic: output.ranked[0].intent,
+          entity,
+          result: {
+            kanban_reason: "low_confidence",
+            // decision.reason field name verified against
+            // EscalationDecision union in escalation-gate.ts:14-22.
+            gate_reason: decision.reason,
             ranked: output.ranked,
-            language: output.language,
-            urgency: output.urgency,
-            escalation_reason: decision.reason,
-            budget_run_id,
-            swarm_type: SWARM_TYPE,
+            email_id,
+            automation_run_id: automation_run_id ?? null,
+            coordinator_run_id: run_id,
           },
+          triggered_by: "stage-3-low-confidence",
         });
+        if (error) {
+          throw new Error(`kanban-low-confidence insert: ${error.message}`);
+        }
+        await emitAutomationRunStale(supabase, `${SWARM_TYPE}-kanban`);
+      });
+      await step.run("mark-coordinator-deferred-orch", async () => {
+        const { error } = await supabase
+          .from("coordinator_runs")
+          .update({
+            completed_at: new Date().toISOString(),
+            completed_handlers: 0,
+          })
+          .eq("run_id", run_id);
+        if (error) {
+          throw new Error(`mark-coordinator-deferred-orch: ${error.message}`);
+        }
+        await emitAutomationRunStale(supabase, "debtor-email-review");
       });
 
       return {
         run_id,
         email_id,
-        decision: "orchestrator" as const,
+        decision: "kanban_low_confidence" as const,
         escalation_reason: decision.reason,
       };
     } catch (err) {
