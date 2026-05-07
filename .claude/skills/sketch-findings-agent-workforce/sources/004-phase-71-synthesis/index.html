@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 004 — Phase 71 synthesis (V7 tokens, recipient filter, N-stage scaling)</title>
+<link rel="stylesheet" href="../themes/v7.css" />
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; }
+
+  /* === Toolbar above the variant body === */
+  .toolbar {
+    background: var(--bg-2); border-bottom: 1px solid var(--border);
+    padding: var(--space-3) var(--space-5);
+    display: flex; align-items: center; gap: var(--space-4);
+  }
+  .toolbar h1 { font-size: var(--fs-md); font-weight: 600; }
+  .toolbar h1 .swarm { color: var(--text-muted); font-weight: 400; margin-left: var(--space-2); }
+  .toolbar .grow { flex: 1; }
+
+  /* === Recipient filter chip strip (NEW per feedback) === */
+  .recipient-strip {
+    display: flex; gap: var(--space-2); align-items: center;
+    padding: var(--space-3) var(--space-5);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .recipient-strip .label {
+    color: var(--text-dim); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    padding-right: var(--space-2); white-space: nowrap;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px 4px 8px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    font-size: var(--fs-sm); color: var(--text-muted);
+    cursor: pointer; transition: all 0.12s; white-space: nowrap;
+  }
+  .chip:hover { background: var(--bg-hover); color: var(--text); }
+  .chip.active {
+    background: var(--brand-secondary-soft);
+    border-color: var(--brand-secondary);
+    color: var(--brand-secondary);
+  }
+  .chip .count {
+    font-family: var(--font-mono); font-size: 10px;
+    background: rgba(255,255,255,0.06); color: inherit;
+    padding: 1px 6px; border-radius: var(--radius-pill);
+  }
+  .chip.active .count { background: rgba(105,168,255,0.18); }
+  .chip .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--blue);
+  }
+  .chip[data-color="lime"] .dot { background: var(--lime); }
+  .chip[data-color="amber"] .dot { background: var(--amber); }
+  .chip[data-color="pink"] .dot { background: var(--pink); }
+  .chip[data-color="teal"] .dot { background: var(--teal); }
+
+  /* === Two-pane page === */
+  .page { flex: 1; display: grid; grid-template-columns: 1fr 480px; overflow: hidden; }
+  .list { padding: var(--space-4) var(--space-5); overflow: auto; }
+  .detail {
+    border-left: 1px solid var(--border);
+    background: var(--bg-2);
+    overflow: auto;
+  }
+
+  /* === List header === */
+  .col-head {
+    display: grid; grid-template-columns: 200px 280px 1fr 84px 70px;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    color: var(--text-dim); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    align-items: center;
+  }
+  .col-head .stages-head { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+
+  /* === Predicted row (002A reskinned + recipient column) === */
+  .row {
+    display: grid; grid-template-columns: 200px 280px 1fr 84px 70px;
+    gap: var(--space-3); align-items: center;
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-2);
+    cursor: pointer; transition: all 0.12s;
+  }
+  .row:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .row.selected { border-color: var(--brand-secondary); background: var(--bg-selected); }
+
+  /* Recipient cell — NEW */
+  .recipient {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs); color: var(--text-muted);
+    overflow: hidden;
+  }
+  .recipient .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .recipient[data-color="blue"] .dot { background: var(--blue); }
+  .recipient[data-color="lime"] .dot { background: var(--lime); }
+  .recipient[data-color="amber"] .dot { background: var(--amber); }
+  .recipient[data-color="pink"] .dot { background: var(--pink); }
+  .recipient[data-color="teal"] .dot { background: var(--teal); }
+  .recipient .addr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .from-meta .from { font-weight: 500; font-size: var(--fs-base); }
+  .from-meta .subj { color: var(--text-muted); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .stage {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px; font-size: var(--fs-xs); line-height: 1.3;
+    position: relative; overflow: hidden;
+  }
+  .stage .lbl { color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; }
+  .stage .val { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: 11px; }
+  .stage.overridden { border-color: var(--override); background: var(--override-soft); }
+  .stage.overridden::after {
+    content: "↻"; position: absolute; right: 6px; top: 4px;
+    color: var(--override); font-size: 11px;
+  }
+  .stage.skipped { opacity: 0.4; }
+
+  .cost { font-family: var(--font-mono); color: var(--text-muted); font-size: var(--fs-sm); text-align: right; }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: var(--radius-pill);
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+    text-align: center;
+  }
+  .pill.regression { background: var(--danger-soft); color: var(--danger); }
+  .pill.capability { background: var(--success-soft); color: var(--success); }
+
+  /* === Detail pane (003C reskinned + N-stage data-driven) === */
+  .detail-head {
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-2);
+  }
+  .detail-head .from { font-weight: 500; }
+  .detail-head .meta { color: var(--text-muted); font-size: var(--fs-xs); font-family: var(--font-mono); margin-top: 4px; }
+  .detail-head .subj { font-size: var(--fs-md); margin-top: var(--space-2); }
+  .detail-head .body {
+    margin-top: var(--space-3); padding: var(--space-3);
+    background: var(--bg-panel); border-radius: var(--radius-sm);
+    color: var(--text-muted); font-size: var(--fs-sm);
+  }
+
+  .detail-section { padding: var(--space-5); }
+  .detail-section h3 {
+    font-size: var(--fs-md); margin-bottom: var(--space-4);
+    display: flex; align-items: baseline; gap: var(--space-2);
+  }
+  .detail-section h3 .stage-count {
+    color: var(--text-dim); font-weight: 400; font-size: var(--fs-xs);
+    font-family: var(--font-mono);
+  }
+
+  /* Vertical pipeline — N-stage capable */
+  .flow { position: relative; padding-left: 44px; }
+  .flow::before {
+    content: ""; position: absolute; left: 15px; top: 14px; bottom: 14px;
+    width: 2px; background: var(--border);
+  }
+  .step { position: relative; margin-bottom: var(--space-4); }
+  .step .node {
+    position: absolute; left: -44px; top: 0;
+    width: 30px; height: 30px;
+    border-radius: 50%; background: var(--bg-panel); border: 2px solid var(--border);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+    z-index: 2;
+  }
+  .step.dirty .node { border-color: var(--override); background: var(--override-soft); color: var(--override); }
+  .step.ok .node { border-color: var(--lime); color: var(--lime); }
+
+  .step .title { font-weight: 500; margin-bottom: 2px; display: flex; gap: var(--space-2); align-items: baseline; }
+  .step .title .axis { color: var(--text-dim); font-weight: 400; font-size: var(--fs-xs); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; }
+  .step .current { color: var(--text-muted); font-size: var(--fs-sm); font-family: var(--font-mono); margin-bottom: var(--space-2); }
+  .step .control {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3);
+    color: var(--text-dim); font-size: var(--fs-sm);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .step.dirty .control { border-color: var(--override); background: var(--bg-panel); padding: var(--space-3) var(--space-4); }
+  .step .control a { color: var(--brand-secondary); text-decoration: none; font-size: var(--fs-xs); }
+  .step .control a:hover { color: var(--brand-primary); }
+
+  /* Form controls inside dirty step */
+  .field { margin-bottom: var(--space-3); }
+  .field:last-child { margin-bottom: 0; }
+  .field label { display: block; color: var(--text-muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .field input, .field textarea, .field select {
+    width: 100%; padding: 8px 10px;
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); font-size: var(--fs-sm); color: var(--text);
+  }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: var(--brand-secondary); }
+  .toggle { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: var(--fs-sm); }
+
+  /* eval-type bar */
+  .eval-bar {
+    margin-top: var(--space-4); padding: var(--space-4);
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .eval-bar h4 { font-size: var(--fs-sm); margin-bottom: var(--space-3); }
+  .eval-radios { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+  .eval-radio {
+    padding: var(--space-3); background: var(--bg-2);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    cursor: pointer; transition: all 0.12s;
+  }
+  .eval-radio.selected { border-color: var(--brand-primary); background: var(--brand-primary-soft); }
+  .eval-radio .head { display: flex; align-items: center; gap: var(--space-2); margin-bottom: 4px; font-weight: 500; font-size: var(--fs-sm); }
+  .eval-radio .desc { color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.4; }
+
+  .submit-bar {
+    margin-top: var(--space-4); display: flex; gap: var(--space-2); justify-content: flex-end;
+    padding-top: var(--space-4); border-top: 1px solid var(--border);
+  }
+  .btn { padding: 8px 16px; border-radius: var(--radius-sm); font-size: var(--fs-sm); font-weight: 500; }
+  .btn.primary { background: var(--brand-primary); color: white; }
+  .btn.primary:hover { background: #ff7d4f; }
+  .btn.ghost { color: var(--text-muted); }
+  .btn.ghost:hover { color: var(--text); background: var(--bg-hover); }
+
+  /* Variant switch (4-stage current vs 6-stage future) */
+  .scale-toggle {
+    display: inline-flex; gap: 0; align-items: center;
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 2px;
+  }
+  .scale-toggle button {
+    padding: 4px 10px; font-size: var(--fs-xs);
+    color: var(--text-muted); border-radius: 6px; font-family: var(--font-mono);
+  }
+  .scale-toggle button.active { background: var(--bg-2); color: var(--text); }
+
+  /* Pre-built rows for 5/6-stage demo of detail pane */
+  .scale-demo-note {
+    margin-top: var(--space-4); padding: var(--space-3) var(--space-4);
+    background: var(--brand-secondary-soft); border-radius: var(--radius-sm);
+    color: var(--brand-secondary); font-size: var(--fs-xs);
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>Bulk Review <span class="swarm">/automations/debtor-email/review</span></h1>
+  <div class="grow"></div>
+  <div class="scale-toggle" title="Render detail pane with 4 stages (current) or 6 stages (future swarm)">
+    <button class="active" onclick="setStages(4, this)">4 stages</button>
+    <button onclick="setStages(6, this)">6 stages</button>
+  </div>
+</div>
+
+<!-- Recipient inbox filter strip — answers the per-recipient filtering need -->
+<div class="recipient-strip">
+  <span class="label">Inbox</span>
+  <span class="chip active" data-color="blue"><span class="dot"></span>All <span class="count">847</span></span>
+  <span class="chip" data-color="lime"><span class="dot"></span>debiteuren@smeba.nl <span class="count">512</span></span>
+  <span class="chip" data-color="amber"><span class="dot"></span>debiteuren@iccafe.nl <span class="count">204</span></span>
+  <span class="chip" data-color="pink"><span class="dot"></span>finance@belgie.smeba.be <span class="count">98</span></span>
+  <span class="chip" data-color="teal"><span class="dot"></span>finance@iccafe-france.fr <span class="count">33</span></span>
+</div>
+
+<div class="page">
+  <!-- ============ List ============ -->
+  <section class="list">
+    <div class="col-head">
+      <div>Inbox · received</div>
+      <div>From / Subject</div>
+      <div class="stages-head"><div>S1 · category</div><div>S2 · customer</div><div>S3 · intent</div><div>S4 · output</div></div>
+      <div style="text-align:right">Cost</div>
+      <div style="text-align:center">Tag</div>
+    </div>
+
+    <div class="row selected">
+      <div class="recipient" data-color="lime"><span class="dot"></span><span class="addr">debiteuren@smeba.nl</span></div>
+      <div class="from-meta">
+        <div class="from">facturen@klantbedrijf.nl</div>
+        <div class="subj">Re: Factuur 2026-04812 — kopie aub</div>
+      </div>
+      <div class="stages">
+        <div class="stage"><div class="lbl">S1</div><div class="val">invoice_request</div></div>
+        <div class="stage overridden"><div class="lbl">S2</div><div class="val">Klantbedrijf BV</div></div>
+        <div class="stage"><div class="lbl">S3</div><div class="val">invoice_copy_handler</div></div>
+        <div class="stage"><div class="lbl">S4</div><div class="val">draft → iC#4812</div></div>
+      </div>
+      <div class="cost">€0.024</div>
+      <div><span class="pill regression">reg</span></div>
+    </div>
+
+    <div class="row">
+      <div class="recipient" data-color="amber"><span class="dot"></span><span class="addr">debiteuren@iccafe.nl</span></div>
+      <div class="from-meta">
+        <div class="from">no-reply@bouwbedrijf.com</div>
+        <div class="subj">Out-of-office: terug op 12 mei</div>
+      </div>
+      <div class="stages">
+        <div class="stage overridden"><div class="lbl">S1</div><div class="val">noise (was inv.)</div></div>
+        <div class="stage skipped"><div class="lbl">S2</div><div class="val">—</div></div>
+        <div class="stage skipped"><div class="lbl">S3</div><div class="val">—</div></div>
+        <div class="stage skipped"><div class="lbl">S4</div><div class="val">—</div></div>
+      </div>
+      <div class="cost">€0.003</div>
+      <div><span class="pill capability">cap</span></div>
+    </div>
+
+    <div class="row">
+      <div class="recipient" data-color="lime"><span class="dot"></span><span class="addr">debiteuren@smeba.nl</span></div>
+      <div class="from-meta">
+        <div class="from">administratie@zorgcentrum-noord.nl</div>
+        <div class="subj">Vraag over openstaand saldo Q1</div>
+      </div>
+      <div class="stages">
+        <div class="stage"><div class="lbl">S1</div><div class="val">balance_inquiry</div></div>
+        <div class="stage"><div class="lbl">S2</div><div class="val">Zorgcentrum Noord</div></div>
+        <div class="stage overridden"><div class="lbl">S3</div><div class="val">balance_handler</div></div>
+        <div class="stage overridden"><div class="lbl">S4</div><div class="val">quality 2/5</div></div>
+      </div>
+      <div class="cost">€0.041</div>
+      <div><span class="pill regression">reg</span></div>
+    </div>
+
+    <div class="row">
+      <div class="recipient" data-color="pink"><span class="dot"></span><span class="addr">finance@belgie.smeba.be</span></div>
+      <div class="from-meta">
+        <div class="from">m.dejong@klant.nl</div>
+        <div class="subj">betaling onderweg, excuses voor de vertraging</div>
+      </div>
+      <div class="stages">
+        <div class="stage"><div class="lbl">S1</div><div class="val">payment_promise</div></div>
+        <div class="stage"><div class="lbl">S2</div><div class="val">M. de Jong</div></div>
+        <div class="stage"><div class="lbl">S3</div><div class="val">payment_promise</div></div>
+        <div class="stage"><div class="lbl">S4</div><div class="val">draft → iC#4781</div></div>
+      </div>
+      <div class="cost">€0.019</div>
+      <div></div>
+    </div>
+
+    <div class="row">
+      <div class="recipient" data-color="teal"><span class="dot"></span><span class="addr">finance@iccafe-france.fr</span></div>
+      <div class="from-meta">
+        <div class="from">comptabilite@partenaire.fr</div>
+        <div class="subj">Demande de duplicata facture FR-2026-0334</div>
+      </div>
+      <div class="stages">
+        <div class="stage"><div class="lbl">S1</div><div class="val">invoice_request</div></div>
+        <div class="stage"><div class="lbl">S2</div><div class="val">Partenaire SARL</div></div>
+        <div class="stage"><div class="lbl">S3</div><div class="val">invoice_copy_handler</div></div>
+        <div class="stage"><div class="lbl">S4</div><div class="val">draft → iC#0334</div></div>
+      </div>
+      <div class="cost">€0.022</div>
+      <div></div>
+    </div>
+  </section>
+
+  <!-- ============ Detail (data-driven N-stage) ============ -->
+  <aside class="detail">
+    <div class="detail-head">
+      <div class="from">facturen@klantbedrijf.nl</div>
+      <div class="meta">→ debiteuren@smeba.nl · 2026-05-04 14:23 · #email-9f2c</div>
+      <div class="subj">Re: Factuur 2026-04812 — kopie aub</div>
+      <div class="body">Onze administratie kan factuur 2026-04812 niet vinden. Kun je deze opnieuw sturen?</div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Pipeline overrides <span class="stage-count" id="stage-count">4 stages</span></h3>
+
+      <div class="flow" id="flow"></div>
+
+      <div class="eval-bar">
+        <h4>Eval type <span class="dim" style="font-weight:400; font-size:var(--fs-xs)">— applied to every overridden stage</span></h4>
+        <div class="eval-radios">
+          <div class="eval-radio selected" onclick="pickEval(this)">
+            <div class="head"><span class="pill regression">regression</span> Used to work</div>
+            <div class="desc">Worked correctly before the most recent model/prompt change.</div>
+          </div>
+          <div class="eval-radio" onclick="pickEval(this)">
+            <div class="head"><span class="pill capability">capability</span> New pattern</div>
+            <div class="desc">Never handled correctly before, or a brand-new case.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="submit-bar">
+        <button class="btn ghost">Cancel</button>
+        <button class="btn primary">Submit override (1 stage dirty)</button>
+      </div>
+
+      <div class="scale-demo-note" id="scale-note" style="display:none">
+        ⓘ This is a hypothetical 6-stage future swarm — Phase 71 ships 4 stages.
+        The vertical pipeline + connecting line scale to N stages because the layout is rendered
+        from a data array; no design rework needed when Stage 5/6 are added.
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="sketch-toolbar">
+  <span class="badge">SKETCH 004</span>
+  <span>phase-71-synthesis</span>
+</div>
+
+<script>
+// Drive the flow from a data array — proves the layout scales to N stages
+const STAGES_4 = [
+  { num: 1, axis: "stage_1_category", title: "Category", current: "invoice_request", state: "ok" },
+  { num: 2, axis: "stage_2_customer", title: "Customer", current: "— (no match) → Klantbedrijf BV", state: "dirty",
+    body: `<div class="field"><label>Corrected customer</label><input type="text" value="Klantbedrijf BV" /></div>
+           <div class="field" style="margin-bottom:0"><label class="toggle"><input type="checkbox" /> Re-run downstream stages with corrected customer</label></div>` },
+  { num: 3, axis: "stage_3_intent", title: "Intent", current: "invoice_copy_handler", state: "ok" },
+  { num: 4, axis: "stage_4_handler_output", title: "Output", current: "draft → iController #4812", state: "ok" },
+];
+
+// Hypothetical 6-stage future swarm (e.g. add Stage 5 = compliance check, Stage 6 = cross-entity reconciliation)
+const STAGES_6 = [
+  { num: 1, axis: "stage_1_category", title: "Category", current: "invoice_request", state: "ok" },
+  { num: 2, axis: "stage_2_customer", title: "Customer", current: "— (no match) → Klantbedrijf BV", state: "dirty",
+    body: `<div class="field"><label>Corrected customer</label><input type="text" value="Klantbedrijf BV" /></div>
+           <div class="field" style="margin-bottom:0"><label class="toggle"><input type="checkbox" /> Re-run downstream stages with corrected customer</label></div>` },
+  { num: 3, axis: "stage_3_intent", title: "Intent", current: "invoice_copy_handler", state: "ok" },
+  { num: 4, axis: "stage_4_handler_output", title: "Handler output", current: "draft → iController #4812", state: "ok" },
+  { num: 5, axis: "stage_5_compliance", title: "Compliance check", current: "passed (GDPR + AVG)", state: "ok" },
+  { num: 6, axis: "stage_6_cross_entity", title: "Cross-entity reconciliation", current: "pending — 2/3 entities matched", state: "dirty",
+    body: `<div class="field"><label>Resolution</label>
+           <select><option>Skip reconciliation</option><option>Manual match</option><option>Defer to AR team</option></select></div>` },
+];
+
+function renderFlow(stages) {
+  const flow = document.getElementById('flow');
+  flow.innerHTML = stages.map(s => `
+    <div class="step ${s.state}">
+      <div class="node">${s.num}</div>
+      <div class="title">Stage ${s.num} — ${s.title} <span class="axis">${s.axis}</span></div>
+      <div class="current">Current: ${s.current}</div>
+      <div class="control">
+        ${s.state === 'dirty'
+          ? `<div style="width:100%">${s.body}</div>`
+          : `<span>✓ Looks correct</span><a href="#" onclick="event.preventDefault()">override stage</a>`}
+      </div>
+    </div>
+  `).join('');
+}
+
+function setStages(n, btn) {
+  document.querySelectorAll('.scale-toggle button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('stage-count').textContent = `${n} stages`;
+  document.getElementById('scale-note').style.display = (n === 6) ? 'block' : 'none';
+  renderFlow(n === 6 ? STAGES_6 : STAGES_4);
+  const dirty = (n === 6 ? STAGES_6 : STAGES_4).filter(s => s.state === 'dirty').length;
+  document.querySelector('.btn.primary').textContent = `Submit override (${dirty} stage${dirty===1?'':'s'} dirty)`;
+}
+
+function pickEval(el) {
+  el.parentElement.querySelectorAll('.eval-radio').forEach(x => x.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// Recipient chip filter — visual only, demonstrates the affordance
+document.querySelectorAll('.recipient-strip .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.recipient-strip .chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+  });
+});
+
+renderFlow(STAGES_4);
+</script>
+</body>
+</html>

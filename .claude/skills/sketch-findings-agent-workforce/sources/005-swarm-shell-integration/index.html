@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 005 — Swarm shell integration (3 surfaces, 3 nav patterns)</title>
+<link rel="stylesheet" href="../themes/v7.css" />
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+
+  /* ===== Sketch toolbar ===== */
+  .sketch-toolbar {
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    padding: var(--space-3) var(--space-5);
+    display: flex; align-items: center; gap: var(--space-4);
+    font-size: var(--fs-sm);
+  }
+  .sketch-toolbar h1 { font-size: var(--fs-md); font-weight: 600; margin: 0; }
+  .sketch-toolbar h1 .meta { color: var(--text-muted); font-weight: 400; margin-left: var(--space-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
+  .sketch-toolbar .grow { flex: 1; }
+  .sketch-toolbar .question { color: var(--text-muted); }
+  .sketch-toolbar .question strong { color: var(--text); }
+
+  /* ===== Variant tabs ===== */
+  .variant-tabs {
+    display: flex;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 var(--space-5);
+  }
+  .variant-tabs button {
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: var(--space-3) var(--space-4);
+    font-family: var(--font-sans);
+    font-size: var(--fs-base);
+    cursor: pointer;
+    transition: color 120ms, border-color 120ms;
+  }
+  .variant-tabs button:hover { color: var(--text); }
+  .variant-tabs button.active { color: var(--text); border-bottom-color: var(--brand-primary); font-weight: 500; }
+  .variant-tabs .star { color: var(--brand-primary); font-size: var(--fs-md); margin-right: 2px; }
+
+  /* ===== Variant body ===== */
+  .variant-body { flex: 1; overflow: auto; padding: 0; display: none; }
+  .variant-body.active { display: block; }
+
+  /* ===== Mock browser chrome to make nav patterns legible ===== */
+  .browser-chrome {
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    padding: var(--space-2) var(--space-4);
+    display: flex; align-items: center; gap: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+  }
+  .browser-chrome .url {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 999px;
+    flex: 1;
+    color: var(--text);
+  }
+
+  /* ===== Variant A: three top-level routes ===== */
+  .top-nav {
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: stretch;
+    padding: 0 var(--space-5);
+    gap: var(--space-2);
+  }
+  .top-nav a {
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--fs-base);
+    border-bottom: 2px solid transparent;
+    display: flex; align-items: center; gap: var(--space-2);
+  }
+  .top-nav a:hover { color: var(--text); }
+  .top-nav a.current { color: var(--text); border-bottom-color: var(--brand-primary); font-weight: 500; }
+  .top-nav .badge { background: var(--brand-primary-soft); color: var(--brand-primary); font-size: var(--fs-xs); padding: 1px 6px; border-radius: 999px; font-family: var(--font-mono); }
+  .top-nav .swarm-name { padding: var(--space-3) var(--space-4); color: var(--text); font-weight: 600; font-family: var(--font-display); margin-right: var(--space-3); border-right: 1px solid var(--border); }
+
+  /* ===== Variant B: tab-based shell ===== */
+  .b-header {
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    padding: var(--space-4) var(--space-5);
+  }
+  .b-header h2 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+  .b-header .sub { color: var(--text-muted); font-size: var(--fs-sm); margin-top: 2px; font-family: var(--font-mono); }
+  .b-tab-strip {
+    display: flex;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 var(--space-5);
+  }
+  .b-tab-strip a {
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--fs-base);
+    border-bottom: 2px solid transparent;
+    display: flex; align-items: center; gap: var(--space-2);
+  }
+  .b-tab-strip a:hover { color: var(--text); }
+  .b-tab-strip a.current { color: var(--text); border-bottom-color: var(--brand-primary); font-weight: 500; }
+  .b-tab-strip .badge { background: var(--brand-primary-soft); color: var(--brand-primary); font-size: var(--fs-xs); padding: 1px 6px; border-radius: 999px; font-family: var(--font-mono); }
+  .b-tab-strip .meta-link {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: var(--fs-xs);
+    padding: var(--space-3) var(--space-2);
+    text-decoration: underline;
+  }
+
+  /* ===== Variant C: unified swarm dashboard ===== */
+  .c-header { background: var(--bg-2); border-bottom: 1px solid var(--border); padding: var(--space-5); }
+  .c-header h2 { margin: 0 0 var(--space-2) 0; font-family: var(--font-display); font-size: 28px; font-weight: 700; }
+  .c-section-nav {
+    display: flex; gap: var(--space-2); margin-top: var(--space-3);
+  }
+  .c-section-nav a {
+    padding: 6px 12px; border-radius: 999px;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text-muted); text-decoration: none;
+    font-size: var(--fs-sm);
+  }
+  .c-section-nav a.current { background: var(--brand-primary); color: var(--text-inverse); border-color: var(--brand-primary); font-weight: 600; }
+
+  /* ===== Page mock content (shared) ===== */
+  .page-content { padding: var(--space-5); }
+  .mock-section {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: var(--space-4); margin-bottom: var(--space-4);
+  }
+  .mock-section h3 {
+    margin: 0 0 var(--space-3) 0;
+    font-family: var(--font-display);
+    font-size: var(--fs-lg);
+    font-weight: 600;
+  }
+  .mock-section h3 .small { color: var(--text-muted); font-weight: 400; font-size: var(--fs-sm); margin-left: var(--space-2); }
+  .mock-section .placeholder {
+    background: var(--bg); border: 1px dashed var(--border);
+    border-radius: 6px; padding: var(--space-4) var(--space-5);
+    color: var(--text-dim); font-size: var(--fs-sm); text-align: center;
+    font-family: var(--font-mono);
+  }
+  .pseudo-row {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--fs-sm);
+  }
+  .pseudo-row:last-child { border-bottom: none; }
+  .pseudo-row .pill {
+    font-size: var(--fs-xs); padding: 2px 8px; border-radius: 999px;
+    font-family: var(--font-mono);
+  }
+  .pseudo-row .pill.no-handler { background: var(--blue-soft); color: var(--blue); }
+  .pseudo-row .pill.low-conf { background: var(--amber-soft); color: var(--amber); }
+  .pseudo-row .pill.error { background: var(--red-soft); color: var(--red); }
+  .pseudo-row .subject { color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pseudo-row .meta { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-xs); }
+
+  /* ===== Annotation footer ===== */
+  .variant-note {
+    margin: var(--space-4) var(--space-5);
+    padding: var(--space-4);
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-left: 3px solid var(--brand-primary);
+    border-radius: 6px;
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+  }
+  .variant-note h4 { margin: 0 0 var(--space-2) 0; font-size: var(--fs-base); color: var(--text); }
+  .variant-note p { margin: 0; color: var(--text-muted); }
+  .variant-note .pros, .variant-note .cons { margin-top: var(--space-2); }
+  .variant-note .pros::before { content: "✓ "; color: var(--success); }
+  .variant-note .cons::before { content: "✗ "; color: var(--danger); }
+</style>
+</head>
+<body>
+
+<div class="sketch-toolbar">
+  <h1>Sketch 005 <span class="meta">phase-76 · swarm-shell-integration</span></h1>
+  <div class="grow"></div>
+  <div class="question">Design question: <strong>How do the three operator surfaces (swarm-ops, Bulk Review, Email Kanban) navigate together?</strong></div>
+</div>
+
+<div class="variant-tabs">
+  <button onclick="showVariant('A', this)">Variant A · Three top-level routes</button>
+  <button class="active" onclick="showVariant('B', this)"><span class="star">★</span>Variant B · Tab-shell, stage-keyed</button>
+  <button onclick="showVariant('C', this)">Variant C · Unified at /swarm/[swarmId]</button>
+</div>
+
+<!-- =========================================================== -->
+<!-- VARIANT A — Three top-level routes, shared top nav           -->
+<!-- =========================================================== -->
+<div id="variant-A" class="variant-body">
+  <div class="browser-chrome">
+    <span>←</span><span>→</span>
+    <div class="url">agent-workforce.app / <strong style="color:var(--text)">automations/debtor-email/kanban</strong></div>
+  </div>
+
+  <div class="top-nav">
+    <span class="swarm-name">Debtor Email</span>
+    <a href="#" title="Engineer view: orchestrator-level swarm health">⚙ Operations</a>
+    <a href="#" title="Noise QA + Stage 1 promotion">📥 Bulk Review <span class="badge">12</span></a>
+    <a href="#" class="current" title="Unhandled-intent triage (Phase 76)">📋 Kanban <span class="badge">7</span></a>
+  </div>
+
+  <div class="page-content">
+    <div class="mock-section">
+      <h3>📋 Email Kanban <span class="small">7 unhandled-intent emails awaiting human</span></h3>
+      <div class="pseudo-row"><span class="pill no-handler">no_handler</span><span class="subject">Re: Factuur 17341388 — credit_request</span><span class="meta">smeba · 12 min ago</span></div>
+      <div class="pseudo-row"><span class="pill low-conf">low_confidence</span><span class="subject">Vraag over openstaande factuur</span><span class="meta">berki · 38 min ago</span></div>
+      <div class="pseudo-row"><span class="pill error">handler_error</span><span class="subject">Re: address change — kostenplaats</span><span class="meta">smeba · 1h ago</span></div>
+      <div class="pseudo-row"><span class="pill no-handler">no_handler</span><span class="subject">Peppol activatie aanvraag</span><span class="meta">smeba-fire · 2h ago</span></div>
+    </div>
+  </div>
+
+  <div class="variant-note">
+    <h4>Variant A — Three top-level routes, shared top nav</h4>
+    <p>Each surface keeps its own URL. <code>/swarm/[swarmId]</code> stays the engineer/admin orchestrator dashboard. <code>/automations/[swarm]/review</code> stays Bulk Review. <code>/automations/[swarm]/kanban</code> is the new Phase 76 surface. A swarm-scoped top navigation (rendered by a layout above all three) lets operators switch between them; the active surface is highlighted.</p>
+    <div class="pros">Bookmarks survive (each surface has a stable URL). Smallest re-architecture — Phase 76 just adds a new route + a new nav link in the swarm layout. Phase 999.2's "unified email inbox" is a single nav-link consolidation later. Clear surface separation in the URL: anyone reading a Slack link knows what they're getting.</div>
+    <div class="cons">The three surfaces still feel like three apps glued together. Operators with multi-surface tasks switch context. <code>/swarm/[swarmId]</code> uses a different visual language (hero blocks, briefing, delegation graph) than <code>/automations/[swarm]/*</code> (top-of-page header + grid).</div>
+  </div>
+</div>
+
+<!-- =========================================================== -->
+<!-- VARIANT B — Tab shell at /automations/[swarm]                -->
+<!-- =========================================================== -->
+<div id="variant-B" class="variant-body active">
+  <div class="browser-chrome">
+    <span>←</span><span>→</span>
+    <div class="url">agent-workforce.app / <strong style="color:var(--text)">automations/debtor-email/stage-3</strong></div>
+  </div>
+
+  <div class="b-header">
+    <h2>Debtor Email</h2>
+    <div class="sub">debiteuren@smeba.nl · debiteuren@berki.com · debiteuren@smeba-fire.be</div>
+  </div>
+
+  <div class="b-tab-strip">
+    <a href="#" title="Stage 0 — input safety / injection escalations">Stage 0 · Safety <span class="badge">0</span></a>
+    <a href="#" title="Stage 1 — noise filter QA + Pending Promotion sub-view">Stage 1 · Noise <span class="badge">12</span></a>
+    <a href="#" title="Stage 2 — customer mapping (Phase 77 ships content)">Stage 2 · Customer <span class="badge">0</span></a>
+    <a href="#" class="current" title="Stage 3 — intent triage (low_confidence + no_handler)">Stage 3 · Intent <span class="badge">7</span></a>
+    <a href="#" title="Stage 4 — handler errors (only fires when a handler exists)">Stage 4 · Handler <span class="badge">2</span></a>
+    <a href="#" class="meta-link">↗ Swarm operations dashboard</a>
+  </div>
+
+  <div class="page-content">
+    <div class="mock-section">
+      <h3>Stage 3 · Intent triage <span class="small">7 emails awaiting human classification or routing</span></h3>
+      <div class="pseudo-row"><span class="pill no-handler">no_handler</span><span class="subject">Re: Factuur 17341388 — credit_request</span><span class="meta">smeba · 12 min ago</span></div>
+      <div class="pseudo-row"><span class="pill low-conf">low_confidence</span><span class="subject">Vraag over openstaande factuur</span><span class="meta">berki · 38 min ago</span></div>
+      <div class="pseudo-row"><span class="pill no-handler">no_handler</span><span class="subject">Peppol activatie aanvraag</span><span class="meta">smeba-fire · 2h ago</span></div>
+      <div class="pseudo-row"><span class="pill low-conf">low_confidence</span><span class="subject">Re: niet correcte tenaamstelling</span><span class="meta">smeba · 3h ago</span></div>
+    </div>
+    <div class="mock-section" style="opacity:0.55;">
+      <h3>(when Stage 1 tab is active) <span class="small">Today's Bulk Review main view + Pending Promotion sub-view</span></h3>
+      <div class="placeholder">Sub-view tabs inside Stage 1: <strong>Predicted (12)</strong> · <strong>Pending Promotion (3)</strong> · <strong>Auto-actioned (audit, last 24h)</strong></div>
+    </div>
+  </div>
+
+  <div class="variant-note">
+    <h4>★ Variant B (winner, refined) — Tab shell, stage-keyed</h4>
+    <p>One per-swarm operator surface at <code>/automations/[swarm]/stage-N</code> (or <code>?stage=N</code>). Tabs are pipeline stages, not feature names. <strong>Stage 0</strong> = existing safety-review surface. <strong>Stage 1</strong> = today's Bulk Review (noise QA) with Pending Promotion as a sub-view. <strong>Stage 2</strong> = customer-mapping (empty today, Phase 77 ships content). <strong>Stage 3</strong> = Phase 76's intent triage (low_confidence + no_handler). <strong>Stage 4</strong> = Phase 76's handler-error surface. Tab badges show per-stage backlog. The swarm-ops dashboard at <code>/swarm/[swarmId]</code> stays separate via a small "↗ Swarm operations dashboard" link.</p>
+    <div class="pros">UI mental model = pipeline architecture. Operators learn one taxonomy. Phase 77 (Stage 2 verification) and Phase 79 (learning loop, cuts by stage) inherit the same axis. Phase 78 (sales-email) gets the same shell by registry insert. Cleans up the existing UI inconsistency where ?tab=safety + ?tab=pending mixed concerns under "Bulk Review". Empty tabs (Stage 0/2 today) are signal, not noise — "the pipeline is doing its job at this stage."</div>
+    <div class="cons">Revises CONTEXT.md D-04 (was: per-swarm /automations/[swarm]/kanban) and D-05 (was: Bulk Review and Kanban distinct surfaces) — both should be updated inline. Existing /automations/[swarm]/review URLs need a redirect to /automations/[swarm]/stage-1 (or stay backwards-compat as an alias). "Bulk Review" disappears as a UI noun; existing internal docs reference it. Tab list must be registry-driven (which stages this swarm uses), not hardcoded per swarm.</div>
+  </div>
+</div>
+
+<!-- =========================================================== -->
+<!-- VARIANT C — Unified at /swarm/[swarmId], add operator section -->
+<!-- =========================================================== -->
+<div id="variant-C" class="variant-body">
+  <div class="browser-chrome">
+    <span>←</span><span>→</span>
+    <div class="url">agent-workforce.app / <strong style="color:var(--text)">swarm/60c730a3-...</strong></div>
+  </div>
+
+  <div class="c-header">
+    <h2>Debtor Email</h2>
+    <p style="margin: 0; color: var(--text-muted); font-size: var(--fs-sm);">Outlook ingest → 5-stage pipeline → iController + Outlook side-effects</p>
+    <div class="c-section-nav">
+      <a href="#" title="Briefing + delegation graph + jobs Kanban + timeline + terminal">⚙ Operations</a>
+      <a href="#" title="Phase 76: noise QA on emails">📥 Bulk Review <span style="font-family:var(--font-mono); font-size:var(--fs-xs); margin-left:4px;">(12)</span></a>
+      <a href="#" class="current" title="Phase 76: unhandled-intent triage">📋 Email Kanban <span style="font-family:var(--font-mono); font-size:var(--fs-xs); margin-left:4px;">(7)</span></a>
+    </div>
+  </div>
+
+  <div class="page-content">
+    <div class="mock-section">
+      <h3>📋 Email Kanban <span class="small">7 unhandled-intent emails · operator triage</span></h3>
+      <div class="pseudo-row"><span class="pill no-handler">no_handler</span><span class="subject">Re: Factuur 17341388 — credit_request</span><span class="meta">smeba · 12 min ago</span></div>
+      <div class="pseudo-row"><span class="pill low-conf">low_confidence</span><span class="subject">Vraag over openstaande factuur</span><span class="meta">berki · 38 min ago</span></div>
+      <div class="pseudo-row"><span class="pill error">handler_error</span><span class="subject">Re: address change — kostenplaats</span><span class="meta">smeba · 1h ago</span></div>
+    </div>
+
+    <div class="mock-section">
+      <h3>(when Operations section is active) <span class="small">existing Briefing + DelegationGraph + Jobs Kanban + Timeline + Terminal</span></h3>
+      <div class="placeholder">[BriefingPanel + DelegationGraph + KanbanBoard&lt;swarm_jobs&gt; + SwimlaneTimeline + TerminalStream]<br>(today's /swarm/[swarmId] content unchanged)</div>
+    </div>
+  </div>
+
+  <div class="variant-note">
+    <h4>Variant C — Unified swarm dashboard at /swarm/[swarmId]</h4>
+    <p>The existing <code>/swarm/[swarmId]</code> becomes the home for everything. A pill-button section nav switches between <strong>⚙ Operations</strong> (today's briefing + delegation graph + jobs Kanban + timeline + terminal — engineer-focused) and the new <strong>📥 Bulk Review</strong> + <strong>📋 Email Kanban</strong> sections (Phase 76 — operator-focused). The URL stays <code>/swarm/[swarmId]?section=kanban</code> or with a hash. <code>/automations/[swarm]/*</code> routes either redirect to this shell or are removed entirely.</p>
+    <div class="pros">Single URL per swarm — easiest to reason about, easiest to share. Engineer + operator views in one place. The "swarm" mental model becomes the central anchor. Future surfaces (cost dashboards, agent runs viewer, etc.) drop in as new sections.</div>
+    <div class="cons">Significant re-architecture: Bulk Review's existing routes (with cursor pagination, ?selected=, ?topic= filters, etc.) all migrate to the section-nav pattern. Existing bookmarks break. Engineer + operator audiences see overlapping nav even when one of the modes is irrelevant to them. Different visual densities (engineer dashboard is dense + multi-section; operator surfaces are typically focused + single-task) clash on one shell. <strong>Highest risk for Phase 76's timebox.</strong></div>
+  </div>
+</div>
+
+<script>
+function showVariant(letter, btn) {
+  document.querySelectorAll('.variant-tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.variant-body').forEach(v => v.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('variant-' + letter).classList.add('active');
+}
+</script>
+</body>
+</html>

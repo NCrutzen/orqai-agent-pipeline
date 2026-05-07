@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 007 — Row action affordances (Replay / Reclassify / Close)</title>
+<link rel="stylesheet" href="../themes/v7.css" />
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+
+  .sketch-toolbar {
+    background: var(--bg-2); border-bottom: 1px solid var(--border);
+    padding: var(--space-3) var(--space-5);
+    display: flex; align-items: center; gap: var(--space-4);
+    font-size: var(--fs-sm);
+  }
+  .sketch-toolbar h1 { font-size: var(--fs-md); font-weight: 600; margin: 0; }
+  .sketch-toolbar h1 .meta { color: var(--text-muted); font-weight: 400; margin-left: var(--space-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
+  .sketch-toolbar .grow { flex: 1; }
+  .sketch-toolbar .question { color: var(--text-muted); }
+  .sketch-toolbar .question strong { color: var(--text); }
+
+  .variant-tabs {
+    display: flex; background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 0 var(--space-5);
+  }
+  .variant-tabs button {
+    background: transparent; color: var(--text-muted); border: none;
+    border-bottom: 2px solid transparent;
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--fs-base); cursor: pointer;
+  }
+  .variant-tabs button:hover { color: var(--text); }
+  .variant-tabs button.active { color: var(--text); border-bottom-color: var(--brand-primary); font-weight: 500; }
+  .variant-tabs .star { color: var(--brand-primary); margin-right: 4px; }
+
+  .variant-body { flex: 1; overflow: hidden; padding: 0; display: none; }
+  .variant-body.active { display: grid; grid-template-rows: 1fr auto; }
+
+  /* Body shell — left list (compact), right detail pane */
+  .pane-shell { display: grid; grid-template-columns: 1fr 460px; flex: 1; overflow: hidden; }
+  .pane-shell > .left {
+    overflow: auto; background: var(--bg);
+  }
+  .row {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    font-size: var(--fs-sm); color: var(--text-muted);
+  }
+  .row.selected { background: var(--bg-selected); color: var(--text); border-left: 2px solid var(--brand-primary); padding-left: 14px; }
+  .row .pill {
+    font-size: var(--fs-xs); padding: 2px 8px; border-radius: 999px;
+    font-family: var(--font-mono); white-space: nowrap;
+  }
+  .pill.no-handler { background: var(--blue-soft); color: var(--blue); }
+  .pill.low-conf { background: var(--amber-soft); color: var(--amber); }
+  .pill.intent { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+  .row .subject { color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .meta { font-family: var(--font-mono); font-size: var(--fs-xs); white-space: nowrap; }
+
+  .pane {
+    border-left: 1px solid var(--border);
+    background: var(--bg-2);
+    overflow: auto;
+    padding: var(--space-4);
+    font-size: var(--fs-sm);
+    display: flex; flex-direction: column;
+    gap: var(--space-3);
+  }
+  .pane h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-md); font-weight: 600; }
+  .pane .meta { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-xs); }
+  .pane .ranked-output {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px;
+    font-family: var(--font-mono); font-size: var(--fs-xs);
+  }
+  .pane .ranked-output .label { color: var(--text-muted); margin-bottom: 4px; }
+  .pane .ranked-output .row1 { color: var(--text); }
+  .pane .ranked-output .row1 .check { color: var(--success); margin-left: 4px; }
+  .pane .ranked-output .rest { color: var(--text-muted); }
+
+  .pane .body-preview {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px;
+    font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5;
+  }
+  .pane .body-preview strong { color: var(--text); }
+
+  /* ===== Action stack (default state) ===== */
+  .action-stack { display: flex; flex-direction: column; gap: var(--space-2); margin-top: auto; }
+  .btn {
+    padding: 9px 14px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); font-size: var(--fs-sm); font-family: var(--font-sans);
+    text-align: left; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .btn:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .btn.primary { background: var(--brand-primary); color: var(--text-inverse); border-color: var(--brand-primary); font-weight: 600; }
+  .btn .kbd { font-family: var(--font-mono); font-size: var(--fs-xs); opacity: 0.7; padding: 2px 6px; background: rgba(255,255,255,0.10); border-radius: 4px; }
+  .btn.primary .kbd { background: rgba(0,0,0,0.18); }
+
+  /* ===== Variant A: modal ===== */
+  .modal-overlay {
+    position: absolute; inset: 0; background: rgba(8,12,18,0.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10;
+    backdrop-filter: blur(2px);
+  }
+  .modal {
+    background: var(--bg-panel); border: 1px solid var(--border-strong);
+    border-radius: 10px; padding: var(--space-5);
+    width: 480px; max-width: 90%;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+    display: flex; flex-direction: column; gap: var(--space-3);
+  }
+  .modal h4 { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 600; }
+  .modal .lead { color: var(--text-muted); font-size: var(--fs-sm); }
+  .modal .footer { display: flex; gap: var(--space-2); justify-content: flex-end; margin-top: var(--space-2); }
+
+  /* ===== Variant B: inline-expand ===== */
+  .inline-editor {
+    background: var(--bg); border: 1px solid var(--brand-primary);
+    border-radius: 6px; padding: var(--space-3);
+    display: flex; flex-direction: column; gap: var(--space-2);
+  }
+  .inline-editor label { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .inline-editor .row-actions { display: flex; gap: var(--space-2); justify-content: flex-end; margin-top: var(--space-2); }
+  .inline-editor .row-actions .btn { padding: 6px 12px; }
+
+  /* ===== Shared dropdown look ===== */
+  select, .select-stub {
+    appearance: none;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    width: 100%;
+  }
+
+  /* ===== Variant C: dropdown-on-button ===== */
+  .btn-dropdown {
+    position: relative;
+  }
+  .btn-dropdown .menu {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: var(--bg-panel); border: 1px solid var(--border-strong);
+    border-radius: 6px; padding: 4px;
+    z-index: 5;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    display: none;
+  }
+  .btn-dropdown.open .menu { display: block; }
+  .btn-dropdown .menu .item {
+    padding: 7px 10px; border-radius: 4px; cursor: pointer;
+    font-family: var(--font-mono); font-size: var(--fs-xs);
+    color: var(--text); display: flex; justify-content: space-between; gap: var(--space-3);
+  }
+  .btn-dropdown .menu .item:hover { background: var(--bg-hover); }
+  .btn-dropdown .menu .item .hint { color: var(--text-dim); font-size: var(--fs-xs); }
+  .btn-dropdown .menu .item.current { background: var(--brand-primary-soft); color: var(--brand-primary); }
+
+  /* Annotation footer */
+  .variant-note {
+    margin: 0;
+    padding: var(--space-3) var(--space-5);
+    background: var(--bg-2); border-top: 1px solid var(--border);
+    border-left: 3px solid var(--brand-primary);
+    font-size: var(--fs-xs); line-height: 1.55;
+  }
+  .variant-note h4 { margin: 0 0 var(--space-1) 0; font-size: var(--fs-sm); color: var(--text); }
+  .variant-note p { margin: 0; color: var(--text-muted); }
+  .variant-note .pros, .variant-note .cons { margin-top: 4px; }
+  .variant-note .pros::before { content: "✓ "; color: var(--success); }
+  .variant-note .cons::before { content: "✗ "; color: var(--danger); }
+</style>
+</head>
+<body>
+
+<div class="sketch-toolbar">
+  <h1>Sketch 007 <span class="meta">phase-76 · row-action-affordances</span></h1>
+  <div class="grow"></div>
+  <div class="question">How do <strong>Replay (with intent edit)</strong>, <strong>Reclassify-as-noise</strong>, and <strong>Close</strong> work as interactions inside the detail pane?</div>
+</div>
+
+<div class="variant-tabs">
+  <button onclick="showVariant('A', this)">Variant A · Modal-driven</button>
+  <button class="active" onclick="showVariant('B', this)"><span class="star">★</span>Variant B · Inline-expand</button>
+  <button onclick="showVariant('C', this)">Variant C · Dropdown-on-button</button>
+</div>
+
+<!-- =========================================================== -->
+<!-- VARIANT A — Modal-driven                                    -->
+<!-- =========================================================== -->
+<div id="variant-A" class="variant-body">
+  <div style="position: relative; display: flex; flex: 1; overflow: hidden;">
+    <div class="pane-shell" style="flex: 1;">
+      <div class="left">
+        <div class="row"><span class="pill no-handler">no_handler</span><span class="pill intent">credit_request</span><span class="subject">Re: Factuur 17341388 — credit_request</span><span class="meta">smeba · 12m</span></div>
+        <div class="row selected"><span class="pill no-handler">no_handler</span><span class="pill intent">peppol_request</span><span class="subject">Peppol activatie aanvraag</span><span class="meta">smeba-fire · 2h</span></div>
+        <div class="row"><span class="pill no-handler">no_handler</span><span class="pill intent">address_change</span><span class="subject">Adres wijziging klant 4501</span><span class="meta">berki · 3h</span></div>
+        <div class="row"><span class="pill low-conf">low_conf</span><span class="pill intent">general_inquiry</span><span class="subject">Vraag over openstaande factuur</span><span class="meta">berki · 38m</span></div>
+      </div>
+      <div class="pane">
+        <h3>Peppol activatie aanvraag</h3>
+        <div class="meta">no_handler · smeba-fire · 2h ago</div>
+        <div class="ranked-output">
+          <div class="label">Stage 3 ranked output</div>
+          <div class="row1">1. <strong>peppol_request</strong> · 0.91<span class="check">✓ picked</span></div>
+          <div class="rest">2. general_inquiry · 0.06</div>
+          <div class="rest">3. other · 0.03</div>
+        </div>
+        <div class="body-preview">
+          Email body preview (clickable to expand)…<br>
+          <strong>Beste Smeba-fire, Wij zouden graag zien dat onze facturen via Peppol verlopen…</strong>
+        </div>
+        <div class="action-stack">
+          <button class="btn primary">✓ Replay through Stage 4 <span class="kbd">⏎</span></button>
+          <button class="btn">↶ Reclassify as noise <span class="kbd">N</span></button>
+          <button class="btn">✕ Close (manual) <span class="kbd">Space</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal overlay simulating Replay click -->
+    <div class="modal-overlay">
+      <div class="modal">
+        <h4>Replay through Stage 4</h4>
+        <div class="lead">Stage 3 picked <code style="font-family:var(--font-mono);">peppol_request</code>. Edit the intent if it's wrong; otherwise the same intent re-fires the handler.</div>
+        <div>
+          <label style="font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Intent</label>
+          <select>
+            <option>peppol_request (current)</option>
+            <option>credit_request</option>
+            <option>payment_dispute</option>
+            <option>address_change</option>
+            <option>copy_document_request</option>
+            <option>contract_inquiry</option>
+            <option>general_inquiry</option>
+            <option>other</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Note (optional)</label>
+          <textarea style="width:100%; background: var(--bg-2); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-family: var(--font-sans); font-size: var(--fs-sm); resize: vertical; min-height: 60px;" placeholder="Audit trail context…"></textarea>
+        </div>
+        <div class="footer">
+          <button class="btn">Cancel <span class="kbd">Esc</span></button>
+          <button class="btn primary">Confirm replay <span class="kbd">⌘⏎</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-note">
+    <h4>Variant A — Modal-driven</h4>
+    <p>Click Replay → modal opens with intent dropdown + optional note + Cancel/Confirm. Reclassify-as-noise opens a similar modal with the 4-noise-key dropdown. Close opens a minimal confirm modal. Standard pattern.</p>
+    <div class="pros">Clear separation of "view row" vs "act on row" — modal is unambiguous about destination state. Each modal can carry contextual notes / form fields without crowding the main pane. Familiar pattern to operators (consistent with most SaaS dashboards).</div>
+    <div class="cons">Heavyweight for what's mostly a one-tap operation. Operator who wants same-intent replay (no edit) still pays the modal-open + confirm tax. ≥3 clicks to handle one row vs the inline patterns. Backdrop blocks reading the email body or list while deciding — bad if operator needs to re-read the body to choose the intent. Modal stacking gets weird for keyboard navigation across rows.</div>
+  </div>
+</div>
+
+<!-- =========================================================== -->
+<!-- VARIANT B — Inline-expand within pane (★ candidate)        -->
+<!-- =========================================================== -->
+<div id="variant-B" class="variant-body active">
+  <div class="pane-shell">
+    <div class="left">
+      <div class="row"><span class="pill no-handler">no_handler</span><span class="pill intent">credit_request</span><span class="subject">Re: Factuur 17341388 — credit_request</span><span class="meta">smeba · 12m</span></div>
+      <div class="row selected"><span class="pill no-handler">no_handler</span><span class="pill intent">peppol_request</span><span class="subject">Peppol activatie aanvraag</span><span class="meta">smeba-fire · 2h</span></div>
+      <div class="row"><span class="pill no-handler">no_handler</span><span class="pill intent">address_change</span><span class="subject">Adres wijziging klant 4501</span><span class="meta">berki · 3h</span></div>
+      <div class="row"><span class="pill low-conf">low_conf</span><span class="pill intent">general_inquiry</span><span class="subject">Vraag over openstaande factuur</span><span class="meta">berki · 38m</span></div>
+    </div>
+    <div class="pane">
+      <h3>Peppol activatie aanvraag</h3>
+      <div class="meta">no_handler · smeba-fire · 2h ago</div>
+      <div class="ranked-output">
+        <div class="label">Stage 3 ranked output</div>
+        <div class="row1">1. <strong>peppol_request</strong> · 0.91<span class="check">✓ picked</span></div>
+        <div class="rest">2. general_inquiry · 0.06</div>
+        <div class="rest">3. other · 0.03</div>
+      </div>
+      <div class="body-preview">
+        Email body preview (clickable to expand)…<br>
+        <strong>Beste Smeba-fire, Wij zouden graag zien dat onze facturen via Peppol verlopen…</strong>
+      </div>
+
+      <!-- Inline-expanded Replay editor (the user clicked Replay) -->
+      <div class="inline-editor">
+        <label>Replay through Stage 4 — confirm intent</label>
+        <select>
+          <option>peppol_request (current — same as Stage 3 pick)</option>
+          <option>credit_request</option>
+          <option>payment_dispute</option>
+          <option>address_change</option>
+          <option>copy_document_request</option>
+          <option>contract_inquiry</option>
+          <option>general_inquiry</option>
+          <option>other</option>
+        </select>
+        <div style="font-size: var(--fs-xs); color: var(--text-muted);">Same intent → re-fires handler. Different intent → writes axis-3 override + fires new handler.</div>
+        <div class="row-actions">
+          <button class="btn" style="padding: 6px 10px;">Cancel <span class="kbd">Esc</span></button>
+          <button class="btn primary" style="padding: 6px 10px;">Confirm replay <span class="kbd">⏎</span></button>
+        </div>
+      </div>
+
+      <div class="action-stack" style="opacity:0.45;">
+        <button class="btn">↶ Reclassify as noise <span class="kbd">N</span></button>
+        <button class="btn">✕ Close (manual) <span class="kbd">Space</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-note">
+    <h4>★ Variant B — Inline-expand within pane</h4>
+    <p>Click Replay → the action button area expands into an intent editor inline (replaces just the Replay button; other actions dim). One Enter to confirm, Esc to cancel. Reclassify-as-noise expands the same way with the 4-noise-key dropdown. Close fires immediately (operator can manually close without confirm — Cmd-Z within 5s reverses if needed; out of scope for v1). No modals. Same-intent Replay is effectively two clicks (Replay → ⏎). Different-intent Replay is three (Replay → pick → ⏎).</p>
+    <div class="pros">Email body + ranked output stay visible while operator picks the intent — no blocked context. Two-click happy path for same-intent replay. Inline Replay editor matches the Stage 1 widget pattern from Bulk Review (CONTEXT.md §Specific Ideas reuses that component shape). Pane never loses scroll position. Keyboard-driven: ⏎ confirms, Esc reverts. Reclassify uses identical UX with a different field — operator learns one pattern.</div>
+    <div class="cons">Pane height grows when the editor expands — small viewports might need to scroll. Optional "note" field for audit context has nowhere obvious to go (could expand below the dropdown — slight chrome cost). The dimmed action buttons during editing are slightly awkward visually; could be hidden entirely instead. Close-without-confirm is a minor risk if operator misclicks (mitigation: brief undo toast).</div>
+  </div>
+</div>
+
+<!-- =========================================================== -->
+<!-- VARIANT C — Dropdown-on-button                              -->
+<!-- =========================================================== -->
+<div id="variant-C" class="variant-body">
+  <div class="pane-shell">
+    <div class="left">
+      <div class="row"><span class="pill no-handler">no_handler</span><span class="pill intent">credit_request</span><span class="subject">Re: Factuur 17341388 — credit_request</span><span class="meta">smeba · 12m</span></div>
+      <div class="row selected"><span class="pill no-handler">no_handler</span><span class="pill intent">peppol_request</span><span class="subject">Peppol activatie aanvraag</span><span class="meta">smeba-fire · 2h</span></div>
+      <div class="row"><span class="pill no-handler">no_handler</span><span class="pill intent">address_change</span><span class="subject">Adres wijziging klant 4501</span><span class="meta">berki · 3h</span></div>
+      <div class="row"><span class="pill low-conf">low_conf</span><span class="pill intent">general_inquiry</span><span class="subject">Vraag over openstaande factuur</span><span class="meta">berki · 38m</span></div>
+    </div>
+    <div class="pane">
+      <h3>Peppol activatie aanvraag</h3>
+      <div class="meta">no_handler · smeba-fire · 2h ago</div>
+      <div class="ranked-output">
+        <div class="label">Stage 3 ranked output</div>
+        <div class="row1">1. <strong>peppol_request</strong> · 0.91<span class="check">✓ picked</span></div>
+        <div class="rest">2. general_inquiry · 0.06</div>
+        <div class="rest">3. other · 0.03</div>
+      </div>
+      <div class="body-preview">
+        Email body preview (clickable to expand)…<br>
+        <strong>Beste Smeba-fire, Wij zouden graag zien dat onze facturen via Peppol verlopen…</strong>
+      </div>
+      <div class="action-stack">
+        <div class="btn-dropdown open">
+          <button class="btn primary">✓ Replay as <strong>peppol_request</strong> <span class="kbd">⏎</span></button>
+          <div class="menu">
+            <div class="item current">peppol_request <span class="hint">current pick</span></div>
+            <div class="item">credit_request</div>
+            <div class="item">payment_dispute</div>
+            <div class="item">address_change</div>
+            <div class="item">copy_document_request</div>
+            <div class="item">contract_inquiry</div>
+            <div class="item">general_inquiry</div>
+            <div class="item">other</div>
+          </div>
+        </div>
+        <div style="font-size: var(--fs-xs); color: var(--text-muted); padding-left: 12px;">Click button → confirm same intent. Click ▾ chevron → pick different intent.</div>
+        <button class="btn">↶ Reclassify as noise · <strong>auto_reply ▾</strong> <span class="kbd">N</span></button>
+        <button class="btn">✕ Close (manual) <span class="kbd">Space</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="variant-note">
+    <h4>Variant C — Dropdown-on-button (split-button)</h4>
+    <p>The Replay button is a "split-button": clicking the main label confirms with the current Stage 3 pick (one tap → done). Clicking the chevron (or the dropdown menu shown here) reveals the intent picker for editing. Same shape for Reclassify (split-button with default noise key visible inline). Close fires immediately.</p>
+    <div class="pros">Most compact happy path: same-intent replay = ONE tap (no expansion, no modal). Different-intent replay = open dropdown + pick (still two interactions but feels integrated, not modal-flow). The current intent is visible on the button itself, so operator confirms by reading the button label.</div>
+    <div class="cons">Split-button discoverability — operators who don't know about the chevron will never find the edit path. Note field has nowhere to go (would need a secondary expand). On smaller pane widths the button label gets crowded. Reclassify shows a noise key on the main button which might confuse operators ("did I already pick auto_reply?"). The pattern works well for power users but adds a learning curve.</div>
+  </div>
+</div>
+
+<script>
+function showVariant(letter, btn) {
+  document.querySelectorAll('.variant-tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.variant-body').forEach(v => v.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('variant-' + letter).classList.add('active');
+}
+</script>
+</body>
+</html>
