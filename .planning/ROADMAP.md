@@ -184,7 +184,7 @@ Plans:
 **Goal:** Job-detail drawer bouwen voor v7 kanban cards en screenshot-rendering fixen. Scope: (a) `kanban-job-card.tsx` click → `JobDrawerContext` drawer (header, timeline van log-entries, linked automation_runs, screenshots); (b) `extractScreenshots` in `web/lib/automations/types.ts` fixen — data is `{url, path}`-shape, niet `string`; public-bucket OR on-demand signed-URL refresh. Wacht op Phase 55 (backend stabiel) voordat UI-polish zin heeft.
 **Requirements**: See todos `2026-04-23-v7-review-dashboard-card-popout-missing.md`, `2026-04-23-v7-review-screenshots-not-rendering.md`
 **Depends on:** Phase 55
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 57 to break down)
@@ -243,7 +243,7 @@ Plans:
 **Goal:** [To be planned]
 **Requirements**: TBD
 **Depends on:** Phase 61
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 62 to break down)
@@ -269,7 +269,7 @@ Plans:
 **Goal:** [To be planned]
 **Requirements**: TBD
 **Depends on:** Phase 74
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 75 to break down)
@@ -318,7 +318,7 @@ Plans:
 
 **Depends on:** Phase 76 (Kanban visibility is the prerequisite — without it we can't see what the pipeline is actually producing).
 
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 77 to break down)
@@ -343,7 +343,7 @@ Plans:
 
 **Depends on:** Phase 76 only (Kanban visibility). Runs in parallel with Phase 77, NOT after it.
 
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 78 to break down)
@@ -374,7 +374,7 @@ Plans:
 
 **Depends on:** Phase 76, 77, AND 78 (needs both swarms' data for cross-swarm comparisons; also needs 78's codegen pattern in place so the closed enum auto-grows when proposals are promoted).
 
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 79 to break down)
@@ -1084,7 +1084,7 @@ v8.0: 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when first UK/IE mailbox lands)
@@ -1109,10 +1109,13 @@ Plans:
 
 **Why backlogged:** raised 2026-05-07 mid-perf-tuning of the existing surface; not the right time for a structural rewrite. Yesterday's fixes (timeline preload, automation_run_id threading, parallelization, viewport-sized PAGE_SIZE) make the existing surface workable in the meantime.
 
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready to scope)
+- [ ] 999.4-01-PLAN.md — Wave 0: live Orq Router smoke (gate A1+A2+A3) + RED test scaffolds for client.test, stage-0-safety-worker.test, classifier-screen-worker.test, automation-runs-sweeper.test
+- [ ] 999.4-02-PLAN.md — Fix B: OrqClientTimeoutError class + 45s AbortController deadline at the existing invokeOrqAgent fetch boundary; Stage 0 worker try/catch coerces verdict=safe ONLY on OrqClientTimeoutError (D-01..D-04)
+- [ ] 999.4-03-PLAN.md — Fix C: invokeOrqModel sibling helper + 60s system-prompt cache; swap stage-0-safety-classifier and stage-1-category-classifier call sites onto POST /v2/router/chat/completions (D-05..D-08)
+- [ ] 999.4-04-PLAN.md — D-09 cron sweeper: TZ=Europe/Amsterdam */10 6-19 * * 1-5 marks stuck Stage 0 automation_runs failed with result.llm_reason=inngest_cancelled_stale, per-row JSONB merge, register in app/api/inngest/route.ts
 
 ### Phase 999.3: Phase out legacy `source='outlook'` Outlook auto-fetcher for debtor mailboxes (BACKLOG)
 
@@ -1131,7 +1134,7 @@ Plans:
 3. Update analyzer filters to read from `source IN ('outlook', 'zapier-debtor-ingest')` for historical continuity, OR backfill old `source='outlook'` debtor rows to a unified label.
 4. Remove the now-dead code path.
 
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready to scope)
@@ -1154,7 +1157,7 @@ Plans:
 - Pre-existing 405 OData / ZapierRelayError ReadTimeout errors in Vercel logs (different Inngest function, `categorize` step) likely share root cause: Zapier-relayed external calls timing out under load.
 - The 11,758-token Stage 0 outlier suggests body truncation upstream may also be useful.
 
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready to scope)
