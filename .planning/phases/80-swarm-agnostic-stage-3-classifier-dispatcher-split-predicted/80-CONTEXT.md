@@ -106,6 +106,12 @@ The dispatcher must be cross-swarm from day one — it serves both `debtor-email
 - Building any new Stage 4 handler. None of the 8 placeholder intents ship a handler in this phase. Output of dispatcher's `placeholder` branch is always Kanban + `routed_human_queue`.
 - Changing the Intent Agent prompt, schema, or LLM. The classifier's invocation of the agent is unchanged.
 
+### Resolved After Research (locked 2026-05-08)
+
+- **`agent_runs.status` CHECK constraint** — already includes both `predicted` and `routed_human_queue` (verified via `pg_constraint` query). No migration needed; TS literal-union in `web/lib/automations/debtor-email/coordinator/types.ts` confirmed to already include both. Open Question #1 closed.
+- **Escalation-gate registry-lookup bug fix is IN SCOPE.** Researcher found that `web/lib/automations/debtor-email/coordinator/escalation-gate.ts` looks up `requires_orchestration` against `swarm_noise_categories` rows but the field lives on `swarm_intents` per Phase 76 migration `20260504b:94`. The flag-based escalation branch is silently dead today. Phase 80 moves the gate to the dispatcher AND fixes the registry lookup at the same time. Open Question #2 closed.
+- **Sales-email `swarm_intents` seed is OUT of scope.** Phase 78 owns the sales-email registry rows. Phase 80 ships the cross-swarm dispatcher mechanism + tests that prove it works for any swarm with a populated registry, but does NOT insert sales-email rows itself. Phase 80's cross-swarm acceptance test uses `debtor-email` rows or a synthetic test swarm. Open Question #3 closed.
+
 ### Claude's Discretion
 
 - Specific Inngest event subscription pattern (wildcard vs. per-swarm trigger).
