@@ -38,6 +38,7 @@ export const DETECTED_TONE = ["neutral", "de-escalation"] as const;
 
 export const STATUS = [
   "classifying",
+  "predicted",
   "routed_human_queue",
   "fetching_document",
   "generating_body",
