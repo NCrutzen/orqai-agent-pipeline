@@ -1225,9 +1225,11 @@ Hybrid is plausible (raise budget moderately + add quoted-history strip).
 - Is the rejection path emitting a clean failure status on `automation_runs`, or is it the source of stale `pending` rows that the 999.4 sweeper would also catch?
 - Distribution: how many emails/day breach? If <1/day, raise-budget is fine; if many, truncation pays off.
 
-**Requirements:** TBD
+**Requirements:** [BUDG-EXT-01, BUDG-EXT-02, STRIP-01, STRIP-02, STRIP-03, STRIP-04, INTEG-01, INTEG-02, INTEG-03, INTEG-04, INTEG-05]
 
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready to scope)
+- [ ] 999.7-01-PLAN.md — Wave 0: install email-reply-parser, seed fixtures, write RED tests for strip helper + bump budget-counter assertion
+- [ ] 999.7-02-PLAN.md — Wave 1: ship strip-quoted-history.ts + bump BUDGET_CEILING_TOKENS to 16000 with role-split comment
+- [ ] 999.7-03-PLAN.md — Wave 2: wire strip step into Stage 0 worker, extend telemetry dual-write, lock ORIGINAL body forwarding to Stage 1
