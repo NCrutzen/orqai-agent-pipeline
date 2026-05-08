@@ -1,21 +1,27 @@
-// Phase 65 (D-10) — coordinator function rewritten in-place.
+// Phase 80 Plan 03 — coordinator refactored to a thin Stage 3 classifier.
 //
-// Phase 66 (Plan 01) renamed the function id to
-// "automations/debtor-email-coordinator" (kept the file/const/id aligned).
-// Earlier Phase-1 single-label flow (classify → fetch
-// document → generate body → create iController draft) is removed here — the
-// per-intent handlers move to Plan 65-04 (orchestrator + synthesis) and the
-// existing copy-document handler in web/app/api/automations/debtor*/. Plan 03
-// owns: ranked classify → escalation gate → registry-driven single-shot OR
-// orchestrator emit.
+// Per docs/agentic-pipeline/stage-3-coordinator.md and 80-CONTEXT.md
+// `<decisions>` Classifier Refactor Boundaries, the classifier's locked
+// 9-step responsibility list:
+//   1. Resolve agent_run_id (caller-provided OR fresh).
+//   2. Insert coordinator_runs row.
+//   3. Invoke Intent Agent (cache-aware).
+//   4. Write tool_outputs.intent_first_pass via mergeToolOutputs.
+//   5. Hoist top-1 onto agent_runs back-compat columns.
+//   6. Persist ranked_intents on coordinator_runs (+ pipeline_events TELE-01).
+//   7. Flip agent_runs.status 'classifying' → 'predicted' (race-guarded).
+//   8. Emit `<swarm_type>/predicted` for the cross-swarm Stage 3.5 dispatcher.
+//   9. Return.
 //
-// retries: 0 (matches verdict-worker / label-resolver convention — Bulk Review
-// retry button is the recovery path; auto-retry would amplify Orq cost on a
-// stuck run).
+// Hard separation rule (Stage 1 vs Stage 3): this file ONLY consults Stage 3
+// (intent classification). Stage 1 noise registries are never read here.
 //
-// concurrency: entity-key limit 4 + run_id-key limit 1 (RESEARCH OQ3 — entity
-// fan-out 4 keeps mailbox throughput while run_id 1 prevents duplicate
-// dispatch under Inngest replay).
+// Dispatch logic (escalation gate, swarm_intents lookup, handler_event emit,
+// Kanban no_handler/low_confidence writes) MOVED to stage-3-dispatcher.ts in
+// Phase 80 Plan 02. The dispatcher subscribes to `*/predicted` events.
+//
+// retries: 0 — Bulk Review retry button is the recovery path.
+// concurrency: entity-key 4 + run_id-key 1.
 
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -30,8 +36,6 @@ import {
   INTENT_VERSION_V2,
   type IntentAgentOutputV2,
 } from "@/lib/automations/debtor-email/coordinator/types";
-import { loadSwarmNoiseCategories, loadSwarmIntents } from "@/lib/swarms/registry";
-import { evaluateEscalationGate } from "@/lib/automations/debtor-email/coordinator/escalation-gate";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { numericConfidence } from "@/lib/pipeline-events/types";
@@ -39,9 +43,10 @@ import { numericConfidence } from "@/lib/pipeline-events/types";
 const SWARM_TYPE = "debtor-email";
 
 // Inngest's typed `inngest.send` rejects dynamic event names because the
-// registry-driven dispatch chooses the event name at runtime from
-// swarm_noise_categories.swarm_dispatch. Cast through unknown — same pattern as
-// classifier-verdict-worker.ts:162-165.
+// `<swarm_type>/predicted` event name is composed at runtime from SWARM_TYPE.
+// Cast through unknown — same pattern as classifier-verdict-worker.ts and
+// stage-3-dispatcher.ts. CLAUDE.md / Phase 65 dae6276: never alias
+// inngest.send (loses `this`-binding); call via this cast each time.
 type DynamicSend = (payload: {
   name: string;
   data: Record<string, unknown>;
@@ -76,17 +81,11 @@ export const debtorEmailCoordinator = inngest.createFunction(
     const inngest_run_id = event.id ?? `local-${email_id}`;
     const supabase = createAdminClient();
 
-    // Phase 65 D-10 / Phase 64 D-15: Stage 0 (or callers pre-Phase 64) MAY
-    // pass the coordinator run_id, automation_run_id, budget_run_id, and the
-    // pre-created agent_run_id forward. When run_id is absent (legacy direct
-    // emit) we synthesise one so coordinator_runs always has a key. The
-    // synthesised id will not collide with a real Stage-0-emitted run because
-    // coordinator_runs.run_id is a uuid PRIMARY KEY.
     // CLAUDE.md / Inngest pitfall: any non-deterministic value used inside
     // step.run side-effects (DB writes keyed on it) MUST be generated inside
     // step.run, otherwise replays regenerate it and INSERT/UPDATE race onto
-    // different keys. Phase 65: run_id is the coordinator_runs PK and joins
-    // every downstream step — has to be stable across replays.
+    // different keys. run_id is the coordinator_runs PK and joins every
+    // downstream step — has to be stable across replays.
     const run_id = await step.run("resolve-run-id", async () =>
       event.data.run_id ??
         (typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -103,8 +102,8 @@ export const debtorEmailCoordinator = inngest.createFunction(
     });
 
     // ---- 2) Insert coordinator_runs row early -------------------------------
-    // Tentative escalation_decision='single_shot' / expected_handlers=1.
-    // Both fields are overwritten after the gate evaluates.
+    // Phase 80: escalation_decision moved to the dispatcher; we keep the
+    // legacy 'single_shot' default here to avoid a schema touch.
     await step.run("create-coordinator-run", async () => {
       const { error } = await supabase.from("coordinator_runs").insert({
         run_id,
@@ -171,7 +170,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
           // (intent, confidence, sub_type, document_reference, language,
           // urgency, reasoning, intent_version) still exist on agent_runs
           // and are read by Bulk Review; the row is the back-compat surface
-          // until Phase 66 migrates queries to coordinator_runs.ranked_intents.
+          // until later migrations push queries to coordinator_runs.ranked_intents.
           const top = output.ranked[0];
           await updateRun(supabase, agent_run_id, {
             intent: top.intent,
@@ -196,11 +195,10 @@ export const debtorEmailCoordinator = inngest.createFunction(
           .eq("run_id", run_id);
         if (error) throw new Error(`persist-ranked: ${error.message}`);
 
-        // Phase 70 — TELE-01 dual-write (Wave 2 / Plan 04). One pipeline_events
-        // row per Stage 3 decision. Lives inside the SAME step.run as the
-        // coordinator_runs UPDATE per CONTEXT D-09 (single replay boundary).
-        // event.data.email_id IS the canonical email_pipeline.emails.id (uuid)
-        // per RESEARCH §Pitfall 3 — no null/text-id fallback (W-70-04 fix).
+        // Phase 70 — TELE-01 dual-write. One pipeline_events row per Stage 3
+        // decision. Lives inside the SAME step.run as the coordinator_runs
+        // UPDATE per CONTEXT D-09 (single replay boundary). event.data.email_id
+        // IS the canonical email_pipeline.emails.id (uuid).
         const top = output.ranked[0];
         await emitPipelineEvent(supabase, {
           swarm_type: SWARM_TYPE,
@@ -219,189 +217,43 @@ export const debtorEmailCoordinator = inngest.createFunction(
         });
       });
 
-      // ---- 5) Evaluate escalation gate -------------------------------------
-      // Phase 80 Plan 02 — load from swarm_intents (Stage 3), per the
-      // hard-separation rule (docs/agentic-pipeline/stage-3-coordinator.md).
-      // Previously loaded from swarm_noise_categories — silently-dead path
-      // since requires_orchestration only lives on swarm_intents.
-      const decision = await step.run("evaluate-escalation-gate", async () => {
-        const intents = await loadSwarmIntents(supabase, SWARM_TYPE);
-        return evaluateEscalationGate(output, intents);
-      });
-
-      // ---- 6) Write escalation_decision + reason to coordinator_runs ------
-      await step.run("write-escalation", async () => {
+      // ---- 5) Flip agent_runs.status: classifying → predicted -------------
+      // First-class observable state per docs/agentic-pipeline/stage-3-coordinator.md.
+      // Race guard via .eq("status", "classifying"): only flip from classifying,
+      // idempotent against double-runs (a replay or duplicate trigger lands on a
+      // status that is no longer 'classifying' and the UPDATE is a no-op).
+      await step.run("flip-status-predicted", async () => {
         const { error } = await supabase
-          .from("coordinator_runs")
-          .update({
-            escalation_decision: decision.kind,
-            escalation_reason:
-              decision.kind === "orchestrator" ? decision.reason : null,
-          })
-          .eq("run_id", run_id);
-        if (error) throw new Error(`write-escalation: ${error.message}`);
+          .from("agent_runs")
+          .update({ status: "predicted" })
+          .eq("id", agent_run_id)
+          .eq("status", "classifying");
+        if (error) throw new Error(`flip-status-predicted: ${error.message}`);
       });
 
-      if (decision.kind === "single_shot") {
-        // ---- 7a) Single-shot dispatch — Phase 68 (SWRM-02) registry-driven.
-        // V2 ranked-intent dispatch reads from swarm_intents (per-intent
-        // handler_event), NOT swarm_noise_categories.swarm_dispatch. The two
-        // registries route different stages: swarm_noise_categories is the Stage 1
-        // operator-override path (still consulted at line 196 for category
-        // routing), swarm_intents is the Stage 3 ranked-intent path here.
-        const top = output.ranked[0];
-        const intent = await step.run("resolve-intent-row", async () => {
-          const intents = await loadSwarmIntents(supabase, SWARM_TYPE);
-          return intents.find((i) => i.intent_key === top.intent) ?? null;
-        });
-        if (!intent) {
-          throw new Error(
-            `no swarm_intents row for (${SWARM_TYPE}, ${top.intent}) — verify Phase 68 migration applied`,
-          );
-        }
-
-        // Phase 76 (no_handler trigger): when the resolved intent's
-        // handler_status is 'placeholder', no Stage 4 worker is registered.
-        // Write a Kanban human-lane row instead of dispatching to a
-        // non-existent handler. Closes the silent-dead-letter loop for the
-        // 8-of-9 placeholder intents.
-        if (intent.handler_status === "placeholder") {
-          await step.run("kanban-no-handler", async () => {
-            const { error } = await supabase.from("automation_runs").insert({
-              automation: `${SWARM_TYPE}-kanban`,
-              swarm_type: SWARM_TYPE,
-              status: "pending",
-              topic: top.intent,
-              entity,
-              result: {
-                kanban_reason: "no_handler",
-                intent: top.intent,
-                confidence: top.confidence,
-                email_id,
-                automation_run_id: automation_run_id ?? null,
-                coordinator_run_id: run_id,
-              },
-              triggered_by: "stage-3-no-handler",
-            });
-            if (error) {
-              throw new Error(`kanban-no-handler insert: ${error.message}`);
-            }
-            await emitAutomationRunStale(supabase, `${SWARM_TYPE}-kanban`);
-          });
-          await step.run("mark-coordinator-deferred", async () => {
-            const { error } = await supabase
-              .from("coordinator_runs")
-              .update({
-                completed_at: new Date().toISOString(),
-                completed_handlers: 0,
-              })
-              .eq("run_id", run_id);
-            if (error) {
-              throw new Error(
-                `mark-coordinator-deferred: ${error.message}`,
-              );
-            }
-            await emitAutomationRunStale(supabase, "debtor-email-review");
-          });
-          return {
+      // ---- 6) Emit `<swarm_type>/predicted` for the Stage 3.5 dispatcher --
+      // Cross-swarm contract: the dispatcher subscribes to `*/predicted` and
+      // routes via swarm_intents.handler_status. Zero hardcoded swarm names on
+      // the dispatcher side — swarm_type is part of the payload.
+      await step.run("emit-predicted", async () => {
+        await (inngest.send as unknown as DynamicSend)({
+          name: `${SWARM_TYPE}/predicted`,
+          data: {
+            swarm_type: SWARM_TYPE,
             run_id,
-            email_id,
-            decision: "kanban_no_handler" as const,
-            intent: top.intent,
-          };
-        }
-
-        const handler_event = intent.handler_event;
-
-        await step.run("dispatch-single-shot", async () => {
-          await (inngest.send as unknown as DynamicSend)({
-            name: handler_event,
-            data: {
-              run_id,
-              email_id,
-              automation_run_id,
-              intent: top.intent,
-              ranked: output.ranked,
-              budget_run_id,
-              swarm_type: SWARM_TYPE,
-            },
-          });
-        });
-
-        await step.run("mark-coordinator-complete", async () => {
-          const { error } = await supabase
-            .from("coordinator_runs")
-            .update({
-              completed_at: new Date().toISOString(),
-              completed_handlers: 1,
-            })
-            .eq("run_id", run_id);
-          if (error) {
-            throw new Error(`mark-coordinator-complete: ${error.message}`);
-          }
-          await emitAutomationRunStale(supabase, "debtor-email-review");
-        });
-
-        return {
-          run_id,
-          email_id,
-          decision: "single_shot" as const,
-          intent: top.intent,
-          dispatch_event: handler_event,
-        };
-      }
-
-      // ---- 7b) Phase 76 (low_confidence trigger / D-07 + D-09) -------------
-      // The escalation gate decision (low_confidence | high_intent_count |
-      // requires_orchestration_flag) writes a Kanban human-lane row instead
-      // of dispatching the orchestrator.requested event. The orchestrator
-      // worker stays in the codebase (CONTEXT D-07 — "Things to NOT touch")
-      // but is no longer triggered from here. escalation-gate.ts stays a
-      // pure function (D-09).
-      await step.run("kanban-low-confidence", async () => {
-        const { error } = await supabase.from("automation_runs").insert({
-          automation: `${SWARM_TYPE}-kanban`,
-          swarm_type: SWARM_TYPE,
-          status: "pending",
-          topic: output.ranked[0].intent,
-          entity,
-          result: {
-            kanban_reason: "low_confidence",
-            // decision.reason field name verified against
-            // EscalationDecision union in escalation-gate.ts:14-22.
-            gate_reason: decision.reason,
-            ranked: output.ranked,
+            agent_run_id,
             email_id,
             automation_run_id: automation_run_id ?? null,
-            coordinator_run_id: run_id,
+            budget_run_id: budget_run_id ?? null,
+            ranked: output.ranked,
+            language: output.language,
+            urgency: output.urgency,
+            entity,
           },
-          triggered_by: "stage-3-low-confidence",
         });
-        if (error) {
-          throw new Error(`kanban-low-confidence insert: ${error.message}`);
-        }
-        await emitAutomationRunStale(supabase, `${SWARM_TYPE}-kanban`);
-      });
-      await step.run("mark-coordinator-deferred-orch", async () => {
-        const { error } = await supabase
-          .from("coordinator_runs")
-          .update({
-            completed_at: new Date().toISOString(),
-            completed_handlers: 0,
-          })
-          .eq("run_id", run_id);
-        if (error) {
-          throw new Error(`mark-coordinator-deferred-orch: ${error.message}`);
-        }
-        await emitAutomationRunStale(supabase, "debtor-email-review");
       });
 
-      return {
-        run_id,
-        email_id,
-        decision: "kanban_low_confidence" as const,
-        escalation_reason: decision.reason,
-      };
+      return { run_id, email_id, decision: "predicted" as const };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await step.run("mark-failed", async () => {

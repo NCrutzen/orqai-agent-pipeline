@@ -40,12 +40,23 @@ function makeSupabaseMock() {
       captured.inserts.push({ table, row });
       return { data: null, error: null };
     });
-    builder.update = vi.fn((patch: Record<string, unknown>) => ({
-      eq: vi.fn(async () => {
+    builder.update = vi.fn((patch: Record<string, unknown>) => {
+      // Phase 80 Plan 03: classifier's flip-status-predicted uses a
+      // double-.eq() race guard (`.eq("id", id).eq("status", "classifying")`).
+      // The chain is also awaitable directly (legacy single-.eq() call sites).
+      // Build a chainable stub that captures on await.
+      const chain: Record<string, unknown> = {};
+      const finalize = () => {
         captured.updates.push({ table, patch });
-        return { data: null, error: null };
-      }),
-    }));
+        return Promise.resolve({ data: null, error: null });
+      };
+      chain.eq = vi.fn(() => chain);
+      chain.then = (
+        resolve: (v: { data: null; error: null }) => unknown,
+        reject?: (e: unknown) => unknown,
+      ) => finalize().then(resolve, reject);
+      return chain;
+    });
     builder.select = vi.fn(() => builder);
     builder.eq = vi.fn(() => builder);
     builder.not = vi.fn(() => builder);
@@ -431,7 +442,10 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     );
   });
 
-  it("failure path: loadSwarmNoiseCategories throws → mark-failed runs + handler re-throws", async () => {
+  // Phase 80 Wave 2: classifier no longer calls loadSwarmNoiseCategories
+  // (escalation gate moved to stage-3-dispatcher). The failure-path equivalent
+  // for the new classifier is exercised in stage-3-dispatcher.test.ts.
+  it.skip("failure path: loadSwarmNoiseCategories throws → mark-failed runs + handler re-throws", async () => {
     invokeIntentMock.mockResolvedValueOnce({
       output: {
         ranked: [
