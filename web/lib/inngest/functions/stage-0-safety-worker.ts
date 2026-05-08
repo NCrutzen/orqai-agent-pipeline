@@ -28,6 +28,7 @@ import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { regexScreen } from "@/lib/stage-0/regex-screen";
 import { llmInjectionVerdict } from "@/lib/stage-0/llm-verdict";
+import { stripQuotedHistory } from "@/lib/stage-0/strip-quoted-history";
 import { OrqClientTimeoutError } from "@/lib/automations/orq-agents/client";
 import {
   check as budgetCheck,
@@ -103,8 +104,20 @@ export const stage0SafetyWorker = inngest.createFunction(
       return { skipped: "safety_overridden" } as const;
     }
 
+    // Phase 999.7 — strip quoted reply history before any classifier sees
+    // the body. Sole consumer of the stripped body is Stage 0 (regex screen +
+    // LLM verdict). The ORIGINAL body is forwarded to Stage 1 unchanged
+    // (RESEARCH.md Pitfall 4) so noise rules like auto-reply / OOO that
+    // depend on full-thread markers still fire.
+    const stripResult = await step.run("strip-quoted-history", () =>
+      stripQuotedHistory(body),
+    );
+    const classifierBody = stripResult.stripped;
+
     // Step 1 — pure regex screen (audit only; does NOT decide on its own).
-    const regexResult = await step.run("regex-screen", () => regexScreen(body));
+    const regexResult = await step.run("regex-screen", () =>
+      regexScreen(classifierBody),
+    );
 
     // Step 2 — LLM verdict (Orq.ai, registry-driven).
     //
@@ -120,7 +133,7 @@ export const stage0SafetyWorker = inngest.createFunction(
     // bugs surface in the worker's failure path.
     const llmResult = await step.run("llm-verdict", async () => {
       try {
-        return await llmInjectionVerdict({ email_id, body, subject });
+        return await llmInjectionVerdict({ email_id, body: classifierBody, subject });
       } catch (err) {
         if (
           err instanceof OrqClientTimeoutError ||
@@ -190,6 +203,10 @@ export const stage0SafetyWorker = inngest.createFunction(
           cost_cents: llmResult.usage.cost_cents,
           token_count: llmResult.usage.total_tokens,
           safety_overridden: false,
+          // Phase 999.7 — strip telemetry
+          strip_changed: stripResult.changed,
+          strip_delta_chars: stripResult.delta_chars,
+          strip_fallback_reason: stripResult.fallback_reason ?? null,
         },
         triggered_by: "stage-0/safety-worker",
         completed_at: new Date().toISOString(),
@@ -210,6 +227,10 @@ export const stage0SafetyWorker = inngest.createFunction(
           llm_reason: llmResult.reason,
           matched_span: llmResult.matched_span,
           safety_overridden: false,
+          // Phase 999.7 — strip telemetry
+          strip_changed: stripResult.changed,
+          strip_delta_chars: stripResult.delta_chars,
+          strip_fallback_reason: stripResult.fallback_reason ?? null,
         },
         cost_cents: llmResult.usage.cost_cents,
         automation_run_id: automation_run_id ?? null,
@@ -228,6 +249,9 @@ export const stage0SafetyWorker = inngest.createFunction(
             message_id,
             source_mailbox,
             subject,
+            // Phase 999.7 Pitfall 4 — forward ORIGINAL body to Stage 1
+            // (NOT classifierBody). Stage 1 noise filter needs full-thread
+            // markers (auto-reply / OOO).
             body_text: body,
             // Phase 74 D-01 / D-02 — threaded passthrough.
             swarm_type,
