@@ -34,9 +34,28 @@ export function resolveReviewRedirect(
   if (!m) return null;
   const swarm = m[1];
   const tab = searchParams.get("tab");
-  if (tab === "safety") return `/automations/${swarm}/stage-0`;
-  if (tab === "pending") return `/automations/${swarm}/stage-1?sub=pending`;
-  return `/automations/${swarm}/stage-1`;
+
+  // Preserve any non-`tab` query params (topic, entity, mailbox, rule,
+  // selected, before, …) across the redirect. Earlier revisions silently
+  // dropped these, so a bookmarked `/review?topic=unknown` would land on
+  // /stage-1 with no filter applied. The `tab` param is consumed below
+  // (transformed into a path segment / sub-route) and intentionally not
+  // forwarded.
+  const carry = new URLSearchParams();
+  for (const [k, v] of searchParams.entries()) {
+    if (k === "tab") continue;
+    carry.set(k, v);
+  }
+  const qs = carry.toString();
+  const append = (target: string, extra?: string) => {
+    const merged = [extra, qs].filter(Boolean).join("&");
+    return merged ? `${target}?${merged}` : target;
+  };
+
+  if (tab === "safety") return append(`/automations/${swarm}/stage-0`);
+  if (tab === "pending")
+    return append(`/automations/${swarm}/stage-1`, "sub=pending");
+  return append(`/automations/${swarm}/stage-1`);
 }
 
 export default async function proxy(request: NextRequest) {

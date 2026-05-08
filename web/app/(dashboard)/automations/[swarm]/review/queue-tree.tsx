@@ -267,7 +267,13 @@ export function QueueTree({
       if (next.mailbox) qs.set("mailbox", next.mailbox);
       if (selection.rule) qs.set("rule", selection.rule);
       if (opts?.tab) qs.set("tab", opts.tab);
-      const path = `/automations/${swarmType}/review`;
+      // Phase 76-08 renamed /review → /stage-1 and added a 308 redirect in
+      // middleware as a safety net for external bookmarks. Internal links
+      // must target /stage-1 directly: the redirect's resolveReviewRedirect
+      // does not preserve arbitrary query params, so emitting /review here
+      // would silently strip ?topic / ?entity / ?mailbox on the redirect
+      // hop and leave the queue unfiltered.
+      const path = `/automations/${swarmType}/stage-1`;
       router.push(qs.toString() ? `${path}?${qs.toString()}` : path);
     },
     [router, selection.rule, swarmType],
@@ -400,7 +406,7 @@ export function QueueTree({
             expandable={false}
             onActivate={() =>
               router.push(
-                `/automations/${swarmType}/review?tab=safety&topic=safety_review`,
+                `/automations/${swarmType}/stage-0?topic=safety_review`,
               )
             }
             ariaLabel="Stage 0 safety review queue"
@@ -423,7 +429,7 @@ export function QueueTree({
             active={selection.tab === "pending"}
             expandable={false}
             onActivate={() =>
-              router.push(`/automations/${swarmType}/review?tab=pending`)
+              router.push(`/automations/${swarmType}/stage-1?sub=pending`)
             }
             ariaLabel={`${candidates.length} candidate rules pending promotion`}
           />

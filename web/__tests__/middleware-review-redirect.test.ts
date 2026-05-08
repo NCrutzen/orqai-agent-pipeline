@@ -70,6 +70,41 @@ describe("resolveReviewRedirect (D-05.6)", () => {
     ).toBeNull();
   });
 
+  it("preserves non-tab query params across the redirect", () => {
+    // Bookmarked /review URLs may carry topic / entity / mailbox / rule /
+    // selected / before. Earlier revisions silently dropped these so the
+    // operator landed on /stage-1 with no filter; this regression broke
+    // QueueTree topic-filter clicks via the redirect hop.
+    expect(
+      resolveReviewRedirect(
+        "/automations/debtor-email/review",
+        sp("topic=unknown&selected=abc-123"),
+      ),
+    ).toBe(
+      "/automations/debtor-email/stage-1?topic=unknown&selected=abc-123",
+    );
+  });
+
+  it("preserves non-tab params alongside tab=pending → sub=pending", () => {
+    expect(
+      resolveReviewRedirect(
+        "/automations/debtor-email/review",
+        sp("tab=pending&entity=staedion"),
+      ),
+    ).toBe(
+      "/automations/debtor-email/stage-1?sub=pending&entity=staedion",
+    );
+  });
+
+  it("preserves non-tab params alongside tab=safety", () => {
+    expect(
+      resolveReviewRedirect(
+        "/automations/debtor-email/review",
+        sp("tab=safety&topic=safety_review"),
+      ),
+    ).toBe("/automations/debtor-email/stage-0?topic=safety_review");
+  });
+
   it("does not honor an attacker-controlled tab value (T-76-08-01)", () => {
     // Anything outside the closed enum {safety, pending} falls through to
     // /stage-1 — there's no path by which the operator-supplied tab value

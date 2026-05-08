@@ -94,7 +94,10 @@ export function RowList({
   const isLastPage = rows.length < pageSize;
   const totalLabel = visibleRows.length;
 
-  const basePath = `/automations/${swarmType}/review`;
+  // Phase 76-08 renamed /review → /stage-1; emit the new path directly so
+  // pagination + selection links don't bounce through the legacy redirect
+  // (which strips arbitrary query params and breaks ?topic / ?before).
+  const basePath = `/automations/${swarmType}/stage-1`;
 
   // Build "Load older" URL preserving current selection.
   const olderQs = new URLSearchParams();
