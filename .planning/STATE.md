@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 80-03-PLAN.md
-last_updated: "2026-05-08T14:49:24.373Z"
+stopped_at: Completed 80-04-PLAN.md
+last_updated: "2026-05-08T14:53:45.328Z"
 last_activity: 2026-05-08
 progress:
   total_phases: 59
   completed_phases: 16
-  total_plans: 115
-  completed_plans: 95
-  percent: 83
+  total_plans: 117
+  completed_plans: 96
+  percent: 82
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 80 (swarm-agnostic-stage-3-classifier-dispatcher-split-predicted) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Milestone: v8.0 Agentic Platform (11 phases, 63-73)
 Last activity: 2026-05-08
 
-Progress: [████████░░] 83%
+Progress: [████████░░] 82%
 
 **v8.0 execution order:** 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 **Next action:** `/gsd-verify-work 68`, then `/gsd-discuss-phase 69 --auto`.
@@ -74,6 +74,7 @@ Progress: [████████░░] 83%
 | Phase 80 P01 | 12m | 3 tasks | 4 files |
 | Phase 80 P02 | 4m | 2 tasks | 5 files |
 | Phase 80 P03 | 10m | 2 tasks | 4 files |
+| Phase Phase 80 PP04 | 4m | 1 task tasks | 1 file files |
 
 ## Accumulated Context
 
@@ -122,6 +123,7 @@ Progress: [████████░░] 83%
 - Phase 80-02: caller-side swap to loadSwarmIntents applied in Wave 1 (transient swap) — keeps tsc clean between waves with no live behavior change
 - Race-guard via compound .eq() match in classifier flip-status-predicted; Supabase mock updated to support thenable chain (Phase 80 Plan 03)
 - Live-traffic switch via single Inngest serve registration of stage3Dispatcher; wildcard */predicted activates routing for all swarms (Phase 80 Plan 03)
+- Phase 80-04: agent_runs.status='predicted' maps to Kanban 'progress' lane attributed to 'Stage 3 Dispatcher'; Bulk Review automation_runs.status='predicted' → 'review' path preserved (different table, different feature)
 
 ### Blockers/Concerns
 
@@ -153,8 +155,8 @@ Progress: [████████░░] 83%
 
 ## Session Continuity
 
-Last session: 2026-05-08T14:49:24.364Z
-Stopped at: Completed 80-03-PLAN.md
+Last session: 2026-05-08T14:53:41.510Z
+Stopped at: Completed 80-04-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 

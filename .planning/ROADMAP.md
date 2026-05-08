@@ -418,22 +418,25 @@ Plans:
 **Plans:** 6 plans
 
 Plans:
-- [ ] 80-01-test-scaffolds-red-PLAN.md — Wave 0 RED test scaffolds + STATUS literal-union update
-- [ ] 80-02-stage-3-dispatcher-PLAN.md — New cross-swarm Stage 3.5 dispatcher + escalation-gate registry-bug fix
-- [ ] 80-03-classifier-refactor-and-register-PLAN.md — Refactor coordinator to thin classifier + register dispatcher (live-traffic switch)
-- [ ] 80-04-ui-sync-predicted-PLAN.md — Add predicted case to triageStageFromStatus in swarm-bridge/sync.ts
+- [x] 80-01-test-scaffolds-red-PLAN.md — Wave 0 RED test scaffolds + STATUS literal-union update
+- [x] 80-02-stage-3-dispatcher-PLAN.md — New cross-swarm Stage 3.5 dispatcher + escalation-gate registry-bug fix
+- [x] 80-03-classifier-refactor-and-register-PLAN.md — Refactor coordinator to thin classifier + register dispatcher (live-traffic switch)
+- [x] 80-04-ui-sync-predicted-PLAN.md — Add predicted case to triageStageFromStatus in swarm-bridge/sync.ts
 - [ ] 80-05-backfill-stuck-classifying-PLAN.md — One-shot backfill script for the 407 stranded rows (acceptance + production checkpoint)
 - [ ] 80-06-rfc-doc-lock-PLAN.md — Update stage-3-coordinator.md RFC with new state machine + cross-swarm contract
 
 ### Phase 81: Fold Stage 1 (Bulk Review) into the stage-keyed shell — close the loop on Sketch 005 / Phase 76 D-04/D-05 (REVISED). Today /stage-1 re-exports the legacy /review page with no _shell wrapper; this phase wraps it in PageHeader + StageTabStrip so Stage 1 sits under the same shell as 0/3/4, drops 'Bulk Review' as a UI noun, wires the Pending Promotion sub-view (?sub=pending), and lands a Stage 2 placeholder.
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** /stage-1 sits under the same _shell as /stage-0 / /stage-3 / /stage-4 (PageHeader + StageTabStrip), the legacy 3-col QueueTree layout is replaced by a horizontal noise-category chip-strip, the Pending Promotion sub-view at ?sub=pending actually renders end-to-end, a thin /stage-2 placeholder lands with a live tagging-failures count, and 'Bulk Review' is gone as a user-visible UI noun.
+**Requirements**: TBD (Phase 81 tracks coverage via D-codes D-01..D-19 in 81-CONTEXT.md)
 **Depends on:** Phase 80
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 81 to break down)
+- [ ] 81-01-PLAN.md — Mechanical move review/ → stage-1/, inline page.tsx, rewrite all external importers, no behaviour change (Wave 1)
+- [ ] 81-02-PLAN.md — Stage 2 placeholder route + thin head-count loader for last-7-day failed tags (Wave 2)
+- [ ] 81-03-PLAN.md — Shell-wrap stage-1/page.tsx with PageHeader + StageTabStrip + noise-category chip-strip + ?sub=pending loader branch + extracted candidate-rule-list / pending-promotion-detail-pane (Wave 3)
+- [ ] 81-04-PLAN.md — Cleanup: delete queue-tree.tsx, purge 'Bulk Review' user-visible copy, extend middleware redirect tests for ?sub=pending, regression smoke on /stage-3 + /stage-4, time-boxed safety-review-loader fixture fix (Wave 4)
 
 ---
 
