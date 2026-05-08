@@ -1203,3 +1203,31 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when 2-3 cross-entity samples are collected)
+
+### Phase 999.7: Stage 0 budget-breach failures on long emails (BACKLOG)
+
+**Goal:** Stop Stage 0 safety classifier from rejecting (and stranding) emails that exceed its 5000-token budget. Today such emails get rejected outright rather than truncated, so the row never advances past Stage 0 and surfaces downstream as "email row not found" / unresolved.
+
+**Why backlogged:** raised 2026-05-07 — newly identified as a distinct root cause for "email row not found" symptoms, separate from the earlier race-mode failures (12:59 / 13:11). Decide approach next week.
+
+**Concrete samples (2026-05-07 14:46):**
+- `budget breach: token_count 12358 > 5000` (smeba-fire, 14:46:45) — 2.5× over budget
+- `budget breach: token_count 12362 > 5000` (smeba.nl, 14:46:44) — 2.5× over budget
+
+**Two options to weigh at /gsd-discuss-phase:**
+1. **Raise the Stage 0 token budget** — simplest; pick a ceiling that covers the realistic long-email tail (e.g. 16k or 32k) and accept the marginal cost.
+2. **Truncate body upstream before Stage 0** — keep budget tight; truncate at ingest (head + tail window, or strip quoted history / signatures). Preserves cost discipline; needs care so injection content isn't smuggled past the safety check via truncation.
+
+Hybrid is plausible (raise budget moderately + add quoted-history strip).
+
+**Open questions:**
+- Where exactly is the 5000-token budget configured (Stage 0 worker code vs Orq agent settings)?
+- Is the rejection path emitting a clean failure status on `automation_runs`, or is it the source of stale `pending` rows that the 999.4 sweeper would also catch?
+- Distribution: how many emails/day breach? If <1/day, raise-budget is fine; if many, truncation pays off.
+
+**Requirements:** TBD
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready to scope)
