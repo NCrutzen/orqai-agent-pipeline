@@ -1,24 +1,30 @@
 /**
- * Phase 64 BUDG-01. Per-Inngest-invocation token + cost ceiling guard.
+ * Phase 64 BUDG-01 + Phase 999.7 — Per-Inngest-invocation budget guards.
  *
- * Ceilings sourced from
- * .planning/phases/64-stage-0-input-safety-per-run-budgets/64-01-PROBES.md
- * (validated against last 30 days of automation_runs.result.cost_cents —
- * found ZERO historical samples; defaults to D-16 starting points pending
- * Phase 65 re-tune once Stage 0 has written 100+ samples).
+ * Two ceilings, two distinct roles (Phase 999.7 D-03 / D-08):
  *
- * Per D-14: breach when EITHER cost OR tokens exceed ceiling. Cost is the
- * operator-visible number (override axis 4 already speaks in cents); tokens
- * is the runaway-loop guard.
+ *   BUDGET_CEILING_CENTS  — RUNAWAY-LOOP GUARD.
+ *     Fires on cost regardless of token count. Catches Stage 4 handlers
+ *     in tool-call loops, runaway agent fan-outs, or model-pricing
+ *     surprises. Independent of token ceiling.
  *
- * Per D-15: ceilings are PER Inngest invocation (one inbound email = one
- * Stage 0 run = one BudgetState lifetime).
+ *   BUDGET_CEILING_TOKENS — LONG-EMAIL GUARD.
+ *     Fires on token volume. Catches genuinely huge prompt+completion
+ *     pairs. Tuned 2026-05-07 from 5000 → 16000 after observing real
+ *     long debtor threads at 12358/12362 tokens. Quoted-history strip
+ *     (Phase 999.7) reduces typical long-email tokens before this fires.
+ *
+ * Per D-15 (Phase 64): ceilings are PER Inngest invocation (one inbound
+ * email = one Stage 0 run = one BudgetState lifetime).
+ *
+ * Per D-13: breach is data, not exception. The check() function returns
+ * { breached: true, reason } and the worker emits pipeline/budget_breached.
  *
  * Pure module. No I/O. No imports.
  */
 
 export const BUDGET_CEILING_CENTS = 15;
-export const BUDGET_CEILING_TOKENS = 5000;
+export const BUDGET_CEILING_TOKENS = 16000;
 
 export interface BudgetState {
   cost_cents: number;
