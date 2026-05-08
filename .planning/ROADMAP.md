@@ -381,6 +381,44 @@ Plans:
 
 ---
 
+### Phase 80: Swarm-agnostic Stage 3 classifier/dispatcher split — `predicted` as first-class state
+
+**Goal:** Split the current monolithic `debtor-email-coordinator` Inngest function into two clean responsibilities so Stage 3 has an unambiguous terminal state, the no-handler human-lane path is leak-free, and the same dispatcher serves both `debtor-email` and the upcoming `sales-email` swarm without hardcoded swarm logic.
+
+**Problem this fixes:** Today's coordinator does both the LLM intent classification AND the downstream dispatch in one function. Phase 76 added a no-handler short-circuit that writes a Kanban row + marks `coordinator_runs.completed_at` but **never updates `agent_runs.status`**, leaving the originating row stranded in `classifying`. Live count: 407 stuck rows backlogged, growing every time a placeholder-intent email arrives. Symptoms look like "the classifier is broken" but the classifier did its job — the state machine is missing a transition.
+
+**State machine after this phase:**
+- `classifying` → Stage 3 LLM in flight. Stuck >N min = classifier bug.
+- `predicted` → Stage 3 LLM done, ranked intents persisted. **First-class state**, written by the classifier and read by the dispatcher. Stuck >N min = dispatcher bug.
+- `routed_human_queue` → dispatcher determined no Stage 4 handler exists (`swarm_intents.handler_status='placeholder'`); Kanban row written; awaiting human. **Terminal.**
+- handler-owned statuses (`fetching_document`, `done`, etc.) → dispatcher emitted `handler_event`; Stage 4 worker owns the row.
+
+**Deliverables:**
+
+1. **Stage 3 classifier (refactored coordinator).** `debtor-email-coordinator.ts` shrinks to: invoke Intent Agent → write `tool_outputs.intent_first_pass` → persist `ranked_intents` on `coordinator_runs` → flip `agent_runs.status='predicted'` → emit `<swarm>/predicted` event → return. Removes inline single-shot dispatch + Phase 76 no-handler Kanban write.
+2. **Stage 3.5 dispatcher (new, swarm-agnostic).** New Inngest function (e.g. `stage-3-dispatcher.ts`) listening on `*/predicted` events. Reads `agent_runs` row, looks up `swarm_intents.handler_status` for `(swarm_type, intent_key)`, and routes:
+   - `placeholder` → write Kanban `automation_runs` row → flip `agent_runs.status='routed_human_queue'` → mark `coordinator_runs` complete (atomic in one `step.run`).
+   - `registered` → emit `swarm_intents.handler_event` for Stage 4 → mark coordinator complete (handler owns subsequent status transitions).
+   - **Future hook:** dormant escalation branch for Stage 3.5 orchestrator-worker fan-out (Phase 76 D-07 deferred). Dispatcher reserves the branch but does not implement it.
+3. **Cross-swarm contract.** Dispatcher reads `swarm_type` from the event payload; both `debtor-email` and `sales-email` (Phase 78) share the function. Event names follow `<swarm>/predicted` so per-swarm fan-out works without code branches.
+4. **State-machine doc lock.** Update `docs/agentic-pipeline/stage-3-coordinator.md` with the new state diagram, transition table, and "stuck-status meaning" table. RFC-locked, code follows doc.
+5. **UI semantics confirmation.** Audit `web/lib/automations/swarm-bridge/sync.ts` — confirm `predicted` and `routed_human_queue` map to the correct Bulk Review / Kanban surfaces. Adjust if `predicted` is now transient (~milliseconds) vs. previously a terminal-ish state.
+6. **Backfill script.** One-shot `web/scripts/backfill-stuck-classifying-stage3.ts` for the 407 rows: for each, look up corresponding `automation_runs` Kanban row by `email_id`; if found → flip to `routed_human_queue`; if not found → flag for manual triage. Idempotent. Acceptance/test creds default per CLAUDE.md.
+7. **Monitoring reframe.** Update any health queries / dashboards that previously alerted on "rows in `classifying`" — split into two distinct signals: classifying-stuck = classifier bug; predicted-stuck = dispatcher bug; routed_human_queue = expected human lane (no alert).
+
+**Why this is high-value cross-swarm work:** Phase 78 (sales-email Stage 0→3 onboarding) is about to land. Without the dispatcher split, Phase 78 will copy the same buggy "monolithic coordinator" pattern into a second swarm, doubling the silent-stuck-row failure mode. Splitting now makes Phase 78 a thin classifier + a registered handler, no dispatch logic to duplicate. Same dispatcher serves both swarms.
+
+**Out of scope:**
+- Stage 3.5 orchestrator-worker fan-out for multi-intent emails (still dormant per Phase 76 D-07; this phase only reserves a clean re-enable hook).
+- The separate `intent=null + multiple Kanban rows` duplicate-write bug observed in the live data — diagnose-and-fix in a follow-up phase.
+- Building any new Stage 4 handler.
+
+**Depends on:** Phase 76 (no-handler Kanban surface), Phase 77 (Stage 2/3 verification — confirms current contract before refactor). Strongly suggested before Phase 78.
+
+**Plans:** TBD (run /gsd-plan-phase 80 to break down)
+
+---
+
 ## Phases
 
 ### V3.0 Web UI & Dashboard (Phases 34-38)
