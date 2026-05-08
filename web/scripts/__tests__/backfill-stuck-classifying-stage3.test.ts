@@ -135,7 +135,7 @@ beforeEach(() => {
 // Helper: dynamic import the (not-yet-existing) script. Each test imports
 // fresh because process.argv toggles drive code-paths.
 async function importBackfill() {
-  // @ts-expect-error — module not yet implemented; see Wave 4 / plan 80-05.
+  // Plan 80-05 (Wave 4) shipped the implementation; this import now resolves.
   return import("../backfill-stuck-classifying-stage3");
 }
 
