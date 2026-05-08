@@ -220,6 +220,10 @@ type TriageStage = "backlog" | "ready" | "progress" | "review" | "done";
 function triageStageFromStatus(status: string): TriageStage {
   switch (status) {
     case "classifying":
+    case "predicted":
+      // Phase 80: dispatcher transient — sub-second under healthy conditions; only routed_human_queue surfaces to review.
+      // NB: This is agent_runs.status='predicted' (Stage 3 classifier emitted, dispatcher about to route).
+      // The Bulk Review automation_runs.status='predicted' path (lines ~35, ~64) is intentionally separate.
     case "fetching_document":
     case "generating_body":
     case "creating_draft":
@@ -246,6 +250,9 @@ function triageAgentFromStatus(status: string): string {
   switch (status) {
     case "classifying":
       return "Intent Agent";
+    case "predicted":
+      // Phase 80: Stage 3 dispatcher owns the row between classifier emit and handler dispatch.
+      return "Stage 3 Dispatcher";
     case "generating_body":
     case "copy_document_drafted":
     case "copy_document_needs_review":
