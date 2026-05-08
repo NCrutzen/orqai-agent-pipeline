@@ -38,6 +38,7 @@ import { stage0StaleSweeper } from "@/lib/inngest/functions/automation-runs-swee
 import { budgetBreachHandler } from "@/lib/inngest/functions/budget-breach-handler";
 import { coordinatorOrchestrator } from "@/lib/inngest/functions/coordinator-orchestrator";
 import { coordinatorSynthesis } from "@/lib/inngest/functions/coordinator-synthesis";
+import { stage3Dispatcher } from "@/lib/inngest/functions/stage-3-dispatcher";
 import { debtorEmailOverrideHandler } from "@/lib/inngest/functions/debtor-email-override-handler";
 
 export const { GET, POST, PUT } = serve({
@@ -73,6 +74,7 @@ export const { GET, POST, PUT } = serve({
     budgetBreachHandler,
     coordinatorOrchestrator,
     coordinatorSynthesis,
+    stage3Dispatcher,
     debtorEmailOverrideHandler,
   ],
 });
