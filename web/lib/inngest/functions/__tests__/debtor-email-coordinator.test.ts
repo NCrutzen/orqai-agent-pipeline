@@ -258,7 +258,8 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     expect(decision_details.urgency).toBe("normal");
   });
 
-  it("CORD-04 single-shot path: emits exactly one debtor-email/<intent>.requested via swarm_dispatch", async () => {
+  // Phase 80 Wave 2: dispatch moved to stage-3-dispatcher; assertions migrated to stage-3-dispatcher.test.ts
+  it.skip("CORD-04 single-shot path: emits exactly one debtor-email/<intent>.requested via swarm_dispatch", async () => {
     invokeIntentMock.mockResolvedValueOnce({
       output: {
         ranked: [
@@ -289,7 +290,8 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     expect(sendNames.filter((n) => n.endsWith(".requested")).length).toBe(1);
   });
 
-  it("CORD-02 escalation by requires_orchestration flag: writes Kanban low_confidence row + records reason='requires_orchestration_flag' (Phase 76 D-07)", async () => {
+  // Phase 80 Wave 2: dispatch moved to stage-3-dispatcher; assertions migrated to stage-3-dispatcher.test.ts
+  it.skip("CORD-02 escalation by requires_orchestration flag: writes Kanban low_confidence row + records reason='requires_orchestration_flag' (Phase 76 D-07)", async () => {
     invokeIntentMock.mockResolvedValueOnce({
       output: {
         ranked: [
@@ -334,7 +336,8 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     ).toBe("requires_orchestration_flag");
   });
 
-  it("CORD-02 escalation by low confidence: writes Kanban low_confidence row + records reason='low_confidence' (Phase 76 D-07)", async () => {
+  // Phase 80 Wave 2: dispatch moved to stage-3-dispatcher; assertions migrated to stage-3-dispatcher.test.ts
+  it.skip("CORD-02 escalation by low confidence: writes Kanban low_confidence row + records reason='low_confidence' (Phase 76 D-07)", async () => {
     invokeIntentMock.mockResolvedValueOnce({
       output: {
         ranked: [
@@ -380,7 +383,8 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     ).toBe("low_confidence");
   });
 
-  it("CORD-04 cache hit: invokeIntentAgent NOT called; dispatch still happens", async () => {
+  // Phase 80 Wave 2: dispatch moved to stage-3-dispatcher; assertions migrated to stage-3-dispatcher.test.ts
+  it.skip("CORD-04 cache hit: invokeIntentAgent NOT called; dispatch still happens", async () => {
     findCachedMock.mockResolvedValue({
       intent_first_pass: {
         ranked: [
@@ -459,7 +463,8 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
   });
 
   // ---- Phase 68 (SWRM-02) — Phase 76 reads full intent row via loadSwarmIntents
-  it("SWRM-02 single-shot: dispatch event name comes from swarm_intents.handler_event (registry-driven)", async () => {
+  // Phase 80 Wave 2: dispatch moved to stage-3-dispatcher; assertions migrated to stage-3-dispatcher.test.ts
+  it.skip("SWRM-02 single-shot: dispatch event name comes from swarm_intents.handler_event (registry-driven)", async () => {
     loadSwarmIntentsMock.mockReset();
     loadSwarmIntentsMock.mockResolvedValueOnce([
       {
@@ -506,7 +511,8 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
     );
   });
 
-  it("SWRM-02 single-shot: missing swarm_intents row → structured throw + mark-failed", async () => {
+  // Phase 80 Wave 2: dispatch moved to stage-3-dispatcher; assertions migrated to stage-3-dispatcher.test.ts
+  it.skip("SWRM-02 single-shot: missing swarm_intents row → structured throw + mark-failed", async () => {
     loadSwarmIntentsMock.mockReset();
     loadSwarmIntentsMock.mockResolvedValueOnce([]);
     invokeIntentMock.mockResolvedValueOnce({
@@ -558,7 +564,8 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
 // source-of-truth that Plan 03 reads.
 // ---------------------------------------------------------------------------
 
-describe("Phase 76: no_handler trigger", () => {
+// Phase 80 Wave 2: dispatch moved to stage-3-dispatcher; assertions migrated to stage-3-dispatcher.test.ts
+describe.skip("Phase 76: no_handler trigger", () => {
   let handler: (ctx: unknown) => Promise<unknown>;
 
   beforeEach(async () => {
@@ -683,7 +690,8 @@ describe("Phase 76: no_handler trigger", () => {
   });
 });
 
-describe("Phase 76: low_confidence trigger", () => {
+// Phase 80 Wave 2: dispatch moved to stage-3-dispatcher; assertions migrated to stage-3-dispatcher.test.ts
+describe.skip("Phase 76: low_confidence trigger", () => {
   let handler: (ctx: unknown) => Promise<unknown>;
 
   beforeEach(async () => {
@@ -804,5 +812,148 @@ describe("Phase 76: low_confidence trigger", () => {
       (c) => (c[0] as { name: string }).name,
     );
     expect(sendNames).not.toContain("debtor-email/orchestrator.requested");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 80 Plan 01 Wave 0 — RED scaffolds for classifier/dispatcher split.
+//
+// New contract per 80-CONTEXT.md / 80-PATTERNS.md:
+//   1. Classifier flips agent_runs.status: classifying → predicted (race-guarded)
+//   2. Classifier emits `debtor-email/predicted` event with {run_id, agent_run_id,
+//      ranked, swarm_type, language, urgency, entity, ...}
+//   3. Classifier no longer writes inline kanban_reason — that moves to the
+//      stage-3-dispatcher.
+//
+// These tests fail until plan 80-03 lands the classifier refactor.
+// ---------------------------------------------------------------------------
+
+describe("Phase 80: Stage 3 classifier emits predicted (no inline dispatch)", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+  // Track step.run names so the flip-status-predicted assertion is meaningful.
+  const stepRunNames: string[] = [];
+  const tracedStep = {
+    run: async (name: string, fn: () => Promise<unknown>) => {
+      stepRunNames.push(name);
+      return fn();
+    },
+  };
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    captured.inserts.length = 0;
+    captured.updates.length = 0;
+    stepRunNames.length = 0;
+    supabaseMock = makeSupabaseMock();
+    loadSwarmIntentsMock.mockReset();
+    loadSwarmIntentsMock.mockImplementation(
+      async (_supabase: unknown, _swarmType: string) => [
+        defaultIntentRow("copy_document_request"),
+      ],
+    );
+    vi.resetModules();
+    const mod = await import("../debtor-email-coordinator");
+    handler = (mod.debtorEmailCoordinator as unknown as { handler: typeof handler })
+      .handler;
+  });
+
+  it("flips agent_runs.status from 'classifying' to 'predicted' (flip-status-predicted step)", async () => {
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          { intent: "copy_document_request", confidence: "high", ...baseRanked },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("copy_document_request", false),
+    ]);
+
+    await handler({ event: buildEvent(), step: tracedStep });
+
+    expect(stepRunNames).toContain("flip-status-predicted");
+
+    const flipUpdate = captured.updates.find(
+      (u) =>
+        u.table === "agent_runs" &&
+        (u.patch as { status?: string }).status === "predicted",
+    );
+    expect(flipUpdate).toBeDefined();
+  });
+
+  it("emits 'debtor-email/predicted' event with run_id, agent_run_id, ranked, swarm_type", async () => {
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          { intent: "copy_document_request", confidence: "high", ...baseRanked },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("copy_document_request", false),
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const predictedEmit = inngestSend.mock.calls.find(
+      (c) => (c[0] as { name: string }).name === "debtor-email/predicted",
+    );
+    expect(predictedEmit).toBeDefined();
+    const payload = (predictedEmit![0] as { data: Record<string, unknown> }).data;
+    expect(payload.run_id).toBe("run-1");
+    expect(payload.agent_run_id).toBeDefined();
+    expect(payload.swarm_type).toBe("debtor-email");
+    expect(Array.isArray(payload.ranked)).toBe(true);
+  });
+
+  it("classifier does NOT call automation_runs.insert with kanban_reason (dispatch moved to stage-3-dispatcher)", async () => {
+    // Use a placeholder swarm_intents row that, in the OLD classifier, would
+    // have triggered an inline kanban_reason='no_handler' insert. Under the
+    // Phase 80 contract the classifier must NOT write kanban here.
+    loadSwarmIntentsMock.mockReset();
+    loadSwarmIntentsMock.mockImplementation(
+      async (_supabase: unknown, _swarmType: string) => [
+        {
+          ...defaultIntentRow("copy_document_request"),
+          handler_status: "placeholder",
+        },
+      ],
+    );
+
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          { intent: "copy_document_request", confidence: "low", ...baseRanked },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("copy_document_request", false),
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const kanbanInsert = captured.inserts.find(
+      (i) =>
+        i.table === "automation_runs" &&
+        typeof (i.row.result as { kanban_reason?: string } | undefined)
+          ?.kanban_reason === "string",
+    );
+    expect(kanbanInsert).toBeUndefined();
   });
 });
