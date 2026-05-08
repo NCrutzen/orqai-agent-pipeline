@@ -4,14 +4,14 @@ milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
 stopped_at: Completed 999.7-02
-last_updated: "2026-05-08T05:08:26.449Z"
+last_updated: "2026-05-08T07:38:44.512Z"
 last_activity: 2026-05-08 -- Phase --phase execution started
 progress:
-  total_phases: 57
+  total_phases: 59
   completed_phases: 16
-  total_plans: 107
+  total_plans: 113
   completed_plans: 92
-  percent: 86
+  percent: 81
 ---
 
 # Project State
@@ -87,6 +87,7 @@ Progress: [█████████░] 86%
 - Phase 78 added: Sales-email Stage 0→3 onboarding (verkoop@smeba.nl, ~15-25 emails/day). Registry-insert-only — if any cross-swarm worker needs swarm-specific branches, that's an architecture bug to fix here. Subsumes Phase 73. Runs in PARALLEL with Phase 77, depends on Phase 76 only.
 - Phase 79 added: Learning loop — intent surfacing dashboard. Cross-swarm view of intent volumes, top-N picks, Stage 3 confidence distributions, operator override rates, Kanban-lane stuck-row counts by reason. Output is the input to v8.2's data-driven handler prioritization. Depends on 76+77+78.
 - Milestone framing: Phases 76-79 form milestone v8.1 "Validation + Visibility" — observe → understand → THEN automate. v8.2 "Selective handler automation" follows, with phases picked from v8.1 data, not pre-planned.
+- Phase 81 added: Fold Stage 1 (Bulk Review) into the stage-keyed shell — closes the loop on Sketch 005 / Phase 76 D-04/D-05 (REVISED). Phase 76-08 explicitly chose option (A) "minimum churn" (re-export /review/page.tsx) over option (B) (wrap in _shell + StageTabStrip), so /stage-1 still renders the legacy "Bulk Review" chrome with no stage-tab strip and Pending Promotion sub-view never wires (?sub=pending pushed by QueueTree, but loadPageData reads ?tab=pending which the redirect rewrites away). Output: Stage 1 sits under the same shell as 0/3/4, "Bulk Review" stops being a UI noun, Pending Promotion sub-view actually renders, and a thin Stage 2 placeholder lets the registry-driven tab strip resolve.
 
 ### Decisions
 
@@ -163,4 +164,4 @@ Items acknowledged at v7.0 close on 2026-04-30 — known-deferred, not gating mi
 
 See .planning/milestones/v7.0-* archive files for full milestone state.
 
-**Planned Phase:** 999.7 (stage-0-budget-breach-failures) — 3 plans — 2026-05-08T04:43:03.358Z
+**Planned Phase:** 80 (Swarm-agnostic Stage 3 classifier/dispatcher split) — 6 plans — 2026-05-08T07:38:44.493Z

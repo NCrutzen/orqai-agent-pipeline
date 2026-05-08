@@ -415,7 +415,25 @@ Plans:
 
 **Depends on:** Phase 76 (no-handler Kanban surface), Phase 77 (Stage 2/3 verification — confirms current contract before refactor). Strongly suggested before Phase 78.
 
-**Plans:** TBD (run /gsd-plan-phase 80 to break down)
+**Plans:** 6 plans
+
+Plans:
+- [ ] 80-01-test-scaffolds-red-PLAN.md — Wave 0 RED test scaffolds + STATUS literal-union update
+- [ ] 80-02-stage-3-dispatcher-PLAN.md — New cross-swarm Stage 3.5 dispatcher + escalation-gate registry-bug fix
+- [ ] 80-03-classifier-refactor-and-register-PLAN.md — Refactor coordinator to thin classifier + register dispatcher (live-traffic switch)
+- [ ] 80-04-ui-sync-predicted-PLAN.md — Add predicted case to triageStageFromStatus in swarm-bridge/sync.ts
+- [ ] 80-05-backfill-stuck-classifying-PLAN.md — One-shot backfill script for the 407 stranded rows (acceptance + production checkpoint)
+- [ ] 80-06-rfc-doc-lock-PLAN.md — Update stage-3-coordinator.md RFC with new state machine + cross-swarm contract
+
+### Phase 81: Fold Stage 1 (Bulk Review) into the stage-keyed shell — close the loop on Sketch 005 / Phase 76 D-04/D-05 (REVISED). Today /stage-1 re-exports the legacy /review page with no _shell wrapper; this phase wraps it in PageHeader + StageTabStrip so Stage 1 sits under the same shell as 0/3/4, drops 'Bulk Review' as a UI noun, wires the Pending Promotion sub-view (?sub=pending), and lands a Stage 2 placeholder.
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 80
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 81 to break down)
 
 ---
 
