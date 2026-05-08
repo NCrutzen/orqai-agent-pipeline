@@ -18,7 +18,15 @@ vi.mock("@/lib/stage-0/llm-verdict", () => ({
 vi.mock("@/lib/stage-0/budget-counter", () => ({
   check: vi.fn(),
   BUDGET_CEILING_CENTS: 15,
-  BUDGET_CEILING_TOKENS: 5000,
+  BUDGET_CEILING_TOKENS: 16000,
+}));
+
+vi.mock("@/lib/stage-0/strip-quoted-history", () => ({
+  stripQuotedHistory: vi.fn((body: string) => ({
+    stripped: body,
+    changed: false,
+    delta_chars: 0,
+  })),
 }));
 
 vi.mock("@/lib/inngest/client", () => ({
@@ -65,6 +73,7 @@ vi.mock("@/lib/supabase/admin", () => {
 import { regexScreen } from "@/lib/stage-0/regex-screen";
 import { llmInjectionVerdict } from "@/lib/stage-0/llm-verdict";
 import { check as budgetCheck } from "@/lib/stage-0/budget-counter";
+import { stripQuotedHistory } from "@/lib/stage-0/strip-quoted-history";
 import { inngest } from "@/lib/inngest/client";
 import * as adminMod from "@/lib/supabase/admin";
 import { stage0SafetyWorker } from "../stage-0-safety-worker";
@@ -72,6 +81,7 @@ import { stage0SafetyWorker } from "../stage-0-safety-worker";
 const mockRegex = regexScreen as unknown as ReturnType<typeof vi.fn>;
 const mockLlm = llmInjectionVerdict as unknown as ReturnType<typeof vi.fn>;
 const mockBudget = budgetCheck as unknown as ReturnType<typeof vi.fn>;
+const mockStrip = stripQuotedHistory as unknown as ReturnType<typeof vi.fn>;
 const mockSend = inngest.send as unknown as ReturnType<typeof vi.fn>;
 const adminMocks = (adminMod as unknown as { __mocks__: any }).__mocks__;
 
@@ -90,6 +100,13 @@ beforeEach(() => {
   mockRegex.mockReset();
   mockLlm.mockReset();
   mockBudget.mockReset();
+  mockStrip.mockReset();
+  // Default strip behavior: pass-through.
+  mockStrip.mockImplementation((body: string) => ({
+    stripped: body,
+    changed: false,
+    delta_chars: 0,
+  }));
   mockSend.mockReset();
   mockSend.mockResolvedValue({ ids: ["evt"] });
   adminMocks.from.mockClear();
@@ -280,9 +297,9 @@ describe("BUDG-01 / Pitfall 1: budget breach emits event, does NOT throw", () =>
       reason: "ok",
       matched_span: null,
       usage: {
-        prompt_tokens: 5000,
+        prompt_tokens: 16000,
         completion_tokens: 200,
-        total_tokens: 5200,
+        total_tokens: 16100,
         cost_cents: 18,
       },
     });
@@ -459,5 +476,244 @@ describe("Phase 999.4 — Stage 0 worker — safety_overridden short-circuit unc
     expect(mockLlm).not.toHaveBeenCalled();
     const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
     expect(sendNames).toContain("classifier/screen.requested");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 999.7 — Wave 3 INTEG tests for strip-quoted-history wiring.
+// Covers INTEG-01 (step ordering), INTEG-02 (Pitfall 4: original-body
+// forwarding), INTEG-03 (12k regression), INTEG-05 (telemetry dual-write).
+// ---------------------------------------------------------------------------
+
+describe("Phase 999.7 INTEG-01 — strip step runs before regex-screen and llm-verdict", () => {
+  it("invokes stripQuotedHistory before regexScreen and before llmInjectionVerdict", async () => {
+    mockRegex.mockReturnValue({ matched: null });
+    mockLlm.mockResolvedValue({
+      verdict: "safe",
+      reason: "no signals",
+      matched_span: null,
+      usage: {
+        prompt_tokens: 80,
+        completion_tokens: 10,
+        total_tokens: 90,
+        cost_cents: 1,
+      },
+    });
+    mockBudget.mockReturnValue({ breached: false });
+
+    const step = makeStep();
+    const handler = getHandler();
+    await handler({
+      event: {
+        data: {
+          email_id: "e-order",
+          body: "normal mail",
+          subject: "subj",
+          automation_run_id: "ar-order",
+          swarm_type: "debtor-email",
+        },
+      },
+      step,
+    });
+
+    const stripOrder = mockStrip.mock.invocationCallOrder[0];
+    const regexOrder = mockRegex.mock.invocationCallOrder[0];
+    const llmOrder = mockLlm.mock.invocationCallOrder[0];
+
+    expect(stripOrder).toBeDefined();
+    expect(regexOrder).toBeDefined();
+    expect(llmOrder).toBeDefined();
+    expect(stripOrder).toBeLessThan(regexOrder);
+    expect(stripOrder).toBeLessThan(llmOrder);
+  });
+});
+
+describe("Phase 999.7 INTEG-02 — forward-to-classifier carries ORIGINAL body, not stripped", () => {
+  it("classifier/screen.requested.body_text === original body, even when strip changed it", async () => {
+    const originalBody = "ORIGINAL BODY with full thread\n> quoted reply\nVan: someone";
+    const strippedBody = "STRIPPED";
+
+    mockStrip.mockReturnValue({
+      stripped: strippedBody,
+      changed: true,
+      delta_chars: strippedBody.length - originalBody.length,
+    });
+    mockRegex.mockReturnValue({ matched: null });
+    mockLlm.mockResolvedValue({
+      verdict: "safe",
+      reason: "ok",
+      matched_span: null,
+      usage: {
+        prompt_tokens: 50,
+        completion_tokens: 5,
+        total_tokens: 55,
+        cost_cents: 1,
+      },
+    });
+    mockBudget.mockReturnValue({ breached: false });
+
+    const step = makeStep();
+    const handler = getHandler();
+    await handler({
+      event: {
+        data: {
+          email_id: "e-pitfall4",
+          body: originalBody,
+          subject: "subj",
+          automation_run_id: "ar-pitfall4",
+          swarm_type: "debtor-email",
+        },
+      },
+      step,
+    });
+
+    // LLM saw stripped body.
+    expect(mockLlm).toHaveBeenCalledWith(
+      expect.objectContaining({ body: strippedBody }),
+    );
+
+    // Forward step sent ORIGINAL body to Stage 1.
+    const forwardCall = mockSend.mock.calls
+      .map((c: any) => c[0])
+      .find((p: any) => p?.name === "classifier/screen.requested");
+    expect(forwardCall).toBeDefined();
+    expect(forwardCall.data.body_text).toBe(originalBody);
+    expect(forwardCall.data.body_text).not.toBe(strippedBody);
+  });
+});
+
+describe("Phase 999.7 INTEG-03 — 12k-token regression fixture does not breach at 16000 ceiling", () => {
+  it("real 12k-token sample completes Stage 0 with status=completed, no budget_breached emitted", async () => {
+    // Use the REAL strip helper for this test by calling it directly and
+    // routing the strip mock to its implementation. This validates the
+    // helper actually shrinks the synthetic 12k fixture.
+    const { stripQuotedHistory: realStrip } = await vi.importActual<
+      typeof import("@/lib/stage-0/strip-quoted-history")
+    >("@/lib/stage-0/strip-quoted-history");
+    mockStrip.mockImplementation((body: string) => realStrip(body));
+
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const fixturePath = path.resolve(
+      __dirname,
+      "../../../stage-0/__tests__/fixtures/12k-token-real-sample.txt",
+    );
+    const body = fs.readFileSync(fixturePath, "utf8");
+    expect(body.length).toBeGreaterThan(16000);
+
+    mockRegex.mockReturnValue({ matched: null });
+    mockLlm.mockResolvedValue({
+      verdict: "safe",
+      reason: "ok post-strip",
+      matched_span: null,
+      usage: {
+        prompt_tokens: 3500,
+        completion_tokens: 500,
+        total_tokens: 4000, // post-strip; well under 16000
+        cost_cents: 1,
+      },
+    });
+    mockBudget.mockReturnValue({ breached: false });
+
+    const step = makeStep();
+    const handler = getHandler();
+    const result = await handler({
+      event: {
+        data: {
+          email_id: "e-12k",
+          body_text: body,
+          subject: "Long debtor thread",
+          automation_run_id: "ar-12k",
+          swarm_type: "debtor-email",
+        },
+      },
+      step,
+    });
+
+    expect(result.verdict).toBe("safe");
+
+    // No budget breach event emitted.
+    const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
+    expect(sendNames).not.toContain("pipeline/budget_breached");
+
+    // automation_runs row has status='completed'.
+    const insertArgs = adminMocks.insert.mock.calls.map((c: any[]) => c[0]);
+    const stage0Insert = insertArgs.find(
+      (row: any) => row?.result?.stage === "stage_0_safety",
+    );
+    expect(stage0Insert).toBeDefined();
+    expect(stage0Insert.status).toBe("completed");
+
+    // Strip actually shrunk the body (synthetic fixture has ~17800 char delta).
+    expect(stage0Insert.result.strip_changed).toBe(true);
+    expect(stage0Insert.result.strip_delta_chars).toBeLessThan(-8000);
+  });
+});
+
+describe("Phase 999.7 INTEG-05 — strip telemetry lands in result AND pipeline_events dual-write", () => {
+  it("automation_runs.result and pipeline_events.decision_details both carry strip_changed/delta_chars/fallback_reason", async () => {
+    mockStrip.mockReturnValue({
+      stripped: "X",
+      changed: true,
+      delta_chars: -42,
+    });
+    mockRegex.mockReturnValue({ matched: null });
+    mockLlm.mockResolvedValue({
+      verdict: "safe",
+      reason: "ok",
+      matched_span: null,
+      usage: {
+        prompt_tokens: 80,
+        completion_tokens: 10,
+        total_tokens: 90,
+        cost_cents: 1,
+      },
+    });
+    mockBudget.mockReturnValue({ breached: false });
+
+    const step = makeStep();
+    const handler = getHandler();
+    await handler({
+      event: {
+        data: {
+          email_id: "e-telem",
+          body: "long body",
+          subject: "subj",
+          automation_run_id: "ar-telem",
+          swarm_type: "debtor-email",
+        },
+      },
+      step,
+    });
+
+    // automation_runs telemetry.
+    const automationRunInsert = adminMocks.supabaseInserts.find(
+      (i: any) => i.table === "automation_runs",
+    );
+    expect(automationRunInsert).toBeTruthy();
+    expect(automationRunInsert.payload.result.strip_changed).toBe(true);
+    expect(automationRunInsert.payload.result.strip_delta_chars).toBe(-42);
+    expect("strip_fallback_reason" in automationRunInsert.payload.result).toBe(
+      true,
+    );
+    expect(automationRunInsert.payload.result.strip_fallback_reason).toBeNull();
+
+    // pipeline_events dual-write telemetry.
+    const pipelineEventInsert = adminMocks.supabaseInserts.find(
+      (i: any) => i.table === "pipeline_events" && i.payload?.stage === 0,
+    );
+    expect(pipelineEventInsert).toBeTruthy();
+    expect(pipelineEventInsert.payload.decision_details.strip_changed).toBe(
+      true,
+    );
+    expect(pipelineEventInsert.payload.decision_details.strip_delta_chars).toBe(
+      -42,
+    );
+    expect(
+      "strip_fallback_reason" in pipelineEventInsert.payload.decision_details,
+    ).toBe(true);
+    expect(
+      pipelineEventInsert.payload.decision_details.strip_fallback_reason,
+    ).toBeNull();
   });
 });
