@@ -139,19 +139,23 @@ export const debtorEmailCoordinator = inngest.createFunction(
           const cachedFirst = cached?.intent_first_pass as
             | IntentAgentOutputV2
             | undefined;
-          if (cachedFirst) return cachedFirst;
 
-          const { output: fresh } = await invokeIntentAgent({
-            email_id,
-            inngest_run_id,
-            subject: email.subject,
-            body_text: email.body_text,
-            sender_email: email.sender_email,
-            sender_domain,
-            mailbox: email.mailbox,
-            entity,
-            received_at: email.received_at,
-          });
+          // Cache hit reuses the prior LLM output but MUST still hoist it
+          // onto THIS agent_run_id — otherwise duplicate triggers for the
+          // same email_id (manual replay scripts, upstream redelivery) leave
+          // the new agent_runs row with intent=null + tool_outputs={}.
+          const output: IntentAgentOutputV2 = cachedFirst
+            ?? (await invokeIntentAgent({
+              email_id,
+              inngest_run_id,
+              subject: email.subject,
+              body_text: email.body_text,
+              sender_email: email.sender_email,
+              sender_domain,
+              mailbox: email.mailbox,
+              entity,
+              received_at: email.received_at,
+            })).output;
 
           // mergeToolOutputs requires JsonValue. The IntentAgentOutputV2 shape
           // is JSON-serialisable by construction (zod-validated literals +
@@ -160,7 +164,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
             supabase,
             agent_run_id,
             "intent_first_pass",
-            fresh as unknown as Parameters<typeof mergeToolOutputs>[3],
+            output as unknown as Parameters<typeof mergeToolOutputs>[3],
           );
 
           // Hoist top-1 onto agent_runs back-compat columns. v1 columns
@@ -168,18 +172,18 @@ export const debtorEmailCoordinator = inngest.createFunction(
           // urgency, reasoning, intent_version) still exist on agent_runs
           // and are read by Bulk Review; the row is the back-compat surface
           // until Phase 66 migrates queries to coordinator_runs.ranked_intents.
-          const top = fresh.ranked[0];
+          const top = output.ranked[0];
           await updateRun(supabase, agent_run_id, {
             intent: top.intent,
             sub_type: top.sub_type,
             document_reference: top.document_reference,
-            language: fresh.language,
+            language: output.language,
             confidence: top.confidence,
-            urgency: fresh.urgency,
+            urgency: output.urgency,
             intent_version: INTENT_VERSION_V2,
             reasoning: top.reasoning,
           });
-          return fresh;
+          return output;
         },
       );
       const output = outputRaw as unknown as IntentAgentOutputV2;

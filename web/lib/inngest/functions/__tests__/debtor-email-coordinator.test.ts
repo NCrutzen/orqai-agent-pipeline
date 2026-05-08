@@ -406,6 +406,25 @@ describe("CORD-02 + CORD-04 debtor-email coordinator", () => {
       (c) => (c[0] as { name: string }).name,
     );
     expect(sendNames).toContain("debtor-email/copy_document_request.requested");
+
+    // Cache hit MUST still hoist intent + tool_outputs onto THIS agent_run_id.
+    // Pre-fix regression: returning early on cache hit orphaned the new row
+    // (intent=null, tool_outputs={}) for every duplicate trigger of the same
+    // email_id (manual replay scripts, upstream redelivery).
+    expect(mergeToolOutputsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "agent-run-given",
+      "intent_first_pass",
+      expect.objectContaining({ ranked: expect.any(Array) }),
+    );
+    expect(updateRunMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "agent-run-given",
+      expect.objectContaining({
+        intent: "copy_document_request",
+        intent_version: INTENT_VERSION_V2,
+      }),
+    );
   });
 
   it("failure path: loadSwarmNoiseCategories throws → mark-failed runs + handler re-throws", async () => {
