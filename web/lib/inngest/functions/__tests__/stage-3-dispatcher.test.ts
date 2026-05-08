@@ -148,7 +148,8 @@ vi.mock("@/lib/supabase/admin", () => {
 // Wave 1 / plan 80-02 lands web/lib/inngest/functions/stage-3-dispatcher.ts.
 // ---------------------------------------------------------------------------
 import { inngest } from "@/lib/inngest/client";
-// @ts-expect-error — module not yet implemented; see Wave 1 / plan 80-02.
+// Phase 80 Plan 02 (Wave 1) landed the dispatcher implementation —
+// the @ts-expect-error directive was removed once the import resolved.
 import { stage3Dispatcher } from "../stage-3-dispatcher";
 
 const mockSend = inngest.send as unknown as ReturnType<typeof vi.fn>;
