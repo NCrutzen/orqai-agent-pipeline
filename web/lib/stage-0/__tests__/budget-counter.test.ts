@@ -1,8 +1,10 @@
 // Phase 64-01 Task 2 (RED). BUDG-01 — per-run budget ceiling logic.
-// Constants pinned to values from .planning/phases/64-stage-0-.../64-01-PROBES.md:
+// Constants pinned to values from .planning/phases/64-stage-0-.../64-01-PROBES.md
+// (updated by Phase 999.7 D-02):
 //   BUDGET_CEILING_CENTS = 15
-//   BUDGET_CEILING_TOKENS = 5000
+//   BUDGET_CEILING_TOKENS = 16000
 // Module under test does NOT exist yet; Plan 02 ships it. RED state by design.
+// Phase 999.7 Wave 0 (RED). D-02 bump — RED until Plan 02 bumps source constant.
 
 import { describe, it, expect } from "vitest";
 import {
@@ -55,7 +57,7 @@ describe("BUDG-01: exported constants match PROBES.md pinned values", () => {
     expect(BUDGET_CEILING_CENTS).toBe(15);
   });
 
-  it("BUDGET_CEILING_TOKENS equals 5000 (D-14 runaway-loop guard)", () => {
-    expect(BUDGET_CEILING_TOKENS).toBe(5000);
+  it("BUDGET_CEILING_TOKENS equals 16000 (Phase 999.7 D-02 — long-email guard, was 5000 in Phase 64 D-14)", () => {
+    expect(BUDGET_CEILING_TOKENS).toBe(16000);
   });
 });
