@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import { evaluateEscalationGate } from "../escalation-gate";
 import type { IntentAgentOutputV2 } from "../types";
-import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
+import type { SwarmIntentRow } from "@/lib/swarms/types";
 
 const baseEntry = {
   document_reference: null,
@@ -24,20 +24,21 @@ function buildOutput(
   };
 }
 
-function buildCategory(
+// Phase 80 Plan 02 — escalation gate now reads requires_orchestration from
+// swarm_intents (Stage 3), not swarm_noise_categories (Stage 1).
+function buildIntent(
   key: string,
   requires_orchestration: boolean,
-): SwarmNoiseCategoryRow {
+): SwarmIntentRow {
   return {
     swarm_type: "debtor-email",
-    category_key: key,
-    display_label: key,
-    outlook_label: null,
-    action: "swarm_dispatch",
-    swarm_dispatch: `debtor-email/${key}.requested`,
-    display_order: 0,
-    enabled: true,
+    intent_key: key,
+    handler_agent_key: null,
+    handler_event: `debtor-email/${key}.requested`,
+    handler_status: "registered",
     requires_orchestration,
+    created_at: "2026-05-08T00:00:00Z",
+    updated_at: "2026-05-08T00:00:00Z",
   };
 }
 
@@ -67,8 +68,8 @@ describe("CORD-02 evaluateEscalationGate", () => {
     const output = buildOutput([
       { intent: "payment_dispute", confidence: "high", ...baseEntry },
     ]);
-    const categories = [buildCategory("payment_dispute", true)];
-    const decision = evaluateEscalationGate(output, categories);
+    const intents = [buildIntent("payment_dispute", true)];
+    const decision = evaluateEscalationGate(output, intents);
     expect(decision).toEqual({
       kind: "orchestrator",
       reason: "requires_orchestration_flag",
@@ -79,8 +80,8 @@ describe("CORD-02 evaluateEscalationGate", () => {
     const output = buildOutput([
       { intent: "copy_document_request", confidence: "high", ...baseEntry },
     ]);
-    const categories = [buildCategory("copy_document_request", false)];
-    const decision = evaluateEscalationGate(output, categories);
+    const intents = [buildIntent("copy_document_request", false)];
+    const decision = evaluateEscalationGate(output, intents);
     expect(decision).toEqual({ kind: "single_shot" });
   });
 

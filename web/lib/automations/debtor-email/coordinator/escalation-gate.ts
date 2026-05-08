@@ -1,4 +1,9 @@
 // Phase 65 (D-09) — pure tri-state escalation gate (CORD-02).
+// Phase 80 Plan 02 — registry source swapped from Stage 1 noise-categories
+// row type to SwarmIntentRow[] (Stage 3 intent classifier).
+// Per docs/agentic-pipeline/stage-3-coordinator.md hard-separation rule,
+// `requires_orchestration` lives on swarm_intents — reading it from
+// swarm_noise_categories was a silently-dead lookup (RESEARCH §"Pitfall 1").
 //
 // Order of checks is load-bearing:
 //   1. low_confidence  (ranked[0].confidence === 'low')
@@ -9,7 +14,7 @@
 // Pure function: no DB, no LLM, no I/O. Testable in isolation.
 
 import type { IntentAgentOutputV2 } from "./types";
-import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
+import type { SwarmIntentRow } from "@/lib/swarms/types";
 
 export type EscalationDecision =
   | { kind: "single_shot" }
@@ -23,7 +28,7 @@ export type EscalationDecision =
 
 export function evaluateEscalationGate(
   output: IntentAgentOutputV2,
-  categories: SwarmNoiseCategoryRow[],
+  intents: SwarmIntentRow[],
 ): EscalationDecision {
   // 1. low_confidence checked FIRST — a low-confidence top-1 always escalates,
   //    even when ranked.length >= 3 (priority test in escalation-gate.test.ts).
@@ -37,16 +42,18 @@ export function evaluateEscalationGate(
   }
 
   // 3. requires_orchestration registry flag — any candidate intent whose
-  //    swarm_noise_categories row is flagged forces orchestrator path.
+  //    swarm_intents row is flagged forces orchestrator path. Per migration
+  //    20260504b:94, requires_orchestration is a column on swarm_intents
+  //    (Stage 3), NOT swarm_noise_categories (Stage 1).
   const flagged = output.ranked.some(
     (r) =>
-      categories.find((c) => c.category_key === r.intent)
+      intents.find((i) => i.intent_key === r.intent)
         ?.requires_orchestration === true,
   );
   if (flagged) {
     return { kind: "orchestrator", reason: "requires_orchestration_flag" };
   }
 
-  // 4. Fast path: single-shot dispatch via swarm_noise_categories.swarm_dispatch.
+  // 4. Fast path: single-shot dispatch via swarm_intents.handler_event.
   return { kind: "single_shot" };
 }

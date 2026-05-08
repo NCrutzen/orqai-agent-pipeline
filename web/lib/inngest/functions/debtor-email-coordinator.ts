@@ -220,9 +220,13 @@ export const debtorEmailCoordinator = inngest.createFunction(
       });
 
       // ---- 5) Evaluate escalation gate -------------------------------------
+      // Phase 80 Plan 02 — load from swarm_intents (Stage 3), per the
+      // hard-separation rule (docs/agentic-pipeline/stage-3-coordinator.md).
+      // Previously loaded from swarm_noise_categories — silently-dead path
+      // since requires_orchestration only lives on swarm_intents.
       const decision = await step.run("evaluate-escalation-gate", async () => {
-        const categories = await loadSwarmNoiseCategories(supabase, SWARM_TYPE);
-        return evaluateEscalationGate(output, categories);
+        const intents = await loadSwarmIntents(supabase, SWARM_TYPE);
+        return evaluateEscalationGate(output, intents);
       });
 
       // ---- 6) Write escalation_decision + reason to coordinator_runs ------
