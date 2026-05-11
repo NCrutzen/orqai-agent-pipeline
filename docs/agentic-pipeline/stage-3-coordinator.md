@@ -121,7 +121,13 @@ WHERE status = 'predicted'
   AND created_at < now() - interval '5 minutes';
 ```
 
-> **Footnote — post-backfill steady state.** Pre-Phase-80 there were ~407 stranded `classifying` rows in production accumulated over ~9 days, all with `tool_outputs.intent_first_pass` populated and a matching `{swarm}-kanban` `automation_runs` row — the classifier finished, the work was queued for human triage, but the status flip never landed because dispatch lived inside the same function and silently swallowed errors. These rows were resolved by `web/scripts/backfill-stuck-classifying-stage3.ts` (Phase 80 Plan 05, run 2026-05-08) which flipped `HAS_KANBAN`-bucket rows to `routed_human_queue` under a race-guarded `.eq('status','classifying')` UPDATE. **Steady-state baseline = 0 stranded `classifying` rows.** Any non-zero count from the first SQL above is anomalous and pages immediately.
+> **Footnote — post-backfill steady state.** Pre-Phase-80 the stuck-`classifying` population had been accumulating for ~9 days and was estimated at ~407 rows during planning; the live count at backfill time (2026-05-11) was 53. These rows all had `tool_outputs.intent_first_pass` populated — the classifier finished, but the status flip never landed because dispatch lived inside the same function and silently swallowed errors. `web/scripts/backfill-stuck-classifying-stage3.ts` (Phase 80 Plan 05) resolved them under a race-guarded `.eq('status','classifying')` UPDATE, bucketed three ways:
+>
+> - **HAS_KANBAN** (kanban_rows = 1, n = 32 at apply time): flipped to `routed_human_queue`.
+> - **NO_KANBAN** (kanban_rows = 0, n = 4): all synthetic test fixtures (`email_id` = `00000000-…`). Flag-only by design — these were never going to dispatch.
+> - **MULTI_KANBAN** (kanban_rows ≥ 2, n = 25): the duplicate-write cluster from a separate `intent=null` defect. Flag-only; the script intentionally does not flip them (out of scope for Phase 80).
+>
+> **Steady-state baseline ≈ 29 stable residuals** (4 NO_KANBAN + 25 MULTI_KANBAN) — these stay on `status='classifying'` indefinitely because their dispatch precondition (exactly one `{swarm}-kanban` row) is unmet. The alert on the first SQL above should therefore filter to the HAS_KANBAN bucket (kanban_rows = 1) and page on **growth above 29**, not on absolute count > 0. Long-term, the NO_KANBAN fixtures can be deleted and MULTI_KANBAN needs the duplicate-write root cause addressed separately.
 
 ## Cross-Swarm Dispatcher Contract
 
