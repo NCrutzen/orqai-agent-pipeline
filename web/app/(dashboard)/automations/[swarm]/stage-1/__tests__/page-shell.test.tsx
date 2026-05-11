@@ -133,18 +133,22 @@ vi.mock("../pending-promotion-detail-pane", () => ({
   ),
 }));
 
-// RowList / DetailPane — markers for the default branch.
-vi.mock("../row-list", () => ({
-  RowList: () => <div data-testid="row-list" />,
+// Phase 82 Plan 06: page now mounts Stage1ClientShell for the default branch
+// (composed from _shell/ primitives). The client shell + _shell/* are mocked
+// here so the test asserts the page envelope without rendering deep client
+// trees. Cheatsheet + SelectionProvider come from _shell/.
+vi.mock("../client-shell", () => ({
+  Stage1ClientShell: () => (
+    <div data-testid="row-list">
+      <div data-testid="detail-pane" />
+    </div>
+  ),
 }));
-vi.mock("../detail-pane", () => ({
-  DetailPane: () => <div data-testid="detail-pane" />,
-}));
-vi.mock("../keyboard-shortcuts", () => ({
+vi.mock("../../_shell/keyboard-shortcuts", () => ({
   KeyboardShortcuts: () => null,
   Cheatsheet: () => null,
 }));
-vi.mock("../selection-context", () => ({
+vi.mock("../../_shell/selection-context", () => ({
   SelectionProvider: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="selection-provider">{children}</div>
   ),
@@ -233,7 +237,7 @@ afterEach(() => {
 });
 
 describe("Stage 1 page shell (Phase 81 Plan 03)", () => {
-  it("(a)+(b)+(c)+(d): renders PageHeader + StageTabStrip(currentStage=1) + chip strip; no 'Bulk Review' string; default branch shows RowList + DetailPane in 2-col grid", async () => {
+  it("(a)+(b)+(c)+(d): renders PageHeader + StageTabStrip(currentStage=1) + chip strip; no 'Bulk Review' string; default branch shows unified shell (RowList + DetailPane)", async () => {
     loadSwarmMock.mockResolvedValue(makeSwarmRow("debtor-email"));
     loadSwarmNoiseCategoriesMock.mockResolvedValue(debtorCats);
 
@@ -248,7 +252,7 @@ describe("Stage 1 page shell (Phase 81 Plan 03)", () => {
     const tabs = screen.getByTestId("stage-tab-strip");
     expect(tabs.getAttribute("data-current-stage")).toBe("1");
 
-    // (b)
+    // (b) — Phase 81 D-18 forward-carry: zero "Bulk Review" copy.
     expect(container.textContent ?? "").not.toContain("Bulk Review");
     expect(container.textContent ?? "").not.toContain(
       "Review predicted classifications",
@@ -257,12 +261,13 @@ describe("Stage 1 page shell (Phase 81 Plan 03)", () => {
     // (c)
     expect(screen.getByTestId("noise-category-chip-strip")).toBeInTheDocument();
 
-    // (d) — 2-col grid present, 3-col grid absent
+    // (d) — Phase 82 V2/V3: default branch routes through Stage1ClientShell
+    // (unified _shell/ composition); the legacy 3-col grid stays absent.
     const html = container.innerHTML;
-    expect(html).toContain("grid-cols-[minmax(380px,460px)_1fr]");
     expect(html).not.toContain("clamp(220px,18vw,280px)");
 
-    // Default branch
+    // Default branch — unified shell rendered (mocked Stage1ClientShell
+    // emits row-list + detail-pane test markers).
     expect(screen.getByTestId("row-list")).toBeInTheDocument();
     expect(screen.getByTestId("detail-pane")).toBeInTheDocument();
     expect(screen.queryByTestId("candidate-rule-list")).not.toBeInTheDocument();

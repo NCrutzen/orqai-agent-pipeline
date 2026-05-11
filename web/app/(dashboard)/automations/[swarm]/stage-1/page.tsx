@@ -1,20 +1,33 @@
-// Phase 56.7-03 (D-08, D-13, D-14, D-15). Generic queue page mounted at
-// /automations/[swarm]/stage-1. Reads the swarm registry (Wave 1) so adding
-// a new swarm is a `swarms` row INSERT, not a new route.
+// Phase 82 Plan 06 — Stage 1 RSC entry point on the unified _shell/ library.
 //
-// Original: web/app/(dashboard)/automations/debtor-email-review/page.tsx
-// (Phase 60-05). Behaviour is unchanged for the debtor-email seed; the
-// hardcoded 'debtor-email' literals are now sourced from `params.swarm`
-// and the registry's per-swarm config.
+// Lineage:
+//   - Phase 56.7-03 (D-08/D-13/D-14/D-15): generic queue page mounted at
+//     /automations/[swarm]/stage-1. Reads the swarm registry so adding a new
+//     swarm is a `swarms` row INSERT, not a new route.
+//   - Phase 60-05: originated from debtor-email-review/page.tsx.
+//   - Phase 81-03 (Sketch 005 lock): PageHeader + StageTabStrip envelope +
+//     NoiseCategoryChipStrip + 2-col body grid + Pending Promotion sub-view.
+//   - Phase 82 Plan 06: page-level row-list + detail-pane composition replaced
+//     by the unified _shell/ shell (RowList, MailboxFilter, UnifiedDetailPane,
+//     SelectionProvider, KeyboardShortcuts). Stage-1-specific 4-axis bulk-
+//     review override flow preserved as a slot (Stage1OverridePane) inside
+//     UnifiedDetailPane via the taggingFailuresSection slot — same pattern as
+//     Stage 4. Mailbox filter loader extended from .eq to .in (CONTEXT D-12).
 //
-// Phase 81-03 layout (Sketch 005 lock — supersedes the Phase 60/61 3-col grid):
-//   - <PageHeader> + <StageTabStrip currentStage={1}> shell envelope.
-//   - Horizontal <NoiseCategoryChipStrip> below the tab strip.
-//   - 2-col body grid [minmax(380px,460px) 1fr]: RowList + DetailPane by
-//     default; CandidateRuleList + PendingPromotionDetailPane when
-//     ?sub=pending is active.
-//   - Realtime channel ${swarmType}-review preserved (D-19 — backend
-//     identifier, not user-visible).
+// Hard-separation contract (RFC docs/agentic-pipeline/README.md):
+//   - This page surface reads `swarm_noise_categories` for Stage 1's chip
+//     strip + override dropdown (Stage 1 = noise filter).
+//   - `swarm_intents` is loaded for the EMBEDDED Stage 3 widget inside the
+//     unified detail pane's 5-cell PipelineFlow (the only Stage 3-aware
+//     surface here). Categories and intents are NEVER blurred — separate
+//     props all the way down (UnifiedDetailPane API enforces this at the
+//     type level).
+//
+// Phase 81 D-18 forward-carry: zero "Bulk Review" copy in any user-visible
+// surface — this comment block is a historical reference, not UI text.
+//
+// Phase 81 D-19 channel-name lock: AutomationRealtimeProvider mounts the
+// `${swarmType}-review` channel (NOT `-kanban`). DO NOT change.
 
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -31,6 +44,10 @@ import type {
 } from "@/lib/swarms/types";
 import { PageHeader } from "../_shell/page-header";
 import { StageTabStrip } from "../_shell/stage-tab-strip";
+import { SelectionProvider } from "../_shell/selection-context";
+import { Cheatsheet } from "../_shell/keyboard-shortcuts";
+import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
+import type { Row } from "../_shell/_lib/types";
 import { loadStage2WeeklyCount } from "../stage-2/_lib/load-stage-2-weekly-count";
 import { NoiseCategoryChipStrip } from "./noise-category-chip-strip";
 import { CandidateRuleList } from "./candidate-rule-list";
@@ -39,10 +56,7 @@ import {
   type RuleSample,
 } from "./pending-promotion-detail-pane";
 import { loadRuleSamples } from "./actions";
-import { RowList } from "./row-list";
-import { DetailPane } from "./detail-pane";
-import { KeyboardShortcuts, Cheatsheet } from "./keyboard-shortcuts";
-import { SelectionProvider } from "./selection-context";
+import { Stage1ClientShell } from "./client-shell";
 // Phase 65-05 (CORD-03 surface). Debtor-email-only enrichment for now;
 // when Phase 71 broadens the loader to cross-swarm coordinator_runs the
 // import path moves under a generic _lib here. Server-side only.
@@ -62,7 +76,12 @@ export const dynamic = "force-dynamic";
 export interface PageSearchParams {
   topic?: string;
   entity?: string;
-  mailbox?: string;
+  /**
+   * Phase 82 Plan 06 (CONTEXT D-12). Multi-mailbox filter. Next 15 surfaces
+   * repeated `?mailbox=` URL params as a string array; single-select callers
+   * still pass a string. Loader normalises to number[] and uses `.in()`.
+   */
+  mailbox?: string | string[];
   rule?: string;
   // Phase 81-03 D-09/D-10/D-11: ?sub=pending swaps the surface to the
   // Pending Promotion sub-view (candidate-rule-list + rule-evidence pane).
@@ -490,9 +509,23 @@ export async function loadPageData(
       // for Stage 1 emits. ?topic=unknown therefore maps to decision='unknown'.
       if (params.topic) q.eq("decision", params.topic);
       if (params.entity) q.eq("decision_details->>entity", params.entity);
-      if (params.mailbox) {
-        const mb = parseInt(params.mailbox, 10);
-        if (!Number.isNaN(mb)) q.eq("decision_details->>mailbox_id", String(mb));
+      // Phase 82 Plan 06 (CONTEXT D-12). Multi-mailbox filter: support
+      // repeated ?mailbox=<id> URL params via .in("...->>mailbox_id", ids).
+      // Single-mailbox callers (string) and multi-select callers (string[])
+      // both flow through this normaliser.
+      const mailboxIds = Array.isArray(params.mailbox)
+        ? params.mailbox
+        : params.mailbox
+          ? [params.mailbox]
+          : [];
+      const parsedMailboxIds = mailboxIds
+        .map((s) => parseInt(s, 10))
+        .filter((n) => !Number.isNaN(n));
+      if (parsedMailboxIds.length > 0) {
+        q.in(
+          "decision_details->>mailbox_id",
+          parsedMailboxIds.map(String),
+        );
       }
       if (params.rule) q.eq("decision_details->>regex_rule_id", params.rule);
       const r = await q;
@@ -803,6 +836,40 @@ interface PageProps {
   searchParams: Promise<PageSearchParams>;
 }
 
+// PredictedRow → unified Row. Stage 1 row mapper. The stage_badge variant is
+// "noise" (Stage 1 = swarm_noise_categories per hard-separation lock); the
+// label is the predicted noise category (or "uncategorized" when missing).
+//
+// timestamp prefers email_received_at via the view JOIN (already wired into
+// mapSummaryToPredictedRow) and falls back to created_at. mailbox_id flows
+// through from result.source_mailbox isn't a number — we use row.mailbox_id
+// directly (the view JOIN doesn't surface a numeric mailbox_id today, so this
+// is null for most Stage 1 rows; the MailboxFilter dropdown still renders the
+// canonical labels via getSwarmMailboxes' static fallback).
+function toUnifiedRow(p: PredictedRow): Row {
+  const result = (p.result as { from?: string; fromName?: string; subject?: string } | null) ?? {};
+  const predicted = (p.result as { predicted?: { category?: string } } | null)?.predicted;
+  return {
+    id: p.id,
+    from_name: result.fromName ?? null,
+    from_email: result.from ?? null,
+    subject: result.subject ?? null,
+    timestamp: p.created_at,
+    mailbox_id: p.mailbox_id ?? null,
+    stage_badge: {
+      label: predicted?.category ?? p.topic ?? "uncategorized",
+      variant: "noise",
+    },
+  };
+}
+
+function parseSelectedMailboxes(p: string | string[] | undefined): number[] {
+  const arr = Array.isArray(p) ? p : p ? [p] : [];
+  return arr
+    .map((s) => Number.parseInt(s, 10))
+    .filter((n) => !Number.isNaN(n));
+}
+
 export default async function SwarmReviewPage({
   params,
   searchParams,
@@ -838,6 +905,15 @@ export default async function SwarmReviewPage({
     ruleSamples = await loadRuleSamples(admin, swarmType, sp.rule, 5);
   }
 
+  // Phase 82 Plan 06: unified Row[] for _shell/RowList + MailboxFilter.
+  // PredictedRow[] is still passed to Stage1OverridePane via the client shell
+  // for the full bulk-review override flow (keyboard wiring, optimistic
+  // removal, recordVerdict — all consume PredictedRow.automation_run_id +
+  // result fields).
+  const unifiedRows: Row[] = data.rows.map(toUnifiedRow);
+  const mailboxes = getSwarmMailboxes(swarmType, unifiedRows);
+  const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
+
   return (
     <>
       <PageHeader swarm={swarm} />
@@ -846,7 +922,11 @@ export default async function SwarmReviewPage({
         currentStage={1}
         counts={{ 1: data.rows.length, 2: stage2Count }}
       />
-      <AutomationRealtimeProvider automations={[`${swarmType}-review`]}>
+      {/* Phase 81 D-19 channel-name lock: `${swarmType}-review` (NOT -kanban). */}
+      <AutomationRealtimeProvider
+        automations={[`${swarmType}-review`]}
+        initialLimit={500}
+      >
         <SelectionProvider
           initialSelectedId={sp.selected ?? null}
           rowIds={rowIds}
@@ -859,49 +939,46 @@ export default async function SwarmReviewPage({
               candidateCount={data.candidates.length}
               activeSub={sp.sub ?? null}
             />
-            <div className="grid grid-cols-[minmax(380px,460px)_1fr] gap-4 min-w-0">
-              {sp.sub === "pending" ? (
-                <>
-                  <CandidateRuleList
-                    rules={data.candidates}
-                    selectedRuleKey={sp.rule ?? null}
-                    swarmType={swarmType}
-                  />
-                  <PendingPromotionDetailPane
-                    rules={data.candidates}
-                    selectedRuleKey={sp.rule ?? null}
-                    samples={ruleSamples}
-                    swarmType={swarmType}
-                  />
-                </>
-              ) : (
-                <>
-                  <RowList
-                    rows={data.rows}
-                    promotedToday={data.promotedToday}
-                    candidates={data.candidates}
-                    selection={sp}
-                    swarmType={swarmType}
-                    columns={swarm.ui_config.row_columns}
-                    recipientChips={data.recipientChips}
-                    pageSize={PAGE_SIZE}
-                  />
-                  <DetailPane
-                    rows={data.rows}
-                    initialSelectedRow={data.selectedRow}
-                    initialSelectedBody={data.selectedBody}
-                    initialBodyMap={data.bodyMap}
-                    selectedTimeline={data.selectedTimeline}
-                    timelineMap={data.timelineMap}
-                    swarmType={swarmType}
-                    categories={categories}
-                    intents={intentRows}
-                    drawerFields={swarm.ui_config.drawer_fields}
-                  />
-                </>
-              )}
-            </div>
-            <KeyboardShortcuts rowIds={rowIds} />
+            {sp.sub === "pending" ? (
+              <div className="grid grid-cols-[minmax(380px,460px)_1fr] gap-4 min-w-0">
+                {/* Phase 81-03 Pending Promotion sub-view — PRESERVED.
+                    DO NOT route through the unified shell — this branch is
+                    structurally a candidate-rule list, not a predicted-row
+                    feed. */}
+                <CandidateRuleList
+                  rules={data.candidates}
+                  selectedRuleKey={sp.rule ?? null}
+                  swarmType={swarmType}
+                />
+                <PendingPromotionDetailPane
+                  rules={data.candidates}
+                  selectedRuleKey={sp.rule ?? null}
+                  samples={ruleSamples}
+                  swarmType={swarmType}
+                />
+              </div>
+            ) : (
+              // Phase 82 Plan 06: unified shell composition. The client shell
+              // mounts _shell/RowList + MailboxFilter + UnifiedDetailPane and
+              // slots Stage1OverridePane into UnifiedDetailPane's
+              // taggingFailuresSection so the full 4-axis bulk-review
+              // override flow + tagging artifacts + IC banner stay live.
+              <Stage1ClientShell
+                swarmType={swarmType}
+                predictedRows={data.rows}
+                unifiedRows={unifiedRows}
+                initialSelectedRow={data.selectedRow}
+                categories={categories}
+                intents={intentRows}
+                mailboxes={mailboxes}
+                selectedMailboxes={selectedMailboxes}
+                bodyMap={data.bodyMap}
+                timelineMap={data.timelineMap}
+                initialSelectedBody={data.selectedBody}
+                selectedTimeline={data.selectedTimeline}
+                drawerFields={swarm.ui_config.drawer_fields}
+              />
+            )}
             <Cheatsheet />
           </main>
         </SelectionProvider>

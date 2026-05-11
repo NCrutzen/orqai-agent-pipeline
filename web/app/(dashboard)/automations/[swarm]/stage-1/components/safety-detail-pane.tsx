@@ -26,7 +26,8 @@ import {
   escalateToKanban,
 } from "../actions";
 import type { PredictedRow } from "../page";
-import { useSelection } from "../selection-context";
+// Phase 82 Plan 06: selection-context moved to _shell/.
+import { useSelection } from "../../_shell/selection-context";
 import { MatchedSpanHighlight } from "./matched-span-highlight";
 
 interface SafetyResult {

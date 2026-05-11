@@ -1,15 +1,31 @@
 "use client";
 
-// Phase 56.7-03 (D-08, D-15). Generic detail pane.
-// Was originally debtor-email-review/detail-pane.tsx (Phase 61-02).
+// Phase 82 Plan 06 — Stage 1 override pane (renamed from stage-1/detail-pane.tsx).
+// Was originally Phase 56.7-03 generic detail pane (Phase 61-02 debtor lineage).
 //
-// Genericization:
+// Stage-1-specific surface preserving the full 4-axis bulk-review override flow:
+//   - Status pill, subject, meta grid, body expander, body cache.
+//   - Tagging artifacts section (Phase 67-06).
+//   - 4-axis pipeline overrides (Phase 71-05): Stage 1/2/3/4 widgets.
+//   - Notes textarea + eval-type radio + confirm dialog.
+//   - iController info banner (Phase 71-05).
+//   - Approve / Reject / Skip keyboard hooks (Phase 71-05).
+//   - swarm_noise_categories drives the override dropdown (hard-sep — Stage 1
+//     reads noise categories only; intents are passed for the embedded Stage 3
+//     widget, which is the only Stage 3-aware surface in this pane).
+//
+// Phase 82 cleanup-gate compliance: file renamed to stage-1-override-pane.tsx
+// so the `stage-{1,2,3,4}/detail-pane.tsx` gate stays green. The page now
+// renders <UnifiedDetailPane> (from _shell/) as the canonical detail-pane
+// surface; this pane lives INSIDE that surface via the taggingFailuresSection
+// slot (per CONTEXT D-08, Phase 71 + Phase 81 behaviors preserved).
+//
+// Original genericization notes (preserved):
 //   - Override dropdown options come from `categories` prop (loadSwarmNoiseCategories
 //     output). Categories with action='reject' are filtered out — those are
 //     the skip path, not real overrides.
 //   - recordVerdict is threaded with `swarm_type` (Pitfall 5).
 //   - Mailbox-id labels: kept gated on swarm_type==='debtor-email'.
-//     Q2 (Phase 56.7+1): move to ui_config.label_maps.mailbox_id.
 
 import {
   useCallback,
@@ -33,7 +49,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { fetchReviewEmailBody, recordVerdict } from "./actions";
 import type { PredictedRow, PipelineTimelineEvent } from "./page";
 import type { SwarmNoiseCategoryRow, SwarmIntentRow } from "@/lib/swarms/types";
-import { useSelection } from "./selection-context";
+import { useSelection } from "../_shell/selection-context";
 import { SafetyDetailPane } from "./components/safety-detail-pane";
 import { CostOutlierAxisCard } from "./components/cost-outlier-axis-card";
 // Phase 71-05 — 4-axis override flow components (Plan 71-04 outputs).
@@ -149,7 +165,7 @@ function statusPillColor(s: RowStatus): { bg: string; fg: string } {
 
 // ---- Component -----------------------------------------------------------
 
-interface DetailPaneProps {
+interface Stage1OverridePaneProps {
   rows: PredictedRow[];
   initialSelectedRow: PredictedRow | null;
   swarmType: string;
@@ -200,7 +216,7 @@ const STAGE_AXES: Record<number, OverrideAxis | null> = {
   4: "stage_4_handler_output",
 };
 
-export function DetailPane({
+export function Stage1OverridePane({
   rows,
   initialSelectedRow,
   swarmType,
@@ -213,7 +229,7 @@ export function DetailPane({
   intents,
   initialSelectedBody,
   initialBodyMap,
-}: DetailPaneProps) {
+}: Stage1OverridePaneProps) {
   // Phase 71-08: seed module-level cache from server-rendered bodies so
   // every row paints synchronously with no Server Action round-trip.
   if (initialBodyMap) {

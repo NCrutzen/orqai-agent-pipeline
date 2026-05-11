@@ -2,19 +2,21 @@
 
 /**
  * Phase 81 Plan 03 Task 1 — Noise-category chip strip.
+ * Phase 82 Plan 06: refactored to delegate chip rendering to `_shell/ChipStrip`.
  *
  * Stage 1 horizontal filter strip rendered below <StageTabStrip currentStage={1}>
- * and above the predicted-row list. Replaces the legacy <QueueTree> sidebar.
+ * and above the unified row-list.
  *
  * Hard-separation lock (RFC docs/agentic-pipeline/README.md):
  *   - Stage 1 surface reads `swarm_noise_categories` ONLY.
  *   - Stage 3 intent registry is NEVER read or referenced from this file
  *     (grep-gate in the unit test enforces this).
  *
- * Visual idiom mirrors recipient-chip-strip.tsx (same tokens, same Chip primitive)
- * minus the brand dot. Per CONTEXT §specifics + PATTERNS Anti-Pattern: do NOT
- * extract a generic ChipStrip abstraction — duplicate the styling, keep types
- * per surface.
+ * Phase 82 generic-abstraction note: this file remains the Stage-1-specific
+ * wrapper. It still owns the URL contract (the `?topic=` / `?sub=` write
+ * semantics live here — `_shell/ChipStrip` is a pure presentation primitive)
+ * AND the tail "Pending promotion" Link pill (Phase 81 D-09 — only applies
+ * to Stage 1; the unified ChipStrip primitive doesn't ship this tail).
  *
  * URL contract (D-08, D-10, D-11, Assumption A5):
  *   - Chip click writes ?topic=<category_key> AND clears ?sub (so picking a
@@ -35,6 +37,7 @@ import {
 } from "next/navigation";
 import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
 import type { QueueCountRow } from "./page";
+import { ChipStrip, type ChipStripChip } from "../_shell/chip-strip";
 
 interface NoiseCategoryChipStripProps {
   /** From loadSwarmNoiseCategories(admin, swarmType) — registry-driven. */
@@ -94,27 +97,33 @@ export function NoiseCategoryChipStrip({
     return `${pathname}?${qs.toString()}`;
   })();
 
+  // Phase 82 Plan 06: chip data → `_shell/ChipStrip`. The wrapper retains the
+  // URL contract (navigate() above) and the tail Pending Promotion Link pill.
+  const chipStripChips: ChipStripChip[] = [
+    { key: "all", label: "All", count: totalCount },
+    ...categories.map((cat) => ({
+      key: cat.category_key,
+      label: cat.display_label,
+      count: countByTopic.get(cat.category_key) ?? 0,
+    })),
+  ];
+  const activeKey = allActive
+    ? "all"
+    : activeSub
+      ? "" // No chip is active when ?sub=pending takes over
+      : activeTopic;
+
   return (
     <div
-      role="tablist"
+      className="flex items-center gap-2 overflow-x-auto py-1"
       aria-label="Filter Stage 1 by noise category"
-      className="flex items-center gap-2 overflow-x-auto py-3"
     >
-      <Chip
-        active={allActive}
-        label="All"
-        rowCount={totalCount}
-        onClick={() => navigate("all")}
+      <ChipStrip
+        chips={chipStripChips}
+        active={activeKey}
+        onChange={navigate}
+        ariaLabel="Filter Stage 1 by noise category"
       />
-      {categories.map((cat) => (
-        <Chip
-          key={cat.category_key}
-          active={activeTopic === cat.category_key && !activeSub}
-          label={cat.display_label}
-          rowCount={countByTopic.get(cat.category_key) ?? 0}
-          onClick={() => navigate(cat.category_key)}
-        />
-      ))}
       <span
         aria-hidden="true"
         style={{
@@ -168,52 +177,5 @@ export function NoiseCategoryChipStrip({
         </span>
       </Link>
     </div>
-  );
-}
-
-interface ChipProps {
-  active: boolean;
-  label: string;
-  rowCount: number;
-  onClick: () => void;
-}
-
-function Chip({ active, label, rowCount, onClick }: ChipProps) {
-  const display =
-    rowCount >= 1000 ? rowCount.toLocaleString("en-US") : String(rowCount);
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      aria-label={`${label} — ${rowCount} predicted rows`}
-      onClick={onClick}
-      className="inline-flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-[var(--v7-radius-pill)] border transition-colors duration-150 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-      style={{
-        background: active
-          ? "var(--v7-brand-secondary-soft)"
-          : "var(--v7-panel-2)",
-        borderColor: active
-          ? "var(--v7-brand-secondary)"
-          : "var(--v7-line)",
-        color: active ? "var(--v7-brand-secondary)" : "var(--v7-text)",
-        outlineColor: "var(--v7-brand-secondary)",
-      }}
-    >
-      <span className="text-[13px] leading-[1.3] font-mono truncate max-w-[260px]">
-        {label}
-      </span>
-      <span
-        className="text-[11px] leading-[1.3] font-mono px-1.5 py-0.5 rounded-[var(--v7-radius-pill)]"
-        style={{
-          background: active
-            ? "rgba(105,168,255,0.18)"
-            : "rgba(255,255,255,0.06)",
-          fontVariantNumeric: "tabular-nums",
-        }}
-      >
-        {display}
-      </span>
-    </button>
   );
 }

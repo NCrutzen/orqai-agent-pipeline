@@ -6,11 +6,12 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
+// Phase 82 Plan 06: keyboard-shortcuts + selection-context moved to _shell/.
 import {
   KeyboardShortcuts,
   KEYBOARD_EVENTS,
-} from "@/app/(dashboard)/automations/[swarm]/stage-1/keyboard-shortcuts";
-import { SelectionProvider } from "@/app/(dashboard)/automations/[swarm]/stage-1/selection-context";
+} from "@/app/(dashboard)/automations/[swarm]/_shell/keyboard-shortcuts";
+import { SelectionProvider } from "@/app/(dashboard)/automations/[swarm]/_shell/selection-context";
 
 // ---- Helpers -------------------------------------------------------------
 

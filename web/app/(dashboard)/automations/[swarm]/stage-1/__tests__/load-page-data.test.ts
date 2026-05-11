@@ -466,13 +466,14 @@ describe("loadPageData — Phase 71-03 D-10 view-driven predicted-row feed", () 
     expect(fromCalls).toContain("pipeline_events_email_summary");
   });
 
-  it("Phase 81-03: URL-direct-edit filters (?entity=X&mailbox=12) still applied in the loader", async () => {
+  it("Phase 81-03 + Phase 82 Plan 06: URL-direct-edit filters (?entity=X&mailbox=12) still applied in the loader (mailbox via .in for multi-select)", async () => {
     // Filters-popover UI is deferred; URL params MUST keep working via direct
     // URL editing. The loader applies them by JOIN-back to raw pipeline_events
     // first (predicate filtering), then constrains the view query to the
     // resulting email_ids. We assert .eq(decision_details->>entity, X) and
-    // .eq(decision_details->>mailbox_id, "12") are recorded on the pipeline_events
-    // filter builder.
+    // (Phase 82 Plan 06, CONTEXT D-12) .in(decision_details->>mailbox_id, ["12"])
+    // for multi-mailbox support — single-mailbox callers (string) still flow
+    // through the same .in() path with a one-element array.
     const params: PageSearchParams = { entity: "EntityX", mailbox: "12" };
     // @ts-expect-error — admin shape is structurally compatible for test.
     await loadPageData(params, adminClientMock, "debtor-email");
@@ -480,7 +481,11 @@ describe("loadPageData — Phase 71-03 D-10 view-driven predicted-row feed", () 
     expect(lastListBuilder).not.toBeNull();
     const eqCols = lastListBuilder!._eqCalls.map((c) => `${c.col}=${c.val}`);
     expect(eqCols).toContain("decision_details->>entity=EntityX");
-    expect(eqCols).toContain("decision_details->>mailbox_id=12");
+    // mailbox lives on _inCalls now (.in instead of .eq).
+    const inCols = lastListBuilder!._inCalls.map(
+      (c) => `${c.col}=${JSON.stringify(c.vals)}`,
+    );
+    expect(inCols).toContain('decision_details->>mailbox_id=["12"]');
   });
 
   it("Test 7: when ?selected=<email_id> is set, selected-row detail STILL reads raw pipeline_events", async () => {

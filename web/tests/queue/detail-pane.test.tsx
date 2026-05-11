@@ -44,8 +44,10 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-import { DetailPane as RawDetailPane } from "@/app/(dashboard)/automations/[swarm]/stage-1/detail-pane";
-import { SelectionProvider } from "@/app/(dashboard)/automations/[swarm]/stage-1/selection-context";
+// Phase 82 Plan 06: DetailPane renamed to Stage1OverridePane (file:
+// stage-1/stage-1-override-pane.tsx); selection-context moved to _shell/.
+import { Stage1OverridePane as RawDetailPane } from "@/app/(dashboard)/automations/[swarm]/stage-1/stage-1-override-pane";
+import { SelectionProvider } from "@/app/(dashboard)/automations/[swarm]/_shell/selection-context";
 import type { PredictedRow } from "@/app/(dashboard)/automations/[swarm]/stage-1/page";
 import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
 
