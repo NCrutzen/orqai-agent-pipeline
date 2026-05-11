@@ -66,11 +66,17 @@ function makeBuilder(
 
 function makeAdmin(
   resolveByTable: Record<string, { data: unknown; error: unknown }>,
+  schemaResolveByTable: Record<
+    string,
+    Record<string, { data: unknown; error: unknown }>
+  > = {},
 ): {
-  admin: { from: (t: string) => unknown };
+  admin: { from: (t: string) => unknown; schema: (s: string) => unknown };
   traces: BuilderTrace[];
+  schemaTraces: Array<BuilderTrace & { schema: string }>;
 } {
   const traces: BuilderTrace[] = [];
+  const schemaTraces: Array<BuilderTrace & { schema: string }> = [];
   const admin = {
     from: (table: string) => {
       const trace: BuilderTrace = {
@@ -85,8 +91,32 @@ function makeAdmin(
       traces.push(trace);
       return makeBuilder(trace, resolveByTable[table] ?? { data: [], error: null });
     },
+    // .schema(name) shim — mirrors PostgREST cross-schema query pattern
+    // (Phase 81-04 admin mocks).
+    schema: (schemaName: string) => ({
+      from: (table: string) => {
+        const trace: BuilderTrace & { schema: string } = {
+          schema: schemaName,
+          table,
+          selectCols: null,
+          eqCalls: [],
+          notCalls: [],
+          orderCalls: [],
+          inCalls: [],
+          limit: null,
+        };
+        schemaTraces.push(trace);
+        return makeBuilder(
+          trace,
+          schemaResolveByTable[schemaName]?.[table] ?? {
+            data: [],
+            error: null,
+          },
+        );
+      },
+    }),
   };
-  return { admin, traces };
+  return { admin, traces, schemaTraces };
 }
 
 describe("Phase 76: loadKanbanRows", () => {
@@ -295,5 +325,191 @@ describe("Phase 76: loadKanbanRows", () => {
   // Suppress unused-import warning when vi is not directly referenced above.
   it("vi import sanity", () => {
     expect(typeof vi.fn).toBe("function");
+  });
+
+  // ---- Phase 82 Plan 04 — email_pipeline.emails JOIN ---------------------
+
+  it("Phase 82-04: queries email_pipeline.emails ONCE with distinct email_ids", async () => {
+    const { admin, schemaTraces } = makeAdmin(
+      {
+        automation_runs: {
+          data: [
+            {
+              id: "row-A",
+              swarm_type: "debtor-email",
+              topic: null,
+              entity: null,
+              created_at: "2026-05-07T10:00:00Z",
+              result: { kanban_reason: "handler_error", email_id: "eml-1" },
+            },
+            {
+              id: "row-B",
+              swarm_type: "debtor-email",
+              topic: null,
+              entity: null,
+              created_at: "2026-05-07T09:00:00Z",
+              result: { kanban_reason: "handler_error", email_id: "eml-2" },
+            },
+            // Duplicate email_id — must dedupe in the .in() call.
+            {
+              id: "row-C",
+              swarm_type: "debtor-email",
+              topic: null,
+              entity: null,
+              created_at: "2026-05-07T08:00:00Z",
+              result: { kanban_reason: "handler_error", email_id: "eml-1" },
+            },
+          ],
+          error: null,
+        },
+        pipeline_events: { data: [], error: null },
+      },
+      {
+        email_pipeline: {
+          emails: { data: [], error: null },
+        },
+      },
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await loadKanbanRows(admin as any, "debtor-email");
+    const emailTraces = schemaTraces.filter(
+      (t) => t.schema === "email_pipeline" && t.table === "emails",
+    );
+    expect(emailTraces).toHaveLength(1);
+    const inCall = emailTraces[0].inCalls.find((c) => c.col === "id");
+    expect(inCall).toBeDefined();
+    expect((inCall!.vals as string[]).sort()).toEqual(["eml-1", "eml-2"]);
+    expect(emailTraces[0].selectCols).toContain("subject");
+    expect(emailTraces[0].selectCols).toContain("sender_email");
+    expect(emailTraces[0].selectCols).toContain("sender_name");
+    expect(emailTraces[0].selectCols).toContain("received_at");
+    expect(emailTraces[0].selectCols).toContain("mailbox_id");
+  });
+
+  it("Phase 82-04: populates KanbanRow.email_metadata from JOIN result", async () => {
+    const { admin } = makeAdmin(
+      {
+        automation_runs: {
+          data: [
+            {
+              id: "row-A",
+              swarm_type: "debtor-email",
+              topic: null,
+              entity: null,
+              created_at: "2026-05-07T10:00:00Z",
+              result: { kanban_reason: "handler_error", email_id: "eml-1" },
+            },
+          ],
+          error: null,
+        },
+        pipeline_events: { data: [], error: null },
+      },
+      {
+        email_pipeline: {
+          emails: {
+            data: [
+              {
+                id: "eml-1",
+                subject: "Invoice 12345",
+                sender_email: "klant@example.com",
+                sender_name: "Klant BV",
+                received_at: "2026-05-07T09:55:00Z",
+                mailbox_id: 4,
+              },
+            ],
+            error: null,
+          },
+        },
+      },
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = await loadKanbanRows(admin as any, "debtor-email");
+    expect(rows[0].email_metadata).toEqual({
+      subject: "Invoice 12345",
+      sender_email: "klant@example.com",
+      sender_name: "Klant BV",
+      received_at: "2026-05-07T09:55:00Z",
+      mailbox_id: 4,
+    });
+  });
+
+  it("Phase 82-04: email_metadata is null when result.email_id is missing", async () => {
+    const { admin, schemaTraces } = makeAdmin({
+      automation_runs: {
+        data: [
+          {
+            id: "row-X",
+            swarm_type: "debtor-email",
+            topic: null,
+            entity: null,
+            created_at: "2026-05-07T10:00:00Z",
+            // No email_id at all.
+            result: { kanban_reason: "handler_error" },
+          },
+        ],
+        error: null,
+      },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = await loadKanbanRows(admin as any, "debtor-email");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].email_metadata).toBeNull();
+    // No email_pipeline.emails SELECT happened (no email_ids → skip).
+    expect(
+      schemaTraces.find(
+        (t) => t.schema === "email_pipeline" && t.table === "emails",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("Phase 82-04: email_metadata is null when JOIN omits a row (defensive coalesce)", async () => {
+    const { admin } = makeAdmin(
+      {
+        automation_runs: {
+          data: [
+            {
+              id: "row-A",
+              swarm_type: "debtor-email",
+              topic: null,
+              entity: null,
+              created_at: "2026-05-07T10:00:00Z",
+              result: { kanban_reason: "handler_error", email_id: "eml-1" },
+            },
+            {
+              id: "row-B",
+              swarm_type: "debtor-email",
+              topic: null,
+              entity: null,
+              created_at: "2026-05-07T09:00:00Z",
+              result: { kanban_reason: "handler_error", email_id: "eml-missing" },
+            },
+          ],
+          error: null,
+        },
+        pipeline_events: { data: [], error: null },
+      },
+      {
+        email_pipeline: {
+          emails: {
+            // Only eml-1 — eml-missing was deleted upstream.
+            data: [
+              {
+                id: "eml-1",
+                subject: "Test",
+                sender_email: "a@b.com",
+                sender_name: "A B",
+                received_at: "2026-05-07T09:55:00Z",
+                mailbox_id: 4,
+              },
+            ],
+            error: null,
+          },
+        },
+      },
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = await loadKanbanRows(admin as any, "debtor-email");
+    expect(rows[0].email_metadata?.subject).toBe("Test");
+    expect(rows[1].email_metadata).toBeNull();
   });
 });

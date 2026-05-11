@@ -46,9 +46,25 @@ export interface KanbanRow {
   // (deterministic across replay) — see ordering comment below.
   stage_1_event_id: string | null;
   stage_3_event_id: string | null;
+  // Phase 82 Plan 04 — email_pipeline.emails JOIN (resolves OQ-1).
+  // Null when result.email_id is missing OR when the upstream email row was
+  // deleted (defensive coalesce). Unified shell page-boundary mappers read
+  // this to populate Row.{subject,from_name,from_email,timestamp,mailbox_id}.
+  email_metadata: EmailMetadata | null;
 }
 
-type RawRow = Omit<KanbanRow, "stage_1_event_id" | "stage_3_event_id">;
+export interface EmailMetadata {
+  subject: string | null;
+  sender_email: string | null;
+  sender_name: string | null;
+  received_at: string | null;
+  mailbox_id: number | null;
+}
+
+type RawRow = Omit<
+  KanbanRow,
+  "stage_1_event_id" | "stage_3_event_id" | "email_metadata"
+>;
 
 export async function loadKanbanRows(
   admin: SupabaseClient,
@@ -75,6 +91,7 @@ export async function loadKanbanRows(
       ...r,
       stage_1_event_id: null,
       stage_3_event_id: null,
+      email_metadata: null,
     }));
   }
 
@@ -83,12 +100,28 @@ export async function loadKanbanRows(
   // is deterministically the MOST RECENT prior Stage 1 / Stage 3 emit per
   // email — never an arbitrary one. Without this ordering the join would be
   // nondeterministic across Postgres planner choice and across replay.
-  const { data: events } = await admin
+  const eventsPromise = admin
     .from("pipeline_events")
     .select("id, email_id, stage, created_at")
     .in("email_id", emailIds)
     .in("stage", [1, 3])
     .order("created_at", { ascending: false });
+
+  // Phase 82 Plan 04 — email_pipeline.emails JOIN (resolves OQ-1).
+  // Mirrors the Stage 1 page pre-fetch pattern (stage-1/page.tsx:696-700).
+  // PostgREST cross-schema query via .schema("email_pipeline"). Run in
+  // parallel with pipeline_events lookup.
+  const emailMetaPromise = admin
+    .schema("email_pipeline")
+    .from("emails")
+    .select("id, subject, sender_email, sender_name, received_at, mailbox_id")
+    .in("id", emailIds);
+
+  const [eventsRes, emailMetaRes] = await Promise.all([
+    eventsPromise,
+    emailMetaPromise,
+  ]);
+  const events = eventsRes.data;
 
   const stage1Map = new Map<string, string>();
   const stage3Map = new Map<string, string>();
@@ -109,6 +142,26 @@ export async function loadKanbanRows(
     }
   }
 
+  // Build email_id → EmailMetadata map. Defensive: rows whose email row is
+  // missing (deleted upstream) coalesce to null at map-lookup time.
+  const emailMetaMap = new Map<string, EmailMetadata>();
+  for (const e of ((emailMetaRes.data ?? []) as Array<{
+    id: string;
+    subject: string | null;
+    sender_email: string | null;
+    sender_name: string | null;
+    received_at: string | null;
+    mailbox_id: number | null;
+  }>)) {
+    emailMetaMap.set(e.id, {
+      subject: e.subject,
+      sender_email: e.sender_email,
+      sender_name: e.sender_name,
+      received_at: e.received_at,
+      mailbox_id: e.mailbox_id,
+    });
+  }
+
   return rows.map((r) => ({
     ...r,
     stage_1_event_id: r.result?.email_id
@@ -116,6 +169,9 @@ export async function loadKanbanRows(
       : null,
     stage_3_event_id: r.result?.email_id
       ? stage3Map.get(r.result.email_id) ?? null
+      : null,
+    email_metadata: r.result?.email_id
+      ? emailMetaMap.get(r.result.email_id) ?? null
       : null,
   }));
 }
