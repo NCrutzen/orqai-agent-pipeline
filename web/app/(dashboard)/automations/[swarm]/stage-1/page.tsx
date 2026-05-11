@@ -52,6 +52,7 @@ import { MailboxFilter } from "../_shell/mailbox-filter";
 import type { Row } from "../_shell/_lib/types";
 import { loadStage2WeeklyCount } from "../stage-2/_lib/load-stage-2-weekly-count";
 import { NoiseCategoryChipStrip } from "./noise-category-chip-strip";
+import { PredictorConfidenceChipStrip } from "./predictor-confidence-chip-strip";
 import { CandidateRuleList } from "./candidate-rule-list";
 import {
   PendingPromotionDetailPane,
@@ -95,6 +96,13 @@ export interface PageSearchParams {
   tab?: string;
   before?: string;
   selected?: string;
+  // Phase 999.8 Plan 07 (D-05, D-06, D-11). Predictor + confidence chip
+  // filters. Server-side validated against enum allowlists in loadPageData;
+  // invalid values silently ignored (no 400). Filter on Stage 1
+  // pipeline_events.decision_details->>predictor (denormalized by Plan 02)
+  // and decision_details->>llm_confidence. Default: unfiltered (D-06).
+  predictor?: string;
+  confidence?: string;
 }
 
 export interface QueueCountRow {
@@ -487,11 +495,28 @@ export async function loadPageData(
       last_event_at: string | null;
     }
 
+    // Phase 999.8 Plan 07 (D-05, T-9998-13): server-side enum allowlist for
+    // predictor + confidence filter chips. Invalid values are silently
+    // ignored (no throw, no 400) — broken URLs degrade to the default
+    // unfiltered view (D-06). Supabase's `.eq()` parametrises the value so
+    // there is no SQL injection vector even on validated input.
+    const validatedPredictor =
+      params.predictor === "regex" || params.predictor === "llm_2nd_pass"
+        ? params.predictor
+        : undefined;
+    const validatedConfidence =
+      params.confidence === "high" ||
+      params.confidence === "medium" ||
+      params.confidence === "low"
+        ? params.confidence
+        : undefined;
     const hasFilters = !!(
       params.topic ||
       params.entity ||
       params.mailbox ||
-      params.rule
+      params.rule ||
+      validatedPredictor ||
+      validatedConfidence
     );
     // JOIN-back filter (only when query params filter the queue): collect
     // email_ids from raw pipeline_events that match. Built as a promise so
@@ -530,6 +555,16 @@ export async function loadPageData(
         );
       }
       if (params.rule) q.eq("decision_details->>regex_rule_id", params.rule);
+      // Phase 999.8 Plan 07 (D-05, D-11). Predictor + confidence filters
+      // read denormalized fields on pipeline_events.decision_details
+      // (predictor added by Plan 02 Task 3; llm_confidence pre-existing).
+      // Stage 1 only — already constrained by .eq("stage", 1) above.
+      if (validatedPredictor) {
+        q.eq("decision_details->>predictor", validatedPredictor);
+      }
+      if (validatedConfidence) {
+        q.eq("decision_details->>llm_confidence", validatedConfidence);
+      }
       const r = await q;
       const rs = (r.data as Array<{ email_id: string | null }> | null) ?? [];
       return Array.from(
@@ -954,6 +989,18 @@ export default async function SwarmReviewPage({
               />
               <MailboxFilter mailboxes={mailboxes} selected={selectedMailboxes} />
             </div>
+            {/* Phase 999.8 Plan 07 (D-05, D-06, D-11). Predictor + confidence
+                filter chips. Only render on the predicted-row branch — the
+                Pending Promotion sub-view (?sub=pending) does not gain these
+                filters (those are predicted-row concepts, not rule concepts). */}
+            {sp.sub !== "pending" && (
+              <div style={{ marginBottom: "var(--space-3)" }}>
+                <PredictorConfidenceChipStrip
+                  activePredictor={sp.predictor ?? null}
+                  activeConfidence={sp.confidence ?? null}
+                />
+              </div>
+            )}
             {sp.sub === "pending" ? (
               <div className="grid grid-cols-[minmax(380px,460px)_1fr] gap-4 min-w-0">
                 {/* Phase 81-03 Pending Promotion sub-view — PRESERVED.
