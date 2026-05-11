@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 81-03 — Stage 1 shell-wrapped surface + Pending Promotion sub-view
-last_updated: "2026-05-11T10:28:15.929Z"
+stopped_at: Completed 81-03-PLAN.md
+last_updated: "2026-05-11T10:29:03.168Z"
 last_activity: 2026-05-11 -- Phase --phase execution started
 progress:
   total_phases: 60
@@ -81,6 +81,7 @@ Progress: [█████████░] 86%
 | Phase 81 P02 | 5min | 3 tasks | 4 files |
 | Phase 81 P02 | 4m | 3 tasks | 4 files |
 | Phase 81 P03 | 12m | 3 tasks tasks | 7 files files |
+| Phase 81 P03 | 8m | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -135,6 +136,9 @@ Progress: [█████████░] 86%
 - Phase 81-02: head-count loader pattern (.select(id,{count:exact,head:true})) for placeholder card counts — no row data pulled
 - Phase 81-02: established RSC-page RTL test pattern in this tree (await async component → render → mock loaders at module boundary)
 - Phase 81-03: Stage 1 shell-wrapped surface complete — chip strip (swarm_noise_categories only, hard-separation lock), 2-col grid, ?sub=pending Pending Promotion sub-view; Filters popover deferred (URL params still work)
+- Phase 81-03: noise-category chip strip mirrors recipient-chip-strip styling; no generic ChipStrip abstraction (RFC Anti-Pattern)
+- Phase 81-03: Pending Promotion server actions plumbed fresh in stage-1/actions.ts (Wave 0 grep found no existing UI under /swarm/[swarmId]/(components))
+- Phase 81-03: Filters popover (D-07) deferred — URL params remain functional via direct URL editing; regression test guards the loader-side path
 
 ### Blockers/Concerns
 
@@ -166,8 +170,8 @@ Progress: [█████████░] 86%
 
 ## Session Continuity
 
-Last session: 2026-05-11T10:28:11.849Z
-Stopped at: Completed 81-03 — Stage 1 shell-wrapped surface + Pending Promotion sub-view
+Last session: 2026-05-11T10:29:00.176Z
+Stopped at: Completed 81-03-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 
