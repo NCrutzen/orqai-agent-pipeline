@@ -5,10 +5,10 @@
 // Uses the supabase head-count pattern (`select(id, {count:'exact', head:true})`)
 // so no row data is pulled — only the integer count.
 //
-// Anti-pattern (per 81-PATTERNS.md): do NOT call
-// loadTaggingFailuresForReview(allPairs).size — that loader is row-by-row
-// enrichment-shaped and pulls screenshot URLs. This helper is the thin
-// head-count sibling.
+// Anti-pattern (per 81-PATTERNS.md): do NOT derive the count by calling
+// the row-by-row tagging-failure enrichment loader and taking its .size —
+// that path pulls screenshot URLs and joined columns per row. This
+// helper is the thin head-count sibling.
 //
 // Phase 77 will replace the Stage 2 placeholder surface with a real one;
 // this helper is the bridge until then.
