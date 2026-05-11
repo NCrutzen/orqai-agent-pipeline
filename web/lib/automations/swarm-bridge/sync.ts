@@ -217,13 +217,49 @@ function buildTimeline(
 
 type TriageStage = "backlog" | "ready" | "progress" | "review" | "done";
 
-export function triageStageFromStatus(status: string): TriageStage {
-  switch (status) {
+/**
+ * Disambiguate which pipeline stage a `predicted` row belongs to by
+ * inspecting its `tool_outputs` markers.
+ *
+ * Three distinct workers write `agent_runs.status='predicted'`:
+ *   - Stage 1 screen-worker        → tool_outputs.stage1_category
+ *   - Stage 2 invoice-copy handler → tool_outputs.handler_output
+ *   - Stage 3 classifier (Phase 80) → tool_outputs.intent_first_pass
+ *
+ * Without the marker, all three collapse into one bucket on the v7
+ * KanbanBoard. See
+ *   .planning/phases/80.1-v7-kanban-assigned-agent-disambiguation/
+ *   80.1-01-disambiguate-triage-helpers-PLAN.md
+ */
+type TriageStageHint = "stage1" | "stage2" | "stage3" | "unknown";
+
+function predictedStageHint(
+  tool_outputs: Record<string, unknown> | null,
+): TriageStageHint {
+  if (!tool_outputs) return "unknown";
+  if (tool_outputs.intent_first_pass) return "stage3";
+  if (tool_outputs.handler_output) return "stage2";
+  if (tool_outputs.stage1_category) return "stage1";
+  return "unknown";
+}
+
+/**
+ * Map an agent-run row to its kanban lane.
+ *
+ * Phase 80.1: `predicted` always resolves to the "progress" lane —
+ * regardless of which stage emitted it, a predicted row "carries a
+ * prediction, awaiting next step" which is in-progress work. The
+ * agent-label split lives in triageAgentFromStatus below.
+ */
+export function triageStageFromStatus(row: {
+  status: string;
+  tool_outputs: Record<string, unknown> | null;
+}): TriageStage {
+  switch (row.status) {
     case "classifying":
     case "predicted":
-      // Phase 80: dispatcher transient — sub-second under healthy conditions; only routed_human_queue surfaces to review.
-      // NB: This is agent_runs.status='predicted' (Stage 3 classifier emitted, dispatcher about to route).
-      // The Bulk Review automation_runs.status='predicted' path (lines ~35, ~64) is intentionally separate.
+      // Phase 80.1: same lane for all three stage markers. The
+      // attribution split happens in triageAgentFromStatus.
     case "fetching_document":
     case "generating_body":
     case "creating_draft":
@@ -243,16 +279,39 @@ export function triageStageFromStatus(status: string): TriageStage {
   }
 }
 
-export function triageAgentFromStatus(status: string): string {
+/**
+ * Map an agent-run row to the agent label shown on the v7 KanbanBoard.
+ *
+ * Phase 80.1: `predicted` rows are disambiguated by `tool_outputs`
+ * marker — Stage 1 screen-worker, Stage 2 copy-document handler, and
+ * Stage 3 dispatcher all write `predicted`, but each carries a
+ * distinct marker key. See predictedStageHint above and plan
+ *   .planning/phases/80.1-v7-kanban-assigned-agent-disambiguation/
+ *   80.1-01-disambiguate-triage-helpers-PLAN.md
+ */
+export function triageAgentFromStatus(row: {
+  status: string;
+  tool_outputs: Record<string, unknown> | null;
+}): string {
   // Rough "who owns this right now" assignment for the kanban + graph.
   // Errors/terminals attach to the agent whose tool-call failed so the
   // delegation graph highlights the right node.
-  switch (status) {
+  switch (row.status) {
     case "classifying":
       return "Intent Agent";
-    case "predicted":
-      // Phase 80: Stage 3 dispatcher owns the row between classifier emit and handler dispatch.
-      return "Stage 3 Dispatcher";
+    case "predicted": {
+      const hint = predictedStageHint(row.tool_outputs);
+      switch (hint) {
+        case "stage3":
+          return "Stage 3 Dispatcher";
+        case "stage2":
+          return "Copy-Document Agent";
+        case "stage1":
+          return "Screen Worker";
+        default:
+          return "Pipeline";
+      }
+    }
     case "generating_body":
     case "copy_document_drafted":
     case "copy_document_needs_review":
@@ -336,8 +395,8 @@ function buildTriageJob(
   position: number;
   updated_at: string;
 } {
-  const stage = triageStageFromStatus(row.status);
-  const agent = triageAgentFromStatus(row.status);
+  const stage = triageStageFromStatus(row);
+  const agent = triageAgentFromStatus(row);
   const isError =
     row.status === "copy_document_failed_not_found" ||
     row.status === "copy_document_failed_transient" ||
@@ -417,9 +476,9 @@ function buildTriageEvents(
   }> = [];
 
   for (const row of rows) {
-    const agent = triageAgentFromStatus(row.status);
+    const agent = triageAgentFromStatus(row);
     const endIso = row.completed_at ?? row.updated_at;
-    const stage = triageStageFromStatus(row.status);
+    const stage = triageStageFromStatus(row);
 
     const eventType =
       row.status === "copy_document_failed_not_found" ||
