@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 82-05-PLAN.md
-last_updated: "2026-05-11T12:16:41.564Z"
+stopped_at: Completed 82-06-PLAN.md
+last_updated: "2026-05-11T12:29:35.919Z"
 last_activity: 2026-05-11
 progress:
   total_phases: 62
-  completed_phases: 18
+  completed_phases: 19
   total_plans: 131
-  completed_plans: 113
-  percent: 86
+  completed_plans: 114
+  percent: 87
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 999.8 (stage-1-llm-confidence-gate-and-predictor-attribution) — EXECUTING
-Plan: 6 of 8
+Plan: 7 of 8
 Milestone: v8.0 Agentic Platform (11 phases, 63-73)
 Last activity: 2026-05-11
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 87%
 
 **v8.0 execution order:** 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 **Next action:** `/gsd-verify-work 68`, then `/gsd-discuss-phase 69 --auto`.
@@ -89,6 +89,7 @@ Progress: [█████████░] 86%
 | Phase 82 P03 | 10min | 1 tasks | 2 files |
 | Phase 82 P04 | 8m | 2 tasks | 8 files |
 | Phase 82 P05 | 12 | 1 tasks | 11 files |
+| Phase 82 P06 | 25m | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -154,6 +155,7 @@ Progress: [█████████░] 86%
 - Phase 82-02: Stage 0 migrated to unified _shell/; categories=[]+intents=[] (hard-sep lock); no realtime provider; D-18 banner copy purge
 - Phase 82-04: kanban-loader.ts extended with email_pipeline.emails JOIN (resolves OQ-1); .schema(name) shim in tests; cross-schema query via admin.schema()
 - Phase 82-04: Stage 4 migrated to unified _shell/; client-shell.tsx bridges RSC→shell with mailbox_id thread-through; error-detail-section.tsx inlined as Stage4HandlerErrorWidget and surfaced via UnifiedDetailPane.taggingFailuresSection slot
+- Phase 82-06: Stage 1 migrated to unified _shell/ via slot-prop pattern — full 4-axis bulk-review override flow preserved as Stage1OverridePane (renamed from detail-pane.tsx) and slotted into UnifiedDetailPane.taggingFailuresSection. Same approach as Stage 4. Cleanup gate D-20 green (zero stage-{1,2,3,4}/{row-list,detail-pane}.tsx files). Multi-mailbox loader (.in) landed (CONTEXT D-12).
 
 ### Blockers/Concerns
 
@@ -185,8 +187,8 @@ Progress: [█████████░] 86%
 
 ## Session Continuity
 
-Last session: 2026-05-11T12:16:41.556Z
-Stopped at: Completed 82-05-PLAN.md
+Last session: 2026-05-11T12:29:29.671Z
+Stopped at: Completed 82-06-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 
