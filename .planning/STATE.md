@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 82.1-01-PLAN.md
-last_updated: "2026-05-11T12:54:22.300Z"
+stopped_at: Completed 82.1-02-PLAN.md
+last_updated: "2026-05-11T12:57:22.862Z"
 last_activity: 2026-05-11 -- Phase --phase execution started
 progress:
   total_phases: 63
   completed_phases: 19
   total_plans: 135
-  completed_plans: 115
-  percent: 85
+  completed_plans: 116
+  percent: 86
 ---
 
 # Project State
@@ -31,7 +31,7 @@ Plan: 1 of --name
 Milestone: v8.0 Agentic Platform (11 phases, 63-73)
 Last activity: 2026-05-11 -- Phase --phase execution started
 
-Progress: [█████████░] 85%
+Progress: [█████████░] 86%
 
 **v8.0 execution order:** 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 **Next action:** `/gsd-verify-work 68`, then `/gsd-discuss-phase 69 --auto`.
@@ -91,6 +91,7 @@ Progress: [█████████░] 85%
 | Phase 82 P05 | 12 | 1 tasks | 11 files |
 | Phase 82 P06 | 25m | 2 tasks | 14 files |
 | Phase 82.1 P01 | 2min | 1 tasks | 1 files |
+| Phase 82.1 P02 | 10min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -158,6 +159,7 @@ Progress: [█████████░] 85%
 - Phase 82-04: Stage 4 migrated to unified _shell/; client-shell.tsx bridges RSC→shell with mailbox_id thread-through; error-detail-section.tsx inlined as Stage4HandlerErrorWidget and surfaced via UnifiedDetailPane.taggingFailuresSection slot
 - Phase 82-06: Stage 1 migrated to unified _shell/ via slot-prop pattern — full 4-axis bulk-review override flow preserved as Stage1OverridePane (renamed from detail-pane.tsx) and slotted into UnifiedDetailPane.taggingFailuresSection. Same approach as Stage 4. Cleanup gate D-20 green (zero stage-{1,2,3,4}/{row-list,detail-pane}.tsx files). Multi-mailbox loader (.in) landed (CONTEXT D-12).
 - D-01: STAGE_TITLES values are bare labels; 'Stage N — ' prefix owned by stage-step.tsx
+- 82.1-02 (D-02/D-03): MailboxFilter mounted at page level next to NoiseCategoryChipStrip; component itself unchanged
 
 ### Blockers/Concerns
 
@@ -189,8 +191,8 @@ Progress: [█████████░] 85%
 
 ## Session Continuity
 
-Last session: 2026-05-11T12:54:22.292Z
-Stopped at: Completed 82.1-01-PLAN.md
+Last session: 2026-05-11T12:57:22.853Z
+Stopped at: Completed 82.1-02-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 
