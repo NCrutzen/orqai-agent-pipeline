@@ -105,6 +105,52 @@ describe("resolveReviewRedirect (D-05.6)", () => {
     ).toBe("/automations/debtor-email/stage-0?topic=safety_review");
   });
 
+  // Phase 81 Plan 04 — extend coverage for the `?sub=pending` round-trip.
+  // The previous Stage 1 surface pushed `?sub=pending` via QueueTree clicks
+  // while loadPageData read `?tab=pending`; the redirect bridges both shapes.
+  // These 4 cases lock the contract so a future operator bookmark to
+  // `/review?sub=pending` still lands on `/stage-1?sub=pending`.
+
+  it("preserves ?sub=pending direct (Phase 81 — direct external bookmark to sub-view)", () => {
+    expect(
+      resolveReviewRedirect(
+        "/automations/debtor-email/review",
+        sp("sub=pending"),
+      ),
+    ).toBe("/automations/debtor-email/stage-1?sub=pending");
+  });
+
+  it("preserves ?topic=payment alongside ?sub=pending (Phase 81 — multi-param round-trip)", () => {
+    expect(
+      resolveReviewRedirect(
+        "/automations/debtor-email/review",
+        sp("topic=payment&sub=pending"),
+      ),
+    ).toBe(
+      "/automations/debtor-email/stage-1?topic=payment&sub=pending",
+    );
+  });
+
+  it("preserves ?selected=abc123 (Phase 81 — pre-existing selected-row param regression net)", () => {
+    expect(
+      resolveReviewRedirect(
+        "/automations/debtor-email/review",
+        sp("selected=abc123"),
+      ),
+    ).toBe("/automations/debtor-email/stage-1?selected=abc123");
+  });
+
+  it("rewrites ?tab=pending → ?sub=pending alongside ?selected=abc123 (Phase 81 — legacy + new co-existing)", () => {
+    expect(
+      resolveReviewRedirect(
+        "/automations/debtor-email/review",
+        sp("tab=pending&selected=abc123"),
+      ),
+    ).toBe(
+      "/automations/debtor-email/stage-1?sub=pending&selected=abc123",
+    );
+  });
+
   it("does not honor an attacker-controlled tab value (T-76-08-01)", () => {
     // Anything outside the closed enum {safety, pending} falls through to
     // /stage-1 — there's no path by which the operator-supplied tab value
