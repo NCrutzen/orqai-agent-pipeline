@@ -440,13 +440,18 @@ Plans:
 
 ### Phase 82: Unified stage shell — converge Stage 0/1/2/3/4 onto one Outlook-style row+detail+chip-strip+mailbox-filter UX
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Extract a shared `_shell/` UI component library and converge all five stage routes (`/stage-0` through `/stage-4`) onto one Outlook-style row+detail+chip-strip+mailbox-filter UX. Stage 3 duplicate intent-code bug fixed structurally. No DDL, no Inngest, no agent rewrites — pure UI + one Stage 3/4 loader JOIN for email metadata.
+**Requirements**: 20 D-codes (D-01..D-20) from Phase 82 CONTEXT + 10 goal-backward verification checks (V1..V10)
 **Depends on:** Phase 81
-**Plans:** 0 plans
+**Plans:** 6 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 82 to break down)
+- [ ] 82-01-PLAN.md — Wave 1: Extract `_shell/{row-list,detail-pane,chip-strip,mailbox-filter,selection-context,keyboard-shortcuts}.tsx` + `_shell/_lib/get-swarm-mailboxes.ts` + `_shell/components/stage-0-widget.tsx` + 5 RTL test files. No stage pages touched.
+- [ ] 82-02-PLAN.md — Wave 2: Migrate Stage 0 page to unified shell. Preserve existing Stage 0 info banner above empty row list (D-16).
+- [ ] 82-03-PLAN.md — Wave 3: Migrate Stage 2 page to unified shell. Preserve Phase 81-02 tagging-failures count banner above row list (D-17, OQ-3 = banner-above).
+- [ ] 82-04-PLAN.md — Wave 4: Extend `_lib/kanban-loader.ts` with `email_pipeline.emails` JOIN (OQ-1). Migrate Stage 4 page to unified shell. Delete `stage-4/{row-list,detail-pane,selection-context,filter-chips}.tsx`.
+- [ ] 82-05-PLAN.md — Wave 5: Migrate Stage 3 page to unified shell. Fix duplicate intent-code label bug structurally (D-18 / V9). Delete `stage-3/{row-list,detail-pane,selection-context,filter-chips,reason-pill,conf-bar,inline-editor}.tsx` (move action-stack to `_shell/components/` if shared with Stage 4).
+- [ ] 82-06-PLAN.md — Wave 6: Migrate Stage 1 page to unified shell + multi-mailbox loader extension (`.eq` → `.in`). Preserve Phase 81-03 `?sub=pending` sub-view. Delete `stage-1/{row-list,row-strip,detail-pane,selection-context,keyboard-shortcuts,recipient-chip-strip}.tsx`. Final cleanup gate: zero `stage-{1,2,3,4}/{row-list,detail-pane}.tsx` files remain.
 
 ---
 
