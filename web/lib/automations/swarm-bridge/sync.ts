@@ -217,7 +217,7 @@ function buildTimeline(
 
 type TriageStage = "backlog" | "ready" | "progress" | "review" | "done";
 
-function triageStageFromStatus(status: string): TriageStage {
+export function triageStageFromStatus(status: string): TriageStage {
   switch (status) {
     case "classifying":
     case "predicted":
@@ -243,7 +243,7 @@ function triageStageFromStatus(status: string): TriageStage {
   }
 }
 
-function triageAgentFromStatus(status: string): string {
+export function triageAgentFromStatus(status: string): string {
   // Rough "who owns this right now" assignment for the kanban + graph.
   // Errors/terminals attach to the agent whose tool-call failed so the
   // delegation graph highlights the right node.
