@@ -15,6 +15,14 @@
 // promote/demote helpers in lib/classifier/wilson use N>=30 — Phase 56
 // needs N>=50 per D-24. Inline the gates here; do not import those helpers.
 //
+// Phase 999.8 Plan 06 — per-predictor Wilson-CI split (D-07/D-09) +
+// high-conf LLM FP calibration alarm (D-03). evaluateMailbox now iterates
+// over predictor IN ('regex','llm_2nd_pass') with predictor IS NOT NULL
+// filter (forward-only). Audit rule_key includes the predictor suffix so
+// the two streams are independently visible. On the llm_2nd_pass stream
+// we compute the high-conf FP rate and emit
+// classifier/calibration_drift.detected at the alarm tier (>=5%).
+//
 // Registration in the Inngest manifest is deferred to Wave 4 (plan 56-07).
 
 import { inngest } from "@/lib/inngest/client";
@@ -24,6 +32,16 @@ import { wilsonCiLower } from "@/lib/classifier/wilson";
 const FLIP_N_MIN = 50;          // D-24 (NOT wilson.ts PROMOTE_N_MIN=30)
 const FLIP_CI_LO_MIN = 0.95;    // D-24 promotion gate
 const DEMOTE_CI_LO_MAX = 0.92;  // D-25 hysteresis demotion gate
+
+// Phase 999.8 D-03 calibration-drift thresholds (planner-locked, RESEARCH §3)
+const CALIBRATION_WARN_FP_RATE = 0.02;   // >=2% warn (audit row only)
+const CALIBRATION_ALARM_FP_RATE = 0.05;  // >=5% alarm (audit row + event)
+
+// CLAUDE.md learning dae6276 — never destructure inngest.send.
+type SendFn = (p: { name: string; data: Record<string, unknown> }) => Promise<unknown>;
+
+const PREDICTORS = ["regex", "llm_2nd_pass"] as const;
+type Predictor = (typeof PREDICTORS)[number];
 
 export type FlipAction =
   | "promoted"
@@ -73,6 +91,7 @@ export interface MailboxRow {
 
 export interface EvaluateMailboxResult {
   mailbox: string;
+  predictor: Predictor;
   n: number;
   agree: number;
   ci_lo: number;
@@ -84,24 +103,30 @@ export interface EvaluateMailboxResult {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AdminLike = any;
 
-export async function evaluateMailbox(
+interface AgentRunRow {
+  human_verdict: string | null;
+  predictor?: Predictor | null;
+  confidence?: string | number | null;
+  corrected_category?: string | null;
+}
+
+/**
+ * Evaluate ONE (mailbox, predictor) stream. Issues one agent_runs query,
+ * computes Wilson-CI, writes an audit row, and on the llm_2nd_pass stream
+ * additionally runs the D-03 high-conf FP calibration check.
+ */
+async function evaluatePredictorStream(
   admin: AdminLike,
   mailbox: MailboxRow,
+  predictor: Predictor,
   mutate: boolean,
 ): Promise<EvaluateMailboxResult> {
-  // Pitfall 7: per-mailbox group-by uses jsonb path, since agent_runs
-  // does not (yet) have a typed icontroller_mailbox_id column.
-  //
-  // Phase 999.8 — swarm_type reconciliation: recordVerdict writes
-  // swarm_type='debtor-email' (verified pre-flight 2026-05-11 — 404 rows,
-  // zero 'debtor-email-labeling'). The previous filter read an empty
-  // population (silent no-op since the cron was written). The audit row
-  // swarm_type below is the labeling-cron's own self-identification, which
-  // Plan 06 (per-predictor split) revisits.
   const { data: rows } = await admin
     .from("agent_runs")
-    .select("human_verdict")
+    .select("human_verdict, predictor, confidence, corrected_category")
     .eq("swarm_type", "debtor-email")
+    .eq("predictor", predictor)
+    .not("predictor", "is", null)
     .not("human_verdict", "is", null)
     .filter(
       "context->>icontroller_mailbox_id",
@@ -111,21 +136,24 @@ export async function evaluateMailbox(
     .order("verdict_set_at", { ascending: false })
     .limit(FLIP_N_MIN);
 
-  const list = (rows ?? []) as Array<{ human_verdict: string | null }>;
+  const list = (rows ?? []) as AgentRunRow[];
   const n = list.length;
   const agree = list.filter((r) => r.human_verdict === "approve").length;
   const ci_lo = n > 0 ? wilsonCiLower(n, agree) : 0;
 
   const action = pickAction({ n, ci_lo, dry_run: mailbox.dry_run, mutate });
-  const ruleKey = `mailbox_flip:${mailbox.source_mailbox}`;
+  const ruleKey = `mailbox_flip:${mailbox.source_mailbox}:${predictor}`;
 
   await admin.from("classifier_rule_evaluations").insert({
-    swarm_type: "debtor-email-labeling",
+    swarm_type: "debtor-email",
     rule_key: ruleKey,
     n,
     agree,
     ci_lo,
     action,
+    // Cold-start observability (RESEARCH Pitfall 7): operators can distinguish
+    // sparse-bucket no_change from steady-state no_change.
+    reason: n < FLIP_N_MIN ? { cold_start: true } : null,
   });
 
   if (mutate) {
@@ -138,6 +166,7 @@ export async function evaluateMailbox(
     } else if (action === "demoted") {
       console.warn("[labeling-flip-cron] demote", {
         mailbox: mailbox.source_mailbox,
+        predictor,
         n,
         ci_lo,
       });
@@ -149,7 +178,89 @@ export async function evaluateMailbox(
     }
   }
 
-  return { mailbox: mailbox.source_mailbox, n, agree, ci_lo, action };
+  // Phase 999.8 D-03 — high-conf LLM FP calibration check, only on the
+  // llm_2nd_pass stream. Computed in-memory from the already-fetched window
+  // (RESEARCH §3 simpler variant). "high" matches the stage-1 LLM confidence
+  // band; the verdict-side writer (Plan 05) writes the string label, not a
+  // numeric, so we filter on equality.
+  if (predictor === "llm_2nd_pass") {
+    await runCalibrationDriftCheck(admin, mailbox, list);
+  }
+
+  return { mailbox: mailbox.source_mailbox, predictor, n, agree, ci_lo, action };
+}
+
+async function runCalibrationDriftCheck(
+  admin: AdminLike,
+  mailbox: MailboxRow,
+  list: AgentRunRow[],
+): Promise<void> {
+  const highConfRows = list.filter((r) => r.confidence === "high");
+  const highConfN = highConfRows.length;
+  if (highConfN < FLIP_N_MIN) return; // cold-start, no D-03 output
+
+  const highConfFp = highConfRows.filter(
+    (r) =>
+      (r.human_verdict ?? "").startsWith("rejected_") ||
+      r.corrected_category != null,
+  ).length;
+  const fpRate = highConfFp / highConfN;
+  if (fpRate < CALIBRATION_WARN_FP_RATE) return;
+
+  // fpRate > 0.05 => alarm; otherwise warn. Use strict > on alarm threshold
+  // so 5.00% counts as warn (matches Plan 06 spec wording: ">5% → alarm").
+  const tier: "warn" | "alarm" = fpRate > CALIBRATION_ALARM_FP_RATE ? "alarm" : "warn";
+
+  await admin.from("classifier_rule_evaluations").insert({
+    swarm_type: "debtor-email",
+    rule_key: `llm_calibration:${mailbox.source_mailbox}`,
+    n: highConfN,
+    agree: highConfN - highConfFp,
+    ci_lo: 1 - fpRate,
+    action: `calibration_${tier}`,
+  });
+
+  if (tier === "alarm") {
+    // Generated INSIDE the surrounding step.run (parent handler wraps
+    // evaluateMailbox in step.run) — Phase 65 replay-id rule preserved.
+    const detectedAt = new Date().toISOString();
+    await (inngest.send as unknown as SendFn)({
+      name: "classifier/calibration_drift.detected",
+      data: {
+        swarm_type: "debtor-email",
+        source_mailbox: mailbox.source_mailbox,
+        icontroller_mailbox_id: mailbox.icontroller_mailbox_id,
+        n_high_conf: highConfN,
+        fp_count: highConfFp,
+        fp_rate: fpRate,
+        threshold: tier,
+        detected_at: detectedAt,
+      },
+    });
+  }
+}
+
+/**
+ * Evaluate a mailbox across BOTH predictor streams (regex + llm_2nd_pass).
+ *
+ * Returns the llm_2nd_pass stream result for backwards compatibility with the
+ * top-level handler shape (one result per mailbox). The regex stream's
+ * audit row + flip action are written as a side effect.
+ *
+ * Phase 999.8 D-07/D-09 — per-(mailbox, predictor) Wilson-CI bucket with
+ * predictor IS NOT NULL forward-only filter.
+ */
+export async function evaluateMailbox(
+  admin: AdminLike,
+  mailbox: MailboxRow,
+  mutate: boolean,
+): Promise<EvaluateMailboxResult> {
+  let lastResult: EvaluateMailboxResult | null = null;
+  for (const predictor of PREDICTORS) {
+    lastResult = await evaluatePredictorStream(admin, mailbox, predictor, mutate);
+  }
+  // Both predictors always iterate; lastResult is non-null.
+  return lastResult as EvaluateMailboxResult;
 }
 
 export const labelingFlipCron = inngest.createFunction(
