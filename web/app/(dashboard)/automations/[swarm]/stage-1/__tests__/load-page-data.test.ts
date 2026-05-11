@@ -418,6 +418,65 @@ describe("loadPageData — Phase 71-03 D-10 view-driven predicted-row feed", () 
     expect(row2.stage_overridden).toMatchObject({ 1: true });
   });
 
+  // -------------------------------------------------------------------------
+  // Phase 81 Plan 03 — ?sub=pending sub-view short-circuit + filter regressions.
+  // -------------------------------------------------------------------------
+
+  it("Phase 81-03: ?sub=pending returns rows:[] and full candidates without hitting predicted-row pipeline", async () => {
+    scenario.candidatesRows = [
+      { rule_key: "rk-1", status: "candidate", n: 12, ci_lo: 0.82 },
+      { rule_key: "rk-2", status: "candidate", n: 7, ci_lo: 0.61 },
+    ];
+    const params: PageSearchParams = { sub: "pending" };
+    // @ts-expect-error — admin shape is structurally compatible for test.
+    const data = await loadPageData(params, adminClientMock, "debtor-email");
+
+    expect(data.rows).toEqual([]);
+    expect(data.candidates).toHaveLength(2);
+    expect(data.candidates.map((c) => c.rule_key)).toEqual(["rk-1", "rk-2"]);
+    // Predicted-row pipeline source MUST NOT have been touched.
+    expect(fromCalls).not.toContain("pipeline_events_email_summary");
+    // And no body/timeline side-loaders fire (sub=pending short-circuits).
+    expect(loadCoordinatorRunsForReviewMock).not.toHaveBeenCalled();
+    expect(loadTaggingFailuresForReviewMock).not.toHaveBeenCalled();
+  });
+
+  it("Phase 81-03: default branch (sub undefined) preserves existing behaviour (regression)", async () => {
+    const params: PageSearchParams = {};
+    // @ts-expect-error — admin shape is structurally compatible for test.
+    await loadPageData(params, adminClientMock, "debtor-email");
+    // Predicted-row feed source IS hit on the default branch.
+    expect(fromCalls).toContain("pipeline_events_email_summary");
+  });
+
+  it("Phase 81-03: legacy ?tab=pending does NOT trigger the candidate-only branch (loader treats it as default)", async () => {
+    scenario.candidatesRows = [
+      { rule_key: "rk-1", status: "candidate", n: 12, ci_lo: 0.82 },
+    ];
+    const params: PageSearchParams = { tab: "pending" };
+    // @ts-expect-error — admin shape is structurally compatible for test.
+    await loadPageData(params, adminClientMock, "debtor-email");
+    // Default-branch source is hit; legacy tab branch is gone (D-10).
+    expect(fromCalls).toContain("pipeline_events_email_summary");
+  });
+
+  it("Phase 81-03: URL-direct-edit filters (?entity=X&mailbox=12) still applied in the loader", async () => {
+    // Filters-popover UI is deferred; URL params MUST keep working via direct
+    // URL editing. The loader applies them by JOIN-back to raw pipeline_events
+    // first (predicate filtering), then constrains the view query to the
+    // resulting email_ids. We assert .eq(decision_details->>entity, X) and
+    // .eq(decision_details->>mailbox_id, "12") are recorded on the pipeline_events
+    // filter builder.
+    const params: PageSearchParams = { entity: "EntityX", mailbox: "12" };
+    // @ts-expect-error — admin shape is structurally compatible for test.
+    await loadPageData(params, adminClientMock, "debtor-email");
+
+    expect(lastListBuilder).not.toBeNull();
+    const eqCols = lastListBuilder!._eqCalls.map((c) => `${c.col}=${c.val}`);
+    expect(eqCols).toContain("decision_details->>entity=EntityX");
+    expect(eqCols).toContain("decision_details->>mailbox_id=12");
+  });
+
   it("Test 7: when ?selected=<email_id> is set, selected-row detail STILL reads raw pipeline_events", async () => {
     const params: PageSearchParams = {
       selected: "00000000-0000-4000-8000-000000000071",

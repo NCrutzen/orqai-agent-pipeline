@@ -1,5 +1,5 @@
 // Phase 56.7-03 (D-08, D-13, D-14, D-15). Generic queue page mounted at
-// /automations/[swarm]/review. Reads the swarm registry (Wave 1) so adding
+// /automations/[swarm]/stage-1. Reads the swarm registry (Wave 1) so adding
 // a new swarm is a `swarms` row INSERT, not a new route.
 //
 // Original: web/app/(dashboard)/automations/debtor-email-review/page.tsx
@@ -7,10 +7,14 @@
 // hardcoded 'debtor-email' literals are now sourced from `params.swarm`
 // and the registry's per-swarm config.
 //
-// Phase 60-05 / 61-02 layout retained:
-//   3-column grid [clamp(220px,18vw,280px) minmax(380px,460px) 1fr],
-//   max-w-[1600px], min-w-0 hygiene on every child. ?selected=<row-id>
-//   loads a single row server-side and feeds the right-column DetailPane.
+// Phase 81-03 layout (Sketch 005 lock — supersedes the Phase 60/61 3-col grid):
+//   - <PageHeader> + <StageTabStrip currentStage={1}> shell envelope.
+//   - Horizontal <NoiseCategoryChipStrip> below the tab strip.
+//   - 2-col body grid [minmax(380px,460px) 1fr]: RowList + DetailPane by
+//     default; CandidateRuleList + PendingPromotionDetailPane when
+//     ?sub=pending is active.
+//   - Realtime channel ${swarmType}-review preserved (D-19 — backend
+//     identifier, not user-visible).
 
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -25,7 +29,16 @@ import type {
   SwarmIntentRow,
   SwarmRow,
 } from "@/lib/swarms/types";
-import { QueueTree } from "./queue-tree";
+import { PageHeader } from "../_shell/page-header";
+import { StageTabStrip } from "../_shell/stage-tab-strip";
+import { loadStage2WeeklyCount } from "../stage-2/_lib/load-stage-2-weekly-count";
+import { NoiseCategoryChipStrip } from "./noise-category-chip-strip";
+import { CandidateRuleList } from "./candidate-rule-list";
+import {
+  PendingPromotionDetailPane,
+  type RuleSample,
+} from "./pending-promotion-detail-pane";
+import { loadRuleSamples } from "./actions";
 import { RowList } from "./row-list";
 import { DetailPane } from "./detail-pane";
 import { KeyboardShortcuts, Cheatsheet } from "./keyboard-shortcuts";
@@ -51,6 +64,13 @@ export interface PageSearchParams {
   entity?: string;
   mailbox?: string;
   rule?: string;
+  // Phase 81-03 D-09/D-10/D-11: ?sub=pending swaps the surface to the
+  // Pending Promotion sub-view (candidate-rule-list + rule-evidence pane).
+  sub?: string;
+  // `tab` kept in the type for defensive parsing — middleware rewrites
+  // legacy ?tab=pending → ?sub=pending; loader no longer branches on it
+  // for Pending Promotion. ?tab=safety (Stage 0 safety-review) still
+  // routes to its dedicated branch.
   tab?: string;
   before?: string;
   selected?: string;
@@ -295,6 +315,27 @@ export async function loadPageData(
       .eq("status", "candidate"),
   ]);
   const counts = (countsRes.data as QueueCountRow[] | null) ?? [];
+  const promotedToday = (promotedRes.data as PromotedRule[] | null) ?? [];
+  const candidates = (candRes.data as ClassifierCandidate[] | null) ?? [];
+
+  // Phase 81-03 D-09/D-10/D-11. Pending Promotion sub-view short-circuit.
+  // When ?sub=pending is active the surface renders the candidate-rule list
+  // instead of the predicted-row pipeline; skip the entire row-list +
+  // body/timeline/coordinator/tagging waterfall below.
+  if (params.sub === "pending") {
+    return {
+      counts,
+      rows: [],
+      promotedToday,
+      candidates,
+      selectedRow: null,
+      selectedTimeline: [],
+      recipientChips: [],
+      selectedBody: null,
+      bodyMap: {},
+      timelineMap: {},
+    };
+  }
 
   // 2. Predicted rows: cursor pagination, page-size 100.
   //
@@ -595,11 +636,8 @@ export async function loadPageData(
     rows = summaryRows.map(mapSummaryToPredictedRow);
   }
 
-  // promoted-rules + candidates were fetched in parallel at the top of the
-  // function. classifier_rules is small enough that the previous if/else
-  // (full-payload-when-pending vs tree-badge-count) was identical anyway.
-  const promotedToday = (promotedRes.data as PromotedRule[] | null) ?? [];
-  const candidates = (candRes.data as ClassifierCandidate[] | null) ?? [];
+  // promoted-rules + candidates were already extracted above (so the
+  // sub=pending short-circuit could return them too).
 
   // 5. Selected row for the detail pane (?selected=<id>). Separate query
   //    so the list query is not widened by an OR clause. Returns null when
@@ -609,7 +647,7 @@ export async function loadPageData(
   // the URL is now the pipeline_events.id, since the row list comes from
   // pipeline_events.
   let selectedRow: PredictedRow | null = null;
-  // Phase 71-08: Bulk Review row id is now an email_id (uuid in
+  // Phase 71-08: Stage 1 row id is now an email_id (uuid in
   // email_pipeline.emails). Resolve the selected row directly from rows[]
   // so the detail pane gets the same metadata the row strip already shows.
   if (params.selected) {
@@ -778,67 +816,96 @@ export default async function SwarmReviewPage({
   if (!swarm || !swarm.enabled) {
     notFound();
   }
-  const categories: SwarmNoiseCategoryRow[] = await loadSwarmNoiseCategories(
-    admin,
-    swarmType,
-  );
-  // Phase 71-05. Stage 3 widget consumes swarm_intents.
-  const intents: SwarmIntentRow[] = await loadSwarmIntents(admin, swarmType);
-
-  const data = await loadPageData(sp, admin, swarmType);
+  // Phase 81-03 D-04/D-05: parallel-fetch the shell's data dependencies.
+  // Stage 2 weekly count is debtor-only today (Plan 02); other swarms
+  // resolve to 0 so the StageTabStrip badge renders muted.
+  const [data, noiseCategories, intents, stage2Count] = await Promise.all([
+    loadPageData(sp, admin, swarmType),
+    loadSwarmNoiseCategories(admin, swarmType),
+    loadSwarmIntents(admin, swarmType),
+    swarmType === "debtor-email"
+      ? loadStage2WeeklyCount(admin)
+      : Promise.resolve(0),
+  ]);
+  const categories: SwarmNoiseCategoryRow[] = noiseCategories;
+  const intentRows: SwarmIntentRow[] = intents;
   const rowIds = data.rows.map((r) => r.id);
 
+  // Phase 81-03 D-09: when sub=pending && rule is selected, plumb sample
+  // matched emails server-side so the right-pane evidence view can render.
+  let ruleSamples: RuleSample[] = [];
+  if (sp.sub === "pending" && sp.rule) {
+    ruleSamples = await loadRuleSamples(admin, swarmType, sp.rule, 5);
+  }
+
   return (
-    <AutomationRealtimeProvider automations={[`${swarmType}-review`]}>
-      <SelectionProvider
-        initialSelectedId={sp.selected ?? null}
-        rowIds={rowIds}
-      >
-        <div className="px-6 pt-12 pb-12 w-full">
-          <h1 className="text-[28px] font-semibold leading-[1.2] font-[family-name:var(--font-cabinet)]">
-            {swarm.display_name ? `${swarm.display_name} — Bulk Review` : "Bulk Review"}
-          </h1>
-          <p className="text-[14px] leading-[1.5] text-[var(--v7-muted)] mt-2 mb-6">
-            Review predicted classifications. Approved rows trigger the
-            registered side-effects (categorize+archive, downstream cleanup,
-            or swarm dispatch) in the background.
-          </p>
-          <div className="grid grid-cols-[clamp(220px,18vw,280px)_minmax(380px,460px)_1fr] gap-4 min-w-0">
-            <QueueTree
-              counts={data.counts}
-              selection={sp}
-              candidates={data.candidates}
-              promotedTodayCount={data.promotedToday.length}
-              swarmType={swarmType}
-              treeLevels={swarm.ui_config.tree_levels}
-            />
-            <RowList
-              rows={data.rows}
-              promotedToday={data.promotedToday}
-              candidates={data.candidates}
-              selection={sp}
-              swarmType={swarmType}
-              columns={swarm.ui_config.row_columns}
-              recipientChips={data.recipientChips}
-              pageSize={PAGE_SIZE}
-            />
-            <DetailPane
-              rows={data.rows}
-              initialSelectedRow={data.selectedRow}
-              initialSelectedBody={data.selectedBody}
-              initialBodyMap={data.bodyMap}
-              selectedTimeline={data.selectedTimeline}
-              timelineMap={data.timelineMap}
-              swarmType={swarmType}
+    <>
+      <PageHeader swarm={swarm} />
+      <StageTabStrip
+        swarm={swarm}
+        currentStage={1}
+        counts={{ 1: data.rows.length, 2: stage2Count }}
+      />
+      <AutomationRealtimeProvider automations={[`${swarmType}-review`]}>
+        <SelectionProvider
+          initialSelectedId={sp.selected ?? null}
+          rowIds={rowIds}
+        >
+          <main className="px-6 pt-6 pb-12 w-full">
+            <NoiseCategoryChipStrip
               categories={categories}
-              intents={intents}
-              drawerFields={swarm.ui_config.drawer_fields}
+              counts={data.counts}
+              activeTopic={sp.topic ?? "all"}
+              candidateCount={data.candidates.length}
+              activeSub={sp.sub ?? null}
             />
-          </div>
-          <KeyboardShortcuts rowIds={rowIds} />
-          <Cheatsheet />
-        </div>
-      </SelectionProvider>
-    </AutomationRealtimeProvider>
+            <div className="grid grid-cols-[minmax(380px,460px)_1fr] gap-4 min-w-0">
+              {sp.sub === "pending" ? (
+                <>
+                  <CandidateRuleList
+                    rules={data.candidates}
+                    selectedRuleKey={sp.rule ?? null}
+                    swarmType={swarmType}
+                  />
+                  <PendingPromotionDetailPane
+                    rules={data.candidates}
+                    selectedRuleKey={sp.rule ?? null}
+                    samples={ruleSamples}
+                    swarmType={swarmType}
+                  />
+                </>
+              ) : (
+                <>
+                  <RowList
+                    rows={data.rows}
+                    promotedToday={data.promotedToday}
+                    candidates={data.candidates}
+                    selection={sp}
+                    swarmType={swarmType}
+                    columns={swarm.ui_config.row_columns}
+                    recipientChips={data.recipientChips}
+                    pageSize={PAGE_SIZE}
+                  />
+                  <DetailPane
+                    rows={data.rows}
+                    initialSelectedRow={data.selectedRow}
+                    initialSelectedBody={data.selectedBody}
+                    initialBodyMap={data.bodyMap}
+                    selectedTimeline={data.selectedTimeline}
+                    timelineMap={data.timelineMap}
+                    swarmType={swarmType}
+                    categories={categories}
+                    intents={intentRows}
+                    drawerFields={swarm.ui_config.drawer_fields}
+                  />
+                </>
+              )}
+            </div>
+            <KeyboardShortcuts rowIds={rowIds} />
+            <Cheatsheet />
+          </main>
+        </SelectionProvider>
+      </AutomationRealtimeProvider>
+    </>
   );
 }
