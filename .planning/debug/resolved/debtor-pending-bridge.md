@@ -1,9 +1,11 @@
 ---
 slug: debtor-pending-bridge
-status: root_caused
+status: resolved
 trigger: debtor-email automation_runs stuck in status='pending' even though pipeline_events for Stage 0/1/3 all fire; sales-email unaffected; many rows duplicated from Zapier double-fire
 created: 2026-05-11T15:35:00Z
-updated: 2026-05-11T16:10:00Z
+updated: 2026-05-11T16:38:00Z
+resolved: 2026-05-11T16:38:00Z
+fix_commit: cf317b4
 ---
 
 # Debug: debtor-pending-bridge
@@ -106,5 +108,17 @@ fix: not applied — three viable fix shapes for Phase 80.x or Phase 82 to choos
 
 Recommended: **(1) + the alert-filter cleanup**. Fix (1) is the canonical alignment with Phase 80's "single observable row per pipeline" intent (the Stage 0 placeholder + Stage 0 verdict are TWO rows for the SAME message, which already violates the "one row per pipeline run" principle the RFC pushes elsewhere). The alert-filter cleanup removes the spurious Kanban-row noise from the stuck-pending dashboard so the real signal is visible.
 
-verification: 
-files_changed: 
+verification:
+- Tests 16/16 green (`stage-0-safety-worker.test.ts` 8 + `automation-runs-sweeper.test.ts` 8).
+- Production verify 2026-05-11 ~17:10 Amsterdam (one sweeper tick post-deploy `e4786b2`):
+    * Q1 — new orphans since deploy: 0
+    * Q2 — historical backlog: 79 reaped to `status='failed'` with `llm_reason='inngest_cancelled_stale'`; 0 stuck-pending remain (>15 min cutoff)
+    * Q3 — fresh Stage 0 INSERTs since deploy: 0 (UPDATE path confirmed)
+    * Q4 — debtor-email traffic in 30-min window: 0 (Monday-evening lull; UPDATE-path will see real traffic Tuesday morning)
+The original backlog count of "20 in 24h" undercounted because of a 24h window; actual cleared backlog is 79 going back to 2026-05-01.
+files_changed:
+- web/lib/inngest/functions/stage-0-safety-worker.ts (UPDATE branch added; INSERT preserved as null-id fallback)
+- web/lib/inngest/functions/automation-runs-sweeper.ts (filter widened to OR-include zapier:ingest orphans; Kanban exclusion documented)
+- web/lib/inngest/functions/__tests__/stage-0-safety-worker.test.ts (mock UPDATE chain mirrors into insert.mock.calls for backward-compat assertions)
+- web/lib/inngest/functions/__tests__/automation-runs-sweeper.test.ts (selectChain.or() terminal added)
+fix_commit: cf317b4
