@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 81-02 — Stage 2 placeholder route
-last_updated: "2026-05-11T10:20:01.057Z"
+stopped_at: Completed 81-03 — Stage 1 shell-wrapped surface + Pending Promotion sub-view
+last_updated: "2026-05-11T10:28:15.929Z"
 last_activity: 2026-05-11 -- Phase --phase execution started
 progress:
   total_phases: 60
   completed_phases: 17
   total_plans: 117
-  completed_plans: 100
-  percent: 85
+  completed_plans: 101
+  percent: 86
 ---
 
 # Project State
@@ -31,7 +31,7 @@ Plan: 1 of --name
 Milestone: v8.0 Agentic Platform (11 phases, 63-73)
 Last activity: 2026-05-11 -- Phase --phase execution started
 
-Progress: [█████████░] 85%
+Progress: [█████████░] 86%
 
 **v8.0 execution order:** 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 **Next action:** `/gsd-verify-work 68`, then `/gsd-discuss-phase 69 --auto`.
@@ -80,6 +80,7 @@ Progress: [█████████░] 85%
 | Phase 81 P01 | 8m | 2 tasks | 30 files |
 | Phase 81 P02 | 5min | 3 tasks | 4 files |
 | Phase 81 P02 | 4m | 3 tasks | 4 files |
+| Phase 81 P03 | 12m | 3 tasks tasks | 7 files files |
 
 ## Accumulated Context
 
@@ -133,6 +134,7 @@ Progress: [█████████░] 85%
 - Phase 81-02: Stage 2 placeholder route + head-count loader; debtor-only ↗ link, em-dash fallback for other swarms
 - Phase 81-02: head-count loader pattern (.select(id,{count:exact,head:true})) for placeholder card counts — no row data pulled
 - Phase 81-02: established RSC-page RTL test pattern in this tree (await async component → render → mock loaders at module boundary)
+- Phase 81-03: Stage 1 shell-wrapped surface complete — chip strip (swarm_noise_categories only, hard-separation lock), 2-col grid, ?sub=pending Pending Promotion sub-view; Filters popover deferred (URL params still work)
 
 ### Blockers/Concerns
 
@@ -164,8 +166,8 @@ Progress: [█████████░] 85%
 
 ## Session Continuity
 
-Last session: 2026-05-11T10:19:56.279Z
-Stopped at: Completed 81-02 — Stage 2 placeholder route
+Last session: 2026-05-11T10:28:11.849Z
+Stopped at: Completed 81-03 — Stage 1 shell-wrapped surface + Pending Promotion sub-view
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 
