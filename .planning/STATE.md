@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 82-01-PLAN.md
-last_updated: "2026-05-11T11:55:03.978Z"
+stopped_at: Completed 82-02-PLAN.md
+last_updated: "2026-05-11T11:59:01.279Z"
 last_activity: 2026-05-11
 progress:
   total_phases: 62
   completed_phases: 18
   total_plans: 131
-  completed_plans: 106
-  percent: 81
+  completed_plans: 107
+  percent: 82
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 999.8 (stage-1-llm-confidence-gate-and-predictor-attribution) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Milestone: v8.0 Agentic Platform (11 phases, 63-73)
 Last activity: 2026-05-11
 
-Progress: [████████░░] 81%
+Progress: [████████░░] 82%
 
 **v8.0 execution order:** 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 **Next action:** `/gsd-verify-work 68`, then `/gsd-discuss-phase 69 --auto`.
@@ -85,6 +85,7 @@ Progress: [████████░░] 81%
 | Phase 81 P04 | 4m | 3 tasks | 5 files |
 | Phase 81 P04 | 8m | 3 tasks | 4 files |
 | Phase 82 P01 | 12m | 3 tasks tasks | 15 files files |
+| Phase 82 P02 | 4m | 1 task tasks | 2 files files |
 
 ## Accumulated Context
 
@@ -147,6 +148,7 @@ Progress: [████████░░] 81%
 - Phase 82-01: Wave 1 _shell/ extraction — 6 presentation primitives + 1 helper + 1 Stage0Widget + 5 RTL test files (40 tests). Hard-separation enforced at prop boundary (categories ⊥ intents); per-stage page.tsx consumption deferred to Plans 02-06
 - Phase 82-01: Stage 2/Stage 4 widgets rendered as placeholders in Wave 1 — real signatures (CustomerSelection async search, Stage4Quality+reason) wired in Plan 06 when migrating Stage 1
 - Phase 82-01: PipelineTimelineEvent declared as structural alias in _shell/detail-pane.tsx to keep _shell/ decoupled from stage-1/page.tsx; Plan 06 lifts central type to _shell/_lib/
+- Phase 82-02: Stage 0 migrated to unified _shell/; categories=[]+intents=[] (hard-sep lock); no realtime provider; D-18 banner copy purge
 
 ### Blockers/Concerns
 
@@ -178,8 +180,8 @@ Progress: [████████░░] 81%
 
 ## Session Continuity
 
-Last session: 2026-05-11T11:54:51.550Z
-Stopped at: Completed 82-01-PLAN.md
+Last session: 2026-05-11T11:59:01.269Z
+Stopped at: Completed 82-02-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 
