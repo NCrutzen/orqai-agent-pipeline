@@ -91,10 +91,17 @@ export async function evaluateMailbox(
 ): Promise<EvaluateMailboxResult> {
   // Pitfall 7: per-mailbox group-by uses jsonb path, since agent_runs
   // does not (yet) have a typed icontroller_mailbox_id column.
+  //
+  // Phase 999.8 — swarm_type reconciliation: recordVerdict writes
+  // swarm_type='debtor-email' (verified pre-flight 2026-05-11 — 404 rows,
+  // zero 'debtor-email-labeling'). The previous filter read an empty
+  // population (silent no-op since the cron was written). The audit row
+  // swarm_type below is the labeling-cron's own self-identification, which
+  // Plan 06 (per-predictor split) revisits.
   const { data: rows } = await admin
     .from("agent_runs")
     .select("human_verdict")
-    .eq("swarm_type", "debtor-email-labeling")
+    .eq("swarm_type", "debtor-email")
     .not("human_verdict", "is", null)
     .filter(
       "context->>icontroller_mailbox_id",
