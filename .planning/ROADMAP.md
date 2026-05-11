@@ -524,6 +524,16 @@ Phase numbers TBD (after V4.0 phases are finalized).
 
 ## Phase Details
 
+### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 81
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 81.1 to break down)
+
 ### Phase 34: Foundation & Auth
 **Goal**: Users can securely sign in and organize pipeline work into projects with colleague access
 **Depends on**: Nothing (first V3.0 phase)
