@@ -50,7 +50,7 @@ tagging-failures debug surface (debtor-email only).
 | Task | Name | Commit | Files |
 |------|------|--------|-------|
 | 1 | loadStage2WeeklyCount loader + unit test | `16fdeb4` (prior session) | `_lib/load-stage-2-weekly-count.ts`, `_lib/__tests__/load-stage-2-weekly-count.test.ts` |
-| 2 | stage-2/page.tsx placeholder + RTL test | `d05cc9a` | `page.tsx`, `__tests__/page.test.tsx`, loader doc-comment refresh |
+| 2 | stage-2/page.tsx placeholder + RTL test | `d05cc9a`, `ceadaaf` (RTL polish: `cleanup()` between tests, em-dash assertion scoped to count strong element, TS cast fix in loader test) | `page.tsx`, `__tests__/page.test.tsx`, `_lib/load-stage-2-weekly-count.ts` (doc-comment), `_lib/__tests__/load-stage-2-weekly-count.test.ts` (test cast) |
 | 3 | DB checkpoint: verify `swarms.stage2_entity_resolver` for debtor-email | — (no DB change) | n/a |
 
 ## Artifacts
@@ -146,3 +146,4 @@ RSC pattern. T-81-02-01 (information disclosure) is mitigated by the
 - File exists: `web/app/(dashboard)/automations/[swarm]/stage-2/_lib/__tests__/load-stage-2-weekly-count.test.ts` — FOUND
 - Commit exists: `16fdeb4` — FOUND
 - Commit exists: `d05cc9a` — FOUND
+- Commit exists: `ceadaaf` (RTL test polish) — FOUND
