@@ -24,6 +24,8 @@ import { recordVerdict } from "./actions";
 
 export interface RaceCohortRow {
   automation_run_id: string;
+  /** Phase 999.8 Plan 05 / Pitfall 9 — REAL email_id, drives predictor lookup. */
+  email_id: string;
   message_id: string;
   source_mailbox: string;
   entity: string;
@@ -78,6 +80,7 @@ export function RaceCohortBanner({
           await recordVerdict({
             swarm_type: swarmType,
             automation_run_id: r.automation_run_id,
+            email_id: r.email_id,
             rule_key: ruleKey,
             decision: "approve",
             message_id: r.message_id,

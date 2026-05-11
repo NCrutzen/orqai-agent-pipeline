@@ -388,6 +388,11 @@ export function DetailPane({
         await recordVerdict({
           swarm_type: swarmType,
           automation_run_id: automationRunId,
+          // Phase 999.8 Plan 05 / Pitfall 9: pass the REAL email_id.
+          // Phase 71-08 made row.id === email_id (stable client-side key);
+          // recordVerdict uses this to query pipeline_events for predictor
+          // attribution.
+          email_id: row.id,
           rule_key: ruleKey,
           decision: kind === "skip" ? "reject" : kind,
           message_id: result.message_id ?? "",

@@ -84,7 +84,13 @@ export function RowList({
       .map((r) => {
         const result = (r.result as RowResult | null) ?? {};
         return {
-          automation_run_id: r.id,
+          // NOTE: r.id has been the email_id since Phase 71-08; the legacy
+          // race-cohort path used it as the automation_run_id key for the
+          // bulk recordVerdict UPDATE. Pre-existing aliasing, out of scope
+          // for Phase 999.8 Plan 05 — flagged in SUMMARY.
+          automation_run_id: r.automation_run_id ?? r.id,
+          // Phase 999.8 Plan 05 / Pitfall 9 — drives predictor lookup.
+          email_id: r.id,
           message_id: result.message_id ?? "",
           source_mailbox: result.source_mailbox ?? "",
           entity: r.entity ?? "",
