@@ -61,7 +61,11 @@ export function RowList({
   pageSize,
 }: RowListProps) {
   const { selectedId, setSelected, pendingRemovalIds } = useSelection();
-  const isPending = selection.tab === "pending";
+
+  // Phase 81-03: the Pending Promotion sub-view is now a page-level branch
+  // (see stage-1/page.tsx + candidate-rule-list.tsx). RowList is single-
+  // responsibility: predicted-row rendering only. Legacy `?tab=pending`
+  // branching has been removed (D-10).
 
   // Optimistic filter — rows the reviewer just verdict'd vanish
   // immediately, before the server roundtrip lands.
@@ -176,12 +180,7 @@ export function RowList({
         swarmType={swarmType}
       />
 
-      {isPending ? (
-        <PendingPromotionPanel
-          candidates={candidates}
-          basePath={basePath}
-        />
-      ) : visibleRows.length === 0 ? (
+      {visibleRows.length === 0 ? (
         <EmptyState selectionActive={hasSelection} swarmType={swarmType} />
       ) : (
         <>
@@ -265,49 +264,5 @@ function PaginationFooter({
   );
 }
 
-function PendingPromotionPanel({
-  candidates,
-  basePath,
-}: {
-  candidates: ClassifierCandidate[];
-  basePath: string;
-}) {
-  if (candidates.length === 0) {
-    return (
-      <div className="px-6 py-12 rounded-[var(--v7-radius-card)] border border-[var(--v7-line)] bg-[var(--v7-panel-2)] text-center">
-        <h2 className="text-[20px] font-semibold leading-[1.3] font-[family-name:var(--font-cabinet)]">
-          No candidate rules
-        </h2>
-        <p className="text-[14px] leading-[1.5] text-[var(--v7-muted)] mt-2">
-          No rules in <code className="font-mono">classifier_rules.status =
-          &apos;candidate&apos;</code> yet. Candidates appear after the
-          first daily cron run records telemetry.
-        </p>
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-col gap-2 min-w-0">
-      {candidates.map((c) => (
-        <div
-          key={c.rule_key}
-          className="flex items-center justify-between gap-3 px-4 py-3 rounded-[var(--v7-radius-sm)] border border-[var(--v7-line)] bg-[var(--v7-panel-2)] min-w-0"
-        >
-          <div className="min-w-0">
-            <div className="font-mono text-[13px] truncate">{c.rule_key}</div>
-            <div className="text-[12px] text-[var(--v7-muted)] mt-0.5">
-              N={c.n} · CI-lo=
-              {c.ci_lo === null ? "—" : (c.ci_lo * 100).toFixed(1) + "%"}
-            </div>
-          </div>
-          <Link
-            href={`${basePath}?rule=${encodeURIComponent(c.rule_key)}`}
-            className="text-[13px] underline hover:text-[var(--v7-text)] shrink-0"
-          >
-            Filter to this rule
-          </Link>
-        </div>
-      ))}
-    </div>
-  );
-}
+// Phase 81-03: PendingPromotionPanel extracted to
+// stage-1/candidate-rule-list.tsx (page-managed branch on ?sub=pending).

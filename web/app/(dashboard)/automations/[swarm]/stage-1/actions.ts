@@ -486,6 +486,158 @@ export async function escalateToKanban(
   return { ok: true };
 }
 
+// ---------------------------------------------------------------------------
+// Phase 81 Plan 03 Task 2. Pending Promotion sub-view server actions.
+//
+// promoteRule / rejectRule are form-action server actions invoked from
+// pending-promotion-detail-pane.tsx. Each takes a FormData with rule_key +
+// swarm_type and mutates classifier_rules.status accordingly.
+//
+// Wave 0 Open Q4 grep (rg -n "promoteRule|rejectRule|ci_lo|Wilson"
+// web/app/(dashboard)/swarm/) returned no existing UI — actions are
+// plumbed fresh here.
+//
+// loadRuleSamples is a server-side helper invoked from page.tsx when
+// sp.sub==="pending" && sp.rule != null. It returns up to N sample emails
+// (subject, sender, created_at) that matched the given rule_key, by querying
+// pipeline_events.decision_details->>rule_key joined with
+// email_pipeline.emails for the metadata. Stage-1 only (no swarm_intents).
+// ---------------------------------------------------------------------------
+
+const ruleMutationSchema = z.object({
+  rule_key: z.string().min(1),
+  swarm_type: z.string().min(1),
+});
+
+async function mutateRuleStatus(
+  formData: FormData,
+  nextStatus: "promoted" | "rejected",
+): Promise<void> {
+  const parsed = ruleMutationSchema.parse({
+    rule_key: formData.get("rule_key"),
+    swarm_type: formData.get("swarm_type"),
+  });
+  const admin = createAdminClient();
+
+  // Verify the rule exists in candidate status before mutating — guards
+  // against tampered form submissions promoting arbitrary rule_keys.
+  const { data: existing, error: selErr } = await admin
+    .from("classifier_rules")
+    .select("rule_key, status")
+    .eq("swarm_type", parsed.swarm_type)
+    .eq("rule_key", parsed.rule_key)
+    .single();
+  if (selErr || !existing) {
+    throw new Error(
+      `classifier_rules lookup failed: ${selErr?.message ?? "not found"}`,
+    );
+  }
+  if (existing.status !== "candidate") {
+    throw new Error(
+      `rule ${parsed.rule_key} is not in candidate status (current=${existing.status})`,
+    );
+  }
+
+  const patch: Record<string, unknown> = { status: nextStatus };
+  if (nextStatus === "promoted") {
+    patch.promoted_at = new Date().toISOString();
+  }
+  const { error: updErr } = await admin
+    .from("classifier_rules")
+    .update(patch)
+    .eq("swarm_type", parsed.swarm_type)
+    .eq("rule_key", parsed.rule_key);
+  if (updErr) {
+    throw new Error(`classifier_rules update failed: ${updErr.message}`);
+  }
+
+  await emitAutomationRunStale(admin, `${parsed.swarm_type}-review`);
+}
+
+export async function promoteRule(formData: FormData): Promise<void> {
+  await mutateRuleStatus(formData, "promoted");
+}
+
+export async function rejectRule(formData: FormData): Promise<void> {
+  await mutateRuleStatus(formData, "rejected");
+}
+
+export interface RuleSampleRow {
+  email_id: string;
+  subject: string;
+  sender: string;
+  created_at: string;
+}
+
+/**
+ * Fetch up to `limit` sample emails that matched a given rule_key.
+ *
+ * Reads pipeline_events filtered by swarm_type + decision_details->>rule_key,
+ * then joins email_pipeline.emails for the metadata.
+ */
+export async function loadRuleSamples(
+  admin: ReturnType<typeof createAdminClient>,
+  swarm_type: string,
+  rule_key: string,
+  limit = 5,
+): Promise<RuleSampleRow[]> {
+  // Step 1: collect email_ids from Stage 1 events that matched this rule.
+  const { data: evRows, error: evErr } = await admin
+    .from("pipeline_events")
+    .select("email_id, created_at")
+    .eq("swarm_type", swarm_type)
+    .eq("stage", 1)
+    .eq("decision_details->>rule_key", rule_key)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (evErr) {
+    throw new Error(`loadRuleSamples: pipeline_events query failed: ${evErr.message}`);
+  }
+  const events =
+    (evRows as Array<{ email_id: string | null; created_at: string }> | null) ??
+    [];
+  const emailIds = Array.from(
+    new Set(events.map((e) => e.email_id).filter((id): id is string => !!id)),
+  );
+  if (emailIds.length === 0) return [];
+
+  // Step 2: join email_pipeline.emails for subject + sender.
+  const { data: emailRows, error: emErr } = await admin
+    .schema("email_pipeline")
+    .from("emails")
+    .select("id, subject, sender_email, sender_name")
+    .in("id", emailIds);
+  if (emErr) {
+    throw new Error(`loadRuleSamples: emails query failed: ${emErr.message}`);
+  }
+  const byId = new Map<
+    string,
+    { subject: string | null; sender_email: string | null; sender_name: string | null }
+  >();
+  for (const e of (emailRows as Array<{
+    id: string;
+    subject: string | null;
+    sender_email: string | null;
+    sender_name: string | null;
+  }> | null) ?? []) {
+    byId.set(e.id, e);
+  }
+
+  // Step 3: assemble in the original Stage-1 event order.
+  const out: RuleSampleRow[] = [];
+  for (const ev of events) {
+    if (!ev.email_id) continue;
+    const meta = byId.get(ev.email_id);
+    out.push({
+      email_id: ev.email_id,
+      subject: meta?.subject ?? "",
+      sender: meta?.sender_name ?? meta?.sender_email ?? "",
+      created_at: ev.created_at,
+    });
+  }
+  return out;
+}
+
 export async function fetchReviewEmailBody(
   rowId: string,
 ): Promise<ReviewEmailBodyResult> {
