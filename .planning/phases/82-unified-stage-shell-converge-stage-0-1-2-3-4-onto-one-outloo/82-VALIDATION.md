@@ -2,7 +2,7 @@
 phase: 82
 slug: unified-stage-shell-converge-stage-0-1-2-3-4-onto-one-outloo
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-05-11
 ---
@@ -85,4 +85,4 @@ Wave 0 = upfront `_shell/` component extraction + tests, per RESEARCH OQ-4 recom
 - [ ] No watch-mode flags
 - [ ] `nyquist_compliant: true` set in frontmatter once map is filled
 
-**Approval:** pending
+**Approval:** approved (map filled 2026-05-11)

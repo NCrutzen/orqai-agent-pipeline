@@ -568,25 +568,29 @@ return (
 | A6 | The detail pane's `PipelineFlow` component (`stage-1/components/pipeline-flow.tsx`) is generalizable from 4 cells to 5 with minor changes | 5-Cell Pipeline Trace | NOT verified — file not read in this session. Could have hardcoded `[1,2,3,4]` arrays or 4-column grid CSS that needs more invasive surgery. Planner should read this file in Wave 0. |
 | A7 | `swarm_intents`/`swarm_noise_categories` registry data is already loaded by every consuming page (CONTEXT lock) | Per-stage chip strips | Verified for Stage 1 (loadSwarmNoiseCategories + loadSwarmIntents), Stage 3 (both), Stage 4 (noise only). Stage 0/2 don't load these today; if unified shell requires them for chip-strip rendering, those page loaders need extending. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **OQ-1: Stage 3/4 email-metadata enrichment** — Is the loader-JOIN to `email_pipeline.emails` in scope for Phase 82, or do we ship Stage 3/4 with `(no subject)` placeholders and add the JOIN in a follow-up?
    - What we know: `KanbanRow` has no subject/sender today; Stage 1 loader already does this JOIN.
    - What's unclear: CONTEXT calls Phase 82 "pure UI shell convergence" — a loader change technically falls outside that scope.
    - Recommendation: Include the JOIN as part of Plan 82-05 (Stage 3 migration). It's one Supabase call; classifying it as "UI plumbing" is fair.
+   - **RESOLVED:** In scope — Stage 3/4 loaders extend with `email_pipeline.emails` JOIN (subject + sender + received_at + mailbox_id). Applied in Plan 82-04.
 
 2. **OQ-2: Mailbox-filter source** — Option A (derive + per-swarm hardcoded fallback) or Option B (add `swarms.mailboxes` column)?
    - What we know: CONTEXT says "no DDL"; Option A fits.
    - What's unclear: Operator expectations for empty-list stages (Stage 0/2) — does an empty dropdown read as "broken UI" or as "consistent placeholder"?
    - Recommendation: Option A with per-swarm hardcoded fallback. Document the fallback as Phase 82 debt; migrate to `swarms.mailboxes` column in a v8.2 cleanup.
+   - **RESOLVED:** Option A — derive mailboxes from row data + per-swarm `MAILBOX_LABELS` helper. Helper lives at `_shell/_lib/get-swarm-mailboxes.ts` (Plan 82-01).
 
 3. **OQ-3: Stage 2 dual banner** — CONTEXT D-17 says "Existing Stage 2 placeholder count + ↗ link is preserved as a small banner above the row list (or folded into the empty-state copy)." Which? Both have UX implications.
    - What we know: Stage 2 today renders the count + link as the entire page content. Folding into empty-state copy keeps the surface compact; banner-above keeps it visible when (future) data arrives.
    - Recommendation: Banner-above. Future-proofs for Phase 77 when real Stage 2 rows arrive.
+   - **RESOLVED:** Banner above row list (preserves Phase 81 D-12 placeholder, future-proofs for Phase 77). Applied in Plan 82-03.
 
 4. **OQ-4: Wave 0 _shell/ tests vs. lockstep test-as-you-go** — Should Plan 82-01 build all `_shell/` components + tests upfront, or build each component immediately before the stage that consumes it?
    - Trade-off: upfront = clearer contract; lockstep = faster initial commits.
    - Recommendation: Upfront. Five stages consume the same contract; build it once.
+   - **RESOLVED:** Upfront — Wave 1 (Plan 82-01) extracts the full `_shell/` library + tests before any stage migrates.
 
 ## Environment Availability
 
