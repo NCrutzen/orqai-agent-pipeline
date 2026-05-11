@@ -221,6 +221,12 @@ const adminClientMock = {
     }
     return Promise.resolve({ data: [], error: null });
   }),
+  // Phase 81-04 Task 3: trivial schema(name) accessor. Production loader
+  // calls `.schema("email_pipeline").from(...)` / `.schema("debtor").from(...)`
+  // (commit 5ad38e4); the .from() switch above already discriminates on table.
+  schema(_name: string) {
+    return this;
+  },
 };
 
 vi.mock("@/lib/supabase/admin", () => ({

@@ -112,7 +112,17 @@ const rpcCalls: Array<{ fn: string; args: unknown }> = [];
 // Last-built builder per table — exposes .eq calls for assertion.
 let lastListBuilder: MockBuilder | null = null;
 
-const adminClientMock = {
+// Phase 81-04 Task 3: `.schema(name)` accessor for the mock admin client.
+// Production code calls `admin.schema("email_pipeline").from("emails")` and
+// `admin.schema("debtor").from("email_labels")` (commit 5ad38e4). The trivial
+// shim returns the same admin proxy regardless of schema name — the .from()
+// switch already keys on table name, which is unique enough across the two
+// schemas the loader touches.
+const adminClientMock: {
+  from: ReturnType<typeof vi.fn>;
+  rpc: ReturnType<typeof vi.fn>;
+  schema: (name: string) => unknown;
+} = {
   from: vi.fn((table: string) => {
     fromCalls.push(table);
     if (table === "pipeline_events") {
@@ -144,6 +154,13 @@ const adminClientMock = {
     }
     return Promise.resolve({ data: [], error: null });
   }),
+  // Phase 81-04 Task 3: trivial schema(name) accessor — returns the same
+  // admin proxy. Production loader calls `.schema("email_pipeline").from("emails")`
+  // and `.schema("debtor").from("email_labels")`; both flow through the .from()
+  // switch above which already discriminates on table name.
+  schema(_name: string) {
+    return this;
+  },
 };
 
 // Track the active tab so the .from('automation_runs') stub can pick the
