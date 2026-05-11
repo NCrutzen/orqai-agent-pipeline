@@ -197,9 +197,13 @@ export const classifierScreenWorker = inngest.createFunction(
               },
             );
             const parsed = Stage1OutputSchema.parse(result.raw);
-            // D-10 confidence gate: 'low' coerces to 'unknown'.
-            const finalKey =
-              parsed.confidence === "low" ? "unknown" : parsed.category_key;
+            // Phase 999.8 D-01 / D-10 supersedes the prior 'low → unknown'
+            // coercion: instead of dropping low-confidence predictions into
+            // the unknown bucket here (which would auto-archive via the
+            // verdict path), we preserve the predicted category and let the
+            // Step 5 gate route medium/low to `classifier/screen.requires_review`
+            // so the row stays at status='predicted' for human review.
+            const finalKey = parsed.category_key;
 
             const insertSuccess = await admin.from("agent_runs").insert({
               id,
@@ -316,25 +320,69 @@ export const classifierScreenWorker = inngest.createFunction(
       });
     });
 
-    // ───── Step 5: emit verdict (D-16.5) ──────────────────────────────
-    // CLAUDE.md commit dae6276 — inline cast, NEVER destructure inngest.send.
-    // decision='approve' matches the existing classifier-verdict-worker
-    // contract: verdict-worker dispatches via swarm_noise_categories.action, not
-    // via decision; preserve those semantics.
-    await step.run("emit-verdict", async () =>
-      (inngest.send as unknown as SendFn)({
-        name: "classifier/verdict.recorded",
-        data: {
-          automation_run_id,
-          swarm_type,
-          decision: "approve",
-          message_id,
-          source_mailbox,
-          predicted_category: finalCategoryKey,
-          override_category: null,
-        },
-      }),
-    );
+    // ───── Step 5: emit verdict OR requires_review (D-16.5, D-01, D-10) ─
+    // Phase 999.8 confidence gate. When the LLM 2nd-pass returned a non-
+    // 'unknown' category at medium/low confidence, we emit
+    // `classifier/screen.requires_review` INSTEAD of
+    // `classifier/verdict.recorded`. The new event has no subscriber by
+    // design (D-10), so automation_runs.status stays 'predicted' and the
+    // Stage 1 row list (page.tsx:587) surfaces it for human review with
+    // NO Outlook side effects.
+    //
+    // Motivating incident (NOTES.md): Therese Hendriks `FW: Invoice
+    // 17338747` got auto-archived at confidence='medium' before this
+    // gate existed — the worst-case "LLM auto-archives an invoice
+    // correction request" is what this branch stops.
+    //
+    // `finalCategoryKey === 'unknown'` short-circuits to the verdict
+    // path on purpose: the seed category's action='manual_review' /
+    // 'reject' is the existing label-only-skip escape valve — no
+    // archive, no Outlook label — so the gate has nothing to add.
+    //
+    // CLAUDE.md commit dae6276 — inline cast, NEVER destructure
+    // inngest.send. decision='approve' matches the existing
+    // classifier-verdict-worker contract: verdict-worker dispatches via
+    // swarm_noise_categories.action, not via decision; preserve those
+    // semantics.
+    const gateClearsForAutoArchive =
+      !llmInvoked ||
+      llmConfidence === "high" ||
+      finalCategoryKey === "unknown";
+
+    if (gateClearsForAutoArchive) {
+      await step.run("emit-verdict", async () =>
+        (inngest.send as unknown as SendFn)({
+          name: "classifier/verdict.recorded",
+          data: {
+            automation_run_id,
+            swarm_type,
+            decision: "approve",
+            message_id,
+            source_mailbox,
+            predicted_category: finalCategoryKey,
+            override_category: null,
+          },
+        }),
+      );
+    } else {
+      await step.run("emit-requires-review", async () =>
+        (inngest.send as unknown as SendFn)({
+          name: "classifier/screen.requires_review",
+          data: {
+            automation_run_id,
+            agent_run_id: agentRunId,
+            email_id,
+            message_id,
+            source_mailbox,
+            swarm_type,
+            entity: entity ?? null,
+            llm_category_key: llmCategoryKey ?? finalCategoryKey,
+            llm_confidence: llmConfidence as "medium" | "low",
+            final_category_key: finalCategoryKey,
+          },
+        }),
+      );
+    }
 
     return {
       ok: true,

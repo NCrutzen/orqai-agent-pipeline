@@ -310,7 +310,7 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
     );
   });
 
-  it("REQ-4 / LLM low confidence → coerced to 'unknown' but agent_runs row stays at confidence='low'", async () => {
+  it("REQ-4 / LLM low confidence → predicted category preserved; gate routes to classifier/screen.requires_review (Phase 999.8 D-01 supersedes prior low→unknown coercion)", async () => {
     loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
     loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
     invokeOrqAgentMock.mockResolvedValue({
@@ -329,14 +329,22 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 
     expect(agentRunsInserts.length).toBe(1);
     expect(agentRunsInserts[0].confidence).toBe("low");
+    // Phase 999.8 D-01/D-10: low confidence on a non-'unknown' category
+    // emits requires_review (NOT verdict.recorded). The auto-archive
+    // path is gated until a human reviews.
     expect(inngestSend).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ predicted_category: "unknown" }),
+        name: "classifier/screen.requires_review",
+        data: expect.objectContaining({
+          llm_confidence: "low",
+          llm_category_key: "auto_reply",
+          final_category_key: "auto_reply",
+        }),
       }),
     );
   });
 
-  it("REQ-4 / LLM medium confidence → category_key passes through", async () => {
+  it("REQ-4 / LLM medium confidence → category_key passes through; gate routes to classifier/screen.requires_review (Phase 999.8 D-01)", async () => {
     loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
     loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
     invokeOrqAgentMock.mockResolvedValue({
@@ -358,10 +366,14 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
     });
 
     expect(agentRunsInserts[0].confidence).toBe("medium");
+    // Phase 999.8 D-01/D-10: medium confidence on a non-'unknown' category
+    // emits requires_review (NOT verdict.recorded).
     expect(inngestSend).toHaveBeenCalledWith(
       expect.objectContaining({
+        name: "classifier/screen.requires_review",
         data: expect.objectContaining({
-          predicted_category: "ooo_temporary",
+          llm_confidence: "medium",
+          final_category_key: "ooo_temporary",
         }),
       }),
     );
