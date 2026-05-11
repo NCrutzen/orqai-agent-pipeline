@@ -438,6 +438,16 @@ Plans:
 - [ ] 81-03-PLAN.md — Shell-wrap stage-1/page.tsx with PageHeader + StageTabStrip + noise-category chip-strip + ?sub=pending loader branch + extracted candidate-rule-list / pending-promotion-detail-pane (Wave 3)
 - [ ] 81-04-PLAN.md — Cleanup: delete queue-tree.tsx, purge 'Bulk Review' user-visible copy, extend middleware redirect tests for ?sub=pending, regression smoke on /stage-3 + /stage-4, time-boxed safety-review-loader fixture fix (Wave 4)
 
+### Phase 82: Unified stage shell — converge Stage 0/1/2/3/4 onto one Outlook-style row+detail+chip-strip+mailbox-filter UX
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 81
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 82 to break down)
+
 ---
 
 ## Phases
