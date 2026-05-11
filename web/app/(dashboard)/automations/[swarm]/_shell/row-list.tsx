@@ -91,8 +91,8 @@ export function RowList({ rows, emptyState, rightEdgeSlot }: RowListProps) {
               style={{
                 fontSize: 13,
                 color: "var(--v7-text)",
-                minWidth: 160,
-                maxWidth: 220,
+                minWidth: 120,
+                maxWidth: 200,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
