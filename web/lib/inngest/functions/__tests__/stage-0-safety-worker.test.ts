@@ -49,8 +49,28 @@ vi.mock("@/lib/supabase/admin", () => {
     return { data: null, error: null };
   });
   let lastTable = "";
-  const eq = vi.fn().mockResolvedValue({ data: null, error: null });
-  const update = vi.fn(() => ({ eq }));
+  // Phase 82.x — UPDATE chain in stage-0-safety-worker now chains two `.eq`
+  // calls (id + status='pending'). Mock supports both: each `.eq` returns
+  // the same chainable that is also a thenable resolving to `{data,error}`.
+  // Additionally, UPDATE payloads are mirrored into `insert.mock.calls` so
+  // existing assertions that scan inserted automation_runs rows keep working
+  // post-fix (the worker now UPDATE-s the ingest placeholder rather than
+  // INSERT-ing a fresh verdict row).
+  const eqResult = { data: null, error: null };
+  const eqChain: {
+    eq: ReturnType<typeof vi.fn>;
+    then: (resolve: (v: typeof eqResult) => unknown) => unknown;
+  } = {
+    eq: vi.fn(() => eqChain),
+    then: (resolve) => resolve(eqResult),
+  };
+  const eq = eqChain.eq;
+  const update = vi.fn((payload: any) => {
+    // Mirror UPDATE payload into insert.mock.calls + supabaseInserts so
+    // legacy assertions still see the automation_runs write surface.
+    insert(payload);
+    return eqChain;
+  });
   const from = vi.fn((table: string) => {
     lastTable = table;
     return { insert, update };

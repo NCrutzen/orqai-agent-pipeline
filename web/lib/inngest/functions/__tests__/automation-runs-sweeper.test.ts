@@ -39,14 +39,19 @@ function makeAdminMock() {
     lt: ReturnType<typeof vi.fn>;
     in: ReturnType<typeof vi.fn>;
     like: ReturnType<typeof vi.fn>;
+    or: ReturnType<typeof vi.fn>;
   } = {
     eq: vi.fn(() => selectChain),
-    lt: vi.fn(async () => ({
+    lt: vi.fn(() => selectChain),
+    in: vi.fn(() => selectChain),
+    like: vi.fn(() => selectChain),
+    // Phase 82.x — sweeper terminal is now .or() (was .lt()) so it can
+    // OR-compose triggered_by='stage-0/%' with the zapier:ingest placeholder
+    // shape. Returns the awaited fixture rows.
+    or: vi.fn(async () => ({
       data: [...fixtureRows],
       error: null,
     })),
-    in: vi.fn(() => selectChain),
-    like: vi.fn(() => selectChain),
   };
   const updateEqMock = vi.fn(
     async (_col: string, id: string, payload?: Record<string, unknown>) => ({

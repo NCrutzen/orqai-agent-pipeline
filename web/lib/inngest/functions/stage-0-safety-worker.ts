@@ -182,37 +182,73 @@ export const stage0SafetyWorker = inngest.createFunction(
     }
 
     // Step 4 — persist verdict to automation_runs.
+    //
+    // Phase 82.x fix (orphan-placeholder bug): UPDATE the caller-supplied
+    // placeholder row instead of INSERT-ing a new one. The ingest route creates
+    // ONE placeholder per receiving mailbox with status='pending',
+    // triggered_by='zapier:ingest', result.stage='stage_0_safety_pending'.
+    // The previous behavior (fresh INSERT here) left those placeholders
+    // orphaned forever when the same Outlook message was forwarded into
+    // multiple monitored mailboxes (each ingest call created its own
+    // placeholder, but only one event won the email_pipeline.emails dedup —
+    // the others' placeholders never received a status flip).
+    //
+    // Fallback INSERT preserved for safety: if no automation_run_id was
+    // threaded through (legacy path / non-ingest entry point), insert fresh.
     const isInjection = llmResult.verdict === "injection_suspected";
+    const completedAt = new Date().toISOString();
+    const verdictResult = {
+      stage: "stage_0_safety",
+      email_id,
+      message_id,
+      source_mailbox,
+      verdict: llmResult.verdict,
+      regex_matched: regexResult.matched,
+      llm_reason: llmResult.reason,
+      matched_span: llmResult.matched_span,
+      cost_cents: llmResult.usage.cost_cents,
+      token_count: llmResult.usage.total_tokens,
+      safety_overridden: false,
+      // Phase 999.7 — strip telemetry
+      strip_changed: stripResult.changed,
+      strip_delta_chars: stripResult.delta_chars,
+      strip_fallback_reason: stripResult.fallback_reason ?? null,
+    };
     await step.run("persist-verdict", async () => {
-      const { error } = await admin.from("automation_runs").insert({
-        automation: staleChannel,
-        status: isInjection ? "predicted" : "completed",
-        swarm_type,
-        topic: isInjection ? "safety_review" : null,
-        entity,
-        mailbox_id,
-        result: {
-          stage: "stage_0_safety",
-          email_id,
-          message_id,
-          source_mailbox,
-          verdict: llmResult.verdict,
-          regex_matched: regexResult.matched,
-          llm_reason: llmResult.reason,
-          matched_span: llmResult.matched_span,
-          cost_cents: llmResult.usage.cost_cents,
-          token_count: llmResult.usage.total_tokens,
-          safety_overridden: false,
-          // Phase 999.7 — strip telemetry
-          strip_changed: stripResult.changed,
-          strip_delta_chars: stripResult.delta_chars,
-          strip_fallback_reason: stripResult.fallback_reason ?? null,
-        },
-        triggered_by: "stage-0/safety-worker",
-        completed_at: new Date().toISOString(),
-      });
-      if (error) {
-        throw new Error(`automation_runs insert failed: ${error.message}`);
+      if (automation_run_id) {
+        // Compound where (id + status='pending') prevents accidentally
+        // re-flipping a row that's already advanced (e.g. Inngest replay).
+        const { error } = await admin
+          .from("automation_runs")
+          .update({
+            status: isInjection ? "predicted" : "completed",
+            topic: isInjection ? "safety_review" : null,
+            result: verdictResult,
+            triggered_by: "stage-0/safety-worker",
+            completed_at: completedAt,
+          })
+          .eq("id", automation_run_id)
+          .eq("status", "pending");
+        if (error) {
+          throw new Error(
+            `automation_runs update failed (id=${automation_run_id}): ${error.message}`,
+          );
+        }
+      } else {
+        const { error } = await admin.from("automation_runs").insert({
+          automation: staleChannel,
+          status: isInjection ? "predicted" : "completed",
+          swarm_type,
+          topic: isInjection ? "safety_review" : null,
+          entity,
+          mailbox_id,
+          result: verdictResult,
+          triggered_by: "stage-0/safety-worker",
+          completed_at: completedAt,
+        });
+        if (error) {
+          throw new Error(`automation_runs insert failed: ${error.message}`);
+        }
       }
 
       // Phase 70 — TELE-01 dual-write
