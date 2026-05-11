@@ -6,6 +6,10 @@ import {
 } from "@/lib/automations/icontroller/session";
 import { deleteEmailOnPage } from "@/lib/automations/debtor-email-cleanup/browser";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
+import {
+  ICONTROLLER_MAILBOXES,
+  isKnownMailbox,
+} from "@/lib/automations/debtor-email/mailboxes";
 
 /**
  * iController-cleanup SHARD WORKER. Triggered by
@@ -20,14 +24,13 @@ import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
  * in Supabase concurrently).
  */
 
-const ICONTROLLER_COMPANY = "smebabrandbeveiliging";
-
 interface PendingResult {
   stage: string;
   message_id: string;
   from: string;
   subject: string;
   received_at: string;
+  source_mailbox?: string;
   icontroller?: string;
 }
 
@@ -99,8 +102,26 @@ export const cleanupIControllerShardWorker = inngest.createFunction(
           await emitAutomationRunStale(admin, "debtor-email-cleanup");
 
           try {
+            // Resolve the per-mailbox iController folder id so we can
+            // navigate directly to the correct mailbox folder rather than
+            // inheriting whatever sidebar Account filter the session last
+            // had selected. Fail fast on unknown mailbox so the row is
+            // routed to the failed bucket with a clear cause (matches the
+            // Phase 76 hotfix pattern in browser.ts:67).
+            const sourceMailbox = r.source_mailbox;
+            if (!sourceMailbox || !isKnownMailbox(sourceMailbox)) {
+              throw new Error(
+                `cleanup-worker: missing or unknown source_mailbox on queue payload (got=${JSON.stringify(sourceMailbox)}) — cannot resolve iController mailbox id`,
+              );
+            }
+            const mailboxId = ICONTROLLER_MAILBOXES[sourceMailbox];
             const icRes = await deleteEmailOnPage(session.page, session.cfg, {
-              company: ICONTROLLER_COMPANY,
+              // Screenshot label only — use the actual source mailbox so
+              // failure screenshots are identifiable per mailbox. Past
+              // hardcoded value ("smebabrandbeveiliging") obscured a
+              // cross-mailbox bug for days.
+              company: sourceMailbox,
+              mailboxId,
               from: r.from,
               subject: r.subject,
               receivedAt: r.received_at,

@@ -12,8 +12,15 @@ export type { IControllerEnv, EnvConfig };
 const AUTOMATION_NAME = "debtor-email-cleanup";
 
 export interface EmailIdentifiers {
-  /** Company name as shown in iController sidebar */
+  /** Company name as shown in iController sidebar (used only for screenshot label) */
   company: string;
+  /** iController mailbox id — when present, navigate directly to the
+   *  correct mailbox folder via /messages/index/mailbox/{id}, bypassing
+   *  the session-sticky sidebar Account filter that caused cross-mailbox
+   *  DOM-mismatch on the post-delete verify probe (2026-05-11).
+   *  Optional: legacy ad-hoc callers (webhook route, catchup script, dev
+   *  test) fall back to bare /messages. Cron worker MUST pass it. */
+  mailboxId?: number;
   /** Sender email address */
   from: string;
   /** Email subject line */
@@ -429,9 +436,18 @@ export async function deleteEmailOnPage(
   email: EmailIdentifiers,
 ): Promise<CleanupResult> {
   try {
-    // Reset the list view so each item starts from a clean state (previous
-    // search filter still populated would skew the next findEmailViaSearch).
-    await page.goto(`${cfg.url}/messages`, { waitUntil: "domcontentloaded" });
+    // Land directly in the target mailbox folder via the per-mailbox URL
+    // when caller supplied an id. Previously we always navigated to bare
+    // `/messages`, which inherits whatever sidebar Account filter the
+    // iController session last had selected — that made Pass 1 (find)
+    // and Pass 2 (verify) see different row populations across mailboxes
+    // (smeba.nl / smeba-fire / fire-control), producing the "Delete
+    // verification failed" false positives. Scoping by mailbox id is
+    // deterministic and removes that failure class.
+    const listUrl = email.mailboxId !== undefined
+      ? `${cfg.url}/messages/index/mailbox/${email.mailboxId}`
+      : `${cfg.url}/messages`;
+    await page.goto(listUrl, { waitUntil: "domcontentloaded" });
     await page
       .waitForSelector("#messages-list", { timeout: 6000 })
       .catch(() => null);
@@ -467,7 +483,9 @@ export async function deleteEmailOnPage(
     // returned success on click-without-throw, even if the delete XHR
     // failed silently or the modal mis-clicked. Re-search the inbox to
     // confirm the row is actually gone before reporting deleted.
-    await page.goto(`${cfg.url}/messages`, { waitUntil: "domcontentloaded" });
+    // Use the same per-mailbox URL as Pass 1 so verify sees the same
+    // row population (see Pass 1 comment for full rationale).
+    await page.goto(listUrl, { waitUntil: "domcontentloaded" });
     await page
       .waitForSelector("#messages-list", { timeout: 6000 })
       .catch(() => null);
