@@ -34,11 +34,9 @@ import type {
   SwarmNoiseCategoryRow,
 } from "@/lib/swarms/types";
 import { RowList } from "../_shell/row-list";
-import { MailboxFilter } from "../_shell/mailbox-filter";
 import { UnifiedDetailPane } from "../_shell/detail-pane";
 import { useSelection } from "../_shell/selection-context";
 import { KeyboardShortcuts } from "../_shell/keyboard-shortcuts";
-import type { MailboxOption } from "../_shell/_lib/get-swarm-mailboxes";
 import type { Row } from "../_shell/_lib/types";
 // Stage 1 uses the rich PipelineTimelineEvent shape (id/created_at/decision_details/
 // override/eval_type/triggered_by/...) from page.tsx — the embedded
@@ -63,7 +61,6 @@ export interface Stage1ClientShellProps {
   initialSelectedRow: PredictedRow | null;
   categories: SwarmNoiseCategoryRow[];
   intents: SwarmIntentRow[];
-  mailboxes: MailboxOption[];
   selectedMailboxes: number[];
   bodyMap: Record<string, BodyEntry>;
   timelineMap: Record<string, PipelineTimelineEvent[]>;
@@ -79,7 +76,6 @@ export function Stage1ClientShell({
   initialSelectedRow,
   categories,
   intents,
-  mailboxes,
   selectedMailboxes,
   bodyMap,
   timelineMap,
@@ -144,17 +140,6 @@ export function Stage1ClientShell({
           padding: "var(--space-4)",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            gap: "var(--space-3)",
-          }}
-        >
-          <MailboxFilter mailboxes={mailboxes} selected={selectedMailboxes} />
-        </div>
-
         <div
           style={{
             display: "grid",

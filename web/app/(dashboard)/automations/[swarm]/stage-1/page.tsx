@@ -985,7 +985,6 @@ export default async function SwarmReviewPage({
                 initialSelectedRow={data.selectedRow}
                 categories={categories}
                 intents={intentRows}
-                mailboxes={mailboxes}
                 selectedMailboxes={selectedMailboxes}
                 bodyMap={data.bodyMap}
                 timelineMap={data.timelineMap}
