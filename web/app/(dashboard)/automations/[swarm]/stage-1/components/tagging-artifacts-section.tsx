@@ -1,8 +1,9 @@
 "use client";
 
 // Phase 82.1 Plan 04 (CONTEXT D-09). Tagging artifacts section — extracted
-// from stage-1-override-pane.tsx (lines 1050-1095) into a standalone slot
-// that Stage 1 client-shell passes to UnifiedDetailPane.extrasBelowPipeline.
+// from the legacy Stage 1 override pane's tagging-failure surface into a
+// standalone slot that Stage 1 client-shell passes to
+// UnifiedDetailPane.extrasBelowPipeline.
 //
 // Renders inline iController tag failure context (status, error text,
 // before/after screenshots) so operators can audit the side-effect failure

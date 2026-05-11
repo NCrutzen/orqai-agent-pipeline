@@ -9,10 +9,11 @@
 //     NoiseCategoryChipStrip + 2-col body grid + Pending Promotion sub-view.
 //   - Phase 82 Plan 06: page-level row-list + detail-pane composition replaced
 //     by the unified _shell/ shell (RowList, MailboxFilter, UnifiedDetailPane,
-//     SelectionProvider, KeyboardShortcuts). Stage-1-specific 4-axis bulk-
-//     review override flow preserved as a slot (Stage1OverridePane) inside
-//     UnifiedDetailPane via the taggingFailuresSection slot — same pattern as
-//     Stage 4. Mailbox filter loader extended from .eq to .in (CONTEXT D-12).
+//     SelectionProvider, KeyboardShortcuts). Stage 1 override picker logic
+//     preserved as an inline cell widget inside UnifiedDetailPane's
+//     PipelineFlow (Phase 82.1 Plan 04 ports the picker into
+//     _shell/components/stage-1-widget.tsx). Mailbox filter loader extended
+//     from .eq to .in (CONTEXT D-12).
 //
 // Hard-separation contract (RFC docs/agentic-pipeline/README.md):
 //   - This page surface reads `swarm_noise_categories` for Stage 1's chip
@@ -907,10 +908,9 @@ export default async function SwarmReviewPage({
   }
 
   // Phase 82 Plan 06: unified Row[] for _shell/RowList + MailboxFilter.
-  // PredictedRow[] is still passed to Stage1OverridePane via the client shell
-  // for the full bulk-review override flow (keyboard wiring, optimistic
-  // removal, recordVerdict — all consume PredictedRow.automation_run_id +
-  // result fields).
+  // PredictedRow[] is still passed to Stage1ClientShell so the inline Stage 1
+  // cell widget (Phase 82.1 Plan 04) can read .automation_run_id + .result
+  // fields for the override POST + recordVerdict server-action args.
   const unifiedRows: Row[] = data.rows.map(toUnifiedRow);
   const mailboxes = getSwarmMailboxes(swarmType, unifiedRows);
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
@@ -974,10 +974,10 @@ export default async function SwarmReviewPage({
               </div>
             ) : (
               // Phase 82 Plan 06: unified shell composition. The client shell
-              // mounts _shell/RowList + MailboxFilter + UnifiedDetailPane and
-              // slots Stage1OverridePane into UnifiedDetailPane's
-              // taggingFailuresSection so the full 4-axis bulk-review
-              // override flow + tagging artifacts + IC banner stay live.
+              // mounts _shell/RowList + UnifiedDetailPane. Phase 82.1 Plan 04:
+              // the Stage 1 cell widget renders the override picker inline;
+              // tagging-failure artifacts move to UnifiedDetailPane's
+              // extrasBelowPipeline slot.
               <Stage1ClientShell
                 swarmType={swarmType}
                 predictedRows={data.rows}

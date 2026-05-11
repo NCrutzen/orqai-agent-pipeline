@@ -2,7 +2,8 @@
 
 // Phase 82.1 Plan 04 — Stage 1 override widget (shell-local).
 //
-// Ported from stage-1/stage-1-override-pane.tsx (Phase 71-05 / Phase 82-06).
+// Ported from the legacy Stage 1 detail-pane override picker (Phase 71-05
+// / Phase 82-06) — the source file was deleted in this plan after the port.
 // Owns just the stage_1 axis flow: category dropdown + notes + eval-type +
 // OverrideConfirmDialog + POST /api/automations/debtor-email/override +
 // optimistic removal via useSelection().markPendingRemoval.
