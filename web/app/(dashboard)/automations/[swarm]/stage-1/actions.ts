@@ -40,6 +40,11 @@ import type { ReviewEmailBodyResult, VerdictInput } from "./categories";
 const verdictSchema = z.object({
   swarm_type: z.string().min(1),
   automation_run_id: z.string().min(1),
+  // Phase 999.8 Plan 05 / Pitfall 9 (RESEARCH §7): the caller MUST pass a
+  // real email_id. Pre-Phase-999.8 code aliased email_id := automation_run_id
+  // on the agent_runs insert, which would make the new pipeline_events
+  // predictor lookup query against the wrong key. Schema-level required.
+  email_id: z.string().min(1),
   rule_key: z.string().min(1),
   decision: z.enum(["approve", "reject"]),
   message_id: z.string(),
@@ -128,14 +133,54 @@ export async function recordVerdict(input: VerdictInput): Promise<{ ok: true }> 
   }
   const verdictTimestamp = new Date().toISOString();
 
+  // Phase 999.8 Plan 05 (D-07 / D-08) — predictor attribution.
+  // Read predictor from the Stage 1 pipeline_events row for this email.
+  // CRITICAL (RESEARCH §7, Pitfall 2): derive from llm_invoked, NEVER from
+  // regex.matchedRule (which is "no_match" when regex abstained and the
+  // LLM 2nd-pass made the prediction — treating that as predictor='regex'
+  // would mis-attribute every LLM row).
+  //
+  // Forward-only cutover (D-09): if no Stage 1 pipeline_events row exists
+  // for this email (pre-cutover history or race), predictor falls back to
+  // NULL. labeling-flip-cron filters predictor IS NOT NULL so NULL rows
+  // never enter the per-predictor Wilson-CI stream.
+  const { data: stage1Event } = await admin
+    .from("pipeline_events")
+    .select("decision_details")
+    .eq("email_id", parsed.email_id)
+    .eq("stage", 1)
+    .eq("swarm_type", parsed.swarm_type)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const details = ((stage1Event?.decision_details ?? {}) as {
+    llm_invoked?: boolean;
+    regex?: { invoked?: boolean; matchedRule?: string | null };
+  });
+  const predictor: "regex" | "llm_2nd_pass" | null =
+    details.llm_invoked === true
+      ? "llm_2nd_pass"
+      : details.regex?.invoked === true
+        ? "regex"
+        : null;
+
   const { data: ar, error: arErr } = await admin
     .from("agent_runs")
     .insert({
       swarm_type: parsed.swarm_type,
       automation_run_id: parsed.automation_run_id,
-      email_id: parsed.automation_run_id,
+      // Phase 999.8 Plan 05 / Pitfall 9 fix: write the REAL email_id, not
+      // the aliased automation_run_id. Historical rows (pre-cutover) have
+      // a misaligned email_id column; labeling-flip-cron filters
+      // predictor IS NOT NULL so those rows are excluded from the new
+      // per-predictor Wilson-CI streams. Any UI consumer that reads
+      // agent_runs.email_id directly on historical rows is out of scope —
+      // documented in 999.8-05-SUMMARY.md.
+      email_id: parsed.email_id,
       entity: parsed.entity,
       rule_key: parsed.rule_key,
+      predictor,
       human_verdict: effectiveDecision === "approve" ? "approved" : "rejected_other",
       human_notes: parsed.notes ?? null,
       corrected_category: parsed.override_category ?? null,

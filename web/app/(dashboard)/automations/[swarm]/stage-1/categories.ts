@@ -11,6 +11,10 @@
 export interface VerdictInput {
   swarm_type: string;
   automation_run_id: string;
+  /** Phase 999.8 Plan 05 / Pitfall 9 (RESEARCH §7). REAL email_id, not
+   *  aliased from automation_run_id. recordVerdict uses this to look up the
+   *  Stage 1 pipeline_events row that drives predictor attribution. */
+  email_id: string;
   rule_key: string;
   decision: "approve" | "reject";
   message_id: string;
