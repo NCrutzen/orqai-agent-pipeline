@@ -488,27 +488,27 @@ export default async function Stage2Page({ params }: { params: Promise<{ swarm: 
 | A4 | The `unknown` chip is already in the seeded `swarm_noise_categories` rows for debtor-email. | D-06, anti-pattern note | **VERIFIED via migration `20260429b_swarm_registry.sql`**: `('debtor-email','unknown','Skip (label-only)', null, 'reject', null, 60)`. Confidence: HIGH. Re-tagging from `[ASSUMED]` → `[VERIFIED]`. |
 | A5 | The "Pending promotion" tail pill should clear `?topic` when activated (D-11 says it's an entry-point separate from the chips). | Code Examples / Pattern 2 | Operator behavior question. Recommendation: clearing `?topic` makes sense (Pending is a different mode, not a filter on top of Stage 1 rows). Locked decision in chip-strip code sketch. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Is `swarms.stage2_entity_resolver` populated for `debtor-email` today?**
    - What we know: derive-stage-tabs.ts gates Stage 2 on `Boolean(swarm.stage2_entity_resolver)`. The column exists (Phase 68 migration). Phase 76 deferred-items don't mention it.
    - What's unclear: whether anyone ran `update swarms set stage2_entity_resolver = 'debtor-email/label-resolver' where swarm_type='debtor-email'`.
-   - Recommendation: Wave 0 verification step — query Supabase, and if null, include a one-line UPDATE in the plan. Either way the plan ships; this just decides if a tiny migration ships with it.
+   - **RESOLVED:** Verified at runtime in Plan 81-02 Task 3 checkpoint; if null, executor sets `debtor-email/label-resolver` via the documented one-line UPDATE.
 
 2. **Should the Filters popover (entity + mailbox) ship in Phase 81 or be a follow-up?**
    - What we know: D-07 says "compact secondary affordance"; Claude's Discretion explicitly leaves the call to the planner.
    - What's unclear: the current QueueTree allows entity + mailbox drill-down via tree expand. Removing QueueTree without the popover regresses power-user filtering (URL params still work, but no UI affordance).
-   - Recommendation: ship the popover as a single small task in this phase. Cost: ~80 LOC + 1 component. Avoids a Phase 81.5 follow-up. Use `<details><summary>Filters</summary>...</details>` or a basic `useState`-driven popover; no new dependency.
+   - **RESOLVED:** Deferred to follow-up phase per CONTEXT §discretion. URL params `?entity=` and `?mailbox=` remain functional via direct URL editing — verified in Plan 81-03 Task 3 acceptance (RTL/loader regression test) and recorded in `deferred-items.md`.
 
 3. **Mock fixture refresh — fix in this phase or carry forward?**
    - What we know: 22 failing tests in `safety-review-loader.test.ts` due to mock missing `.schema()` accessor (Phase 71-08 commit `5ad38e4`).
    - What's unclear: whether the fix is genuinely small (one method on the mock) or rabbit-holes into deeper test-infra debt.
-   - Recommendation: scope-time-box one task to "add `.schema()` to mock fixture; rerun safety-review-loader tests; if green, ship; if not, carry forward". 30-min cap. Confidence MEDIUM — this is a planner discretion call.
+   - **RESOLVED:** 30-min time-box in Plan 81-04 Task 3 with explicit carry-forward path to Phase 82 if not closed in window.
 
 4. **`/stage-1?sub=pending` rule-detail-pane: Wilson CI bound rendering source?**
    - What we know: D-09 says detail pane shows "Wilson CI bounds, promote/reject actions" and CONTEXT §specifics says "reuse the existing `web/app/(dashboard)/swarm/[swarmId]/(components)` rule-promotion patterns where they exist; otherwise plumb fresh server actions".
    - What's unclear: whether `swarm/[swarmId]/(components)` actually has rule promotion UI today (haven't verified).
-   - Recommendation: planner Wave 0 grep for "promote" / "ci_lo" / "Wilson" under `web/app/(dashboard)/swarm/`. If found, reuse. If not, plumb fresh server actions in `actions.ts` (`promoteRule`, `rejectRule`).
+   - **RESOLVED:** Plan 81-03 Task 2 Step 1 greps `web/app/(dashboard)/swarm/[swarmId]/(components)` for existing rule-promotion patterns; reuse if found, otherwise plumb fresh server actions inline in `stage-1/actions.ts`.
 
 ## Environment Availability
 
