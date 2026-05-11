@@ -302,6 +302,13 @@ export const classifierScreenWorker = inngest.createFunction(
           llm_error: llmError,
           final_category_key: finalCategoryKey,
           entity: entity ?? null,
+          // Phase 999.8 D-11 — denormalize predictor for chip-strip filter
+          // without a JOIN. 'llm_2nd_pass' when the LLM was actually invoked
+          // (regex abstained → unknown → LLM Pass 2). 'regex' when the regex
+          // matched a noise key. Mirrors the logic in recordVerdict (Plan
+          // 05) — both code paths derive predictor from the same
+          // llm_invoked flag, never from regex.matchedRule.
+          predictor: llmInvoked ? "llm_2nd_pass" : "regex",
         },
         agent_run_id: agentRunId,
         automation_run_id: automation_run_id ?? null,
