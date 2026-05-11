@@ -74,7 +74,10 @@ describe("loadStage2WeeklyCount", () => {
     );
 
     expect(spies.gteMock).toHaveBeenCalledTimes(1);
-    const [col, iso] = spies.gteMock.mock.calls[0] as [string, string];
+    const [col, iso] = spies.gteMock.mock.calls[0] as unknown as [
+      string,
+      string,
+    ];
     expect(col).toBe("created_at");
     // ISO string for ~7 days ago, sanity bounds:
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
