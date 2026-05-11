@@ -48,9 +48,10 @@ export interface PipelineTimelineEvent {
 }
 
 import { PipelineFlow, type StageData, type StageState } from "../stage-1/components/pipeline-flow";
-import { Stage1Widget } from "../stage-1/components/stage-1-widget";
+import { Stage1Widget } from "./components/stage-1-widget";
 import { Stage3Widget } from "../stage-1/components/stage-3-widget";
 import { Stage0Widget } from "./components/stage-0-widget";
+import type { PredictedRow } from "../stage-1/page";
 // NOTE: Stage2Widget / Stage4Widget have non-trivial prop shapes
 // (CustomerSelection async search, Stage4Quality + reason text) — Plan 06
 // wires them when migrating Stage 1. Wave 1 renders placeholder slots for
@@ -110,10 +111,16 @@ export interface UnifiedDetailPaneProps {
   timeline: PipelineTimelineEvent[];
   bodyText: string | null;
   bodyHtml?: string | null;
-  /** Stage-1-specific slot — preserve per Pitfall 7. */
-  taggingFailuresSection?: ReactNode;
+  /** Phase 82.1 Plan 04 (CONTEXT D-09): extras rendered BELOW the 5-cell
+   *  PipelineFlow. Stage 1 passes tagging-artifacts here; other stages skip. */
+  extrasBelowPipeline?: ReactNode;
   /** Stage-1-specific slot — preserve per Pitfall 7. */
   iControllerBanner?: ReactNode;
+  /** Phase 82.1 Plan 04 (CONTEXT D-08): the underlying PredictedRow for the
+   *  selected email — required by the inline Stage1Widget for the override
+   *  POST + recordVerdict server-action args. Stage 1 page wires this; other
+   *  stages can omit. */
+  predictedRow?: PredictedRow | null;
 }
 
 // ---- Component -----------------------------------------------------------
@@ -127,8 +134,9 @@ export function UnifiedDetailPane({
   timeline,
   bodyText,
   bodyHtml,
-  taggingFailuresSection,
+  extrasBelowPipeline,
   iControllerBanner,
+  predictedRow,
 }: UnifiedDetailPaneProps) {
   // Empty state — RESEARCH §Empty State unified copy (Stage 3/4 wording).
   if (!row) {
@@ -157,8 +165,9 @@ export function UnifiedDetailPane({
       timeline={timeline}
       bodyText={bodyText}
       bodyHtml={bodyHtml}
-      taggingFailuresSection={taggingFailuresSection}
+      extrasBelowPipeline={extrasBelowPipeline}
       iControllerBanner={iControllerBanner}
+      predictedRow={predictedRow}
     />
   );
 }
@@ -174,8 +183,9 @@ function DetailPaneInner({
   timeline,
   bodyText,
   bodyHtml,
-  taggingFailuresSection,
+  extrasBelowPipeline,
   iControllerBanner,
+  predictedRow,
 }: UnifiedDetailPaneProps & { row: Row }) {
   // Track dirty axes — Wave 1 wires the structural shape; Plan 06 layers the
   // real override-confirm flow on top. For now `dirty` is initialised from
@@ -222,6 +232,12 @@ function DetailPaneInner({
     window.dispatchEvent(new CustomEvent(evt));
   }, []);
 
+  // Mark a stage dirty — lifted ABOVE stagesData so the Stage 1 widget's
+  // onChange handler can call it from inside the useMemo body.
+  const onMarkDirty = useCallback((stageN: number) => {
+    setDirty((prev) => ({ ...prev, [stageN]: true }));
+  }, []);
+
   // Build the 5-cell StageData[] array. Order matters — [0,1,2,3,4] as const.
   const stagesData: StageData[] = useMemo(() => {
     const byStage = new Map<number, PipelineTimelineEvent>();
@@ -244,16 +260,23 @@ function DetailPaneInner({
             />
           );
         } else if (n === 1) {
-          // HARD-SEP: Stage1Widget receives `categories` ONLY. Never `intents`.
-          widget = (
-            <Stage1Widget
-              categories={_categories}
-              value={null}
-              onChange={() => {
-                /* Plan 06 wires onChange to dirty state */
-              }}
-            />
-          );
+          // HARD-SEP: Stage1Widget receives `categories` ONLY. Never intent
+          // registry rows. The widget owns the override POST + optimistic
+          // removal flow ported in Phase 82.1 Plan 04 — the parent only has
+          // to thread the PredictedRow + swarmType through.
+          if (predictedRow) {
+            widget = (
+              <Stage1Widget
+                categories={_categories}
+                value={ev?.decision ?? null}
+                onChange={() => onMarkDirty(1)}
+                row={predictedRow}
+                swarmType={swarmType}
+              />
+            );
+          } else {
+            widget = null;
+          }
         } else if (n === 2) {
           // Placeholder — Plan 06 wires Stage2Widget (async customer search).
           widget = (
@@ -306,12 +329,7 @@ function DetailPaneInner({
       });
     }
     return out;
-  }, [dirty, timeline, _categories, _intents, stage0Value]);
-  void swarmType; // kept in props for header label + future Plan 06 wiring.
-
-  const onMarkDirty = useCallback((stageN: number) => {
-    setDirty((prev) => ({ ...prev, [stageN]: true }));
-  }, []);
+  }, [dirty, timeline, _categories, _intents, stage0Value, predictedRow, swarmType, onMarkDirty]);
 
   // Mailbox header label — uses static map for known swarms.
   const mailboxLbl = (() => {
@@ -427,8 +445,8 @@ function DetailPaneInner({
         </div>
       </section>
 
-      {taggingFailuresSection ? (
-        <div data-testid="tagging-failures-slot">{taggingFailuresSection}</div>
+      {extrasBelowPipeline ? (
+        <div data-testid="extras-below-pipeline-slot">{extrasBelowPipeline}</div>
       ) : null}
 
       <footer

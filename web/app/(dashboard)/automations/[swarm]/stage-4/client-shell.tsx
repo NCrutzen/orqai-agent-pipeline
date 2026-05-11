@@ -92,8 +92,9 @@ export function Stage4ClientShell({
   const body = selectedEmailId ? bodyMap[selectedEmailId] ?? null : null;
   const timeline = selectedEmailId ? timelineMap[selectedEmailId] ?? [] : [];
 
-  // Stage 4 handler-error widget — surfaced via the taggingFailuresSection
-  // slot (the only available shell slot that renders inline below the
+  // Stage 4 handler-error widget — surfaced via the extrasBelowPipeline
+  // slot (Phase 82.1 Plan 04 renamed the slot from taggingFailuresSection
+  // to extrasBelowPipeline; semantics unchanged — renders inline below the
   // pipeline cells). Plan 06 lifts this into a real Stage4Widget; until
   // then this preserves the error_name + error_detail UI from the old
   // stage-4/detail-pane.tsx.
@@ -187,7 +188,7 @@ export function Stage4ClientShell({
             timeline={timeline}
             bodyText={body?.bodyText ?? null}
             bodyHtml={body?.bodyHtml ?? null}
-            taggingFailuresSection={handlerErrorWidget}
+            extrasBelowPipeline={handlerErrorWidget}
           />
         </div>
       </div>

@@ -30,7 +30,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(""),
 }));
 
-const recordVerdictMock = vi.fn(async () => ({ ok: true }));
+const recordVerdictMock = vi.fn(async (..._args: unknown[]) => ({ ok: true }));
 vi.mock("../actions", () => ({
   recordVerdict: (...args: unknown[]) => recordVerdictMock(...args),
   fetchReviewEmailBody: vi.fn(),

@@ -17,11 +17,13 @@
 //     level (UnifiedDetailPane API).
 //   - activeStage = 1 so the Stage 1 cell is pre-expanded.
 //
-// Stage 1's full 4-axis bulk-review override flow (notes, eval-type radio,
-// confirm dialog, IC banner, tagging artifacts, body cache) is preserved
-// inside <Stage1OverridePane>, mounted via UnifiedDetailPane's
-// taggingFailuresSection slot. Same pattern Stage 4 used for its
-// Stage4HandlerErrorWidget.
+// Stage 1's stage_1 axis override flow (category dropdown, notes,
+// eval-type radio, OverrideConfirmDialog, POST /override, optimistic
+// removal, keyboard shortcuts) lives INLINE in the Stage 1 cell widget
+// (_shell/components/stage-1-widget.tsx) — UnifiedDetailPane renders it
+// when activeStage===1 + predictedRow is threaded. The tagging-artifacts
+// surface moves to the new `extrasBelowPipeline` slot (Phase 82.1 Plan 04
+// CONTEXT D-07..D-10).
 //
 // Phase 81 D-19 channel-name lock: the page-level AutomationRealtimeProvider
 // uses `${swarmType}-review` (not `-kanban`). This file consumes that scope
@@ -39,12 +41,11 @@ import { useSelection } from "../_shell/selection-context";
 import { KeyboardShortcuts } from "../_shell/keyboard-shortcuts";
 import type { Row } from "../_shell/_lib/types";
 // Stage 1 uses the rich PipelineTimelineEvent shape (id/created_at/decision_details/
-// override/eval_type/triggered_by/...) from page.tsx — the embedded
-// Stage1OverridePane consumes those fields for the full 4-axis override flow.
-// _shell/detail-pane.tsx's narrower PipelineTimelineEvent declares stage+decision
-// only (structurally compatible — extra fields ignored when passed through).
+// override/eval_type/triggered_by/...) from page.tsx. _shell/detail-pane.tsx's
+// narrower PipelineTimelineEvent declares stage+decision only (structurally
+// compatible — extra fields ignored when passed through).
 import type { PredictedRow, PipelineTimelineEvent } from "./page";
-import { Stage1OverridePane } from "./stage-1-override-pane";
+import { TaggingArtifactsSection } from "./components/tagging-artifacts-section";
 
 interface BodyEntry {
   bodyText: string;
@@ -53,8 +54,9 @@ interface BodyEntry {
 
 export interface Stage1ClientShellProps {
   swarmType: string;
-  /** Raw PredictedRow set from loadPageData — fed into Stage1OverridePane for
-   *  its full override-flow logic (advance-on-verdict, optimistic removal). */
+  /** Raw PredictedRow set from loadPageData — threaded into the inline
+   *  Stage 1 widget via UnifiedDetailPane.predictedRow for the override
+   *  POST + recordVerdict server-action args (Phase 82.1 Plan 04). */
   predictedRows: PredictedRow[];
   /** Unified Row[] for _shell/RowList rendering. */
   unifiedRows: Row[];
@@ -105,28 +107,35 @@ export function Stage1ClientShell({
     ? timelineMap[selectedId] ?? selectedTimeline ?? []
     : selectedTimeline ?? [];
 
-  // The Stage1OverridePane internally renders the meta grid, body expander,
-  // tagging artifacts, 4-axis pipeline overrides, notes, eval-type, confirm
-  // dialog, IC banner, and the keyboard-shortcut wiring for approve/reject/
-  // skip/override-submit/override-discard/eval-type/stage-N-focus. Mounted
-  // inside UnifiedDetailPane's taggingFailuresSection slot so the
-  // _shell-canonical chrome (5-cell PipelineFlow + body toggle + action
-  // footer) renders ABOVE it. This preserves all Phase 71 + Phase 81
-  // behaviors verbatim while keeping the page composition on the unified
-  // shell (CONTEXT D-08 — Phase 71 + Phase 81 surfaces preserved as slots).
-  const overrideFlowSlot = (
-    <Stage1OverridePane
-      rows={predictedRows}
-      initialSelectedRow={initialSelectedRow}
-      swarmType={swarmType}
-      categories={categories}
-      drawerFields={drawerFields}
-      selectedTimeline={selectedTimeline}
-      timelineMap={timelineMap}
-      intents={intents}
-      initialSelectedBody={initialSelectedBody}
-      initialBodyMap={bodyMap}
-    />
+  // Phase 82.1 Plan 04 (CONTEXT D-07..D-10):
+  //   - The Stage 1 override picker logic (category dropdown, notes, eval-type,
+  //     OverrideConfirmDialog, POST /override, optimistic removal, keyboard
+  //     shortcuts) now lives INLINE in the Stage 1 cell widget at
+  //     _shell/components/stage-1-widget.tsx. UnifiedDetailPane renders it
+  //     automatically when activeStage===1 and predictedRow is passed.
+  //   - The tagging-artifacts surface (iController tag-failure status,
+  //     screenshots) moves to the new `extrasBelowPipeline` slot — narrower
+  //     scope than the old taggingFailuresSection mount.
+  //   - drawerFields, initialSelectedBody, initialBodyMap, initialSelectedRow,
+  //     selectedTimeline still flow in for body/timeline lookups inside
+  //     UnifiedDetailPane (body, timeline) — UnifiedDetailPane consumes
+  //     `bodyText`/`bodyHtml`/`timeline` directly from props.
+  const selectedPredictedRow = useMemo<PredictedRow | null>(() => {
+    if (!selectedId) return initialSelectedRow ?? null;
+    return (
+      predictedRows.find((r) => r.id === selectedId) ??
+      (initialSelectedRow?.id === selectedId ? initialSelectedRow : null)
+    );
+  }, [predictedRows, selectedId, initialSelectedRow]);
+  // drawerFields + initialSelectedBody flow in from the RSC for symmetry with
+  // the surface contract but are no longer consumed inside this file (bodyMap
+  // covers the cache, selectedTimeline covers the timeline fallback). Marked
+  // void to keep the prop API stable for downstream callers without TS
+  // unused-locals noise.
+  void drawerFields;
+  void initialSelectedBody;
+  const extrasBelowPipeline = (
+    <TaggingArtifactsSection row={selectedPredictedRow} />
   );
 
   return (
@@ -169,7 +178,8 @@ export function Stage1ClientShell({
             timeline={timeline}
             bodyText={body?.bodyText ?? null}
             bodyHtml={body?.bodyHtml ?? null}
-            taggingFailuresSection={overrideFlowSlot}
+            extrasBelowPipeline={extrasBelowPipeline}
+            predictedRow={selectedPredictedRow}
           />
         </div>
       </div>
