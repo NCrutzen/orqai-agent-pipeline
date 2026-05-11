@@ -21,6 +21,7 @@ export const AGREEMENT_MAP: Record<Category, { categories: string[]; intents: st
   ooo_permanent: { categories: ["auto_reply"], intents: ["auto_reply"] },
   payment_admittance: { categories: ["payment"], intents: ["payment_confirmation"] },
   // Catch-all + hard-blocks. Never promotable; isAgreement always returns false.
+  spam: { categories: [], intents: [] },
   unknown: { categories: [], intents: [] },
 };
 
