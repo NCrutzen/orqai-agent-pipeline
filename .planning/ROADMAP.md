@@ -541,13 +541,16 @@ Phase numbers TBD (after V4.0 phases are finalized).
 
 ### Phase 82.1: stage shell polish — fix label prefix, MailboxFilter row placement, row column widths, port Stage 1 override picker into Stage1Widget (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** Four targeted polish fixes to the unified `_shell/` library from Phase 82: drop `Stage N — ` double-prefix in STAGE_TITLES; hoist MailboxFilter onto the chip-strip row at the page level; widen row-list pane + tighten sender column; port Stage1OverridePane logic into Stage1Widget cell and delete the slot.
+**Requirements**: none — inserted polish phase; references D-IDs (D-01..D-12) from 82.1-CONTEXT.md
 **Depends on:** Phase 82
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 82.1 to break down)
+- [ ] 82.1-01-PLAN.md — Fix 1: STAGE_TITLES bare labels (D-01)
+- [ ] 82.1-02-PLAN.md — Fix 2: MailboxFilter on chip-strip row (D-02, D-03)
+- [ ] 82.1-03-PLAN.md — Fix 3: row-list pane + sender column widths (D-04, D-05, D-06)
+- [ ] 82.1-04-PLAN.md — Fix 4: port Stage 1 override picker into Stage1Widget; delete override pane (D-07..D-12)
 
 ### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED)
 
