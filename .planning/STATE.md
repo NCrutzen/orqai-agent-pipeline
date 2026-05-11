@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 81-03-PLAN.md
-last_updated: "2026-05-11T10:29:03.168Z"
+stopped_at: Completed 81-04 — final cleanup + redirect-test extension + schema-shim
+last_updated: "2026-05-11T10:34:27.454Z"
 last_activity: 2026-05-11 -- Phase --phase execution started
 progress:
   total_phases: 60
-  completed_phases: 17
+  completed_phases: 18
   total_plans: 117
-  completed_plans: 101
-  percent: 86
+  completed_plans: 102
+  percent: 87
 ---
 
 # Project State
@@ -31,7 +31,7 @@ Plan: 1 of --name
 Milestone: v8.0 Agentic Platform (11 phases, 63-73)
 Last activity: 2026-05-11 -- Phase --phase execution started
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 87%
 
 **v8.0 execution order:** 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
 **Next action:** `/gsd-verify-work 68`, then `/gsd-discuss-phase 69 --auto`.
@@ -82,6 +82,7 @@ Progress: [█████████░] 86%
 | Phase 81 P02 | 4m | 3 tasks | 4 files |
 | Phase 81 P03 | 12m | 3 tasks tasks | 7 files files |
 | Phase 81 P03 | 8m | 3 tasks | 9 files |
+| Phase 81 P04 | 4m | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -139,6 +140,7 @@ Progress: [█████████░] 86%
 - Phase 81-03: noise-category chip strip mirrors recipient-chip-strip styling; no generic ChipStrip abstraction (RFC Anti-Pattern)
 - Phase 81-03: Pending Promotion server actions plumbed fresh in stage-1/actions.ts (Wave 0 grep found no existing UI under /swarm/[swarmId]/(components))
 - Phase 81-03: Filters popover (D-07) deferred — URL params remain functional via direct URL editing; regression test guards the loader-side path
+- Phase 81-04: queue-tree.tsx file deletion was already in Plan 03's docs commit; Plan 04 confirms + extends middleware redirect tests (+4 cases for ?sub=pending) + .schema(name) shim in stage-1 admin mocks (22 -> 3 failures, 19 fixed)
 
 ### Blockers/Concerns
 
@@ -170,8 +172,8 @@ Progress: [█████████░] 86%
 
 ## Session Continuity
 
-Last session: 2026-05-11T10:29:00.176Z
-Stopped at: Completed 81-03-PLAN.md
+Last session: 2026-05-11T10:34:27.446Z
+Stopped at: Completed 81-04 — final cleanup + redirect-test extension + schema-shim
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 
