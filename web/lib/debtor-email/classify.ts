@@ -6,7 +6,7 @@
  *
  *   {
  *     category:    "auto_reply" | "ooo_temporary" | "ooo_permanent"
- *                | "payment_admittance" | "unknown",
+ *                | "payment_admittance" | "spam" | "unknown",
  *     confidence:  0–1 (hand-assigned from observed precision),
  *     matchedRule: identifier of the rule that fired (for audit trails)
  *   }
@@ -21,6 +21,7 @@ export type Category =
   | "ooo_temporary"
   | "ooo_permanent"
   | "payment_admittance"
+  | "spam"
   | "unknown";
 
 export interface ClassifyInput {
@@ -264,6 +265,14 @@ export function classify(input: ClassifyInput): ClassifyResult {
   const subjectIsReplyPrefix = /^(?:(?:re|fw|fwd|tr|aw|sv|antw)\s*:\s*)/i.test(subject);
 
   // ── Hard blocks — route naar menselijke triage ────────────────────────────
+
+  // Exchange spam filter prefixes unsolicited mail with `[SPAM]`. This is an
+  // upstream-tagged signal, so the regex is deterministic. Match on the
+  // ORIGINAL subject (not normSubject) because reply-prefix stripping doesn't
+  // touch `[SPAM]`, but covering both is cheap and handles "RE: [SPAM] ...".
+  if (/^\s*(?:(?:re|fw|fwd|tr|aw|sv|antw)\s*:\s*)*\[SPAM\]/i.test(subject)) {
+    return { category: "spam", confidence: 0.99, matchedRule: "subject_spam_prefix" };
+  }
 
   // Vendor-system rejection van onze invoice-submission (bv. "Te veel PDF
   // of UBL bestanden aangeboden"). Vereist heruit-versturen met minder

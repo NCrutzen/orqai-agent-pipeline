@@ -164,6 +164,56 @@ describe("60-09 BODY_OOO_TEMPORARY — extended coverage", () => {
   });
 });
 
+describe("subject_spam_prefix — Exchange `[SPAM]` tag", () => {
+  it("plain `[SPAM] ...` subject classifies as spam", () => {
+    const result = classify({
+      subject: "[SPAM] Open duizenden kanalen met één apparaat",
+      from: "smart.tv.usb@example.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("spam");
+    expect(result.matchedRule).toBe("subject_spam_prefix");
+  });
+
+  it("`RE: [SPAM] ...` subject still classifies as spam", () => {
+    const result = classify({
+      subject: "RE: [SPAM] Modelle für Ihr Verkaufsnetz",
+      from: "dirk.dietrich@example.de",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("spam");
+    expect(result.matchedRule).toBe("subject_spam_prefix");
+  });
+
+  it("fires before auto_reply/payment heuristics", () => {
+    // Even if the body looks like a payment confirmation, `[SPAM]` wins.
+    const result = classify({
+      subject: "[SPAM] Betaalbevestiging",
+      from: "payment@example.com",
+      bodySnippet: "betaalspecificatie overgemaakt",
+    });
+    expect(result.category).toBe("spam");
+  });
+
+  it("case-insensitive match", () => {
+    const result = classify({
+      subject: "[spam] anything",
+      from: "x@example.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("spam");
+  });
+
+  it("`[SPAM]` not at the start does NOT match", () => {
+    const result = classify({
+      subject: "Factuur 17338747 [SPAM] discussion",
+      from: "human.sender@example.com",
+      bodySnippet: "",
+    });
+    expect(result.matchedRule).not.toBe("subject_spam_prefix");
+  });
+});
+
 describe("60-09 regression — non-ooo bodies still fall through to subject_autoreply", () => {
   it("auto-reply subject without OoO body keeps matchedRule='subject_autoreply'", () => {
     const result = classify({

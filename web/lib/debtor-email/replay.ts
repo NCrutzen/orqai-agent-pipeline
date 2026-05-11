@@ -136,7 +136,7 @@ async function main() {
   const predCounts: Record<string, number> = {};
 
   // Per-category confusion — treat each target label as a binary problem.
-  const targets: Category[] = ["auto_reply", "ooo_temporary", "ooo_permanent", "payment_admittance"];
+  const targets: Category[] = ["auto_reply", "ooo_temporary", "ooo_permanent", "payment_admittance", "spam"];
   const cm: Record<string, Confusion> = Object.fromEntries(targets.map((t) => [t, blankConfusion()]));
 
   // Rule-hit stats
