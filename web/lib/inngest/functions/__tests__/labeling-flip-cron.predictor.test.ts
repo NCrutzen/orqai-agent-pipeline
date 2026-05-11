@@ -117,7 +117,9 @@ function makeBuilder(
     return { data: null, error: null };
   };
   b.update = (_row) => b as MockBuilder;
-  b.then = (cb) => Promise.resolve(cb(resolveValue));
+  // Read `b._resolveValue` at await-time so wrappers that mutate it post-build
+  // (e.g. the .eq("predictor", "llm_2nd_pass") swap below) are honored.
+  b.then = (cb) => Promise.resolve(cb(b._resolveValue!));
   return b as MockBuilder;
 }
 
