@@ -26,37 +26,55 @@ let selectError: { message: string } | null = null;
 let existingResult: Record<string, unknown> | null = {};
 let insertedAgentRunId: string = "agent-run-uuid-1";
 
+// Phase 999.8 Plan 05: recordVerdict now also queries `pipeline_events` to
+// derive predictor. That call chains .select().eq().eq().eq().order().limit()
+// .maybeSingle() — distinct from the automation_runs path. Route by table.
+let pipelineEventFixture: { decision_details: Record<string, unknown> | null } | null = null;
+
 const adminClientMock = {
-  from: vi.fn((table: string) => ({
-    update: (payload: Record<string, unknown>) => ({
-      eq: (col: string, val: unknown) => {
-        updateCalls.push({ table, payload, eqCol: col, eqVal: val });
-        return Promise.resolve({ error: updateError });
-      },
-    }),
-    insert: (payload: Record<string, unknown>) => ({
-      select: (_cols: string) => ({
-        single: () => {
-          insertCalls.push({ table, payload });
-          if (insertError) {
-            return Promise.resolve({ data: null, error: insertError });
-          }
-          return Promise.resolve({ data: { id: insertedAgentRunId }, error: null });
+  from: vi.fn((table: string) => {
+    if (table === "pipeline_events") {
+      const builder = {
+        select: (_cols: string) => builder,
+        eq: (_col: string, _val: unknown) => builder,
+        order: (_col: string, _opts?: unknown) => builder,
+        limit: (_n: number) => builder,
+        maybeSingle: () =>
+          Promise.resolve({ data: pipelineEventFixture, error: null }),
+      };
+      return builder;
+    }
+    return {
+      update: (payload: Record<string, unknown>) => ({
+        eq: (col: string, val: unknown) => {
+          updateCalls.push({ table, payload, eqCol: col, eqVal: val });
+          return Promise.resolve({ error: updateError });
         },
       }),
-    }),
-    select: (cols: string) => ({
-      eq: (col: string, val: unknown) => ({
-        single: () => {
-          selectCalls.push({ table, cols, eqCol: col, eqVal: val });
-          if (selectError) {
-            return Promise.resolve({ data: null, error: selectError });
-          }
-          return Promise.resolve({ data: { result: existingResult }, error: null });
-        },
+      insert: (payload: Record<string, unknown>) => ({
+        select: (_cols: string) => ({
+          single: () => {
+            insertCalls.push({ table, payload });
+            if (insertError) {
+              return Promise.resolve({ data: null, error: insertError });
+            }
+            return Promise.resolve({ data: { id: insertedAgentRunId }, error: null });
+          },
+        }),
       }),
-    }),
-  })),
+      select: (cols: string) => ({
+        eq: (col: string, val: unknown) => ({
+          single: () => {
+            selectCalls.push({ table, cols, eqCol: col, eqVal: val });
+            if (selectError) {
+              return Promise.resolve({ data: null, error: selectError });
+            }
+            return Promise.resolve({ data: { result: existingResult }, error: null });
+          },
+        }),
+      }),
+    };
+  }),
 };
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -103,6 +121,8 @@ import { recordVerdict } from "@/app/(dashboard)/automations/[swarm]/stage-1/act
 const baseInput = {
   swarm_type: "debtor-email",
   automation_run_id: "00000000-0000-0000-0000-000000000001",
+  // Phase 999.8 Plan 05 / Pitfall 9 — VerdictInput now requires a real email_id.
+  email_id: "00000000-0000-0000-0000-000000000aaa",
   rule_key: "subject_paid_marker",
   message_id: "AAMkAG-graph-id",
   source_mailbox: "debiteuren@smeba.nl",
@@ -119,6 +139,7 @@ beforeEach(() => {
   selectError = null;
   existingResult = {};
   insertedAgentRunId = "agent-run-uuid-1";
+  pipelineEventFixture = null;
   adminClientMock.from.mockClear();
   sendMock.mockClear();
   emitMock.mockClear();
