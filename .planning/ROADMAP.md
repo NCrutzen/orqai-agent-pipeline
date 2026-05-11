@@ -1295,6 +1295,8 @@ Plans:
 
 ### Phase 999.8: Stage 1 LLM 2nd-pass confidence gate + predictor attribution in verdict feedback (BACKLOG)
 
+**Depends on:** Phase 81 (fold Stage 1 into stage-keyed shell). The UI filter chips (`predictor`, `confidence`) and predictor chip on row cards plug into the chip-strip + row list + detail pane Phase 81 is building under `web/app/(dashboard)/automations/[swarm]/stage-1/`. Backend gate + attribution (`classifier-screen-worker.ts`, `labeling-flip-cron.ts`, `agent_runs.predictor` migration, `recordVerdict` predictor capture) is independent of Phase 81 and could ship first, but the UI half MUST sequence after Phase 81 lands or the chip-strip API won't exist.
+
 **Goal:** Stop Stage 1 from auto-applying `categorize_archive` on `medium`/`low`-confidence LLM 2nd-pass predictions, and split the human-verdict feedback math by *predictor* (regex vs LLM 2nd-pass) so that LLM mistakes don't pollute the regex's Wilson-CI promotion/demotion gates (and vice versa).
 
 **Why:** today `web/lib/inngest/functions/classifier-screen-worker.ts:287-330` emits `classifier/verdict.recorded` with `decision: "approve"` unconditionally after the LLM returns — `low`/`medium`/`high` all follow the same path into `classifier-verdict-worker.ts` which applies the registry action (`categorize_archive` → Outlook categorize + archive). The numeric `confidence` written to `pipeline_events` is *display-only*: `numericConfidence()` maps `medium→0.7` for dashboards; nothing reads it for routing. The only escape valve is the LLM returning `"unknown"` (action=`reject`).
