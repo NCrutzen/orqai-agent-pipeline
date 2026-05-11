@@ -1292,3 +1292,50 @@ Plans:
 - [ ] 999.7-01-PLAN.md — Wave 0: install email-reply-parser, seed fixtures, write RED tests for strip helper + bump budget-counter assertion
 - [ ] 999.7-02-PLAN.md — Wave 1: ship strip-quoted-history.ts + bump BUDGET_CEILING_TOKENS to 16000 with role-split comment
 - [ ] 999.7-03-PLAN.md — Wave 2: wire strip step into Stage 0 worker, extend telemetry dual-write, lock ORIGINAL body forwarding to Stage 1
+
+### Phase 999.8: Stage 1 LLM 2nd-pass confidence gate + predictor attribution in verdict feedback (BACKLOG)
+
+**Goal:** Stop Stage 1 from auto-applying `categorize_archive` on `medium`/`low`-confidence LLM 2nd-pass predictions, and split the human-verdict feedback math by *predictor* (regex vs LLM 2nd-pass) so that LLM mistakes don't pollute the regex's Wilson-CI promotion/demotion gates (and vice versa).
+
+**Why:** today `web/lib/inngest/functions/classifier-screen-worker.ts:287-330` emits `classifier/verdict.recorded` with `decision: "approve"` unconditionally after the LLM returns — `low`/`medium`/`high` all follow the same path into `classifier-verdict-worker.ts` which applies the registry action (`categorize_archive` → Outlook categorize + archive). The numeric `confidence` written to `pipeline_events` is *display-only*: `numericConfidence()` maps `medium→0.7` for dashboards; nothing reads it for routing. The only escape valve is the LLM returning `"unknown"` (action=`reject`).
+
+Compounding this, `labeling-flip-cron.ts:94-122` aggregates `agent_runs.human_verdict` per mailbox into a single Wilson-CI lower bound — predictor-blind. Wrong LLM calls (which arrive *because* the regex abstained) currently get counted into the same accuracy stream as wrong regex calls. Worst case: an LLM that mis-classifies "invoice correction request" → `payment_admittance` at medium confidence drags the per-mailbox CI low enough to demote the regex's `dry_run=false` status, even though the regex rules themselves are unchanged.
+
+**Motivating sample (2026-05-08):**
+- email_id `09823c92-f6c4-4bce-bb9c-e7935e508e40` (mailbox `debiteuren@smeba-fire.be`, entity `smeba-fire`)
+- Subject: "FW: Invoice 17338747" from `Therese.Hendriks@ago-groep.nl`
+- Stage 1 regex: `no_match` → unknown
+- Stage 1 LLM 2nd-pass: `payment_admittance` at `medium` (numeric 0.700)
+- LLM reasoning: "Email requests corrected invoice and credit note; administrative/accounting correspondence about billing documentation" — i.e. the LLM described a Stage 3 *intent* (invoice correction request) while forced to pick a Stage 1 noise key from the closed list.
+- Outcome: Outlook label `Payment Admittance` applied + archived. Reached operator only because a colleague flagged it manually; would otherwise be invisible.
+- Full trace: `agent_runs.id=57097576-bb47-419e-934a-41508e2f304c`, `pipeline_events` Stage 1 row at 2026-05-08 13:33:37 UTC. See NOTES.md in this phase folder.
+
+**Scope of the gate (to refine in /gsd-discuss-phase):**
+- Hard threshold: `categorize_archive` requires `llm_confidence === "high"`. `medium`/`low` LLM verdicts route to a new review surface (likely a Stage 1 LLM low-confidence lane, distinct from the existing Stage 1 Bulk Review which currently only sees regex-promoted predictions).
+- The "unknown" → `action='reject'` (label-only-skip) escape valve stays as today.
+- Regex predictions are *not* gated by this phase — their conservatism is structural (specificity ordering + first-match-wins) and their promotion already passes through Wilson-CI on `labeling-flip-cron`. Phase 999.8 only touches the LLM 2nd-pass path.
+
+**Scope of predictor attribution (to refine in /gsd-discuss-phase):**
+- Every Stage 1 prediction must carry a `predictor` tag (at minimum: `regex:rule_X` | `llm_2nd_pass`). Today this is reconstructable by joining `pipeline_events.decision_details.regex.matchedRule` and `.llm_invoked`, but it is *not* on the verdict-side `agent_runs` row written by `recordVerdict` (`web/app/(dashboard)/automations/[swarm]/review/actions.ts:131-146`). The phase must thread `predictor` onto the verdict row so the feedback math can group on it without a cross-table join.
+- `labeling-flip-cron` (and any successor learning loop) must aggregate Wilson-CI per-predictor, not just per-mailbox. Minimum: regex stream vs LLM-2nd-pass stream. Whether regex splits further per-rule is a discuss-phase open question.
+
+**Open questions for /gsd-discuss-phase:**
+1. **UI affordance**: should Bulk Review surface "predicted by: LLM (medium)" as a visible chip, and offer verdict classes like *"LLM was wrong — regex should be extended"* vs *"regex rule X was wrong"* — or keep the UI as-is and only split server-side?
+2. **Regex attribution granularity**: LLM-vs-regex (2 streams) or LLM-vs-each-regex-rule (N streams) in the feedback math?
+3. **Low-confidence routing target**: new dedicated surface, or reuse the Stage 0 escalate-to-Kanban pattern (`escalateToKanban` in `web/app/(dashboard)/automations/[swarm]/review/actions.ts`)?
+4. **Backfill**: do we re-process the existing `pipeline_events` history to backfill `predictor` onto historical `agent_runs` rows for the verdict-feedback math, or do we cut over forward-only and let the LLM-vs-regex CI separately accumulate from cutover?
+5. **Threshold scope**: does the `high`-only gate apply uniformly across categories, or are some `swarm_noise_categories` rows (e.g. high-volume safe categories like `out_of_office`) allowed `medium` because the cost of a false positive there is lower?
+
+**Non-goals:**
+- Changing the LLM's output contract (still `"low"|"medium"|"high"` enum). A real top-2 + margin signal is a separate, larger phase.
+- Changing the regex-pass logic.
+- Stage 3 (coordinator / intent classifier) confidence gating — that lives in the Stage 3 RFC and is out of scope.
+
+**Risk if not addressed:** every LLM 2nd-pass mis-classification is silently terminal for the email (auto-archive, no Bulk Review surface, no Stage 3) AND feeds back into the regex's promotion math as if the regex was the one that was wrong. Compounding effect — the better the regex gets, the more it abstains, the more the LLM picks up borderline cases at medium confidence, the more LLM mistakes there are to drag the regex's CI down.
+
+**Requirements:** TBD (lock in /gsd-spec-phase)
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog after /gsd-discuss-phase resolves open questions)
