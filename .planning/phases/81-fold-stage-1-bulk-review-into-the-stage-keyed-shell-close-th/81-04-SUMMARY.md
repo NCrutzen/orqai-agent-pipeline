@@ -116,6 +116,7 @@ The plan assumed `queue-tree.tsx` was still present and needed deletion in this 
 - **Plan 04 commits exist:**
   - `6b2f7a1` (test 81-04: extend middleware redirect tests for ?sub=pending round-trip) — FOUND in `git log`
   - `383f261` (test 81-04: add .schema(name) shim to stage-1 admin mocks) — FOUND in `git log`
+  - `b038918` (test 81-04: scope safety-list builder lookup to fix timeline overwrite) — FOUND in `git log`
 - **Middleware redirect tests:** 15/15 passing (`vitest run __tests__/middleware-review-redirect.test.ts`)
 - **TSC clean:** `npx tsc --noEmit` returns 0 errors after stale `.next/types/` regenerated
 - **No production code changed** (verified: `git diff main^^^ -- web/middleware.ts web/app/(dashboard)/automations/[swarm]/stage-1/page.tsx` shows no diff from Plan 03)
