@@ -539,6 +539,16 @@ Phase numbers TBD (after V4.0 phases are finalized).
 
 ## Phase Details
 
+### Phase 82.1: stage shell polish — fix label prefix, MailboxFilter row placement, row column widths, port Stage 1 override picker into Stage1Widget (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 82
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 82.1 to break down)
+
 ### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED)
 
 **Goal:** [Urgent work - to be planned]
