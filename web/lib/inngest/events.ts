@@ -318,6 +318,41 @@ export type Events = {
     };
   };
 
+  /**
+   * Phase 999.8 D-10 — Stage 1 confidence gate side-channel.
+   *
+   * Emitted by `classifier/screen-worker` when the LLM 2nd-pass produced a
+   * non-`unknown` category at confidence `medium` or `low`. By construction
+   * this event has NO subscriber: the verdict-worker is intentionally NOT
+   * subscribed so the gated email stays at `automation_runs.status='predicted'`
+   * with no Outlook side effects, surfacing in the Stage 1 row list for
+   * human review (page.tsx:587 picks it up automatically).
+   *
+   * Mirrors the `debtor-email/synthesis.requested` declared-without-listener
+   * precedent. A future learning-loop worker may subscribe; tangling defer
+   * semantics onto `classifier/verdict.recorded` was rejected as a cleaner
+   * separation (D-10).
+   *
+   * `agent_run_id` is nullable: when the LLM call errors and even the
+   * failure-path `agent_runs` insert fails, the gate still fires with a
+   * null reference so the audit trail in `pipeline_events` is the source
+   * of truth for what happened.
+   */
+  "classifier/screen.requires_review": {
+    data: {
+      automation_run_id: string;
+      agent_run_id: string | null;
+      email_id: string;
+      message_id: string;
+      source_mailbox: string;
+      swarm_type: string;
+      entity?: string | null;
+      llm_category_key: string;
+      llm_confidence: "medium" | "low";
+      final_category_key: string;
+    };
+  };
+
   // Debtor email swarm — Stage 3 coordinator trigger.
   // Emitted by classifier-label-resolver after Stage 2 closes; consumed by
   // the coordinator (Phase 66 wired Stage 2 → 3 here).
