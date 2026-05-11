@@ -1355,9 +1355,16 @@ Compounding this, `labeling-flip-cron.ts:94-122` aggregates `agent_runs.human_ve
 
 **Risk if not addressed:** every LLM 2nd-pass mis-classification is silently terminal for the email (auto-archive, no Bulk Review surface, no Stage 3) AND feeds back into the regex's promotion math as if the regex was the one that was wrong. Compounding effect — the better the regex gets, the more it abstains, the more the LLM picks up borderline cases at medium confidence, the more LLM mistakes there are to drag the regex's CI down.
 
-**Requirements:** TBD (lock in /gsd-spec-phase)
+**Requirements:** [REQ-GATE-01, REQ-CALIB-02, REQ-FP-03, REQ-MIG-07, REQ-VERDICT-08, REQ-CRON-09, REQ-CHIP-05, REQ-ROWCHIP-08]
 
-**Plans:** 0 plans
+**Plans:** 8 plans
 
 Plans:
-- [ ] TBD (promote with /gsd-review-backlog after /gsd-discuss-phase resolves open questions)
+- [ ] 999.8-01-PLAN.md — Wave 0: RED test scaffolds for gate, predictor write, cron split, page filter
+- [ ] 999.8-02-PLAN.md — Wave 1: agent_runs.predictor migration + denormalize predictor onto pipeline_events + swarm_type reconciliation (cron filter realign to 'debtor-email')
+- [ ] 999.8-03-PLAN.md — Wave 2: confidence gate in classifier-screen-worker + classifier/screen.requires_review event (D-01, D-10)
+- [ ] 999.8-04-PLAN.md — Wave 2: Orq.ai re-calibration of stage-1-category-classifier so 'high' means ~95%+ (D-02)
+- [ ] 999.8-05-PLAN.md — Wave 3: recordVerdict predictor writeback + email_id plumbing fix (D-07, D-08, Pitfall 9)
+- [ ] 999.8-06-PLAN.md — Wave 4: labeling-flip-cron per-predictor Wilson-CI + D-03 calibration-drift signal (2% warn / 5% alarm)
+- [ ] 999.8-07-PLAN.md — Wave 5: Stage 1 chip-strip filter chips (predictor + confidence) + loadPageData filters (D-05, D-06, D-11) — depends on Phase 81 merged
+- [ ] 999.8-08-PLAN.md — Wave 5: Per-row predictor chip on row card (D-08, D-12) — depends on Phase 81 merged
