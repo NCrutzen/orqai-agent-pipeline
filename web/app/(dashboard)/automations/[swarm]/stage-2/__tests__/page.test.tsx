@@ -1,16 +1,21 @@
-// Phase 81 Plan 02 Task 2 — RTL render test for the Stage 2 placeholder.
+// Phase 82 Plan 03 — Stage 2 unified-shell migration tests.
 //
-// Establishes the RSC-page test pattern in this tree: the page is an
-// async server component, so we `await` the call and pass the result
-// into RTL's `render`. Loaders are mocked at the module boundary.
+// V3 verification check (CONTEXT.md): Stage 2 renders the unified shell with
+// the Phase 81 D-12 tagging-failures count banner preserved ABOVE the row
+// list (OQ-3 resolution: banner-above, not folded into empty-state copy).
 //
-// Three cases:
-//   1. debtor-email — count renders ("7"), ↗ Open link points to the
-//      tagging-failures debug surface, intro paragraph present, no
-//      "Bulk Review" string, no em-dash.
-//   2. other swarm (sales-email) — count renders "—", no ↗ Open link,
-//      loadStage2WeeklyCount NOT called.
-//   3. unknown swarm — rendering throws NEXT_NOT_FOUND (loadSwarm→null).
+// Behaviors covered:
+//   1. debtor-email — banner shows "Customer-mapping issues this week: N"
+//      with ↗ Open link to /swarm/{swarm}/tagging-failures; loader called.
+//   2. non-debtor-email (sales-email) — banner falls back to em-dash, no
+//      ↗ Open link, loadStage2WeeklyCount NOT called (Phase 81-02 contract).
+//   3. unified shell composition — empty RowList renders empty-state copy;
+//      MailboxFilter trigger present; StageTabStrip currentStage=2; NO
+//      AutomationRealtimeProvider; no "Bulk Review" copy.
+//   4. unknown swarm — notFound() throws NEXT_NOT_FOUND.
+//
+// RSC-page RTL pattern (Phase 81-02 / 82-02): await the async component,
+// pass the result into render(), mock loaders at module boundary.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
@@ -36,12 +41,12 @@ vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
   },
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/automations/debtor-email/stage-2",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
-// _shell components rely on registry-derived stage tabs; we stub them
-// so the test stays focused on Stage 2's own body. The page imports
-// PageHeader + StageTabStrip via relative paths, so we mock those
-// relative paths directly.
+// Stub PageHeader + StageTabStrip so the test stays focused on Stage 2 body.
 vi.mock("../../_shell/page-header", () => ({
   PageHeader: ({ swarm }: { swarm: { swarm_type: string } }) => (
     <div data-testid="page-header">{swarm.swarm_type}</div>
@@ -87,13 +92,14 @@ afterEach(() => {
   cleanup();
 });
 
-describe("Stage2Page (placeholder)", () => {
-  it("debtor-email: renders count + ↗ Open link, no Bulk Review, no em-dash", async () => {
+describe("Stage 2 page (unified shell)", () => {
+  it("debtor-email: renders count banner with ↗ Open link above row list", async () => {
     loadSwarmMock.mockResolvedValue(makeSwarmRow("debtor-email"));
     loadStage2WeeklyCountMock.mockResolvedValue(7);
 
     const ui = await Stage2Page({
       params: Promise.resolve({ swarm: "debtor-email" }),
+      searchParams: Promise.resolve({}),
     });
     const { container } = render(ui);
 
@@ -108,18 +114,8 @@ describe("Stage2Page (placeholder)", () => {
       "/swarm/debtor-email/tagging-failures",
     );
 
-    expect(container.textContent ?? "").toContain(
-      "Stage 2 (Customer mapping)",
-    );
     expect(container.textContent ?? "").not.toContain("Bulk Review");
-    // The intro paragraph contains an em-dash ("Stage 2 (Customer mapping)
-    // — entity / customer resolution"), so scope the no-em-dash check to
-    // the count strong element — that's where "—" would render when the
-    // count is null.
-    const countStrong = screen.getByText("7");
-    expect(countStrong.textContent).not.toContain("—");
 
-    // Stage tab strip wired with currentStage=2 and counts[2]=7.
     const tabs = screen.getByTestId("stage-tab-strip");
     expect(tabs.getAttribute("data-current-stage")).toBe("2");
     expect(tabs.getAttribute("data-count-2")).toBe("7");
@@ -132,29 +128,83 @@ describe("Stage2Page (placeholder)", () => {
 
     const ui = await Stage2Page({
       params: Promise.resolve({ swarm: "sales-email" }),
+      searchParams: Promise.resolve({}),
     });
     const { container } = render(ui);
 
     expect(container.textContent ?? "").toContain(
       "Customer-mapping issues this week:",
     );
+    // Em-dash falls back in the count slot.
     expect(container.textContent ?? "").toContain("—");
     expect(
       screen.queryByRole("link", { name: /Open/ }),
     ).not.toBeInTheDocument();
 
-    // Stage tab strip count falls back to 0 (per `stage2Count ?? 0`).
     const tabs = screen.getByTestId("stage-tab-strip");
     expect(tabs.getAttribute("data-count-2")).toBe("0");
 
     expect(loadStage2WeeklyCountMock).not.toHaveBeenCalled();
   });
 
+  it("renders empty-state copy for empty row list (D-15)", async () => {
+    loadSwarmMock.mockResolvedValue(makeSwarmRow("debtor-email"));
+    loadStage2WeeklyCountMock.mockResolvedValue(0);
+
+    const ui = await Stage2Page({
+      params: Promise.resolve({ swarm: "debtor-email" }),
+      searchParams: Promise.resolve({}),
+    });
+    render(ui);
+
+    expect(screen.getByText(/No rows yet/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Stage 2 awaits backend wiring/i),
+    ).toBeInTheDocument();
+  });
+
+  it("mounts _shell/mailbox-filter (trigger 'All mailboxes')", async () => {
+    loadSwarmMock.mockResolvedValue(makeSwarmRow("debtor-email"));
+    loadStage2WeeklyCountMock.mockResolvedValue(3);
+
+    const ui = await Stage2Page({
+      params: Promise.resolve({ swarm: "debtor-email" }),
+      searchParams: Promise.resolve({}),
+    });
+    render(ui);
+
+    expect(
+      screen.getByRole("button", { name: /Filter by mailbox/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("All mailboxes")).toBeInTheDocument();
+  });
+
+  it("does NOT mount AutomationRealtimeProvider (Stage 2 has no realtime channel)", async () => {
+    loadSwarmMock.mockResolvedValue(makeSwarmRow("debtor-email"));
+    loadStage2WeeklyCountMock.mockResolvedValue(1);
+
+    const ui = await Stage2Page({
+      params: Promise.resolve({ swarm: "debtor-email" }),
+      searchParams: Promise.resolve({}),
+    });
+    const { container } = render(ui);
+
+    expect(
+      container.querySelector("[data-testid='automation-realtime']"),
+    ).toBeNull();
+    expect(container.textContent ?? "").not.toContain(
+      "AutomationRealtimeProvider",
+    );
+  });
+
   it("unknown swarm: notFound() throws NEXT_NOT_FOUND", async () => {
     loadSwarmMock.mockResolvedValue(null);
 
     await expect(
-      Stage2Page({ params: Promise.resolve({ swarm: "unknown-swarm" }) }),
+      Stage2Page({
+        params: Promise.resolve({ swarm: "unknown-swarm" }),
+        searchParams: Promise.resolve({}),
+      }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
 
     expect(loadStage2WeeklyCountMock).not.toHaveBeenCalled();
