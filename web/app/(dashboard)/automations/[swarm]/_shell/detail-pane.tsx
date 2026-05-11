@@ -82,11 +82,11 @@ export function getCachedBody(id: string | null): CachedBody | undefined {
 // ---- Stage metadata (5-axis) ---------------------------------------------
 
 const STAGE_TITLES: Record<ActiveStage, string> = {
-  0: "Stage 0 — Safety",
-  1: "Stage 1 — Category",
-  2: "Stage 2 — Customer",
-  3: "Stage 3 — Intent",
-  4: "Stage 4 — Handler",
+  0: "Safety",
+  1: "Category",
+  2: "Customer",
+  3: "Intent",
+  4: "Handler",
 };
 
 const STAGE_AXES: Record<ActiveStage, OverrideAxis | null> = {
