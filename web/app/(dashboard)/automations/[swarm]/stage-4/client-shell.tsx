@@ -164,7 +164,7 @@ export function Stage4ClientShell({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 2fr",
+            gridTemplateColumns: "minmax(0, 1fr) 460px",
             gap: "var(--space-3)",
             minHeight: 320,
           }}

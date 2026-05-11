@@ -80,7 +80,10 @@ export function RowList({ rows, emptyState, rightEdgeSlot }: RowListProps) {
                 : "2px solid transparent",
               background: isSelected ? "var(--v7-bg-2)" : "transparent",
               cursor: "pointer",
-              display: "flex",
+              display: "grid",
+              gridTemplateColumns: rightEdgeSlot
+                ? "140px 200px minmax(0, 1fr) 150px auto"
+                : "140px 200px minmax(0, 1fr) 150px",
               alignItems: "center",
               gap: "var(--space-3)",
             }}
@@ -91,11 +94,10 @@ export function RowList({ rows, emptyState, rightEdgeSlot }: RowListProps) {
               style={{
                 fontSize: 13,
                 color: "var(--v7-text)",
-                minWidth: 120,
-                maxWidth: 200,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
+                minWidth: 0,
               }}
             >
               {r.from_name ?? r.from_email ?? "(unknown sender)"}
@@ -105,10 +107,10 @@ export function RowList({ rows, emptyState, rightEdgeSlot }: RowListProps) {
               style={{
                 fontSize: 13,
                 color: "var(--v7-text)",
-                flex: 1,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
+                minWidth: 0,
               }}
             >
               {r.subject ?? "(no subject)"}
@@ -119,6 +121,8 @@ export function RowList({ rows, emptyState, rightEdgeSlot }: RowListProps) {
                 fontFamily: "var(--font-mono)",
                 fontSize: 11,
                 color: "var(--v7-text-muted)",
+                whiteSpace: "nowrap",
+                textAlign: "right",
               }}
             >
               {new Date(r.timestamp).toLocaleString("en-GB")}

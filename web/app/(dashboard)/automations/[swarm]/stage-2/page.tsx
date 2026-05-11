@@ -150,7 +150,7 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 2fr",
+              gridTemplateColumns: "minmax(0, 1fr) 460px",
               gap: "var(--space-3)",
               minHeight: 320,
             }}
