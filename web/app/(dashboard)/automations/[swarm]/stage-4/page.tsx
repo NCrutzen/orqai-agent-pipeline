@@ -1,9 +1,9 @@
-// Phase 76 Plan 07 Task 2 — Stage 4 RSC entry point.
+// Phase 82 Plan 04 — Stage 4 RSC entry point on the unified _shell/ library.
 //
 // Loads Kanban rows filtered to result.kanban_reason === 'handler_error'.
 // Mounts the registry-driven shell + AutomationRealtimeProvider for the
-// `${swarmType}-kanban` channel. Stage 3 count is computed in the same
-// query so the tab strip can show a live badge for that tab too.
+// `${swarmType}-kanban` channel. Stage 3 count is computed in the same query
+// so the tab strip can show a live badge for that tab too.
 //
 // Pipeline architecture lock (RFC docs/agentic-pipeline/README.md):
 //   - Stage 4 surfaces handler-error rows ONLY (Stage 4 dispatch failures).
@@ -23,20 +23,52 @@ import {
   loadSwarmNoiseCategories,
 } from "@/lib/swarms/registry";
 import { AutomationRealtimeProvider } from "@/components/automations/automation-realtime-provider";
-import { loadKanbanRows } from "../_lib/kanban-loader";
+import { loadKanbanRows, type KanbanRow } from "../_lib/kanban-loader";
 import { PageHeader } from "../_shell/page-header";
 import { StageTabStrip } from "../_shell/stage-tab-strip";
-import { SelectionProvider } from "./selection-context";
-import { Stage4Client } from "./row-list";
+import { SelectionProvider } from "../_shell/selection-context";
+import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
+import type { Row } from "../_shell/_lib/types";
+import type { PipelineTimelineEvent } from "../_shell/detail-pane";
+import { Stage4ClientShell } from "./client-shell";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ swarm: string }>;
+  searchParams: Promise<{
+    mailbox?: string | string[];
+    selected?: string;
+  }>;
 }
 
-export default async function Stage4Page({ params }: PageProps) {
+// KanbanRow → unified Row. mailbox_id MUST be threaded through from the
+// email_pipeline.emails JOIN so the V6 mailbox filter works (NOT a TODO).
+function toUnifiedRow(k: KanbanRow): Row {
+  return {
+    id: k.id,
+    from_name: k.email_metadata?.sender_name ?? null,
+    from_email: k.email_metadata?.sender_email ?? null,
+    subject: k.email_metadata?.subject ?? null,
+    timestamp: k.email_metadata?.received_at ?? k.created_at,
+    mailbox_id: k.email_metadata?.mailbox_id ?? null,
+    stage_badge: { label: "handler_error", variant: "handler" },
+  };
+}
+
+function parseSelectedMailboxes(p: string | string[] | undefined): number[] {
+  const arr = Array.isArray(p) ? p : p ? [p] : [];
+  return arr
+    .map((s) => Number.parseInt(s, 10))
+    .filter((n) => !Number.isNaN(n));
+}
+
+export default async function Stage4Page({
+  params,
+  searchParams,
+}: PageProps) {
   const { swarm: swarmType } = await params;
+  const sp = await searchParams;
   const admin = createAdminClient();
 
   // Spoofing gate (T-76-07-01): unknown or disabled swarm → 404.
@@ -62,6 +94,65 @@ export default async function Stage4Page({ params }: PageProps) {
     (c) => c.category_key !== "unknown",
   );
 
+  const unifiedRows = stage4Rows.map(toUnifiedRow);
+  const mailboxes = getSwarmMailboxes(swarmType, unifiedRows);
+  const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
+  const selectedId = sp.selected ?? null;
+
+  // Body + timeline pre-fetch (Pitfall 3 — MANDATORY). Mirrors stage-1/page.tsx
+  // lines 696-727 pattern: parallel SELECT against email_pipeline.emails
+  // (body_text/body_html) and pipeline_events (timeline). V8 requires the
+  // email body to render in the detail pane without a separate roundtrip.
+  const bodyMap: Record<string, { bodyText: string; bodyHtml: string | null }> = {};
+  const timelineMap: Record<string, PipelineTimelineEvent[]> = {};
+  const emailIds = Array.from(
+    new Set(
+      stage4Rows
+        .map((r) => r.result?.email_id ?? null)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  );
+  if (emailIds.length > 0) {
+    const bodiesPromise = admin
+      .schema("email_pipeline")
+      .from("emails")
+      .select("id, body_text, body_html")
+      .in("id", emailIds);
+    const timelinePromise = admin
+      .from("pipeline_events")
+      .select("id, stage, email_id, decision, created_at")
+      .eq("swarm_type", swarmType)
+      .in("email_id", emailIds)
+      .order("stage", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    const [bodiesRes, timelineRes] = await Promise.all([
+      bodiesPromise,
+      timelinePromise,
+    ]);
+
+    for (const e of (bodiesRes.data as Array<{
+      id: string;
+      body_text: string | null;
+      body_html: string | null;
+    }> | null) ?? []) {
+      bodyMap[e.id] = {
+        bodyText: e.body_text ?? "",
+        bodyHtml: e.body_html || null,
+      };
+    }
+    for (const ev of (timelineRes.data as Array<
+      PipelineTimelineEvent & { email_id: string | null }
+    > | null) ?? []) {
+      const key = ev.email_id;
+      if (!key) continue;
+      (timelineMap[key] ??= []).push({
+        stage: ev.stage,
+        decision: ev.decision ?? null,
+      });
+    }
+  }
+
   return (
     <>
       <PageHeader swarm={swarm} />
@@ -74,11 +165,19 @@ export default async function Stage4Page({ params }: PageProps) {
         automations={[`${swarmType}-kanban`]}
         initialLimit={500}
       >
-        <SelectionProvider rowIds={stage4Rows.map((r) => r.id)}>
-          <Stage4Client
+        <SelectionProvider
+          rowIds={stage4Rows.map((r) => r.id)}
+          initialSelectedId={selectedId}
+        >
+          <Stage4ClientShell
             swarmType={swarmType}
             rows={stage4Rows}
+            unifiedRows={unifiedRows}
             noiseCategories={reclassifyNoiseCategories}
+            mailboxes={mailboxes}
+            selectedMailboxes={selectedMailboxes}
+            bodyMap={bodyMap}
+            timelineMap={timelineMap}
           />
         </SelectionProvider>
       </AutomationRealtimeProvider>
