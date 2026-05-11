@@ -47,6 +47,7 @@ import { StageTabStrip } from "../_shell/stage-tab-strip";
 import { SelectionProvider } from "../_shell/selection-context";
 import { Cheatsheet } from "../_shell/keyboard-shortcuts";
 import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
+import { MailboxFilter } from "../_shell/mailbox-filter";
 import type { Row } from "../_shell/_lib/types";
 import { loadStage2WeeklyCount } from "../stage-2/_lib/load-stage-2-weekly-count";
 import { NoiseCategoryChipStrip } from "./noise-category-chip-strip";
@@ -932,13 +933,27 @@ export default async function SwarmReviewPage({
           rowIds={rowIds}
         >
           <main className="px-6 pt-6 pb-12 w-full">
-            <NoiseCategoryChipStrip
-              categories={categories}
-              counts={data.counts}
-              activeTopic={sp.topic ?? "all"}
-              candidateCount={data.candidates.length}
-              activeSub={sp.sub ?? null}
-            />
+            {/* Phase 82.1 Plan 02 (D-02, D-03): MailboxFilter hoisted out of
+                Stage1ClientShell onto the chip-strip row so it sits right of
+                NoiseCategoryChipStrip via justifyContent: space-between. */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "var(--space-3)",
+                marginBottom: "var(--space-3)",
+              }}
+            >
+              <NoiseCategoryChipStrip
+                categories={categories}
+                counts={data.counts}
+                activeTopic={sp.topic ?? "all"}
+                candidateCount={data.candidates.length}
+                activeSub={sp.sub ?? null}
+              />
+              <MailboxFilter mailboxes={mailboxes} selected={selectedMailboxes} />
+            </div>
             {sp.sub === "pending" ? (
               <div className="grid grid-cols-[minmax(380px,460px)_1fr] gap-4 min-w-0">
                 {/* Phase 81-03 Pending Promotion sub-view — PRESERVED.
