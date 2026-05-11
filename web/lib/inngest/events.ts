@@ -353,6 +353,29 @@ export type Events = {
     };
   };
 
+  /**
+   * Phase 999.8 D-03 — high-confidence LLM 2nd-pass calibration drift signal.
+   *
+   * Emitted by labeling-flip-cron when the rolling-50 high-conf FP rate
+   * exceeds the alarm threshold (>=5%). Audit row also written to
+   * classifier_rule_evaluations for both warn (>=2%) and alarm (>=5%) tiers.
+   *
+   * Subscribers: NONE in Phase 999.8 (mirror D-10 "declared, no listener"
+   * pattern — future learning-loop / on-call alerting worker can subscribe).
+   */
+  "classifier/calibration_drift.detected": {
+    data: {
+      swarm_type: string;
+      source_mailbox: string;
+      icontroller_mailbox_id: number;
+      n_high_conf: number;
+      fp_count: number;
+      fp_rate: number;
+      threshold: "warn" | "alarm";
+      detected_at: string; // ISO timestamp, generated inside step.run
+    };
+  };
+
   // Debtor email swarm — Stage 3 coordinator trigger.
   // Emitted by classifier-label-resolver after Stage 2 closes; consumed by
   // the coordinator (Phase 66 wired Stage 2 → 3 here).
