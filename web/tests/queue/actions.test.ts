@@ -96,7 +96,7 @@ vi.mock("@/lib/swarms/registry", () => ({
 }));
 
 // Import AFTER mocks
-import { recordVerdict } from "@/app/(dashboard)/automations/[swarm]/review/actions";
+import { recordVerdict } from "@/app/(dashboard)/automations/[swarm]/stage-1/actions";
 
 // ---- Test helpers ---------------------------------------------------------
 
@@ -221,7 +221,7 @@ describe("D-16: recordVerdict — verdict-write only, no inline side-effects", (
   });
 
   it("static check: actions.ts does NOT import categorizeEmail / archiveEmail / iController helpers", () => {
-    const actionsPath = resolve(__dirname, "../../app/(dashboard)/automations/[swarm]/review/actions.ts");
+    const actionsPath = resolve(__dirname, "../../app/(dashboard)/automations/[swarm]/stage-1/actions.ts");
     const src = readFileSync(actionsPath, "utf8");
     expect(src).not.toMatch(/categorizeEmail/);
     expect(src).not.toMatch(/archiveEmail/);
@@ -232,7 +232,7 @@ describe("D-16: recordVerdict — verdict-write only, no inline side-effects", (
   });
 
   it("static check: actions.ts does NOT import a static OVERRIDE_CATEGORIES const (Pitfall 5)", () => {
-    const actionsPath = resolve(__dirname, "../../app/(dashboard)/automations/[swarm]/review/actions.ts");
+    const actionsPath = resolve(__dirname, "../../app/(dashboard)/automations/[swarm]/stage-1/actions.ts");
     const src = readFileSync(actionsPath, "utf8");
     expect(src).not.toMatch(/OVERRIDE_CATEGORIES/);
     expect(src).toMatch(/loadSwarmNoiseCategories/);

@@ -171,7 +171,7 @@ vi.mock(
 );
 
 // Import AFTER mocks
-import { loadPageData, type PageSearchParams } from "@/app/(dashboard)/automations/[swarm]/review/page";
+import { loadPageData, type PageSearchParams } from "@/app/(dashboard)/automations/[swarm]/stage-1/page";
 
 beforeEach(() => {
   fromCalls.length = 0;

@@ -1,5 +1,5 @@
 // Phase 56.7-03 (D-08, D-15). Page is now mounted at the dynamic-segment
-// route /automations/[swarm]/review. Verifies:
+// route /automations/[swarm]/stage-1. Verifies:
 //   - loadPageData threads `swarmType` into the classifier_queue_counts RPC
 //     AND into the automation_runs `.eq("swarm_type", …)` filter.
 //   - The page's React server component calls notFound() when loadSwarm
@@ -102,7 +102,7 @@ describe.skip("D-10: page reads automation_runs.status='predicted' only (no Outl
   it("does NOT import @/lib/outlook or call listInboxMessages/classify in page.tsx source", () => {
     const pagePath = resolve(
       __dirname,
-      "../../app/(dashboard)/automations/[swarm]/review/page.tsx",
+      "../../app/(dashboard)/automations/[swarm]/stage-1/page.tsx",
     );
     const src = readFileSync(pagePath, "utf8");
     expect(src).not.toMatch(/@\/lib\/outlook/);
@@ -121,7 +121,7 @@ describe.skip("D-10: page reads automation_runs.status='predicted' only (no Outl
   it("page.tsx never references the 'emails' or 'outlook' tables", () => {
     const pagePath = resolve(
       __dirname,
-      "../../app/(dashboard)/automations/[swarm]/review/page.tsx",
+      "../../app/(dashboard)/automations/[swarm]/stage-1/page.tsx",
     );
     const src = readFileSync(pagePath, "utf8");
     expect(src).not.toMatch(/from\(["']emails["']\)/);
@@ -133,7 +133,7 @@ describe.skip("D-10: page reads automation_runs.status='predicted' only (no Outl
 describe.skip("loadPageData threads swarmType through every Supabase call", () => {
   it("calls admin.rpc('classifier_queue_counts', { p_swarm_type: <swarmType> })", async () => {
     const { loadPageData } = await import(
-      "@/app/(dashboard)/automations/[swarm]/review/page"
+      "@/app/(dashboard)/automations/[swarm]/stage-1/page"
     );
     const { admin, rpcCalls } = buildMockAdmin();
     await loadPageData({}, admin as never, "debtor-email");
@@ -145,7 +145,7 @@ describe.skip("loadPageData threads swarmType through every Supabase call", () =
 
   it("queries automation_runs with swarm_type=<swarmType> AND status='predicted' AND limit(100)", async () => {
     const { loadPageData } = await import(
-      "@/app/(dashboard)/automations/[swarm]/review/page"
+      "@/app/(dashboard)/automations/[swarm]/stage-1/page"
     );
     const { admin, fromCalls, filterCalls } = buildMockAdmin();
     await loadPageData({}, admin as never, "debtor-email");
@@ -165,7 +165,7 @@ describe.skip("loadPageData threads swarmType through every Supabase call", () =
 
   it("classifier_rules promotedToday filter uses swarm_type=<swarmType>", async () => {
     const { loadPageData } = await import(
-      "@/app/(dashboard)/automations/[swarm]/review/page"
+      "@/app/(dashboard)/automations/[swarm]/stage-1/page"
     );
     const { admin, filterCalls } = buildMockAdmin();
     await loadPageData({}, admin as never, "debtor-email");
@@ -181,7 +181,7 @@ describe.skip("loadPageData threads swarmType through every Supabase call", () =
 
   it("threads a different swarmType end-to-end (e.g. 'sales-email')", async () => {
     const { loadPageData } = await import(
-      "@/app/(dashboard)/automations/[swarm]/review/page"
+      "@/app/(dashboard)/automations/[swarm]/stage-1/page"
     );
     const { admin, rpcCalls, filterCalls } = buildMockAdmin();
     await loadPageData({}, admin as never, "sales-email");
@@ -198,7 +198,7 @@ describe.skip("loadPageData threads swarmType through every Supabase call", () =
 
   it("applies entity / mailbox / topic / before / rule filters from searchParams", async () => {
     const { loadPageData } = await import(
-      "@/app/(dashboard)/automations/[swarm]/review/page"
+      "@/app/(dashboard)/automations/[swarm]/stage-1/page"
     );
     const { admin, filterCalls } = buildMockAdmin();
     await loadPageData(
@@ -245,7 +245,7 @@ describe("swarm-aware: registry-driven page entry point", () => {
     loadSwarmMock.mockResolvedValue(null);
     loadSwarmNoiseCategoriesMock.mockResolvedValue([]);
     const Page = (
-      await import("@/app/(dashboard)/automations/[swarm]/review/page")
+      await import("@/app/(dashboard)/automations/[swarm]/stage-1/page")
     ).default;
     await expect(
       Page({
@@ -274,7 +274,7 @@ describe("swarm-aware: registry-driven page entry point", () => {
     });
     loadSwarmNoiseCategoriesMock.mockResolvedValue([]);
     const Page = (
-      await import("@/app/(dashboard)/automations/[swarm]/review/page")
+      await import("@/app/(dashboard)/automations/[swarm]/stage-1/page")
     ).default;
     await expect(
       Page({

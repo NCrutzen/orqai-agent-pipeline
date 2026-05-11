@@ -31,7 +31,7 @@ const fetchBodyMock = vi
   .fn()
   .mockResolvedValue({ ok: true, bodyText: "hi", bodyHtml: null });
 vi.mock(
-  "@/app/(dashboard)/automations/[swarm]/review/actions",
+  "@/app/(dashboard)/automations/[swarm]/stage-1/actions",
   () => ({
     recordVerdict: (...args: unknown[]) => recordVerdictMock(...args),
     fetchReviewEmailBody: (...args: unknown[]) => fetchBodyMock(...args),
@@ -44,9 +44,9 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-import { DetailPane as RawDetailPane } from "@/app/(dashboard)/automations/[swarm]/review/detail-pane";
-import { SelectionProvider } from "@/app/(dashboard)/automations/[swarm]/review/selection-context";
-import type { PredictedRow } from "@/app/(dashboard)/automations/[swarm]/review/page";
+import { DetailPane as RawDetailPane } from "@/app/(dashboard)/automations/[swarm]/stage-1/detail-pane";
+import { SelectionProvider } from "@/app/(dashboard)/automations/[swarm]/stage-1/selection-context";
+import type { PredictedRow } from "@/app/(dashboard)/automations/[swarm]/stage-1/page";
 import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
 
 // Phase 56.7-03: DetailPane now requires `swarmType`, `categories`, and

@@ -231,7 +231,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 import {
   loadPageData,
   type PageSearchParams,
-} from "@/app/(dashboard)/automations/[swarm]/review/page";
+} from "@/app/(dashboard)/automations/[swarm]/stage-1/page";
 
 beforeEach(() => {
   fromCalls.length = 0;

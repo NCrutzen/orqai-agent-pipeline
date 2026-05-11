@@ -63,7 +63,7 @@ vi.mock("@/lib/outlook", () => ({
 }));
 
 // Import AFTER mocks
-import { fetchReviewEmailBody } from "@/app/(dashboard)/automations/[swarm]/review/actions";
+import { fetchReviewEmailBody } from "@/app/(dashboard)/automations/[swarm]/stage-1/actions";
 
 beforeEach(() => {
   selectError = null;

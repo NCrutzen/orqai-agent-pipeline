@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { RaceCohortBanner } from "@/app/(dashboard)/automations/[swarm]/review/race-cohort-banner";
+import { RaceCohortBanner } from "@/app/(dashboard)/automations/[swarm]/stage-1/race-cohort-banner";
 
 const today = new Date();
 today.setHours(8, 0, 0, 0);
