@@ -116,7 +116,43 @@ async function findEmailViaSearch(
         )
         .catch(() => null);
       await input.fill(email.from);
-      await input.press("Enter").catch(() => null);
+      // iController's search box is a jQuery UI autocomplete (confirmed
+      // 2026-05-11 via DOM probe): ul.ui-autocomplete > li.ui-menu-item.
+      // Pressing Enter on the raw input does NOT commit a filter and
+      // ArrowDown+Enter also fails to commit reliably — the actual
+      // DataTables filter XHR only fires when a suggestion <li> is
+      // clicked. Without an explicit click the function was paginating
+      // an unfiltered 1,200+ row inbox and missing the target unless it
+      // happened to fall in the first ~250 rows. Find the <li> whose text
+      // starts with `{email.from} (` (the structured `email (Display Name)`
+      // suggestion format) and click it.
+      const wantPrefix = `${email.from.toLowerCase()} (`;
+      // Wait briefly for the autocomplete XHR to populate the menu.
+      const clicked = await page
+        .locator("ul.ui-autocomplete:visible li.ui-menu-item")
+        .filter({
+          has: page.locator(
+            `div.ui-menu-item-wrapper`,
+          ),
+        })
+        .evaluateAll((items, prefix) => {
+          for (const li of items) {
+            const txt = (li.textContent || "").trim().toLowerCase();
+            if (txt.startsWith(prefix)) {
+              (li as HTMLElement).click();
+              return true;
+            }
+          }
+          return false;
+        }, wantPrefix)
+        .catch(() => false);
+      if (!clicked) {
+        // Fallback: press Enter in case the autocomplete is dismissed or
+        // a future iController build wires Enter to commit. Keeps the old
+        // behavior for cases where the menu didn't render (e.g. unique
+        // sender that auto-selects).
+        await input.press("Enter").catch(() => null);
+      }
       await waitForXhr;
       typed = true;
       break;
@@ -283,73 +319,90 @@ async function highlightRow(page: Page, rowIndex: number): Promise<string | null
 }
 
 /**
- * Select a row's checkbox and click the bulk delete button.
- * Verifies the checkbox is actually :checked before clicking delete; falls
- * back to clicking the select-column td (DataTables row-click toggle) if
- * the direct input click doesn't register.
+ * Delete the row at rowIndex by POSTing directly to iController's
+ * Intercooler.js bulkDelete endpoint, bypassing the checkbox+button UI dance.
+ *
+ * Why direct POST instead of clicking:
+ *   The trash toolbar button is an Intercooler.js action — the markup is
+ *
+ *     <button class="delete-bulk bulk-action" ic=""
+ *             href="/messages/bulkDelete/_token/{csrf}"
+ *             data-success-message="Message(s) deleted successfully. [link]Undo[/link]">
+ *
+ *   and rows carry `<input name="message[]" value="{message_id}">`. Intercooler
+ *   serializes the `:checked` `message[]` inputs at button-click time and POSTs
+ *   them to the href. The `data-success-message` toast renders on ANY 2xx
+ *   response — it does not reflect what was actually deleted.
+ *
+ *   Playwright's `checkbox.click()` toggles the DOM `:checked` state but does
+ *   not reliably fire the change event Intercooler's selection-state listeners
+ *   expect (binding happens after DataTables row render — racey). On race-loss
+ *   the framework's selected-set is empty at click time, the POST goes out
+ *   with no `message[]` entries, the server returns 2xx ("deleted 0 rows"),
+ *   the success toast fires, and the row remains in the inbox. That was the
+ *   sustained 49% failure rate observed across all four mailboxes from
+ *   2026-05-08 onward — confirmed 2026-05-11 by inspecting the button DOM
+ *   (Intercooler `ic=""` attribute + static success-message template) and
+ *   confirming deleted rows were NOT in iController's Trash folder.
+ *
+ * Direct POST removes the entire click-race surface:
+ *   - we read the message_id from the row's checkbox `value`
+ *   - we read the bulkDelete URL (CSRF token baked in) from the button's `href`
+ *   - we POST `message[]={id}` via page.request — same cookie jar as the
+ *     browser session, so auth travels with it
+ *   - response status is the truth, not an optimistic toast
  */
 async function selectAndDelete(page: Page, rowIndex: number): Promise<void> {
   const rowSelector = `#messages-list tbody tr:nth-child(${rowIndex + 1})`;
-  const row = page.locator(rowSelector);
-  const checkbox = row.locator('input[type="checkbox"]').first();
 
-  await checkbox.scrollIntoViewIfNeeded();
-  await checkbox.click();
-
-  // Poll for checked state for up to 1s instead of a blind 400ms sleep —
-  // returns as soon as the checkbox registers as :checked.
-  const waitChecked = async (timeoutMs: number): Promise<boolean> => {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      if (await checkbox.isChecked().catch(() => false)) return true;
-      await page.waitForTimeout(50);
+  const extracted = await page.evaluate((sel) => {
+    const row = document.querySelector(sel) as HTMLElement | null;
+    if (!row) return { error: "row not found at nth-child index" } as const;
+    const cb = row.querySelector<HTMLInputElement>('input[name="message[]"]');
+    if (!cb || !cb.value) {
+      return { error: "row has no message[] checkbox with a value" } as const;
     }
-    return false;
-  };
+    const btn = document.querySelector<HTMLElement>(".delete-bulk.bulk-action");
+    if (!btn) {
+      return { error: ".delete-bulk.bulk-action button not found in DOM" } as const;
+    }
+    const href = btn.getAttribute("href");
+    if (!href) {
+      return { error: "delete button has no href (CSRF token missing)" } as const;
+    }
+    return { messageId: cb.value, deleteUrl: href } as const;
+  }, rowSelector);
 
-  let checked = await waitChecked(1000);
-  if (!checked) {
-    // Fallback: click the first cell (select column) — many DataTables
-    // implementations toggle the checkbox when the cell is clicked.
-    await row.locator("td").first().click();
-    checked = await waitChecked(1000);
-  }
-  if (!checked) {
-    throw new Error(`Checkbox on row ${rowIndex} could not be checked`);
-  }
-
-  const deleteButton = page.locator('.delete-bulk.bulk-action').first();
-  await deleteButton.click();
-
-  // Modal appears via JS animation — the visibility-check below already
-  // has its own 3s timeout, so the old blind 1s sleep was redundant.
-  const confirmButton = page.locator(
-    'button:has-text("OK"), button:has-text("Yes"), button:has-text("Confirm"), button:has-text("Delete"), .modal button.call-to-action',
-  );
-  const hasConfirm = await confirmButton.first().isVisible({ timeout: 3000 }).catch(() => false);
-  if (hasConfirm) {
-    // Kick off delete-XHR listener before the click — same pattern as the
-    // search: otherwise we risk racing past the request emission frame.
-    const waitForDeleteXhr = page
-      .waitForResponse(
-        (r) => {
-          const u = r.url();
-          const method = r.request().method();
-          return (
-            (method === "POST" || method === "DELETE") &&
-            (u.includes("/messages") || u.includes("/delete"))
-          );
-        },
-        { timeout: 6000 },
-      )
-      .catch(() => null);
-    await confirmButton.first().click();
-    await waitForDeleteXhr;
+  if ("error" in extracted) {
+    throw new Error(`selectAndDelete: ${extracted.error}`);
   }
 
-  // Brief settle time for the table rerender after the XHR returns —
-  // down from 2s to 400ms.
-  await page.waitForTimeout(400);
+  // href is a path like `/messages/bulkDelete/_token/{csrf}` — prepend the
+  // page's origin. Using page.url() rather than threading cfg.url through
+  // the signature keeps the call site untouched.
+  const baseUrl = new URL(page.url()).origin;
+  const fullUrl = extracted.deleteUrl.startsWith("http")
+    ? extracted.deleteUrl
+    : `${baseUrl}${extracted.deleteUrl}`;
+
+  const res = await page.request.post(fullUrl, {
+    form: { "message[]": extracted.messageId },
+    headers: {
+      "X-Requested-With": "XMLHttpRequest",
+      Accept: "application/json, text/javascript, */*; q=0.01",
+    },
+  });
+
+  if (!res.ok()) {
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      `bulkDelete POST ${fullUrl} returned ${res.status()} ${res.statusText()}: ${body.slice(0, 200)}`,
+    );
+  }
+
+  // No DOM-settle wait needed — the in-page DataTables doesn't know we
+  // bypassed it, and Pass 2's `page.goto(listUrl)` does a fresh navigation
+  // anyway, which reflects authoritative server state.
 }
 
 export interface PreviewResult {
