@@ -143,7 +143,7 @@ export function Stage1ClientShell({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(380px,460px) 1fr",
+            gridTemplateColumns: "minmax(540px, 720px) 1fr",
             gap: "var(--space-3)",
             minHeight: 320,
           }}
