@@ -46,6 +46,7 @@ import type { Row } from "../_shell/_lib/types";
 // compatible — extra fields ignored when passed through).
 import type { PredictedRow, PipelineTimelineEvent } from "./page";
 import { TaggingArtifactsSection } from "./components/tagging-artifacts-section";
+import { PredictorChip } from "./components/PredictorChip";
 
 interface BodyEntry {
   bodyText: string;
@@ -101,6 +102,29 @@ export function Stage1ClientShell({
     if (!selectedId) return null;
     return visibleUnified.find((r) => r.id === selectedId) ?? null;
   }, [visibleUnified, selectedId]);
+
+  // Phase 999.8 Plan 08 (D-08). Per-row predictor + confidence lookup keyed
+  // by PredictedRow.id (which matches Row.id by construction in
+  // toUnifiedRow). Built once per predictedRows change so the
+  // RowList.rightEdgeSlot closure is O(1) per row.
+  const predictorById = useMemo(() => {
+    const m = new Map<
+      string,
+      {
+        predictor: PredictedRow["predictor"];
+        llmConfidence: PredictedRow["llmConfidence"];
+      }
+    >();
+    for (const p of predictedRows) {
+      if (p.predictor) {
+        m.set(p.id, {
+          predictor: p.predictor,
+          llmConfidence: p.llmConfidence,
+        });
+      }
+    }
+    return m;
+  }, [predictedRows]);
 
   const body = selectedId ? bodyMap[selectedId] ?? null : null;
   const timeline = selectedId
@@ -162,6 +186,23 @@ export function Stage1ClientShell({
             emptyState={{
               title: "Nothing to review",
               body: "Predicted classifications appear here as the ingest route writes them.",
+            }}
+            rightEdgeSlot={(row) => {
+              // Phase 999.8 Plan 08 (D-08, D-12). Per-row predictor chip
+              // mounted via the canonical RowList rightEdgeSlot extension
+              // point (Phase 82 D-04). Hard-separation: looks up the Stage 1
+              // PredictedRow (noise classifier output) by id; never reads
+              // Stage 3 intent state. PredictorChip returns null for
+              // pre-cutover rows (predictor undefined) so RowList renders
+              // no empty cell.
+              const p = predictorById.get(row.id);
+              if (!p) return null;
+              return (
+                <PredictorChip
+                  predictor={p.predictor}
+                  llmConfidence={p.llmConfidence}
+                />
+              );
             }}
           />
           {/* Hard-separation: Stage 1 detail pane receives `categories` (for

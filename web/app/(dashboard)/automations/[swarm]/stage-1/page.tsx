@@ -210,6 +210,27 @@ export interface PredictedRow {
    * are not enriched. debtor-email swarm only today.
    */
   tagging?: TaggingFailureSummary;
+  /**
+   * Phase 999.8 Plan 08 (D-08, D-12). Stage 1 predictor attribution: which
+   * predictor decided this row's Stage 1 noise classification. Sourced from
+   * pipeline_events.decision_details.predictor (denormalized by Plan 02 on
+   * the classifier-screen-worker emit). 'regex' = Pass 1 hit;
+   * 'llm_2nd_pass' = Pass 2 LLM gated through the high-confidence gate.
+   * NULL on rows predating cutover (D-09 forward-only) — PredictorChip
+   * renders nothing in that case.
+   *
+   * Hard-separation: this field exists ONLY on the Stage 1 surface and is
+   * derived from Stage 1 pipeline_events. It does not cross into Stage 3
+   * (swarm_intents) — that classifier wave is gated to a separate surface.
+   */
+  predictor?: "regex" | "llm_2nd_pass" | null;
+  /**
+   * Phase 999.8 Plan 08. LLM 2nd-pass confidence bucket sourced from
+   * pipeline_events.decision_details.llm_confidence. Only meaningful when
+   * predictor === 'llm_2nd_pass'; rendered inside the PredictorChip as
+   * `LLM · <confidence>`. NULL otherwise.
+   */
+  llmConfidence?: "low" | "medium" | "high" | null;
 }
 
 /**
@@ -816,6 +837,37 @@ export async function loadPageData(
 
     if (selectedRow && initialBodyMap[selectedRow.id]) {
       initialSelectedBody = initialBodyMap[selectedRow.id];
+    }
+  }
+
+  // Phase 999.8 Plan 08 (D-08). Derive per-row predictor + llm_confidence from
+  // the Stage 1 timeline event (decision_details denormalized by Plan 02 on
+  // the classifier-screen-worker emit). Cheap pass over timelineMap — no
+  // extra DB round-trip. Forward-only (D-09): pre-cutover rows have null
+  // decision_details.predictor → PredictedRow.predictor stays undefined →
+  // PredictorChip renders nothing.
+  //
+  // Hard-separation: filters strictly on stage===1; never reads Stage 3
+  // events (swarm_intents) even though the timeline holds them.
+  if (rows.length > 0) {
+    rows = rows.map((r) => {
+      const stage1 = (timelineMap[r.id] ?? []).find((ev) => ev.stage === 1);
+      if (!stage1) return r;
+      const d = (stage1.decision_details ?? {}) as Record<string, unknown>;
+      const rawPred = d.predictor;
+      const predictor: PredictedRow["predictor"] =
+        rawPred === "regex" || rawPred === "llm_2nd_pass" ? rawPred : null;
+      const rawConf = d.llm_confidence;
+      const llmConfidence: PredictedRow["llmConfidence"] =
+        rawConf === "low" || rawConf === "medium" || rawConf === "high"
+          ? rawConf
+          : null;
+      return { ...r, predictor, llmConfidence };
+    });
+    const sel = selectedRow;
+    if (sel) {
+      const enriched = rows.find((r) => r.id === sel.id);
+      if (enriched) selectedRow = enriched;
     }
   }
 
