@@ -111,6 +111,11 @@ const rpcCalls: Array<{ fn: string; args: unknown }> = [];
 
 // Last-built builder per table — exposes .eq calls for assertion.
 let lastListBuilder: MockBuilder | null = null;
+// All builders for pipeline_events — page.tsx issues multiple queries
+// against this table (safety/predicted list + timeline join). The safety
+// branch test needs to locate the LIST query (eq stage=0) rather than
+// whichever was built last (timeline overwrites lastListBuilder).
+const pipelineEventBuilders: MockBuilder[] = [];
 
 // Phase 81-04 Task 3: `.schema(name)` accessor for the mock admin client.
 // Production code calls `admin.schema("email_pipeline").from("emails")` and
@@ -134,6 +139,7 @@ const adminClientMock: {
         inUseTab === "safety" ? scenario.safetyRows : scenario.predictedRows;
       const b = makeBuilder({ data, error: null });
       lastListBuilder = b;
+      pipelineEventBuilders.push(b);
       return b;
     }
     if (table === "classifier_rules") {
@@ -194,6 +200,7 @@ beforeEach(() => {
   fromCalls.length = 0;
   rpcCalls.length = 0;
   lastListBuilder = null;
+  pipelineEventBuilders.length = 0;
   currentTab = undefined;
   adminClientMock.from.mockClear();
   adminClientMock.rpc.mockClear();
@@ -274,8 +281,15 @@ describe("loadPageData — ?tab=safety branch (Phase 64-05 + Phase 70-06 TELE-03
 
     // Phase 70-06: safety branch now reads pipeline_events (not automation_runs).
     expect(fromCalls).toContain("pipeline_events");
-    expect(lastListBuilder).not.toBeNull();
-    const eqCols = lastListBuilder!._eqCalls.map((c) => `${c.col}=${c.val}`);
+    // Locate the safety-list builder among all pipeline_events builders —
+    // page.tsx also issues a timeline query against pipeline_events after
+    // the safety-list, so `lastListBuilder` would otherwise point at the
+    // timeline join (which only has eq("swarm_type", ...) / .in(...)).
+    const safetyBuilder = pipelineEventBuilders.find((b) =>
+      b._eqCalls.some((c) => c.col === "decision" && c.val === "injection_suspected"),
+    );
+    expect(safetyBuilder).toBeDefined();
+    const eqCols = safetyBuilder!._eqCalls.map((c) => `${c.col}=${c.val}`);
     expect(eqCols).toContain("swarm_type=debtor-email");
     expect(eqCols).toContain("stage=0");
     expect(eqCols).toContain("decision=injection_suspected");
