@@ -35,6 +35,7 @@ import { classifierLabelResolver } from "@/lib/inngest/functions/classifier-labe
 import { classifierInvoiceCopyHandler } from "@/lib/inngest/functions/classifier-invoice-copy-handler";
 import { stage0SafetyWorker } from "@/lib/inngest/functions/stage-0-safety-worker";
 import { stage0Backfill } from "@/lib/inngest/functions/stage-0-backfill";
+import { stage0CoverageProbe } from "@/lib/inngest/functions/stage-0-coverage-probe";
 import { stage0StaleSweeper } from "@/lib/inngest/functions/automation-runs-sweeper";
 import { budgetBreachHandler } from "@/lib/inngest/functions/budget-breach-handler";
 import { coordinatorOrchestrator } from "@/lib/inngest/functions/coordinator-orchestrator";
@@ -72,6 +73,7 @@ export const { GET, POST, PUT } = serve({
     classifierInvoiceCopyHandler,
     stage0SafetyWorker,
     stage0Backfill,
+    stage0CoverageProbe,
     stage0StaleSweeper,
     budgetBreachHandler,
     coordinatorOrchestrator,
