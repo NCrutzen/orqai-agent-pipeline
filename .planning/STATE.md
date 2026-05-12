@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
-status: stabilising
-stopped_at: Completed 82.1-04-PLAN.md (closed) + cf317b4 stage-0 placeholder fix verified in production
-last_updated: "2026-05-12T08:00:00Z"
-last_activity: 2026-05-12 -- v8.0 closure punch list defined; ROADMAP cleanup pass
+status: unknown
+stopped_at: Phase 82.2 context gathered
+last_updated: "2026-05-12T07:43:38.016Z"
 progress:
-  total_phases: 63
-  completed_phases: 20
-  total_plans: 135
-  completed_plans: 118
-  percent: 87
+  total_phases: 22
+  completed_phases: 13
+  total_plans: 67
+  completed_plans: 67
+  percent: 100
 ---
 
 # Project State
@@ -31,17 +30,20 @@ Milestone: v8.0 Agentic Platform (Phases 63-82.4)
 Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verified live 2026-05-12)
 
 **v8.0 closure punch list (gates before /gsd-audit-milestone v8.0):**
+
 - [ ] Phase 82.2: Stage 0 telemetry coverage fix — CONTEXT stub exists; needs `/gsd-discuss-phase 82.2`
 - [ ] Phase 82.3: Per-stage audit surface — CONTEXT stub exists; needs `/gsd-discuss-phase 82.3` (parallel-safe with 82.2)
 - [ ] Phase 82.4: Feedback capture form — CONTEXT stub exists; sequenced AFTER 82.3
 - [ ] Phase 999.8: 2 outstanding browser smokes — operator UAT pending
 
 **v8.0 reframes (locked 2026-05-12):**
+
 - Phase 72 (Promotion Recommender) → **V9.0** full milestone (prose-feedback synthesis)
 - Phase 73 (sales-email validation) → **V10.0** full milestone (Phase 78 never executed)
 - Phase 77 (Stage 2/3 e2e verification) → **superseded by Phase 82.3** + debtor-person operator onboarding
 
 **Next milestones defined (see `.planning/MILESTONES.md`):**
+
 - V9.0 Promotion Recommender + Learning Inbox (depends on v8.0 closure)
 - V10.0 Sales-email canonical pipeline (depends on V9.0 capture surface live)
 - V11.0 Intent-prioritised handlers (depends on V10.0 multi-swarm signal)
@@ -207,10 +209,10 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 
 ## Session Continuity
 
-Last session: 2026-05-11T13:11:44.229Z
-Stopped at: Completed 82.1-04-PLAN.md
+Last session: --stopped-at
+Stopped at: Phase 82.2 context gathered
 Resume with: `/gsd-execute-phase 65`
-Resume file: None
+Resume file: --resume-file
 
 ## Deferred Items
 
