@@ -4,7 +4,7 @@ milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
 stopped_at: Phase 82.2 context gathered
-last_updated: "2026-05-12T07:43:38.016Z"
+last_updated: "2026-05-12T08:40:25.444Z"
 progress:
   total_phases: 22
   completed_phases: 13
@@ -20,12 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** v8.0 closure punch list — Phases 82.2 + 82.3 + 82.4 + 999.8 must ship before debtor-person operator onboarding (week of 2026-05-18).
+**Current focus:** Phase --phase — 82.2
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: v8.0 stabilisation — closure punch list active
+Phase: --phase (82.2) — EXECUTING
+Plan: 1 of --name
 Milestone: v8.0 Agentic Platform (Phases 63-82.4)
 Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verified live 2026-05-12)
 
