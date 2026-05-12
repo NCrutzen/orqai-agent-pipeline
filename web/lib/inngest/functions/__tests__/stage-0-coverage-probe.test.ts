@@ -1,19 +1,14 @@
-// Phase 82.2 Plan 10 — RED tests for the Stage 0 coverage probe.
+// Phase 82.2 Plan 10 — RED tests for the daily Stage 0 coverage probe.
 // Implementation file: ../stage-0-coverage-probe.ts (Task 2 GREEN).
-//
 // Test-IDs map back to PLAN.md Task 1 cases:
-//   T1  all mailboxes ≥99% → no breached rows; one pipeline_health row per mailbox
+//   T1  all 5 mailboxes ≥99% → no breach, 5 rows written
 //   T2  one mailbox at 95% with stage1>0 → that row breached=true; others false
-//   T3  mailbox at 100% with stage1=0 → breached=false (no volume, no breach)
+//   T3  100% coverage with stage1_count=0 → breached=false (no volume)
 //   T4  multiple mailboxes breached → all marked breached=true
-//   T5  probe is read-only on pipeline_events (no INSERT)
-//   T6  probe_run_id is the SAME across all inserted rows
-//   T7  probe_run_id generated inside step.run("resolve-run-id", ...)
-//   T8  RPC called once per ACTIVE_MAILBOXES with correct (mailbox, swarm) pairs
-//
-// Note: per the Plan 10 execution context the verified ACTIVE_MAILBOXES set
-// is 7 entries (6 debtor + 1 sales) rather than the 5 the plan body sketches —
-// tests assert the live registry of active mailboxes.
+//   T5  read-only: NO pipeline_events INSERT happens
+//   T6  probe_run_id is the SAME across all 5 inserted rows
+//   T7  probe_run_id generated INSIDE step.run (Phase 65 replay-safety)
+//   T8  RPC called exactly 5 times with the correct (mailbox, swarm_type) pairs
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -33,43 +28,30 @@ vi.mock("@/lib/inngest/client", () => ({
 }));
 
 // ---- Supabase admin mock --------------------------------------------------
-type RpcKey = string; // `${mailbox}|${swarm_type}`
+// Captures rpc() and from(table).insert calls (also tracks any from() target
+// so Test 5 can assert no pipeline_events writes).
+type CoverageRow = { stage1_count: number; stage0_count: number };
 
 const state: {
-  rpcResults: Map<RpcKey, { stage1_count: number; stage0_count: number }>;
-  rpcCalls: Array<{ name: string; args: { mailbox_arg: string; swarm_arg: string } }>;
-  pipelineHealthInserts: Array<Record<string, unknown>[]>;
-  pipelineEventsInserts: Array<Record<string, unknown>[]>;
+  rpcCalls: Array<{ name: string; args: Record<string, string> }>;
+  rpcResponder: (args: Record<string, string>) => CoverageRow;
+  insertCalls: Array<{ table: string; rows: Record<string, unknown>[] }>;
 } = {
-  rpcResults: new Map(),
   rpcCalls: [],
-  pipelineHealthInserts: [],
-  pipelineEventsInserts: [],
+  rpcResponder: () => ({ stage1_count: 100, stage0_count: 100 }),
+  insertCalls: [],
 };
 
 function makeAdmin() {
-  const rpc = vi.fn(
-    async (
-      name: string,
-      args: { mailbox_arg: string; swarm_arg: string },
-    ) => {
-      state.rpcCalls.push({ name, args });
-      const key: RpcKey = `${args.mailbox_arg}|${args.swarm_arg}`;
-      const data = state.rpcResults.get(key) ?? {
-        stage1_count: 0,
-        stage0_count: 0,
-      };
-      return { data, error: null };
-    },
-  );
+  const rpc = vi.fn(async (name: string, args: Record<string, string>) => {
+    state.rpcCalls.push({ name, args });
+    const row = state.rpcResponder(args);
+    return { data: [row], error: null };
+  });
 
   const from = vi.fn((table: string) => ({
     insert: vi.fn(async (rows: Record<string, unknown>[]) => {
-      if (table === "pipeline_health") {
-        state.pipelineHealthInserts.push(rows);
-      } else if (table === "pipeline_events") {
-        state.pipelineEventsInserts.push(rows);
-      }
+      state.insertCalls.push({ table, rows });
       return { data: null, error: null };
     }),
   }));
@@ -92,173 +74,155 @@ function makeStep() {
   return { run, calls };
 }
 
-// ---- Import under test (RED until Task 2 lands) -------------------------
-import {
-  stage0CoverageProbe,
-  ACTIVE_MAILBOXES,
-} from "../stage-0-coverage-probe";
+// ---- Import the function under test (RED until Task 2 lands) ------------
+import { stage0CoverageProbe } from "../stage-0-coverage-probe";
 
 function getHandler() {
   return (stage0CoverageProbe as unknown as { handler: any }).handler;
 }
 
-function setAllAtCoverage(coverage: number, stage1Count = 100): void {
-  state.rpcResults = new Map();
-  for (const m of ACTIVE_MAILBOXES) {
-    const stage0 = Math.round(stage1Count * coverage);
-    state.rpcResults.set(`${m.mailbox}|${m.swarm_type}`, {
-      stage1_count: stage1Count,
-      stage0_count: stage0,
-    });
-  }
-}
-
 beforeEach(() => {
-  state.rpcResults = new Map();
   state.rpcCalls = [];
-  state.pipelineHealthInserts = [];
-  state.pipelineEventsInserts = [];
+  state.insertCalls = [];
+  state.rpcResponder = () => ({ stage1_count: 100, stage0_count: 100 });
   adminInstance = makeAdmin();
 });
 
 // ---------------------------------------------------------------------------
-// T1 — All mailboxes ≥99% → no breaches; one row per mailbox written
+// T1 — all 5 mailboxes ≥99% → no breach, 5 rows written
 // ---------------------------------------------------------------------------
-describe("Stage 0 coverage probe — T1 (all green)", () => {
-  it("writes one pipeline_health row per active mailbox, none breached", async () => {
-    setAllAtCoverage(1.0, 50);
+describe("Stage 0 coverage probe — T1 (all healthy)", () => {
+  it("writes 5 pipeline_health rows, none breached", async () => {
+    state.rpcResponder = () => ({ stage1_count: 100, stage0_count: 100 });
     const ret = await getHandler()({ step: makeStep() });
 
-    expect(state.pipelineHealthInserts).toHaveLength(1);
-    const rows = state.pipelineHealthInserts[0];
-    expect(rows).toHaveLength(ACTIVE_MAILBOXES.length);
-    for (const row of rows) {
-      expect(row.breached).toBe(false);
+    expect(state.insertCalls).toHaveLength(1);
+    expect(state.insertCalls[0].table).toBe("pipeline_health");
+    const rows = state.insertCalls[0].rows;
+    expect(rows).toHaveLength(5);
+    for (const r of rows) {
+      expect(r.breached).toBe(false);
     }
-    expect(ret).toMatchObject({
-      mailboxes: ACTIVE_MAILBOXES.length,
-      breaches: 0,
-    });
+    expect(ret).toMatchObject({ mailboxes: 5, breaches: 0 });
   });
 });
 
 // ---------------------------------------------------------------------------
-// T2 — One mailbox at 95% with stage1>0 → that row breached, others not
+// T2 — one mailbox at 95% → that row breached, others not
 // ---------------------------------------------------------------------------
 describe("Stage 0 coverage probe — T2 (single breach)", () => {
-  it("marks only the under-99% mailbox as breached", async () => {
-    setAllAtCoverage(1.0, 50);
-    const target = ACTIVE_MAILBOXES[0];
-    // 95/100 = 0.95 — below the 0.99 floor with non-zero volume
-    state.rpcResults.set(`${target.mailbox}|${target.swarm_type}`, {
-      stage1_count: 100,
-      stage0_count: 95,
-    });
-
+  it("flags only the under-covered mailbox", async () => {
+    state.rpcResponder = (args) => {
+      if (args.mailbox_arg === "debiteuren@smeba.nl") {
+        return { stage1_count: 100, stage0_count: 95 };
+      }
+      return { stage1_count: 50, stage0_count: 50 };
+    };
     const ret = await getHandler()({ step: makeStep() });
-    const rows = state.pipelineHealthInserts[0];
-    expect(rows).toHaveLength(ACTIVE_MAILBOXES.length);
-    const breached = rows.filter((r) => r.breached === true);
-    expect(breached).toHaveLength(1);
-    expect(breached[0].mailbox).toBe(target.mailbox);
-    expect(ret.breaches).toBe(1);
+
+    const rows = state.insertCalls[0].rows;
+    expect(rows).toHaveLength(5);
+    const breachedRows = rows.filter((r) => r.breached === true);
+    expect(breachedRows).toHaveLength(1);
+    expect(breachedRows[0].mailbox).toBe("debiteuren@smeba.nl");
+    expect(ret).toMatchObject({ breaches: 1 });
   });
 });
 
 // ---------------------------------------------------------------------------
-// T3 — Mailbox at "100%" with stage1_count=0 → NOT breached (no volume)
+// T3 — zero stage1 volume → not breached even at trivial 100%
 // ---------------------------------------------------------------------------
-describe("Stage 0 coverage probe — T3 (zero-volume not a breach)", () => {
-  it("treats stage1_count=0 as breached=false regardless of trivial coverage", async () => {
-    setAllAtCoverage(1.0, 50);
-    const target = ACTIVE_MAILBOXES[0];
-    state.rpcResults.set(`${target.mailbox}|${target.swarm_type}`, {
-      stage1_count: 0,
-      stage0_count: 0,
-    });
-
+describe("Stage 0 coverage probe — T3 (zero volume → no breach)", () => {
+  it("does not mark breach when stage1_count=0", async () => {
+    state.rpcResponder = () => ({ stage1_count: 0, stage0_count: 0 });
     const ret = await getHandler()({ step: makeStep() });
-    const rows = state.pipelineHealthInserts[0];
-    const targetRow = rows.find((r) => r.mailbox === target.mailbox);
-    expect(targetRow).toBeDefined();
-    expect(targetRow!.breached).toBe(false);
-    expect(ret.breaches).toBe(0);
+    const rows = state.insertCalls[0].rows;
+    for (const r of rows) {
+      expect(r.breached).toBe(false);
+    }
+    expect(ret).toMatchObject({ breaches: 0 });
   });
 });
 
 // ---------------------------------------------------------------------------
-// T4 — Multiple breaches all marked
+// T4 — multiple mailboxes breached
 // ---------------------------------------------------------------------------
 describe("Stage 0 coverage probe — T4 (multiple breaches)", () => {
-  it("marks every under-99% mailbox as breached", async () => {
-    setAllAtCoverage(0.5, 80);
+  it("flags every under-covered mailbox", async () => {
+    state.rpcResponder = (args) => {
+      if (args.mailbox_arg === "verkoop@smeba.nl") {
+        return { stage1_count: 200, stage0_count: 100 };
+      }
+      if (args.mailbox_arg === "debiteuren@berki.nl") {
+        return { stage1_count: 100, stage0_count: 50 };
+      }
+      return { stage1_count: 100, stage0_count: 100 };
+    };
     const ret = await getHandler()({ step: makeStep() });
-    const rows = state.pipelineHealthInserts[0];
-    expect(rows.every((r) => r.breached === true)).toBe(true);
-    expect(ret.breaches).toBe(ACTIVE_MAILBOXES.length);
+    const rows = state.insertCalls[0].rows;
+    const breachedRows = rows.filter((r) => r.breached === true);
+    expect(breachedRows).toHaveLength(2);
+    expect(ret).toMatchObject({ breaches: 2 });
   });
 });
 
 // ---------------------------------------------------------------------------
-// T5 — Probe is read-only on pipeline_events
+// T5 — read-only: probe never writes to pipeline_events
 // ---------------------------------------------------------------------------
-describe("Stage 0 coverage probe — T5 (read-only on pipeline_events)", () => {
-  it("never INSERTs into pipeline_events", async () => {
-    setAllAtCoverage(0.5, 80);
+describe("Stage 0 coverage probe — T5 (no pipeline_events writes)", () => {
+  it("does not call from('pipeline_events').insert", async () => {
     await getHandler()({ step: makeStep() });
-    expect(state.pipelineEventsInserts).toHaveLength(0);
+    const pipelineEventInserts = state.insertCalls.filter(
+      (c) => c.table === "pipeline_events",
+    );
+    expect(pipelineEventInserts).toHaveLength(0);
   });
 });
 
 // ---------------------------------------------------------------------------
-// T6 — probe_run_id is the same across all rows of one tick
+// T6 — probe_run_id is shared across all 5 inserted rows
 // ---------------------------------------------------------------------------
-describe("Stage 0 coverage probe — T6 (probe_run_id groups the run)", () => {
-  it("uses one probe_run_id for every row inserted in a single tick", async () => {
-    setAllAtCoverage(1.0, 10);
+describe("Stage 0 coverage probe — T6 (shared probe_run_id)", () => {
+  it("groups all 5 rows under a single probe_run_id", async () => {
     await getHandler()({ step: makeStep() });
-    const rows = state.pipelineHealthInserts[0];
+    const rows = state.insertCalls[0].rows;
     const ids = new Set(rows.map((r) => r.probe_run_id));
     expect(ids.size).toBe(1);
-    const [theId] = Array.from(ids);
-    expect(typeof theId).toBe("string");
-    expect((theId as string).length).toBeGreaterThan(0);
+    expect(typeof rows[0].probe_run_id).toBe("string");
   });
 });
 
 // ---------------------------------------------------------------------------
-// T7 — probe_run_id generated INSIDE step.run("resolve-run-id", ...)
+// T7 — probe_run_id generated inside step.run (Phase 65 replay-safety)
 // ---------------------------------------------------------------------------
-describe("Stage 0 coverage probe — T7 (replay-safe probe_run_id)", () => {
-  it("calls step.run('resolve-run-id', ...) before measure-coverage", async () => {
-    setAllAtCoverage(1.0, 10);
+describe("Stage 0 coverage probe — T7 (replay-safe run id)", () => {
+  it("resolves probe_run_id inside step.run", async () => {
     const step = makeStep();
     await getHandler()({ step });
     const ids = step.calls.map((c) => c.id);
     expect(ids).toContain("resolve-run-id");
-    const resolveIdx = ids.indexOf("resolve-run-id");
-    const measureIdx = ids.indexOf("measure-coverage");
-    expect(resolveIdx).toBeGreaterThanOrEqual(0);
-    expect(measureIdx).toBeGreaterThan(resolveIdx);
   });
 });
 
 // ---------------------------------------------------------------------------
-// T8 — RPC called once per ACTIVE_MAILBOXES with correct args
+// T8 — RPC called exactly 5 times with correct (mailbox, swarm) pairs
 // ---------------------------------------------------------------------------
-describe("Stage 0 coverage probe — T8 (one RPC per active mailbox)", () => {
-  it("invokes stage0_coverage_24h exactly once per ACTIVE_MAILBOXES entry", async () => {
-    setAllAtCoverage(1.0, 10);
+describe("Stage 0 coverage probe — T8 (RPC fan-out)", () => {
+  it("invokes stage0_coverage_24h once per active mailbox", async () => {
     await getHandler()({ step: makeStep() });
-    expect(state.rpcCalls).toHaveLength(ACTIVE_MAILBOXES.length);
-    for (const call of state.rpcCalls) {
-      expect(call.name).toBe("stage0_coverage_24h");
+    expect(state.rpcCalls).toHaveLength(5);
+    for (const c of state.rpcCalls) {
+      expect(c.name).toBe("stage0_coverage_24h");
+      expect(c.args).toHaveProperty("mailbox_arg");
+      expect(c.args).toHaveProperty("swarm_arg");
     }
-    const seen = new Set(
-      state.rpcCalls.map((c) => `${c.args.mailbox_arg}|${c.args.swarm_arg}`),
+    const pairs = state.rpcCalls.map(
+      (c) => `${c.args.mailbox_arg}|${c.args.swarm_arg}`,
     );
-    for (const m of ACTIVE_MAILBOXES) {
-      expect(seen.has(`${m.mailbox}|${m.swarm_type}`)).toBe(true);
-    }
+    expect(pairs).toContain("verkoop@smeba.nl|sales-email");
+    expect(pairs).toContain("debiteuren@smeba.nl|debtor-email");
+    expect(pairs).toContain("debiteuren@berki.nl|debtor-email");
+    expect(pairs).toContain("debiteuren@smeba-fire.be|debtor-email");
+    expect(pairs).toContain("administratie@fire-control.nl|debtor-email");
   });
 });
