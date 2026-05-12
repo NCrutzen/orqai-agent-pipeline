@@ -1,24 +1,13 @@
-// Phase 70 Plan 05 — Stage 1 pipeline_events emit integration tests for the
-// debtor-email ingest API route.
+// Phase 82.2 Plan 07 D-A — thin-ingest contract tests.
 //
-// These replace the Plan 01 Wave-0 scaffold: each previously skipped test is
-// now a real assertion against a mocked Supabase admin client that records every
-// `.from(table).insert(payload)` into a shared `supabaseInserts` array
-// (mock pattern modeled on
-// `web/lib/inngest/functions/__tests__/classifier-invoice-copy-handler.test.ts`).
+// The route is now Stage 0's HTTP boundary only: validate → load settings
+// → fetch Outlook → resolve email_pipeline.emails.id → INSERT pending
+// placeholder automation_runs → inngest.send stage-0/email.received → 200.
 //
-// Coverage:
-//  1. Regex-matched email (auto-reply subject) emits ONE pipeline_events row
-//     at stage=1 with decision = matched category and numeric confidence
-//     pass-through.
-//  2. Regex no-match email emits ONE pipeline_events row at stage=1 with
-//     decision = 'unknown'.
-//  3. The Stage 1 emit's decision_details carries the Outlook string
-//     messageId in `decision_details.outlook_message_id` per RESEARCH
-//     §Pitfall 3 fallback (email_id stays null because the canonical
-//     email_pipeline.emails.id uuid is not in scope at the classify() site).
-//  4. TELE-02 regression: legacy `automation_runs` INSERTs still happen
-//     alongside the new `pipeline_events` row.
+// Tests here lock that the regex / whitelist / auto-action / Stage-1 emit
+// surfaces are GONE (now Plan 06 Stage 1 worker concerns) and that the
+// stage-0/email.received payload carries the full passthrough field set the
+// downstream Stage 0 → Stage 1 chain needs.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -26,36 +15,28 @@ import { NextRequest } from "next/server";
 // ── Mocks ────────────────────────────────────────────────────────────────
 
 const supabaseInserts: Array<{ table: string; schema: string | null; payload: Record<string, unknown> }> = [];
+const sendCalls: Array<{ name: string; data: Record<string, unknown> }> = [];
 
 vi.mock("@/lib/inngest/client", () => ({
-  inngest: { send: vi.fn().mockResolvedValue({ ids: ["evt"] }) },
+  inngest: {
+    send: vi.fn((p: { name: string; data: Record<string, unknown> }) => {
+      sendCalls.push(p);
+      return Promise.resolve({ ids: ["evt"] });
+    }),
+  },
 }));
 
 vi.mock("@/lib/automations/runs/emit", () => ({
   emitAutomationRunStale: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/lib/classifier/cache", () => ({
-  // Empty whitelist → all classified rows take the bulk-review path
-  // (skipped_not_whitelisted / skipped_unknown), keeping the tests focused
-  // on the Stage 1 emit and away from categorize/archive side effects.
-  readWhitelist: vi.fn().mockResolvedValue(new Set<string>()),
-}));
-
 vi.mock("@/lib/automations/debtor-email/mailboxes", () => ({
-  ICONTROLLER_MAILBOXES: { "debiteuren@smeba.nl": "smeba-mbx" },
+  ICONTROLLER_MAILBOXES: { "debiteuren@smeba.nl": 1 },
 }));
 
 vi.mock("@/lib/outlook", () => ({
   getMessageMeta: vi.fn(),
   fetchMessageBody: vi.fn(),
-  categorizeEmail: vi.fn(),
-  archiveEmail: vi.fn(),
-}));
-
-// classify() is the unit under test — we control its return per case.
-vi.mock("@/lib/debtor-email/classify", () => ({
-  classify: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/admin", () => {
@@ -63,6 +44,10 @@ vi.mock("@/lib/supabase/admin", () => {
     const chain: Record<string, unknown> = {};
     chain.select = vi.fn(() => chain);
     chain.eq = vi.fn(() => chain);
+    chain.update = vi.fn((payload: Record<string, unknown>) => {
+      supabaseInserts.push({ table: `${table}:update`, schema, payload });
+      return chain;
+    });
     chain.maybeSingle = vi.fn(() => {
       if (table === "labeling_settings") {
         return Promise.resolve({
@@ -77,9 +62,19 @@ vi.mock("@/lib/supabase/admin", () => {
           error: null,
         });
       }
+      // email_pipeline.emails SELECT: return no existing row so the
+      // INSERT branch fires (and yields email_id = "email-uuid-1").
       return Promise.resolve({ data: null, error: null });
     });
-    chain.single = vi.fn(() => Promise.resolve({ data: { id: "ar-1" }, error: null }));
+    chain.single = vi.fn(() => {
+      if (table === "automation_runs") {
+        return Promise.resolve({ data: { id: "ar-stage0" }, error: null });
+      }
+      if (table === "emails") {
+        return Promise.resolve({ data: { id: "email-uuid-1" }, error: null });
+      }
+      return Promise.resolve({ data: { id: "x" }, error: null });
+    });
     chain.insert = vi.fn((payload: Record<string, unknown>) => {
       supabaseInserts.push({ table, schema, payload });
       return chain;
@@ -99,8 +94,6 @@ vi.mock("@/lib/supabase/admin", () => {
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 async function postIngest(body: Record<string, unknown>) {
   const { POST } = await import("../route");
   const req = new NextRequest("http://localhost/api/automations/debtor-email/ingest", {
@@ -111,134 +104,156 @@ async function postIngest(body: Record<string, unknown>) {
   return POST(req);
 }
 
-function pipelineEventRows() {
-  return supabaseInserts.filter((r) => r.table === "pipeline_events");
-}
-
-function automationRunRows() {
+function automationRunInserts() {
   return supabaseInserts.filter((r) => r.table === "automation_runs");
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────
 
-describe("POST /api/automations/debtor-email/ingest — Stage 1 pipeline_events emit", () => {
+describe("POST /api/automations/debtor-email/ingest — D-A thin ingest", () => {
   beforeEach(async () => {
     supabaseInserts.length = 0;
+    sendCalls.length = 0;
     process.env.ZAPIER_INGEST_SECRET = "test-secret";
 
     const outlook = await import("@/lib/outlook");
     vi.mocked(outlook.getMessageMeta).mockResolvedValue({
-      subject: "Automatic reply: out of office",
+      subject: "any subject",
       from: "alice@vendor.com",
       fromName: "Alice",
       receivedAt: "2026-05-05T10:00:00Z",
       categories: [],
     } as unknown as Awaited<ReturnType<typeof outlook.getMessageMeta>>);
     vi.mocked(outlook.fetchMessageBody).mockResolvedValue({
-      bodyText: "I am away until next week.",
+      bodyText: "body text",
     } as unknown as Awaited<ReturnType<typeof outlook.fetchMessageBody>>);
-    vi.mocked(outlook.categorizeEmail).mockResolvedValue({ success: true } as unknown as Awaited<ReturnType<typeof outlook.categorizeEmail>>);
-    vi.mocked(outlook.archiveEmail).mockResolvedValue({ success: true } as unknown as Awaited<ReturnType<typeof outlook.archiveEmail>>);
   });
 
-  it("with a regex-classified email emits ONE pipeline_events row at Stage 1 with decision = matched category", async () => {
-    const { classify } = await import("@/lib/debtor-email/classify");
-    vi.mocked(classify).mockReturnValue({
-      category: "auto_reply",
-      confidence: 0.95,
-      matchedRule: "subject_autoreply",
-    });
-
+  it("creates ONE pending placeholder automation_runs row and fires stage-0/email.received UNCONDITIONALLY", async () => {
     const res = await postIngest({
       messageId: "outlook-msg-id-abc-123",
       source_mailbox: "debiteuren@smeba.nl",
     });
     expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.action).toBe("stage_0_dispatched");
+    expect(json.automation_run_id).toBe("ar-stage0");
 
-    const events = pipelineEventRows();
-    expect(events).toHaveLength(1);
-    const ev = events[0].payload;
-    expect(ev.stage).toBe(1);
-    expect(ev.swarm_type).toBe("debtor-email");
-    expect(ev.decision).toBe("auto_reply");
-    expect(ev.confidence).toBe(0.95);
-    expect(ev.triggered_by).toBe("pipeline");
-    expect((ev.decision_details as Record<string, unknown>).matched).toBe(true);
-    expect((ev.decision_details as Record<string, unknown>).regex_rule_id).toBe("subject_autoreply");
+    // Exactly one Stage 0 placeholder (no other automation_runs surfaces).
+    const runs = automationRunInserts();
+    expect(runs).toHaveLength(1);
+    const ar = runs[0].payload;
+    expect(ar.status).toBe("pending");
+    expect(ar.swarm_type).toBe("debtor-email");
+    expect(ar.topic).toBeNull();
+    expect((ar.result as Record<string, unknown>).stage).toBe("stage_0_safety_pending");
+
+    // Stage 0 event fired with full passthrough payload.
+    expect(sendCalls).toHaveLength(1);
+    expect(sendCalls[0].name).toBe("stage-0/email.received");
+    const data = sendCalls[0].data;
+    expect(data.automation_run_id).toBe("ar-stage0");
+    expect(data.email_id).toBe("email-uuid-1");
+    expect(data.swarm_type).toBe("debtor-email");
+    expect(data.entity).toBe("smeba");
+    expect(data.mailbox_id).toBe(1);
+    expect(data.from).toBe("alice@vendor.com");
+    expect(data.fromName).toBe("Alice");
+    expect(data.receivedAt).toBe("2026-05-05T10:00:00Z");
+    expect(data.subject).toBe("any subject");
+    expect(data.body_text).toBe("body text");
+    expect(data.safety_overridden).toBeUndefined(); // Pitfall 5
   });
 
-  it("with an unknown email (regex no-match) emits ONE pipeline_events row at Stage 1 with decision = 'unknown'", async () => {
-    const { classify } = await import("@/lib/debtor-email/classify");
-    vi.mocked(classify).mockReturnValue({
-      category: "unknown",
-      confidence: 0,
-      matchedRule: "no_match",
+  it("does NOT emit any pipeline_events row (Stage 1 emit is now Plan 06 worker's job)", async () => {
+    await postIngest({
+      messageId: "outlook-msg-id-xyz",
+      source_mailbox: "debiteuren@smeba.nl",
+    });
+    const pipelineEvents = supabaseInserts.filter((r) => r.table === "pipeline_events");
+    expect(pipelineEvents).toHaveLength(0);
+  });
+
+  it("does NOT emit categorize/archive/iController-cleanup surfaces", async () => {
+    await postIngest({
+      messageId: "outlook-msg-id-categorize",
+      source_mailbox: "debiteuren@smeba.nl",
+    });
+    // The only automation_runs INSERT is the Stage 0 placeholder. No
+    // 'predicted', no 'completed' categorize+archive row, no
+    // debtor-email-cleanup pending row.
+    const runs = automationRunInserts();
+    expect(runs).toHaveLength(1);
+    const automations = runs.map((r) => r.payload.automation);
+    expect(automations).not.toContain("debtor-email-cleanup");
+  });
+
+  it("respects settings.ingest_enabled=false → 200 skipped_disabled with no event fired", async () => {
+    // Override the labeling_settings mock to return disabled.
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const original = createAdminClient;
+    const adminMod = await import("@/lib/supabase/admin");
+    vi.spyOn(adminMod, "createAdminClient").mockImplementationOnce(() => {
+      function makeChain(table: string): Record<string, unknown> {
+        const chain: Record<string, unknown> = {};
+        chain.select = vi.fn(() => chain);
+        chain.eq = vi.fn(() => chain);
+        chain.maybeSingle = vi.fn(() => {
+          if (table === "labeling_settings") {
+            return Promise.resolve({
+              data: {
+                source_mailbox: "debiteuren@smeba.nl",
+                entity: "smeba",
+                icontroller_company: "smeba",
+                ingest_enabled: false,
+                auto_label_enabled: false,
+                triage_shadow_mode: false,
+              },
+              error: null,
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        });
+        chain.insert = vi.fn(() => chain);
+        chain.single = vi.fn(() => Promise.resolve({ data: { id: "x" }, error: null }));
+        return chain;
+      }
+      return {
+        from: (t: string) => makeChain(t),
+        schema: () => ({ from: (t: string) => makeChain(t) }),
+      } as unknown as ReturnType<typeof original>;
     });
 
     const res = await postIngest({
-      messageId: "outlook-msg-id-def-456",
+      messageId: "outlook-msg-disabled",
       source_mailbox: "debiteuren@smeba.nl",
     });
     expect(res.status).toBe(200);
-
-    const events = pipelineEventRows();
-    expect(events).toHaveLength(1);
-    const ev = events[0].payload;
-    expect(ev.stage).toBe(1);
-    expect(ev.decision).toBe("unknown");
-    expect((ev.decision_details as Record<string, unknown>).matched).toBe(false);
-    expect((ev.decision_details as Record<string, unknown>).regex_rule_id).toBe("no_match");
+    const json = await res.json();
+    expect(json.action).toBe("skipped_disabled");
+    expect(sendCalls).toHaveLength(0);
   });
 
-  it("Stage 1 emit decision_details carries the Outlook messageId, and email_id is resolved via email_pipeline.emails (Plan 71-06)", async () => {
-    const { classify } = await import("@/lib/debtor-email/classify");
-    vi.mocked(classify).mockReturnValue({
-      category: "auto_reply",
-      confidence: 0.92,
-      matchedRule: "subject_acknowledgement",
-    });
+  it("404 from Outlook fetch → 200 skipped_not_found with audit row, no Stage 0 dispatch", async () => {
+    const outlook = await import("@/lib/outlook");
+    vi.mocked(outlook.getMessageMeta).mockRejectedValueOnce(new Error("Graph 404 not found"));
+    vi.mocked(outlook.fetchMessageBody).mockRejectedValueOnce(new Error("Graph 404 not found"));
 
-    const outlookMessageId = "AAMkAGI2Outlook-string-id-not-a-uuid";
     const res = await postIngest({
-      messageId: outlookMessageId,
+      messageId: "outlook-msg-404",
       source_mailbox: "debiteuren@smeba.nl",
     });
     expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.action).toBe("skipped_not_found");
 
-    const events = pipelineEventRows();
-    expect(events).toHaveLength(1);
-    const ev = events[0].payload;
-    // Plan 71-06: email_id is resolved by SELECT-or-INSERT into
-    // email_pipeline.emails before the Stage 1 emit, so the row aggregates
-    // into pipeline_events_email_summary (which filters email_id IS NOT NULL).
-    // Mock returns "ar-1" from the email_pipeline.emails INSERT path.
-    expect(ev.email_id).toBe("ar-1");
-    const details = ev.decision_details as Record<string, unknown>;
-    expect(details.outlook_message_id).toBe(outlookMessageId);
-    // Sanity: the Outlook id is NOT a uuid — it stays in decision_details
-    // even though email_id is now resolved separately.
-    expect(UUID_RE.test(outlookMessageId)).toBe(false);
-  });
+    // Audit row exists for the fetch failure.
+    const runs = automationRunInserts();
+    expect(runs).toHaveLength(1);
+    expect(runs[0].payload.status).toBe("completed");
+    expect((runs[0].payload.result as Record<string, unknown>).outcome).toBe("not_found");
 
-  it("TELE-02 regression: legacy automation_runs INSERTs still happen alongside the pipeline_events row", async () => {
-    const { classify } = await import("@/lib/debtor-email/classify");
-    vi.mocked(classify).mockReturnValue({
-      category: "auto_reply",
-      confidence: 0.95,
-      matchedRule: "subject_autoreply",
-    });
-
-    const res = await postIngest({
-      messageId: "outlook-msg-tele02",
-      source_mailbox: "debiteuren@smeba.nl",
-    });
-    expect(res.status).toBe(200);
-
-    expect(pipelineEventRows()).toHaveLength(1);
-    // Bulk-review path emits exactly one automation_runs row (status='predicted').
-    expect(automationRunRows().length).toBeGreaterThanOrEqual(1);
-    const tables = supabaseInserts.map((r) => r.table);
-    expect(tables).toContain("automation_runs");
-    expect(tables).toContain("pipeline_events");
+    // No Stage 0 dispatch.
+    expect(sendCalls).toHaveLength(0);
   });
 });

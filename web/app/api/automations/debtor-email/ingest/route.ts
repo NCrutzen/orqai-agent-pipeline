@@ -1,65 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { classify } from "@/lib/debtor-email/classify";
-import { categorizeEmail, archiveEmail, fetchMessageBody, getMessageMeta } from "@/lib/outlook";
+import { fetchMessageBody, getMessageMeta } from "@/lib/outlook";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inngest } from "@/lib/inngest/client";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
-import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
-import { readWhitelist } from "@/lib/classifier/cache";
 import { ICONTROLLER_MAILBOXES } from "@/lib/automations/debtor-email/mailboxes";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-// Backwards-compat default: existing Smeba Zap does NOT yet pass source_mailbox.
-// Once every Zap carries the field this constant becomes dead and the branch
-// below turns into a hard 400.
+// Backwards-compat default for legacy Zaps without source_mailbox.
 const LEGACY_DEFAULT_MAILBOX = "debiteuren@smeba.nl";
-const LEGACY_DEFAULT_ICONTROLLER_COMPANY = "smebabrandbeveiliging";
 
-/**
- * Whitelist van classifier-regels die auto-action mogen triggeren. Alleen
- * regels die Wilson 95% CI-lower-bound ≥ 95% hebben gehaald in productie-
- * telemetry komen hier — of de categorie als geheel (payment_admittance)
- * bewezen is met N>300 en 100% observed precision.
- *
- * Status 2026-04-22 (na 845+ hand-gereviewde samples):
- *   ✓ subject_paid_marker          N=169  CI_lo=97.8%
- *   ✓ payment_subject              N=151  CI_lo=96.7%
- *   ✓ payment_sender+subject       N= 79  CI_lo=95.4%
- *   ✓ payment_system_sender+body   N=  9  100% (dekking via category-rollup)
- *   ✓ payment_sender+hint+body     N=  8  100% (dekking via category-rollup)
- *   ✓ payment_sender+body          N=  2  100% (dekking via category-rollup)
- *
- * payment_admittance als categorie-rollup: N=415 OK=415 → CI_lo=99.1%.
- * Alle 6 regels die naar payment_admittance leiden zijn whitelist-veilig.
- *
- * Auto-reply rules zijn nog niet live-ready — subject_autoreply staat op
- * 98% (CI_lo 93%), de specifieke regels hebben individueel nog te weinig
- * samples. Laat die via bulk-review UI blijven lopen tot ze ook bewezen
- * zijn.
- */
-// Phase 60-02 (D-28 step 3): the whitelist now lives in
-// public.classifier_rules and is fetched per request via readWhitelist (60s
-// in-memory cache, FALLBACK_WHITELIST inside cache.ts on DB error). The
-// JSDoc above documents the seed empirics that backfill 60-02 wrote into
-// the table.
-
-const CATEGORY_LABEL: Record<string, string> = {
-  auto_reply: "Auto-Reply",
-  ooo_temporary: "OoO — Temporary",
-  ooo_permanent: "OoO — Permanent",
-  payment_admittance: "Payment Admittance",
-};
-
-const MR_LABELS = new Set(Object.values(CATEGORY_LABEL));
-
-type EntityKey =
-  | "smeba"
-  | "berki"
-  | "sicli-noord"
-  | "sicli-sud"
-  | "smeba-fire";
+type EntityKey = "smeba" | "berki" | "sicli-noord" | "sicli-sud" | "smeba-fire";
 
 interface MailboxSettings {
   source_mailbox: string;
@@ -72,58 +24,42 @@ interface MailboxSettings {
 
 interface IngestBody {
   messageId?: string;
-  /** NEW — Zaps should pass the mailbox they triggered on. Legacy Zap
-   *  without this field falls back to LEGACY_DEFAULT_MAILBOX. */
   source_mailbox?: string;
 }
 
 interface IngestResponse {
   action:
-    | "labeled"
-    | "skipped_idempotent"
-    | "skipped_not_whitelisted"
-    | "skipped_unknown"
+    | "stage_0_dispatched"
     | "skipped_not_found"
     | "skipped_disabled"
     | "failed";
   messageId?: string;
   source_mailbox?: string;
   entity?: EntityKey;
-  category?: string;
-  rule?: string;
-  /** Classifier's hand-assigned confidence (0-1). NIET een gemeten precision
-   * — dat is Wilson CI-lo uit de review-telemetry en wordt gebruikt voor de
-   * whitelist-beslissing. */
-  confidence?: number;
-  label?: string;
+  automation_run_id?: string;
+  email_id?: string | null;
   reason?: string;
   error?: string;
-  /** True als de unknown-mail het triage-event heeft gefired (shadow-mode). */
-  triage_fired?: boolean;
 }
 
+// CLAUDE.md commit dae6276 — never destructure inngest.send; cast inline.
+type SendFn = (p: { name: string; data: Record<string, unknown> }) => Promise<unknown>;
+
 /**
- * Zapier-ingest webhook. Draait synchroon voor elke nieuwe mail uit een
- * van de debteuren-mailboxen:
+ * Phase 82.2 D-A — THIN ingest route. Hands every inbound debtor email to
+ * Stage 0 UNCONDITIONALLY (docs/agentic-pipeline/README.md §5-stage funnel).
+ * Regex classify + whitelist + auto-action chain are owned by the Plan-06
+ * thick Stage 1 worker (reached only after Stage 0 verdict='safe').
  *
- *   1. resolve mailbox → settings (entity, icontroller_company, gates)
- *   2. fetch volledige body via Graph (subject + from al in trigger, maar
- *      body nodig voor body-gebaseerde regels)
- *   3. check idempotency — als al een MR-label → skip
- *   4. classify
- *   5. als rule in classifier-whitelist (D-08 cache) én auto_label_enabled=true →
- *      categorize + archive + log pending iController-delete. Anders →
- *      skip (blijft in inbox voor bulk-review).
- *   6. als category=unknown én triage_shadow_mode=true → fire
- *      stage-0/email.received event voor de Stage 0 safety-worker
- *      (Phase 64 SAFE-01..03, fire-and-forget). Stage 0 forwards to the
- *      classifier on verdict=safe, otherwise persists topic='safety_review'.
+ * Flow: auth → settings (ingest_enabled gate) → fetch Outlook → resolve
+ * email_pipeline.emails.id → INSERT pending placeholder automation_runs →
+ * inngest.send stage-0/email.received → 200.
  *
- * iController-delete wordt NIET synchroon gedaan — die pakt de Inngest
- * cleanup-cron (elke 5 min) op via de pending-rij.
+ * Replay-safety: API route, not an Inngest function — no step.run needed
+ * (RESEARCH §Pattern 2). Zapier at-most-once + source_id dedupe handle
+ * retries; worst case = orphan pending row (swept by automation-runs-sweeper).
  *
- * Security: vereist X-Zapier-Secret header die matcht met
- * ZAPIER_INGEST_SECRET env var.
+ * Hard cutover (D-C): no feature flag. In-flight emails finish on old path.
  */
 export async function POST(req: NextRequest): Promise<NextResponse<IngestResponse>> {
   const secret = process.env.ZAPIER_INGEST_SECRET;
@@ -151,23 +87,13 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   const providedMailbox = body.source_mailbox?.trim();
   const sourceMailbox = providedMailbox ?? LEGACY_DEFAULT_MAILBOX;
   if (!providedMailbox) {
-    console.warn(
-      `[debtor-email/ingest] Legacy Zap without source_mailbox — defaulting to ${LEGACY_DEFAULT_MAILBOX}. Update your Zapier config to pass source_mailbox.`,
-    );
+    console.warn(`[debtor-email/ingest] Legacy Zap without source_mailbox — defaulting to ${LEGACY_DEFAULT_MAILBOX}.`);
   }
 
   const admin = createAdminClient();
   const isoNow = new Date().toISOString();
 
-  // Phase 60-02 (D-08, D-28 step 3): cache-backed read with FALLBACK_WHITELIST
-  // defense-in-depth on transient DB error. Fetched once per request — the
-  // module-level Map in cache.ts amortizes across requests for 60s.
-  const whitelist = await readWhitelist(admin, "debtor-email");
-
-  // Phase 60-02 (D-11): typed mailbox_id mirrors the migration backfill in
-  // 20260428_automation_runs_typed_columns.sql (CASE on source_mailbox).
-  // debtor.labeling_settings has no `id` column, so we resolve via the
-  // ICONTROLLER_MAILBOXES lookup table that already keys this mapping.
+  // Phase 60-02 D-11: typed mailbox_id mirrors migration backfill.
   const mailboxId =
     ICONTROLLER_MAILBOXES[sourceMailbox as keyof typeof ICONTROLLER_MAILBOXES] ??
     null;
@@ -215,19 +141,17 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     });
   }
 
-  // Haal de mail op. We gebruiken fetchMessageBody dat naast de body ook
-  // subject/from nodig heeft — maar die zit niet in de Graph body endpoint.
-  // Gebruik een aparte Graph call die alles tegelijk pakt.
+  // Fetch the email. Graph body endpoint omits subject/from, so we hit
+  // meta + body in parallel.
   let msg: {
     subject: string;
     from: string;
     fromName: string;
     receivedAt: string;
     body: string;
-    categories: string[];
   };
   try {
-    const [meta, body] = await Promise.all([
+    const [meta, msgBody] = await Promise.all([
       getMessageMeta(sourceMailbox, messageId),
       fetchMessageBody(sourceMailbox, messageId),
     ]);
@@ -236,8 +160,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       from: meta.from,
       fromName: meta.fromName,
       receivedAt: meta.receivedAt,
-      body: body.bodyText,
-      categories: meta.categories,
+      body: msgBody.bodyText,
     };
   } catch (err) {
     const errText = String(err);
@@ -269,39 +192,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     });
   }
 
-  // Idempotency: al een van onze MR-labels? Dan niks doen.
-  if (msg.categories.some((c) => MR_LABELS.has(c))) {
-    return NextResponse.json({
-      action: "skipped_idempotent",
-      messageId,
-      source_mailbox: sourceMailbox,
-      entity: settings.entity ?? undefined,
-      reason: `already labeled: ${msg.categories.filter((c) => MR_LABELS.has(c)).join(", ")}`,
-    });
-  }
-
-  // Classify
-  const r = classify({ subject: msg.subject, from: msg.from, bodySnippet: msg.body.slice(0, 1000) });
-
-  // Phase 70 — TELE-01 Stage 1 emit. CARVE-OUT FROM D-09:
-  // D-09 ("every emit lives inside an Inngest step.run") is RELAXED here.
-  // This site is a synchronous Next.js API route handler, not an Inngest
-  // function — Vercel runs it once per HTTP request with no replay
-  // machinery. A plain awaited INSERT is therefore replay-safe by
-  // construction (RESEARCH §Pattern 2). Do NOT "fix" this by wrapping
-  // in step.run; there is no step context to wrap into.
-  //
-  // We emit ONE pipeline_events row per email at the moment of regex
-  // classification (RESEARCH §Open Question Q1 recommendation).
-  //
-  // Phase 71-06 — resolve canonical email_pipeline.emails.id BEFORE the
-  // Stage 1 emit. The original Phase 70 carve-out wrote email_id=null
-  // because the Outlook fetcher cron (which writes email_pipeline.emails)
-  // races the Zapier-driven ingest route. But pipeline_events_email_summary
-  // filters `WHERE email_id IS NOT NULL`, so a null Stage 1 row never
-  // surfaces in Bulk Review. Pattern mirrors smeba/write-analysis: SELECT
-  // by source_id, INSERT a minimal stub if missing. The fetcher cron's
-  // own upsert (ON CONFLICT source_id) fills the remaining columns later.
+  // Resolve canonical email_pipeline.emails.id BEFORE Stage 0 dispatch.
+  // pipeline_events_email_summary filters WHERE email_id IS NOT NULL; null
+  // ids never surface in Bulk Review. Fetcher cron upserts ON CONFLICT
+  // source_id later; we insert a minimal stub here if missing.
   let resolvedEmailId: string | null = null;
   {
     const { data: existing } = await admin
@@ -344,332 +238,109 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     }
   }
 
-  await emitPipelineEvent(admin, {
-    swarm_type: "debtor-email",
-    stage: 1,
-    email_id: resolvedEmailId,
-    decision: r.category === "unknown" ? "unknown" : r.category,
-    confidence: typeof r.confidence === "number" ? r.confidence : null,
-    decision_details: {
-      regex_rule_id: r.matchedRule,
-      matched: r.category !== "unknown",
-      outlook_message_id: messageId,
-      source_mailbox: sourceMailbox,
+  // D-A: UNCONDITIONAL Stage 0 placeholder. Worker UPDATE-by-id pattern
+  // (stage-0-safety-worker.ts: WHERE id=automation_run_id AND status='pending')
+  // stays compatible — INSERT fallback only runs for non-ingest entry points.
+  const stage0Insert = await admin
+    .from("automation_runs")
+    .insert({
+      automation: "debtor-email-review",
+      status: "pending",
+      swarm_type: "debtor-email",
+      topic: null,
       entity: settings.entity,
-    },
-    automation_run_id: null,
-    triggered_by: "pipeline",
-  });
-
-  const isWhitelistMatch = whitelist.has(r.matchedRule);
-  const autoActionAllowed = isWhitelistMatch && settings.auto_label_enabled;
-
-  // Bulk-review pad: geen whitelist-match, OF whitelist maar auto-label is af.
-  if (!autoActionAllowed) {
-    // Phase 64 SAFE-01..03 — for the LLM-bound unknown bucket we now create
-    // a Stage 0 automation_runs row first (status='pending') so that the
-    // stage-0/safety-worker has a stable id to attach its verdict (and the
-    // budget-breach-handler has a row to mark failed). The classifier-path
-    // audit row (status='predicted') stays for non-unknown bulk-review cases.
-    const isLlmBound =
-      r.category === "unknown" && settings.triage_shadow_mode && settings.entity;
-
-    let stage0RunId: string | null = null;
-    if (isLlmBound) {
-      const stage0Insert = await admin
-        .from("automation_runs")
-        .insert({
-          automation: "debtor-email-review",
-          status: "pending",
-          swarm_type: "debtor-email",
-          topic: null,
-          entity: settings.entity,
-          mailbox_id: mailboxId,
-          result: {
-            stage: "stage_0_safety_pending",
-            message_id: messageId,
-            source_mailbox: sourceMailbox,
-            entity: settings.entity,
-            subject: msg.subject,
-            from: msg.from,
-          },
-          triggered_by: "zapier:ingest",
-        })
-        .select("id")
-        .single();
-      stage0RunId = stage0Insert.data?.id ?? null;
-    } else {
-      await admin.from("automation_runs").insert({
-        automation: "debtor-email-review",
-        status: "predicted",
-        swarm_type: "debtor-email",
-        topic: r.category ?? null,
+      mailbox_id: mailboxId,
+      result: {
+        stage: "stage_0_safety_pending",
+        message_id: messageId,
+        source_mailbox: sourceMailbox,
         entity: settings.entity,
-        mailbox_id: mailboxId,
-        result: {
-          stage: "zapier_ingest_classify",
-          message_id: messageId,
-          source_mailbox: sourceMailbox,
-          entity: settings.entity,
-          subject: msg.subject,
-          from: msg.from,
-          predicted: { category: r.category, confidence: r.confidence, rule: r.matchedRule },
-          action: isWhitelistMatch && !settings.auto_label_enabled
-            ? "skipped_disabled"
-            : "skipped_not_whitelisted",
-        },
-        triggered_by: "zapier:ingest",
-        completed_at: isoNow,
-      });
-    }
-    await emitAutomationRunStale(admin, "debtor-email-review");
-
-    // Stage 0 hand-off — fire-and-forget for unknown emails when shadow mode is
-    // on. The stage-0/safety-worker (Phase 64) runs regex screen + LLM verdict
-    // + per-invocation budget guard before forwarding to the classifier via
-    // classifier/screen.requested (verdict=safe) or persisting topic=
-    // 'safety_review' (verdict=injection_suspected). Pitfall 5: this route
-    // NEVER sets safety_overridden — only operator-driven re-emit (Plan 05) does.
-    let triageFired = false;
-    if (isLlmBound && stage0RunId && resolvedEmailId) {
-      triageFired = await fireStage0Event({
-        automation_run_id: stage0RunId,
-        email_id: resolvedEmailId,
-        messageId,
-        sourceMailbox,
-        entity: settings.entity!,
         subject: msg.subject,
         from: msg.from,
-        fromName: msg.fromName,
-        bodyText: msg.body,
-        receivedAt: msg.receivedAt || isoNow,
-      });
-    }
+      },
+      triggered_by: "zapier:ingest",
+    })
+    .select("id")
+    .single();
 
-    return NextResponse.json({
-      action: r.category === "unknown" ? "skipped_unknown" : "skipped_not_whitelisted",
-      messageId,
-      source_mailbox: sourceMailbox,
-      entity: settings.entity ?? undefined,
-      category: r.category,
-      rule: r.matchedRule,
-      confidence: r.confidence,
-      triage_fired: triageFired,
-      reason:
-        r.category === "unknown"
-          ? "geen regel matched — mens moet dit labelen via bulk-review UI"
-          : isWhitelistMatch && !settings.auto_label_enabled
-            ? "whitelist-match maar auto_label_enabled=false voor deze mailbox"
-            : "regel classificeert correct maar Wilson CI-lo is nog < 95% op telemetry — bewijs via bulk-review moet nog binnen voordat auto-action vrijgegeven wordt",
-    });
-  }
-
-  // Auto-action: categorize + archive + queue iController delete.
-  const categoryKey = r.category;
-  const label = CATEGORY_LABEL[categoryKey];
-  if (!label) {
+  const stage0RunId = stage0Insert.data?.id as string | undefined;
+  if (!stage0RunId) {
+    const errText = stage0Insert.error?.message ?? "unknown insert error";
+    console.error(
+      `[debtor-email/ingest] failed to create Stage 0 placeholder for ${messageId}:`,
+      errText,
+    );
     return NextResponse.json(
-      { action: "failed", messageId, source_mailbox: sourceMailbox, error: `no label for category ${categoryKey}` },
+      {
+        action: "failed",
+        messageId,
+        source_mailbox: sourceMailbox,
+        entity: settings.entity ?? undefined,
+        error: `automation_runs insert failed: ${errText}`,
+      },
       { status: 500 },
     );
   }
-
-  const catRes = await categorizeEmail(sourceMailbox, messageId, label);
-  if (!catRes.success) {
-    await admin.from("automation_runs").insert({
-      automation: "debtor-email-review",
-      status: "failed",
-      swarm_type: "debtor-email",
-      topic: r.category ?? null,
-      entity: settings.entity,
-      mailbox_id: mailboxId,
-      result: {
-        stage: "categorize",
-        message_id: messageId,
-        source_mailbox: sourceMailbox,
-        entity: settings.entity,
-        category: label,
-      },
-      error_message: catRes.error ?? null,
-      triggered_by: "zapier:ingest",
-      completed_at: isoNow,
-    });
-    await emitAutomationRunStale(admin, "debtor-email-review");
-    return NextResponse.json({
-      action: "failed",
-      messageId,
-      source_mailbox: sourceMailbox,
-      entity: settings.entity ?? undefined,
-      error: `categorize: ${catRes.error}`,
-    });
-  }
-
-  const arcRes = await archiveEmail(sourceMailbox, messageId);
-  if (!arcRes.success) {
-    await admin.from("automation_runs").insert({
-      automation: "debtor-email-review",
-      status: "failed",
-      swarm_type: "debtor-email",
-      topic: r.category ?? null,
-      entity: settings.entity,
-      mailbox_id: mailboxId,
-      result: {
-        stage: "archive",
-        message_id: messageId,
-        source_mailbox: sourceMailbox,
-        entity: settings.entity,
-        category: label,
-      },
-      error_message: arcRes.error ?? null,
-      triggered_by: "zapier:ingest",
-      completed_at: isoNow,
-    });
-    await emitAutomationRunStale(admin, "debtor-email-review");
-    return NextResponse.json({
-      action: "failed",
-      messageId,
-      source_mailbox: sourceMailbox,
-      entity: settings.entity ?? undefined,
-      error: `archive: ${arcRes.error}`,
-    });
-  }
-
-  // Log succesvolle Outlook-actie.
-  await admin.from("automation_runs").insert({
-    automation: "debtor-email-review",
-    status: "completed",
-    swarm_type: "debtor-email",
-    topic: r.category ?? null,
-    entity: settings.entity,
-    mailbox_id: mailboxId,
-    result: {
-      stage: "categorize+archive",
-      message_id: messageId,
-      source_mailbox: sourceMailbox,
-      entity: settings.entity,
-      applied_category: label,
-      decision: "approve",
-      triggered_by: "zapier:ingest",
-      predicted: { category: categoryKey, confidence: r.confidence, rule: r.matchedRule },
-    },
-    triggered_by: "zapier:ingest",
-    completed_at: isoNow,
-  });
   await emitAutomationRunStale(admin, "debtor-email-review");
 
-  // Queue iController-delete als pending. De Inngest cleanup-cron pakt
-  // 'm binnen 5 min op. Cleanup-worker leest `company` nog niet uit de
-  // row (hardcoded Smeba) — zie .planning/todos/pending/
-  // 2026-04-23-cleanup-worker-multi-mailbox.md.
-  const icontrollerCompany =
-    settings.icontroller_company ?? LEGACY_DEFAULT_ICONTROLLER_COMPANY;
-  // Phase 76 hotfix (2026-05-07): producer migrated from
-  // 'debtor-email-review' to 'debtor-email-cleanup' to match the cleanup
-  // dispatcher filter (commit 1ac79d5). The dispatcher temporarily accepts
-  // both names so legacy in-flight rows keep draining; new rows go straight
-  // to the new name.
-  await admin.from("automation_runs").insert({
-    automation: "debtor-email-cleanup",
-    status: "pending",
-    swarm_type: "debtor-email",
-    topic: r.category ?? null,
-    entity: settings.entity,
-    mailbox_id: mailboxId,
-    result: {
-      stage: "icontroller_delete",
-      message_id: messageId,
-      source_mailbox: sourceMailbox,
-      entity: settings.entity,
-      company: icontrollerCompany,
-      icontroller: "pending",
-      from: msg.from,
-      subject: msg.subject,
-      received_at: msg.receivedAt || isoNow,
-    },
-    triggered_by: "zapier:ingest",
-    completed_at: isoNow,
-  });
-  await emitAutomationRunStale(admin, "debtor-email-cleanup");
+  // Fire Stage 0 unconditionally. Pitfall 5: NEVER set safety_overridden —
+  // only the operator-driven re-emit path (Plan 05) does.
+  try {
+    await (inngest.send as unknown as SendFn)({
+      name: "stage-0/email.received",
+      data: {
+        automation_run_id: stage0RunId,
+        email_id: resolvedEmailId,
+        message_id: messageId,
+        source_mailbox: sourceMailbox,
+        subject: msg.subject,
+        body_text: msg.body,
+        // Phase 74 D-01/D-02 — swarm_type + entity threaded at ingest boundary.
+        swarm_type: "debtor-email",
+        entity: settings.entity ?? null,
+        // Phase 82.2 Plan 07 D-A — passthrough for Plan 06 Stage 1 worker.
+        mailbox_id: mailboxId,
+        from: msg.from,
+        fromName: msg.fromName,
+        receivedAt: msg.receivedAt || isoNow,
+        // safety_overridden omitted — Pitfall 5 (operator re-emit only).
+      },
+    });
+  } catch (err) {
+    const errText = String(err);
+    console.error(
+      `[debtor-email/ingest] stage-0 fire failed for ${messageId} (run=${stage0RunId}):`,
+      errText,
+    );
+    // Mark placeholder failed so the row doesn't linger as pending.
+    await admin
+      .from("automation_runs")
+      .update({
+        status: "failed",
+        error_message: `stage-0 emit failed: ${errText}`,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", stage0RunId);
+    await emitAutomationRunStale(admin, "debtor-email-review");
+    return NextResponse.json(
+      {
+        action: "failed",
+        messageId,
+        source_mailbox: sourceMailbox,
+        entity: settings.entity ?? undefined,
+        automation_run_id: stage0RunId,
+        error: "stage-0 emit failed",
+      },
+      { status: 502 },
+    );
+  }
 
   return NextResponse.json({
-    action: "labeled",
+    action: "stage_0_dispatched",
     messageId,
     source_mailbox: sourceMailbox,
     entity: settings.entity ?? undefined,
-    category: categoryKey,
-    rule: r.matchedRule,
-    confidence: r.confidence,
-    label,
+    automation_run_id: stage0RunId,
+    email_id: resolvedEmailId,
   });
-}
-
-/**
- * Phase 64 SAFE-01..03 — Fire the stage-0/email.received Inngest event so
- * the Stage 0 safety worker can run regex+LLM verdict+budget guard BEFORE
- * the email reaches any LLM-fed classifier. Best-effort: failures are
- * logged but do NOT propagate to the webhook response so that a broken
- * Inngest connection never breaks the synchronous regex-classifier ingest.
- *
- * The Stage 0 worker emits classifier/screen.requested on verdict=safe
- * (the new Stage 1 entry seam); on verdict=injection_suspected it persists
- * topic='safety_review' and does NOT forward. On budget breach it emits
- * pipeline/budget_breached (handled by budget-breach-handler with retries=0).
- *
- * Pitfall 5 — `safety_overridden` is INTENTIONALLY omitted here. Only the
- * operator-driven re-emit path (Plan 05) sets it true.
- */
-async function fireStage0Event(params: {
-  automation_run_id: string;
-  email_id: string;
-  messageId: string;
-  sourceMailbox: string;
-  entity: EntityKey;
-  subject: string;
-  from: string;
-  fromName: string;
-  bodyText: string;
-  receivedAt: string;
-}): Promise<boolean> {
-  try {
-    await inngest.send({
-      name: "stage-0/email.received",
-      data: {
-        automation_run_id: params.automation_run_id,
-        email_id: params.email_id,
-        message_id: params.messageId,
-        source_mailbox: params.sourceMailbox,
-        subject: params.subject,
-        body_text: params.bodyText,
-        // Phase 74 D-01 — swarm_type is deterministic at this ingest
-        // boundary (the route path /api/automations/debtor-email/ingest
-        // encodes it). This is the source-of-truth derivation point;
-        // shared workers downstream must read swarm_type from event.data
-        // and never re-hardcode the literal.
-        swarm_type: "debtor-email",
-        // Phase 74 D-02 — thread entity so Plan 04's Stage-1 worker can
-        // write pipeline_events without re-deriving it.
-        entity: params.entity ?? null,
-        // safety_overridden intentionally omitted — Pitfall 5.
-      },
-    });
-    return true;
-  } catch (err) {
-    console.error(
-      `[debtor-email/ingest] stage-0 fire failed for ${params.messageId}:`,
-      err,
-    );
-    return false;
-  }
-}
-
-function firstNameFromDisplayName(displayName: string): string | null {
-  const trimmed = displayName.trim();
-  if (!trimmed) return null;
-  // "Jan de Vries" → "Jan"; "jan.devries@..." style addresses never reach
-  // this helper because fromName comes from the Graph display-name field.
-  // If the display-name is a bare email address (Graph falls back to that),
-  // avoid leaking the address as a "first name".
-  if (trimmed.includes("@")) return null;
-  const first = trimmed.split(/\s+/)[0];
-  return first || null;
 }
