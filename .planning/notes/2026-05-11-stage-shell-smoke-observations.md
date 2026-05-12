@@ -72,7 +72,7 @@
 
 ## Backend / pipeline observations (added 2026-05-12)
 
-- **Stage 2 `triggered_by` label leakage** — 5 rows seen on 2026-05-11/12 with `triggered_by='stage-0/safety-worker'` but `result` shape clearly belongs to Stage 2 customer-mapping (`method`, `customer_name`, `customer_account_id`, `dry_run: true`). Some Stage 2 writer is using the wrong `triggered_by` literal. Surfaced during Stage 0 placeholder-fix verify (commit `cf317b4`); pre-existing, not caused by the fix. Sample id: `8b3e26f1-8057-4cd0-8ce8-53a65cfea2d0`.
+- ~~**Stage 2 `triggered_by` label leakage**~~ — **FALSE ALARM (2026-05-12).** The 5 rows showing `triggered_by='stage-0/safety-worker'` with Stage 2 result shape are not mislabeled. `classifier-label-resolver.ts:243-262` intentionally UPDATEs the same `automation_run` row that Stage 0 originally INSERTed, replacing `result` JSONB with Stage 2 content but preserving `triggered_by` as the original writer. This is the canonical "single observable row per pipeline" model that Phase 82.x fix `cf317b4` doubled down on. Reading `triggered_by` alone isn't a "who wrote this last" signal — use `result.stage` or pipeline_events for that.
 
 ## Cross-stage / shell-level
 
