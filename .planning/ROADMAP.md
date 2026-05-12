@@ -577,15 +577,26 @@ Plans:
 
 ### Phase 82.2: Stage 0 telemetry coverage fix (v8.0 stabilisation) (INSERTED)
 
-**Goal:** Close the Stage 0 `pipeline_events` coverage gap so every email in the canonical pipeline has a Stage 0 row, not just the "happy path." Production telemetry (last 7d, measured 2026-05-12) shows 26% / 34% / 42% / 45% coverage on the four debtor mailboxes vs 91% on sales-email. Likely root cause: the debtor-email `/ingest` placeholder pattern (Phase 64) makes Stage 0 worker take an UPDATE-existing branch that skips the `emitPipelineEvent` call on certain paths. Scope is strictly telemetry — safety verdict itself is correct, no operational incidents. Includes backfill of ≤30d historical Stage 0 rows from `automation_runs` where source data is available; otherwise `decision='unknown_legacy'`.
-**Requirements**: TBD (see `82.2-CONTEXT.md`)
+**Goal:** Re-scoped 2026-05-12 after research. Make Stage 0 the unconditional first step of the canonical pipeline for every inbound email on every active swarm (D-A thin ingest, D-B Stage 1 fired by worker on safe verdict, D-C hard cutover). Plus original telemetry hygiene: single-emit refactor in Stage 0 worker (D-01/D-02), ≤30d historical backfill (D-03/D-04/D-05), synthetic injection regression test (D-06), daily coverage probe (D-07/D-08). Closes 26-45% debtor mailbox gap structurally — not via worker patching alone.
+**Requirements**: SAFE-01, SAFE-02, SAFE-03, CONS-01, TELE-COV-01..05 (implied requirement IDs derived from CONTEXT.md must_haves; mapped per-plan)
 **Depends on:** Phase 82.1
-**Plans:** 0 — needs `/gsd-discuss-phase 82.2`
+**Plans:** 12
 **Blocks:** V9.0 Learning Inbox per-email trace
 **Closure target:** before 2026-05-18 (debtor-person onboarding)
 
 Plans:
-- [ ] TBD (run /gsd-discuss-phase 82.2 then /gsd-plan-phase 82.2)
+- [ ] 82.2-01-PLAN.md — Partial UNIQUE index on pipeline_events(email_id, swarm_type, stage)
+- [ ] 82.2-02-PLAN.md — Diagnostic SQL: confirm gap composition (D-A vs D-01 attribution)
+- [ ] 82.2-03-PLAN.md — pipeline_health table + RPC helpers (D-07/D-08 surface, D-04 candidates)
+- [ ] 82.2-04-PLAN.md — Single-emit refactor in stage-0-safety-worker (D-01/D-02)
+- [ ] 82.2-05-PLAN.md — D-06 synthetic injection regression test
+- [ ] 82.2-06-PLAN.md — Migrate category dispatch into classifier-screen-worker (D-A part 1)
+- [ ] 82.2-07-PLAN.md — Thin debtor-email ingest route to Stage 0 first (D-A/D-B/D-C)
+- [ ] 82.2-08-PLAN.md — End-to-end smoke per active mailbox (operator gate)
+- [ ] 82.2-09-PLAN.md — stage-0-backfill Inngest function (D-03/D-04/D-05)
+- [ ] 82.2-10-PLAN.md — stage-0-coverage-probe daily cron (D-07/D-08)
+- [ ] 82.2-11-PLAN.md — Manual backfill trigger + verification
+- [ ] 82.2-12-PLAN.md — 24h post-deploy coverage verification (go/no-go)
 
 ### Phase 82.3: Per-stage audit surface (v8.0 stabilisation) (INSERTED)
 
