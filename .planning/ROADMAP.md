@@ -309,20 +309,20 @@ Plans:
 - [ ] 76-07-PLAN.md — Stage 4 handler-error tab UI
 - [ ] 76-08-PLAN.md — Backwards-compat redirects + end-to-end verification
 
-### Phase 77: Stage 2 / Stage 3 end-to-end verification (debtor-email)
+### Phase 77: Stage 2 / Stage 3 end-to-end verification (debtor-email) — SUPERSEDED 2026-05-12
 
-**Goal:** Confirm the debtor-email pipeline reaches Stage 3 in production with sensible output, before any Stage 4 handler work. No new handlers ship in this phase. Deliverables: (a) confirm `classifier-label-resolver` (Stage 2) maps incoming emails to the correct iController customer for ≥90% of non-noise emails, with the remaining ≤10% surfaced via Phase 76's Kanban `low_confidence` lane; (b) confirm `debtor-email-coordinator` / `coordinator-orchestrator` (Stage 3) produces a ranked-intent list whose top pick aligns with operator judgement on a manually-graded 50-email sample; (c) every bug surfaced during a/b is fixed inside this phase, no carryover.
+**Status:** Superseded by **Phase 82.3** (per-stage audit surface, v8.0 closure) + the debtor-person operator onboarding cycle starting 2026-05-18. Do not plan.
 
-**Why now:** Phase 75's noise-vs-intent cleanup just landed and yesterday's data showed 100% of emails halting at Stage 1. Whether that was solely the Stage 1 LLM picking intents (now fixed) or also a Stage 2/3 wiring issue is unverified. Building Stage 4 handlers without verifying Stage 2/3 means committing to requirements we haven't observed.
+**Why superseded:**
+- The "real Stage 2/3 review surface" Phase 77 promised is now Phase 82.3's per-stage audit popup (verdict + reasoning + key evidence + screenshots).
+- The "manually-graded 50-email sample" verification work is folded into the debtor-person operator onboarding — the operator IS the verification, with prose-feedback capture via Phase 82.4.
+- Phase 76 (Kanban surfacing) is unaffected; the dispatcher work for placeholder-intent rows still belongs to its own scope.
 
-**Out of scope:** Building any new Stage 4 handler. The 8 missing handlers stay missing — Phase 76's Kanban lane catches their would-be output until v8.2 prioritizes them.
+**Original goal (kept for traceability):** Confirm the debtor-email pipeline reaches Stage 3 in production with sensible output, before any Stage 4 handler work. Deliverables (a) Stage 2 ≥90% mapping accuracy, (b) Stage 3 ranked-intent top-pick agreement with operator judgement on 50-email sample, (c) bugs fixed in-phase.
 
-**Depends on:** Phase 76 (Kanban visibility is the prerequisite — without it we can't see what the pipeline is actually producing).
+**Why superseded was the right call:** Phase 77's goal was "verify Stage 2/3 reach Stage 3 with sensible output" — that's now visible via Phase 82.3's audit surface and gets continuous, live confirmation through the operator workflow rather than a one-off graded sample. Building the audit surface gives Phase 77's verification a permanent home instead of a one-time gate.
 
-**Plans:** 4 plans
-
-Plans:
-- [ ] TBD (run /gsd-plan-phase 77 to break down)
+**Reference docs:** `.planning/MILESTONES.md` V9.0 charter; `.planning/notes/2026-05-12-v8-pipeline-status-and-v9-framing.md`.
 
 ### Phase 78: Sales-email Stage 0 to Stage 3 onboarding (verkoop@smeba.nl)
 
@@ -382,7 +382,7 @@ Plans:
 
 ---
 
-### Phase 80: Swarm-agnostic Stage 3 classifier/dispatcher split — `predicted` as first-class state
+### Phase 80: Swarm-agnostic Stage 3 classifier/dispatcher split — `predicted` as first-class state ✓ closed 2026-05-12
 
 **Goal:** Split the current monolithic `debtor-email-coordinator` Inngest function into two clean responsibilities so Stage 3 has an unambiguous terminal state, the no-handler human-lane path is leak-free, and the same dispatcher serves both `debtor-email` and the upcoming `sales-email` swarm without hardcoded swarm logic.
 
@@ -423,21 +423,22 @@ Plans:
 - [x] 80-02-stage-3-dispatcher-PLAN.md — New cross-swarm Stage 3.5 dispatcher + escalation-gate registry-bug fix
 - [x] 80-03-classifier-refactor-and-register-PLAN.md — Refactor coordinator to thin classifier + register dispatcher (live-traffic switch)
 - [x] 80-04-ui-sync-predicted-PLAN.md — Add predicted case to triageStageFromStatus in swarm-bridge/sync.ts
-- [ ] 80-05-backfill-stuck-classifying-PLAN.md — One-shot backfill script for the 407 stranded rows (acceptance + production checkpoint)
-- [ ] 80-06-rfc-doc-lock-PLAN.md — Update stage-3-coordinator.md RFC with new state machine + cross-swarm contract
+- [x] 80-05-backfill-stuck-classifying-PLAN.md — One-shot backfill script for the 407 stranded rows (acceptance + production checkpoint)
+- [x] 80-06-rfc-doc-lock-PLAN.md — Update stage-3-coordinator.md RFC with new state machine + cross-swarm contract
 
-### Phase 81: Fold Stage 1 (Bulk Review) into the stage-keyed shell — close the loop on Sketch 005 / Phase 76 D-04/D-05 (REVISED). Today /stage-1 re-exports the legacy /review page with no _shell wrapper; this phase wraps it in PageHeader + StageTabStrip so Stage 1 sits under the same shell as 0/3/4, drops 'Bulk Review' as a UI noun, wires the Pending Promotion sub-view (?sub=pending), and lands a Stage 2 placeholder.
+### Phase 81: Fold Stage 1 (Bulk Review) into the stage-keyed shell — close the loop on Sketch 005 / Phase 76 D-04/D-05 (REVISED). Today /stage-1 re-exports the legacy /review page with no _shell wrapper; this phase wraps it in PageHeader + StageTabStrip so Stage 1 sits under the same shell as 0/3/4, drops 'Bulk Review' as a UI noun, wires the Pending Promotion sub-view (?sub=pending), and lands a Stage 2 placeholder. ✓ closed 2026-05-12
 
 **Goal:** /stage-1 sits under the same _shell as /stage-0 / /stage-3 / /stage-4 (PageHeader + StageTabStrip), the legacy 3-col QueueTree layout is replaced by a horizontal noise-category chip-strip, the Pending Promotion sub-view at ?sub=pending actually renders end-to-end, a thin /stage-2 placeholder lands with a live tagging-failures count, and 'Bulk Review' is gone as a user-visible UI noun.
 **Requirements**: TBD (Phase 81 tracks coverage via D-codes D-01..D-19 in 81-CONTEXT.md)
 **Depends on:** Phase 80
 **Plans:** 4 plans
+**Verification:** All 4 SUMMARYs exist on disk; superseded structurally by Phase 82 (unified `_shell/`). ROADMAP ticks below backfilled 2026-05-12.
 
 Plans:
-- [ ] 81-01-PLAN.md — Mechanical move review/ → stage-1/, inline page.tsx, rewrite all external importers, no behaviour change (Wave 1)
-- [ ] 81-02-PLAN.md — Stage 2 placeholder route + thin head-count loader for last-7-day failed tags (Wave 2)
-- [ ] 81-03-PLAN.md — Shell-wrap stage-1/page.tsx with PageHeader + StageTabStrip + noise-category chip-strip + ?sub=pending loader branch + extracted candidate-rule-list / pending-promotion-detail-pane (Wave 3)
-- [ ] 81-04-PLAN.md — Cleanup: delete queue-tree.tsx, purge 'Bulk Review' user-visible copy, extend middleware redirect tests for ?sub=pending, regression smoke on /stage-3 + /stage-4, time-boxed safety-review-loader fixture fix (Wave 4)
+- [x] 81-01-PLAN.md — Mechanical move review/ → stage-1/, inline page.tsx, rewrite all external importers, no behaviour change (Wave 1)
+- [x] 81-02-PLAN.md — Stage 2 placeholder route + thin head-count loader for last-7-day failed tags (Wave 2)
+- [x] 81-03-PLAN.md — Shell-wrap stage-1/page.tsx with PageHeader + StageTabStrip + noise-category chip-strip + ?sub=pending loader branch + extracted candidate-rule-list / pending-promotion-detail-pane (Wave 3)
+- [x] 81-04-PLAN.md — Cleanup: delete queue-tree.tsx, purge 'Bulk Review' user-visible copy, extend middleware redirect tests for ?sub=pending, regression smoke on /stage-3 + /stage-4, time-boxed safety-review-loader fixture fix (Wave 4)
 
 ### Phase 82: Unified stage shell — converge Stage 0/1/2/3/4 onto one Outlook-style row+detail+chip-strip+mailbox-filter UX ✓ closed 2026-05-11
 
@@ -509,23 +510,42 @@ Plans:
 
 </details>
 
-### v8.0 Agentic Platform (Phases 63-73)
+### v8.0 Agentic Platform (Phases 63-82.4)
 
 **Milestone Goal:** Establish a standardized 4-stage funnel architecture (Stage 0 input safety, Stage 1 regex filter, Stage 2 entity enrichment, Stage 3 intent coordinator, Stage 4 handler) for every automation swarm at Moyne Roberts. v8.0 supersedes the parallel debtor-email-triage path with a single canonical flow, adds production guardrails (per-run budgets, capability/regression evals), and proves the platform standard by onboarding a second swarm (sales-email/SugarCRM) in under a day.
 
+**Status (2026-05-12):** v8.0 shipped substantively. Closure gated on the 82.x stabilisation sequence (telemetry + audit + feedback capture) and Phase 999.8 operator UAT. Original Phase 72 (Promotion Recommender) was reframed into a full **V9.0** milestone; Phase 73 (sales-email validation) was reframed into **V10.0** because Phase 78 was never executed. See `.planning/MILESTONES.md` and `.planning/notes/2026-05-12-v8-pipeline-status-and-v9-framing.md`.
+
+**Core canonical phases:**
 - [ ] **Phase 63: Architecture RFC** - Doc-only canonical 4-stage funnel RFC (`docs/agentic-pipeline-architecture.md`); supersedes `debtor-email-pipeline-architecture.md`; locks Stage 2->Stage 3 context-shape contract, 4-axis override model, graduated automation hooks
 - [ ] **Phase 64: Stage 0 input safety + per-run budgets** - Prompt-injection guard (regex + lightweight LLM), `injection_suspected` review lane, hard token/cost ceiling per Inngest run, intent-scoped tool allowlist via `zapier_tools.allowed_for_intents`
 - [ ] **Phase 65: Stage 3 ranked multi-intent coordinator + orchestrator escalation** - Ranked intent list with confidence scores; Stage 3.5 orchestrator-worker spawned on low confidence / high intent count / `requires_orchestration` flag; default single-shot path remains for ~80% of inbound
-- [x] **Phase 66: Pipeline consolidation (retire triage path)** - Single canonical `regex -> label-resolver -> coordinator -> handler` flow; `debtor-email-triage` Inngest function retired; all Stage 4 handlers invoked via `debtor-email/<intent>.requested` events ✓ closed 2026-05-04
-- [x] **Phase 67: Stage 2 closure (iController DOM tagging)** - Browser-based iController auto-tagging on matched-customer in live mode; non-blocking for downstream stages; before/after screenshots captured (Phase 56.8 absorbed) ✓ closed 2026-05-04
-- [ ] **Phase 68: swarm_registry generalisation + canonical context shape** - Extend `public.swarms` with `stage1_regex_module`, `stage2_entity_resolver`, `stage3_coordinator_agent_key`, `side_effects[]`; new `swarm_intents` table replaces hardcoded intent->handler maps; verdict-worker `swarm_type` gate replaced by registry lookup
-- [x] **Phase 69: Handler-agent canonicalisation (cross-swarm reuse)** - Refactor `debtor-copy-document-body-agent` to accept canonical context shape; entity_register block parameterized; brand list data-driven from `swarms.entity_brand`; cross-cutting `swarm_type='cross-cutting'` declaration in `public.orq_agents` ✓ closed 2026-05-04
-- [ ] **Phase 70: Telemetry consolidation (pipeline_events)** - Single canonical `pipeline_events` table records every stage decision; existing tables (`classifier_rules`, `agent_runs`, `email_labels`, `automation_runs`) preserved as denormalized read-models; downstream consumers migrate to `pipeline_events`
-- [ ] **Phase 71: Bulk Review 4-axis redesign + capability/regression eval split** - Stage 1/2/3/4 independent override controls; per-row aggregated decision view + per-run cost + tool calls; `eval_type ∈ {capability, regression}` tagging on every override
-- [ ] **Phase 72: Promotion recommender + Learning Inbox** - `promotion_candidates` table aggregates per-stage telemetry; Inngest cron generates actionable recommendations; Learning Inbox UI lets operator approve candidates -> auto-creates migration/PR/config change with rollback audit trail
-- [ ] **Phase 73: Sales-email swarm (SugarCRM) - validation** - Onboard second swarm via registry INSERTs only; reuse canonicalised body agent; Bulk Review surface emerges from registry-driven UI without new components; proves cross-swarm reuse claim
-- [ ] **Phase 74: Stage 1 LLM Category Classifier (swarm-agnostic)** - Fills Stage 0 → Stage 1 LLM seam: new Orq agent stage-1-category-classifier + new classifier-screen-worker; cross-swarm via swarm_categories registry; sales-email gets day-1 classification on the same agent (operator rolls out Friday 2026-05-08 on 3 mailboxes)
-- [ ] **Phase 75: Sugar resolve dispatch + verdict-worker side_effects refactor** - Replace verdict-worker's hardcoded Outlook dispatch with registry-driven `swarms.side_effects[]` evaluation; ship `/api/automations/sales-email/resolve` route + `zapier_tools` row for Sugar archive; flip sales-email noise categories from `manual_review` back to `categorize_archive` for end-to-end automation
+- [x] **Phase 66: Pipeline consolidation (retire triage path)** ✓ closed 2026-05-04
+- [x] **Phase 67: Stage 2 closure (iController DOM tagging)** ✓ closed 2026-05-04
+- [ ] **Phase 68: swarm_registry generalisation + canonical context shape** - Extend `public.swarms` with stage*-* keys + `side_effects[]`; new `swarm_intents` table replaces hardcoded intent->handler maps
+- [x] **Phase 69: Handler-agent canonicalisation (cross-swarm reuse)** ✓ closed 2026-05-04
+- [ ] **Phase 70: Telemetry consolidation (pipeline_events)** - Single canonical `pipeline_events` table records every stage decision
+- [ ] **Phase 71: Bulk Review 4-axis redesign + capability/regression eval split** - Stage 1/2/3/4 independent override controls; per-row aggregated decision view + per-run cost + tool calls
+- [~] **Phase 72: Promotion recommender + Learning Inbox** — **REFRAMED → V9.0 (full milestone)**, prose-feedback approach replaces original Wilson-CI extension
+- [~] **Phase 73: Sales-email swarm (SugarCRM) - validation** — **REFRAMED → V10.0 (full milestone)** after Phase 78 was never executed; partial cross-swarm proof landed incidentally via Phase 74 (sales-email Stages 0+1 are live)
+- [x] **Phase 74: Stage 1 LLM Category Classifier (swarm-agnostic)** ✓ closed 2026-05-11 (REQ-7 verified, 5-day prod smoke green)
+- [ ] **Phase 75: Sugar resolve dispatch + verdict-worker side_effects refactor** — partially obsoleted by V10.0 reframe; check before planning
+- [ ] **Phase 76: Stage 3 → Kanban human-lane wiring** - Every email leaving Stage 1 either reaches a Stage 4 handler or lands in the Kanban human lane with a reason
+- [~] **Phase 77: Stage 2/3 e2e verification** — **SUPERSEDED** — the real Stage 2/3 review surface is delivered by Phase 82.3 (per-stage audit popup) inside v8.0 closure
+- [ ] **Phase 78: Sales-email Stage 0→3 onboarding** — never executed; folded into V10.0 charter
+- [ ] **Phase 79: Learning loop — intent surfacing dashboard + open-set discovery** — partially obsoleted by V9.0 reframe; check before planning
+- [ ] **Phase 80: Swarm-agnostic Stage 3 classifier/dispatcher split** - 4/6 plans done (`80-01..04`); plans `80-05` (407-row backfill) and `80-06` (RFC doc lock) outstanding
+- [x] **Phase 81: Fold Stage 1 (Bulk Review) into stage-keyed shell** — code-complete (all 4 plans summarized), ROADMAP plan checkboxes pending tick
+- [x] **Phase 81.1: v7 token gap fix** ✓ executed inline `4ce8455` (no plan pipeline)
+- [x] **Phase 82: Unified stage shell** ✓ closed 2026-05-11 (10/10 verification)
+- [x] **Phase 82.1: stage shell polish** ✓ closed 2026-05-11 (7/7 verification)
+
+**v8.0 closure punch list (must ship before debtor-person operator onboarding 2026-05-18):**
+- [ ] **Phase 82.2: Stage 0 telemetry coverage fix** — bring debtor mailboxes from 26-45% → ≥99% Stage 0 pipeline_events coverage; backfill ≤30d historical rows. Blocker for V9.0 per-email trace. CONTEXT exists; needs `/gsd-discuss-phase 82.2`.
+- [ ] **Phase 82.3: Per-stage audit surface** — verdict + reasoning summary + key evidence + screenshots in a per-stage popup on Bulk Review (replaces Phase 77's original "real Stage 2 surface" intent). CONTEXT exists; needs `/gsd-discuss-phase 82.3`.
+- [ ] **Phase 82.4: Feedback capture form** — `email_feedback` table + capture form mounted inside Phase 82.3's popup. Provides the data substrate that V9.0 synthesis reads from. CONTEXT exists; needs `/gsd-discuss-phase 82.4`. Sequenced after 82.3.
+- [ ] **Phase 999.8: Stage 1 LLM 2nd-pass** — 4/4 must-haves green; 2 outstanding browser smokes (operator UAT pending).
+- [ ] `/gsd-audit-milestone v8.0` — formal closure after all four above ship.
 
 <details>
 <summary>V5.0 Cross-Swarm Intelligence -- DEFINED</summary>
@@ -555,15 +575,52 @@ Plans:
 - [x] 82.1-03-PLAN.md — Fix 3: row-list pane + sender column widths (D-04, D-05, D-06)
 - [x] 82.1-04-PLAN.md — Fix 4: port Stage 1 override picker into Stage1Widget; delete override pane (D-07..D-12)
 
-### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED)
+### Phase 82.2: Stage 0 telemetry coverage fix (v8.0 stabilisation) (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 81
-**Plans:** 0 plans
+**Goal:** Close the Stage 0 `pipeline_events` coverage gap so every email in the canonical pipeline has a Stage 0 row, not just the "happy path." Production telemetry (last 7d, measured 2026-05-12) shows 26% / 34% / 42% / 45% coverage on the four debtor mailboxes vs 91% on sales-email. Likely root cause: the debtor-email `/ingest` placeholder pattern (Phase 64) makes Stage 0 worker take an UPDATE-existing branch that skips the `emitPipelineEvent` call on certain paths. Scope is strictly telemetry — safety verdict itself is correct, no operational incidents. Includes backfill of ≤30d historical Stage 0 rows from `automation_runs` where source data is available; otherwise `decision='unknown_legacy'`.
+**Requirements**: TBD (see `82.2-CONTEXT.md`)
+**Depends on:** Phase 82.1
+**Plans:** 0 — needs `/gsd-discuss-phase 82.2`
+**Blocks:** V9.0 Learning Inbox per-email trace
+**Closure target:** before 2026-05-18 (debtor-person onboarding)
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 81.1 to break down)
+- [ ] TBD (run /gsd-discuss-phase 82.2 then /gsd-plan-phase 82.2)
+
+### Phase 82.3: Per-stage audit surface (v8.0 stabilisation) (INSERTED)
+
+**Goal:** Add read-only detail panes to each stage entry in the existing Bulk Review detail-pane sidebar so the operator can see *why* a stage produced its verdict — regex match, LLM reasoning JSON, resolver candidates, Browserless screenshots — before deciding whether to override. Override controls themselves stay untouched. Replaces Phase 77's original "real Stage 2/3 review surface" intent. 80/20 cut: verdict + reasoning summary + key evidence + screenshots in default view; full transcript behind expander.
+**Requirements**: TBD (see `82.3-CONTEXT.md`)
+**Depends on:** Phase 82.1
+**Plans:** 0 — needs `/gsd-discuss-phase 82.3`
+**Blocks:** Phase 82.4 (prose-notes capture mounts inside the popup 82.3 ships)
+**Closure target:** before 2026-05-18 (debtor-person onboarding)
+**Supersedes:** Phase 77 (Stage 2/3 e2e verification)
+
+Plans:
+- [ ] TBD (run /gsd-discuss-phase 82.3 then /gsd-plan-phase 82.3)
+
+### Phase 82.4: Feedback capture infrastructure (v8.0 stabilisation) (INSERTED)
+
+**Goal:** Capture prose-notes context alongside the existing override controls per stage and re-scope the stage-tab lists to show every email with a verdict at each stage (Option Z). Two surfaces: (1) prose-notes textarea next to override controls on Stages 0-3 inside Phase 82.3's audit popup; (2) re-scope stage-tab lists to show every-row-with-verdict + a "needs action" filter chip (defaults OFF). `email_feedback` table seeded so V9.0 synthesis (clusterer + drafter + Learning Inbox) has captured data to read from. Synthesis itself stays V9.0.
+**Requirements**: TBD (see `82.4-CONTEXT.md`)
+**Depends on:** Phase 82.3 (prose-notes UI mounts inside 82.3's audit panes)
+**Plans:** 0 — needs `/gsd-discuss-phase 82.4`
+**Closure target:** before 2026-05-18 (debtor-person onboarding)
+
+Plans:
+- [ ] TBD (run /gsd-discuss-phase 82.4 then /gsd-plan-phase 82.4)
+
+### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED) ✓ closed 2026-05-11
+
+**Goal:** Add missing `--space-1..7` scale + `--v7-text-muted` / `--v7-border` aliases to `web/app/globals.css` so `_shell/StageTabStrip`, `_shell/PageHeader`, and Phase 76 Stage 3 surfaces resolve their `var(--space-N)` references correctly.
+**Requirements**: D-01..D-04 in `81.1-CONTEXT.md` (no separate REQUIREMENTS.md tracking — inline polish phase)
+**Depends on:** Phase 81
+**Plans:** 0 plans (executed inline — bypassed plan pipeline)
+**Verification:** Inline fix landed via commit `4ce8455` (`fix(81.1): add missing --space-N scale + v7-text-muted/v7-border aliases`). No follow-up.
+
+Plans:
+- [x] N/A — executed inline (CSS-only token additions; no plan pipeline needed per CONTEXT.md `Status: Ready for execution (inline fix — bypassing plan pipeline)`)
 
 ### Phase 34: Foundation & Auth
 **Goal**: Users can securely sign in and organize pipeline work into projects with colleague access

@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
-status: unknown
-stopped_at: Completed 82.1-04-PLAN.md
-last_updated: "2026-05-11T13:11:44.237Z"
-last_activity: 2026-05-11 -- Phase --phase execution started
+status: stabilising
+stopped_at: Completed 82.1-04-PLAN.md (closed) + cf317b4 stage-0 placeholder fix verified in production
+last_updated: "2026-05-12T08:00:00Z"
+last_activity: 2026-05-12 -- v8.0 closure punch list defined; ROADMAP cleanup pass
 progress:
   total_phases: 63
   completed_phases: 20
@@ -18,23 +18,35 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-15)
+See: .planning/PROJECT.md (updated 2026-05-12)
 
-**Core value:** Any colleague can go from a use case description to deployed, tested agents on Orq.ai -- through a browser UI with real-time visibility, visual agent graphs, and in-app approvals -- without touching a terminal or needing technical knowledge.
-**Current focus:** Phase --phase — 82.1
-**Previous milestones:** v0.3 shipped 2026-03-01, V2.0 shipped 2026-03-02, V2.1 shipped 2026-03-13, V3.0 in progress (91%), V4.0 partially complete, V6.0 phases 44-45 complete, V7.0 shipped 2026-04-30
+**Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
+**Current focus:** v8.0 closure punch list — Phases 82.2 + 82.3 + 82.4 + 999.8 must ship before debtor-person operator onboarding (week of 2026-05-18).
+**Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: --phase (82.1) — EXECUTING
-Plan: 1 of --name
-Milestone: v8.0 Agentic Platform (11 phases, 63-73)
-Last activity: 2026-05-11 -- Phase --phase execution started
+Phase: v8.0 stabilisation — closure punch list active
+Milestone: v8.0 Agentic Platform (Phases 63-82.4)
+Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verified live 2026-05-12)
 
-Progress: [█████████░] 87%
+**v8.0 closure punch list (gates before /gsd-audit-milestone v8.0):**
+- [ ] Phase 82.2: Stage 0 telemetry coverage fix — CONTEXT stub exists; needs `/gsd-discuss-phase 82.2`
+- [ ] Phase 82.3: Per-stage audit surface — CONTEXT stub exists; needs `/gsd-discuss-phase 82.3` (parallel-safe with 82.2)
+- [ ] Phase 82.4: Feedback capture form — CONTEXT stub exists; sequenced AFTER 82.3
+- [ ] Phase 999.8: 2 outstanding browser smokes — operator UAT pending
 
-**v8.0 execution order:** 63 -> 64 -> 65 -> 66 -> 67 -> 68 -> 69 -> 70 -> 71 -> 72 -> 73
-**Next action:** `/gsd-verify-work 68`, then `/gsd-discuss-phase 69 --auto`.
+**v8.0 reframes (locked 2026-05-12):**
+- Phase 72 (Promotion Recommender) → **V9.0** full milestone (prose-feedback synthesis)
+- Phase 73 (sales-email validation) → **V10.0** full milestone (Phase 78 never executed)
+- Phase 77 (Stage 2/3 e2e verification) → **superseded by Phase 82.3** + debtor-person operator onboarding
+
+**Next milestones defined (see `.planning/MILESTONES.md`):**
+- V9.0 Promotion Recommender + Learning Inbox (depends on v8.0 closure)
+- V10.0 Sales-email canonical pipeline (depends on V9.0 capture surface live)
+- V11.0 Intent-prioritised handlers (depends on V10.0 multi-swarm signal)
+
+**Next action:** `/gsd-discuss-phase 82.2` and `/gsd-discuss-phase 82.3` (parallel-safe), then plan + execute both. 82.4 sequenced after 82.3.
 
 ## Performance Metrics
 
