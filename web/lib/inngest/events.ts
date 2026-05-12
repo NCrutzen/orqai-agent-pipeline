@@ -147,6 +147,19 @@ export type Events = {
     };
   };
 
+  // Phase 82.2 Plan 09 (D-03/D-04/D-05) — one-shot Stage 0 backfill.
+  // Manually triggered via inngest.send({ name: 'pipeline.stage0.backfill', ... }).
+  // Reads public.stage0_backfill_candidates(window_days) and writes a
+  // pipeline_events.stage=0 row per gap with triggered_by='backfill'.
+  // window_days defaults to 30; values >30 are clamped client-side and
+  // server-side (Plan 03 RPC clamps to 30; D-05 cap).
+  "pipeline.stage0.backfill": {
+    data: {
+      window_days?: number;
+      triggeredBy?: string;
+    };
+  };
+
   // Phase 60 — classifier whitelist-gate loop
   "classifier/backfill.run": {
     data: {
