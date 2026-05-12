@@ -1,5 +1,97 @@
 # Milestones
 
+## V11.0 Intent-Prioritised Handlers (Defined: 2026-05-12)
+
+**Phases:** TBD (numbered after V10.0 phases are finalized)
+**Status:** Defined — depends on V10.0 producing intent-volume signal across two swarms
+
+**Goal:** Convert Stage 3 intent volume into Stage 4 handler coverage in priority order. Today the Kanban human-lane (Phase 76) is the catch-all for intents without handlers — operators do them by hand. V11.0 builds the dashboard that ranks uncovered intents by frequency, plus a scaffolding template that turns "the top-3 uncovered intents" into 3 new handler phases per milestone cycle.
+
+**Target capabilities:**
+
+- Intent-coverage dashboard reading `swarm_intents` (handler-mapped) ∪ `pipeline_events` (Stage 3 verdicts) — surfaces the gap and ranks by 30-day frequency × business-value weight
+- Handler-scaffolding template (`/gsd-add-phase` integration) — given a chosen intent, drafts a Stage 4 handler phase with CONTEXT.md pre-filled (intent definition from V9.0 + sample emails + suggested side-effects)
+- Dispatch via `swarm_intents.handler_event` registry — new handlers register via INSERT, no code edits to `stage-3-dispatcher.ts`
+- Per-intent volume telemetry in the existing `pipeline_events_email_summary_v2` view, exposed via the dashboard
+
+**Architecture:** Reads from V9.0 (intent definitions from operator prose) and V10.0 (intent-frequency telemetry across both swarms). Does NOT introduce new auto-execution — handlers still ship via standard phases, but the *prioritisation* is data-driven instead of opinion-driven.
+
+**Success criteria:** N most-frequent uncovered intents have shipped handlers within Y weeks of being identified. Concrete numbers TBD when V10.0 produces baseline volume data.
+
+**Depends on:** V10.0 (multi-swarm intent volume signal; sales-email-specific Stage 3 intents shipping)
+
+---
+
+## V10.0 Sales-Email Canonical Pipeline (Defined: 2026-05-12)
+
+**Phases:** TBD (Phase 78 directory exists but is empty — needs proper plan)
+**Status:** Defined — depends on V9.0 Stream B (intent capture) being operator-usable
+
+**Goal:** `verkoop@smeba.nl` runs the same canonical 5-stage funnel as debtor-email, end-to-end, with full Bulk Review trace. Today Phase 74 stops sales-email at `manual_review` for noise categories; Phase 78 was never executed; the `sales-email-analyzer/` module is the legacy direct-Orq.ai path. V10.0 is the actual "second swarm validation" that v8.0 promised.
+
+**Target capabilities:**
+
+- New sales-email Stage 2 entity resolver — Sugar-account lookup (SugarCRM SDK or Zapier bridge), NOT a copy of debtor-email's NXT resolver. Customer-less emails fall through to Stage 3.
+- Sales-email-specific Stage 3 intent agent — separate from `debtor-intent-agent`; intents derived from V9.0 Stream B prose feedback by the sales-email operator
+- Phase 78 properly planned and executed (currently `.gitkeep` only) — includes the Sugar archive resolve route (Phase 75 in ROADMAP) + flipping noise categories from `manual_review` back to `categorize_archive`
+- Multi-operator handling — V9.0 added single-operator scaffolding; V10.0 forces `operator_id` columns, scope filtering in the Learning Inbox, and vocabulary-reconciliation in the synthesis layer (different operators describe the same intent differently)
+- Stage 0 telemetry coverage for sales-email already at 91% (no Phase 82.2 follow-up needed)
+
+**Architecture:** Sales-email is the second customer of V9.0's feedback infrastructure. Both swarms write to the same `pipeline_events`, the same `agent_runs`, the same `promotion_candidates` (V9.0 table). The sales-email operator and the debtor-person produce parallel feedback streams that the V9.0 synthesis layer aggregates into proposed system changes.
+
+**Success criteria:**
+
+- X% of inbound sales emails reach a Stage 3 verdict without `manual_review` (target TBD — current baseline ≈ 0% via the canonical path)
+- Sales-email operator gives Stream B feedback for ≥ 80% of Stage 3 rows within first 14 days
+- At least one V9.0-proposed system change is approved using cross-swarm feedback (i.e., the synthesis layer sees both operators' input)
+
+**Depends on:** V9.0 (Stream B operator surface live; promotion_candidates table; synthesis layer ≥ T2)
+
+---
+
+## V9.0 Promotion Recommender + Learning Inbox (Defined: 2026-05-12)
+
+**Phases:** TBD — Phase 72 from v8.0 reframed; old phase definition (telemetry-only "promotion candidates") deprecated
+**Status:** Defined — depends on Phase 82.2 (Stage 0 coverage fix) landing first
+
+**Goal:** Turn operator prose feedback into proposed system changes via LLM synthesis (T2 draft-proposer tier). The operator does NOT click ✓/✗ on automated candidates — they write prose explanations of *what should have happened* and the system clusters + drafts concrete changes for one-click approval.
+
+**Target capabilities:**
+
+- **Stream A — Stage 2 corrections** (sparse, opt-in when wrong): operator marks "incorrect customer mapping" + free-text prose ("the PO in the body matches NXT customer 14782", "this is John forwarding for customer X"). Goes into a new `email_feedback` table keyed by `(email_id, stage, operator_id)`.
+- **Stream B — Stage 3 row review** (dense, ~25/day for the debtor-person): structured-first form — operator picks from existing intent dropdown OR types a new intent inline + optional free-text notes. Confirm-and-move-on for 80% of rows; new-intent typing for the rest.
+- **Immediate apply on new intent** — when operator types a new intent at Stage 3, the new label enters the Stage 3 LLM's intent list for the next inbound email. No batched approval. (UX guardrail: fuzzy-match against existing intents before accepting, offer "did you mean X?".)
+- **Synthesis layer** (T2, weekly batch): LLM reads N days of feedback, clusters by pattern (e.g., "12 Stage 2 fails this week clustered into 3 patterns: (a) PO-number-in-body, (b) intra-company forwards, (c) supplier-on-behalf-of"), drafts a concrete change for each cluster (new resolver step / new noise rule / new intent definition), writes to a `proposed_actions` table.
+- **Learning Inbox UI** — new tab on Bulk Review (NOT a separate page): filtered view of `proposed_actions WHERE status='pending_review'`. Operator sees the cluster + the draft change + a one-click "Apply" that executes the data-shaped changes (INSERT into `swarm_intents` / `classifier_rules` / new resolver-step row).
+- **Data-driven resolver steps** — refactor `resolveDebtor` from hardcoded 4-layer pipeline to data-driven `stage2_resolver_steps` table so LLM-proposed resolver changes can land as INSERTs, not PR code review.
+- **Eval gate for the clusterer** — held-out dataset of ≥ 100 historical Stage 2/3 corrections with hand-labelled cluster IDs; LLM clusterer must hit X% accuracy before going live (Phase 1 deliverable, not side-quest).
+
+**Architectural decisions (locked):**
+
+- **Synthesis tier: T2.** LLM drafts; operator clicks approve; system applies for data-shaped changes only. Code-shaped changes fall back to "LLM drafted, human implements" (T1).
+- **Operator: single (debtor-person)** — multi-operator handling deferred to V10.0
+- **Wilson-CI noise-rule promotion coexists**, not absorbed. `labeling-flip-cron` keeps running in the background. V9.0 only touches Stage 2/3.
+- **Stage scope: 2 + 3 only** — Stages 0/1 already have 4-axis overrides in Bulk Review (Phase 71); no prose needed. Operator effort ≈ 50 events/day (15 with prose), not 250.
+- **Form shape: structured-first, prose-optional** — operator confirms LLM verdict in 5 seconds when correct; types prose only when overriding or proposing new label.
+
+**Success criteria:**
+
+- ≥ 80% of repeat Stage 3 overrides get auto-suppressed within 7 days (the new intent is applied immediately, the next similar email is classified correctly without operator intervention)
+- ≥ 1 V9.0-proposed Stage 2 system change shipped per week (drafted by LLM, applied via Learning Inbox)
+- Operator time per Stage 3 row ≤ 15 seconds median (structured confirm path)
+- Clusterer eval accuracy ≥ X% on held-out set before T2 goes live (X TBD)
+
+**Depends on:** Phase 82.2 (Stage 0 coverage fix); debtor-person operator availability from 2026-05-18
+
+**Risk register:**
+
+- LLM clusterer over-generalises → mitigated by held-out eval gate
+- New-intent fragmentation (operator types 3 variants of same intent) → mitigated by fuzzy-match UX guardrail at form level
+- "Immediate apply" creates intent-list pollution → mitigated by weekly cleanup pass in synthesis layer (merges duplicate intents)
+- Operator fatigue at 50 events/day → mitigated by structured-first form; if fatigue still appears, V9.0 falls back to sampling instead of every-row review
+
+---
+
 ## v7.0 Agent OS (Shipped: 2026-04-30)
 
 **Phases completed:** 18 phases, 50 plans, 15 tasks
