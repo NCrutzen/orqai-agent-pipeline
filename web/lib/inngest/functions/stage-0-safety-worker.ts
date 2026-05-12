@@ -289,51 +289,12 @@ export const stage0SafetyWorker = inngest.createFunction(
         // write here. The operator surface that issued the override owns the
         // run row's state machine.
       } else if (verdictSource.kind === "budget-breach") {
-        // BUDG-01 — record the breach in automation_runs so the
-        // budget-breach-handler downstream doesn't have to reconstruct.
-        if (automation_run_id) {
-          const { error } = await admin
-            .from("automation_runs")
-            .update({
-              status: "failed",
-              topic: null,
-              result: {
-                stage: "stage_0_safety",
-                budget: verdictSource.budget,
-              },
-              error_message: verdictSource.reason,
-              triggered_by: "stage-0/safety-worker",
-              completed_at: completedAt,
-            })
-            .eq("id", automation_run_id)
-            .eq("status", "pending");
-          if (error) {
-            throw new Error(
-              `automation_runs update (budget-breach) failed (id=${automation_run_id}): ${error.message}`,
-            );
-          }
-        } else {
-          const { error } = await admin.from("automation_runs").insert({
-            automation: staleChannel,
-            status: "failed",
-            swarm_type,
-            topic: null,
-            entity,
-            mailbox_id,
-            result: {
-              stage: "stage_0_safety",
-              budget: verdictSource.budget,
-            },
-            error_message: verdictSource.reason,
-            triggered_by: "stage-0/safety-worker",
-            completed_at: completedAt,
-          });
-          if (error) {
-            throw new Error(
-              `automation_runs insert (budget-breach) failed: ${error.message}`,
-            );
-          }
-        }
+        // BUDG-01 — preserve pre-82.2-04 contract: the worker does NOT
+        // write to automation_runs on budget-breach. The downstream
+        // `budget-breach-handler` (Inngest function listening on
+        // `pipeline/budget_breached`) owns the status='failed' flip on
+        // the originating run AND files a new human-review Kanban row.
+        // Writing here would double-write with that handler.
       } else {
         // main-path — preserve the pre-refactor UPDATE-by-id + INSERT-fallback
         // pattern (Phase 82.x orphan-placeholder fix). UPDATE-by-id+status=pending
