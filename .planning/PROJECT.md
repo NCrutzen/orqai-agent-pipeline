@@ -75,7 +75,7 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 - [x] Claude-style terminal event stream (Supabase Realtime)
 - [x] Data integration: Supabase + Orq.ai API (traces, tool calls, agent metrics)
 
-**v8.0 Agentic Platform** (shipped substantively — closure pending Phase 82.2):
+**v8.0 Agentic Platform** (shipped substantively — closure pending 82.2 + 82.4):
 - [x] Architecture RFC (Phase 63) — canonical 5-stage funnel locked
 - [x] Stage 0 input safety / prompt-injection guard (Phase 64)
 - [x] Per-run token & cost budgets + tool-call allowlists per intent (Phase 64)
@@ -87,13 +87,17 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 - [x] Cross-swarm handler-agent canonicalisation (Phase 69)
 - [x] Single canonical `pipeline_events` table (Phase 70) — *coverage gap, see Phase 82.2*
 - [x] Stage 1 LLM Category Classifier — swarm-agnostic (Phase 74)
-- [ ] Phase 82.2 — Stage 0 telemetry coverage fix (stabilisation, in flight)
-- [→] Promotion recommender + Learning Inbox — **moved to V9.0** (reframed as prose-feedback synthesis)
-- [→] Sales-email swarm validation — **moved to V10.0** (Phase 78 directory empty; needs proper onboarding)
+- [x] **Sales-email Stage 0/1 canary**: 181 emails ingested (30d), 91% Stage 0 reach, Stage 1 LLM classifying — corpus accruing for V10.0 rule design. (Was Half B of original v8.0 charter; satisfied incidentally by Phase 74 rollout.)
+- [ ] **Phase 82.2** — Stage 0 telemetry coverage fix (stabilisation, in flight)
+- [ ] **Phase 82.4** — Feedback capture infrastructure (`email_feedback` table + Stage 2/3 prose form + history view, no synthesis)
+- [→] Promotion recommender + Learning Inbox **synthesis layer** — **moved to V9.0** (T2 draft-proposer on top of 82.4 capture)
+- [→] Sales-email full operator onboarding — **moved to V10.0** (Stage 2 Sugar resolver, Stage 3 sales intent agent, multi-operator handling)
 
 ### Active
 
-**v8.0 stabilisation** (this week): Phase 82.2 fixes Stage 0 `pipeline_events` coverage (currently 26–45% on debtor mailboxes vs 91% on sales) so the debtor-person onboarding next week sees complete per-email traces in Bulk Review.
+**v8.0 stabilisation** (this week + next): two phases gating closure:
+- Phase 82.2 — Stage 0 telemetry coverage fix (26–45% → ≥99% on debtor mailboxes)
+- Phase 82.4 — Feedback capture infrastructure so the debtor-person has a place to put Stage 2/3 prose feedback from day 1 of their onboarding (2026-05-18). Capture only; V9.0 synthesises.
 
 ### Defined (not yet active)
 

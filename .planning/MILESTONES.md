@@ -52,19 +52,23 @@
 ## V9.0 Promotion Recommender + Learning Inbox (Defined: 2026-05-12)
 
 **Phases:** TBD — Phase 72 from v8.0 reframed; old phase definition (telemetry-only "promotion candidates") deprecated
-**Status:** Defined — depends on Phase 82.2 (Stage 0 coverage fix) landing first
+**Status:** Defined — depends on v8.0 closure (Phase 82.2 + Phase 82.4)
 
-**Goal:** Turn operator prose feedback into proposed system changes via LLM synthesis (T2 draft-proposer tier). The operator does NOT click ✓/✗ on automated candidates — they write prose explanations of *what should have happened* and the system clusters + drafts concrete changes for one-click approval.
+**Scope cut 2026-05-12:** Capture infrastructure (`email_feedback` table, Stage 2/3 prose form, history view) moved into v8.0 as **Phase 82.4** so the debtor-person has a place to put feedback from day 1 of their onboarding (2026-05-18). V9.0 is now **pure synthesis on top of pre-existing captured data** — smaller scope, cleaner thesis.
+
+**Goal:** Turn captured operator prose feedback into proposed system changes via LLM synthesis (T2 draft-proposer tier). Read `email_feedback` (populated by 82.4), cluster by pattern, draft concrete changes, surface in a Learning Inbox tab on Bulk Review, apply on one-click for data-shaped changes.
 
 **Target capabilities:**
 
-- **Stream A — Stage 2 corrections** (sparse, opt-in when wrong): operator marks "incorrect customer mapping" + free-text prose ("the PO in the body matches NXT customer 14782", "this is John forwarding for customer X"). Goes into a new `email_feedback` table keyed by `(email_id, stage, operator_id)`.
-- **Stream B — Stage 3 row review** (dense, ~25/day for the debtor-person): structured-first form — operator picks from existing intent dropdown OR types a new intent inline + optional free-text notes. Confirm-and-move-on for 80% of rows; new-intent typing for the rest.
-- **Immediate apply on new intent** — when operator types a new intent at Stage 3, the new label enters the Stage 3 LLM's intent list for the next inbound email. No batched approval. (UX guardrail: fuzzy-match against existing intents before accepting, offer "did you mean X?".)
-- **Synthesis layer** (T2, weekly batch): LLM reads N days of feedback, clusters by pattern (e.g., "12 Stage 2 fails this week clustered into 3 patterns: (a) PO-number-in-body, (b) intra-company forwards, (c) supplier-on-behalf-of"), drafts a concrete change for each cluster (new resolver step / new noise rule / new intent definition), writes to a `proposed_actions` table.
+- **Synthesis layer** (T2, weekly batch): LLM reads N days of `email_feedback`, clusters by pattern (e.g., "12 Stage 2 fails this week clustered into 3 patterns: (a) PO-number-in-body, (b) intra-company forwards, (c) supplier-on-behalf-of"), drafts a concrete change for each cluster (new resolver step / new noise rule / new intent definition), writes to a new `proposed_actions` table.
 - **Learning Inbox UI** — new tab on Bulk Review (NOT a separate page): filtered view of `proposed_actions WHERE status='pending_review'`. Operator sees the cluster + the draft change + a one-click "Apply" that executes the data-shaped changes (INSERT into `swarm_intents` / `classifier_rules` / new resolver-step row).
-- **Data-driven resolver steps** — refactor `resolveDebtor` from hardcoded 4-layer pipeline to data-driven `stage2_resolver_steps` table so LLM-proposed resolver changes can land as INSERTs, not PR code review.
-- **Eval gate for the clusterer** — held-out dataset of ≥ 100 historical Stage 2/3 corrections with hand-labelled cluster IDs; LLM clusterer must hit X% accuracy before going live (Phase 1 deliverable, not side-quest).
+- **Immediate-apply enablement on new intents** — flip the V9.0 switch so 82.4-captured new-intent labels enter the Stage 3 LLM's intent list automatically (with the fuzzy-match dedup already in 82.4). 82.4 captures; V9.0 wires it through.
+- **Data-driven resolver steps** — refactor `resolveDebtor` from hardcoded 4-layer pipeline to data-driven `stage2_resolver_steps` table so LLM-proposed resolver changes land as INSERTs, not PR code review.
+- **Eval gate for the clusterer** — held-out dataset of ≥ 100 captured Stage 2/3 corrections (from 82.4's accumulating corpus) with hand-labelled cluster IDs; LLM clusterer must hit X% accuracy before going live (Phase 1 deliverable, not side-quest).
+
+**Inherited from Phase 82.4 (already shipped under v8.0):**
+
+- `email_feedback` table + Stage 2 incorrect-mapping form + Stage 3 confirm-or-correct form + own-feedback-history view + fuzzy-match guardrail on new-intent typing.
 
 **Architectural decisions (locked):**
 
