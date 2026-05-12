@@ -70,6 +70,10 @@
 
 ---
 
+## Backend / pipeline observations (added 2026-05-12)
+
+- **Stage 2 `triggered_by` label leakage** — 5 rows seen on 2026-05-11/12 with `triggered_by='stage-0/safety-worker'` but `result` shape clearly belongs to Stage 2 customer-mapping (`method`, `customer_name`, `customer_account_id`, `dry_run: true`). Some Stage 2 writer is using the wrong `triggered_by` literal. Surfaced during Stage 0 placeholder-fix verify (commit `cf317b4`); pre-existing, not caused by the fix. Sample id: `8b3e26f1-8057-4cd0-8ce8-53a65cfea2d0`.
+
 ## Cross-stage / shell-level
 
 ### Per-stage details popup with screenshots (FEATURE REQUEST)
