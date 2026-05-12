@@ -301,6 +301,64 @@ async function readSearchDebug(page: Page): Promise<string> {
 }
 
 /**
+ * Defense-in-depth (2026-05-12): the per-mailbox URL (`/messages/index/mailbox/{id}`,
+ * commit a76d0a2) scopes the LIST view but iController's sidebar Account sub-filter
+ * is persisted in session state and gets applied server-side to the `bulkDelete`
+ * POST. When the row being deleted belongs to a sibling Account that is not the
+ * currently-selected one, iController returns 2xx but silently excludes the row
+ * from the delete set — verify-pass then re-finds the row → "Delete verification
+ * failed".
+ *
+ * This helper looks for a sidebar "clear Account" / "all accounts" affordance
+ * inside `#messages-nav` / `.sidebar`. The selectors are best-effort and tolerant:
+ * if nothing matches, we return what we observed (active-account label + whether
+ * a reset was clicked) so the caller can stash it for diagnosis. Silent no-op on
+ * any DOM mismatch — we never want to make the path worse than before.
+ */
+async function resetSidebarAccountFilter(
+  page: Page,
+): Promise<{ activeAccount: string | null; resetClicked: boolean }> {
+  return page
+    .evaluate(() => {
+      const root =
+        document.querySelector<HTMLElement>("#messages-nav") ||
+        document.querySelector<HTMLElement>(".sidebar") ||
+        document.body;
+
+      // Phase 1: identify whatever the sidebar treats as "currently selected"
+      // for the Account sub-filter. iController templates have used `.active`,
+      // `.selected`, and `aria-current` across versions — probe all three.
+      const activeEl = root.querySelector<HTMLElement>(
+        "a.active, li.active > a, a.selected, li.selected > a, a[aria-current='page'], a[aria-current='true']",
+      );
+      const activeAccount =
+        activeEl && (activeEl.textContent || "").trim().length > 0
+          ? (activeEl.textContent || "").trim().replace(/^»\s*/, "").slice(0, 120)
+          : null;
+
+      // Phase 2: try to click an "all accounts" / clear-filter affordance.
+      // Patterns observed in similar PHP/Symfony admins:
+      //   - text starts with "Alle" / "All"
+      //   - href ends in `/account` (no id) or `/account/0` or `?account=`
+      const anchors = Array.from(root.querySelectorAll<HTMLAnchorElement>("a[href]"));
+      const resetTextRe = /^(alle\b|all\b|all accounts|alle accounts|reset)/i;
+      const resetHrefRe = /\/account(\/0)?$|\?account=$|\?account=0$/;
+      const candidate = anchors.find((a) => {
+        const txt = (a.textContent || "").trim();
+        const href = a.getAttribute("href") || "";
+        return resetTextRe.test(txt) || resetHrefRe.test(href);
+      });
+
+      if (candidate) {
+        candidate.click();
+        return { activeAccount, resetClicked: true };
+      }
+      return { activeAccount, resetClicked: false };
+    })
+    .catch(() => ({ activeAccount: null, resetClicked: false }));
+}
+
+/**
  * Scroll matched row into view and apply red outline + pink background
  * so screenshots visually point to the target.
  */
@@ -505,6 +563,13 @@ export async function deleteEmailOnPage(
       .waitForSelector("#messages-list", { timeout: 6000 })
       .catch(() => null);
 
+    // Defense-in-depth (2026-05-12): some iController sessions persist a
+    // sidebar Account sub-filter server-side, which silently excludes rows
+    // belonging to sibling Accounts from `bulkDelete`. Reset before Pass 1
+    // so the find probe and the eventual delete POST see the same row set.
+    // Safe no-op on DOM mismatch.
+    let sidebarReset = await resetSidebarAccountFilter(page);
+
     const rowIndex = await findEmailViaSearch(page, email);
     if (rowIndex === -1) {
       const debug = await readSearchDebug(page);
@@ -542,14 +607,19 @@ export async function deleteEmailOnPage(
     await page
       .waitForSelector("#messages-list", { timeout: 6000 })
       .catch(() => null);
+    // Same sidebar-reset as Pass 1. The post-delete navigation re-applies
+    // the session-sticky Account filter; reset again so the verify probe
+    // sees the full mailbox row set. Stash the state for error reporting.
+    sidebarReset = await resetSidebarAccountFilter(page);
     const stillPresentIndex = await findEmailViaSearch(page, email);
     if (stillPresentIndex !== -1) {
+      const sidebarHint = ` [sidebar: activeAccount=${JSON.stringify(sidebarReset.activeAccount)}, resetClicked=${sidebarReset.resetClicked}]`;
       return {
         success: false,
         emailFound: true,
         screenshots: { before: audit.before, after: audit.after },
         error:
-          "Delete verification failed: email still present after click sequence (silent XHR failure or modal mis-click suspected)",
+          "Delete verification failed: email still present after click sequence (silent XHR failure or modal mis-click suspected)" + sidebarHint,
       };
     }
 
