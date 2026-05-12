@@ -85,14 +85,18 @@
 - Operator time per Stage 3 row ≤ 15 seconds median (structured confirm path)
 - Clusterer eval accuracy ≥ X% on held-out set before T2 goes live (X TBD)
 
-**Depends on:** Phase 82.2 (Stage 0 coverage fix); debtor-person operator availability from 2026-05-18
+**Depends on:** v8.0 closure (82.2 telemetry + 82.3 audit surface + 82.4 capture); debtor-person operator availability from 2026-05-18
 
 **Risk register:**
 
 - LLM clusterer over-generalises → mitigated by held-out eval gate
-- New-intent fragmentation (operator types 3 variants of same intent) → mitigated by fuzzy-match UX guardrail at form level
+- New-intent fragmentation (operator types 3 variants of same intent) → mitigated by fuzzy-match UX guardrail at form level (V9.0 ships fuzzy-match; 82.4 captures variants without it)
 - "Immediate apply" creates intent-list pollution → mitigated by weekly cleanup pass in synthesis layer (merges duplicate intents)
-- Operator fatigue at 50 events/day → mitigated by structured-first form; if fatigue still appears, V9.0 falls back to sampling instead of every-row review
+- Operator fatigue → mitigated by Option Z chip defaults OFF (audit-first is opt-in, not forced) + structured-first form; if fatigue still appears, V9.0 falls back to calibration sampling (below) instead of every-row review
+
+**Future-state pinned 2026-05-12 — calibration sampling:**
+
+Once the system is stable and the debtor-person is calibrated, V9.0+ introduces a sampling mode where the system surfaces ~10% of auto-handled green rows for forced re-review per week. Purpose: keep operator accuracy benchmarked over time and detect silent model drift. Operator scrolls the green rows only when they want to (Option Z chip default OFF) — calibration sampling pushes a configurable percentage to the top of stage tabs as "due for re-review" until the operator processes them. Out of scope for V9.0 v1; revisit when there's ≥4 weeks of `email_feedback` data to set the sampling rate against.
 
 ---
 
