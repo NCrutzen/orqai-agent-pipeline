@@ -89,15 +89,18 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 - [x] Stage 1 LLM Category Classifier — swarm-agnostic (Phase 74)
 - [x] **Sales-email Stage 0/1 canary**: 181 emails ingested (30d), 91% Stage 0 reach, Stage 1 LLM classifying — corpus accruing for V10.0 rule design. (Was Half B of original v8.0 charter; satisfied incidentally by Phase 74 rollout.)
 - [ ] **Phase 82.2** — Stage 0 telemetry coverage fix (stabilisation, in flight)
-- [ ] **Phase 82.4** — Feedback capture infrastructure (`email_feedback` table + Stage 2/3 prose form + history view, no synthesis)
+- [ ] **Phase 82.3** — Per-stage audit surface (click-through popup with verdict + evidence + screenshots; 80/20 cut)
+- [ ] **Phase 82.4** — Feedback capture infrastructure mounted inside 82.3's popup (`email_feedback` table + Stage 2/3 forms + history view, no synthesis)
 - [→] Promotion recommender + Learning Inbox **synthesis layer** — **moved to V9.0** (T2 draft-proposer on top of 82.4 capture)
 - [→] Sales-email full operator onboarding — **moved to V10.0** (Stage 2 Sugar resolver, Stage 3 sales intent agent, multi-operator handling)
 
 ### Active
 
-**v8.0 stabilisation** (this week + next): two phases gating closure:
+**v8.0 stabilisation** (this week + next): three phases gating closure, sequential not parallel — operator needs the read surface (82.3) before the form (82.4) is useful:
 - Phase 82.2 — Stage 0 telemetry coverage fix (26–45% → ≥99% on debtor mailboxes)
-- Phase 82.4 — Feedback capture infrastructure so the debtor-person has a place to put Stage 2/3 prose feedback from day 1 of their onboarding (2026-05-18). Capture only; V9.0 synthesises.
+- Phase 82.3 — Per-stage audit surface so the debtor-person can see *what each stage did* (verdict + reasoning + iController screenshots) before commenting
+- Phase 82.4 — Feedback capture form inside 82.3's popup so prose feedback lands in `email_feedback`. Capture only; V9.0 synthesises.
+- Hard deadline: all three ship before 2026-05-18 (debtor-person onboarding).
 
 ### Defined (not yet active)
 

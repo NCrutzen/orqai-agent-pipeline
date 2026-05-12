@@ -87,14 +87,25 @@ Earlier in this session we triaged five phases that had plan/summary mismatches 
 
 **Key learning:** the gap between *roadmap doc state* and *production code state* is significant for milestones with many in-flight phases. Phase 55 was a clean case of "scope drift" (RFC mid-milestone rerouted half the plans through different phases). Phase 56 was pure documentation lag. Both produced the same symptom — `gsd-progress` routing to "current phase = 55/56" — but had different root causes.
 
-## v8.0 closure punch list (locked 2026-05-12)
+## v8.0 closure punch list (updated 2026-05-12, late session)
 
 | Item | Status |
 |---|---|
 | Phase 82.2 — Stage 0 telemetry coverage fix | Stubbed; needs `/gsd-discuss-phase 82.2` |
-| Phase 82.4 — Feedback capture infrastructure | Stubbed; needs `/gsd-discuss-phase 82.4` |
+| Phase 82.3 — Per-stage audit surface (NEW) | Stubbed; needs `/gsd-discuss-phase 82.3` |
+| Phase 82.4 — Feedback capture form inside 82.3's popup | Stubbed; needs `/gsd-discuss-phase 82.4` |
 | Phase 999.8 — 2 outstanding browser smokes | Operator UAT pending |
-| `/gsd-audit-milestone v8.0` | Run AFTER 82.2 + 82.4 + 999.8 ship — formal closure audit |
+| `/gsd-audit-milestone v8.0` | Run AFTER 82.2 + 82.3 + 82.4 + 999.8 ship — formal closure audit |
+
+**Sequence note:** 82.3 → 82.4 sequential (form mounts inside the popup). 82.2 parallel with 82.3 (different files). All three must ship before 2026-05-18.
+
+**Why 82.3 was added late in the session:** I initially scoped per-stage detail rendering into V9.0 as a "future feature." Pushed back on: V9.0's premise is *operator gives feedback on what the pipeline did*, which requires seeing what it did. Bulk Review shows verdicts but not evidence (no reasoning, no screenshots, no candidate ranking). Without the audit surface, prose feedback is "I think Stage 2 was wrong" with zero specificity, and V9.0's clusterer drowns. So the per-stage audit popup is a v8.0 closure prerequisite, not a V9.0 deliverable.
+
+**Decisions locked for 82.3:**
+- **80/20 cut:** verdict + reasoning summary + key evidence + screenshots. Full agent transcripts behind a "show full reasoning" expander (slip-first if timeline tightens).
+- **Sender_name / subject data-quality:** row-mapper display bug (NOT ingest persistence bug). Fix lives in 82.3, no data backfill.
+- **Cross-stage "Pipeline timeline" master view:** deferred to V9.0.
+- **Screenshots:** persisted in Supabase Storage `automation-screenshots` bucket; 1h signed URLs refreshed on every popup open.
 
 Once all four land, v8.0 closes formally and V9.0 opens with a clean scope.
 
