@@ -173,6 +173,23 @@ export const classifierVerdictWorker = inngest.createFunction(
           for (const dispatch of stage1Dispatches) {
             if (dispatch.kind === "automation_run_insert") {
               await step.run(`queue-${dispatch.automation}`, async () => {
+                // Phase 76 dedup (2026-05-12): one physical iController row =
+                // at most one cleanup attempt. Mailbox forwarding (e.g.
+                // debiteuren@smeba-fire.be → debiteuren@smeba.nl) produces
+                // two pipeline ingest signals for one Outlook message_id.
+                // Without this guard, both verdict-worker invocations queue
+                // a cleanup row; one finds the iController row and deletes
+                // it, the other fails Delete-verification because the
+                // sidebar Account filter doesn't include the forwarded copy.
+                const { data: existing } = await admin
+                  .from("automation_runs")
+                  .select("id")
+                  .eq("automation", dispatch.automation)
+                  .eq("result->>message_id", message_id)
+                  .limit(1);
+                if (existing && existing.length > 0) {
+                  return;
+                }
                 await admin.from("automation_runs").insert({
                   automation: dispatch.automation,
                   status: "deferred",
