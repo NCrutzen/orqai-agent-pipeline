@@ -243,6 +243,15 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
         swarm_type: "sales-email",
         // Phase 74 D-02 — sales-email has no entity concept.
         entity: null,
+        // Phase 82.2 Plan 07 D-A — align field set with debtor-email so
+        // downstream workers see a single payload shape. Sales-email has
+        // no auto-action chain (only HITL Draft Review), so mailbox_id +
+        // receivedAt are the only non-null values worth threading; from /
+        // fromName are forwarded for telemetry consistency.
+        mailbox_id: null,
+        from: meta.from || null,
+        fromName: meta.fromName || null,
+        receivedAt: meta.receivedAt || isoNow,
       },
     });
   } catch (err) {
