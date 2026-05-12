@@ -44,6 +44,15 @@ import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { numericConfidence } from "@/lib/pipeline-events/types";
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
 import { classify as debtorEmailClassify } from "@/lib/debtor-email/classify";
+// Phase 82.2 Plan 06 D-A — debtor-email category dispatch logic, moved
+// from the synchronous ingest route. RFC: Stage 1 = noise filter only
+// (docs/agentic-pipeline/stage-1-regex.md). The whitelist below is a subset
+// of swarm_noise_categories matchedRule keys — the hard-separation rule
+// (a row exists in EXACTLY ONE of swarm_noise_categories OR swarm_intents)
+// is preserved.
+import { readWhitelist } from "@/lib/classifier/cache";
+import { categorizeEmail, archiveEmail, getMessageMeta } from "@/lib/outlook";
+import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 
 // Static dispatch map for stage-1 regex modules. The DB column
 // `swarms.stage1_regex_module` selects which module runs; this map
@@ -77,6 +86,30 @@ type SendFn = (p: {
   data: Record<string, unknown>;
 }) => Promise<unknown>;
 
+// ─── Phase 82.2 Plan 06 D-A — debtor-email dispatch constants ─────────────
+// Moved from web/app/api/automations/debtor-email/ingest/route.ts (pre-thin).
+// These are intentionally local to the debtor-email branch below — other
+// swarms keep the registry-driven dispatch via swarm_noise_categories.action
+// (verdict-worker). Hard separation per stage-1-regex.md: this is the
+// noise-filter auto-action gate, NOT intent classification.
+const DEBTOR_CATEGORY_LABEL: Record<string, string> = {
+  auto_reply: "Auto-Reply",
+  ooo_temporary: "OoO — Temporary",
+  ooo_permanent: "OoO — Permanent",
+  payment_admittance: "Payment Admittance",
+};
+const DEBTOR_MR_LABELS = new Set(Object.values(DEBTOR_CATEGORY_LABEL));
+const DEBTOR_LEGACY_ICONTROLLER_COMPANY = "smebabrandbeveiliging";
+
+interface DebtorLabelingSettings {
+  source_mailbox: string;
+  entity: string | null;
+  icontroller_company: string | null;
+  ingest_enabled: boolean;
+  auto_label_enabled: boolean;
+  triage_shadow_mode: boolean;
+}
+
 export const classifierScreenWorker = inngest.createFunction(
   { id: "classifier/screen-worker", retries: 0 },
   { event: "classifier/screen.requested" },
@@ -90,6 +123,13 @@ export const classifierScreenWorker = inngest.createFunction(
       body_text,
       swarm_type,
       entity,
+      // Phase 82.2 Plan 07 D-A passthrough fields — used by the debtor-email
+      // dispatch block below (Plan 06) to populate iController-cleanup
+      // automation_runs.result without a DB lookup.
+      mailbox_id: mailboxIdFromEvent,
+      from: fromFromEvent,
+      fromName: fromNameFromEvent,
+      receivedAt: receivedAtFromEvent,
     } = event.data as {
       automation_run_id: string;
       email_id: string;
@@ -99,6 +139,10 @@ export const classifierScreenWorker = inngest.createFunction(
       body_text: string;
       swarm_type: string;
       entity?: string | null;
+      mailbox_id?: number | null;
+      from?: string | null;
+      fromName?: string | null;
+      receivedAt?: string | null;
     };
 
     if (!swarm_type) {
@@ -319,6 +363,357 @@ export const classifierScreenWorker = inngest.createFunction(
         triggered_by: "pipeline",
       });
     });
+
+    // ───── Step 4.5: Phase 82.2 Plan 06 D-A — debtor-email dispatch ──────
+    // Owner of post-Stage-0 dispatch logic that previously lived in
+    // web/app/api/automations/debtor-email/ingest/route.ts. The block fires
+    // ONLY for debtor-email with a loaded labeling_settings row. Other
+    // swarms (sales-email, future swarms) fall through to the existing
+    // Step 5 emit-verdict path, which delegates to verdict-worker for the
+    // registry-driven action dispatch.
+    //
+    // RFC alignment: Stage 1 = noise filter only (stage-1-regex.md). The
+    // whitelist below is a subset of regex matchedRule keys in the
+    // swarm_noise_categories registry; no swarm_intents (Stage 3) crossing.
+    //
+    // Replay-safety (CLAUDE.md): every side-effect lives in its own
+    // step.run. The MR_LABEL pre-check guards categorize on Outlook side.
+    //
+    // REQ-6 compliance: no `swarm_type === 'X'` literal branch. The gate
+    // is the registry-keyed stage1_regex_module — the debtor-email regex
+    // module is the only one with promoted-rule whitelist mechanics today.
+    // Onboarding a future swarm with auto-action dispatch will need to
+    // register here and extend DEBTOR_CATEGORY_LABEL accordingly.
+    const DEBTOR_REGEX_MODULE_KEY = "@/lib/debtor-email/classify";
+    if (swarmRow.stage1_regex_module === DEBTOR_REGEX_MODULE_KEY) {
+      const settings = await step.run(
+        "load-debtor-labeling-settings",
+        async (): Promise<DebtorLabelingSettings | null> => {
+          const res = await admin
+            .schema("debtor")
+            .from("labeling_settings")
+            .select(
+              "source_mailbox, entity, icontroller_company, ingest_enabled, auto_label_enabled, triage_shadow_mode",
+            )
+            .eq("source_mailbox", source_mailbox)
+            .maybeSingle();
+          if (!res.data) return null;
+          const d = res.data as DebtorLabelingSettings;
+          return {
+            source_mailbox: d.source_mailbox,
+            entity: d.entity,
+            icontroller_company: d.icontroller_company,
+            ingest_enabled: d.ingest_enabled,
+            auto_label_enabled: d.auto_label_enabled,
+            triage_shadow_mode: d.triage_shadow_mode,
+          };
+        },
+      );
+
+      if (settings) {
+        // 1. Idempotency pre-check — if Outlook already carries one of our
+        //    MR_LABELS, the auto-action ran on a prior delivery. Skip.
+        //    Mirrors L272–281 of the pre-deletion ingest route.
+        const idempotencyCheck = await step.run(
+          "idempotency-precheck",
+          async () => {
+            try {
+              const meta = await getMessageMeta(source_mailbox, message_id);
+              const labeled = (meta.categories ?? []).filter((c: string) =>
+                DEBTOR_MR_LABELS.has(c),
+              );
+              return { alreadyLabeled: labeled.length > 0, labels: labeled };
+            } catch {
+              // 404 / Graph error — fall through to dispatch; the cleanup
+              // worker will surface the failure if Outlook is missing.
+              return { alreadyLabeled: false, labels: [] as string[] };
+            }
+          },
+        );
+
+        const isoNow = new Date().toISOString();
+        const mailboxId = mailboxIdFromEvent ?? null;
+
+        if (idempotencyCheck.alreadyLabeled) {
+          await step.run("write-skipped-idempotent-audit", async () => {
+            await admin.from("automation_runs").insert({
+              automation: "debtor-email-review",
+              status: "completed",
+              swarm_type: "debtor-email",
+              topic: finalCategoryKey === "unknown" ? null : finalCategoryKey,
+              entity: settings.entity,
+              mailbox_id: mailboxId,
+              result: {
+                stage: "zapier_ingest_classify",
+                message_id,
+                source_mailbox,
+                entity: settings.entity,
+                subject,
+                from: fromFromEvent ?? null,
+                action: "skipped_idempotent",
+                already_labeled: idempotencyCheck.labels,
+              },
+              triggered_by: "stage-1-worker",
+              completed_at: isoNow,
+            });
+          });
+          await step.run("emit-stale-skipped-idempotent", async () => {
+            await emitAutomationRunStale(admin, "debtor-email-review");
+          });
+          return {
+            ok: true,
+            regex_category: regexOutcome.category,
+            llm_invoked: llmInvoked,
+            final_category_key: finalCategoryKey,
+            dispatch: "skipped_idempotent",
+          };
+        }
+
+        // 2. Whitelist + auto-action gate.
+        const whitelist = await step.run(
+          "load-whitelist",
+          async () => Array.from(await readWhitelist(admin, "debtor-email")),
+        );
+        const whitelistSet = new Set(whitelist);
+        const matchedRule = regexOutcome.matchedRule ?? "";
+        const isWhitelistMatch = whitelistSet.has(matchedRule);
+        const autoActionAllowed =
+          isWhitelistMatch && settings.auto_label_enabled;
+
+        // 3. Bulk-review branch: !autoActionAllowed → status='predicted'.
+        //    Mirrors L402–423 of the pre-deletion ingest route. The
+        //    stage_0_safety_pending placeholder is NOT re-created here —
+        //    Plan 07 thin-ingest already inserts it BEFORE Stage 0 runs.
+        if (!autoActionAllowed) {
+          await step.run("write-predicted-bulk-review", async () => {
+            await admin.from("automation_runs").insert({
+              automation: "debtor-email-review",
+              status: "predicted",
+              swarm_type: "debtor-email",
+              topic:
+                finalCategoryKey === "unknown" ? null : finalCategoryKey,
+              entity: settings.entity,
+              mailbox_id: mailboxId,
+              result: {
+                stage: "zapier_ingest_classify",
+                message_id,
+                source_mailbox,
+                entity: settings.entity,
+                subject,
+                from: fromFromEvent ?? null,
+                predicted: {
+                  category: finalCategoryKey,
+                  rule: regexOutcome.matchedRule,
+                },
+                action:
+                  isWhitelistMatch && !settings.auto_label_enabled
+                    ? "skipped_disabled"
+                    : "skipped_not_whitelisted",
+              },
+              triggered_by: "stage-1-worker",
+              completed_at: isoNow,
+            });
+          });
+          await step.run("emit-stale-predicted", async () => {
+            await emitAutomationRunStale(admin, "debtor-email-review");
+          });
+          return {
+            ok: true,
+            regex_category: regexOutcome.category,
+            llm_invoked: llmInvoked,
+            final_category_key: finalCategoryKey,
+            dispatch:
+              isWhitelistMatch && !settings.auto_label_enabled
+                ? "skipped_disabled"
+                : "skipped_not_whitelisted",
+          };
+        }
+
+        // 4. Auto-action branch — categorize+archive+audit+cleanup queue.
+        //    Each Outlook side-effect lives in its own step.run; replay
+        //    dedupes per (run_id, step_name). categorize is additionally
+        //    guarded by the idempotency-precheck above so a repeated
+        //    delivery does not double-tag.
+        const label = DEBTOR_CATEGORY_LABEL[finalCategoryKey];
+        if (!label) {
+          // Whitelisted match for an unknown category — defensive bail-out.
+          // Should not happen because whitelist keys map to known categories
+          // by construction, but we surface it rather than fire Outlook.
+          await step.run("write-no-label-failure", async () => {
+            await admin.from("automation_runs").insert({
+              automation: "debtor-email-review",
+              status: "failed",
+              swarm_type: "debtor-email",
+              topic: finalCategoryKey,
+              entity: settings.entity,
+              mailbox_id: mailboxId,
+              result: {
+                stage: "categorize",
+                message_id,
+                source_mailbox,
+                entity: settings.entity,
+              },
+              error_message: `no Outlook label for category ${finalCategoryKey}`,
+              triggered_by: "stage-1-worker",
+              completed_at: isoNow,
+            });
+          });
+          return {
+            ok: false,
+            regex_category: regexOutcome.category,
+            llm_invoked: llmInvoked,
+            final_category_key: finalCategoryKey,
+            dispatch: "failed_no_label",
+          };
+        }
+
+        const catRes = await step.run("categorize", async () =>
+          categorizeEmail(source_mailbox, message_id, label),
+        );
+        if (!catRes.success) {
+          await step.run("write-categorize-failure", async () => {
+            await admin.from("automation_runs").insert({
+              automation: "debtor-email-review",
+              status: "failed",
+              swarm_type: "debtor-email",
+              topic: finalCategoryKey,
+              entity: settings.entity,
+              mailbox_id: mailboxId,
+              result: {
+                stage: "categorize",
+                message_id,
+                source_mailbox,
+                entity: settings.entity,
+                category: label,
+              },
+              error_message: catRes.error ?? null,
+              triggered_by: "stage-1-worker",
+              completed_at: isoNow,
+            });
+          });
+          await step.run("emit-stale-categorize-failed", async () => {
+            await emitAutomationRunStale(admin, "debtor-email-review");
+          });
+          return {
+            ok: false,
+            regex_category: regexOutcome.category,
+            llm_invoked: llmInvoked,
+            final_category_key: finalCategoryKey,
+            dispatch: "failed_categorize",
+          };
+        }
+
+        const arcRes = await step.run("archive", async () =>
+          archiveEmail(source_mailbox, message_id),
+        );
+        if (!arcRes.success) {
+          await step.run("write-archive-failure", async () => {
+            await admin.from("automation_runs").insert({
+              automation: "debtor-email-review",
+              status: "failed",
+              swarm_type: "debtor-email",
+              topic: finalCategoryKey,
+              entity: settings.entity,
+              mailbox_id: mailboxId,
+              result: {
+                stage: "archive",
+                message_id,
+                source_mailbox,
+                entity: settings.entity,
+                category: label,
+              },
+              error_message: arcRes.error ?? null,
+              triggered_by: "stage-1-worker",
+              completed_at: isoNow,
+            });
+          });
+          await step.run("emit-stale-archive-failed", async () => {
+            await emitAutomationRunStale(admin, "debtor-email-review");
+          });
+          return {
+            ok: false,
+            regex_category: regexOutcome.category,
+            llm_invoked: llmInvoked,
+            final_category_key: finalCategoryKey,
+            dispatch: "failed_archive",
+          };
+        }
+
+        // Success audit + iController-cleanup queue.
+        const icontrollerCompany =
+          settings.icontroller_company ?? DEBTOR_LEGACY_ICONTROLLER_COMPANY;
+        await step.run("write-auto-action-audit", async () => {
+          await admin.from("automation_runs").insert({
+            automation: "debtor-email-review",
+            status: "completed",
+            swarm_type: "debtor-email",
+            topic: finalCategoryKey,
+            entity: settings.entity,
+            mailbox_id: mailboxId,
+            result: {
+              stage: "categorize+archive",
+              message_id,
+              source_mailbox,
+              entity: settings.entity,
+              applied_category: label,
+              decision: "approve",
+              triggered_by: "stage-1-worker",
+              predicted: {
+                category: finalCategoryKey,
+                rule: regexOutcome.matchedRule,
+              },
+            },
+            triggered_by: "stage-1-worker",
+            completed_at: isoNow,
+          });
+        });
+        await step.run("emit-stale-auto-action", async () => {
+          await emitAutomationRunStale(admin, "debtor-email-review");
+        });
+        await step.run("queue-icontroller-cleanup", async () => {
+          await admin.from("automation_runs").insert({
+            automation: "debtor-email-cleanup",
+            status: "pending",
+            swarm_type: "debtor-email",
+            topic: finalCategoryKey,
+            entity: settings.entity,
+            mailbox_id: mailboxId,
+            result: {
+              stage: "icontroller_delete",
+              message_id,
+              source_mailbox,
+              entity: settings.entity,
+              company: icontrollerCompany,
+              icontroller: "pending",
+              from: fromFromEvent ?? null,
+              subject,
+              received_at: receivedAtFromEvent ?? isoNow,
+            },
+            triggered_by: "stage-1-worker",
+            completed_at: isoNow,
+          });
+        });
+        await step.run("emit-stale-cleanup", async () => {
+          await emitAutomationRunStale(admin, "debtor-email-cleanup");
+        });
+
+        // Suppress fromName lint warning — passed through event but only used
+        // by the Outlook display in downstream cleanup-worker (which today
+        // reads from the row directly). Keep the reference for clarity.
+        void fromNameFromEvent;
+
+        return {
+          ok: true,
+          regex_category: regexOutcome.category,
+          llm_invoked: llmInvoked,
+          final_category_key: finalCategoryKey,
+          dispatch: "labeled",
+        };
+      }
+      // Settings missing — fall through to Step 5 emit-verdict so the
+      // existing verdict-worker registry dispatch still runs (defensive
+      // path for non-ingest-originated events).
+    }
 
     // ───── Step 5: emit verdict OR requires_review (D-16.5, D-01, D-10) ─
     // Phase 999.8 confidence gate. When the LLM 2nd-pass returned a non-

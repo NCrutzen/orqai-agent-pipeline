@@ -56,23 +56,95 @@ vi.mock("@/lib/debtor-email/classify", () => ({
   classify: (...args: unknown[]) => classifyMock(...args),
 }));
 
+// ---- Phase 82.2 Plan 06 — dispatch deps mocks ----------------------------
+// The Stage 1 worker now owns the debtor-email dispatch logic (auto-action +
+// bulk-review automation_runs writes) that used to live in the synchronous
+// ingest route. Default mocks below keep the pre-existing 12 tests passing
+// (settings=null → dispatch short-circuits → existing emit-verdict path).
+// The new "Phase 82.2 D-A — category dispatch" describe block per-test
+// overrides these to exercise the new branches.
+const readWhitelistMock = vi.fn().mockResolvedValue(new Set<string>());
+vi.mock("@/lib/classifier/cache", () => ({
+  readWhitelist: (...args: unknown[]) => readWhitelistMock(...args),
+}));
+
+const categorizeEmailMock = vi
+  .fn()
+  .mockResolvedValue({ success: true, error: null });
+const archiveEmailMock = vi
+  .fn()
+  .mockResolvedValue({ success: true, error: null });
+const getMessageMetaMock = vi.fn().mockResolvedValue({
+  subject: "",
+  from: "",
+  fromName: "",
+  receivedAt: "",
+  categories: [] as string[],
+});
+vi.mock("@/lib/outlook", () => ({
+  categorizeEmail: (...args: unknown[]) => categorizeEmailMock(...args),
+  archiveEmail: (...args: unknown[]) => archiveEmailMock(...args),
+  getMessageMeta: (...args: unknown[]) => getMessageMetaMock(...args),
+}));
+
+const emitAutomationRunStaleMock = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/automations/runs/emit", () => ({
+  emitAutomationRunStale: (...args: unknown[]) =>
+    emitAutomationRunStaleMock(...args),
+}));
+
 // ---- Supabase admin mock -------------------------------------------------
 const agentRunsInserts: Record<string, unknown>[] = [];
+const automationRunsInserts: Record<string, unknown>[] = [];
+// Per-test override for the debtor.labeling_settings row. Default null (no
+// settings row) keeps existing tests on the verdict.recorded path (the
+// dispatch block bails out when settings is null).
+let labelingSettingsRow: Record<string, unknown> | null = null;
 function makeAdminMock() {
-  const insertFn = vi.fn(async (row: Record<string, unknown>) => {
+  const agentRunsInsertFn = vi.fn(async (row: Record<string, unknown>) => {
     agentRunsInserts.push(row);
     return { data: null, error: null };
+  });
+  // automation_runs supports both plain .insert() and .insert().select("id").single()
+  // because the post-Plan-07 thin ingest pattern uses the latter for stage-0
+  // placeholder rows.
+  const automationRunsInsertFn = vi.fn((row: Record<string, unknown>) => {
+    automationRunsInserts.push(row);
+    const baseResult = { data: { id: `ar-mock-${automationRunsInserts.length}` }, error: null };
+    const thenable = {
+      then: (resolve: (v: unknown) => unknown) => resolve(baseResult),
+      select: () => ({
+        single: async () => baseResult,
+      }),
+    };
+    return thenable;
   });
   return {
     from: vi.fn((table: string) => {
       if (table === "agent_runs") {
-        return { insert: insertFn };
+        return { insert: agentRunsInsertFn };
+      }
+      if (table === "automation_runs") {
+        return { insert: automationRunsInsertFn };
       }
       return {
         insert: vi.fn(async () => ({ data: null, error: null })),
       };
     }),
-    __insertFn: insertFn,
+    // Phase 82.2 Plan 06 — `debtor.labeling_settings` is loaded via the
+    // schema().from().select().eq().maybeSingle() chain. Default behavior
+    // returns labelingSettingsRow (which defaults to null).
+    schema: vi.fn(() => ({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: async () => ({ data: labelingSettingsRow, error: null }),
+          })),
+        })),
+      })),
+    })),
+    __agentRunsInsertFn: agentRunsInsertFn,
+    __automationRunsInsertFn: automationRunsInsertFn,
   };
 }
 let adminMock = makeAdminMock();
@@ -221,6 +293,8 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     agentRunsInserts.length = 0;
+    automationRunsInserts.length = 0;
+    labelingSettingsRow = null;
     adminMock = makeAdminMock();
     loadSwarmMock.mockReset();
     loadSwarmNoiseCategoriesMock.mockReset();
@@ -230,6 +304,22 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
     classifyMock.mockReset();
     inngestSend.mockReset();
     inngestSend.mockResolvedValue({ ids: ["evt"] });
+    readWhitelistMock.mockReset();
+    readWhitelistMock.mockResolvedValue(new Set<string>());
+    categorizeEmailMock.mockReset();
+    categorizeEmailMock.mockResolvedValue({ success: true, error: null });
+    archiveEmailMock.mockReset();
+    archiveEmailMock.mockResolvedValue({ success: true, error: null });
+    getMessageMetaMock.mockReset();
+    getMessageMetaMock.mockResolvedValue({
+      subject: "",
+      from: "",
+      fromName: "",
+      receivedAt: "",
+      categories: [] as string[],
+    });
+    emitAutomationRunStaleMock.mockReset();
+    emitAutomationRunStaleMock.mockResolvedValue(undefined);
     vi.resetModules();
     const mod = await import("../classifier-screen-worker");
     handler = (
@@ -525,6 +615,241 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Phase 82.2 Plan 06 D-A — category dispatch moved from debtor-email/ingest
+// route into the Stage 1 worker. Covers six outcomes (skipped_idempotent /
+// skipped_unknown→predicted / skipped_not_whitelisted→predicted /
+// skipped_disabled / labeled (auto-action) / replay-stable).
+//
+// RFC alignment: this is pure Stage 1 noise-filter dispatch — the whitelist
+// is a subset of swarm_noise_categories.matchedRule keys (closed list per
+// docs/agentic-pipeline/stage-1-regex.md). NO swarm_intents touched.
+// ---------------------------------------------------------------------------
+
+describe("Phase 82.2 D-A — category dispatch (moved from ingest)", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  // Fully-populated settings row for the dispatch path. Tests override
+  // auto_label_enabled per-case.
+  const SETTINGS_BASE = {
+    source_mailbox: "debiteuren@smeba.nl",
+    entity: "smeba",
+    icontroller_company: "smebabrandbeveiliging",
+    ingest_enabled: true,
+    auto_label_enabled: true,
+    triage_shadow_mode: false,
+  };
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    agentRunsInserts.length = 0;
+    automationRunsInserts.length = 0;
+    labelingSettingsRow = { ...SETTINGS_BASE };
+    adminMock = makeAdminMock();
+    loadSwarmMock.mockReset();
+    loadSwarmNoiseCategoriesMock.mockReset();
+    loadSwarmMock.mockResolvedValue(DEBTOR_SWARM_ROW);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
+    emitPipelineEventMock.mockReset();
+    emitPipelineEventMock.mockResolvedValue(undefined);
+    invokeOrqAgentMock.mockReset();
+    classifyMock.mockReset();
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    readWhitelistMock.mockReset();
+    readWhitelistMock.mockResolvedValue(new Set<string>());
+    categorizeEmailMock.mockReset();
+    categorizeEmailMock.mockResolvedValue({ success: true, error: null });
+    archiveEmailMock.mockReset();
+    archiveEmailMock.mockResolvedValue({ success: true, error: null });
+    getMessageMetaMock.mockReset();
+    getMessageMetaMock.mockResolvedValue({
+      subject: "",
+      from: "",
+      fromName: "",
+      receivedAt: "",
+      categories: [] as string[],
+    });
+    emitAutomationRunStaleMock.mockReset();
+    emitAutomationRunStaleMock.mockResolvedValue(undefined);
+    vi.resetModules();
+    const mod = await import("../classifier-screen-worker");
+    handler = (
+      mod.classifierScreenWorker as unknown as { handler: typeof handler }
+    ).handler;
+  });
+
+  // Build a debtor-email event carrying the Plan-07 passthrough fields so
+  // the dispatch block doesn't need a DB lookup for from/subject/received_at.
+  const debtorEvent = (
+    overrides: Partial<{
+      message_id: string;
+      subject: string;
+      body_text: string;
+      from: string;
+      receivedAt: string;
+      mailbox_id: number | null;
+    }> = {},
+  ) => ({
+    id: "evt-dispatch-1",
+    name: "classifier/screen.requested",
+    data: {
+      automation_run_id: "ar-dispatch-1",
+      email_id: "email-dispatch-1",
+      message_id: overrides.message_id ?? "msg-dispatch-1",
+      source_mailbox: "debiteuren@smeba.nl",
+      subject: overrides.subject ?? "Test subject",
+      body_text: overrides.body_text ?? "Test body",
+      swarm_type: "debtor-email",
+      entity: "smeba",
+      mailbox_id: overrides.mailbox_id ?? 4,
+      from: overrides.from ?? "sender@example.com",
+      fromName: "Sender",
+      receivedAt: overrides.receivedAt ?? "2026-05-12T10:00:00.000Z",
+    },
+  });
+
+  it("Test A: unknown category (no whitelist match) → status='predicted' automation_runs row, no Outlook side-effects", async () => {
+    classifyMock.mockReturnValue({
+      category: "unknown",
+      confidence: 0,
+      matchedRule: "no_match",
+    });
+
+    const cache: StepCache = new Map();
+    await handler({ event: debtorEvent(), step: makeStepStub(cache) });
+
+    expect(categorizeEmailMock).not.toHaveBeenCalled();
+    expect(archiveEmailMock).not.toHaveBeenCalled();
+    const predicted = automationRunsInserts.find(
+      (r) => r.status === "predicted",
+    );
+    expect(predicted).toBeDefined();
+    expect((predicted!.result as Record<string, unknown>).stage).toBe(
+      "zapier_ingest_classify",
+    );
+  });
+
+  it("Test B: whitelist match + auto_label_enabled=true → categorize+archive called, 2 automation_runs rows (completed audit + pending cleanup)", async () => {
+    readWhitelistMock.mockResolvedValue(new Set(["subject_paid_marker"]));
+    classifyMock.mockReturnValue({
+      category: "payment_admittance",
+      confidence: 0.96,
+      matchedRule: "subject_paid_marker",
+    });
+
+    const cache: StepCache = new Map();
+    await handler({ event: debtorEvent(), step: makeStepStub(cache) });
+
+    expect(categorizeEmailMock).toHaveBeenCalledTimes(1);
+    expect(archiveEmailMock).toHaveBeenCalledTimes(1);
+    const completed = automationRunsInserts.find(
+      (r) => r.automation === "debtor-email-review" && r.status === "completed",
+    );
+    const cleanup = automationRunsInserts.find(
+      (r) =>
+        r.automation === "debtor-email-cleanup" && r.status === "pending",
+    );
+    expect(completed).toBeDefined();
+    expect(cleanup).toBeDefined();
+    expect((cleanup!.result as Record<string, unknown>).company).toBe(
+      "smebabrandbeveiliging",
+    );
+  });
+
+  it("Test C: whitelist match + auto_label_enabled=false → automation_runs status='predicted' with action='skipped_disabled'; no Outlook side-effects", async () => {
+    labelingSettingsRow = { ...SETTINGS_BASE, auto_label_enabled: false };
+    readWhitelistMock.mockResolvedValue(new Set(["subject_paid_marker"]));
+    classifyMock.mockReturnValue({
+      category: "payment_admittance",
+      confidence: 0.96,
+      matchedRule: "subject_paid_marker",
+    });
+
+    const cache: StepCache = new Map();
+    await handler({ event: debtorEvent(), step: makeStepStub(cache) });
+
+    expect(categorizeEmailMock).not.toHaveBeenCalled();
+    expect(archiveEmailMock).not.toHaveBeenCalled();
+    const predicted = automationRunsInserts.find(
+      (r) => r.status === "predicted",
+    );
+    expect(predicted).toBeDefined();
+    expect((predicted!.result as Record<string, unknown>).action).toBe(
+      "skipped_disabled",
+    );
+  });
+
+  it("Test D: predicted non-unknown category without whitelist match → automation_runs status='predicted', topic=category, action='skipped_not_whitelisted'; no Outlook side-effects", async () => {
+    classifyMock.mockReturnValue({
+      category: "auto_reply",
+      confidence: 0.95,
+      matchedRule: "subject_autoreply",
+    });
+
+    const cache: StepCache = new Map();
+    await handler({ event: debtorEvent(), step: makeStepStub(cache) });
+
+    expect(categorizeEmailMock).not.toHaveBeenCalled();
+    const predicted = automationRunsInserts.find(
+      (r) => r.status === "predicted",
+    );
+    expect(predicted).toBeDefined();
+    expect(predicted!.topic).toBe("auto_reply");
+    expect((predicted!.result as Record<string, unknown>).action).toBe(
+      "skipped_not_whitelisted",
+    );
+  });
+
+  it("Test E: email already carries MR_LABEL → automation_runs action='skipped_idempotent', no Outlook side-effects", async () => {
+    getMessageMetaMock.mockResolvedValue({
+      subject: "Test",
+      from: "x@y.z",
+      fromName: "X",
+      receivedAt: "2026-05-12T10:00:00.000Z",
+      categories: ["Payment Admittance"], // MR_LABEL
+    });
+    readWhitelistMock.mockResolvedValue(new Set(["subject_paid_marker"]));
+    classifyMock.mockReturnValue({
+      category: "payment_admittance",
+      confidence: 0.96,
+      matchedRule: "subject_paid_marker",
+    });
+
+    const cache: StepCache = new Map();
+    await handler({ event: debtorEvent(), step: makeStepStub(cache) });
+
+    expect(categorizeEmailMock).not.toHaveBeenCalled();
+    expect(archiveEmailMock).not.toHaveBeenCalled();
+    const idempotent = automationRunsInserts.find(
+      (r) =>
+        ((r.result as Record<string, unknown>)?.action ?? "") ===
+        "skipped_idempotent",
+    );
+    expect(idempotent).toBeDefined();
+  });
+
+  it("Test F: replay safety — two invocations with the same event do NOT double-call Outlook", async () => {
+    readWhitelistMock.mockResolvedValue(new Set(["subject_paid_marker"]));
+    classifyMock.mockReturnValue({
+      category: "payment_admittance",
+      confidence: 0.96,
+      matchedRule: "subject_paid_marker",
+    });
+
+    // Shared step cache simulates Inngest replay — step.run("categorize")
+    // returns cached result on the 2nd handler call so the side-effect
+    // body doesn't re-run.
+    const cache: StepCache = new Map();
+    const ev = debtorEvent();
+    await handler({ event: ev, step: makeStepStub(cache) });
+    await handler({ event: ev, step: makeStepStub(cache) });
+
+    expect(categorizeEmailMock).toHaveBeenCalledTimes(1);
+    expect(archiveEmailMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Phase 999.4 RED scaffold — failing imports gate Wave 1+ implementation. Do
 // not fix by stubbing — implement the contract.
 // Covers test-map ID T-B5 from RESEARCH.md.
@@ -544,6 +869,8 @@ describe("Phase 999.4 — Classifier screen worker — deadline triggers existin
   beforeEach(async () => {
     vi.clearAllMocks();
     agentRunsInserts.length = 0;
+    automationRunsInserts.length = 0;
+    labelingSettingsRow = null;
     adminMock = makeAdminMock();
     loadSwarmMock.mockReset();
     loadSwarmNoiseCategoriesMock.mockReset();
@@ -553,6 +880,22 @@ describe("Phase 999.4 — Classifier screen worker — deadline triggers existin
     classifyMock.mockReset();
     inngestSend.mockReset();
     inngestSend.mockResolvedValue({ ids: ["evt"] });
+    readWhitelistMock.mockReset();
+    readWhitelistMock.mockResolvedValue(new Set<string>());
+    categorizeEmailMock.mockReset();
+    categorizeEmailMock.mockResolvedValue({ success: true, error: null });
+    archiveEmailMock.mockReset();
+    archiveEmailMock.mockResolvedValue({ success: true, error: null });
+    getMessageMetaMock.mockReset();
+    getMessageMetaMock.mockResolvedValue({
+      subject: "",
+      from: "",
+      fromName: "",
+      receivedAt: "",
+      categories: [] as string[],
+    });
+    emitAutomationRunStaleMock.mockReset();
+    emitAutomationRunStaleMock.mockResolvedValue(undefined);
     vi.resetModules();
     const mod = await import("../classifier-screen-worker");
     handler = (

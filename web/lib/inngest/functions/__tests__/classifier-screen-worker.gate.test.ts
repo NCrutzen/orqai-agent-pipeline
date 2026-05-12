@@ -69,6 +69,29 @@ vi.mock("@/lib/debtor-email/classify", () => ({
   classify: (...args: unknown[]) => classifyMock(...args),
 }));
 
+// ---- Phase 82.2 Plan 06 dispatch-deps mocks (safe defaults) -------------
+// The new debtor-email dispatch block in classifier-screen-worker.ts loads
+// settings + whitelist + Outlook meta. We mock these as no-ops/empty so the
+// dispatch block bails out (settings=null → fall through to existing
+// verdict.recorded / requires_review path that this file actually tests).
+vi.mock("@/lib/classifier/cache", () => ({
+  readWhitelist: vi.fn().mockResolvedValue(new Set<string>()),
+}));
+vi.mock("@/lib/outlook", () => ({
+  categorizeEmail: vi.fn().mockResolvedValue({ success: true, error: null }),
+  archiveEmail: vi.fn().mockResolvedValue({ success: true, error: null }),
+  getMessageMeta: vi.fn().mockResolvedValue({
+    subject: "",
+    from: "",
+    fromName: "",
+    receivedAt: "",
+    categories: [],
+  }),
+}));
+vi.mock("@/lib/automations/runs/emit", () => ({
+  emitAutomationRunStale: vi.fn().mockResolvedValue(undefined),
+}));
+
 // ---- Supabase admin mock -------------------------------------------------
 const agentRunsInserts: Record<string, unknown>[] = [];
 function makeAdminMock() {
@@ -81,6 +104,18 @@ function makeAdminMock() {
       if (table === "agent_runs") return { insert: insertFn };
       return { insert: vi.fn(async () => ({ data: null, error: null })) };
     }),
+    // Phase 82.2 Plan 06 — `debtor.labeling_settings` chain. Default returns
+    // null → the dispatch block in classifier-screen-worker bails out and
+    // the existing verdict.recorded / requires_review path under test runs.
+    schema: vi.fn(() => ({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: async () => ({ data: null, error: null }),
+          })),
+        })),
+      })),
+    })),
   };
 }
 let adminMock = makeAdminMock();
