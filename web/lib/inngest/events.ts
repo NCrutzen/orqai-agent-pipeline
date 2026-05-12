@@ -269,6 +269,16 @@ export type Events = {
       swarm_type: string;
       // Phase 74 D-02 — optional/nullable: sales-email has no entity concept.
       entity?: string | null;
+      // Phase 82.2 Plan 07 D-A — fields threaded from ingest so the Stage 1
+      // worker (post-Plan-06 thick worker) can write the iController-cleanup
+      // audit row (result.from / result.subject / result.received_at) and
+      // pipeline_events rows scoped to the right mailbox without an extra
+      // DB lookup. mailbox_id mirrors automation_runs.mailbox_id (numeric
+      // foreign-key per Phase 60-02 D-11).
+      mailbox_id?: number | null;
+      from?: string | null;
+      fromName?: string | null;
+      receivedAt?: string | null;
       safety_overridden?: boolean;
     };
   };
@@ -314,6 +324,18 @@ export type Events = {
       // Phase 74 D-02 — passthrough so Plan 04 can write pipeline_events
       // rows without re-deriving entity. Optional/nullable for sales-email.
       entity?: string | null;
+      // Phase 82.2 Plan 07 D-A — passthrough fields from the ingest route
+      // (via stage-0/email.received). The post-Plan-06 thick Stage 1 worker
+      // owns auto-action audit row writes (which previously lived in
+      // /ingest) and needs from/subject/received_at to populate the
+      // iController-cleanup automation_runs.result jsonb. Sales-email may
+      // omit these (no auto-action chain). Note: the Stage 1 regex itself
+      // does NOT consume `from` (line 149-153 in classifier-screen-worker.ts
+      // — auto_reply / OOO / payment patterns are subject + body driven).
+      mailbox_id?: number | null;
+      from?: string | null;
+      fromName?: string | null;
+      receivedAt?: string | null;
       safety_overridden?: boolean;
     };
   };

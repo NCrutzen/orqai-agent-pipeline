@@ -54,6 +54,11 @@ export const stage0SafetyWorker = inngest.createFunction(
       safety_overridden?: boolean;
       // Phase 74 D-01 / D-02 — threaded from ingest route.
       swarm_type?: string;
+      // Phase 82.2 Plan 07 D-A — passthrough to Stage 1 (Plan 06 thick worker
+      // writes the iController-cleanup audit row using these fields).
+      from?: string | null;
+      fromName?: string | null;
+      receivedAt?: string | null;
     };
 
     const {
@@ -65,6 +70,9 @@ export const stage0SafetyWorker = inngest.createFunction(
       safety_overridden,
       entity = null,
       mailbox_id = null,
+      from = null,
+      fromName = null,
+      receivedAt = null,
     } = data;
     const body = data.body_text ?? data.body ?? "";
     // Phase 74 D-01 — swarm_type is threaded from the ingest route via
@@ -97,6 +105,12 @@ export const stage0SafetyWorker = inngest.createFunction(
             // Phase 74 D-01 / D-02 — threaded passthrough.
             swarm_type,
             entity,
+            // Phase 82.2 Plan 07 D-A — passthrough so Plan 06 thick Stage 1
+            // worker can write auto-action audit rows without re-fetching.
+            mailbox_id,
+            from,
+            fromName,
+            receivedAt,
             safety_overridden: true,
           },
         }),
@@ -292,6 +306,15 @@ export const stage0SafetyWorker = inngest.createFunction(
             // Phase 74 D-01 / D-02 — threaded passthrough.
             swarm_type,
             entity,
+            // Phase 82.2 Plan 07 D-A — passthrough so Plan 06 thick Stage 1
+            // worker can write the iController-cleanup audit row (which
+            // previously lived in /ingest auto-action branch) without an
+            // extra DB lookup. Sales-email may receive nulls — that path
+            // has no auto-action chain.
+            mailbox_id,
+            from,
+            fromName,
+            receivedAt,
           },
         }),
       );
