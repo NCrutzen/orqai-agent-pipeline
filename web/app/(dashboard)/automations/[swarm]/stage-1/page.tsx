@@ -32,6 +32,9 @@
 
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { loadFeedbackMap } from "@/lib/automations/debtor-email/feedback/load-feedback-map";
+import type { FeedbackMap } from "@/lib/automations/debtor-email/feedback/types";
 import { AutomationRealtimeProvider } from "@/components/automations/automation-realtime-provider";
 import {
   loadSwarm,
@@ -78,6 +81,10 @@ import {
 } from "../../debtor-email/_lib/tagging-failures-loader";
 
 export const dynamic = "force-dynamic";
+
+// Phase 82.5 Plan 06 — Stage 1 hardcoded ACTIVE_STAGE literal. Stage 1 (noise
+// filter, swarm_noise_categories) reads feedback bucketed by stage=1 only.
+const ACTIVE_STAGE = 1 as const;
 
 export interface PageSearchParams {
   topic?: string;
@@ -1009,9 +1016,26 @@ export default async function SwarmReviewPage({
   if (!swarm || !swarm.enabled) {
     notFound();
   }
+  // Phase 82.5 Plan 06: resolve viewerId for feedback bucketing. Null when
+  // unauthenticated — loadFeedbackMap handles that case (everything flows to
+  // `others`, nothing marked as `own_latest`).
+  const supabaseSrv = await createClient();
+  const { data: { user: viewerUser } } = await supabaseSrv.auth.getUser();
+  const viewerId = viewerUser?.id ?? null;
+
   // Phase 81-03 D-04/D-05: parallel-fetch the shell's data dependencies.
   // Stage 2 weekly count is debtor-only today (Plan 02); other swarms
   // resolve to 0 so the StageTabStrip badge renders muted.
+  // Phase 82.5 Plan 06: feedbackMap prefetched in the same Promise.all block
+  // so additive latency stays bounded by the slowest sibling, not stacked.
+  // emailIds are known only after loadPageData resolves; we therefore do a
+  // sequential follow-up SELECT against email_feedback inside a tiny second
+  // Promise.all (data needed first). To keep parallelism with the four-tuple
+  // above we'd need email ids up-front — but the loader paginates server-side
+  // off cursor/filter state, so the ids set is unknown at this point.
+  // Compromise: keep the existing 4-tuple for shell deps; run loadFeedbackMap
+  // in a separate await with the resolved emailIds (single round-trip; under
+  // the 100ms budget per Plan 01 measurements).
   const [data, noiseCategories, intents, stage2Count] = await Promise.all([
     loadPageData(sp, admin, swarmType),
     loadSwarmNoiseCategories(admin, swarmType),
@@ -1020,6 +1044,12 @@ export default async function SwarmReviewPage({
       ? loadStage2WeeklyCount(admin)
       : Promise.resolve(0),
   ]);
+  const feedbackMap: FeedbackMap = await loadFeedbackMap(
+    admin,
+    data.rows.map((r) => r.id),
+    ACTIVE_STAGE,
+    viewerId,
+  );
   const categories: SwarmNoiseCategoryRow[] = noiseCategories;
   const intentRows: SwarmIntentRow[] = intents;
   const rowIds = data.rows.map((r) => r.id);
@@ -1130,6 +1160,7 @@ export default async function SwarmReviewPage({
                 drawerFields={swarm.ui_config.drawer_fields}
                 stageAudit={buildStageAuditMap({ timeline: data.selectedTimeline ?? [], agentRuns: [], automationRun: null })}
                 mailboxLabels={mailboxLabels}
+                feedbackMap={feedbackMap}
               />
             )}
             <Cheatsheet />

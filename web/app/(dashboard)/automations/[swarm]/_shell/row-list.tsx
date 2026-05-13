@@ -23,9 +23,18 @@ export interface RowListProps {
   emptyState: EmptyState;
   /** Optional right-aligned slot per row (e.g. ConfBar on low_confidence). */
   rightEdgeSlot?: (row: Row) => ReactNode;
+  /** Phase 82.5 Plan 06 — per-row latest verdict for the row strip dot.
+   *  Optional, declared here so Plan 06 can plumb the prop end-to-end before
+   *  Plan 04 wires the visual rendering. Currently accepted-but-ignored;
+   *  Plan 04 will consume and render the dot. */
+  feedbackMap?: Record<string, "confirm" | "override" | "unclear" | null>;
 }
 
-export function RowList({ rows, emptyState, rightEdgeSlot }: RowListProps) {
+export function RowList({ rows, emptyState, rightEdgeSlot, feedbackMap }: RowListProps) {
+  // Phase 82.5 Plan 06: prop accepted for forward-compatibility; Plan 04 wires
+  // the verdict dot render. Mark `feedbackMap` as intentionally unused until
+  // Plan 04 lands to keep TS noUnusedLocals quiet.
+  void feedbackMap;
   const { selectedId, setSelected, pendingRemovalIds } = useSelection();
 
   const visible =

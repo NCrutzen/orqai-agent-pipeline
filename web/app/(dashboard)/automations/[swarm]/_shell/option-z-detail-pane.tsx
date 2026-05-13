@@ -27,6 +27,12 @@ interface Props {
   bodyMap: Record<string, string | null>;
   timelineMap: Record<string, FullTimelineEvent[]>;
   mailboxLabels?: Record<number, string>;
+  /** Phase 82.5 Plan 06 — full per-email feedback read-back map. Optional and
+   *  accepted-but-mostly-passthrough at this layer; Plan 07 consumes it to
+   *  derive per-stage paneFeedbackMap from useSelection() and forward to
+   *  UnifiedDetailPane. Threading the prop through Plan 06 first lets Plan 07
+   *  land the consumer wiring without touching the four stage pages. */
+  feedbackMap?: import("@/lib/automations/debtor-email/feedback/types").FeedbackMap;
 }
 
 export function OptionZDetailPane({
@@ -36,7 +42,11 @@ export function OptionZDetailPane({
   bodyMap,
   timelineMap,
   mailboxLabels,
+  feedbackMap,
 }: Props) {
+  // Phase 82.5 Plan 06: prop accepted for forward-compatibility; Plan 07 wires
+  // the per-stage paneFeedbackMap derivation. Marked void to keep TS quiet.
+  void feedbackMap;
   const { selectedId } = useSelection();
 
   const { row, bodyText, timeline } = useMemo(() => {

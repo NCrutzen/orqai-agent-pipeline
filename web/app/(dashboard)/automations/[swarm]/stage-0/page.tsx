@@ -41,9 +41,16 @@ import {
   loadStageFeedbackList,
   type FeedbackListRow,
 } from "../_shell/_lib/feedback-list-loader";
+import { loadFeedbackMap } from "@/lib/automations/debtor-email/feedback/load-feedback-map";
+import type { FeedbackMap } from "@/lib/automations/debtor-email/feedback/types";
 import type { Row } from "../_shell/_lib/types";
 
 export const dynamic = "force-dynamic";
+
+// Phase 82.5 Plan 06 — Stage 0 hardcoded ACTIVE_STAGE literal. Stage 0 (safety)
+// reads feedback bucketed by stage=0 only; never crosses Stage 1 (noise) or
+// Stage 3 (intent) registries — hard-separation contract preserved.
+const ACTIVE_STAGE = 0 as const;
 
 // D-16: Stage 0 info banner copy. Preserved verbatim from the Phase 76 Plan 08
 // placeholder so operators see continuity through the unified-shell migration.
@@ -126,9 +133,14 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
   // one from useSelection().
   const bodyMap: Record<string, string | null> = {};
   const timelineMap: Record<string, FullTimelineEvent[]> = {};
+  // Phase 82.5 Plan 06: server-side feedback prefetch — parallel with body
+  // + timeline so additive latency stays < 100ms (CONTEXT assumption 4).
+  // viewerId reuses the existing `user` binding above; null on unauth.
+  const viewerId = user?.id ?? null;
+  let feedbackMap: FeedbackMap = {};
   if (rows.length > 0) {
     const emailIds = rows.map((r) => r.id);
-    const [bodiesRes, timelineRes] = await Promise.all([
+    const [bodiesRes, timelineRes, fmap] = await Promise.all([
       admin
         .schema("email_pipeline")
         .from("emails")
@@ -139,7 +151,9 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
         .select("id, stage, decision, decision_details, created_at, email_id")
         .in("email_id", emailIds)
         .order("created_at", { ascending: true }),
+      loadFeedbackMap(admin, emailIds, ACTIVE_STAGE, viewerId),
     ]);
+    feedbackMap = fmap;
     for (const b of ((bodiesRes.data ?? []) as Array<{ id: string; body_text: string | null }>)) {
       bodyMap[b.id] = b.body_text;
     }
@@ -148,6 +162,14 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
       list.push(e);
       timelineMap[e.email_id] = list;
     }
+  }
+
+  // Phase 82.5 Plan 06: server-side reduction → per-row latest verdict for
+  // the RowList strip. Own latest wins; otherwise first "other" operator's
+  // verdict (Pattern E, desc-ordered scan from loadFeedbackMap).
+  const rowVerdictMap: Record<string, "confirm" | "override" | "unclear" | null> = {};
+  for (const [id, entry] of Object.entries(feedbackMap)) {
+    rowVerdictMap[id] = entry.own_latest?.verdict ?? entry.others[0]?.verdict ?? null;
   }
 
   // Phase 82.4 Plan 06: build "Load more" href preserving every other URL param
@@ -230,6 +252,7 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
                   title: "No Stage 0 verdicts yet",
                   body: "When the safety filter records a verdict, it will appear here.",
                 }}
+                feedbackMap={rowVerdictMap}
               />
               {loadMoreHref && (
                 <div style={{ padding: "var(--space-3) var(--space-4)" }}>
@@ -259,6 +282,7 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
               bodyMap={bodyMap}
               timelineMap={timelineMap}
               mailboxLabels={mailboxLabels}
+              feedbackMap={feedbackMap}
             />
           </div>
         </div>

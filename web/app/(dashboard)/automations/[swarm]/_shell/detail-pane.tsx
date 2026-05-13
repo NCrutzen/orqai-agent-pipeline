@@ -130,6 +130,11 @@ export interface UnifiedDetailPaneProps {
   /** DB-derived mailbox_id → display label. Pages load via loadMailboxLabels.
    *  Falls back to "mailbox {id}" when an id isn't in the map. */
   mailboxLabels?: Record<number, string>;
+  /** Phase 82.5 Plan 06 — per-stage feedback read-back for the selected row.
+   *  Optional, accepted-but-ignored at this layer; Plan 05 wires the consumer
+   *  (StageFeedbackPanel inside DetailPaneInner). Threading the prop through
+   *  Plan 06 first lets Plan 05 land its render without touching shells. */
+  feedbackMap?: Partial<Record<0 | 1 | 2 | 3, import("@/lib/automations/debtor-email/feedback/types").FeedbackReadBack>>;
 }
 
 // ---- Component -----------------------------------------------------------

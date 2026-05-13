@@ -25,11 +25,14 @@
 
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import {
   loadSwarm,
   loadSwarmIntents,
   loadSwarmNoiseCategories,
 } from "@/lib/swarms/registry";
+import { loadFeedbackMap } from "@/lib/automations/debtor-email/feedback/load-feedback-map";
+import type { FeedbackMap } from "@/lib/automations/debtor-email/feedback/types";
 import { AutomationRealtimeProvider } from "@/components/automations/automation-realtime-provider";
 import { loadKanbanRows, type KanbanRow } from "../_lib/kanban-loader";
 import { PageHeader } from "../_shell/page-header";
@@ -43,6 +46,10 @@ import { Stage3ClientShell } from "./client-shell";
 import { buildStageAuditMap } from "../_shell/_lib/build-stage-audit-map";
 
 export const dynamic = "force-dynamic";
+
+// Phase 82.5 Plan 06 — Stage 3 hardcoded ACTIVE_STAGE literal. Stage 3
+// (intent coordinator, swarm_intents) reads feedback bucketed by stage=3 only.
+const ACTIVE_STAGE = 3 as const;
 
 interface PageProps {
   params: Promise<{ swarm: string }>;
@@ -127,12 +134,20 @@ export default async function Stage3Page({
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
   const selectedId = sp.selected ?? null;
 
+  // Phase 82.5 Plan 06: resolve viewerId for feedback bucketing. Null on unauth.
+  const supabaseSrv = await createClient();
+  const { data: { user: viewerUser } } = await supabaseSrv.auth.getUser();
+  const viewerId = viewerUser?.id ?? null;
+
   // Body + timeline pre-fetch (Pitfall 3 — MANDATORY). Mirrors Stage 1/4
   // pattern: parallel SELECT against email_pipeline.emails (body_text /
   // body_html) and pipeline_events (timeline). V8 requires the email body to
   // render in the detail pane without a separate roundtrip.
+  // Phase 82.5 Plan 06: feedbackMap joins the same Promise.all so additive
+  // latency stays bounded by the slowest sibling (< 100ms per Plan 01).
   const bodyMap: Record<string, { bodyText: string; bodyHtml: string | null }> = {};
   const timelineMap: Record<string, PipelineTimelineEvent[]> = {};
+  let feedbackMap: FeedbackMap = {};
   const emailIds = Array.from(
     new Set(
       stage3Rows
@@ -153,11 +168,19 @@ export default async function Stage3Page({
       .in("email_id", emailIds)
       .order("stage", { ascending: true })
       .order("created_at", { ascending: true });
+    const feedbackPromise = loadFeedbackMap(
+      admin,
+      emailIds,
+      ACTIVE_STAGE,
+      viewerId,
+    );
 
-    const [bodiesRes, timelineRes] = await Promise.all([
+    const [bodiesRes, timelineRes, fmap] = await Promise.all([
       bodiesPromise,
       timelinePromise,
+      feedbackPromise,
     ]);
+    feedbackMap = fmap;
 
     for (const e of (bodiesRes.data as Array<{
       id: string;
@@ -209,6 +232,7 @@ export default async function Stage3Page({
             timelineMap={timelineMap}
             stageAudit={buildStageAuditMap({ timeline: [], agentRuns: [], automationRun: null })}
             mailboxLabels={mailboxLabels}
+            feedbackMap={feedbackMap}
           />
         </SelectionProvider>
       </AutomationRealtimeProvider>
