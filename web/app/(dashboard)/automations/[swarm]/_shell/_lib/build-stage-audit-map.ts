@@ -252,15 +252,20 @@ export function buildStageAuditMap<
     // writes predictor + llm_reasoning + llm_confidence into pipeline_events
     // .decision_details directly. Reading from there is authoritative and
     // works without loading agent_runs per-row.
+    // Runtime predictor values: "regex" (Pass-1 match) and "llm_2nd_pass"
+    // (Pass-2 LLM). Normalise to the {"regex","llm"} UI vocabulary.
     const detailsPredictor = typeof d.predictor === "string" ? d.predictor : null;
     const predictor_source: "regex" | "llm" | null =
-      detailsPredictor === "regex" || detailsPredictor === "llm"
-        ? detailsPredictor
-        : stage1Run
+      detailsPredictor === "regex"
+        ? "regex"
+        : detailsPredictor === "llm" || detailsPredictor === "llm_2nd_pass" ||
+          detailsPredictor === "llm_pass_2" || detailsPredictor?.startsWith("llm")
           ? "llm"
-          : stage1Event
-            ? "regex"
-            : null;
+          : stage1Run
+            ? "llm"
+            : stage1Event
+              ? "regex"
+              : null;
     // Rule that fired: regex.matchedRule when Pass-1 hit, else the resulting
     // category as a fallback discriminator. Both come from decision_details.
     const regexBlock = isRecord(d.regex) ? (d.regex as Record<string, unknown>) : null;
