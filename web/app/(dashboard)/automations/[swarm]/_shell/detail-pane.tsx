@@ -59,6 +59,7 @@ import type { PredictedRow } from "../stage-1/page";
 
 import type { ActiveStage, Row } from "./_lib/types";
 import type { StageAuditMap } from "./_lib/audit-types";
+import { buildStageAuditMap } from "./_lib/build-stage-audit-map";
 import { MAILBOX_LABELS } from "./_lib/get-swarm-mailboxes";
 import { displaySender, displaySubject } from "./_lib/display-fallbacks";
 import { KEYBOARD_EVENTS } from "./keyboard-shortcuts";
@@ -247,6 +248,28 @@ function DetailPaneInner({
     setDirty((prev) => ({ ...prev, [stageN]: true }));
   }, []);
 
+  // Phase 82.3 Plan 11 — fall back to building the audit map from the live
+  // timeline when the caller didn't thread one (or threaded an empty map).
+  // The server-side stageAudit prop is computed at initial render with
+  // data.selectedTimeline; client-side selection changes never refresh the
+  // prop, so without this fallback the expander affordance disappears the
+  // moment a user clicks a different row.
+  const effectiveStageAudit = useMemo<StageAuditMap>(() => {
+    if (stageAudit && Object.keys(stageAudit).length > 0) return stageAudit;
+    return buildStageAuditMap({
+      // Runtime timeline events from upstream pages include decision_details;
+      // the narrower PipelineTimelineEvent type here only declares stage+decision.
+      // Cast through unknown to bridge the structural gap — buildStageAuditMap
+      // defensively handles missing decision_details via isRecord() guards.
+      timeline: timeline as unknown as Array<{
+        stage: number;
+        decision_details: Record<string, unknown> | null;
+      }>,
+      agentRuns: [],
+      automationRun: null,
+    });
+  }, [stageAudit, timeline]);
+
   // Build the 5-cell StageData[] array. Order matters — [0,1,2,3,4] as const.
   const stagesData: StageData[] = useMemo(() => {
     const byStage = new Map<number, PipelineTimelineEvent>();
@@ -335,11 +358,11 @@ function DetailPaneInner({
         state,
         currentValue,
         widget,
-        auditDetails: n === 4 ? undefined : stageAudit?.[n as 0 | 1 | 2 | 3],
+        auditDetails: n === 4 ? undefined : effectiveStageAudit?.[n as 0 | 1 | 2 | 3],
       });
     }
     return out;
-  }, [dirty, timeline, _categories, _intents, stage0Value, predictedRow, swarmType, onMarkDirty, stageAudit]);
+  }, [dirty, timeline, _categories, _intents, stage0Value, predictedRow, swarmType, onMarkDirty, effectiveStageAudit]);
 
   // Mailbox header label — uses static map for known swarms.
   const mailboxLbl = (() => {
