@@ -2,7 +2,7 @@
 sketch: 010
 name: override-note-coupling-cue
 question: "When the override picker opens, how do we make it obvious the textarea note attaches?"
-winner: null
+winner: "C"
 tags: [phase-82.5, override, coupling, detail-pane]
 ---
 

@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 008 — Detail-pane stage scope + Approve semantics</title>
+<link rel="stylesheet" href="../themes/v7.css" />
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+  .toolbar { background: var(--bg-2); border-bottom: 1px solid var(--border); padding: var(--space-3) var(--space-5); display: flex; align-items: center; gap: var(--space-4); font-size: var(--fs-sm); }
+  .toolbar h1 { font-size: var(--fs-md); font-weight: 600; margin: 0; }
+  .toolbar h1 .meta { color: var(--text-muted); font-weight: 400; margin-left: var(--space-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
+  .toolbar .grow { flex: 1; }
+  .toolbar .question { color: var(--text-muted); }
+  .toolbar .question strong { color: var(--text); }
+  .tabs { display: flex; background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 0 var(--space-5); }
+  .tabs button { background: transparent; color: var(--text-muted); border: none; border-bottom: 2px solid transparent; padding: var(--space-3) var(--space-4); font-size: var(--fs-base); cursor: pointer; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.active { color: var(--text); border-bottom-color: var(--brand-primary); font-weight: 500; }
+  .body { flex: 1; overflow: hidden; display: none; }
+  .body.active { display: grid; grid-template-columns: 320px 1fr 1fr; }
+
+  .desc { background: var(--bg); padding: var(--space-6) var(--space-5); border-right: 1px solid var(--border); overflow-y: auto; }
+  .desc h2 { font-size: var(--fs-md); font-weight: 600; margin-bottom: var(--space-2); }
+  .desc p { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.5; margin-top: var(--space-2); }
+  .desc .note { font-size: var(--fs-xs); color: var(--text-dim); margin-top: var(--space-4); font-family: var(--font-mono); }
+  .desc ul { font-size: var(--fs-sm); color: var(--text-muted); margin-top: var(--space-2); padding-left: var(--space-4); }
+  .desc ul li { line-height: 1.5; margin-bottom: 4px; }
+
+  .pane-wrap { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg-panel); }
+  .pane-wrap:last-child { border-right: none; }
+  .pane-label { font-size: var(--fs-xs); color: var(--text-muted); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; padding: var(--space-3) var(--space-4) 0; }
+  .pane { padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); flex: 1; overflow-y: auto; }
+  .email-head { padding-bottom: var(--space-3); border-bottom: 1px solid var(--border); }
+  .email-head .from { color: var(--text-muted); font-size: var(--fs-xs); }
+  .email-head .subject { font-size: var(--fs-md); font-weight: 500; margin-top: 2px; }
+  .email-head .mailbox { font-size: var(--fs-xs); color: var(--text-dim); margin-top: 2px; }
+
+  .stage-row { display: flex; gap: var(--space-3); padding: var(--space-3) 0; align-items: flex-start; }
+  .stage-num { width: 28px; height: 28px; border-radius: 50%; background: var(--bg-2); border: 1px solid var(--border-strong); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: var(--fs-xs); flex-shrink: 0; }
+  .stage-num.done { border-color: var(--lime); color: var(--lime); }
+  .stage-num.active { border-color: var(--brand-primary); color: var(--brand-primary); background: var(--brand-primary-soft); }
+  .stage-num.future { border-style: dashed; opacity: 0.5; }
+  .stage-body { flex: 1; min-width: 0; }
+  .stage-label { font-size: var(--fs-base); font-weight: 500; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+  .stage-label .pill { font-size: 10px; padding: 1px 7px; border-radius: 999px; background: var(--bg-2); color: var(--text-muted); border: 1px solid var(--border); font-family: var(--font-mono); }
+  .stage-current { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono); }
+  .stage-row.future .stage-body { opacity: 0.45; }
+
+  /* Active stage details */
+  .picker { margin-top: var(--space-2); }
+  .picker select { width: 100%; padding: var(--space-2); background: var(--bg-2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: var(--fs-sm); font-family: inherit; }
+  .helper { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+  .helper .icon { color: var(--amber); }
+
+  .fp { background: var(--bg-panel-soft); border-top: 1px solid var(--border); padding: var(--space-3); margin-top: var(--space-2); border-radius: var(--radius-sm); }
+  .fp label { font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); display: block; margin-bottom: var(--space-2); }
+  .fp textarea { width: 100%; min-height: 60px; font-size: var(--fs-sm); padding: var(--space-2); background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); resize: vertical; font-family: inherit; line-height: 1.4; }
+
+  /* Per-stage approve button (variant A + C inside stage body) */
+  .stage-approve { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
+  .btn { font-size: var(--fs-sm); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .btn .label { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+  .btn .sub { font-size: 10px; opacity: 0.7; }
+  .btn.confirm { background: var(--lime); color: var(--text-inverse); border: 1px solid var(--lime); font-weight: 600; }
+  .btn.save { background: var(--bg-2); color: var(--text); border: 1px solid var(--border-strong); }
+  .btn.save .icon { color: var(--brand-secondary); }
+  .btn.override { background: var(--bg-2); color: var(--amber); border: 1px solid var(--amber); }
+
+  /* Variant B — collapsed future block */
+  .collapsed-future { padding: var(--space-2) var(--space-3); background: var(--bg-2); border: 1px dashed var(--border); border-radius: var(--radius-sm); font-size: var(--fs-xs); color: var(--text-dim); margin-top: var(--space-3); cursor: pointer; }
+  .collapsed-future:hover { color: var(--text-muted); border-color: var(--border-strong); }
+
+  /* Bottom navigation bar — distinct from per-stage actions */
+  .nav-bar { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); background: var(--bg-2); display: flex; gap: var(--space-2); align-items: center; }
+  .nav-btn { font-size: var(--fs-sm); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); cursor: pointer; background: transparent; color: var(--text-muted); border: 1px solid var(--border); display: inline-flex; align-items: center; gap: 6px; }
+  .nav-btn:hover { color: var(--text); border-color: var(--border-strong); }
+  .nav-btn.primary { background: var(--lime); color: var(--text-inverse); border-color: var(--lime); font-weight: 600; }
+  .nav-bar .grow { flex: 1; }
+  .nav-bar .hint { font-size: var(--fs-xs); color: var(--text-dim); font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1>Sketch 008 <span class="meta">detail-pane-stage-scope · phase 82.5</span></h1>
+    <span class="grow"></span>
+    <span class="question">Q: <strong>Which stages should the detail pane show, and what does the bottom "Approve" mean?</strong></span>
+  </div>
+
+  <div class="tabs">
+    <button class="active" data-tab="a">A — Run + current only · Confirm per stage</button>
+    <button data-tab="b">B — Full timeline · future stages collapsed</button>
+    <button data-tab="c">C — Run + current · bottom button reflects active stage</button>
+  </div>
+
+  <!-- ============ VARIANT A ============ -->
+  <div class="body active" data-variant="a">
+    <div class="desc">
+      <h2>Variant A — Run + current only, Confirm per stage</h2>
+      <p>The pane shows only stages that <em>actually ran for this row</em>. On Stage 1 tab: Stage 0 (passed) + Stage 1 (current). Stages 2/3/4 are hidden — they belong to <em>other</em> tabs.</p>
+      <p>The bottom bar drops "Approve". Each stage has its own Confirm button under its details (matches Sketch 011-C treatment). Skip / Reject / Next stay as row-navigation.</p>
+      <ul>
+        <li><strong>Mental model:</strong> the Stage 1 tab is for Stage 1 decisions. Period.</li>
+        <li><strong>No future stages:</strong> if you want to make a Stage 3 call, switch to the Stage 3 tab.</li>
+        <li><strong>Approve doesn't exist as a row-level concept</strong> — each stage's verdict is independent.</li>
+      </ul>
+      <p class="note">Strongest opinion. Closest to the operator mental model. Removes the most ambiguity.</p>
+    </div>
+
+    <div class="pane-wrap">
+      <div class="pane-label">Stage 1 tab — row that's only run Stage 0+1</div>
+      <div class="pane">
+        <div class="email-head">
+          <div class="from">From Johan Smid</div>
+          <div class="subject">RE: RE: Openstaande facturen Berki</div>
+          <div class="mailbox">Berki · received 09:14</div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num done">0</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 0 — Safety</div>
+            <div class="stage-current">Current: safe · auto-confirmed</div>
+          </div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num active">1</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 1 — Category <span class="pill">stage_1_category</span></div>
+            <div class="stage-current">Current: unknown</div>
+            <div class="picker">
+              <select><option selected>unknown</option><option>payment_admittance</option><option>auto_reply</option></select>
+              <div class="helper"><span class="icon">⤓</span> Override + note save together</div>
+            </div>
+            <div class="fp">
+              <label>Notes</label>
+              <textarea placeholder="What's edge-case about this row?"></textarea>
+            </div>
+            <div class="stage-approve">
+              <button class="btn save">
+                <span class="icon">💾</span>
+                <span class="label"><span>Save note</span><span class="sub">come back later</span></span>
+              </button>
+              <button class="btn confirm">
+                <span class="icon">✓</span>
+                <span class="label"><span>Confirm Stage 1</span><span class="sub">unknown looks right</span></span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- Stages 2/3/4 intentionally hidden -->
+      </div>
+      <div class="nav-bar">
+        <button class="nav-btn">↩ Reject row</button>
+        <button class="nav-btn">⏵ Skip</button>
+        <span class="grow"></span>
+        <span class="hint">n=skip · ⏎=confirm · ⌘+s=save</span>
+      </div>
+    </div>
+
+    <div class="pane-wrap">
+      <div class="pane-label">Stage 3 tab — row that ran Stage 0+1+2+3</div>
+      <div class="pane">
+        <div class="email-head">
+          <div class="from">From Eline van Bergen</div>
+          <div class="subject">Verzoek kopie factuur 18247</div>
+          <div class="mailbox">Smeba · received 08:42</div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num done">0</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 0 — Safety</div>
+            <div class="stage-current">Current: safe</div>
+          </div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num done">1</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 1 — Category</div>
+            <div class="stage-current">Current: payment_admittance</div>
+          </div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num done">2</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 2 — Customer</div>
+            <div class="stage-current">Current: cust_847</div>
+          </div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num active">3</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 3 — Intent <span class="pill">stage_3_intent</span></div>
+            <div class="stage-current">Current: invoice_copy_request</div>
+            <div class="picker">
+              <select><option selected>invoice_copy_request</option><option>credit_request</option><option>dispute</option></select>
+            </div>
+            <div class="stage-approve">
+              <button class="btn confirm">
+                <span class="icon">✓</span>
+                <span class="label"><span>Confirm Stage 3</span><span class="sub">intent looks right</span></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="nav-bar">
+        <button class="nav-btn">↩ Reject row</button>
+        <button class="nav-btn">⏵ Skip</button>
+        <span class="grow"></span>
+        <span class="hint">n=skip · ⏎=confirm · ⌘+s=save</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT B ============ -->
+  <div class="body" data-variant="b">
+    <div class="desc">
+      <h2>Variant B — Full timeline, future stages collapsed</h2>
+      <p>Keeps the full pipeline visible for context, but collapses future-yet-to-run stages into a single thin pill: "Stages 2-4 — haven't run yet · expand."</p>
+      <p>The bottom "Approve" stays, with relabeled meaning: <em>"Approve all current verdicts as correct."</em> The operator confirms the run stages in one click. Future stages aren't part of that decision.</p>
+      <ul>
+        <li><strong>Mental model:</strong> show the journey so operators see how far the email got.</li>
+        <li><strong>Future stages:</strong> collapsed but accessible. Expand if you want to pre-emptively override one.</li>
+        <li><strong>Approve:</strong> means "every stage that ran for this row is correct."</li>
+      </ul>
+      <p class="note">Compromise. Preserves the unified-shell uniformity from Phase 76 while reducing visual noise. But keeps the ambiguous "Approve" semantics.</p>
+    </div>
+
+    <div class="pane-wrap">
+      <div class="pane-label">Stage 1 tab — only Stage 0+1 ran</div>
+      <div class="pane">
+        <div class="email-head">
+          <div class="from">From Johan Smid</div>
+          <div class="subject">RE: RE: Openstaande facturen Berki</div>
+          <div class="mailbox">Berki · received 09:14</div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num done">0</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 0 — Safety</div>
+            <div class="stage-current">Current: safe</div>
+          </div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num active">1</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 1 — Category <span class="pill">stage_1_category</span></div>
+            <div class="stage-current">Current: unknown</div>
+            <div class="picker">
+              <select><option selected>unknown</option><option>payment_admittance</option><option>auto_reply</option></select>
+              <div class="helper"><span class="icon">⤓</span> Override + note save together</div>
+            </div>
+            <div class="fp">
+              <label>Notes</label>
+              <textarea placeholder="What's edge-case about this row?"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="collapsed-future">▾ Stages 2–4 haven't run yet · expand to override pre-emptively</div>
+      </div>
+      <div class="nav-bar">
+        <button class="nav-btn primary">✓ Approve verdicts (Stages 0+1)</button>
+        <button class="nav-btn">↩ Reject row</button>
+        <button class="nav-btn">⏵ Skip</button>
+        <span class="grow"></span>
+        <span class="hint">⏎=approve · n=skip</span>
+      </div>
+    </div>
+
+    <div class="pane-wrap">
+      <div class="pane-label">Stage 3 tab — all 4 ran</div>
+      <div class="pane">
+        <div class="email-head">
+          <div class="from">From Eline van Bergen</div>
+          <div class="subject">Verzoek kopie factuur 18247</div>
+          <div class="mailbox">Smeba · received 08:42</div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num done">0</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 0 — Safety</div>
+            <div class="stage-current">Current: safe</div>
+          </div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num done">1</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 1 — Category</div>
+            <div class="stage-current">Current: payment_admittance</div>
+          </div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num done">2</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 2 — Customer</div>
+            <div class="stage-current">Current: cust_847</div>
+          </div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num active">3</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 3 — Intent</div>
+            <div class="stage-current">Current: invoice_copy_request</div>
+            <div class="picker">
+              <select><option selected>invoice_copy_request</option><option>credit_request</option></select>
+            </div>
+          </div>
+        </div>
+        <div class="collapsed-future">▾ Stage 4 (handler) — not run yet · expand</div>
+      </div>
+      <div class="nav-bar">
+        <button class="nav-btn primary">✓ Approve all 4 verdicts</button>
+        <button class="nav-btn">↩ Reject</button>
+        <button class="nav-btn">⏵ Skip</button>
+        <span class="grow"></span>
+        <span class="hint">⏎=approve · n=skip</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT C ============ -->
+  <div class="body" data-variant="c">
+    <div class="desc">
+      <h2>Variant C — Run + current, bottom button reflects active stage</h2>
+      <p>Same as A on stage scoping (hide future stages). Different on actions: the per-stage Confirm chip is gone — the <em>bottom button</em> is the single action surface, and its label reflects the active tab:</p>
+      <ul>
+        <li>Stage 1 tab → "✓ Confirm Stage 1"</li>
+        <li>Stage 3 tab → "✓ Confirm Stage 3"</li>
+      </ul>
+      <p>One Confirm per row per tab. The note textarea stays inline under the active stage. Skip/Reject still navigate.</p>
+      <p class="note">Cleanest action model. Bottom bar always means "approve the stage this tab is about." Easier to remember than per-stage Confirm chips.</p>
+    </div>
+
+    <div class="pane-wrap">
+      <div class="pane-label">Stage 1 tab</div>
+      <div class="pane">
+        <div class="email-head">
+          <div class="from">From Johan Smid</div>
+          <div class="subject">RE: RE: Openstaande facturen Berki</div>
+          <div class="mailbox">Berki · received 09:14</div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num done">0</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 0 — Safety</div>
+            <div class="stage-current">Current: safe · auto-confirmed</div>
+          </div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num active">1</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 1 — Category <span class="pill">stage_1_category</span></div>
+            <div class="stage-current">Current: unknown</div>
+            <div class="picker">
+              <select><option selected>unknown</option><option>payment_admittance</option></select>
+              <div class="helper"><span class="icon">⤓</span> Override + note save together</div>
+            </div>
+            <div class="fp">
+              <label>Notes</label>
+              <textarea placeholder="What's edge-case about this row?"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="nav-bar">
+        <button class="nav-btn primary">✓ Confirm Stage 1</button>
+        <button class="nav-btn">💾 Save note</button>
+        <span class="grow"></span>
+        <button class="nav-btn">↩ Reject</button>
+        <button class="nav-btn">⏵ Skip</button>
+        <span class="hint" style="margin-left:var(--space-3);">⏎=confirm · ⌘+s=save</span>
+      </div>
+    </div>
+
+    <div class="pane-wrap">
+      <div class="pane-label">Stage 3 tab — same row layout, different bottom button</div>
+      <div class="pane">
+        <div class="email-head">
+          <div class="from">From Eline van Bergen</div>
+          <div class="subject">Verzoek kopie factuur 18247</div>
+          <div class="mailbox">Smeba · received 08:42</div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num done">0</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 0 — Safety</div>
+            <div class="stage-current">Current: safe</div>
+          </div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num done">1</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 1 — Category</div>
+            <div class="stage-current">Current: payment_admittance</div>
+          </div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num done">2</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 2 — Customer</div>
+            <div class="stage-current">Current: cust_847</div>
+          </div>
+        </div>
+        <div class="stage-row">
+          <div class="stage-num active">3</div>
+          <div class="stage-body">
+            <div class="stage-label">Stage 3 — Intent <span class="pill">stage_3_intent</span></div>
+            <div class="stage-current">Current: invoice_copy_request</div>
+            <div class="picker">
+              <select><option selected>invoice_copy_request</option><option>credit_request</option></select>
+            </div>
+            <div class="fp">
+              <label>Notes</label>
+              <textarea placeholder="Anything to flag?"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="nav-bar">
+        <button class="nav-btn primary">✓ Confirm Stage 3</button>
+        <button class="nav-btn">💾 Save note</button>
+        <span class="grow"></span>
+        <button class="nav-btn">↩ Reject</button>
+        <button class="nav-btn">⏵ Skip</button>
+        <span class="hint" style="margin-left:var(--space-3);">⏎=confirm · ⌘+s=save</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.body').forEach(b => b.classList.toggle('active', b.dataset.variant === tab));
+      });
+    });
+  </script>
+</body>
+</html>

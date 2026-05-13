@@ -2,7 +2,7 @@
 sketch: 009
 name: row-strip-review-indicators
 question: "What chip/treatment shows verdict status on rows without clashing with existing stage badges?"
-winner: null
+winner: "A"
 tags: [phase-82.5, bulk-review, row-strip, verdict-indicator]
 ---
 

@@ -2,7 +2,7 @@
 sketch: 011
 name: save-vs-confirm-clarity
 question: "What treatment makes 'Save (revisit later)' vs 'Confirm (looks correct, close)' immediately differentiable?"
-winner: null
+winner: "C"
 tags: [phase-82.5, feedback, save, confirm, microcopy]
 ---
 
