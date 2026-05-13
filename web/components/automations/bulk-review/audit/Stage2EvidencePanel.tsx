@@ -15,6 +15,7 @@
 
 import type { Stage2AuditPayload } from "@/app/(dashboard)/automations/[swarm]/_shell/_lib/audit-types";
 import { ScreenshotThumb } from "./ScreenshotThumb";
+import { RawJsonToggle } from "./RawJsonToggle";
 
 interface Props {
   payload: Stage2AuditPayload;
@@ -226,8 +227,10 @@ export function Stage2EvidencePanel({ payload }: Props) {
         )}
       </div>
 
-      {/* Raw JSON slot — Plan 09 fills this */}
-      <div data-testid="stage2-raw-json-slot" />
+      {/* Raw JSON slot — Plan 09 */}
+      <div data-testid="stage2-raw-json-slot">
+        <RawJsonToggle raw={payload.raw} />
+      </div>
     </div>
   );
 }

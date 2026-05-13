@@ -7,6 +7,7 @@
 // `raw` slot is a placeholder; Plan 09 swaps the internals with RawJsonToggle.
 
 import type { Stage0AuditPayload } from "@/app/(dashboard)/automations/[swarm]/_shell/_lib/audit-types";
+import { RawJsonToggle } from "./RawJsonToggle";
 
 interface Props {
   payload: Stage0AuditPayload;
@@ -195,8 +196,10 @@ export function Stage0EvidencePanel({ payload }: Props) {
         </div>
       </div>
 
-      {/* Raw JSON slot — Plan 09 fills this */}
-      <div data-testid="stage0-raw-json-slot" />
+      {/* Raw JSON slot — Plan 09 */}
+      <div data-testid="stage0-raw-json-slot">
+        <RawJsonToggle raw={payload.raw} />
+      </div>
     </div>
   );
 }
