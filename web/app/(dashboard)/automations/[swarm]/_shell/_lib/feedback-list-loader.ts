@@ -100,7 +100,6 @@ interface EmailMetaRow {
   sender_email: string | null;
   sender_name: string | null;
   received_at: string | null;
-  mailbox_id: number | null;
 }
 
 interface FeedbackRow {
@@ -161,7 +160,7 @@ export async function loadStageFeedbackList(
   const emailsPromise = admin
     .schema("email_pipeline")
     .from("emails")
-    .select("id, subject, sender_email, sender_name, received_at, mailbox_id")
+    .select("id, subject, sender_email, sender_name, received_at")
     .in("id", emailIds);
 
   let feedbackQuery = admin
@@ -242,7 +241,7 @@ export async function loadStageFeedbackList(
       sender_email: email.sender_email,
       sender_name: email.sender_name,
       received_at: email.received_at ?? pe.created_at,
-      mailbox_id: email.mailbox_id,
+      mailbox_id: null,
       sort_bucket,
       own_latest_verdict: ownFeedback ? ownFeedback.verdict : null,
       own_latest_at: ownFeedback ? ownFeedback.created_at : null,
