@@ -14,8 +14,10 @@
  *       * state==='skipped' → "— Stage skipped".
  *   - Visually-hidden span announces state for screen readers; aria-hidden on the circle.
  */
+import { useState } from "react";
 import type { StageData } from "./pipeline-flow";
 import { StageDetailExpander } from "@/components/automations/bulk-review/audit/StageDetailExpander";
+import { StageFeedbackPanel } from "@/components/automations/bulk-review/audit/StageFeedbackPanel";
 
 interface StageStepProps {
   stage: StageData;
@@ -29,6 +31,12 @@ function nodeBorderColor(state: StageData["state"]): string {
 }
 
 export function StageStep({ stage, onMarkDirty }: StageStepProps) {
+  // Phase 82.4 Plan 03 — lift the audit-expander open-state up so the
+  // embedded StageFeedbackPanel's ✓ Confirm chip can auto-collapse the
+  // expander after a successful POST (operator-momentum). Defaults closed
+  // to match the original uncontrolled behaviour.
+  const [auditOpen, setAuditOpen] = useState(false);
+
   const announce =
     stage.state === "dirty"
       ? `Stage ${stage.n} — overridden`
@@ -90,8 +98,23 @@ export function StageStep({ stage, onMarkDirty }: StageStepProps) {
             Stage 4 is excluded per 82.3 CONTEXT.md <out_of_scope>. */}
         {stage.auditDetails != null && stage.n !== 4 && (
           <div className="mt-2">
-            <StageDetailExpander stage={stage.n as 0 | 1 | 2 | 3}>
+            <StageDetailExpander
+              stage={stage.n as 0 | 1 | 2 | 3}
+              open={auditOpen}
+              onOpenChange={setAuditOpen}
+            >
               {stage.auditDetails}
+              {/* Phase 82.4 Plan 03 — operator feedback capture surface mounted
+                  INSIDE the audit expander. Skipped silently when emailId is
+                  not threaded from the parent. Stage 4 already excluded by
+                  the outer guard. */}
+              {stage.emailId && (
+                <StageFeedbackPanel
+                  stage={stage.n as 0 | 1 | 2 | 3}
+                  emailId={stage.emailId}
+                  onAfterConfirm={() => setAuditOpen(false)}
+                />
+              )}
             </StageDetailExpander>
           </div>
         )}

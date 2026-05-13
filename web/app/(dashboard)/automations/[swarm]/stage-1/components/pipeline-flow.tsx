@@ -35,6 +35,11 @@ export interface StageData {
    *  consumes this inside <StageStep> via the Show-details expander.
    *  Stage 4 always undefined per 82.3 CONTEXT.md <out_of_scope>. */
   auditDetails?: ReactNode;
+  /** Phase 82.4 Plan 03 — when present (and stage.n !== 4), <StageStep>
+   *  mounts a <StageFeedbackPanel> inside the audit expander wired to this
+   *  email_id. Omitted when the parent has no email_id in scope (panel is
+   *  skipped silently in that case). */
+  emailId?: string;
 }
 
 interface PipelineFlowProps {

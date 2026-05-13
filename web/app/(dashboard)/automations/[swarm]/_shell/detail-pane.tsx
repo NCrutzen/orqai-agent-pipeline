@@ -364,6 +364,11 @@ function DetailPaneInner({
         currentValue,
         widget,
         auditDetails: n === 4 ? undefined : effectiveStageAudit?.[n as 0 | 1 | 2 | 3],
+        // Phase 82.4 Plan 03 — emailId threaded through StageData so
+        // <StageStep> can mount <StageFeedbackPanel> inside the audit
+        // expander. Stage 4 omitted (out_of_scope) — guarded by stage.n !== 4
+        // at the <StageStep> level, but we also nil it here for clarity.
+        emailId: n === 4 ? undefined : row.id,
       });
     }
     return out;

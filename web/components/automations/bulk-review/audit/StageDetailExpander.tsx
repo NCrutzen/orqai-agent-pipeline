@@ -26,10 +26,27 @@ import {
 interface Props {
   stage: 0 | 1 | 2 | 3;
   children: ReactNode;
+  /** Phase 82.4 Plan 03 — optional controlled-mode props. When supplied,
+   *  the parent owns open-state (e.g. so StageFeedbackPanel's ✓ Confirm chip
+   *  can auto-collapse the expander). When omitted, the component keeps its
+   *  original uncontrolled behaviour for backward compatibility. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function StageDetailExpander({ stage, children }: Props) {
-  const [open, setOpen] = useState(false);
+export function StageDetailExpander({
+  stage,
+  children,
+  open: openProp,
+  onOpenChange,
+}: Props) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (!isControlled) setInternalOpen(v);
+    onOpenChange?.(v);
+  };
 
   return (
     <Collapsible
