@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 008 — Feedback read-back state</title>
+<link rel="stylesheet" href="../themes/v7.css" />
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+  .toolbar { background: var(--bg-2); border-bottom: 1px solid var(--border); padding: var(--space-3) var(--space-5); display: flex; align-items: center; gap: var(--space-4); font-size: var(--fs-sm); }
+  .toolbar h1 { font-size: var(--fs-md); font-weight: 600; margin: 0; }
+  .toolbar h1 .meta { color: var(--text-muted); font-weight: 400; margin-left: var(--space-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
+  .toolbar .grow { flex: 1; }
+  .toolbar .question { color: var(--text-muted); }
+  .toolbar .question strong { color: var(--text); }
+  .tabs { display: flex; background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 0 var(--space-5); }
+  .tabs button { background: transparent; color: var(--text-muted); border: none; border-bottom: 2px solid transparent; padding: var(--space-3) var(--space-4); font-size: var(--fs-base); cursor: pointer; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.active { color: var(--text); border-bottom-color: var(--brand-primary); font-weight: 500; }
+  .tabs .star { color: var(--brand-primary); margin-right: 4px; }
+  .body { flex: 1; overflow: hidden; display: none; }
+  .body.active { display: grid; grid-template-columns: 1fr 460px; }
+
+  .preview-pad { background: var(--bg); padding: var(--space-6) var(--space-5); border-right: 1px solid var(--border); }
+  .preview-pad h2 { font-size: var(--fs-md); font-weight: 600; margin-bottom: var(--space-2); }
+  .preview-pad p { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.5; }
+  .preview-pad .note { font-size: var(--fs-xs); color: var(--text-dim); margin-top: var(--space-4); font-family: var(--font-mono); }
+
+  /* Detail pane shell */
+  .pane { overflow-y: auto; background: var(--bg-panel); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+  .email-head { padding-bottom: var(--space-3); border-bottom: 1px solid var(--border); }
+  .email-head .from { color: var(--text-muted); font-size: var(--fs-xs); }
+  .email-head .subject { font-size: var(--fs-md); font-weight: 500; margin-top: 2px; }
+  .email-head .mailbox { font-size: var(--fs-xs); color: var(--text-dim); margin-top: 2px; }
+
+  .stage-row { display: flex; gap: var(--space-3); padding: var(--space-3) 0; }
+  .stage-num { width: 28px; height: 28px; border-radius: 50%; background: var(--bg-2); border: 1px solid var(--lime); color: var(--lime); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: var(--fs-xs); flex-shrink: 0; }
+  .stage-num.active { border-color: var(--brand-primary); color: var(--brand-primary); }
+  .stage-num.done { background: var(--lime-soft); }
+  .stage-body { flex: 1; min-width: 0; }
+  .stage-label { font-size: var(--fs-base); font-weight: 500; display: flex; align-items: center; gap: var(--space-2); }
+  .stage-label .pill { font-size: 10px; padding: 1px 7px; border-radius: 999px; background: var(--bg-2); color: var(--text-muted); border: 1px solid var(--border); font-family: var(--font-mono); }
+  .stage-current { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono); }
+  .stage-status { font-size: var(--fs-xs); color: var(--lime); margin-top: 4px; }
+
+  /* Feedback panel */
+  .fp { background: var(--bg-panel-soft); border-top: 1px solid var(--border); padding: var(--space-3); margin-top: var(--space-2); border-radius: var(--radius-sm); }
+  .fp label { font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); display: block; margin-bottom: var(--space-2); }
+  .fp textarea { width: 100%; min-height: 60px; font-size: var(--fs-sm); padding: var(--space-2); background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); resize: vertical; font-family: inherit; line-height: 1.4; }
+  .fp .btns { display: flex; justify-content: space-between; margin-top: var(--space-2); align-items: center; }
+  .fp .btn { font-size: var(--fs-sm); padding: var(--space-1) var(--space-3); border-radius: var(--radius-pill); cursor: pointer; }
+  .fp .btn.save { background: var(--brand-secondary-soft); color: var(--brand-secondary); border: 1px solid var(--brand-secondary); }
+  .fp .btn.confirm { background: var(--lime-soft); color: var(--lime); border: 1px solid var(--lime); }
+  .fp .saved-ts { font-size: 11px; color: var(--text-dim); margin-top: var(--space-1); }
+
+  /* Variant A specific: verdict chip in header */
+  .verdict-chip { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 999px; font-family: var(--font-mono); margin-left: var(--space-2); }
+  .verdict-chip.confirm { background: var(--lime-soft); color: var(--lime); border: 1px solid var(--lime); }
+  .verdict-chip.override { background: var(--amber-soft); color: var(--amber); border: 1px solid var(--amber); }
+  .verdict-chip.unclear { background: var(--brand-secondary-soft); color: var(--brand-secondary); border: 1px solid var(--brand-secondary); }
+
+  /* Variant B specific: others-said block */
+  .others-block { margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px dashed var(--border); }
+  .others-toggle { font-size: var(--fs-xs); color: var(--text-muted); cursor: pointer; user-select: none; }
+  .others-toggle:hover { color: var(--text); }
+  .others-list { margin-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2); }
+  .others-item { font-size: var(--fs-xs); padding: var(--space-2); background: var(--bg-2); border-radius: var(--radius-sm); border-left: 2px solid var(--brand-secondary); }
+  .others-item .who { color: var(--text-muted); font-family: var(--font-mono); }
+  .others-item .when { color: var(--text-dim); font-family: var(--font-mono); margin-left: 6px; }
+  .others-item .what { color: var(--text); margin-top: 4px; line-height: 1.4; }
+
+  /* Variant C specific: timeline */
+  .timeline { margin-top: var(--space-3); padding: var(--space-2); background: var(--bg-2); border-radius: var(--radius-sm); }
+  .timeline-row { display: flex; align-items: center; gap: var(--space-2); padding: 6px 0; font-size: var(--fs-xs); border-bottom: 1px solid var(--border); }
+  .timeline-row:last-child { border-bottom: none; }
+  .timeline-row.latest { background: var(--bg-hover); padding: 6px var(--space-2); border-radius: 4px; border-bottom: none; }
+  .timeline-row .who { color: var(--text-muted); font-family: var(--font-mono); width: 80px; flex-shrink: 0; }
+  .timeline-row .when { color: var(--text-dim); font-family: var(--font-mono); width: 70px; flex-shrink: 0; }
+  .timeline-row .what { color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .timeline-row.latest .what { white-space: normal; }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1>Sketch 008 <span class="meta">feedback-read-back-state · phase 82.5</span></h1>
+    <span class="grow"></span>
+    <span class="question">Q: <strong>How does StageFeedbackPanel look when re-opening a row that already has feedback?</strong></span>
+  </div>
+
+  <div class="tabs">
+    <button class="active" data-tab="a">A — Pre-fill + verdict chip</button>
+    <button data-tab="b">B — Pre-fill + "Others said" collapsible</button>
+    <button data-tab="c">C — Verdict timeline view</button>
+  </div>
+
+  <!-- ============ VARIANT A ============ -->
+  <div class="body active" data-variant="a">
+    <div class="preview-pad">
+      <h2>Variant A — Pre-fill + verdict chip</h2>
+      <p>The simplest read-back: textarea pre-populated with the operator's latest prose, verdict shown as a chip next to the stage label. No history surfaced. Lowest cognitive load; matches how most "draft" UIs behave.</p>
+      <p style="margin-top:8px;">Trade-off: cross-operator context invisible. Operator B doesn't know A wrote a note last week.</p>
+      <p class="note">Best for: solo operator per email_id, low-frequency revisits.</p>
+    </div>
+    <div class="pane">
+      <div class="email-head">
+        <div class="from">From Crediteurenadministratie</div>
+        <div class="subject">RE: RE: openstaande posten</div>
+        <div class="mailbox">Smeba · received 11:25</div>
+      </div>
+
+      <div class="stage-row">
+        <div class="stage-num done">0</div>
+        <div class="stage-body">
+          <div class="stage-label">Stage 0 — Safety</div>
+          <div class="stage-current">Current: safe</div>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="stage-num active">1</div>
+        <div class="stage-body">
+          <div class="stage-label">
+            Stage 1 — Category
+            <span class="pill">stage_1_category</span>
+            <span class="verdict-chip unclear">unclear · you · 2d ago</span>
+          </div>
+          <div class="stage-current">Current: unknown</div>
+          <div class="fp">
+            <label>Notes</label>
+            <textarea>Edge case body — supplier mentions a "saldo opgave" but it's really a credit note. Watch for "creditnota" + "saldo" both in subject. Bumping for now.</textarea>
+            <div class="btns">
+              <button class="btn save">Save</button>
+              <button class="btn confirm">✓ Confirm</button>
+            </div>
+            <div class="saved-ts">✓ Saved Mon 13:42</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="stage-num">2</div>
+        <div class="stage-body">
+          <div class="stage-label">Stage 2 — Customer</div>
+          <div class="stage-current">Current: unresolved</div>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="stage-num">3</div>
+        <div class="stage-body">
+          <div class="stage-label">Stage 3 — Intent</div>
+          <div class="stage-current">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT B ============ -->
+  <div class="body" data-variant="b">
+    <div class="preview-pad">
+      <h2>Variant B — Pre-fill + "Others said" collapsible</h2>
+      <p>Same pre-fill as A, plus a dashed-separator block below the textarea: "<em>What others said (2)</em>" — collapsible. Each prior cross-operator note shown as a card with author + timestamp + verdict.</p>
+      <p style="margin-top:8px;">Operator's own prior notes go in the textarea; <em>others'</em> notes stay in the collapsible — never overwritable.</p>
+      <p class="note">Best for: multi-operator review, training corpus building.</p>
+    </div>
+    <div class="pane">
+      <div class="email-head">
+        <div class="from">From Crediteurenadministratie</div>
+        <div class="subject">RE: RE: openstaande posten</div>
+        <div class="mailbox">Smeba · received 11:25</div>
+      </div>
+
+      <div class="stage-row">
+        <div class="stage-num done">0</div>
+        <div class="stage-body">
+          <div class="stage-label">Stage 0 — Safety</div>
+          <div class="stage-current">Current: safe</div>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="stage-num active">1</div>
+        <div class="stage-body">
+          <div class="stage-label">
+            Stage 1 — Category
+            <span class="pill">stage_1_category</span>
+            <span class="verdict-chip unclear">unclear · you · 2d ago</span>
+          </div>
+          <div class="stage-current">Current: unknown</div>
+          <div class="fp">
+            <label>Your note</label>
+            <textarea>Edge case body — supplier mentions a "saldo opgave" but it's really a credit note. Watch for "creditnota" + "saldo" both in subject. Bumping for now.</textarea>
+            <div class="btns">
+              <button class="btn save">Save</button>
+              <button class="btn confirm">✓ Confirm</button>
+            </div>
+            <div class="saved-ts">✓ Saved Mon 13:42</div>
+
+            <div class="others-block">
+              <div class="others-toggle" id="othersToggle">▾ What others said (2)</div>
+              <div class="others-list" id="othersList">
+                <div class="others-item">
+                  <span class="who">@maria</span>
+                  <span class="when">2026-05-08 09:14</span>
+                  <span class="verdict-chip override" style="margin-left:6px;">override → payment_admittance</span>
+                  <div class="what">Saw this pattern last quarter — they always send a creditnota notification with this exact subject. Should be payment_admittance.</div>
+                </div>
+                <div class="others-item">
+                  <span class="who">@jeroen</span>
+                  <span class="when">2026-04-22 16:01</span>
+                  <span class="verdict-chip confirm" style="margin-left:6px;">confirm</span>
+                  <div class="what">Confirmed — supplier-side bug emits "saldo" in subject for credit notes too.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="stage-num">2</div>
+        <div class="stage-body">
+          <div class="stage-label">Stage 2 — Customer</div>
+          <div class="stage-current">Current: unresolved</div>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="stage-num">3</div>
+        <div class="stage-body">
+          <div class="stage-label">Stage 3 — Intent</div>
+          <div class="stage-current">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT C ============ -->
+  <div class="body" data-variant="c">
+    <div class="preview-pad">
+      <h2>Variant C — Verdict timeline view</h2>
+      <p>The textarea collapses into a horizontal timeline showing all prior verdicts (yours and others) as pill rows. Click any row to expand the full note + edit if it's yours.</p>
+      <p style="margin-top:8px;">Optimised for "how did we converge on this category over time?" not "type a fresh note quickly."</p>
+      <p class="note">Best for: dense review surfaces; loses some affordance for the typical edit case.</p>
+    </div>
+    <div class="pane">
+      <div class="email-head">
+        <div class="from">From Crediteurenadministratie</div>
+        <div class="subject">RE: RE: openstaande posten</div>
+        <div class="mailbox">Smeba · received 11:25</div>
+      </div>
+
+      <div class="stage-row">
+        <div class="stage-num done">0</div>
+        <div class="stage-body">
+          <div class="stage-label">Stage 0 — Safety</div>
+          <div class="stage-current">Current: safe</div>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="stage-num active">1</div>
+        <div class="stage-body">
+          <div class="stage-label">
+            Stage 1 — Category
+            <span class="pill">stage_1_category</span>
+          </div>
+          <div class="stage-current">Current: unknown · 3 verdicts logged</div>
+
+          <div class="timeline">
+            <div class="timeline-row latest">
+              <span class="who">@you</span>
+              <span class="when">Mon 13:42</span>
+              <span class="verdict-chip unclear">unclear</span>
+              <div class="what">Edge case body — supplier mentions a "saldo opgave" but it's really a credit note. Watch for "creditnota" + "saldo" both in subject. Bumping for now.</div>
+            </div>
+            <div class="timeline-row">
+              <span class="who">@maria</span>
+              <span class="when">2026-05-08</span>
+              <span class="verdict-chip override">override</span>
+              <span class="what">Saw this pattern last quarter — payment_admittance.</span>
+            </div>
+            <div class="timeline-row">
+              <span class="who">@jeroen</span>
+              <span class="when">2026-04-22</span>
+              <span class="verdict-chip confirm">confirm</span>
+              <span class="what">Confirmed — supplier-side bug emits "saldo".</span>
+            </div>
+          </div>
+
+          <div class="fp" style="margin-top:var(--space-3);">
+            <label>Add a new note</label>
+            <textarea placeholder="Write a follow-up or new observation..."></textarea>
+            <div class="btns">
+              <button class="btn save">Save</button>
+              <button class="btn confirm">✓ Confirm</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="stage-num">2</div>
+        <div class="stage-body">
+          <div class="stage-label">Stage 2 — Customer</div>
+          <div class="stage-current">Current: unresolved</div>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="stage-num">3</div>
+        <div class="stage-body">
+          <div class="stage-label">Stage 3 — Intent</div>
+          <div class="stage-current">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.body').forEach(b => b.classList.toggle('active', b.dataset.variant === tab));
+      });
+    });
+    document.getElementById('othersToggle')?.addEventListener('click', () => {
+      const list = document.getElementById('othersList');
+      list.style.display = list.style.display === 'none' ? 'flex' : 'none';
+    });
+  </script>
+</body>
+</html>

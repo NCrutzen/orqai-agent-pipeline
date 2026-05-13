@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 010 — Override + note coupling cue</title>
+<link rel="stylesheet" href="../themes/v7.css" />
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+  .toolbar { background: var(--bg-2); border-bottom: 1px solid var(--border); padding: var(--space-3) var(--space-5); display: flex; align-items: center; gap: var(--space-4); font-size: var(--fs-sm); }
+  .toolbar h1 { font-size: var(--fs-md); font-weight: 600; margin: 0; }
+  .toolbar h1 .meta { color: var(--text-muted); font-weight: 400; margin-left: var(--space-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
+  .toolbar .grow { flex: 1; }
+  .toolbar .question { color: var(--text-muted); }
+  .toolbar .question strong { color: var(--text); }
+  .tabs { display: flex; background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 0 var(--space-5); }
+  .tabs button { background: transparent; color: var(--text-muted); border: none; border-bottom: 2px solid transparent; padding: var(--space-3) var(--space-4); font-size: var(--fs-base); cursor: pointer; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.active { color: var(--text); border-bottom-color: var(--brand-primary); font-weight: 500; }
+  .body { flex: 1; overflow: hidden; display: none; }
+  .body.active { display: grid; grid-template-columns: 320px 1fr; }
+
+  .desc { background: var(--bg); padding: var(--space-6) var(--space-5); border-right: 1px solid var(--border); overflow-y: auto; }
+  .desc h2 { font-size: var(--fs-md); font-weight: 600; margin-bottom: var(--space-2); }
+  .desc p { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.5; margin-top: var(--space-2); }
+  .desc .note { font-size: var(--fs-xs); color: var(--text-dim); margin-top: var(--space-4); font-family: var(--font-mono); }
+
+  .pane { background: var(--bg-panel); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); overflow-y: auto; }
+  .email-head { padding-bottom: var(--space-3); border-bottom: 1px solid var(--border); }
+  .email-head .from { color: var(--text-muted); font-size: var(--fs-xs); }
+  .email-head .subject { font-size: var(--fs-md); font-weight: 500; margin-top: 2px; }
+  .email-head .mailbox { font-size: var(--fs-xs); color: var(--text-dim); margin-top: 2px; }
+
+  .stage-row { display: flex; gap: var(--space-3); padding: var(--space-3) 0; align-items: flex-start; }
+  .stage-num { width: 28px; height: 28px; border-radius: 50%; background: var(--bg-2); border: 1px solid var(--lime); color: var(--lime); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: var(--fs-xs); flex-shrink: 0; }
+  .stage-num.active { border-color: var(--brand-primary); color: var(--brand-primary); }
+  .stage-body { flex: 1; min-width: 0; }
+  .stage-label { font-size: var(--fs-base); font-weight: 500; }
+
+  /* Override picker */
+  .picker { position: relative; margin-top: var(--space-2); }
+  .picker select { width: 100%; padding: var(--space-2); background: var(--bg-2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: var(--fs-sm); font-family: inherit; }
+
+  /* Feedback panel */
+  .fp { background: var(--bg-panel-soft); border-top: 1px solid var(--border); padding: var(--space-3); margin-top: var(--space-2); border-radius: var(--radius-sm); transition: all 0.18s ease; }
+  .fp label { font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); display: block; margin-bottom: var(--space-2); }
+  .fp textarea { width: 100%; min-height: 60px; font-size: var(--fs-sm); padding: var(--space-2); background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); resize: vertical; font-family: inherit; line-height: 1.4; transition: border-color 0.18s, box-shadow 0.18s; }
+  .fp .btns { display: flex; justify-content: space-between; margin-top: var(--space-2); }
+  .fp .btn { font-size: var(--fs-sm); padding: var(--space-1) var(--space-3); border-radius: var(--radius-pill); cursor: pointer; }
+  .fp .btn.save { background: var(--brand-secondary-soft); color: var(--brand-secondary); border: 1px solid var(--brand-secondary); }
+  .fp .btn.confirm { background: var(--lime-soft); color: var(--lime); border: 1px solid var(--lime); }
+
+  /* ============ VARIANT A — Tooltip arrow ============ */
+  .tooltip-arrow {
+    position: absolute;
+    background: var(--amber-soft);
+    color: var(--amber);
+    border: 1px solid var(--amber);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--fs-xs);
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    z-index: 10;
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .tooltip-arrow::before {
+    content: '';
+    position: absolute;
+    right: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-right-color: var(--amber);
+  }
+  .tooltip-arrow .strong { color: var(--text); font-weight: 600; }
+
+  /* ============ VARIANT B — Shared accent border ============ */
+  .body[data-variant="b"] .picker select.active-glow,
+  .body[data-variant="b"] .fp.active-glow textarea {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 3px var(--amber-soft);
+  }
+  .body[data-variant="b"] .fp.active-glow {
+    background: linear-gradient(to bottom, var(--amber-soft), var(--bg-panel-soft) 70%);
+    border-top-color: var(--amber);
+  }
+  .body[data-variant="b"] .picker.glow-wrap::before {
+    content: '⤓ Note attaches';
+    position: absolute;
+    bottom: -16px;
+    right: 0;
+    font-size: var(--fs-xs);
+    color: var(--amber);
+    font-family: var(--font-mono);
+  }
+
+  /* ============ VARIANT C — Inline microcopy ============ */
+  .body[data-variant="c"] .picker .helper {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin-top: 4px;
+    padding-left: 2px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .body[data-variant="c"] .picker .helper .icon {
+    color: var(--amber);
+    font-size: var(--fs-sm);
+  }
+  .body[data-variant="c"] .fp::before {
+    content: '⤴ Will be attached to the override';
+    display: block;
+    font-size: var(--fs-xs);
+    color: var(--amber);
+    margin-bottom: var(--space-2);
+    font-family: var(--font-mono);
+  }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1>Sketch 010 <span class="meta">override-note-coupling-cue · phase 82.5</span></h1>
+    <span class="grow"></span>
+    <span class="question">Q: <strong>When the override picker opens, how do we make it obvious the textarea note attaches?</strong></span>
+  </div>
+
+  <div class="tabs">
+    <button class="active" data-tab="a">A — Tooltip arrow</button>
+    <button data-tab="b">B — Shared accent border</button>
+    <button data-tab="c">C — Inline microcopy</button>
+  </div>
+
+  <!-- ============ VARIANT A ============ -->
+  <div class="body active" data-variant="a">
+    <div class="desc">
+      <h2>Variant A — Tooltip arrow</h2>
+      <p>When the override picker opens, a small tooltip pops out pointing from the picker to the textarea: "Note will be attached." The arrow visually wires the two surfaces together.</p>
+      <p>Trade-off: overlays add visual noise; tooltips on already-busy detail panes risk obscuring other content.</p>
+      <p class="note">Discoverability: new operators see it once and learn the coupling. Dismissable after first appearance.</p>
+    </div>
+    <div class="pane">
+      <div class="email-head">
+        <div class="from">From Crediteurenadministratie</div>
+        <div class="subject">RE: RE: openstaande posten</div>
+        <div class="mailbox">Smeba · received 11:25</div>
+      </div>
+      <div class="stage-row">
+        <div class="stage-num active">1</div>
+        <div class="stage-body">
+          <div class="stage-label">Stage 1 — Category</div>
+          <div class="picker">
+            <select>
+              <option>payment_admittance</option>
+              <option selected>unknown</option>
+              <option>auto_reply</option>
+              <option>ooo_temporary</option>
+              <option>ooo_permanent</option>
+              <option>skip_label_only</option>
+            </select>
+            <div class="tooltip-arrow">↓ Your <span class="strong">note</span> below attaches</div>
+          </div>
+          <div class="fp">
+            <label>Notes</label>
+            <textarea>Edge case body — supplier mentions a "saldo opgave" but it's really a credit note.</textarea>
+            <div class="btns">
+              <button class="btn save">Save</button>
+              <button class="btn confirm">✓ Confirm</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT B ============ -->
+  <div class="body" data-variant="b">
+    <div class="desc">
+      <h2>Variant B — Shared accent border</h2>
+      <p>When the picker is focused, both the picker AND the textarea get a shared amber glow. The shared color treatment communicates "these belong together." A small "⤓ Note attaches" label floats under the picker.</p>
+      <p>Subtler than a tooltip. Works in muscle memory once learned — the glow IS the cue, no microcopy needed.</p>
+      <p class="note">Risk: focus rings already mean "active". Operators may not parse the duplicated treatment as a coupling signal.</p>
+    </div>
+    <div class="pane">
+      <div class="email-head">
+        <div class="from">From Crediteurenadministratie</div>
+        <div class="subject">RE: RE: openstaande posten</div>
+        <div class="mailbox">Smeba · received 11:25</div>
+      </div>
+      <div class="stage-row">
+        <div class="stage-num active">1</div>
+        <div class="stage-body">
+          <div class="stage-label">Stage 1 — Category</div>
+          <div class="picker glow-wrap">
+            <select class="active-glow">
+              <option>payment_admittance</option>
+              <option selected>unknown</option>
+              <option>auto_reply</option>
+              <option>ooo_temporary</option>
+              <option>ooo_permanent</option>
+              <option>skip_label_only</option>
+            </select>
+          </div>
+          <div class="fp active-glow" style="margin-top:var(--space-5);">
+            <label>Notes</label>
+            <textarea>Edge case body — supplier mentions a "saldo opgave" but it's really a credit note.</textarea>
+            <div class="btns">
+              <button class="btn save">Save</button>
+              <button class="btn confirm">✓ Confirm</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT C ============ -->
+  <div class="body" data-variant="c">
+    <div class="desc">
+      <h2>Variant C — Inline microcopy</h2>
+      <p>Plain microcopy under the picker: "<span style="color:var(--amber);">⤴ Will be attached to the override</span>" lives on the textarea, persistent. The picker stays untouched.</p>
+      <p>Cheapest to build. No animation, no focus tricks. Operator reads the line once and knows.</p>
+      <p class="note">Trade-off: persistent text adds visual chatter for veteran operators who don't need the reminder.</p>
+    </div>
+    <div class="pane">
+      <div class="email-head">
+        <div class="from">From Crediteurenadministratie</div>
+        <div class="subject">RE: RE: openstaande posten</div>
+        <div class="mailbox">Smeba · received 11:25</div>
+      </div>
+      <div class="stage-row">
+        <div class="stage-num active">1</div>
+        <div class="stage-body">
+          <div class="stage-label">Stage 1 — Category</div>
+          <div class="picker">
+            <select>
+              <option>payment_admittance</option>
+              <option selected>unknown</option>
+              <option>auto_reply</option>
+              <option>ooo_temporary</option>
+              <option>ooo_permanent</option>
+              <option>skip_label_only</option>
+            </select>
+            <div class="helper"><span class="icon">⤓</span> Override + note save together</div>
+          </div>
+          <div class="fp">
+            <label>Notes</label>
+            <textarea>Edge case body — supplier mentions a "saldo opgave" but it's really a credit note.</textarea>
+            <div class="btns">
+              <button class="btn save">Save</button>
+              <button class="btn confirm">✓ Confirm</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.body').forEach(b => b.classList.toggle('active', b.dataset.variant === tab));
+      });
+    });
+  </script>
+</body>
+</html>

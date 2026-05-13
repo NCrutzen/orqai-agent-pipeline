@@ -25,6 +25,10 @@ Frontend voor Andrew (engelstalige reviewer) om door Smeba sales-AI gegenereerde
 | 005 | swarm-shell-integration | How do the three operator surfaces (swarm-ops, Bulk Review, Email Kanban) navigate together? | **B — Tab-shell, stage-keyed** (revises CONTEXT.md D-04/D-05) | navigation, layout, phase-76, stage-keyed |
 | 006 | stage-3-triage-shape | Inside the Stage 3 · Intent tab, what's the layout for the unhandled-intent triage list? | **B — Filtered table + detail pane** | layout, phase-76, stage-3, table, detail-pane |
 | 007 | row-action-affordances | How do Replay (with intent edit), Reclassify-as-noise, and Close work as interactions inside the detail pane? | **B — Inline-expand within pane** | interaction, phase-76, stage-3, detail-pane, actions, inline-editor |
+| 008 | feedback-read-back-state | How does StageFeedbackPanel look when re-opening a row that already has feedback (own + others)? | _pending_ | phase-82.5, feedback, detail-pane, read-back |
+| 009 | row-strip-review-indicators | What chip/treatment shows verdict status on rows without clashing with stage badges? | _pending_ | phase-82.5, bulk-review, row-strip, verdict-indicator |
+| 010 | override-note-coupling-cue | When the override picker opens, how do we make it obvious the textarea note attaches? | _pending_ | phase-82.5, override, coupling, detail-pane |
+| 011 | save-vs-confirm-clarity | What treatment makes "Save (revisit)" vs "Confirm (done)" immediately differentiable? | _pending_ | phase-82.5, feedback, save, confirm, microcopy |
 
 ## Phase 71 — Bulk Review redesign (UX exploration, 2026-05-05)
 

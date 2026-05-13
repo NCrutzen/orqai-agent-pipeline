@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 009 — Row-strip review indicators</title>
+<link rel="stylesheet" href="../themes/v7.css" />
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+  .toolbar { background: var(--bg-2); border-bottom: 1px solid var(--border); padding: var(--space-3) var(--space-5); display: flex; align-items: center; gap: var(--space-4); font-size: var(--fs-sm); }
+  .toolbar h1 { font-size: var(--fs-md); font-weight: 600; margin: 0; }
+  .toolbar h1 .meta { color: var(--text-muted); font-weight: 400; margin-left: var(--space-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
+  .toolbar .grow { flex: 1; }
+  .toolbar .question { color: var(--text-muted); }
+  .toolbar .question strong { color: var(--text); }
+  .tabs { display: flex; background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 0 var(--space-5); }
+  .tabs button { background: transparent; color: var(--text-muted); border: none; border-bottom: 2px solid transparent; padding: var(--space-3) var(--space-4); font-size: var(--fs-base); cursor: pointer; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.active { color: var(--text); border-bottom-color: var(--brand-primary); font-weight: 500; }
+  .tabs .star { color: var(--brand-primary); margin-right: 4px; }
+  .body { flex: 1; overflow: hidden; display: none; }
+  .body.active { display: grid; grid-template-columns: 320px 1fr; }
+
+  .desc { background: var(--bg); padding: var(--space-6) var(--space-5); border-right: 1px solid var(--border); overflow-y: auto; }
+  .desc h2 { font-size: var(--fs-md); font-weight: 600; margin-bottom: var(--space-2); }
+  .desc p { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.5; margin-top: var(--space-2); }
+  .desc .note { font-size: var(--fs-xs); color: var(--text-dim); margin-top: var(--space-4); font-family: var(--font-mono); }
+  .desc .legend { margin-top: var(--space-3); font-size: var(--fs-xs); color: var(--text-muted); }
+  .desc .legend span { display: inline-block; margin-right: var(--space-3); }
+
+  .rows { overflow-y: auto; background: var(--bg); }
+
+  /* Base row shape — mirrors actual Stage list */
+  .row {
+    display: grid;
+    grid-template-columns: 140px 160px 1fr 100px;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--fs-sm);
+    color: var(--text);
+    position: relative;
+  }
+  .row.selected { background: var(--bg-selected); border-left: 2px solid var(--brand-primary); padding-left: 14px; }
+  .stage-badge { font-size: 10px; padding: 2px 8px; border-radius: 999px; background: var(--bg-2); color: var(--text-muted); border: 1px solid var(--border); font-family: var(--font-mono); width: fit-content; }
+  .stage-badge.noise { color: var(--brand-secondary); border-color: var(--brand-secondary); background: var(--brand-secondary-soft); }
+  .stage-badge.intent { color: var(--brand-secondary); border-color: var(--brand-secondary); background: var(--brand-secondary-soft); }
+  .stage-badge.safety { color: var(--lime); border-color: var(--lime); background: var(--lime-soft); }
+  .sender { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .subject { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .timestamp { color: var(--text-dim); font-family: var(--font-mono); font-size: var(--fs-xs); text-align: right; }
+
+  /* ============ VARIANT A — dot before stage badge ============ */
+  .body[data-variant="a"] .row { grid-template-columns: 14px 140px 160px 1fr 100px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; margin-left: 3px; }
+  .dot.confirm { background: var(--lime); }
+  .dot.override { background: var(--amber); }
+  .dot.unclear { background: var(--brand-secondary); }
+  .dot.none { background: transparent; border: 1px dashed var(--text-dim); }
+
+  /* ============ VARIANT B — verdict letter chip next to stage badge ============ */
+  .verdict-letter { font-size: 10px; padding: 1px 5px; border-radius: 4px; font-family: var(--font-mono); font-weight: 600; margin-left: 4px; line-height: 1.4; }
+  .verdict-letter.confirm { color: var(--lime); background: var(--lime-soft); border: 1px solid var(--lime); }
+  .verdict-letter.override { color: var(--amber); background: var(--amber-soft); border: 1px solid var(--amber); }
+  .verdict-letter.unclear { color: var(--brand-secondary); background: var(--brand-secondary-soft); border: 1px solid var(--brand-secondary); }
+
+  /* ============ VARIANT C — left-edge color bar ============ */
+  .body[data-variant="c"] .row {
+    border-left: 3px solid transparent;
+  }
+  .body[data-variant="c"] .row.confirm { border-left-color: var(--lime); }
+  .body[data-variant="c"] .row.override { border-left-color: var(--amber); }
+  .body[data-variant="c"] .row.unclear { border-left-color: var(--brand-secondary); }
+  .body[data-variant="c"] .row.selected { padding-left: 13px; }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1>Sketch 009 <span class="meta">row-strip-review-indicators · phase 82.5</span></h1>
+    <span class="grow"></span>
+    <span class="question">Q: <strong>How do we show verdict status on rows without clashing with stage badges?</strong></span>
+  </div>
+
+  <div class="tabs">
+    <button class="active" data-tab="a">A — Dot before stage badge</button>
+    <button data-tab="b">B — Verdict letter chip</button>
+    <button data-tab="c">C — Left-edge color bar</button>
+  </div>
+
+  <!-- ============ VARIANT A ============ -->
+  <div class="body active" data-variant="a">
+    <div class="desc">
+      <h2>Variant A — Dot before stage badge</h2>
+      <p>A small 8px colored dot at the very left of each row, before the stage badge. Color encodes verdict; empty dashed circle = no feedback yet.</p>
+      <p>Reads as "is this row touched?" at a glance. The dot is decoupled from the stage badge, so noise/intent treatment stays unchanged.</p>
+      <p class="note">Path of least resistance — adds a 14px grid column, no badge restyling needed.</p>
+      <div class="legend">
+        <span><span class="dot confirm" style="display:inline-block;vertical-align:middle;margin-right:3px;"></span>confirm</span>
+        <span><span class="dot override" style="display:inline-block;vertical-align:middle;margin-right:3px;"></span>override</span>
+        <span><span class="dot unclear" style="display:inline-block;vertical-align:middle;margin-right:3px;"></span>unclear</span>
+        <span><span class="dot none" style="display:inline-block;vertical-align:middle;margin-right:3px;"></span>none</span>
+      </div>
+    </div>
+    <div class="rows">
+      <div class="row"><span class="dot confirm"></span><span class="stage-badge noise">payment_admittance</span><span class="sender">Crediteurenadministratie</span><span class="subject">RE: RE: openstaande posten</span><span class="timestamp">11:25</span></div>
+      <div class="row selected"><span class="dot unclear"></span><span class="stage-badge noise">unknown</span><span class="sender">Frans de Vos</span><span class="subject">FW: Documenten n.a.v. uitgevoerde werkzaamheden</span><span class="timestamp">11:18</span></div>
+      <div class="row"><span class="dot none"></span><span class="stage-badge noise">auto_reply</span><span class="sender">Detuinen Accounts</span><span class="subject">Automatic reply: Documenten n.a.v.</span><span class="timestamp">11:03</span></div>
+      <div class="row"><span class="dot override"></span><span class="stage-badge noise">ooo_temporary</span><span class="sender">Amerongen, Vincent van</span><span class="subject">Automatic reply: Rapport n.a.v. werkzaamheden</span><span class="timestamp">10:48</span></div>
+      <div class="row"><span class="dot none"></span><span class="stage-badge noise">unknown</span><span class="sender">Essenza Accounts</span><span class="subject">RE: Documenten n.a.v. Factuur: 33050930</span><span class="timestamp">10:34</span></div>
+      <div class="row"><span class="dot confirm"></span><span class="stage-badge noise">payment_admittance</span><span class="sender">facturen@vanharen.nl</span><span class="subject">Zahlungsavis vom 15.05.2026</span><span class="timestamp">10:11</span></div>
+      <div class="row"><span class="dot none"></span><span class="stage-badge noise">skip_label_only</span><span class="sender">Reema Rameswar</span><span class="subject">Waidoe, N 5567386 verzoek saldo opgave</span><span class="timestamp">09:48</span></div>
+      <div class="row"><span class="dot unclear"></span><span class="stage-badge noise">unknown</span><span class="sender">Xander van Driel</span><span class="subject">RE: 588657 | Fwd: RE: Goedgekeurde pro forma's</span><span class="timestamp">09:32</span></div>
+      <div class="row"><span class="dot override"></span><span class="stage-badge noise">payment_admittance</span><span class="sender">Anja Hol Berki</span><span class="subject">FW: 532706 - Lucas Onderwijs; klacht over dubbele factuur</span><span class="timestamp">09:14</span></div>
+      <div class="row"><span class="dot confirm"></span><span class="stage-badge noise">ooo_permanent</span><span class="sender">Info - Civiel NL</span><span class="subject">Naamswijziging naar Strukton Civiel Nederland per 1 juni 2026</span><span class="timestamp">08:51</span></div>
+      <div class="row"><span class="dot none"></span><span class="stage-badge noise">auto_reply</span><span class="sender">do_not_reply@issworld.coupahost</span><span class="subject">Factuurnummer 17340868 is gemarkeerd als betwist door ISS</span><span class="timestamp">08:23</span></div>
+      <div class="row"><span class="dot none"></span><span class="stage-badge noise">skip_label_only</span><span class="sender">Apex Fire</span><span class="subject">Invoice 25122523</span><span class="timestamp">07:58</span></div>
+      <div class="row"><span class="dot confirm"></span><span class="stage-badge noise">payment_admittance</span><span class="sender">facturen@roobol.com</span><span class="subject">Betalingen 13-05-2026</span><span class="timestamp">07:39</span></div>
+      <div class="row"><span class="dot none"></span><span class="stage-badge noise">unknown</span><span class="sender">Zorginstelling Pieter van Foreest</span><span class="subject">Betaalspecificatie</span><span class="timestamp">07:15</span></div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT B ============ -->
+  <div class="body" data-variant="b">
+    <div class="desc">
+      <h2>Variant B — Verdict letter chip</h2>
+      <p>A small letter chip (<strong>C</strong> / <strong>O</strong> / <strong>U</strong>) clipped to the stage badge. Same color language as the dot, but with a glyph for unambiguous read-back even in color-blind viewing.</p>
+      <p>Trade-off: doubles the visual weight on the badge edge. Stage badge already does work — this adds adjacency density.</p>
+      <p class="note">Best for: when a quick legend on hover isn't acceptable; accessible without color.</p>
+      <div class="legend">
+        <span><span class="verdict-letter confirm">C</span> confirm</span>
+        <span><span class="verdict-letter override">O</span> override</span>
+        <span><span class="verdict-letter unclear">U</span> unclear</span>
+      </div>
+    </div>
+    <div class="rows">
+      <div class="row"><span class="stage-badge noise">payment_admittance <span class="verdict-letter confirm">C</span></span><span class="sender">Crediteurenadministratie</span><span class="subject">RE: RE: openstaande posten</span><span class="timestamp">11:25</span></div>
+      <div class="row selected"><span class="stage-badge noise">unknown <span class="verdict-letter unclear">U</span></span><span class="sender">Frans de Vos</span><span class="subject">FW: Documenten n.a.v. uitgevoerde werkzaamheden</span><span class="timestamp">11:18</span></div>
+      <div class="row"><span class="stage-badge noise">auto_reply</span><span class="sender">Detuinen Accounts</span><span class="subject">Automatic reply: Documenten n.a.v.</span><span class="timestamp">11:03</span></div>
+      <div class="row"><span class="stage-badge noise">ooo_temporary <span class="verdict-letter override">O</span></span><span class="sender">Amerongen, Vincent van</span><span class="subject">Automatic reply: Rapport n.a.v. werkzaamheden</span><span class="timestamp">10:48</span></div>
+      <div class="row"><span class="stage-badge noise">unknown</span><span class="sender">Essenza Accounts</span><span class="subject">RE: Documenten n.a.v. Factuur: 33050930</span><span class="timestamp">10:34</span></div>
+      <div class="row"><span class="stage-badge noise">payment_admittance <span class="verdict-letter confirm">C</span></span><span class="sender">facturen@vanharen.nl</span><span class="subject">Zahlungsavis vom 15.05.2026</span><span class="timestamp">10:11</span></div>
+      <div class="row"><span class="stage-badge noise">skip_label_only</span><span class="sender">Reema Rameswar</span><span class="subject">Waidoe, N 5567386 verzoek saldo opgave</span><span class="timestamp">09:48</span></div>
+      <div class="row"><span class="stage-badge noise">unknown <span class="verdict-letter unclear">U</span></span><span class="sender">Xander van Driel</span><span class="subject">RE: 588657 | Fwd: RE: Goedgekeurde pro forma's</span><span class="timestamp">09:32</span></div>
+      <div class="row"><span class="stage-badge noise">payment_admittance <span class="verdict-letter override">O</span></span><span class="sender">Anja Hol Berki</span><span class="subject">FW: 532706 - Lucas Onderwijs; klacht over dubbele factuur</span><span class="timestamp">09:14</span></div>
+      <div class="row"><span class="stage-badge noise">ooo_permanent <span class="verdict-letter confirm">C</span></span><span class="sender">Info - Civiel NL</span><span class="subject">Naamswijziging naar Strukton Civiel Nederland per 1 juni 2026</span><span class="timestamp">08:51</span></div>
+      <div class="row"><span class="stage-badge noise">auto_reply</span><span class="sender">do_not_reply@issworld.coupahost</span><span class="subject">Factuurnummer 17340868 is gemarkeerd als betwist door ISS</span><span class="timestamp">08:23</span></div>
+      <div class="row"><span class="stage-badge noise">skip_label_only</span><span class="sender">Apex Fire</span><span class="subject">Invoice 25122523</span><span class="timestamp">07:58</span></div>
+      <div class="row"><span class="stage-badge noise">payment_admittance <span class="verdict-letter confirm">C</span></span><span class="sender">facturen@roobol.com</span><span class="subject">Betalingen 13-05-2026</span><span class="timestamp">07:39</span></div>
+      <div class="row"><span class="stage-badge noise">unknown</span><span class="sender">Zorginstelling Pieter van Foreest</span><span class="subject">Betaalspecificatie</span><span class="timestamp">07:15</span></div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT C ============ -->
+  <div class="body" data-variant="c">
+    <div class="desc">
+      <h2>Variant C — Left-edge color bar</h2>
+      <p>A 3px vertical color bar on the row's left edge encodes verdict. No new grid column, no badge restyling, no glyph competition.</p>
+      <p>The bar reads as a row-level annotation, scannable down a column without parsing chip text.</p>
+      <p>Trade-off: selected-state already uses a left-edge accent. Co-locating two signals can be confusing — needs careful color contrast.</p>
+      <p class="note">Risk: collides with the selected-row left border. Selected row needs a different treatment (e.g., wider bar or solid background).</p>
+      <div class="legend">
+        <span style="border-left:3px solid var(--lime); padding-left:6px;">confirm</span>
+        <span style="border-left:3px solid var(--amber); padding-left:6px;">override</span>
+        <span style="border-left:3px solid var(--brand-secondary); padding-left:6px;">unclear</span>
+      </div>
+    </div>
+    <div class="rows">
+      <div class="row confirm"><span class="stage-badge noise">payment_admittance</span><span class="sender">Crediteurenadministratie</span><span class="subject">RE: RE: openstaande posten</span><span class="timestamp">11:25</span></div>
+      <div class="row unclear selected"><span class="stage-badge noise">unknown</span><span class="sender">Frans de Vos</span><span class="subject">FW: Documenten n.a.v. uitgevoerde werkzaamheden</span><span class="timestamp">11:18</span></div>
+      <div class="row"><span class="stage-badge noise">auto_reply</span><span class="sender">Detuinen Accounts</span><span class="subject">Automatic reply: Documenten n.a.v.</span><span class="timestamp">11:03</span></div>
+      <div class="row override"><span class="stage-badge noise">ooo_temporary</span><span class="sender">Amerongen, Vincent van</span><span class="subject">Automatic reply: Rapport n.a.v. werkzaamheden</span><span class="timestamp">10:48</span></div>
+      <div class="row"><span class="stage-badge noise">unknown</span><span class="sender">Essenza Accounts</span><span class="subject">RE: Documenten n.a.v. Factuur: 33050930</span><span class="timestamp">10:34</span></div>
+      <div class="row confirm"><span class="stage-badge noise">payment_admittance</span><span class="sender">facturen@vanharen.nl</span><span class="subject">Zahlungsavis vom 15.05.2026</span><span class="timestamp">10:11</span></div>
+      <div class="row"><span class="stage-badge noise">skip_label_only</span><span class="sender">Reema Rameswar</span><span class="subject">Waidoe, N 5567386 verzoek saldo opgave</span><span class="timestamp">09:48</span></div>
+      <div class="row unclear"><span class="stage-badge noise">unknown</span><span class="sender">Xander van Driel</span><span class="subject">RE: 588657 | Fwd: RE: Goedgekeurde pro forma's</span><span class="timestamp">09:32</span></div>
+      <div class="row override"><span class="stage-badge noise">payment_admittance</span><span class="sender">Anja Hol Berki</span><span class="subject">FW: 532706 - Lucas Onderwijs; klacht over dubbele factuur</span><span class="timestamp">09:14</span></div>
+      <div class="row confirm"><span class="stage-badge noise">ooo_permanent</span><span class="sender">Info - Civiel NL</span><span class="subject">Naamswijziging naar Strukton Civiel Nederland per 1 juni 2026</span><span class="timestamp">08:51</span></div>
+      <div class="row"><span class="stage-badge noise">auto_reply</span><span class="sender">do_not_reply@issworld.coupahost</span><span class="subject">Factuurnummer 17340868 is gemarkeerd als betwist door ISS</span><span class="timestamp">08:23</span></div>
+      <div class="row"><span class="stage-badge noise">skip_label_only</span><span class="sender">Apex Fire</span><span class="subject">Invoice 25122523</span><span class="timestamp">07:58</span></div>
+      <div class="row confirm"><span class="stage-badge noise">payment_admittance</span><span class="sender">facturen@roobol.com</span><span class="subject">Betalingen 13-05-2026</span><span class="timestamp">07:39</span></div>
+      <div class="row"><span class="stage-badge noise">unknown</span><span class="sender">Zorginstelling Pieter van Foreest</span><span class="subject">Betaalspecificatie</span><span class="timestamp">07:15</span></div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.body').forEach(b => b.classList.toggle('active', b.dataset.variant === tab));
+      });
+    });
+  </script>
+</body>
+</html>

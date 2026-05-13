@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 011 — Save vs Confirm clarity</title>
+<link rel="stylesheet" href="../themes/v7.css" />
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+  .toolbar { background: var(--bg-2); border-bottom: 1px solid var(--border); padding: var(--space-3) var(--space-5); display: flex; align-items: center; gap: var(--space-4); font-size: var(--fs-sm); }
+  .toolbar h1 { font-size: var(--fs-md); font-weight: 600; margin: 0; }
+  .toolbar h1 .meta { color: var(--text-muted); font-weight: 400; margin-left: var(--space-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
+  .toolbar .grow { flex: 1; }
+  .toolbar .question { color: var(--text-muted); }
+  .toolbar .question strong { color: var(--text); }
+  .tabs { display: flex; background: var(--bg-2); border-bottom: 1px solid var(--border); padding: 0 var(--space-5); }
+  .tabs button { background: transparent; color: var(--text-muted); border: none; border-bottom: 2px solid transparent; padding: var(--space-3) var(--space-4); font-size: var(--fs-base); cursor: pointer; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.active { color: var(--text); border-bottom-color: var(--brand-primary); font-weight: 500; }
+  .body { flex: 1; overflow: hidden; display: none; }
+  .body.active { display: grid; grid-template-columns: 320px 1fr 1fr 1fr; }
+
+  .desc { background: var(--bg); padding: var(--space-6) var(--space-5); border-right: 1px solid var(--border); overflow-y: auto; }
+  .desc h2 { font-size: var(--fs-md); font-weight: 600; margin-bottom: var(--space-2); }
+  .desc p { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.5; margin-top: var(--space-2); }
+  .desc .note { font-size: var(--fs-xs); color: var(--text-dim); margin-top: var(--space-4); font-family: var(--font-mono); }
+
+  .demo { padding: var(--space-5); border-right: 1px solid var(--border); background: var(--bg-panel); display: flex; flex-direction: column; gap: var(--space-2); overflow-y: auto; }
+  .demo:last-child { border-right: none; }
+  .demo h3 { font-size: var(--fs-xs); color: var(--text-muted); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--space-2); }
+
+  /* Reusable feedback panel shell */
+  .fp { background: var(--bg-panel-soft); border-top: 1px solid var(--border); padding: var(--space-3); border-radius: var(--radius-sm); }
+  .fp label { font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); display: block; margin-bottom: var(--space-2); }
+  .fp textarea { width: 100%; min-height: 60px; font-size: var(--fs-sm); padding: var(--space-2); background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); resize: vertical; font-family: inherit; line-height: 1.4; }
+
+  /* ============ VARIANT A — Current (pill + pill) ============ */
+  .v-a .btn { font-size: var(--fs-sm); padding: var(--space-1) var(--space-3); border-radius: var(--radius-pill); cursor: pointer; }
+  .v-a .btn.save { background: var(--brand-secondary-soft); color: var(--brand-secondary); border: 1px solid var(--brand-secondary); }
+  .v-a .btn.confirm { background: var(--lime-soft); color: var(--lime); border: 1px solid var(--lime); }
+  .v-a .btns { display: flex; justify-content: space-between; margin-top: var(--space-2); }
+
+  /* ============ VARIANT B — Primary + secondary text ============ */
+  .v-b .btn-primary { font-size: var(--fs-base); padding: var(--space-2) var(--space-5); border-radius: var(--radius-pill); cursor: pointer; background: var(--lime); color: var(--text-inverse); border: 1px solid var(--lime); font-weight: 600; }
+  .v-b .btn-secondary { font-size: var(--fs-sm); padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); cursor: pointer; background: transparent; color: var(--text-muted); border: none; text-decoration: underline; text-underline-offset: 3px; }
+  .v-b .btn-secondary:hover { color: var(--text); }
+  .v-b .btns { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-2); }
+
+  /* ============ VARIANT C — Iconography + verbose ============ */
+  .v-c .btn { font-size: var(--fs-sm); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .v-c .btn.save { background: var(--bg-2); color: var(--text); border: 1px solid var(--border-strong); }
+  .v-c .btn.save .icon { color: var(--brand-secondary); }
+  .v-c .btn.save .sub { color: var(--text-dim); font-size: 10px; }
+  .v-c .btn.confirm { background: var(--lime); color: var(--text-inverse); border: 1px solid var(--lime); font-weight: 600; }
+  .v-c .btn.confirm .icon { color: var(--text-inverse); }
+  .v-c .btn.confirm .sub { color: rgba(9,16,24,0.7); font-size: 10px; }
+  .v-c .btns { display: flex; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); }
+  .v-c .btn .label { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+
+  /* States row */
+  .state-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-4); }
+  .state-card { padding: var(--space-3); background: var(--bg-2); border-radius: var(--radius-sm); border: 1px solid var(--border); }
+  .state-card .label { font-size: var(--fs-xs); color: var(--text-muted); font-family: var(--font-mono); margin-bottom: var(--space-2); text-transform: uppercase; letter-spacing: 0.05em; }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <h1>Sketch 011 <span class="meta">save-vs-confirm-clarity · phase 82.5</span></h1>
+    <span class="grow"></span>
+    <span class="question">Q: <strong>What treatment makes "Save (revisit)" vs "Confirm (done)" immediately differentiable?</strong></span>
+  </div>
+
+  <div class="tabs">
+    <button class="active" data-tab="a">A — Current (same shape, color only)</button>
+    <button data-tab="b">B — Primary + secondary text</button>
+    <button data-tab="c">C — Iconography + microcopy</button>
+  </div>
+
+  <!-- ============ VARIANT A ============ -->
+  <div class="body active" data-variant="a">
+    <div class="desc">
+      <h2>Variant A — Current (pill + pill)</h2>
+      <p>What ships today: two pill buttons of equal weight, differentiated only by color (blue Save vs lime Confirm). Symmetric layout.</p>
+      <p>Strength: visually balanced, doesn't push the operator toward either action.</p>
+      <p>Weakness: ambiguity. Operator B asks "which one closes the row?" — color doesn't carry that meaning intuitively.</p>
+      <p class="note">Baseline for comparison.</p>
+    </div>
+    <div class="demo v-a">
+      <h3>State 1 — Empty</h3>
+      <div class="fp">
+        <label>Notes</label>
+        <textarea placeholder="Add a note about this stage's decision..."></textarea>
+        <div class="btns">
+          <button class="btn save" disabled style="opacity:0.4;">Save</button>
+          <button class="btn confirm">✓ Confirm</button>
+        </div>
+      </div>
+    </div>
+    <div class="demo v-a">
+      <h3>State 2 — With note typed</h3>
+      <div class="fp">
+        <label>Notes</label>
+        <textarea>Edge case body. Bumping for now.</textarea>
+        <div class="btns">
+          <button class="btn save">Save</button>
+          <button class="btn confirm">✓ Confirm</button>
+        </div>
+      </div>
+    </div>
+    <div class="demo v-a">
+      <h3>State 3 — Just saved</h3>
+      <div class="fp">
+        <label>Notes</label>
+        <textarea>Edge case body. Bumping for now.</textarea>
+        <div class="btns">
+          <button class="btn save">Save</button>
+          <button class="btn confirm">✓ Confirm</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:var(--space-1);">✓ Saved at 14:42</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT B ============ -->
+  <div class="body" data-variant="b">
+    <div class="desc">
+      <h2>Variant B — Primary + secondary text</h2>
+      <p>Confirm becomes the primary action (filled lime button, larger). Save shrinks to a subtle text button on the left ("Save note (revisit later)").</p>
+      <p>Visual weight encodes the typical-case path: the operator's goal is to close the row, not save drafts. Save stays available but stops competing for attention.</p>
+      <p class="note">Risk: makes Save feel less important than it is — the corpus quality depends on those notes.</p>
+    </div>
+    <div class="demo v-b">
+      <h3>State 1 — Empty</h3>
+      <div class="fp">
+        <label>Notes</label>
+        <textarea placeholder="Add a note about this stage's decision..."></textarea>
+        <div class="btns">
+          <button class="btn-secondary" disabled style="opacity:0.4;">Save note (revisit)</button>
+          <button class="btn-primary">✓ Confirm — looks correct</button>
+        </div>
+      </div>
+    </div>
+    <div class="demo v-b">
+      <h3>State 2 — With note typed</h3>
+      <div class="fp">
+        <label>Notes</label>
+        <textarea>Edge case body. Bumping for now.</textarea>
+        <div class="btns">
+          <button class="btn-secondary">Save note (revisit)</button>
+          <button class="btn-primary">✓ Confirm — looks correct</button>
+        </div>
+      </div>
+    </div>
+    <div class="demo v-b">
+      <h3>State 3 — Just saved</h3>
+      <div class="fp">
+        <label>Notes</label>
+        <textarea>Edge case body. Bumping for now.</textarea>
+        <div class="btns">
+          <button class="btn-secondary">Save note (revisit)</button>
+          <button class="btn-primary">✓ Confirm — looks correct</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:var(--space-1);">✓ Saved at 14:42 — close when ready</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT C ============ -->
+  <div class="body" data-variant="c">
+    <div class="desc">
+      <h2>Variant C — Iconography + microcopy</h2>
+      <p>Both buttons keep equal weight but gain icons + secondary microcopy. Save: 💾 with "revisit later." Confirm: ✓ with "close + done."</p>
+      <p>Explicit semantics inline. No color-only encoding. Two-line buttons take more space but eliminate ambiguity.</p>
+      <p class="note">Risk: button height grows. May force vertical stacking on narrow viewports.</p>
+    </div>
+    <div class="demo v-c">
+      <h3>State 1 — Empty</h3>
+      <div class="fp">
+        <label>Notes</label>
+        <textarea placeholder="Add a note about this stage's decision..."></textarea>
+        <div class="btns">
+          <button class="btn save" disabled style="opacity:0.4;">
+            <span class="icon">💾</span>
+            <span class="label"><span>Save note</span><span class="sub">come back later</span></span>
+          </button>
+          <button class="btn confirm">
+            <span class="icon">✓</span>
+            <span class="label"><span>Confirm</span><span class="sub">close + done</span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="demo v-c">
+      <h3>State 2 — With note typed</h3>
+      <div class="fp">
+        <label>Notes</label>
+        <textarea>Edge case body. Bumping for now.</textarea>
+        <div class="btns">
+          <button class="btn save">
+            <span class="icon">💾</span>
+            <span class="label"><span>Save note</span><span class="sub">come back later</span></span>
+          </button>
+          <button class="btn confirm">
+            <span class="icon">✓</span>
+            <span class="label"><span>Confirm</span><span class="sub">close + done</span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="demo v-c">
+      <h3>State 3 — Just saved</h3>
+      <div class="fp">
+        <label>Notes</label>
+        <textarea>Edge case body. Bumping for now.</textarea>
+        <div class="btns">
+          <button class="btn save">
+            <span class="icon">💾</span>
+            <span class="label"><span>Save note</span><span class="sub">come back later</span></span>
+          </button>
+          <button class="btn confirm">
+            <span class="icon">✓</span>
+            <span class="label"><span>Confirm</span><span class="sub">close + done</span></span>
+          </button>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:var(--space-1);">✓ Saved at 14:42</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.body').forEach(b => b.classList.toggle('active', b.dataset.variant === tab));
+      });
+    });
+  </script>
+</body>
+</html>
