@@ -60,6 +60,7 @@ import type { PredictedRow } from "../stage-1/page";
 import type { ActiveStage, Row } from "./_lib/types";
 import type { StageAuditMap } from "./_lib/audit-types";
 import { MAILBOX_LABELS } from "./_lib/get-swarm-mailboxes";
+import { displaySender, displaySubject } from "./_lib/display-fallbacks";
 import { KEYBOARD_EVENTS } from "./keyboard-shortcuts";
 
 // ---- Body cache (module-level so prefetch survives detail-pane remounts) -
@@ -376,7 +377,7 @@ function DetailPaneInner({
             marginTop: "var(--space-1)",
           }}
         >
-          {row.subject ?? "(no subject)"}
+          {displaySubject(row.subject)}
         </div>
         <div
           style={{
@@ -385,7 +386,7 @@ function DetailPaneInner({
             marginTop: "var(--space-1)",
           }}
         >
-          From {row.from_name ?? row.from_email ?? "(unknown)"}
+          From {displaySender(row.from_name, row.from_email)}
         </div>
       </header>
 
