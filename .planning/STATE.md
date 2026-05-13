@@ -4,7 +4,7 @@ milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
 stopped_at: Completed 82.3-09-PLAN.md
-last_updated: "2026-05-13T06:48:53.752Z"
+last_updated: "2026-05-13T10:40:39.437Z"
 progress:
   total_phases: 22
   completed_phases: 13
@@ -235,4 +235,4 @@ Items acknowledged at v7.0 close on 2026-04-30 — known-deferred, not gating mi
 
 See .planning/milestones/v7.0-* archive files for full milestone state.
 
-**Planned Phase:** 82.3 (per-stage-audit-surface-v8-stabilisation) — 11 plans — 2026-05-12T14:26:51.115Z
+**Planned Phase:** 82.4 (feedback-capture-infrastructure-v8-stabilisation) — 7 plans — 2026-05-13T10:40:39.402Z
