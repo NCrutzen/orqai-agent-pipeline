@@ -15,6 +15,7 @@
  *   - Visually-hidden span announces state for screen readers; aria-hidden on the circle.
  */
 import type { StageData } from "./pipeline-flow";
+import { StageDetailExpander } from "@/components/automations/bulk-review/audit/StageDetailExpander";
 
 interface StageStepProps {
   stage: StageData;
@@ -81,6 +82,17 @@ export function StageStep({ stage, onMarkDirty }: StageStepProps) {
             style={{ color: "var(--v7-muted)" }}
           >
             Current: <span style={{ color: "var(--v7-text)" }}>{stage.currentValue}</span>
+          </div>
+        )}
+
+        {/* Phase 82.3 Plan 07 — per-stage audit expander. Renders between the
+            Current line and the override control area for Stages 0–3 only.
+            Stage 4 is excluded per 82.3 CONTEXT.md <out_of_scope>. */}
+        {stage.auditDetails != null && stage.n !== 4 && (
+          <div className="mt-2">
+            <StageDetailExpander stage={stage.n as 0 | 1 | 2 | 3}>
+              {stage.auditDetails}
+            </StageDetailExpander>
           </div>
         )}
 
