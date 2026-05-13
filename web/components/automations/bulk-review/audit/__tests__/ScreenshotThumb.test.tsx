@@ -22,8 +22,7 @@ function mockFetchOk(url: string) {
     status: 200,
     json: async () => ({ url, expires_at: "2030-01-01T00:00:00Z" }),
   });
-  // @ts-expect-error - test override
-  global.fetch = fetchMock;
+  global.fetch = fetchMock as unknown as typeof fetch;
   return fetchMock;
 }
 
@@ -33,8 +32,7 @@ function mockFetch404() {
     status: 404,
     json: async () => ({ error: "not found" }),
   });
-  // @ts-expect-error - test override
-  global.fetch = fetchMock;
+  global.fetch = fetchMock as unknown as typeof fetch;
   return fetchMock;
 }
 
