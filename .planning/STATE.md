@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 82.3-08-PLAN.md
-last_updated: "2026-05-13T06:45:35.335Z"
+stopped_at: Completed 82.3-09-PLAN.md
+last_updated: "2026-05-13T06:48:53.752Z"
 progress:
   total_phases: 22
   completed_phases: 13
@@ -114,6 +114,7 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 | Phase 82.3 P06 | 4min | 1 tasks | 2 files |
 | Phase 82.3 P07 | 6m | 2 tasks | 4 files |
 | Phase 82.3 P08 | 8min | 1 tasks | 2 files |
+| Phase 82.3 P09 | 105 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -184,6 +185,7 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 - 82.1-02 (D-02/D-03): MailboxFilter mounted at page level next to NoiseCategoryChipStrip; component itself unchanged
 - D-04: sender column 120-200px
 - D-05: Stage 1 grid minmax(540px, 720px) 1fr
+- 82.3-09: RawJsonToggle preserves data-testid='stage{n}-raw-json-slot' wrappers (places toggle inside, not as replacement) to keep existing panel render tests passing
 
 ### Blockers/Concerns
 
@@ -215,8 +217,8 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 
 ## Session Continuity
 
-Last session: 2026-05-13T06:45:35.327Z
-Stopped at: Completed 82.3-08-PLAN.md
+Last session: 2026-05-13T06:48:53.726Z
+Stopped at: Completed 82.3-09-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 
