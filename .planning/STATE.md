@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Phase 82.2 context gathered
-last_updated: "2026-05-12T08:40:25.444Z"
+stopped_at: Phase 82.3 UI-SPEC approved
+last_updated: "2026-05-13T03:47:57.147Z"
 progress:
   total_phases: 22
   completed_phases: 13
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase --phase — 82.2
+**Current focus:** Phase --phase — 82.3
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: --phase (82.2) — EXECUTING
+Phase: --phase (82.3) — EXECUTING
 Plan: 1 of --name
 Milestone: v8.0 Agentic Platform (Phases 63-82.4)
 Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verified live 2026-05-12)
@@ -211,7 +211,7 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 ## Session Continuity
 
 Last session: --stopped-at
-Stopped at: Phase 82.2 context gathered
+Stopped at: Phase 82.3 UI-SPEC approved
 Resume with: `/gsd-execute-phase 65`
 Resume file: --resume-file
 
@@ -228,4 +228,4 @@ Items acknowledged at v7.0 close on 2026-04-30 — known-deferred, not gating mi
 
 See .planning/milestones/v7.0-* archive files for full milestone state.
 
-**Planned Phase:** 82 (Unified stage shell) — 6 plans — 2026-05-11T11:43:10.922Z
+**Planned Phase:** 82.3 (per-stage-audit-surface-v8-stabilisation) — 11 plans — 2026-05-12T14:26:51.115Z

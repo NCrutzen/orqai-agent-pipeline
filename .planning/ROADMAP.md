@@ -603,13 +603,23 @@ Plans:
 **Goal:** Add read-only detail panes to each stage entry in the existing Bulk Review detail-pane sidebar so the operator can see *why* a stage produced its verdict — regex match, LLM reasoning JSON, resolver candidates, Browserless screenshots — before deciding whether to override. Override controls themselves stay untouched. Replaces Phase 77's original "real Stage 2/3 review surface" intent. 80/20 cut: verdict + reasoning summary + key evidence + screenshots in default view; full transcript behind expander.
 **Requirements**: TBD (see `82.3-CONTEXT.md`)
 **Depends on:** Phase 82.1
-**Plans:** 0 — needs `/gsd-discuss-phase 82.3`
+**Plans:** 11 plans
 **Blocks:** Phase 82.4 (prose-notes capture mounts inside the popup 82.3 ships)
 **Closure target:** before 2026-05-18 (debtor-person onboarding)
 **Supersedes:** Phase 77 (Stage 2/3 e2e verification)
 
 Plans:
-- [ ] TBD (run /gsd-discuss-phase 82.3 then /gsd-plan-phase 82.3)
+- [ ] 82.3-01-PLAN.md — Install shadcn Collapsible primitive
+- [ ] 82.3-02-PLAN.md — Extend StageData + UnifiedDetailPaneProps with audit slot + audit-types.ts
+- [ ] 82.3-03-PLAN.md — Stage0EvidencePanel (regex + LLM injection + budget headroom)
+- [ ] 82.3-04-PLAN.md — Stage1EvidencePanel (noise registry, Pass-1/Pass-2, hard-sep lock)
+- [ ] 82.3-05-PLAN.md — Stage2EvidencePanel + ScreenshotThumb (signed-URL thumbnails)
+- [ ] 82.3-06-PLAN.md — Stage3EvidencePanel (ranked intents, hard-sep lock)
+- [ ] 82.3-07-PLAN.md — StageDetailExpander wired into stage-step.tsx (Stage 0–3 only)
+- [ ] 82.3-08-PLAN.md — Signed-URL API route (/api/automations/audit/signed-url)
+- [ ] 82.3-09-PLAN.md — RawJsonToggle sub-component + panel placeholder swaps
+- [ ] 82.3-10-PLAN.md — displaySender/displaySubject fix ("Planning"/"(no subject)")
+- [ ] 82.3-11-PLAN.md — buildStageAuditMap + per-page wiring + operator UAT checkpoint
 
 ### Phase 82.4: Feedback capture infrastructure (v8.0 stabilisation) (INSERTED)
 
