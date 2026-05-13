@@ -23,6 +23,7 @@
 // the same loader with swarmType='sales-email'.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadEmailMailboxes } from "./load-email-mailboxes";
 
 /**
  * Closed needs-action decision set used by `needsActionOnly` and by the
@@ -175,9 +176,12 @@ export async function loadStageFeedbackList(
     ascending: false,
   });
 
-  const [emailsRes, feedbackRes] = await Promise.all([
+  const mailboxesPromise = loadEmailMailboxes(admin, emailIds, params.swarmType);
+
+  const [emailsRes, feedbackRes, mailboxes] = await Promise.all([
     emailsPromise,
     feedbackPromise,
+    mailboxesPromise,
   ]);
 
   if (emailsRes.error) {
@@ -241,7 +245,7 @@ export async function loadStageFeedbackList(
       sender_email: email.sender_email,
       sender_name: email.sender_name,
       received_at: email.received_at ?? pe.created_at,
-      mailbox_id: null,
+      mailbox_id: mailboxes.get(pe.email_id) ?? null,
       sort_bucket,
       own_latest_verdict: ownFeedback ? ownFeedback.verdict : null,
       own_latest_at: ownFeedback ? ownFeedback.created_at : null,

@@ -38,6 +38,7 @@ import {
   loadSwarmNoiseCategories,
   loadSwarmIntents,
 } from "@/lib/swarms/registry";
+import { loadEmailMailboxes } from "../_shell/_lib/load-email-mailboxes";
 import type {
   SwarmNoiseCategoryRow,
   SwarmIntentRow,
@@ -752,6 +753,22 @@ export async function loadPageData(
       )
     ).slice(0, PAGE_SIZE);
     rows = summaryRows.map(mapSummaryToPredictedRow);
+
+    // Phase 82.4 follow-up: hydrate mailbox_id from automation_runs so the
+    // V6 MailboxFilter actually filters. decision_details->>mailbox_id is
+    // always null in production (verified 2026-05-13); the canonical numeric
+    // mailbox_id lives on automation_runs.
+    if (rows.length > 0) {
+      const mailboxes = await loadEmailMailboxes(
+        admin,
+        rows.map((r) => r.id),
+        swarmType,
+      );
+      rows = rows.map((r) => ({
+        ...r,
+        mailbox_id: mailboxes.get(r.id) ?? r.mailbox_id,
+      }));
+    }
   }
 
   // promoted-rules + candidates were already extracted above (so the

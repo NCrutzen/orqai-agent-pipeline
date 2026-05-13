@@ -20,6 +20,7 @@
 // stage_3_event_id; Reclassify-as-noise (axis-1) consumes stage_1_event_id.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadEmailMailboxes } from "../_shell/_lib/load-email-mailboxes";
 
 export type KanbanReason = "no_handler" | "low_confidence" | "handler_error";
 
@@ -117,9 +118,12 @@ export async function loadKanbanRows(
     .select("id, subject, sender_email, sender_name, received_at")
     .in("id", emailIds);
 
-  const [eventsRes, emailMetaRes] = await Promise.all([
+  const mailboxesPromise = loadEmailMailboxes(admin, emailIds, swarmType);
+
+  const [eventsRes, emailMetaRes, mailboxes] = await Promise.all([
     eventsPromise,
     emailMetaPromise,
+    mailboxesPromise,
   ]);
   const events = eventsRes.data;
 
@@ -157,7 +161,7 @@ export async function loadKanbanRows(
       sender_email: e.sender_email,
       sender_name: e.sender_name,
       received_at: e.received_at,
-      mailbox_id: null,
+      mailbox_id: mailboxes.get(e.id) ?? null,
     });
   }
 

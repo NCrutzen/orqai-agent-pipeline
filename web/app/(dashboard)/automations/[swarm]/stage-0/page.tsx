@@ -28,7 +28,7 @@ import { PageHeader } from "../_shell/page-header";
 import { StageTabStrip } from "../_shell/stage-tab-strip";
 import { RowList } from "../_shell/row-list";
 import { MailboxFilter } from "../_shell/mailbox-filter";
-import { UnifiedDetailPane } from "../_shell/detail-pane";
+import { UnifiedDetailPane, type PipelineTimelineEvent } from "../_shell/detail-pane";
 import { SelectionProvider } from "../_shell/selection-context";
 import { StageListChips } from "../_shell/stage-list-chips";
 import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
@@ -107,6 +107,35 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
   const mailboxes = getSwarmMailboxes(swarmType, rows);
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
   const selectedId = sp.selected ?? null;
+
+  // Phase 82.4 follow-up: wire the detail pane. Find the selected row in the
+  // current page and pre-fetch its body + Stage 0-3 timeline in parallel so
+  // UnifiedDetailPane has the data it expects. Stage 0 has no swarm registry
+  // surfaces, so categories=[] and intents=[] (hard-separation lock).
+  const selectedRow: Row | null =
+    (selectedId && rows.find((r) => r.id === selectedId)) || null;
+  let bodyText: string | null = null;
+  interface FullTimelineEvent extends PipelineTimelineEvent {
+    decision_details: Record<string, unknown> | null;
+  }
+  let timeline: FullTimelineEvent[] = [];
+  if (selectedRow) {
+    const [bodyRes, timelineRes] = await Promise.all([
+      admin
+        .schema("email_pipeline")
+        .from("emails")
+        .select("body_text")
+        .eq("id", selectedRow.id)
+        .maybeSingle(),
+      admin
+        .from("pipeline_events")
+        .select("id, stage, decision, decision_details, created_at")
+        .eq("email_id", selectedRow.id)
+        .order("created_at", { ascending: true }),
+    ]);
+    bodyText = ((bodyRes.data as { body_text: string | null } | null)?.body_text) ?? null;
+    timeline = ((timelineRes.data ?? []) as FullTimelineEvent[]);
+  }
 
   // Phase 82.4 Plan 06: build "Load more" href preserving every other URL param
   // and bumping `before` to the next cursor. Pure server-side; no client hook.
@@ -206,19 +235,18 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
             </div>
             {/* Hard-separation contract: Stage 0 page passes categories=[] AND
                 intents=[] — Stage 0 is upstream of both registries. */}
-            {/* Phase 82.3 Plan 11 — per-stage audit surface. Stage 0 page
-                has no row selection wired today (D-15/D-16); pass an empty
-                input so the call site is present (acceptance grep) and the
-                map is empty until the backend wiring lands. */}
+            {/* Phase 82.4 follow-up — selection now wired: selectedId →
+                row lookup → parallel body + timeline pre-fetch. Stage 0 still
+                passes categories=[] and intents=[] (hard-separation lock).  */}
             <UnifiedDetailPane
-              row={null}
+              row={selectedRow}
               swarmType={swarmType}
               activeStage={0}
               categories={[]}
               intents={[]}
-              timeline={[]}
-              bodyText={null}
-              stageAudit={buildStageAuditMap({ timeline: [], agentRuns: [], automationRun: null })}
+              timeline={timeline}
+              bodyText={bodyText}
+              stageAudit={buildStageAuditMap({ timeline, agentRuns: [], automationRun: null })}
             />
           </div>
         </div>
