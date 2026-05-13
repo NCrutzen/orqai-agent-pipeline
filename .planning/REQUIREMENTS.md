@@ -192,7 +192,8 @@ Added 2026-05-13 alongside phase 82.4 execution. These requirements live under t
 
 - [x] **FB-01**: `public.email_feedback` table exists in remote Supabase project with the locked schema (id uuid pk, email_id uuid, stage smallint 0..3, verdict text in {confirm,override,unclear}, corrected_value text null, prose_notes text null, operator_id text, created_at timestamptz default now()) — service_role-only RLS, 2 supporting indexes; multiple revisions per (email_id, stage, operator_id) allowed by design.
 - [x] **FB-02**: Migration file `supabase/migrations/20260513c_email_feedback.sql` committed to repo (idempotent: CREATE TABLE/INDEX IF NOT EXISTS + DROP/CREATE POLICY) so the schema can be re-applied or replayed on fresh environments.
-- [ ] **FB-03**: POST `/api/automations/debtor-email/feedback` route validates payload via zod and inserts into `email_feedback` with server-stamped `operator_id` from `auth.getUser().id`.
+- [x] **FB-03
+**: POST `/api/automations/debtor-email/feedback` route validates payload via zod and inserts into `email_feedback` with server-stamped `operator_id` from `auth.getUser().id`.
 - [ ] **FB-04**: `StageFeedbackPanel` (prose textarea + ✓ Confirm chip) mounted in `stage-step.tsx` with auto-collapse behaviour.
 - [ ] **FB-05**: Operator can submit prose-notes alongside confirm/override verdict in a single round-trip from the per-stage audit popup.
 - [ ] **FB-06**: `fireFeedback` helper wired into override-surface so override actions also write a `verdict='override'` row to `email_feedback` alongside Inngest dispatch.

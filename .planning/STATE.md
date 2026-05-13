@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 82.4-01-PLAN.md
-last_updated: "2026-05-13T10:48:29.056Z"
+stopped_at: Completed 82.4-02-PLAN.md
+last_updated: "2026-05-13T10:52:23.872Z"
 progress:
   total_phases: 22
   completed_phases: 13
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 82.4 (feedback-capture-infrastructure-v8-stabilisation) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Milestone: v8.0 Agentic Platform (Phases 63-82.4)
 Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verified live 2026-05-12)
 
@@ -116,6 +116,7 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 | Phase 82.3 P08 | 8min | 1 tasks | 2 files |
 | Phase 82.3 P09 | 105 | 2 tasks | 6 files |
 | Phase 82.4 P01 | 5m | 2 tasks tasks | 1 file files |
+| Phase 82.4 P02 | 8m | 2 tasks tasks | 2 files files |
 
 ## Accumulated Context
 
@@ -187,6 +188,8 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 - D-04: sender column 120-200px
 - D-05: Stage 1 grid minmax(540px, 720px) 1fr
 - 82.3-09: RawJsonToggle preserves data-testid='stage{n}-raw-json-slot' wrappers (places toggle inside, not as replacement) to keep existing panel render tests passing
+- Phase 82.4-02: direct INSERT via createAdminClient (no Inngest hop) for feedback capture — pure data write, no replay risk, ≤200ms p95 target
+- Phase 82.4-02: zod schema OMITS operator_id (not just .strip) so spread cannot smuggle a client-supplied value; mirrors override route D-13
 
 ### Blockers/Concerns
 
@@ -218,8 +221,8 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 
 ## Session Continuity
 
-Last session: 2026-05-13T10:48:29.046Z
-Stopped at: Completed 82.4-01-PLAN.md
+Last session: 2026-05-13T10:52:17.605Z
+Stopped at: Completed 82.4-02-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 
