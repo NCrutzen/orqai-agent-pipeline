@@ -59,6 +59,7 @@ export function StageFeedbackPanel({
   };
   const [inFlight, setInFlight] = useState<null | Verdict>(null);
   const [error, setError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
 
   const saveDisabled = prose.trim().length === 0 || inFlight !== null;
   const confirmDisabled = inFlight !== null;
@@ -84,9 +85,11 @@ export function StageFeedbackPanel({
         setError(`Save failed (${res.status}). Try again.`);
         return false;
       }
-      // Clear on success — both flows reset the textarea so a follow-up
-      // entry starts from blank.
-      setProse("");
+      // Save (verdict=unclear): keep the note visible so the operator can
+      // see what they wrote and continue editing. Confirm clears via the
+      // auto-collapse path. The note is durable on the server either way.
+      if (verdict === "confirm") setProse("");
+      setSavedAt(new Date());
       return true;
     } catch {
       setError("Network error — could not save feedback.");
@@ -217,6 +220,22 @@ export function StageFeedbackPanel({
       {error !== null && (
         <div role="alert" style={errorStyle}>
           {error}
+        </div>
+      )}
+      {error === null && savedAt !== null && (
+        <div
+          aria-live="polite"
+          style={{
+            fontSize: "11px",
+            color: "var(--v7-muted)",
+            marginTop: "var(--space-1)",
+          }}
+        >
+          ✓ Saved at{" "}
+          {savedAt.toLocaleTimeString(undefined, {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
         </div>
       )}
     </div>
