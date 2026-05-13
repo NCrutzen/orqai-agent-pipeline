@@ -104,9 +104,15 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
     operatorId: user?.id,
     before: sp.before,
   });
-  const rows: Row[] = feedbackPage.rows.map(toUnifiedRow);
-  const mailboxes = getSwarmMailboxes(swarmType, rows);
+  const allRows: Row[] = feedbackPage.rows.map(toUnifiedRow);
+  const mailboxes = getSwarmMailboxes(swarmType, allRows);
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
+  // Server-side mailbox filter — MailboxFilter uses router.push so the URL
+  // change triggers a server re-render. Filter the current page against
+  // the selected mailbox ids; null mailbox_id rows are dropped on filter.
+  const rows: Row[] = selectedMailboxes.length > 0
+    ? allRows.filter((r) => r.mailbox_id !== null && selectedMailboxes.includes(r.mailbox_id))
+    : allRows;
   const selectedId = sp.selected ?? null;
 
   // Phase 82.4 follow-up: pre-fetch body + timeline for EVERY visible row.
