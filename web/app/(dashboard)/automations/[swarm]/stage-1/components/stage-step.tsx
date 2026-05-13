@@ -14,7 +14,7 @@
  *       * state==='skipped' → "— Stage skipped".
  *   - Visually-hidden span announces state for screen readers; aria-hidden on the circle.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { StageData } from "./pipeline-flow";
 import { StageDetailExpander } from "@/components/automations/bulk-review/audit/StageDetailExpander";
 import { StageFeedbackPanel } from "@/components/automations/bulk-review/audit/StageFeedbackPanel";
@@ -69,6 +69,18 @@ export function StageStep({ stage, onMarkDirty }: StageStepProps) {
   // pass it as `prose_notes` to fireFeedback() alongside the existing
   // Inngest override dispatch (preserved unchanged via onMarkDirty).
   const [proseNotes, setProseNotes] = useState("");
+
+  // Phase 82.5 Plan 05 — parent-side seeding of the controlled textarea
+  // (R1 read-back). The PANEL stays pure controlled; this useEffect is the
+  // SINGLE seeding point. We only seed when local state is the empty default
+  // so we don't clobber an operator's explicit clear.
+  useEffect(() => {
+    const seed = stage.feedbackReadBack?.own_latest?.prose_notes;
+    if (seed && seed.length > 0 && proseNotes.length === 0) {
+      setProseNotes(seed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage.emailId, stage.n]);
 
   const announce =
     stage.state === "dirty"
@@ -148,6 +160,7 @@ export function StageStep({ stage, onMarkDirty }: StageStepProps) {
                   onAfterConfirm={() => setAuditOpen(false)}
                   value={proseNotes}
                   onValueChange={setProseNotes}
+                  initialReadBack={stage.feedbackReadBack ?? null}
                 />
               )}
             </StageDetailExpander>
@@ -200,7 +213,25 @@ export function StageStep({ stage, onMarkDirty }: StageStepProps) {
               </button>
             </div>
           )}
-          {stage.state === "dirty" && stage.widget}
+          {stage.state === "dirty" && (
+            <>
+              {stage.widget}
+              {/* Phase 82.5 Plan 05 — R4 second placement (under override
+                  picker). First copy ships in Plan 03 under the textarea
+                  label. CONTEXT D-1 Discretion: two copies total, no third. */}
+              <div
+                data-testid="override-coupling-helper-picker"
+                style={{
+                  marginTop: 4,
+                  color: "var(--v7-amber)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--fs-xs)",
+                }}
+              >
+                ⤓ Override + note save together
+              </div>
+            </>
+          )}
           {stage.state === "skipped" && (
             // Phase 71-07: even for stages that never ran, the operator can
             // still override (the override row IS the first decision). Show
