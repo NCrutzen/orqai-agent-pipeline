@@ -1,0 +1,1 @@
+- [Plan 05] Pre-existing tsc error in web/app/(dashboard)/automations/[swarm]/stage-1/__tests__/actions.predictor.test.ts:60 (TS2556 spread argument). Out of scope — not in Plan 05 file list. Logged 2026-05-13.
