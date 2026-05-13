@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
-status: milestone_complete
+status: unknown
 stopped_at: Completed 82.4-04-PLAN.md
-last_updated: "2026-05-13T11:25:09.760Z"
+last_updated: "2026-05-13T17:27:43.953Z"
 progress:
   total_phases: 22
-  completed_phases: 14
+  completed_phases: 13
   total_plans: 67
   completed_plans: 67
-  percent: 64
+  percent: 100
 ---
 
 # Project State
@@ -248,4 +248,4 @@ Items acknowledged at v7.0 close on 2026-04-30 — known-deferred, not gating mi
 
 See .planning/milestones/v7.0-* archive files for full milestone state.
 
-**Planned Phase:** 82.4 (feedback-capture-infrastructure-v8-stabilisation) — 7 plans — 2026-05-13T10:40:39.402Z
+**Planned Phase:** 82.5 (feedback-ux-deepdive-v8-stabilisation) — 7 plans — 2026-05-13T17:27:43.935Z
