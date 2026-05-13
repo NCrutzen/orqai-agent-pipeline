@@ -31,6 +31,7 @@ import {
   UnifiedDetailPane,
   type PipelineTimelineEvent,
 } from "../_shell/detail-pane";
+import type { StageAuditMap } from "../_shell/_lib/audit-types";
 import { useSelection } from "../_shell/selection-context";
 import { KeyboardShortcuts } from "../_shell/keyboard-shortcuts";
 import type { MailboxOption } from "../_shell/_lib/get-swarm-mailboxes";
@@ -53,6 +54,7 @@ export interface Stage3ClientShellProps {
   selectedMailboxes: number[];
   bodyMap: Record<string, BodyEntry>;
   timelineMap: Record<string, PipelineTimelineEvent[]>;
+  stageAudit?: StageAuditMap;
 }
 
 export function Stage3ClientShell({
@@ -65,6 +67,7 @@ export function Stage3ClientShell({
   selectedMailboxes,
   bodyMap,
   timelineMap,
+  stageAudit,
 }: Stage3ClientShellProps) {
   const { selectedId } = useSelection();
   const [filter, setFilter] = useState<Stage3Filter>("all");
@@ -202,6 +205,7 @@ export function Stage3ClientShell({
             timeline={timeline}
             bodyText={body?.bodyText ?? null}
             bodyHtml={body?.bodyHtml ?? null}
+            stageAudit={stageAudit}
           />
         </div>
       </div>

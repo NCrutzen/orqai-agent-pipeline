@@ -33,6 +33,7 @@ import { MailboxFilter } from "../_shell/mailbox-filter";
 import { UnifiedDetailPane } from "../_shell/detail-pane";
 import { SelectionProvider } from "../_shell/selection-context";
 import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
+import { buildStageAuditMap } from "../_shell/_lib/build-stage-audit-map";
 import type { Row } from "../_shell/_lib/types";
 import { loadStage2WeeklyCount } from "./_lib/load-stage-2-weekly-count";
 
@@ -166,6 +167,10 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
                 Stage 2 sits between Stage 1 and Stage 3 — passes categories=[]
                 AND intents=[]. Entity / customer mapping doesn't live in
                 either registry. */}
+            {/* Phase 82.3 Plan 11 — per-stage audit surface. Stage 2 page
+                has no row selection wired today (Wave 2 placeholder); pass
+                an empty input so the call site is present (acceptance grep)
+                and the map is empty until the backend wiring lands. */}
             <UnifiedDetailPane
               row={null}
               swarmType={swarmType}
@@ -174,6 +179,7 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
               intents={[]}
               timeline={[]}
               bodyText={null}
+              stageAudit={buildStageAuditMap({ timeline: [], agentRuns: [], automationRun: null })}
             />
           </div>
         </div>

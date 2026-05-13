@@ -60,6 +60,7 @@ import {
 } from "./pending-promotion-detail-pane";
 import { loadRuleSamples } from "./actions";
 import { Stage1ClientShell } from "./client-shell";
+import { buildStageAuditMap } from "../_shell/_lib/build-stage-audit-map";
 // Phase 65-05 (CORD-03 surface). Debtor-email-only enrichment for now;
 // when Phase 71 broadens the loader to cross-swarm coordinator_runs the
 // import path moves under a generic _lib here. Server-side only.
@@ -1090,6 +1091,7 @@ export default async function SwarmReviewPage({
                 initialSelectedBody={data.selectedBody}
                 selectedTimeline={data.selectedTimeline}
                 drawerFields={swarm.ui_config.drawer_fields}
+                stageAudit={buildStageAuditMap({ timeline: data.selectedTimeline ?? [], agentRuns: [], automationRun: null })}
               />
             )}
             <Cheatsheet />

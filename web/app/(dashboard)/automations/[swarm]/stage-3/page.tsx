@@ -39,6 +39,7 @@ import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
 import type { Row } from "../_shell/_lib/types";
 import type { PipelineTimelineEvent } from "../_shell/detail-pane";
 import { Stage3ClientShell } from "./client-shell";
+import { buildStageAuditMap } from "../_shell/_lib/build-stage-audit-map";
 
 export const dynamic = "force-dynamic";
 
@@ -201,6 +202,7 @@ export default async function Stage3Page({
             selectedMailboxes={selectedMailboxes}
             bodyMap={bodyMap}
             timelineMap={timelineMap}
+            stageAudit={buildStageAuditMap({ timeline: [], agentRuns: [], automationRun: null })}
           />
         </SelectionProvider>
       </AutomationRealtimeProvider>

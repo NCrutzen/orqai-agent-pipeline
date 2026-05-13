@@ -29,6 +29,7 @@ import { MailboxFilter } from "../_shell/mailbox-filter";
 import { UnifiedDetailPane } from "../_shell/detail-pane";
 import { SelectionProvider } from "../_shell/selection-context";
 import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
+import { buildStageAuditMap } from "../_shell/_lib/build-stage-audit-map";
 import type { Row } from "../_shell/_lib/types";
 
 export const dynamic = "force-dynamic";
@@ -147,6 +148,10 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
             />
             {/* Hard-separation contract: Stage 0 page passes categories=[] AND
                 intents=[] — Stage 0 is upstream of both registries. */}
+            {/* Phase 82.3 Plan 11 — per-stage audit surface. Stage 0 page
+                has no row selection wired today (D-15/D-16); pass an empty
+                input so the call site is present (acceptance grep) and the
+                map is empty until the backend wiring lands. */}
             <UnifiedDetailPane
               row={null}
               swarmType={swarmType}
@@ -155,6 +160,7 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
               intents={[]}
               timeline={[]}
               bodyText={null}
+              stageAudit={buildStageAuditMap({ timeline: [], agentRuns: [], automationRun: null })}
             />
           </div>
         </div>

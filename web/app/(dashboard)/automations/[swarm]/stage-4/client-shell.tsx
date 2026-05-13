@@ -27,6 +27,7 @@ import {
   UnifiedDetailPane,
   type PipelineTimelineEvent,
 } from "../_shell/detail-pane";
+import type { StageAuditMap } from "../_shell/_lib/audit-types";
 import { useSelection } from "../_shell/selection-context";
 import { KeyboardShortcuts } from "../_shell/keyboard-shortcuts";
 import type { MailboxOption } from "../_shell/_lib/get-swarm-mailboxes";
@@ -46,6 +47,7 @@ export interface Stage4ClientShellProps {
   selectedMailboxes: number[];
   bodyMap: Record<string, BodyEntry>;
   timelineMap: Record<string, PipelineTimelineEvent[]>;
+  stageAudit?: StageAuditMap;
 }
 
 export function Stage4ClientShell({
@@ -57,6 +59,7 @@ export function Stage4ClientShell({
   selectedMailboxes,
   bodyMap,
   timelineMap,
+  stageAudit,
 }: Stage4ClientShellProps) {
   const { selectedId } = useSelection();
 
@@ -189,6 +192,7 @@ export function Stage4ClientShell({
             bodyText={body?.bodyText ?? null}
             bodyHtml={body?.bodyHtml ?? null}
             extrasBelowPipeline={handlerErrorWidget}
+            stageAudit={stageAudit}
           />
         </div>
       </div>

@@ -37,6 +37,7 @@ import type {
 } from "@/lib/swarms/types";
 import { RowList } from "../_shell/row-list";
 import { UnifiedDetailPane } from "../_shell/detail-pane";
+import type { StageAuditMap } from "../_shell/_lib/audit-types";
 import { useSelection } from "../_shell/selection-context";
 import { KeyboardShortcuts } from "../_shell/keyboard-shortcuts";
 import type { Row } from "../_shell/_lib/types";
@@ -70,6 +71,7 @@ export interface Stage1ClientShellProps {
   initialSelectedBody: BodyEntry | null;
   selectedTimeline: PipelineTimelineEvent[];
   drawerFields: string[];
+  stageAudit?: StageAuditMap;
 }
 
 export function Stage1ClientShell({
@@ -85,6 +87,7 @@ export function Stage1ClientShell({
   initialSelectedBody,
   selectedTimeline,
   drawerFields,
+  stageAudit,
 }: Stage1ClientShellProps) {
   const { selectedId } = useSelection();
 
@@ -221,6 +224,7 @@ export function Stage1ClientShell({
             bodyHtml={body?.bodyHtml ?? null}
             extrasBelowPipeline={extrasBelowPipeline}
             predictedRow={selectedPredictedRow}
+            stageAudit={stageAudit}
           />
         </div>
       </div>
