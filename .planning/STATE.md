@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 82.4-04-PLAN.md
-last_updated: "2026-05-13T17:27:43.953Z"
+stopped_at: Completed 82.5-02-PLAN.md
+last_updated: "2026-05-13T17:32:40.621Z"
 progress:
   total_phases: 22
   completed_phases: 13
@@ -20,13 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 82.4 — feedback-capture-infrastructure-v8-stabilisation
+**Current focus:** Phase --phase — 82.5
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 82.4
-Plan: Not started
+Phase: --phase (82.5) — EXECUTING
+Plan: 1 of --name
 Milestone: v8.0 Agentic Platform (Phases 63-82.4)
 Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verified live 2026-05-12)
 
@@ -123,6 +123,7 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 | Phase 82.4 P06 | 25min | 2 tasks | 5 files |
 | Phase 82.4 P04 | 12m | 2 tasks | 5 files |
 | 82.4 | 7 | - | - |
+| Phase 82.5 P02 | 4m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -230,8 +231,8 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 
 ## Session Continuity
 
-Last session: 2026-05-13T11:25:02.054Z
-Stopped at: Completed 82.4-04-PLAN.md
+Last session: 2026-05-13T17:32:40.612Z
+Stopped at: Completed 82.5-02-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 
