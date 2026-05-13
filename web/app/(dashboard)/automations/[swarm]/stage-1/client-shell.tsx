@@ -35,6 +35,10 @@ import type {
   SwarmIntentRow,
   SwarmNoiseCategoryRow,
 } from "@/lib/swarms/types";
+import type {
+  FeedbackMap,
+  FeedbackReadBack,
+} from "@/lib/automations/debtor-email/feedback/types";
 import { RowList } from "../_shell/row-list";
 import { UnifiedDetailPane } from "../_shell/detail-pane";
 import type { StageAuditMap } from "../_shell/_lib/audit-types";
@@ -73,7 +77,15 @@ export interface Stage1ClientShellProps {
   drawerFields: string[];
   stageAudit?: StageAuditMap;
   mailboxLabels?: Record<number, string>;
+  /** Phase 82.5 Plan 06 — server-prefetched FeedbackReadBack per email_id at
+   *  stage=1 (this shell's ACTIVE_STAGE). Reduced client-side into a
+   *  rowVerdictMap (row strip dots, R3) and a paneFeedbackMap (detail pane
+   *  per-stage readback, R1). Optional during cross-wave landings. */
+  feedbackMap?: FeedbackMap;
 }
+
+// Phase 82.5 Plan 06: ACTIVE_STAGE literal — Stage 1 (swarm_noise_categories).
+const ACTIVE_STAGE = 1 as const;
 
 export function Stage1ClientShell({
   swarmType,
@@ -90,6 +102,7 @@ export function Stage1ClientShell({
   drawerFields,
   mailboxLabels,
   stageAudit,
+  feedbackMap,
 }: Stage1ClientShellProps) {
   const { selectedId } = useSelection();
 
@@ -130,6 +143,29 @@ export function Stage1ClientShell({
     }
     return m;
   }, [predictedRows]);
+
+  // Phase 82.5 Plan 06 — derive rowVerdictMap for the row strip dot (R3).
+  // Pattern: own_latest.verdict wins; falls back to first "other" operator's
+  // verdict per loadFeedbackMap's desc-ordered scan (Pattern E / W4).
+  const rowVerdictMap = useMemo<Record<string, "confirm" | "override" | "unclear" | null>>(() => {
+    const out: Record<string, "confirm" | "override" | "unclear" | null> = {};
+    if (!feedbackMap) return out;
+    for (const [id, entry] of Object.entries(feedbackMap)) {
+      out[id] = entry.own_latest?.verdict ?? entry.others[0]?.verdict ?? null;
+    }
+    return out;
+  }, [feedbackMap]);
+
+  // Phase 82.5 Plan 06 — derive per-stage paneFeedbackMap for UnifiedDetailPane.
+  // Selected-only; ACTIVE_STAGE = 1 here.
+  const paneFeedbackMap = useMemo<
+    Partial<Record<0 | 1 | 2 | 3, FeedbackReadBack>> | undefined
+  >(() => {
+    if (!selectedId || !feedbackMap) return undefined;
+    const entry = feedbackMap[selectedId];
+    if (!entry) return undefined;
+    return { [ACTIVE_STAGE]: entry } as Partial<Record<0 | 1 | 2 | 3, FeedbackReadBack>>;
+  }, [selectedId, feedbackMap]);
 
   const body = selectedId ? bodyMap[selectedId] ?? null : null;
   const timeline = selectedId
@@ -192,6 +228,7 @@ export function Stage1ClientShell({
               title: "Nothing to review",
               body: "Predicted classifications appear here as the ingest route writes them.",
             }}
+            feedbackMap={rowVerdictMap}
             rightEdgeSlot={(row) => {
               // Phase 999.8 Plan 08 (D-08, D-12). Per-row predictor chip
               // mounted via the canonical RowList rightEdgeSlot extension
@@ -228,6 +265,7 @@ export function Stage1ClientShell({
             predictedRow={selectedPredictedRow}
             stageAudit={stageAudit}
             mailboxLabels={mailboxLabels}
+            feedbackMap={paneFeedbackMap}
           />
         </div>
       </div>

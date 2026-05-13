@@ -24,6 +24,10 @@ import type {
   SwarmIntentRow,
   SwarmNoiseCategoryRow,
 } from "@/lib/swarms/types";
+import type {
+  FeedbackMap,
+  FeedbackReadBack,
+} from "@/lib/automations/debtor-email/feedback/types";
 import type { KanbanRow } from "../_lib/kanban-loader";
 import { RowList } from "../_shell/row-list";
 import { MailboxFilter } from "../_shell/mailbox-filter";
@@ -56,7 +60,14 @@ export interface Stage3ClientShellProps {
   timelineMap: Record<string, PipelineTimelineEvent[]>;
   stageAudit?: StageAuditMap;
   mailboxLabels?: Record<number, string>;
+  /** Phase 82.5 Plan 06 — server-prefetched FeedbackReadBack per email_id at
+   *  stage=3 (this shell's ACTIVE_STAGE). Reduced client-side into rowVerdictMap
+   *  (row strip dot, R3) and paneFeedbackMap (detail pane readback, R1). */
+  feedbackMap?: FeedbackMap;
 }
+
+// Phase 82.5 Plan 06: ACTIVE_STAGE literal — Stage 3 (swarm_intents).
+const ACTIVE_STAGE = 3 as const;
 
 export function Stage3ClientShell({
   swarmType,
@@ -70,6 +81,7 @@ export function Stage3ClientShell({
   timelineMap,
   stageAudit,
   mailboxLabels,
+  feedbackMap,
 }: Stage3ClientShellProps) {
   const { selectedId } = useSelection();
   const [filter, setFilter] = useState<Stage3Filter>("all");
@@ -121,6 +133,34 @@ export function Stage3ClientShell({
   const selectedEmailId = selectedRow?.result?.email_id ?? null;
   const body = selectedEmailId ? bodyMap[selectedEmailId] ?? null : null;
   const timeline = selectedEmailId ? timelineMap[selectedEmailId] ?? [] : [];
+
+  // Phase 82.5 Plan 06 — derive rowVerdictMap for the row strip dot (R3).
+  // KanbanRow.id is the row strip key; feedbackMap is keyed by email_id —
+  // bridge via rows[].result.email_id. Own latest wins; otherwise first
+  // "other" operator's verdict (Pattern E from loadFeedbackMap).
+  const rowVerdictMap = useMemo<Record<string, "confirm" | "override" | "unclear" | null>>(() => {
+    const out: Record<string, "confirm" | "override" | "unclear" | null> = {};
+    if (!feedbackMap) return out;
+    for (const k of rows) {
+      const eid = k.result?.email_id ?? null;
+      if (!eid) continue;
+      const entry = feedbackMap[eid];
+      if (!entry) continue;
+      out[k.id] = entry.own_latest?.verdict ?? entry.others[0]?.verdict ?? null;
+    }
+    return out;
+  }, [feedbackMap, rows]);
+
+  // Phase 82.5 Plan 06 — derive per-stage paneFeedbackMap for UnifiedDetailPane.
+  // ACTIVE_STAGE = 3 here.
+  const paneFeedbackMap = useMemo<
+    Partial<Record<0 | 1 | 2 | 3, FeedbackReadBack>> | undefined
+  >(() => {
+    if (!selectedEmailId || !feedbackMap) return undefined;
+    const entry = feedbackMap[selectedEmailId];
+    if (!entry) return undefined;
+    return { [ACTIVE_STAGE]: entry } as Partial<Record<0 | 1 | 2 | 3, FeedbackReadBack>>;
+  }, [selectedEmailId, feedbackMap]);
 
   // Chip counts (always reflect total rows in stage, not post-mailbox).
   const counts = useMemo(() => {
@@ -193,6 +233,7 @@ export function Stage3ClientShell({
               title: "No rows in Stage 3",
               body: "Pipeline is fully resolving intents in the visible window.",
             }}
+            feedbackMap={rowVerdictMap}
           />
           {/* Hard-separation: Stage 3 detail pane receives `intents` (for the
               Stage 3 ranked-intent override widget) AND `categories` (for the
@@ -209,6 +250,7 @@ export function Stage3ClientShell({
             bodyHtml={body?.bodyHtml ?? null}
             stageAudit={stageAudit}
             mailboxLabels={mailboxLabels}
+            feedbackMap={paneFeedbackMap}
           />
         </div>
       </div>

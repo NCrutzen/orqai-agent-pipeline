@@ -20,6 +20,10 @@
 import { useMemo } from "react";
 
 import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
+import type {
+  FeedbackMap,
+  FeedbackReadBack,
+} from "@/lib/automations/debtor-email/feedback/types";
 import type { KanbanRow } from "../_lib/kanban-loader";
 import { RowList } from "../_shell/row-list";
 import { MailboxFilter } from "../_shell/mailbox-filter";
@@ -49,7 +53,16 @@ export interface Stage4ClientShellProps {
   timelineMap: Record<string, PipelineTimelineEvent[]>;
   stageAudit?: StageAuditMap;
   mailboxLabels?: Record<number, string>;
+  /** Phase 82.5 Plan 06 — Stage 4 has no panel surface (paneFeedbackMap is
+   *  always undefined here per ACTIVE_STAGE > 3 guard). Stage 4 still receives
+   *  a verdict dot in the row strip (R3) for symmetry; the feedbackMap is
+   *  optional so callers can omit it until the Stage 4 page wires the loader. */
+  feedbackMap?: FeedbackMap;
 }
+
+// Phase 82.5 Plan 06: ACTIVE_STAGE literal — Stage 4 (handler-error). Note
+// paneFeedbackMap is gated to undefined when ACTIVE_STAGE > 3.
+const ACTIVE_STAGE = 4 as const;
 
 export function Stage4ClientShell({
   swarmType,
@@ -62,6 +75,7 @@ export function Stage4ClientShell({
   timelineMap,
   stageAudit,
   mailboxLabels,
+  feedbackMap,
 }: Stage4ClientShellProps) {
   const { selectedId } = useSelection();
 
@@ -96,6 +110,35 @@ export function Stage4ClientShell({
   const selectedEmailId = selectedRow?.result?.email_id ?? null;
   const body = selectedEmailId ? bodyMap[selectedEmailId] ?? null : null;
   const timeline = selectedEmailId ? timelineMap[selectedEmailId] ?? [] : [];
+
+  // Phase 82.5 Plan 06 — derive rowVerdictMap for the row strip dot (R3).
+  // Same kanban_id → email_id bridge as Stage 3.
+  const rowVerdictMap = useMemo<Record<string, "confirm" | "override" | "unclear" | null>>(() => {
+    const out: Record<string, "confirm" | "override" | "unclear" | null> = {};
+    if (!feedbackMap) return out;
+    for (const k of rows) {
+      const eid = k.result?.email_id ?? null;
+      if (!eid) continue;
+      const entry = feedbackMap[eid];
+      if (!entry) continue;
+      out[k.id] = entry.own_latest?.verdict ?? entry.others[0]?.verdict ?? null;
+    }
+    return out;
+  }, [feedbackMap, rows]);
+
+  // Phase 82.5 Plan 06 — paneFeedbackMap guarded to undefined: Stage 4 has no
+  // panel surface (ACTIVE_STAGE > 3). Pass-through for consistency only.
+  const paneFeedbackMap = useMemo<
+    Partial<Record<0 | 1 | 2 | 3, FeedbackReadBack>> | undefined
+  >(() => {
+    if (!selectedEmailId || !feedbackMap) return undefined;
+    const entry = feedbackMap[selectedEmailId];
+    if (!entry) return undefined;
+    if (ACTIVE_STAGE > 3) return undefined; // Stage 4 has no panel surface
+    // Unreachable while ACTIVE_STAGE === 4, but kept for symmetry with
+    // Stage 1/3 shells in case the literal moves.
+    return undefined;
+  }, [selectedEmailId, feedbackMap]);
 
   // Stage 4 handler-error widget — surfaced via the extrasBelowPipeline
   // slot (Phase 82.1 Plan 04 renamed the slot from taggingFailuresSection
@@ -180,6 +223,7 @@ export function Stage4ClientShell({
               title: "No handler errors",
               body: "Stage 4 handlers ran cleanly in the visible window.",
             }}
+            feedbackMap={rowVerdictMap}
           />
           {/* Hard-separation: Stage 4 detail pane receives `categories` (for
               the Reclassify-to-noise Stage 1 cell) and `intents=[]` (Stage 4
@@ -196,6 +240,7 @@ export function Stage4ClientShell({
             extrasBelowPipeline={handlerErrorWidget}
             stageAudit={stageAudit}
             mailboxLabels={mailboxLabels}
+            feedbackMap={paneFeedbackMap}
           />
         </div>
       </div>
