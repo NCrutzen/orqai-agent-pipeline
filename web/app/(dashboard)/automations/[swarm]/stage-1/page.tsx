@@ -699,12 +699,30 @@ export async function loadPageData(
     const emailIdToAutomationRunId = new Map<string, string>();
     let predictedEmailIds: string[] = [];
     if (predictedMessageIds.length > 0) {
-      const peRes = await admin
-        .schema("email_pipeline")
-        .from("emails")
-        .select("id, source_id")
-        .in("source_id", predictedMessageIds);
-      const emailRows = (peRes.data ?? []) as Array<{ id: string; source_id: string | null }>;
+      // Outlook EwsId base64 strings are ~150 chars each. A single .in() call
+      // with 250+ of them produces a PostgREST URL >8KB which gateways drop
+      // silently (data=[] with no error). Chunk into batches of 50 — keeps
+      // each URL well under the limit while staying parallelizable.
+      const CHUNK = 50;
+      const chunks: string[][] = [];
+      for (let i = 0; i < predictedMessageIds.length; i += CHUNK) {
+        chunks.push(predictedMessageIds.slice(i, i + CHUNK));
+      }
+      const chunkResults = await Promise.all(
+        chunks.map((c) =>
+          admin
+            .schema("email_pipeline")
+            .from("emails")
+            .select("id, source_id")
+            .in("source_id", c),
+        ),
+      );
+      const emailRows: Array<{ id: string; source_id: string | null }> = [];
+      for (const r of chunkResults) {
+        for (const row of (r.data ?? []) as Array<{ id: string; source_id: string | null }>) {
+          emailRows.push(row);
+        }
+      }
       for (const e of emailRows) {
         if (!e.source_id) continue;
         const arId = predictedRunsByMessageId.get(e.source_id);
