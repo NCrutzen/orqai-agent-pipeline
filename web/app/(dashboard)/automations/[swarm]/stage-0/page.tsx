@@ -19,8 +19,10 @@
 // stage=0 / decision='injection_suspected'). Until then this surface stays
 // empty by design — UX consistency wins over hiding the surface.
 
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { loadSwarm } from "@/lib/swarms/registry";
 import { PageHeader } from "../_shell/page-header";
 import { StageTabStrip } from "../_shell/stage-tab-strip";
@@ -28,8 +30,13 @@ import { RowList } from "../_shell/row-list";
 import { MailboxFilter } from "../_shell/mailbox-filter";
 import { UnifiedDetailPane } from "../_shell/detail-pane";
 import { SelectionProvider } from "../_shell/selection-context";
+import { StageListChips } from "../_shell/stage-list-chips";
 import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
 import { buildStageAuditMap } from "../_shell/_lib/build-stage-audit-map";
+import {
+  loadStageFeedbackList,
+  type FeedbackListRow,
+} from "../_shell/_lib/feedback-list-loader";
 import type { Row } from "../_shell/_lib/types";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +54,29 @@ const STAGE_0_INFO_BANNER =
 
 interface PageProps {
   params: Promise<{ swarm: string }>;
-  searchParams: Promise<{ mailbox?: string | string[]; selected?: string }>;
+  searchParams: Promise<{
+    mailbox?: string | string[];
+    selected?: string;
+    needs_action?: string;
+    mine_only?: string;
+    before?: string;
+  }>;
+}
+
+// Phase 82.4 Plan 06: map a FeedbackListRow → unified Row. Stage 0 (safety) is
+// upstream of Stage 1 / Stage 3 — the badge variant is "safety" and the label
+// surfaces the decision (e.g. "injection_suspected" / "ok"). This page never
+// surfaces a noise or intent code on the row strip.
+function toUnifiedRow(r: FeedbackListRow): Row {
+  return {
+    id: r.email_id,
+    from_name: r.sender_name,
+    from_email: r.sender_email,
+    subject: r.subject,
+    timestamp: r.received_at,
+    mailbox_id: r.mailbox_id,
+    stage_badge: { label: r.stage_state, variant: "safety" },
+  };
 }
 
 export default async function Stage0Page({ params, searchParams }: PageProps) {
@@ -59,18 +88,51 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
   const swarm = await loadSwarm(admin, swarmType);
   if (!swarm) notFound();
 
-  // Stage 0 data wiring deferred to a follow-up phase. Empty rows + empty
-  // detail pane render the unified-shell skeleton intentionally.
-  const rows: Row[] = [];
+  // Phase 82.4 Plan 06: Option Z list source. Stage 0 = safety stage (upstream
+  // of swarm_noise_categories and swarm_intents; hard separation preserved by
+  // the loader filtering on stage=0 only).
+  const needsAction = sp.needs_action === "1";
+  const mineOnly = sp.mine_only === "1";
+  const supabaseSrv = await createClient();
+  const { data: { user } } = await supabaseSrv.auth.getUser();
+  const feedbackPage = await loadStageFeedbackList(admin, {
+    stage: 0,
+    swarmType,
+    needsActionOnly: needsAction,
+    mineOnly,
+    operatorId: user?.id,
+    before: sp.before,
+  });
+  const rows: Row[] = feedbackPage.rows.map(toUnifiedRow);
   const mailboxes = getSwarmMailboxes(swarmType, rows);
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
   const selectedId = sp.selected ?? null;
+
+  // Phase 82.4 Plan 06: build "Load more" href preserving every other URL param
+  // and bumping `before` to the next cursor. Pure server-side; no client hook.
+  const loadMoreHref: string | null = (() => {
+    if (!feedbackPage.nextBefore) return null;
+    const qs = new URLSearchParams();
+    if (Array.isArray(sp.mailbox)) {
+      for (const m of sp.mailbox) qs.append("mailbox", m);
+    } else if (sp.mailbox) {
+      qs.append("mailbox", sp.mailbox);
+    }
+    if (needsAction) qs.set("needs_action", "1");
+    if (mineOnly) qs.set("mine_only", "1");
+    if (sp.selected) qs.set("selected", sp.selected);
+    qs.set("before", feedbackPage.nextBefore);
+    return `?${qs.toString()}`;
+  })();
 
   return (
     <>
       <PageHeader swarm={swarm} />
       <StageTabStrip swarm={swarm} currentStage={0} />
-      <SelectionProvider rowIds={[]} initialSelectedId={selectedId}>
+      <SelectionProvider
+        rowIds={rows.map((r) => r.id)}
+        initialSelectedId={selectedId}
+      >
         <div
           style={{
             display: "flex",
@@ -103,28 +165,8 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
               gap: "var(--space-3)",
             }}
           >
-            {/* Stage 0 primary "chip strip" = single 'All' chip with count=0
-                (D-14/D-15). Real chip taxonomy lands when Stage 0 backend
-                wiring exposes per-decision counts. */}
-            <div role="tablist" aria-label="Stage 0 filter">
-              <button
-                type="button"
-                role="tab"
-                aria-selected="true"
-                disabled
-                style={{
-                  padding: "var(--space-1) var(--space-3)",
-                  borderRadius: "var(--v7-radius-pill)",
-                  background: "var(--v7-brand-secondary-soft)",
-                  border: "1px solid var(--v7-brand-secondary)",
-                  color: "var(--v7-brand-secondary)",
-                  fontSize: 12,
-                  cursor: "default",
-                }}
-              >
-                All <span style={{ opacity: 0.6 }}>0</span>
-              </button>
-            </div>
+            {/* Phase 82.4 Plan 06: Option Z toggle chips (default OFF). */}
+            <StageListChips needsAction={needsAction} mineOnly={mineOnly} />
             <MailboxFilter
               mailboxes={mailboxes}
               selected={selectedMailboxes}
@@ -139,13 +181,29 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
               minHeight: 320,
             }}
           >
-            <RowList
-              rows={rows}
-              emptyState={{
-                title: "No rows yet",
-                body: "Stage 0 awaits backend wiring in a follow-up phase.",
-              }}
-            />
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <RowList
+                rows={rows}
+                emptyState={{
+                  title: "No Stage 0 verdicts yet",
+                  body: "When the safety filter records a verdict, it will appear here.",
+                }}
+              />
+              {loadMoreHref && (
+                <div style={{ padding: "var(--space-3) var(--space-4)" }}>
+                  <Link
+                    href={loadMoreHref}
+                    data-testid="stage-list-load-more"
+                    style={{
+                      fontSize: 13,
+                      color: "var(--v7-brand-secondary)",
+                    }}
+                  >
+                    Load more
+                  </Link>
+                </div>
+              )}
+            </div>
             {/* Hard-separation contract: Stage 0 page passes categories=[] AND
                 intents=[] — Stage 0 is upstream of both registries. */}
             {/* Phase 82.3 Plan 11 — per-stage audit surface. Stage 0 page

@@ -30,14 +30,22 @@
 // Phase 81 D-19 channel-name lock: AutomationRealtimeProvider mounts the
 // `${swarmType}-review` channel (NOT `-kanban`). DO NOT change.
 
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { AutomationRealtimeProvider } from "@/components/automations/automation-realtime-provider";
 import {
   loadSwarm,
   loadSwarmNoiseCategories,
   loadSwarmIntents,
 } from "@/lib/swarms/registry";
+import { StageListChips } from "../_shell/stage-list-chips";
+import { RowList } from "../_shell/row-list";
+import {
+  loadStageFeedbackList,
+  type FeedbackListRow,
+} from "../_shell/_lib/feedback-list-loader";
 import type {
   SwarmNoiseCategoryRow,
   SwarmIntentRow,
@@ -104,6 +112,14 @@ export interface PageSearchParams {
   // and decision_details->>llm_confidence. Default: unfiltered (D-06).
   predictor?: string;
   confidence?: string;
+  /**
+   * Phase 82.4 Plan 06. Option Z chips: "Needs action" + "My feedback only".
+   * Default OFF on every tab (audit-first culture per 82.4-CONTEXT.md);
+   * only `=== "1"` enables them. Both reset `before` on toggle to keep
+   * pagination consistent with the active filter.
+   */
+  needs_action?: string;
+  mine_only?: string;
 }
 
 export interface QueueCountRow {
@@ -954,6 +970,26 @@ interface PageProps {
 // directly (the view JOIN doesn't surface a numeric mailbox_id today, so this
 // is null for most Stage 1 rows; the MailboxFilter dropdown still renders the
 // canonical labels via getSwarmMailboxes' static fallback).
+// Phase 82.4 Plan 06 — Option Z audit list mapper. Renders ABOVE the existing
+// Stage 1 client shell (additive surface per Plan 06 Task 2 step 7). Stage 1
+// keeps its predicted-row feed + override widget; the audit list lets the
+// operator spot-check across needs-action, auto-handled, and own-reviewed rows.
+//
+// Hard-separation lock (RFC docs/agentic-pipeline/README.md): the badge label
+// echoes pipeline_events.decision for stage=1 only. Variant "noise" matches
+// the rest of the Stage 1 surface (swarm_noise_categories registry).
+function toUnifiedFeedbackRow(r: FeedbackListRow): Row {
+  return {
+    id: r.email_id,
+    from_name: r.sender_name,
+    from_email: r.sender_email,
+    subject: r.subject,
+    timestamp: r.received_at,
+    mailbox_id: r.mailbox_id,
+    stage_badge: { label: r.stage_state, variant: "noise" },
+  };
+}
+
 function toUnifiedRow(p: PredictedRow): Row {
   const result = (p.result as { from?: string; fromName?: string; subject?: string } | null) ?? {};
   const predicted = (p.result as { predicted?: { category?: string } } | null)?.predicted;
@@ -1021,6 +1057,43 @@ export default async function SwarmReviewPage({
   const mailboxes = getSwarmMailboxes(swarmType, unifiedRows);
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
 
+  // Phase 82.4 Plan 06: Option Z audit list. Stage 1 keeps its live predicted-
+  // row feed + chip strip + override widget; the Option Z list renders as an
+  // ADDITIVE "All Stage 1 verdicts" section above the existing surface so the
+  // operator can spot-check auto-handled noise + own-reviewed rows alongside
+  // the needs-action queue. Chips default OFF (audit-first; see CONTEXT.md).
+  //
+  // Hard-separation (RFC): stage=1 only — loader filters pipeline_events on
+  // stage=1, so this list never blurs into Stage 3 intents.
+  const needsAction = sp.needs_action === "1";
+  const mineOnly = sp.mine_only === "1";
+  const supabaseSrv = await createClient();
+  const { data: { user } } = await supabaseSrv.auth.getUser();
+  const feedbackPage = await loadStageFeedbackList(admin, {
+    stage: 1,
+    swarmType,
+    needsActionOnly: needsAction,
+    mineOnly,
+    operatorId: user?.id,
+    before: sp.before,
+  });
+  const auditRows: Row[] = feedbackPage.rows.map(toUnifiedFeedbackRow);
+
+  const loadMoreHref: string | null = (() => {
+    if (!feedbackPage.nextBefore) return null;
+    const qs = new URLSearchParams();
+    if (Array.isArray(sp.mailbox)) {
+      for (const m of sp.mailbox) qs.append("mailbox", m);
+    } else if (sp.mailbox) {
+      qs.append("mailbox", sp.mailbox);
+    }
+    if (needsAction) qs.set("needs_action", "1");
+    if (mineOnly) qs.set("mine_only", "1");
+    if (sp.selected) qs.set("selected", sp.selected);
+    qs.set("before", feedbackPage.nextBefore);
+    return `?${qs.toString()}`;
+  })();
+
   return (
     <>
       <PageHeader swarm={swarm} />
@@ -1039,6 +1112,70 @@ export default async function SwarmReviewPage({
           rowIds={rowIds}
         >
           <main className="px-6 pt-6 pb-12 w-full">
+            {/* Phase 82.4 Plan 06: Option Z audit list — additive section
+                above the existing chip strip + predicted-row shell. Renders
+                every Stage 1 verdict (needs-action + auto-handled + own-
+                reviewed) so the operator can spot-check across the full
+                Stage 1 surface. Chips default OFF (audit-first culture).
+                Hidden when ?sub=pending — that branch is a candidate-rule
+                workflow, not a row-list. */}
+            {sp.sub !== "pending" && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "var(--space-3)",
+                  marginBottom: "var(--space-4)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "var(--space-3)",
+                  }}
+                >
+                  <h2
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      color: "var(--v7-muted)",
+                      margin: 0,
+                    }}
+                  >
+                    All Stage 1 verdicts
+                  </h2>
+                  <StageListChips
+                    needsAction={needsAction}
+                    mineOnly={mineOnly}
+                  />
+                </div>
+                <RowList
+                  rows={auditRows}
+                  emptyState={{
+                    title: "No Stage 1 verdicts yet",
+                    body: "When the noise filter records a verdict, it will appear here.",
+                  }}
+                />
+                {loadMoreHref && (
+                  <div>
+                    <Link
+                      href={loadMoreHref}
+                      data-testid="stage-list-load-more"
+                      style={{
+                        fontSize: 13,
+                        color: "var(--v7-brand-secondary)",
+                      }}
+                    >
+                      Load more
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
             {/* Phase 82.1 Plan 02 (D-02, D-03): MailboxFilter hoisted out of
                 Stage1ClientShell onto the chip-strip row so it sits right of
                 NoiseCategoryChipStrip via justifyContent: space-between. */}

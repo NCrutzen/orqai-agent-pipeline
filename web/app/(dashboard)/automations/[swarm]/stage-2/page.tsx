@@ -25,6 +25,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { loadSwarm } from "@/lib/swarms/registry";
 import { PageHeader } from "../_shell/page-header";
 import { StageTabStrip } from "../_shell/stage-tab-strip";
@@ -32,8 +33,13 @@ import { RowList } from "../_shell/row-list";
 import { MailboxFilter } from "../_shell/mailbox-filter";
 import { UnifiedDetailPane } from "../_shell/detail-pane";
 import { SelectionProvider } from "../_shell/selection-context";
+import { StageListChips } from "../_shell/stage-list-chips";
 import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
 import { buildStageAuditMap } from "../_shell/_lib/build-stage-audit-map";
+import {
+  loadStageFeedbackList,
+  type FeedbackListRow,
+} from "../_shell/_lib/feedback-list-loader";
 import type { Row } from "../_shell/_lib/types";
 import { loadStage2WeeklyCount } from "./_lib/load-stage-2-weekly-count";
 
@@ -41,7 +47,28 @@ export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ swarm: string }>;
-  searchParams: Promise<{ mailbox?: string | string[]; selected?: string }>;
+  searchParams: Promise<{
+    mailbox?: string | string[];
+    selected?: string;
+    needs_action?: string;
+    mine_only?: string;
+    before?: string;
+  }>;
+}
+
+// Phase 82.4 Plan 06: map FeedbackListRow → unified Row. Stage 2 sits between
+// Stage 1 (noise) and Stage 3 (intent) — touches neither registry. Variant
+// "placeholder" is the right neutral badge per hard-separation contract.
+function toUnifiedRow(r: FeedbackListRow): Row {
+  return {
+    id: r.email_id,
+    from_name: r.sender_name,
+    from_email: r.sender_email,
+    subject: r.subject,
+    timestamp: r.received_at,
+    mailbox_id: r.mailbox_id,
+    stage_badge: { label: r.stage_state, variant: "placeholder" },
+  };
 }
 
 export default async function Stage2Page({ params, searchParams }: PageProps) {
@@ -59,12 +86,40 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
   const stage2Count =
     swarmType === "debtor-email" ? await loadStage2WeeklyCount(admin) : null;
 
-  // Stage 2 data wiring deferred to Phase 77. Empty rows + empty detail pane
-  // render the unified-shell skeleton intentionally (D-15/D-17).
-  const rows: Row[] = [];
+  // Phase 82.4 Plan 06: Option Z list source for Stage 2 (entity / customer
+  // mapping). Hard-separation preserved by passing stage=2 — loader never
+  // blurs Stage 1 (noise) or Stage 3 (intent).
+  const needsAction = sp.needs_action === "1";
+  const mineOnly = sp.mine_only === "1";
+  const supabaseSrv = await createClient();
+  const { data: { user } } = await supabaseSrv.auth.getUser();
+  const feedbackPage = await loadStageFeedbackList(admin, {
+    stage: 2,
+    swarmType,
+    needsActionOnly: needsAction,
+    mineOnly,
+    operatorId: user?.id,
+    before: sp.before,
+  });
+  const rows: Row[] = feedbackPage.rows.map(toUnifiedRow);
   const mailboxes = getSwarmMailboxes(swarmType, rows);
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
   const selectedId = sp.selected ?? null;
+
+  const loadMoreHref: string | null = (() => {
+    if (!feedbackPage.nextBefore) return null;
+    const qs = new URLSearchParams();
+    if (Array.isArray(sp.mailbox)) {
+      for (const m of sp.mailbox) qs.append("mailbox", m);
+    } else if (sp.mailbox) {
+      qs.append("mailbox", sp.mailbox);
+    }
+    if (needsAction) qs.set("needs_action", "1");
+    if (mineOnly) qs.set("mine_only", "1");
+    if (sp.selected) qs.set("selected", sp.selected);
+    qs.set("before", feedbackPage.nextBefore);
+    return `?${qs.toString()}`;
+  })();
 
   return (
     <>
@@ -74,7 +129,10 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
         currentStage={2}
         counts={{ 2: stage2Count ?? 0 }}
       />
-      <SelectionProvider rowIds={[]} initialSelectedId={selectedId}>
+      <SelectionProvider
+        rowIds={rows.map((r) => r.id)}
+        initialSelectedId={selectedId}
+      >
         <div
           style={{
             display: "flex",
@@ -120,28 +178,8 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
               gap: "var(--space-3)",
             }}
           >
-            {/* Stage 2 primary "chip strip" = single 'All' chip with count=0
-                (D-14/D-15). Real chip taxonomy lands when Phase 77 backend
-                wiring exposes per-decision counts. */}
-            <div role="tablist" aria-label="Stage 2 filter">
-              <button
-                type="button"
-                role="tab"
-                aria-selected="true"
-                disabled
-                style={{
-                  padding: "var(--space-1) var(--space-3)",
-                  borderRadius: "var(--v7-radius-pill)",
-                  background: "var(--v7-brand-secondary-soft)",
-                  border: "1px solid var(--v7-brand-secondary)",
-                  color: "var(--v7-brand-secondary)",
-                  fontSize: 12,
-                  cursor: "default",
-                }}
-              >
-                All <span style={{ opacity: 0.6 }}>0</span>
-              </button>
-            </div>
+            {/* Phase 82.4 Plan 06: Option Z toggle chips (default OFF). */}
+            <StageListChips needsAction={needsAction} mineOnly={mineOnly} />
             <MailboxFilter
               mailboxes={mailboxes}
               selected={selectedMailboxes}
@@ -156,13 +194,29 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
               minHeight: 320,
             }}
           >
-            <RowList
-              rows={rows}
-              emptyState={{
-                title: "No rows yet",
-                body: "Stage 2 awaits backend wiring in a follow-up phase.",
-              }}
-            />
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <RowList
+                rows={rows}
+                emptyState={{
+                  title: "No Stage 2 verdicts yet",
+                  body: "When entity / customer mapping records a verdict, it will appear here.",
+                }}
+              />
+              {loadMoreHref && (
+                <div style={{ padding: "var(--space-3) var(--space-4)" }}>
+                  <Link
+                    href={loadMoreHref}
+                    data-testid="stage-list-load-more"
+                    style={{
+                      fontSize: 13,
+                      color: "var(--v7-brand-secondary)",
+                    }}
+                  >
+                    Load more
+                  </Link>
+                </div>
+              )}
+            </div>
             {/* Hard-separation contract (docs/agentic-pipeline/README.md):
                 Stage 2 sits between Stage 1 and Stage 3 — passes categories=[]
                 AND intents=[]. Entity / customer mapping doesn't live in
