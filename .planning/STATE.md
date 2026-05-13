@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
-stopped_at: Completed 82.4-03-PLAN.md
-last_updated: "2026-05-13T11:06:12.179Z"
+stopped_at: Completed 82.4-06-PLAN.md
+last_updated: "2026-05-13T11:19:51.677Z"
 progress:
   total_phases: 22
   completed_phases: 13
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 82.4 (feedback-capture-infrastructure-v8-stabilisation) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Milestone: v8.0 Agentic Platform (Phases 63-82.4)
 Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verified live 2026-05-12)
 
@@ -120,6 +120,7 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 | Phase Phase 82.4 P07 P07 | 6m | 3 tasks tasks | 3 files files |
 | Phase 82.4 P05 | 8m | 2 tasks tasks | 2 files files |
 | Phase Phase 82.4 PP03 | 12m | 2 tasks tasks | 6 files files |
+| Phase 82.4 P06 | 25min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -194,6 +195,7 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 - Phase 82.4-02: direct INSERT via createAdminClient (no Inngest hop) for feedback capture — pure data write, no replay risk, ≤200ms p95 target
 - Phase 82.4-02: zod schema OMITS operator_id (not just .strip) so spread cannot smuggle a client-supplied value; mirrors override route D-13
 - 82.4-07: 26h read window with upsert:true daily key — replay + clock-skew idempotent without dedupe logic
+- Plan 06: Stage 1 + Stage 3 Option Z lists landed as additive sections; Stage 0 + Stage 2 as primary.
 
 ### Blockers/Concerns
 
@@ -225,8 +227,8 @@ Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verif
 
 ## Session Continuity
 
-Last session: 2026-05-13T11:06:12.169Z
-Stopped at: Completed 82.4-03-PLAN.md
+Last session: 2026-05-13T11:19:51.669Z
+Stopped at: Completed 82.4-06-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 
