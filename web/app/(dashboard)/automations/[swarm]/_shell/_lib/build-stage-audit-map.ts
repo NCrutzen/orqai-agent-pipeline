@@ -248,17 +248,36 @@ export function buildStageAuditMap<
     const tool = isRecord(stage1Run?.tool_outputs)
       ? (stage1Run!.tool_outputs as Record<string, unknown>)
       : {};
-    const predictor_source: "regex" | "llm" | null = stage1Run
-      ? "llm"
-      : stage1Event
-        ? "regex"
-        : null;
+    // Phase 82.3 fidelity fix (Plan 11 follow-up): the runtime classifier
+    // writes predictor + llm_reasoning + llm_confidence into pipeline_events
+    // .decision_details directly. Reading from there is authoritative and
+    // works without loading agent_runs per-row.
+    const detailsPredictor = typeof d.predictor === "string" ? d.predictor : null;
+    const predictor_source: "regex" | "llm" | null =
+      detailsPredictor === "regex" || detailsPredictor === "llm"
+        ? detailsPredictor
+        : stage1Run
+          ? "llm"
+          : stage1Event
+            ? "regex"
+            : null;
+    // Rule that fired: regex.matchedRule when Pass-1 hit, else the resulting
+    // category as a fallback discriminator. Both come from decision_details.
+    const regexBlock = isRecord(d.regex) ? (d.regex as Record<string, unknown>) : null;
+    const matchedRule = regexBlock ? asString(regexBlock.matchedRule) : null;
+    const category = asString(d.category) ?? asString(stage1Event?.decision);
+    // llm_confidence is already a string label ("high"/"medium"/"low"); fall
+    // back to the legacy numeric `confidence` field via numericToLabel().
+    const confidence = textConfidenceLabel(d.llm_confidence) ?? numericToLabel(d.confidence);
+    // Reasoning lives on decision_details.llm_reasoning (set by the screen
+    // worker), not only on agent_runs.tool_outputs.reasoning.
+    const reasoning = asString(d.llm_reasoning) ?? asString(tool.reasoning);
     const payload: Stage1AuditPayload = {
       stage: 1,
-      rule_key: asString(d.rule_key),
+      rule_key: matchedRule ?? category,
       predictor_source,
-      confidence: numericToLabel(d.confidence),
-      reasoning: asString(tool.reasoning),
+      confidence,
+      reasoning,
       raw: { ...d, ...tool },
     };
     map[1] = createElement(Stage1EvidencePanel, { payload }) as ReactNode;
