@@ -1,5 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, afterEach } from "vitest";
+import { render, screen, cleanup } from "@testing-library/react";
+
+afterEach(() => cleanup());
 import { Stage0EvidencePanel } from "../Stage0EvidencePanel";
 import type { Stage0AuditPayload } from "@/app/(dashboard)/automations/[swarm]/_shell/_lib/audit-types";
 
