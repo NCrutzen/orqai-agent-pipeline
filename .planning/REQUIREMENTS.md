@@ -201,7 +201,8 @@ Added 2026-05-13 alongside phase 82.4 execution. These requirements live under t
 - [ ] **FB-08**: Stage-tab lists re-scope from "needs-action only" to "every-row-with-verdict" using the loader above.
 - [ ] **FB-09**: `NeedsActionChip` URL-param toggle wired into stage-0/1/2/3 page.tsx (defaults OFF).
 - [ ] **FB-10**: `MineOnlyChip` URL-param toggle filters list to current operator's feedback rows.
-- [ ] **FB-11**: Inngest nightly snapshot cron exports `email_feedback` to Supabase Storage for V9.0 synthesis batch reads.
+- [x] **FB-11
+**: Inngest nightly snapshot cron exports `email_feedback` to Supabase Storage for V9.0 synthesis batch reads.
 
 ### Traceability (FB-*)
 
