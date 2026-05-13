@@ -544,7 +544,10 @@ export async function loadPageData(
     const hasFilters = !!(
       params.topic ||
       params.entity ||
-      params.mailbox ||
+      // params.mailbox intentionally excluded — mailbox filtering happens
+      // client-side via hydrated PredictedRow.mailbox_id (decision_details
+      // doesn't carry mailbox_id today). Including it here would force the
+      // server JOIN-back path and zero the row list.
       params.rule ||
       validatedPredictor ||
       validatedConfidence
@@ -567,24 +570,13 @@ export async function loadPageData(
       // for Stage 1 emits. ?topic=unknown therefore maps to decision='unknown'.
       if (params.topic) q.eq("decision", params.topic);
       if (params.entity) q.eq("decision_details->>entity", params.entity);
-      // Phase 82 Plan 06 (CONTEXT D-12). Multi-mailbox filter: support
-      // repeated ?mailbox=<id> URL params via .in("...->>mailbox_id", ids).
-      // Single-mailbox callers (string) and multi-select callers (string[])
-      // both flow through this normaliser.
-      const mailboxIds = Array.isArray(params.mailbox)
-        ? params.mailbox
-        : params.mailbox
-          ? [params.mailbox]
-          : [];
-      const parsedMailboxIds = mailboxIds
-        .map((s) => parseInt(s, 10))
-        .filter((n) => !Number.isNaN(n));
-      if (parsedMailboxIds.length > 0) {
-        q.in(
-          "decision_details->>mailbox_id",
-          parsedMailboxIds.map(String),
-        );
-      }
+      // Phase 82.4 follow-up: the server-side mailbox filter used to query
+      // .in("decision_details->>mailbox_id", ids) but that JSON field is
+      // always null in production (verified 2026-05-13). Mailbox filtering
+      // now happens entirely client-side in Stage1ClientShell against
+      // PredictedRow.mailbox_id, which is hydrated below from automation_runs.
+      // (Skipping the server-side filter is intentional — keeping it would
+      // zero the row list before client-side filtering can run.)
       if (params.rule) q.eq("decision_details->>regex_rule_id", params.rule);
       // Phase 999.8 Plan 07 (D-05, D-11). Predictor + confidence filters
       // read denormalized fields on pipeline_events.decision_details
