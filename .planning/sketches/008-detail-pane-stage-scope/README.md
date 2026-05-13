@@ -2,7 +2,7 @@
 sketch: 008
 name: detail-pane-stage-scope
 question: "Future stages + Approve semantics — with the full surface stack visible (header, Show full email, audit expander per stage, feedback panel, read-back history, control area)."
-winner: null
+winner: "A+context-morph"
 tags: [phase-82.5, detail-pane, stage-scope, approve-semantics, surface-stack]
 ---
 
@@ -69,6 +69,27 @@ This sketch renders the complete detail-pane surface from `web/app/(dashboard)/a
 - **Future stages collapse** rather than render as "didn't run" placeholders (all 3 variants).
 - **Per-stage Confirm + Save stay tight to the textarea** inside the audit expander (all 3 variants).
 - **Read-back history** ("What others said") goes inside the feedback panel, below the buttons.
+
+## Winner: A + context-morph
+
+**Base shape: Variant A** — bottom button is "Approve verdicts that ran (Stages 0+1)" by default; it batch-confirms every stage that has actually run for the current row. Future-not-yet-run stages stay collapsed in the future-pill and are excluded from the batch.
+
+**Refinement on top of A — bottom-button context morph:**
+The bottom button is contextual. It has two states:
+
+| State | Trigger | Bottom button label | What it does |
+|-------|---------|---------------------|--------------|
+| **Approve** (default) | All visible stages are in `state='ok'` | `✓ Approve verdicts that ran (Stages 0+1)` | Batch-confirms every visible-and-unconfirmed stage |
+| **Submit override** | One or more visible stages enter `state='dirty'` (operator clicked "override stage") | `✓ Submit override (Stage N)` — or `Submit overrides (Stages N, M)` if multiple dirty | Submits the override + attaches the textarea note (Phase 82.4 Plan 04 dual-write) |
+
+**Why this works:**
+- There's always exactly one obvious next action at the bottom.
+- The shift in label is the cue: "you're in override mode now, this is what you'll commit."
+- Per-stage chips inside the expander remain as a granular path (operator can confirm Stage 0 individually while Stage 1 is dirty).
+- If multiple stages are dirty, the button submits all of them together — matching the operator's mental model ("apply my changes").
+
+**Implementation note for /gsd-spec-phase 82.5:**
+The morph is driven off `stages.some(s => s.state === 'dirty')`. Label content + click handler swap; visual treatment (primary lime button) stays constant so muscle memory holds.
 
 ## Open Questions
 
