@@ -1,13 +1,24 @@
 /**
- * Phase 82.4 Plan 03 — StageFeedbackPanel RTL coverage.
+ * Phase 82.4 Plan 03 → Phase 82.5 Plan 03 — StageFeedbackPanel RTL coverage.
+ *
+ * Phase 82.5 Plan 03 updates (R1/R4/R5):
+ *  - Save is no longer disabled-when-empty (still posts verdict:'unclear');
+ *    R4 microcopy "⤓ Override + note save together" makes empty-save legal.
+ *  - Successful Save/Confirm now triggers a follow-up GET to refresh read-back
+ *    (2 fetch calls per write — POST + GET).
+ *  - Confirm with empty textarea triggers window.confirm() soft dialog
+ *    ("Confirm this stage without writing a note?"). Tests stub window.confirm
+ *    where they exercise the empty-confirm path.
  *
  * Covers:
- *  1. Render — textarea + Save + Confirm chip with data-testid.
- *  2. Save disabled-when-empty / enabled-after-typing.
- *  3. Save click → POST verdict:'unclear' + prose_notes.
- *  4. Confirm click (empty textarea) → POST verdict:'confirm' without prose_notes.
- *  5. 2xx confirm → onAfterConfirm() invoked.
- *  6. Non-2xx → inline error with role="alert".
+ *  1. Render — textarea + Save (R5) + Confirm (R5) chips with data-testid.
+ *  2. R4 microcopy rendered under the label.
+ *  3. Save click (empty) → POST verdict:'unclear' (no prose_notes).
+ *  4. Save click (with prose) → POST verdict:'unclear' + prose_notes.
+ *  5. Confirm click (empty textarea, user accepts dialog) → POST verdict:'confirm'.
+ *  6. Confirm click (empty textarea, user cancels dialog) → no POST.
+ *  7. 2xx confirm → onAfterConfirm() invoked.
+ *  8. Non-2xx → inline error with role="alert".
  */
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
@@ -23,9 +34,17 @@ afterEach(() => {
 });
 
 function mockFetchOk() {
-  const fetchMock = vi.fn().mockResolvedValue(
-    new Response(JSON.stringify({ ok: true, id: "row-1" }), { status: 200 }),
-  );
+  // POST returns ok; subsequent GET refresh returns empty read-back JSON.
+  const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+    if (init?.method === "GET" || !init?.method) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ own_latest: null, others: [] }), { status: 200 }),
+      );
+    }
+    return Promise.resolve(
+      new Response(JSON.stringify({ ok: true, id: "row-1" }), { status: 200 }),
+    );
+  });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
@@ -38,6 +57,12 @@ function mockFetchFail() {
   return fetchMock;
 }
 
+function findPostCall(fetchMock: ReturnType<typeof vi.fn>) {
+  return fetchMock.mock.calls.find(
+    ([, init]) => (init as RequestInit | undefined)?.method === "POST",
+  );
+}
+
 describe("StageFeedbackPanel", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
@@ -48,31 +73,40 @@ describe("StageFeedbackPanel", () => {
 
     expect(screen.getByTestId("stage-feedback-panel-2")).toBeTruthy();
     expect(screen.getByRole("textbox")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /save/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /confirm/i })).toBeTruthy();
+    expect(screen.getByTestId("stage-feedback-save")).toBeTruthy();
+    expect(screen.getByTestId("stage-feedback-confirm")).toBeTruthy();
   });
 
-  it("disables Save when textarea is empty and enables it after typing", async () => {
+  it("renders R4 override+note coupling microcopy under the label", () => {
+    render(<StageFeedbackPanel stage={1} emailId={EMAIL_ID} />);
+    const helper = screen.getByTestId("override-coupling-helper");
+    expect(helper.textContent).toMatch(/Override \+ note save together/);
+  });
+
+  it("Save click (empty prose) POSTs verdict:'unclear' (Phase 82.5 — no longer disabled-when-empty)", async () => {
+    const fetchMock = mockFetchOk();
     const user = userEvent.setup();
     render(<StageFeedbackPanel stage={1} emailId={EMAIL_ID} />);
 
-    const saveBtn = screen.getByRole("button", { name: /save/i });
-    expect((saveBtn as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByTestId("stage-feedback-save"));
 
-    await user.type(screen.getByRole("textbox"), "looks wrong here");
-    expect((saveBtn as HTMLButtonElement).disabled).toBe(false);
+    await waitFor(() => expect(findPostCall(fetchMock)).toBeDefined());
+    const postCall = findPostCall(fetchMock)!;
+    const body = JSON.parse(String(postCall[1]!.body));
+    expect(body.verdict).toBe("unclear");
+    expect(body.prose_notes).toBeUndefined();
   });
 
-  it("Save click POSTs verdict:'unclear' with the typed prose_notes", async () => {
+  it("Save click (with prose) POSTs verdict:'unclear' with the typed prose_notes", async () => {
     const fetchMock = mockFetchOk();
     const user = userEvent.setup();
     render(<StageFeedbackPanel stage={0} emailId={EMAIL_ID} />);
 
     await user.type(screen.getByRole("textbox"), "border case missed");
-    await user.click(screen.getByRole("button", { name: /save/i }));
+    await user.click(screen.getByTestId("stage-feedback-save"));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    const [url, init] = fetchMock.mock.calls[0];
+    await waitFor(() => expect(findPostCall(fetchMock)).toBeDefined());
+    const [url, init] = findPostCall(fetchMock)!;
     expect(url).toBe("/api/automations/debtor-email/feedback");
     expect((init as RequestInit).method).toBe("POST");
     const body = JSON.parse(String((init as RequestInit).body));
@@ -84,24 +118,39 @@ describe("StageFeedbackPanel", () => {
     });
   });
 
-  it("Confirm click with empty textarea POSTs verdict:'confirm' and omits prose_notes", async () => {
+  it("Confirm click (empty textarea, user accepts soft dialog) POSTs verdict:'confirm'", async () => {
     const fetchMock = mockFetchOk();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     render(<StageFeedbackPanel stage={3} emailId={EMAIL_ID} />);
 
-    await user.click(screen.getByRole("button", { name: /confirm/i }));
+    await user.click(screen.getByTestId("stage-feedback-confirm"));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    const [, init] = fetchMock.mock.calls[0];
-    const body = JSON.parse(String((init as RequestInit).body));
-    expect(body.email_id).toBe(EMAIL_ID);
-    expect(body.stage).toBe(3);
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "Confirm this stage without writing a note?",
+    );
+    await waitFor(() => expect(findPostCall(fetchMock)).toBeDefined());
+    const body = JSON.parse(String(findPostCall(fetchMock)![1]!.body));
     expect(body.verdict).toBe("confirm");
     expect(body.prose_notes).toBeUndefined();
   });
 
+  it("Confirm click (empty textarea, user cancels soft dialog) does NOT POST", async () => {
+    const fetchMock = mockFetchOk();
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = userEvent.setup();
+    render(<StageFeedbackPanel stage={3} emailId={EMAIL_ID} />);
+
+    await user.click(screen.getByTestId("stage-feedback-confirm"));
+
+    // Give microtasks a moment; confirm cancellation must abort the POST.
+    await Promise.resolve();
+    expect(findPostCall(fetchMock)).toBeUndefined();
+  });
+
   it("invokes onAfterConfirm callback after a 2xx confirm response", async () => {
     mockFetchOk();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     const onAfterConfirm = vi.fn();
     const user = userEvent.setup();
     render(
@@ -112,7 +161,7 @@ describe("StageFeedbackPanel", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /confirm/i }));
+    await user.click(screen.getByTestId("stage-feedback-confirm"));
 
     await waitFor(() => expect(onAfterConfirm).toHaveBeenCalledTimes(1));
   });
@@ -123,7 +172,7 @@ describe("StageFeedbackPanel", () => {
     render(<StageFeedbackPanel stage={1} emailId={EMAIL_ID} />);
 
     await user.type(screen.getByRole("textbox"), "x");
-    await user.click(screen.getByRole("button", { name: /save/i }));
+    await user.click(screen.getByTestId("stage-feedback-save"));
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toMatch(/save|error|fail/i);
