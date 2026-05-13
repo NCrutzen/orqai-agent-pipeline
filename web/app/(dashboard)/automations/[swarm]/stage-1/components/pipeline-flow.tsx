@@ -30,6 +30,11 @@ export interface StageData {
   currentValue?: string;
   /** When state==='dirty', the per-stage form widget rendered in the control area. */
   widget?: ReactNode;
+  /** Phase 82.3 Plan 02 — pre-rendered audit panel ReactNode injected by
+   *  per-stage renderers (Stage0EvidencePanel … Stage3EvidencePanel). Plan 07
+   *  consumes this inside <StageStep> via the Show-details expander.
+   *  Stage 4 always undefined per 82.3 CONTEXT.md <out_of_scope>. */
+  auditDetails?: ReactNode;
 }
 
 interface PipelineFlowProps {

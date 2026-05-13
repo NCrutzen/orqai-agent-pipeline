@@ -58,6 +58,7 @@ import type { PredictedRow } from "../stage-1/page";
 // stages 2 and 4 so the 5-cell skeleton is verifiable in isolation.
 
 import type { ActiveStage, Row } from "./_lib/types";
+import type { StageAuditMap } from "./_lib/audit-types";
 import { MAILBOX_LABELS } from "./_lib/get-swarm-mailboxes";
 import { KEYBOARD_EVENTS } from "./keyboard-shortcuts";
 
@@ -121,6 +122,10 @@ export interface UnifiedDetailPaneProps {
    *  POST + recordVerdict server-action args. Stage 1 page wires this; other
    *  stages can omit. */
   predictedRow?: PredictedRow | null;
+  /** Phase 82.3 Plan 02 — pre-rendered per-stage audit panels (Stages 0–3).
+   *  Plan 11 wires per-page audit payloads through this map. Stage 4 omitted
+   *  per 82.3 CONTEXT.md <out_of_scope>. */
+  stageAudit?: StageAuditMap;
 }
 
 // ---- Component -----------------------------------------------------------
@@ -137,6 +142,7 @@ export function UnifiedDetailPane({
   extrasBelowPipeline,
   iControllerBanner,
   predictedRow,
+  stageAudit,
 }: UnifiedDetailPaneProps) {
   // Empty state — RESEARCH §Empty State unified copy (Stage 3/4 wording).
   if (!row) {
@@ -168,6 +174,7 @@ export function UnifiedDetailPane({
       extrasBelowPipeline={extrasBelowPipeline}
       iControllerBanner={iControllerBanner}
       predictedRow={predictedRow}
+      stageAudit={stageAudit}
     />
   );
 }
@@ -186,6 +193,7 @@ function DetailPaneInner({
   extrasBelowPipeline,
   iControllerBanner,
   predictedRow,
+  stageAudit,
 }: UnifiedDetailPaneProps & { row: Row }) {
   // Track dirty axes — Wave 1 wires the structural shape; Plan 06 layers the
   // real override-confirm flow on top. For now `dirty` is initialised from
@@ -326,10 +334,11 @@ function DetailPaneInner({
         state,
         currentValue,
         widget,
+        auditDetails: n === 4 ? undefined : stageAudit?.[n as 0 | 1 | 2 | 3],
       });
     }
     return out;
-  }, [dirty, timeline, _categories, _intents, stage0Value, predictedRow, swarmType, onMarkDirty]);
+  }, [dirty, timeline, _categories, _intents, stage0Value, predictedRow, swarmType, onMarkDirty, stageAudit]);
 
   // Mailbox header label — uses static map for known swarms.
   const mailboxLbl = (() => {
