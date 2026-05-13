@@ -248,15 +248,17 @@ function DetailPaneInner({
     setDirty((prev) => ({ ...prev, [stageN]: true }));
   }, []);
 
-  // Phase 82.3 Plan 11 — fall back to building the audit map from the live
-  // timeline when the caller didn't thread one (or threaded an empty map).
-  // The server-side stageAudit prop is computed at initial render with
-  // data.selectedTimeline; client-side selection changes never refresh the
-  // prop, so without this fallback the expander affordance disappears the
-  // moment a user clicks a different row.
+  // Phase 82.3 Plan 11 — always build the audit map from the LIVE timeline
+  // prop. The page-level stageAudit prop is computed server-side from
+  // data.selectedTimeline (the initial selection only) and never refreshes
+  // when the operator clicks a different row, so preferring it produced
+  // stale audit content. Building from `timeline` (which the client shells
+  // resolve reactively via timelineMap[selectedId]) keeps the audit in sync
+  // with the current selection. The `stageAudit` prop is now only consulted
+  // for keys the live timeline doesn't cover (e.g., Stage 2/3 agent_runs
+  // enrichment that the timeline alone can't reconstruct).
   const effectiveStageAudit = useMemo<StageAuditMap>(() => {
-    if (stageAudit && Object.keys(stageAudit).length > 0) return stageAudit;
-    return buildStageAuditMap({
+    const fromTimeline = buildStageAuditMap({
       // Runtime timeline events from upstream pages include decision_details;
       // the narrower PipelineTimelineEvent type here only declares stage+decision.
       // Cast through unknown to bridge the structural gap — buildStageAuditMap
@@ -268,6 +270,9 @@ function DetailPaneInner({
       agentRuns: [],
       automationRun: null,
     });
+    // Merge: live timeline wins; fall back to caller-supplied for stages
+    // the timeline didn't cover.
+    return { ...(stageAudit ?? {}), ...fromTimeline };
   }, [stageAudit, timeline]);
 
   // Build the 5-cell StageData[] array. Order matters — [0,1,2,3,4] as const.
