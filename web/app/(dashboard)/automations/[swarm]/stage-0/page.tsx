@@ -28,7 +28,10 @@ import { PageHeader } from "../_shell/page-header";
 import { StageTabStrip } from "../_shell/stage-tab-strip";
 import { RowList } from "../_shell/row-list";
 import { MailboxFilter } from "../_shell/mailbox-filter";
-import { UnifiedDetailPane, type PipelineTimelineEvent } from "../_shell/detail-pane";
+import {
+  OptionZDetailPane,
+  type FullTimelineEvent,
+} from "../_shell/option-z-detail-pane";
 import { SelectionProvider } from "../_shell/selection-context";
 import { StageListChips } from "../_shell/stage-list-chips";
 import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
@@ -108,33 +111,35 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
   const selectedId = sp.selected ?? null;
 
-  // Phase 82.4 follow-up: wire the detail pane. Find the selected row in the
-  // current page and pre-fetch its body + Stage 0-3 timeline in parallel so
-  // UnifiedDetailPane has the data it expects. Stage 0 has no swarm registry
-  // surfaces, so categories=[] and intents=[] (hard-separation lock).
-  const selectedRow: Row | null =
-    (selectedId && rows.find((r) => r.id === selectedId)) || null;
-  let bodyText: string | null = null;
-  interface FullTimelineEvent extends PipelineTimelineEvent {
-    decision_details: Record<string, unknown> | null;
-  }
-  let timeline: FullTimelineEvent[] = [];
-  if (selectedRow) {
-    const [bodyRes, timelineRes] = await Promise.all([
+  // Phase 82.4 follow-up: pre-fetch body + timeline for EVERY visible row.
+  // SelectionProvider syncs via history.replaceState (no server re-render),
+  // so a server-side per-selection fetch would never re-run on click. Pass
+  // bulk maps to the client OptionZDetailPane wrapper which picks the right
+  // one from useSelection().
+  const bodyMap: Record<string, string | null> = {};
+  const timelineMap: Record<string, FullTimelineEvent[]> = {};
+  if (rows.length > 0) {
+    const emailIds = rows.map((r) => r.id);
+    const [bodiesRes, timelineRes] = await Promise.all([
       admin
         .schema("email_pipeline")
         .from("emails")
-        .select("body_text")
-        .eq("id", selectedRow.id)
-        .maybeSingle(),
+        .select("id, body_text")
+        .in("id", emailIds),
       admin
         .from("pipeline_events")
-        .select("id, stage, decision, decision_details, created_at")
-        .eq("email_id", selectedRow.id)
+        .select("id, stage, decision, decision_details, created_at, email_id")
+        .in("email_id", emailIds)
         .order("created_at", { ascending: true }),
     ]);
-    bodyText = ((bodyRes.data as { body_text: string | null } | null)?.body_text) ?? null;
-    timeline = ((timelineRes.data ?? []) as FullTimelineEvent[]);
+    for (const b of ((bodiesRes.data ?? []) as Array<{ id: string; body_text: string | null }>)) {
+      bodyMap[b.id] = b.body_text;
+    }
+    for (const e of ((timelineRes.data ?? []) as Array<FullTimelineEvent & { email_id: string }>)) {
+      const list = timelineMap[e.email_id] ?? [];
+      list.push(e);
+      timelineMap[e.email_id] = list;
+    }
   }
 
   // Phase 82.4 Plan 06: build "Load more" href preserving every other URL param
@@ -235,18 +240,16 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
             </div>
             {/* Hard-separation contract: Stage 0 page passes categories=[] AND
                 intents=[] — Stage 0 is upstream of both registries. */}
-            {/* Phase 82.4 follow-up — selection now wired: selectedId →
-                row lookup → parallel body + timeline pre-fetch. Stage 0 still
-                passes categories=[] and intents=[] (hard-separation lock).  */}
-            <UnifiedDetailPane
-              row={selectedRow}
+            {/* Phase 82.4 follow-up — selection now wired through a client
+                wrapper that reads useSelection() and picks from bulk-loaded
+                bodyMap + timelineMap. Server pre-fetches for the visible
+                page; client picks per click without a server re-render.    */}
+            <OptionZDetailPane
               swarmType={swarmType}
               activeStage={0}
-              categories={[]}
-              intents={[]}
-              timeline={timeline}
-              bodyText={bodyText}
-              stageAudit={buildStageAuditMap({ timeline, agentRuns: [], automationRun: null })}
+              rows={rows}
+              bodyMap={bodyMap}
+              timelineMap={timelineMap}
             />
           </div>
         </div>

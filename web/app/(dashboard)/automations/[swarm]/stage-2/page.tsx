@@ -31,7 +31,10 @@ import { PageHeader } from "../_shell/page-header";
 import { StageTabStrip } from "../_shell/stage-tab-strip";
 import { RowList } from "../_shell/row-list";
 import { MailboxFilter } from "../_shell/mailbox-filter";
-import { UnifiedDetailPane, type PipelineTimelineEvent } from "../_shell/detail-pane";
+import {
+  OptionZDetailPane,
+  type FullTimelineEvent,
+} from "../_shell/option-z-detail-pane";
 import { SelectionProvider } from "../_shell/selection-context";
 import { StageListChips } from "../_shell/stage-list-chips";
 import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
@@ -106,32 +109,33 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
   const selectedId = sp.selected ?? null;
 
-  // Phase 82.4 follow-up: wire the detail pane. Stage 2 sits between Stage 1
-  // and Stage 3 — passes categories=[] AND intents=[] (hard-separation: entity
-  // mapping doesn't live in either registry).
-  const selectedRow: Row | null =
-    (selectedId && rows.find((r) => r.id === selectedId)) || null;
-  let bodyText: string | null = null;
-  interface FullTimelineEvent extends PipelineTimelineEvent {
-    decision_details: Record<string, unknown> | null;
-  }
-  let timeline: FullTimelineEvent[] = [];
-  if (selectedRow) {
-    const [bodyRes, timelineRes] = await Promise.all([
+  // Phase 82.4 follow-up: pre-fetch body + timeline for EVERY visible row.
+  // Selection updates the URL via history.replaceState only (no server
+  // re-render); client OptionZDetailPane picks from the bulk maps below.
+  const bodyMap: Record<string, string | null> = {};
+  const timelineMap: Record<string, FullTimelineEvent[]> = {};
+  if (rows.length > 0) {
+    const emailIds = rows.map((r) => r.id);
+    const [bodiesRes, timelineRes] = await Promise.all([
       admin
         .schema("email_pipeline")
         .from("emails")
-        .select("body_text")
-        .eq("id", selectedRow.id)
-        .maybeSingle(),
+        .select("id, body_text")
+        .in("id", emailIds),
       admin
         .from("pipeline_events")
-        .select("id, stage, decision, decision_details, created_at")
-        .eq("email_id", selectedRow.id)
+        .select("id, stage, decision, decision_details, created_at, email_id")
+        .in("email_id", emailIds)
         .order("created_at", { ascending: true }),
     ]);
-    bodyText = ((bodyRes.data as { body_text: string | null } | null)?.body_text) ?? null;
-    timeline = ((timelineRes.data ?? []) as FullTimelineEvent[]);
+    for (const b of ((bodiesRes.data ?? []) as Array<{ id: string; body_text: string | null }>)) {
+      bodyMap[b.id] = b.body_text;
+    }
+    for (const e of ((timelineRes.data ?? []) as Array<FullTimelineEvent & { email_id: string }>)) {
+      const list = timelineMap[e.email_id] ?? [];
+      list.push(e);
+      timelineMap[e.email_id] = list;
+    }
   }
 
   const loadMoreHref: string | null = (() => {
@@ -249,18 +253,15 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
                 Stage 2 sits between Stage 1 and Stage 3 — passes categories=[]
                 AND intents=[]. Entity / customer mapping doesn't live in
                 either registry. */}
-            {/* Phase 82.4 follow-up — selection now wired: selectedId → row
-                lookup → parallel body + timeline pre-fetch. Stage 2 still
-                passes categories=[] and intents=[] per hard-separation. */}
-            <UnifiedDetailPane
-              row={selectedRow}
+            {/* Phase 82.4 follow-up — client wrapper picks selectedRow +
+                body + timeline from bulk maps via useSelection(). Stage 2
+                sits outside both registries (hard-separation lock). */}
+            <OptionZDetailPane
               swarmType={swarmType}
               activeStage={2}
-              categories={[]}
-              intents={[]}
-              timeline={timeline}
-              bodyText={bodyText}
-              stageAudit={buildStageAuditMap({ timeline, agentRuns: [], automationRun: null })}
+              rows={rows}
+              bodyMap={bodyMap}
+              timelineMap={timelineMap}
             />
           </div>
         </div>
