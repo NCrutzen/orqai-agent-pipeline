@@ -194,8 +194,10 @@ Added 2026-05-13 alongside phase 82.4 execution. These requirements live under t
 - [x] **FB-02**: Migration file `supabase/migrations/20260513c_email_feedback.sql` committed to repo (idempotent: CREATE TABLE/INDEX IF NOT EXISTS + DROP/CREATE POLICY) so the schema can be re-applied or replayed on fresh environments.
 - [x] **FB-03
 **: POST `/api/automations/debtor-email/feedback` route validates payload via zod and inserts into `email_feedback` with server-stamped `operator_id` from `auth.getUser().id`.
-- [ ] **FB-04**: `StageFeedbackPanel` (prose textarea + ✓ Confirm chip) mounted in `stage-step.tsx` with auto-collapse behaviour.
-- [ ] **FB-05**: Operator can submit prose-notes alongside confirm/override verdict in a single round-trip from the per-stage audit popup.
+- [x] **FB-04
+**: `StageFeedbackPanel` (prose textarea + ✓ Confirm chip) mounted in `stage-step.tsx` with auto-collapse behaviour.
+- [x] **FB-05
+**: Operator can submit prose-notes alongside confirm/override verdict in a single round-trip from the per-stage audit popup.
 - [ ] **FB-06**: `fireFeedback` helper wired into override-surface so override actions also write a `verdict='override'` row to `email_feedback` alongside Inngest dispatch.
 - [x] **FB-07
 **: `loadStageFeedbackList` loader implements Option Z (every email with a verdict at stage N) with cursor pagination and bucket sort.
