@@ -38,6 +38,7 @@ import {
 import { SelectionProvider } from "../_shell/selection-context";
 import { StageListChips } from "../_shell/stage-list-chips";
 import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
+import { loadMailboxLabels } from "../_shell/_lib/load-mailbox-labels";
 import { buildStageAuditMap } from "../_shell/_lib/build-stage-audit-map";
 import {
   loadStageFeedbackList,
@@ -105,7 +106,8 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
     before: sp.before,
   });
   const allRows: Row[] = feedbackPage.rows.map(toUnifiedRow);
-  const mailboxes = getSwarmMailboxes(swarmType, allRows);
+  const mailboxLabels = await loadMailboxLabels(admin, swarmType);
+  const mailboxes = getSwarmMailboxes(allRows, mailboxLabels);
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
   // Server-side mailbox filter — MailboxFilter uses router.push so the URL
   // change triggers a server re-render. Filter the current page against
@@ -268,6 +270,7 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
               rows={rows}
               bodyMap={bodyMap}
               timelineMap={timelineMap}
+              mailboxLabels={mailboxLabels}
             />
           </div>
         </div>

@@ -60,7 +60,6 @@ import type { PredictedRow } from "../stage-1/page";
 import type { ActiveStage, Row } from "./_lib/types";
 import type { StageAuditMap } from "./_lib/audit-types";
 import { buildStageAuditMap } from "./_lib/build-stage-audit-map";
-import { MAILBOX_LABELS } from "./_lib/get-swarm-mailboxes";
 import { displaySender, displaySubject } from "./_lib/display-fallbacks";
 import { KEYBOARD_EVENTS } from "./keyboard-shortcuts";
 
@@ -128,6 +127,9 @@ export interface UnifiedDetailPaneProps {
    *  Plan 11 wires per-page audit payloads through this map. Stage 4 omitted
    *  per 82.3 CONTEXT.md <out_of_scope>. */
   stageAudit?: StageAuditMap;
+  /** DB-derived mailbox_id → display label. Pages load via loadMailboxLabels.
+   *  Falls back to "mailbox {id}" when an id isn't in the map. */
+  mailboxLabels?: Record<number, string>;
 }
 
 // ---- Component -----------------------------------------------------------
@@ -145,6 +147,7 @@ export function UnifiedDetailPane({
   iControllerBanner,
   predictedRow,
   stageAudit,
+  mailboxLabels,
 }: UnifiedDetailPaneProps) {
   // Empty state — RESEARCH §Empty State unified copy (Stage 3/4 wording).
   if (!row) {
@@ -177,6 +180,7 @@ export function UnifiedDetailPane({
       iControllerBanner={iControllerBanner}
       predictedRow={predictedRow}
       stageAudit={stageAudit}
+      mailboxLabels={mailboxLabels}
     />
   );
 }
@@ -196,6 +200,7 @@ function DetailPaneInner({
   iControllerBanner,
   predictedRow,
   stageAudit,
+  mailboxLabels,
 }: UnifiedDetailPaneProps & { row: Row }) {
   // Track dirty axes — Wave 1 wires the structural shape; Plan 06 layers the
   // real override-confirm flow on top. For now `dirty` is initialised from
@@ -374,10 +379,11 @@ function DetailPaneInner({
     return out;
   }, [dirty, timeline, _categories, _intents, stage0Value, predictedRow, swarmType, onMarkDirty, effectiveStageAudit]);
 
-  // Mailbox header label — uses static map for known swarms.
+  // Mailbox header label — DB-derived map passed by the page (no hardcoded
+  // ids). Falls back to "mailbox {id}" when the row's id isn't in the map.
   const mailboxLbl = (() => {
     if (row.mailbox_id === null) return "(no mailbox)";
-    const lbl = MAILBOX_LABELS[swarmType]?.[row.mailbox_id];
+    const lbl = mailboxLabels?.[row.mailbox_id];
     return lbl ?? `mailbox ${row.mailbox_id}`;
   })();
 

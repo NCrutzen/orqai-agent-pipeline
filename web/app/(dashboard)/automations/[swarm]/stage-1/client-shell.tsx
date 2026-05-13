@@ -72,6 +72,7 @@ export interface Stage1ClientShellProps {
   selectedTimeline: PipelineTimelineEvent[];
   drawerFields: string[];
   stageAudit?: StageAuditMap;
+  mailboxLabels?: Record<number, string>;
 }
 
 export function Stage1ClientShell({
@@ -87,6 +88,7 @@ export function Stage1ClientShell({
   initialSelectedBody,
   selectedTimeline,
   drawerFields,
+  mailboxLabels,
   stageAudit,
 }: Stage1ClientShellProps) {
   const { selectedId } = useSelection();
@@ -225,6 +227,7 @@ export function Stage1ClientShell({
             extrasBelowPipeline={extrasBelowPipeline}
             predictedRow={selectedPredictedRow}
             stageAudit={stageAudit}
+            mailboxLabels={mailboxLabels}
           />
         </div>
       </div>

@@ -26,6 +26,7 @@ interface Props {
   rows: Row[];
   bodyMap: Record<string, string | null>;
   timelineMap: Record<string, FullTimelineEvent[]>;
+  mailboxLabels?: Record<number, string>;
 }
 
 export function OptionZDetailPane({
@@ -34,6 +35,7 @@ export function OptionZDetailPane({
   rows,
   bodyMap,
   timelineMap,
+  mailboxLabels,
 }: Props) {
   const { selectedId } = useSelection();
 
@@ -64,6 +66,7 @@ export function OptionZDetailPane({
         agentRuns: [],
         automationRun: null,
       })}
+      mailboxLabels={mailboxLabels}
     />
   );
 }

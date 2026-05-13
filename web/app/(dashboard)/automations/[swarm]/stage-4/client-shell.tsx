@@ -48,6 +48,7 @@ export interface Stage4ClientShellProps {
   bodyMap: Record<string, BodyEntry>;
   timelineMap: Record<string, PipelineTimelineEvent[]>;
   stageAudit?: StageAuditMap;
+  mailboxLabels?: Record<number, string>;
 }
 
 export function Stage4ClientShell({
@@ -60,6 +61,7 @@ export function Stage4ClientShell({
   bodyMap,
   timelineMap,
   stageAudit,
+  mailboxLabels,
 }: Stage4ClientShellProps) {
   const { selectedId } = useSelection();
 
@@ -193,6 +195,7 @@ export function Stage4ClientShell({
             bodyHtml={body?.bodyHtml ?? null}
             extrasBelowPipeline={handlerErrorWidget}
             stageAudit={stageAudit}
+            mailboxLabels={mailboxLabels}
           />
         </div>
       </div>

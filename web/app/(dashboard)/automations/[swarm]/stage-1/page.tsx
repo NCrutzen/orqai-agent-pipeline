@@ -49,6 +49,7 @@ import { StageTabStrip } from "../_shell/stage-tab-strip";
 import { SelectionProvider } from "../_shell/selection-context";
 import { Cheatsheet } from "../_shell/keyboard-shortcuts";
 import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
+import { loadMailboxLabels } from "../_shell/_lib/load-mailbox-labels";
 import { MailboxFilter } from "../_shell/mailbox-filter";
 import type { Row } from "../_shell/_lib/types";
 import { loadStage2WeeklyCount } from "../stage-2/_lib/load-stage-2-weekly-count";
@@ -1035,7 +1036,8 @@ export default async function SwarmReviewPage({
   // cell widget (Phase 82.1 Plan 04) can read .automation_run_id + .result
   // fields for the override POST + recordVerdict server-action args.
   const unifiedRows: Row[] = data.rows.map(toUnifiedRow);
-  const mailboxes = getSwarmMailboxes(swarmType, unifiedRows);
+  const mailboxLabels = await loadMailboxLabels(admin, swarmType);
+  const mailboxes = getSwarmMailboxes(unifiedRows, mailboxLabels);
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
 
   return (
@@ -1127,6 +1129,7 @@ export default async function SwarmReviewPage({
                 selectedTimeline={data.selectedTimeline}
                 drawerFields={swarm.ui_config.drawer_fields}
                 stageAudit={buildStageAuditMap({ timeline: data.selectedTimeline ?? [], agentRuns: [], automationRun: null })}
+                mailboxLabels={mailboxLabels}
               />
             )}
             <Cheatsheet />

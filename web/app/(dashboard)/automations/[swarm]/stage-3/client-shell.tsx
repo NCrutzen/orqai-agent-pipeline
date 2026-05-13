@@ -55,6 +55,7 @@ export interface Stage3ClientShellProps {
   bodyMap: Record<string, BodyEntry>;
   timelineMap: Record<string, PipelineTimelineEvent[]>;
   stageAudit?: StageAuditMap;
+  mailboxLabels?: Record<number, string>;
 }
 
 export function Stage3ClientShell({
@@ -68,6 +69,7 @@ export function Stage3ClientShell({
   bodyMap,
   timelineMap,
   stageAudit,
+  mailboxLabels,
 }: Stage3ClientShellProps) {
   const { selectedId } = useSelection();
   const [filter, setFilter] = useState<Stage3Filter>("all");
@@ -206,6 +208,7 @@ export function Stage3ClientShell({
             bodyText={body?.bodyText ?? null}
             bodyHtml={body?.bodyHtml ?? null}
             stageAudit={stageAudit}
+            mailboxLabels={mailboxLabels}
           />
         </div>
       </div>

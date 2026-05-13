@@ -28,6 +28,7 @@ import { PageHeader } from "../_shell/page-header";
 import { StageTabStrip } from "../_shell/stage-tab-strip";
 import { SelectionProvider } from "../_shell/selection-context";
 import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
+import { loadMailboxLabels } from "../_shell/_lib/load-mailbox-labels";
 import type { Row } from "../_shell/_lib/types";
 import type { PipelineTimelineEvent } from "../_shell/detail-pane";
 import { Stage4ClientShell } from "./client-shell";
@@ -96,7 +97,8 @@ export default async function Stage4Page({
   );
 
   const unifiedRows = stage4Rows.map(toUnifiedRow);
-  const mailboxes = getSwarmMailboxes(swarmType, unifiedRows);
+  const mailboxLabels = await loadMailboxLabels(admin, swarmType);
+  const mailboxes = getSwarmMailboxes(unifiedRows, mailboxLabels);
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
   const selectedId = sp.selected ?? null;
 
@@ -180,6 +182,7 @@ export default async function Stage4Page({
             bodyMap={bodyMap}
             timelineMap={timelineMap}
             stageAudit={buildStageAuditMap({ timeline: [], agentRuns: [], automationRun: null })}
+            mailboxLabels={mailboxLabels}
           />
         </SelectionProvider>
       </AutomationRealtimeProvider>
