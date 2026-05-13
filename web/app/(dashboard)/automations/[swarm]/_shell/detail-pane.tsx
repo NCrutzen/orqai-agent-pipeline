@@ -37,6 +37,7 @@ import { Check, MailOpen, SkipForward, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SwarmNoiseCategoryRow, SwarmIntentRow } from "@/lib/swarms/types";
 import type { OverrideAxis } from "@/lib/pipeline-events/types";
+import type { FeedbackReadBack } from "@/lib/automations/debtor-email/feedback/types";
 
 // PipelineTimelineEvent currently lives in stage-1/page.tsx (exported). Plan
 // 06 will lift it to _shell/_lib/ when the unified shell becomes the single
@@ -153,6 +154,7 @@ export function UnifiedDetailPane({
   predictedRow,
   stageAudit,
   mailboxLabels,
+  feedbackMap,
 }: UnifiedDetailPaneProps) {
   // Empty state — RESEARCH §Empty State unified copy (Stage 3/4 wording).
   if (!row) {
@@ -186,6 +188,7 @@ export function UnifiedDetailPane({
       predictedRow={predictedRow}
       stageAudit={stageAudit}
       mailboxLabels={mailboxLabels}
+      feedbackMap={feedbackMap}
     />
   );
 }
@@ -206,6 +209,7 @@ function DetailPaneInner({
   predictedRow,
   stageAudit,
   mailboxLabels,
+  feedbackMap,
 }: UnifiedDetailPaneProps & { row: Row }) {
   // Track dirty axes — Wave 1 wires the structural shape; Plan 06 layers the
   // real override-confirm flow on top. For now `dirty` is initialised from
@@ -216,6 +220,13 @@ function DetailPaneInner({
 
   const [stage0Value, setStage0Value] = useState<boolean | null>(null);
   const [bodyOpen, setBodyOpen] = useState(false);
+
+  // Phase 82.5 Plan 05 (R6) — future-pill expansion state. Reset to false on
+  // row change so each selection starts with trailing skipped stages collapsed.
+  const [futureExpanded, setFutureExpanded] = useState(false);
+  useEffect(() => {
+    setFutureExpanded(false);
+  }, [row.id]);
 
   // Active-cell scroll-into-view — CONTEXT D-08 / V8.
   const activeCellRef = useRef<HTMLDivElement | null>(null);
@@ -379,10 +390,79 @@ function DetailPaneInner({
         // expander. Stage 4 omitted (out_of_scope) — guarded by stage.n !== 4
         // at the <StageStep> level, but we also nil it here for clarity.
         emailId: n === 4 ? undefined : row.id,
+        // Phase 82.5 Plan 05 (R1) — server-prefetched feedback read-back for
+        // this stage. <StageStep> uses it to seed the controlled textarea +
+        // render OthersSaidBlock inside <StageFeedbackPanel>. Stage 4 omitted
+        // (out_of_scope per 82.3 CONTEXT).
+        feedbackReadBack:
+          n === 4 ? undefined : feedbackMap?.[n as 0 | 1 | 2 | 3],
       });
     }
     return out;
-  }, [dirty, timeline, _categories, _intents, stage0Value, predictedRow, swarmType, onMarkDirty, effectiveStageAudit]);
+  }, [dirty, timeline, _categories, _intents, stage0Value, predictedRow, swarmType, onMarkDirty, effectiveStageAudit, feedbackMap, row.id]);
+
+  // Phase 82.5 Plan 05 (R6) — compute futureRange from stagesData. Walk
+  // backwards over stages [4..0] while state==='skipped'. Require ≥2
+  // consecutive trailing skipped stages to collapse (one alone isn't worth a
+  // pill).
+  const futureRange = useMemo<{ startN: number; endN: number } | null>(() => {
+    let endN = -1;
+    let startN = 5;
+    for (let i = 4; i >= 0; i--) {
+      if (stagesData[i]?.state === "skipped") {
+        if (endN === -1) endN = stagesData[i].n;
+        startN = stagesData[i].n;
+      } else {
+        break;
+      }
+    }
+    if (endN === -1 || endN - startN < 1) return null;
+    return { startN, endN };
+  }, [stagesData]);
+
+  // Phase 82.5 Plan 05 (R7) — bottom-button morph state.
+  const anyDirty = stagesData.some((s) => s.state === "dirty");
+  const dirtyStages = stagesData
+    .filter((s) => s.state === "dirty")
+    .map((s) => s.n);
+  const visibleOkStages = stagesData
+    .filter((s) => s.state === "ok")
+    .map((s) => s.n);
+
+  const primaryLabel = anyDirty
+    ? dirtyStages.length === 1
+      ? `✓ Submit override (Stage ${dirtyStages[0]})`
+      : `✓ Submit overrides (Stages ${dirtyStages.join(", ")})`
+    : `✓ Approve verdicts that ran (Stages ${visibleOkStages.join("+")})`;
+
+  async function handlePrimary() {
+    if (anyDirty) {
+      // Override mode: dispatch ONLY. stage-step.tsx's existing per-stage
+      // override widget listens for KEYBOARD_EVENTS.approve and invokes
+      // fireFeedback({verdict:'override',...}) as part of its Phase 82.4 Plan
+      // 04 dual-write. ONE event → N stage-step listeners → N email_feedback
+      // rows. A footer-level POST here would double-write (W6).
+      window.dispatchEvent(new Event(KEYBOARD_EVENTS.approve));
+      return;
+    }
+    // Approve mode: batch-confirm every ok stage. Nothing in stage-step
+    // listens for a "confirm everything" signal — the per-stage fireFeedback
+    // only fires on the override branch. The footer is the canonical writer.
+    await Promise.all(
+      visibleOkStages.map((n) =>
+        fetch("/api/automations/debtor-email/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            email_id: row.id,
+            stage: n,
+            verdict: "confirm",
+          }),
+        }),
+      ),
+    );
+  }
 
   // Mailbox header label — DB-derived map passed by the page (no hardcoded
   // ids). Falls back to "mailbox {id}" when the row's id isn't in the map.
@@ -481,7 +561,13 @@ function DetailPaneInner({
           // <ol>. We attach the activeCellRef wrapper via the cell that
           // matches `activeStage` — see below.
         >
-          <PipelineFlow stages={stagesData} onMarkDirty={onMarkDirty} />
+          <PipelineFlow
+            stages={stagesData}
+            onMarkDirty={onMarkDirty}
+            futureRange={futureRange}
+            futureExpanded={futureExpanded}
+            onToggleFuture={() => setFutureExpanded((p) => !p)}
+          />
         </div>
         {/* Render a hidden marker for each cell so RTL can assert all 5
             exist + which one is active. The visible cells live inside
@@ -515,10 +601,17 @@ function DetailPaneInner({
         <Button
           type="button"
           size="sm"
-          onClick={() => dispatchAction(KEYBOARD_EVENTS.approve)}
+          onClick={handlePrimary}
+          data-testid="detail-pane-primary"
+          data-mode={anyDirty ? "override" : "approve"}
+          style={{
+            background: "var(--v7-lime)",
+            color: "var(--v7-bg)",
+            fontFamily: "var(--font-mono)",
+          }}
         >
           <Check className="h-4 w-4 mr-1" aria-hidden="true" />
-          Approve
+          {primaryLabel}
         </Button>
         <Button
           type="button"
