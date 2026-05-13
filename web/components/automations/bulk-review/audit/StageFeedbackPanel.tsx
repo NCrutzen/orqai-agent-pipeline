@@ -25,6 +25,14 @@ interface StageFeedbackPanelProps {
   /** Invoked after a successful (2xx) Confirm POST so the parent can collapse
    *  the surrounding StageDetailExpander. Save flow does NOT trigger it. */
   onAfterConfirm?: () => void;
+  /** Phase 82.4 Plan 04 — optional controlled-prose hooks so an enclosing
+   *  component (e.g. `stage-step.tsx`) can read the current textarea value
+   *  at the moment an override-link is clicked and pass it as `prose_notes`
+   *  to the `fireFeedback` call alongside the existing Inngest dispatch.
+   *  When both are omitted, the panel falls back to internal uncontrolled
+   *  state (Plan 03 behaviour). */
+  value?: string;
+  onValueChange?: (next: string) => void;
 }
 
 type Verdict = "confirm" | "unclear";
@@ -36,8 +44,19 @@ export function StageFeedbackPanel({
   stage,
   emailId,
   onAfterConfirm,
+  value,
+  onValueChange,
 }: StageFeedbackPanelProps) {
-  const [prose, setProse] = useState("");
+  const [internalProse, setInternalProse] = useState("");
+  const isControlled = value !== undefined && onValueChange !== undefined;
+  const prose = isControlled ? (value as string) : internalProse;
+  const setProse = (next: string) => {
+    if (isControlled) {
+      (onValueChange as (n: string) => void)(next);
+    } else {
+      setInternalProse(next);
+    }
+  };
   const [inFlight, setInFlight] = useState<null | Verdict>(null);
   const [error, setError] = useState<string | null>(null);
 

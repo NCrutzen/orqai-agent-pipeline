@@ -18,10 +18,37 @@ import { useState } from "react";
 import type { StageData } from "./pipeline-flow";
 import { StageDetailExpander } from "@/components/automations/bulk-review/audit/StageDetailExpander";
 import { StageFeedbackPanel } from "@/components/automations/bulk-review/audit/StageFeedbackPanel";
+import { fireFeedback } from "@/lib/automations/debtor-email/feedback/fire-feedback";
 
 interface StageStepProps {
   stage: StageData;
   onMarkDirty: () => void;
+}
+
+/**
+ * Phase 82.4 Plan 04 — exported for callers (Stage widgets) that submit an
+ * override and want the matching `email_feedback` row written alongside the
+ * existing Inngest override dispatch. Fire-and-forget; never throws.
+ *
+ * Stage-step itself uses `fireFeedback` directly on the "override stage"
+ * link clicks to record the override INTENT (no corrected_value yet — the
+ * widget submit produces a follow-up row with `corrected_value`).
+ */
+export function fireOverrideFeedback(
+  emailId: string,
+  stage: 0 | 1 | 2 | 3,
+  corrected_value: string,
+  prose_notes?: string,
+): void {
+  void fireFeedback({
+    email_id: emailId,
+    stage,
+    verdict: "override",
+    corrected_value,
+    ...(prose_notes && prose_notes.trim().length > 0
+      ? { prose_notes: prose_notes.trim() }
+      : {}),
+  });
 }
 
 function nodeBorderColor(state: StageData["state"]): string {
@@ -36,6 +63,12 @@ export function StageStep({ stage, onMarkDirty }: StageStepProps) {
   // expander after a successful POST (operator-momentum). Defaults closed
   // to match the original uncontrolled behaviour.
   const [auditOpen, setAuditOpen] = useState(false);
+
+  // Phase 82.4 Plan 04 — lift the StageFeedbackPanel's prose textarea state
+  // up so that an "override stage" link click can read the current value and
+  // pass it as `prose_notes` to fireFeedback() alongside the existing
+  // Inngest override dispatch (preserved unchanged via onMarkDirty).
+  const [proseNotes, setProseNotes] = useState("");
 
   const announce =
     stage.state === "dirty"
@@ -113,6 +146,8 @@ export function StageStep({ stage, onMarkDirty }: StageStepProps) {
                   stage={stage.n as 0 | 1 | 2 | 3}
                   emailId={stage.emailId}
                   onAfterConfirm={() => setAuditOpen(false)}
+                  value={proseNotes}
+                  onValueChange={setProseNotes}
                 />
               )}
             </StageDetailExpander>
@@ -131,7 +166,23 @@ export function StageStep({ stage, onMarkDirty }: StageStepProps) {
               </span>
               <button
                 type="button"
-                onClick={onMarkDirty}
+                onClick={() => {
+                  // Phase 82.4 Plan 04 — record override INTENT alongside the
+                  // existing Phase 71/82 Inngest override.submitted dispatch.
+                  // onMarkDirty() runs first and unchanged; fireFeedback is
+                  // fire-and-forget and never throws.
+                  onMarkDirty();
+                  if (stage.emailId && stage.n !== 4) {
+                    void fireFeedback({
+                      email_id: stage.emailId,
+                      stage: stage.n as 0 | 1 | 2 | 3,
+                      verdict: "override",
+                      ...(proseNotes.trim().length > 0
+                        ? { prose_notes: proseNotes.trim() }
+                        : {}),
+                    });
+                  }
+                }}
                 className="text-[12px] leading-[1.3] underline-offset-2 hover:underline transition-colors duration-150 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 style={{
                   color: "var(--v7-brand-secondary)",
@@ -163,7 +214,21 @@ export function StageStep({ stage, onMarkDirty }: StageStepProps) {
               </span>
               <button
                 type="button"
-                onClick={onMarkDirty}
+                onClick={() => {
+                  // Phase 82.4 Plan 04 — same additive feedback row as the
+                  // state==='ok' branch. See comment there.
+                  onMarkDirty();
+                  if (stage.emailId && stage.n !== 4) {
+                    void fireFeedback({
+                      email_id: stage.emailId,
+                      stage: stage.n as 0 | 1 | 2 | 3,
+                      verdict: "override",
+                      ...(proseNotes.trim().length > 0
+                        ? { prose_notes: proseNotes.trim() }
+                        : {}),
+                    });
+                  }
+                }}
                 className="text-[12px] leading-[1.3] underline-offset-2 hover:underline transition-colors duration-150 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 style={{
                   color: "var(--v7-brand-secondary)",
