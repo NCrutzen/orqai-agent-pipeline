@@ -16,6 +16,7 @@
  */
 import type { ReactNode } from "react";
 import type { OverrideAxis } from "@/lib/pipeline-events/types";
+import type { FeedbackReadBack } from "@/lib/automations/debtor-email/feedback/types";
 import { StageStep } from "./stage-step";
 
 export type StageState = "ok" | "dirty" | "skipped";
@@ -40,15 +41,33 @@ export interface StageData {
    *  email_id. Omitted when the parent has no email_id in scope (panel is
    *  skipped silently in that case). */
   emailId?: string;
+  /** Phase 82.5 Plan 05 — server-prefetched per-stage feedback read-back
+   *  (own_latest + others). Threaded by detail-pane.tsx from feedbackMap and
+   *  consumed by <StageStep> for parent-side textarea seeding (R1) and the
+   *  "others said" surface inside <StageFeedbackPanel>. */
+  feedbackReadBack?: FeedbackReadBack;
 }
 
 interface PipelineFlowProps {
   stages: StageData[];
   /** Called by each StageStep when the operator clicks "override stage". */
   onMarkDirty: (stageN: number) => void;
+  /** Phase 82.5 Plan 05 (R6) — when supplied, trailing skipped stages in
+   *  [startN..endN] collapse into a single "future-pill" toggle. */
+  futureRange?: { startN: number; endN: number } | null;
+  /** Phase 82.5 Plan 05 — controlled expansion state from detail-pane.tsx. */
+  futureExpanded?: boolean;
+  /** Phase 82.5 Plan 05 — toggle handler from detail-pane.tsx. */
+  onToggleFuture?: () => void;
 }
 
-export function PipelineFlow({ stages, onMarkDirty }: PipelineFlowProps) {
+export function PipelineFlow({
+  stages,
+  onMarkDirty,
+  futureRange,
+  futureExpanded,
+  onToggleFuture,
+}: PipelineFlowProps) {
   if (stages.length === 0) return null;
   return (
     <>
@@ -75,11 +94,72 @@ export function PipelineFlow({ stages, onMarkDirty }: PipelineFlowProps) {
         }
       `}</style>
       <ol className="pf-pipeline-flow flex flex-col gap-4">
-        {stages.map((s) => (
-          <li key={s.n}>
-            <StageStep stage={s} onMarkDirty={() => onMarkDirty(s.n)} />
+        {stages.map((s) => {
+          const inFutureRange =
+            futureRange != null &&
+            s.n >= futureRange.startN &&
+            s.n <= futureRange.endN;
+
+          if (!inFutureRange || futureExpanded) {
+            return (
+              <li key={s.n}>
+                <StageStep stage={s} onMarkDirty={() => onMarkDirty(s.n)} />
+              </li>
+            );
+          }
+
+          // Render the pill ONCE at the first future-range stage.
+          if (s.n === futureRange!.startN) {
+            return (
+              <li key="future-pill" data-testid="future-pill">
+                <button
+                  type="button"
+                  onClick={onToggleFuture}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    background: "var(--v7-panel-2)",
+                    border: "1px dashed var(--v7-border)",
+                    borderRadius: "var(--v7-radius-pill)",
+                    color: "var(--v7-text-muted)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--fs-xs)",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  Stages {futureRange!.startN}-{futureRange!.endN} haven&apos;t
+                  run yet · expand to override pre-emptively
+                </button>
+              </li>
+            );
+          }
+
+          // Other future-range stages: hidden until expanded.
+          return null;
+        })}
+        {futureExpanded && futureRange != null && (
+          <li key="future-collapse">
+            <button
+              type="button"
+              onClick={onToggleFuture}
+              data-testid="future-pill-collapse"
+              style={{
+                width: "100%",
+                padding: "6px 10px",
+                background: "transparent",
+                border: "none",
+                color: "var(--v7-text-muted)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--fs-xs)",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              Collapse future stages
+            </button>
           </li>
-        ))}
+        )}
       </ol>
     </>
   );
