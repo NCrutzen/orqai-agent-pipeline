@@ -197,8 +197,10 @@ Added 2026-05-13 alongside phase 82.4 execution. These requirements live under t
 - [ ] **FB-04**: `StageFeedbackPanel` (prose textarea + ✓ Confirm chip) mounted in `stage-step.tsx` with auto-collapse behaviour.
 - [ ] **FB-05**: Operator can submit prose-notes alongside confirm/override verdict in a single round-trip from the per-stage audit popup.
 - [ ] **FB-06**: `fireFeedback` helper wired into override-surface so override actions also write a `verdict='override'` row to `email_feedback` alongside Inngest dispatch.
-- [ ] **FB-07**: `loadStageFeedbackList` loader implements Option Z (every email with a verdict at stage N) with cursor pagination and bucket sort.
-- [ ] **FB-08**: Stage-tab lists re-scope from "needs-action only" to "every-row-with-verdict" using the loader above.
+- [x] **FB-07
+**: `loadStageFeedbackList` loader implements Option Z (every email with a verdict at stage N) with cursor pagination and bucket sort.
+- [x] **FB-08
+**: Stage-tab lists re-scope from "needs-action only" to "every-row-with-verdict" using the loader above.
 - [ ] **FB-09**: `NeedsActionChip` URL-param toggle wired into stage-0/1/2/3 page.tsx (defaults OFF).
 - [ ] **FB-10**: `MineOnlyChip` URL-param toggle filters list to current operator's feedback rows.
 - [x] **FB-11
