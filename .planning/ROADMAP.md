@@ -624,13 +624,19 @@ Plans:
 ### Phase 82.4: Feedback capture infrastructure (v8.0 stabilisation) (INSERTED)
 
 **Goal:** Capture prose-notes context alongside the existing override controls per stage and re-scope the stage-tab lists to show every email with a verdict at each stage (Option Z). Two surfaces: (1) prose-notes textarea next to override controls on Stages 0-3 inside Phase 82.3's audit popup; (2) re-scope stage-tab lists to show every-row-with-verdict + a "needs action" filter chip (defaults OFF). `email_feedback` table seeded so V9.0 synthesis (clusterer + drafter + Learning Inbox) has captured data to read from. Synthesis itself stays V9.0.
-**Requirements**: TBD (see `82.4-CONTEXT.md`)
+**Requirements**: FB-01, FB-02, FB-03, FB-04, FB-05, FB-06, FB-07, FB-08, FB-09, FB-10, FB-11
 **Depends on:** Phase 82.3 (prose-notes UI mounts inside 82.3's audit panes)
-**Plans:** 0 — needs `/gsd-discuss-phase 82.4`
+**Plans:** 7 plans
 **Closure target:** before 2026-05-18 (debtor-person onboarding)
 
 Plans:
-- [ ] TBD (run /gsd-discuss-phase 82.4 then /gsd-plan-phase 82.4)
+- [ ] 82.4-01-PLAN.md — email_feedback migration + [BLOCKING] schema push (FB-01)
+- [ ] 82.4-02-PLAN.md — POST /api/automations/debtor-email/feedback route + zod + tests (FB-02, FB-03)
+- [ ] 82.4-03-PLAN.md — StageFeedbackPanel (prose textarea + ✓ Confirm chip) mounted in stage-step.tsx with auto-collapse (FB-04, FB-05)
+- [ ] 82.4-04-PLAN.md — fireFeedback helper + override-surface wiring (writes verdict='override' rows alongside Inngest dispatch) (FB-06)
+- [ ] 82.4-05-PLAN.md — loadStageFeedbackList loader: Option Z + cursor pagination + bucket sort (FB-07, FB-08)
+- [ ] 82.4-06-PLAN.md — NeedsActionChip + MineOnlyChip URL-param toggles wired into stage-0/1/2/3 page.tsx (FB-09, FB-10)
+- [ ] 82.4-07-PLAN.md — Inngest nightly snapshot cron to Supabase Storage (FB-11)
 
 ### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED) ✓ closed 2026-05-11
 
