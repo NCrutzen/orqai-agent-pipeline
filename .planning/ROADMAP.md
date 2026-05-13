@@ -630,7 +630,7 @@ Plans:
 **Closure target:** before 2026-05-18 (debtor-person onboarding)
 
 Plans:
-- [ ] 82.4-01-PLAN.md — email_feedback migration + [BLOCKING] schema push (FB-01)
+- [x] 82.4-01-PLAN.md — email_feedback migration + [BLOCKING] schema push (FB-01) ✓ 2026-05-13
 - [ ] 82.4-02-PLAN.md — POST /api/automations/debtor-email/feedback route + zod + tests (FB-02, FB-03)
 - [ ] 82.4-03-PLAN.md — StageFeedbackPanel (prose textarea + ✓ Confirm chip) mounted in stage-step.tsx with auto-collapse (FB-04, FB-05)
 - [ ] 82.4-04-PLAN.md — fireFeedback helper + override-surface wiring (writes verdict='override' rows alongside Inngest dispatch) (FB-06)

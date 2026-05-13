@@ -181,3 +181,39 @@ Filled by roadmapper after phase mapping.
 **Coverage:** 47/47 v1 requirements mapped to 11 phases (63-73). 100%.
 
 **Total:** 47 v1 requirements across 12 categories.
+
+---
+
+## v8.0 Stabilisation Addendum — Phase 82.4 (Feedback capture infrastructure)
+
+Added 2026-05-13 alongside phase 82.4 execution. These requirements live under the v8.0 stabilisation umbrella (Phases 82.1-82.4) and seed the data substrate that V9.0 synthesis reads from.
+
+### Feedback capture (FB-*)
+
+- [x] **FB-01**: `public.email_feedback` table exists in remote Supabase project with the locked schema (id uuid pk, email_id uuid, stage smallint 0..3, verdict text in {confirm,override,unclear}, corrected_value text null, prose_notes text null, operator_id text, created_at timestamptz default now()) — service_role-only RLS, 2 supporting indexes; multiple revisions per (email_id, stage, operator_id) allowed by design.
+- [x] **FB-02**: Migration file `supabase/migrations/20260513c_email_feedback.sql` committed to repo (idempotent: CREATE TABLE/INDEX IF NOT EXISTS + DROP/CREATE POLICY) so the schema can be re-applied or replayed on fresh environments.
+- [ ] **FB-03**: POST `/api/automations/debtor-email/feedback` route validates payload via zod and inserts into `email_feedback` with server-stamped `operator_id` from `auth.getUser().id`.
+- [ ] **FB-04**: `StageFeedbackPanel` (prose textarea + ✓ Confirm chip) mounted in `stage-step.tsx` with auto-collapse behaviour.
+- [ ] **FB-05**: Operator can submit prose-notes alongside confirm/override verdict in a single round-trip from the per-stage audit popup.
+- [ ] **FB-06**: `fireFeedback` helper wired into override-surface so override actions also write a `verdict='override'` row to `email_feedback` alongside Inngest dispatch.
+- [ ] **FB-07**: `loadStageFeedbackList` loader implements Option Z (every email with a verdict at stage N) with cursor pagination and bucket sort.
+- [ ] **FB-08**: Stage-tab lists re-scope from "needs-action only" to "every-row-with-verdict" using the loader above.
+- [ ] **FB-09**: `NeedsActionChip` URL-param toggle wired into stage-0/1/2/3 page.tsx (defaults OFF).
+- [ ] **FB-10**: `MineOnlyChip` URL-param toggle filters list to current operator's feedback rows.
+- [ ] **FB-11**: Inngest nightly snapshot cron exports `email_feedback` to Supabase Storage for V9.0 synthesis batch reads.
+
+### Traceability (FB-*)
+
+| REQ-ID | Phase | Status |
+|--------|-------|--------|
+| FB-01 | Phase 82.4 | complete (table applied to remote 2026-05-13 via MCP apply_migration `email_feedback_phase_82_4`) |
+| FB-02 | Phase 82.4 | complete (migration file `supabase/migrations/20260513c_email_feedback.sql` committed in 8301899) |
+| FB-03 | Phase 82.4 | pending (Plan 82.4-02) |
+| FB-04 | Phase 82.4 | pending (Plan 82.4-03) |
+| FB-05 | Phase 82.4 | pending (Plan 82.4-03) |
+| FB-06 | Phase 82.4 | pending (Plan 82.4-04) |
+| FB-07 | Phase 82.4 | pending (Plan 82.4-05) |
+| FB-08 | Phase 82.4 | pending (Plan 82.4-05) |
+| FB-09 | Phase 82.4 | pending (Plan 82.4-06) |
+| FB-10 | Phase 82.4 | pending (Plan 82.4-06) |
+| FB-11 | Phase 82.4 | pending (Plan 82.4-07) |
