@@ -16,6 +16,7 @@
 
 import type { ReactNode } from "react";
 import type { EmptyState, Row } from "./_lib/types";
+import { RowVerdictDot } from "./components/row-verdict-dot";
 import { useSelection } from "./selection-context";
 
 export interface RowListProps {
@@ -31,10 +32,9 @@ export interface RowListProps {
 }
 
 export function RowList({ rows, emptyState, rightEdgeSlot, feedbackMap }: RowListProps) {
-  // Phase 82.5 Plan 06: prop accepted for forward-compatibility; Plan 04 wires
-  // the verdict dot render. Mark `feedbackMap` as intentionally unused until
-  // Plan 04 lands to keep TS noUnusedLocals quiet.
-  void feedbackMap;
+  // Phase 82.5 Plan 04: consume feedbackMap to render the per-row verdict dot.
+  // When the prop is undefined, every row renders the dashed empty-state dot
+  // (graceful default until Plan 06 page-level prefetch lands).
   const { selectedId, setSelected, pendingRemovalIds } = useSelection();
 
   const visible =
@@ -95,8 +95,10 @@ export function RowList({ rows, emptyState, rightEdgeSlot, feedbackMap }: RowLis
                 : "140px 200px minmax(0, 1fr) 150px",
               alignItems: "center",
               gap: "var(--space-3)",
+              position: "relative",
             }}
           >
+            <RowVerdictDot verdict={feedbackMap?.[r.id] ?? null} />
             <StageBadge {...r.stage_badge} />
             <span
               data-testid="row-sender"
