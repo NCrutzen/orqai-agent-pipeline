@@ -198,7 +198,8 @@ Added 2026-05-13 alongside phase 82.4 execution. These requirements live under t
 **: `StageFeedbackPanel` (prose textarea + ✓ Confirm chip) mounted in `stage-step.tsx` with auto-collapse behaviour.
 - [x] **FB-05
 **: Operator can submit prose-notes alongside confirm/override verdict in a single round-trip from the per-stage audit popup.
-- [ ] **FB-06**: `fireFeedback` helper wired into override-surface so override actions also write a `verdict='override'` row to `email_feedback` alongside Inngest dispatch.
+- [x] **FB-06
+**: `fireFeedback` helper wired into override-surface so override actions also write a `verdict='override'` row to `email_feedback` alongside Inngest dispatch.
 - [x] **FB-07
 **: `loadStageFeedbackList` loader implements Option Z (every email with a verdict at stage N) with cursor pagination and bucket sort.
 - [x] **FB-08
