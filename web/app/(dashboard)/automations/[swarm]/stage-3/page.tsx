@@ -23,10 +23,8 @@
 // W3 single-field rule (web/lib/swarms/types.ts:86): canonical noise field
 // is `category_key`. No legacy fallback to a non-existent secondary field.
 
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 import {
   loadSwarm,
   loadSwarmIntents,
@@ -37,17 +35,11 @@ import { loadKanbanRows, type KanbanRow } from "../_lib/kanban-loader";
 import { PageHeader } from "../_shell/page-header";
 import { StageTabStrip } from "../_shell/stage-tab-strip";
 import { SelectionProvider } from "../_shell/selection-context";
-import { StageListChips } from "../_shell/stage-list-chips";
-import { RowList } from "../_shell/row-list";
 import { getSwarmMailboxes } from "../_shell/_lib/get-swarm-mailboxes";
 import type { Row } from "../_shell/_lib/types";
 import type { PipelineTimelineEvent } from "../_shell/detail-pane";
 import { Stage3ClientShell } from "./client-shell";
 import { buildStageAuditMap } from "../_shell/_lib/build-stage-audit-map";
-import {
-  loadStageFeedbackList,
-  type FeedbackListRow,
-} from "../_shell/_lib/feedback-list-loader";
 
 export const dynamic = "force-dynamic";
 
@@ -60,28 +52,6 @@ interface PageProps {
     mine_only?: string;
     before?: string;
   }>;
-}
-
-// Phase 82.4 Plan 06 — map FeedbackListRow → unified Row for the Option Z
-// audit list rendered ABOVE the live Kanban shell. Stage 3 client shell
-// (Kanban) is left intact; Option Z is additive per Plan 06 Task 2 step 7,
-// because Stage 3's existing surface is feature-rich (replay + reclassify
-// dropdowns, internal chip filter) and the audit list serves a different
-// role (training / spot-check across auto-handled rows).
-//
-// Hard-separation (RFC): the badge label echoes pipeline_events.decision for
-// stage=3. Variant "intent" matches the existing Stage 3 surface — the loader
-// guarantees these rows are Stage 3 verdicts, not Stage 1 noise emits.
-function toUnifiedFeedbackRow(r: FeedbackListRow): Row {
-  return {
-    id: r.email_id,
-    from_name: r.sender_name,
-    from_email: r.sender_email,
-    subject: r.subject,
-    timestamp: r.received_at,
-    mailbox_id: r.mailbox_id,
-    stage_badge: { label: r.stage_state, variant: "intent" },
-  };
 }
 
 // KanbanRow → unified Row. mailbox_id MUST be threaded through from the
@@ -155,40 +125,6 @@ export default async function Stage3Page({
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
   const selectedId = sp.selected ?? null;
 
-  // Phase 82.4 Plan 06: Option Z audit list. Stage 3 keeps its live Kanban
-  // surface (replay + reclassify dropdowns); the Option Z list is rendered as
-  // an ADDITIVE "All Stage 3 verdicts" section above the Kanban shell so the
-  // operator can spot-check auto-handled rows too (CONTEXT.md rationale —
-  // audit-first; needs-action chip defaults OFF on every tab).
-  const needsAction = sp.needs_action === "1";
-  const mineOnly = sp.mine_only === "1";
-  const supabaseSrv = await createClient();
-  const { data: { user } } = await supabaseSrv.auth.getUser();
-  const feedbackPage = await loadStageFeedbackList(admin, {
-    stage: 3,
-    swarmType,
-    needsActionOnly: needsAction,
-    mineOnly,
-    operatorId: user?.id,
-    before: sp.before,
-  });
-  const auditRows: Row[] = feedbackPage.rows.map(toUnifiedFeedbackRow);
-
-  const loadMoreHref: string | null = (() => {
-    if (!feedbackPage.nextBefore) return null;
-    const qs = new URLSearchParams();
-    if (Array.isArray(sp.mailbox)) {
-      for (const m of sp.mailbox) qs.append("mailbox", m);
-    } else if (sp.mailbox) {
-      qs.append("mailbox", sp.mailbox);
-    }
-    if (needsAction) qs.set("needs_action", "1");
-    if (mineOnly) qs.set("mine_only", "1");
-    if (sp.selected) qs.set("selected", sp.selected);
-    qs.set("before", feedbackPage.nextBefore);
-    return `?${qs.toString()}`;
-  })();
-
   // Body + timeline pre-fetch (Pitfall 3 — MANDATORY). Mirrors Stage 1/4
   // pattern: parallel SELECT against email_pipeline.emails (body_text /
   // body_html) and pipeline_events (timeline). V8 requires the email body to
@@ -251,59 +187,6 @@ export default async function Stage3Page({
         currentStage={3}
         counts={{ 3: stage3Rows.length, 4: stage4Count }}
       />
-      {/* Phase 82.4 Plan 06: Option Z audit list — additive section above the
-          live Kanban shell. Renders every Stage 3 verdict (auto-handled + own-
-          reviewed + needs-action) so the operator can spot-check across the
-          full Stage 3 surface. Chips default OFF (audit-first culture). */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "var(--space-3)",
-          padding: "var(--space-4) var(--space-4) 0",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "var(--space-3)",
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              color: "var(--v7-muted)",
-              margin: 0,
-            }}
-          >
-            All Stage 3 verdicts
-          </h2>
-          <StageListChips needsAction={needsAction} mineOnly={mineOnly} />
-        </div>
-        <RowList
-          rows={auditRows}
-          emptyState={{
-            title: "No Stage 3 verdicts yet",
-            body: "When the intent coordinator records a verdict, it will appear here.",
-          }}
-        />
-        {loadMoreHref && (
-          <div>
-            <Link
-              href={loadMoreHref}
-              data-testid="stage-list-load-more"
-              style={{ fontSize: 13, color: "var(--v7-brand-secondary)" }}
-            >
-              Load more
-            </Link>
-          </div>
-        )}
-      </div>
       <AutomationRealtimeProvider
         automations={[`${swarmType}-kanban`]}
         initialLimit={500}
