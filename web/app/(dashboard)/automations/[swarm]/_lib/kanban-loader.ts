@@ -114,7 +114,7 @@ export async function loadKanbanRows(
   const emailMetaPromise = admin
     .schema("email_pipeline")
     .from("emails")
-    .select("id, subject, sender_email, sender_name, received_at, mailbox_id")
+    .select("id, subject, sender_email, sender_name, received_at")
     .in("id", emailIds);
 
   const [eventsRes, emailMetaRes] = await Promise.all([
@@ -151,14 +151,13 @@ export async function loadKanbanRows(
     sender_email: string | null;
     sender_name: string | null;
     received_at: string | null;
-    mailbox_id: number | null;
   }>)) {
     emailMetaMap.set(e.id, {
       subject: e.subject,
       sender_email: e.sender_email,
       sender_name: e.sender_name,
       received_at: e.received_at,
-      mailbox_id: e.mailbox_id,
+      mailbox_id: null,
     });
   }
 
