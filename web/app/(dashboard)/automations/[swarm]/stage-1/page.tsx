@@ -1111,7 +1111,7 @@ export default async function SwarmReviewPage({
           initialSelectedId={sp.selected ?? null}
           rowIds={rowIds}
         >
-          <main className="px-6 pt-6 pb-12 w-full">
+          <div className="px-6 pt-6 pb-12 w-full">
             {/* Phase 82.4 Plan 06: Option Z audit list — additive section
                 above the existing chip strip + predicted-row shell. Renders
                 every Stage 1 verdict (needs-action + auto-handled + own-
@@ -1250,7 +1250,7 @@ export default async function SwarmReviewPage({
               />
             )}
             <Cheatsheet />
-          </main>
+          </div>
         </SelectionProvider>
       </AutomationRealtimeProvider>
     </>
