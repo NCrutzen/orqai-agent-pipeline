@@ -211,12 +211,26 @@ function DetailPaneInner({
   mailboxLabels,
   feedbackMap,
 }: UnifiedDetailPaneProps & { row: Row }) {
-  // Track dirty axes — Wave 1 wires the structural shape; Plan 06 layers the
-  // real override-confirm flow on top. For now `dirty` is initialised from
-  // the activeStage so the pane visibly highlights the current axis.
-  const [dirty, setDirty] = useState<Record<number, boolean>>(() => ({
-    [activeStage]: true,
-  }));
+  // Track dirty axes. Stays {} on mount — the operator opts into override
+  // for a stage by clicking that stage's inline "override stage" link
+  // (stage-step.tsx 'ok'/'skipped' branches → onMarkDirty). Defaulting the
+  // activeStage to dirty (a Wave-1 placeholder from Phase 82-01 that Plan 06
+  // was meant to remove) shipped two visible UX bugs:
+  //   1. Footer button reads "Submit override (Stage N)" even when the
+  //      operator wants to approve the current verdict.
+  //   2. Clicking that button hits the override path → silent no-op (or, post
+  //      Phase 82.5 toast, a misleading "pick a new category" error) when
+  //      the operator simply wanted to confirm.
+  // With dirty={} on mount, the row defaults to "Approve verdicts that ran"
+  // semantics and stays there until the operator explicitly overrides a stage.
+  const [dirty, setDirty] = useState<Record<number, boolean>>({});
+
+  // Reset dirty state when the selected row changes — without this, a stage
+  // marked dirty on row A leaks into row B (the footer would mislabel and
+  // the widget-pickers would render against a stale axis).
+  useEffect(() => {
+    setDirty({});
+  }, [row.id]);
 
   const [stage0Value, setStage0Value] = useState<boolean | null>(null);
   const [bodyOpen, setBodyOpen] = useState(false);
