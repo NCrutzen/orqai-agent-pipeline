@@ -238,7 +238,15 @@ export function Stage1Widget({
 
   // Submit click — fires confirm dialog when triggers apply, else direct.
   const onClickSubmit = useCallback(() => {
-    if (!dirty || submitting) return;
+    if (submitting) return;
+    if (!dirty) {
+      // Footer override button can fire override-submit before the operator
+      // has picked a new category (Phase 82.5 introduced the footer trigger;
+      // widget-dirty stays null until the dropdown changes). Surface a clear
+      // toast instead of failing silently — otherwise the click looks broken.
+      toast.error("Pick a new category from the dropdown first.");
+      return;
+    }
     if (notesRequired && notes.trim().length < 10) {
       notesRef.current?.focus();
       toast.error(
