@@ -638,6 +638,23 @@ Plans:
 - [x] 82.4-06-PLAN.md — NeedsActionChip + MineOnlyChip URL-param toggles wired into stage-0/1/2/3 page.tsx (FB-09, FB-10)
 - [x] 82.4-07-PLAN.md — Inngest nightly snapshot cron to Supabase Storage (FB-11)
 
+### Phase 82.5: Feedback UX deepdive (v8.0 stabilisation) (INSERTED)
+
+**Goal:** Polish the Phase 82.4 feedback capture surface — controlled-component textarea contract, parent-owned seeding, override-branch dispatch hygiene, Option Z list forwarding through OptionZDetailPane, RowVerdictDot overlay, R8 1280×800 layout — so the debtor-person operator onboarding (2026-05-18) lands on a feedback UI that doesn't fight the operator.
+**Requirements**: R1, R2, R3, R4, R5, R6, R7, R8, W4 (see `82.5-SPEC.md`)
+**Depends on:** Phase 82.4
+**Plans:** 7/7 plans complete
+**Verification:** 8/8 SPEC requirements PASS (see `82.5-VERIFICATION.md`). Operator UAT + Playwright 1280×800 snapshot pending before `/gsd-ship`.
+
+Plans:
+- [x] 82.5-01-PLAN.md — SPEC + scope intake
+- [x] 82.5-02-PLAN.md — RowVerdictDot overlay (R4)
+- [x] 82.5-03-PLAN.md — StageFeedbackPanel controlled-component contract (R3, R5)
+- [x] 82.5-04-PLAN.md — Save/Confirm dispatch hygiene (R1, R2)
+- [x] 82.5-05-PLAN.md — Footer override branch dispatch-only; parent seeding via stage-step.tsx (R6)
+- [x] 82.5-06-PLAN.md — feedbackMap forwarded through OptionZDetailPane (R7)
+- [x] 82.5-07-PLAN.md — Playwright 1280×800 snapshot spec + UAT script (R8, W4)
+
 ### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED) ✓ closed 2026-05-11
 
 **Goal:** Add missing `--space-1..7` scale + `--v7-text-muted` / `--v7-border` aliases to `web/app/globals.css` so `_shell/StageTabStrip`, `_shell/PageHeader`, and Phase 76 Stage 3 surfaces resolve their `var(--space-N)` references correctly.

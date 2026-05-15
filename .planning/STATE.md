@@ -20,13 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase --phase — 82.5
+**Current focus:** Phase 82.5
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: --phase (82.5) — EXECUTING
-Plan: 1 of --name
+Phase: 82.5 — EXECUTING (Operator UAT + Playwright snapshot pending)
+Plan: 7 of 7
 Milestone: v8.0 Agentic Platform (Phases 63-82.4)
 Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verified live 2026-05-12)
 

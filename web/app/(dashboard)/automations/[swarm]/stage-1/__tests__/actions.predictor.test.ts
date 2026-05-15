@@ -56,7 +56,7 @@ const loadSwarmNoiseCategoriesMock = vi.fn(async () => [
   { category_key: "auto_reply" },
 ]);
 vi.mock("@/lib/swarms/registry", () => ({
-  loadSwarmNoiseCategories: (...args: unknown[]) =>
+  loadSwarmNoiseCategories: (...args: Parameters<typeof loadSwarmNoiseCategoriesMock>) =>
     loadSwarmNoiseCategoriesMock(...args),
 }));
 
