@@ -644,21 +644,23 @@ function DetailPaneInner({
         }}
         data-testid="action-footer"
       >
-        <Button
-          type="button"
-          size="sm"
-          onClick={handlePrimary}
-          data-testid="detail-pane-primary"
-          data-mode={anyDirty ? "override" : "approve"}
-          style={{
-            background: "var(--v7-lime)",
-            color: "var(--v7-bg)",
-            fontFamily: "var(--font-mono)",
-          }}
-        >
-          <Check className="h-4 w-4 mr-1" aria-hidden="true" />
-          {primaryLabel}
-        </Button>
+        {activeStage === 1 ? (
+          <Button
+            type="button"
+            size="sm"
+            onClick={handlePrimary}
+            data-testid="detail-pane-primary"
+            data-mode={anyDirty ? "override" : "approve"}
+            style={{
+              background: "var(--v7-lime)",
+              color: "var(--v7-bg)",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            <Check className="h-4 w-4 mr-1" aria-hidden="true" />
+            {primaryLabel}
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="outline"
