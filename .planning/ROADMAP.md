@@ -544,6 +544,7 @@ Plans:
 - [ ] **Phase 82.2: Stage 0 telemetry coverage fix** — bring debtor mailboxes from 26-45% → ≥99% Stage 0 pipeline_events coverage; backfill ≤30d historical rows. Blocker for V9.0 per-email trace. CONTEXT exists; needs `/gsd-discuss-phase 82.2`.
 - [ ] **Phase 82.3: Per-stage audit surface** — verdict + reasoning summary + key evidence + screenshots in a per-stage popup on Bulk Review (replaces Phase 77's original "real Stage 2 surface" intent). CONTEXT exists; needs `/gsd-discuss-phase 82.3`.
 - [ ] **Phase 82.4: Feedback capture form** — `email_feedback` table + capture form mounted inside Phase 82.3's popup. Provides the data substrate that V9.0 synthesis reads from. CONTEXT exists; needs `/gsd-discuss-phase 82.4`. Sequenced after 82.3.
+- [ ] **Phase 82.6: Footer Approve → recordVerdict wiring** — wire Phase 82.5 footer ✓ Approve to call `recordVerdict` so Stage 1 rows actually leave the queue; hide footer Approve on Stages 0/2/3/4. CONTEXT + PATTERNS exist; planned 2026-05-15.
 - [ ] **Phase 999.8: Stage 1 LLM 2nd-pass** — 4/4 must-haves green; 2 outstanding browser smokes (operator UAT pending).
 - [ ] `/gsd-audit-milestone v8.0` — formal closure after all four above ship.
 
@@ -654,6 +655,17 @@ Plans:
 - [x] 82.5-05-PLAN.md — Footer override branch dispatch-only; parent seeding via stage-step.tsx (R6)
 - [x] 82.5-06-PLAN.md — feedbackMap forwarded through OptionZDetailPane (R7)
 - [x] 82.5-07-PLAN.md — Playwright 1280×800 snapshot spec + UAT script (R8, W4)
+
+### Phase 82.6: Footer Approve → recordVerdict wiring (v8.0 stabilisation) (INSERTED)
+
+**Goal:** Wire the Phase 82.5 footer "✓ Approve (Stages X+Y)" button on Stage 1 to call `recordVerdict` (Phase 56.7-03) in addition to the existing email_feedback POST, so that clicking Approve actually advances the row out of the Stage 1 queue (status flip predicted→feedback, agent_runs telemetry, Inngest dispatch, broadcast → row vanishes). Hide the footer Approve button on Stages 0/2/3/4 (D-02b). Optimistic row removal via `pendingRemovalIds` (D-04). Non-fatal failure UX per override-flow precedent (D-03).
+**Requirements**: D-01..D-04 + D-02b/D-02c (see `82.6-CONTEXT.md`)
+**Depends on:** Phase 82.5
+**Plans:** 2 plans
+
+Plans:
+- [ ] 82.6-01-PLAN.md — Add `approvePrediction` server-action wrapper to `stage-1/actions.ts` (D-01)
+- [ ] 82.6-02-PLAN.md — Wire wrapper into `_shell/detail-pane.tsx` handlePrimary + hide footer Approve on Stages 0/2/3/4 (D-02b, D-03, D-04)
 
 ### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED) ✓ closed 2026-05-11
 
