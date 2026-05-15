@@ -772,3 +772,107 @@ export async function fetchReviewEmailBody(
     return { ok: false, error: `outlook fetch failed: ${msg}` };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Phase 82.6 — Footer Approve wrapper (D-01).
+//
+// The detail-pane footer "✓ Approve (Stages X+Y)" needs a minimal-arg
+// approve surface. The shared _shell/detail-pane.tsx does not carry
+// rule_key / predicted_category / message_id / source_mailbox / entity
+// on its row prop — those live in automation_runs.result + the joined
+// email_pipeline.emails row. This wrapper hydrates the full VerdictInput
+// server-side from (row_id, swarm_type) and delegates to recordVerdict.
+//
+// Stage 1 only. Hard-separation lock: this path reads automation_runs +
+// email_pipeline.emails, never swarm_intents. recordVerdict itself is
+// Stage-1-pure (writes status='feedback', fires classifier/verdict.recorded
+// → classifier-verdict-worker reads swarm_noise_categories.action).
+// ---------------------------------------------------------------------------
+
+const approveInputSchema = z.object({
+  row_id: z.string().min(1),
+  swarm_type: z.string().min(1),
+  decision: z.enum(["approve", "reject"]),
+});
+
+export async function approvePrediction(input: {
+  row_id: string;
+  swarm_type: string;
+  decision: "approve" | "reject";
+}): Promise<{ ok: true }> {
+  const parsed = approveInputSchema.parse(input);
+  const admin = createAdminClient();
+
+  // Hydrate VerdictInput from automation_runs + email_pipeline.emails.
+  // Closest precedent: recordVerdict itself at lines 100-104 (single-row
+  // automation_runs select). We extend to pull email_id, entity,
+  // rule_key, and merge message_id/source_mailbox out of result jsonb
+  // with a fallback to the joined emails row.
+  const { data: run, error: runErr } = await admin
+    .from("automation_runs")
+    .select("id, swarm_type, entity, rule_key, result, email_id")
+    .eq("id", parsed.row_id)
+    .single();
+
+  if (runErr || !run) {
+    throw new Error(
+      `approvePrediction: automation_runs row not found for id=${parsed.row_id}: ${runErr?.message ?? "no row"}`,
+    );
+  }
+
+  const result = (run.result as Record<string, unknown> | null) ?? {};
+  const predicted_category = typeof result.predicted_category === "string"
+    ? result.predicted_category
+    : "";
+  let message_id = typeof result.message_id === "string" ? result.message_id : "";
+  let source_mailbox = typeof result.source_mailbox === "string" ? result.source_mailbox : "";
+
+  // Fallback: if result jsonb is missing message_id / source_mailbox,
+  // join email_pipeline.emails for canonical values. Defensive only —
+  // Phase 60+ writes both into result jsonb; older rows may not.
+  if ((!message_id || !source_mailbox) && run.email_id) {
+    const { data: emailRow } = await admin
+      .schema("email_pipeline")
+      .from("emails")
+      .select("message_id, source_mailbox")
+      .eq("id", run.email_id)
+      .maybeSingle();
+    if (emailRow) {
+      if (!message_id && typeof emailRow.message_id === "string") {
+        message_id = emailRow.message_id;
+      }
+      if (!source_mailbox && typeof emailRow.source_mailbox === "string") {
+        source_mailbox = emailRow.source_mailbox;
+      }
+    }
+  }
+
+  if (!predicted_category) {
+    throw new Error(
+      `approvePrediction: automation_runs.result.predicted_category missing for id=${parsed.row_id}`,
+    );
+  }
+  if (!run.rule_key) {
+    throw new Error(
+      `approvePrediction: automation_runs.rule_key missing for id=${parsed.row_id}`,
+    );
+  }
+  if (!run.email_id) {
+    throw new Error(
+      `approvePrediction: automation_runs.email_id missing for id=${parsed.row_id}`,
+    );
+  }
+
+  return recordVerdict({
+    swarm_type: parsed.swarm_type,
+    automation_run_id: run.id,
+    email_id: run.email_id,
+    rule_key: run.rule_key,
+    decision: parsed.decision,
+    message_id,
+    source_mailbox,
+    entity: run.entity ?? "",
+    predicted_category,
+    // No override_category — Approve confirms the prediction as-is.
+  });
+}
