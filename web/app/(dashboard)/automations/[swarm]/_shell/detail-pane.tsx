@@ -53,6 +53,8 @@ import { Stage1Widget } from "./components/stage-1-widget";
 import { Stage3Widget } from "../stage-1/components/stage-3-widget";
 import { Stage0Widget } from "./components/stage-0-widget";
 import type { PredictedRow } from "../stage-1/page";
+import { approvePrediction } from "../stage-1/actions";
+import { useSelection } from "./selection-context";
 // NOTE: Stage2Widget / Stage4Widget have non-trivial prop shapes
 // (CustomerSelection async search, Stage4Quality + reason text) — Plan 06
 // wires them when migrating Stage 1. Wave 1 renders placeholder slots for
@@ -231,6 +233,8 @@ function DetailPaneInner({
   useEffect(() => {
     setDirty({});
   }, [row.id]);
+
+  const { markPendingRemoval } = useSelection();
 
   const [stage0Value, setStage0Value] = useState<boolean | null>(null);
   const [bodyOpen, setBodyOpen] = useState(false);
@@ -477,6 +481,33 @@ function DetailPaneInner({
         }),
       ),
     );
+
+    // Phase 82.6 (D-01) — also fire recordVerdict via the approvePrediction
+    // wrapper so the row actually leaves the Stage 1 queue. The feedback
+    // POSTs above are the Phase 82.4 learning substrate; without this
+    // additional call, automation_runs.status never flips and the row
+    // stays visible. Stage 1 only — the footer button is hidden on
+    // Stages 0/2/3/4 (D-02b, see footer JSX below) so this code path is
+    // only reachable when activeStage === 1.
+    try {
+      await approvePrediction({
+        row_id: row.id,
+        swarm_type: swarmType,
+        decision: "approve",
+      });
+    } catch {
+      // D-03: non-fatal silent recovery. Mirrors the override-flow precedent
+      // at stage-1-widget.tsx:188-191. The feedback rows are durable; if
+      // the status flip failed, the next realtime broadcast / server
+      // roundtrip will reconcile. No toast — same as override path.
+    }
+
+    // D-04: Optimistic removal regardless of approvePrediction outcome.
+    // selection-context.tsx auto-trims this set when the server's next
+    // fetch omits the id (see selection-context.tsx:66-79), so a failed
+    // recordVerdict that left the row present will naturally restore
+    // visibility on the next refresh.
+    markPendingRemoval(row.id);
   }
 
   // Mailbox header label — DB-derived map passed by the page (no hardcoded
@@ -613,21 +644,23 @@ function DetailPaneInner({
         }}
         data-testid="action-footer"
       >
-        <Button
-          type="button"
-          size="sm"
-          onClick={handlePrimary}
-          data-testid="detail-pane-primary"
-          data-mode={anyDirty ? "override" : "approve"}
-          style={{
-            background: "var(--v7-lime)",
-            color: "var(--v7-bg)",
-            fontFamily: "var(--font-mono)",
-          }}
-        >
-          <Check className="h-4 w-4 mr-1" aria-hidden="true" />
-          {primaryLabel}
-        </Button>
+        {activeStage === 1 ? (
+          <Button
+            type="button"
+            size="sm"
+            onClick={handlePrimary}
+            data-testid="detail-pane-primary"
+            data-mode={anyDirty ? "override" : "approve"}
+            style={{
+              background: "var(--v7-lime)",
+              color: "var(--v7-bg)",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            <Check className="h-4 w-4 mr-1" aria-hidden="true" />
+            {primaryLabel}
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="outline"
