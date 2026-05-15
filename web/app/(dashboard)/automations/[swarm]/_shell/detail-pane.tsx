@@ -447,7 +447,7 @@ function DetailPaneInner({
     ? dirtyStages.length === 1
       ? `✓ Submit override (Stage ${dirtyStages[0]})`
       : `✓ Submit overrides (Stages ${dirtyStages.join(", ")})`
-    : `✓ Approve verdicts that ran (Stages ${visibleOkStages.join("+")})`;
+    : `✓ Approve (Stages ${visibleOkStages.join("+")})`;
 
   async function handlePrimary() {
     if (anyDirty) {
