@@ -437,12 +437,13 @@ function DetailPaneInner({
 
   async function handlePrimary() {
     if (anyDirty) {
-      // Override mode: dispatch ONLY. stage-step.tsx's existing per-stage
-      // override widget listens for KEYBOARD_EVENTS.approve and invokes
-      // fireFeedback({verdict:'override',...}) as part of its Phase 82.4 Plan
-      // 04 dual-write. ONE event → N stage-step listeners → N email_feedback
-      // rows. A footer-level POST here would double-write (W6).
-      window.dispatchEvent(new Event(KEYBOARD_EVENTS.approve));
+      // Override mode: dispatch the same window event the keyboard shortcut
+      // fires. Stage widgets (stage-1-widget.tsx, client-shell.tsx for
+      // stage-3/stage-4) listen for `bulk-review:override-submit` and invoke
+      // the existing Phase 71/82 override pipeline (Inngest dispatch +
+      // fireFeedback dual-write). A footer-level POST here would double-write
+      // (W6 single-write contract).
+      window.dispatchEvent(new Event(KEYBOARD_EVENTS.overrideSubmit));
       return;
     }
     // Approve mode: batch-confirm every ok stage. Nothing in stage-step

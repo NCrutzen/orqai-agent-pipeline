@@ -311,18 +311,37 @@ export function buildStageAuditMap<
   // ----- Stage 3 ---------------------------------------------------------
   // Source: agent_runs[stage=3].tool_outputs. HARD-SEPARATION LOCK:
   // ranked_intents[].intent_key drawn from swarm_intents taxonomy ONLY.
+  //
+  // Skip-empty contract: when this mapper is invoked with an empty agentRuns
+  // array (the live-timeline rebuild path inside detail-pane.tsx), we cannot
+  // reconstruct ranked_intents / coordinator_reasoning. If the resulting
+  // payload would be entirely empty, DO NOT emit a map entry — that lets the
+  // page-level stageAudit (which was built with the full agentRuns fetch)
+  // win the merge in detail-pane.tsx's effectiveStageAudit useMemo. Without
+  // this guard, an empty live-timeline Stage 3 payload silently shadows the
+  // page-level one and the operator sees "No ranked intents returned by
+  // coordinator." even for rows that did produce ranked intents.
   if (stage3Event || stage3Run) {
     const tool = isRecord(stage3Run?.tool_outputs)
       ? (stage3Run!.tool_outputs as Record<string, unknown>)
       : {};
-    const payload: Stage3AuditPayload = {
-      stage: 3,
-      ranked_intents: asRankedIntents(tool.ranked_intents),
-      coordinator_reasoning: asString(tool.coordinator_reasoning),
-      selected_intent_key: asString(tool.selected_intent_key),
-      raw: tool,
-    };
-    map[3] = createElement(Stage3EvidencePanel, { payload }) as ReactNode;
+    const ranked_intents = asRankedIntents(tool.ranked_intents);
+    const coordinator_reasoning = asString(tool.coordinator_reasoning);
+    const selected_intent_key = asString(tool.selected_intent_key);
+    if (
+      ranked_intents.length > 0 ||
+      coordinator_reasoning !== null ||
+      selected_intent_key !== null
+    ) {
+      const payload: Stage3AuditPayload = {
+        stage: 3,
+        ranked_intents,
+        coordinator_reasoning,
+        selected_intent_key,
+        raw: tool,
+      };
+      map[3] = createElement(Stage3EvidencePanel, { payload }) as ReactNode;
+    }
   }
 
   return map;
