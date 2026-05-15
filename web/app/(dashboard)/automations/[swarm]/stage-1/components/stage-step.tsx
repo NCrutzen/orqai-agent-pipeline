@@ -225,7 +225,7 @@ export function StageStep({ stage, onMarkDirty }: StageStepProps) {
                   marginTop: 4,
                   color: "var(--v7-amber)",
                   fontFamily: "var(--font-mono)",
-                  fontSize: "var(--fs-xs)",
+                  fontSize: 11,
                 }}
               >
                 ⤓ Override + note save together

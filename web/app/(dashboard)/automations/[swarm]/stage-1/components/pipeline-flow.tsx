@@ -123,7 +123,7 @@ export function PipelineFlow({
                     borderRadius: "var(--v7-radius-pill)",
                     color: "var(--v7-text-muted)",
                     fontFamily: "var(--font-mono)",
-                    fontSize: "var(--fs-xs)",
+                    fontSize: 11,
                     cursor: "pointer",
                     textAlign: "left",
                   }}
@@ -151,7 +151,7 @@ export function PipelineFlow({
                 border: "none",
                 color: "var(--v7-text-muted)",
                 fontFamily: "var(--font-mono)",
-                fontSize: "var(--fs-xs)",
+                fontSize: 11,
                 cursor: "pointer",
                 textAlign: "left",
               }}
