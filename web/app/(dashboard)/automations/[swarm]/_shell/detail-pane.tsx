@@ -32,7 +32,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Check, MailOpen, SkipForward, X } from "lucide-react";
+import { Check, MailOpen, SkipForward, Undo2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { SwarmNoiseCategoryRow, SwarmIntentRow } from "@/lib/swarms/types";
@@ -285,6 +285,22 @@ function DetailPaneInner({
   // onChange handler can call it from inside the useMemo body.
   const onMarkDirty = useCallback((stageN: number) => {
     setDirty((prev) => ({ ...prev, [stageN]: true }));
+  }, []);
+
+  // Phase 82.7 Plan 02 (D-03) — cancel-override escape hatches. Pure
+  // client-side dirty-map mutations; no server traffic. resetAllStageFeedback
+  // backs the footer Cancel button (clears every dirty stage at once);
+  // onCancelDirty is the per-stage variant threaded into PipelineFlow for
+  // Plan 03 to wire into stage-step.tsx.
+  const resetAllStageFeedback = useCallback(() => {
+    setDirty({});
+  }, []);
+
+  const onCancelDirty = useCallback((stageN: number) => {
+    setDirty((prev) => {
+      const { [stageN]: _omit, ...rest } = prev;
+      return rest;
+    });
   }, []);
 
   // Phase 82.3 Plan 11 — always build the audit map from the LIVE timeline
@@ -610,6 +626,9 @@ function DetailPaneInner({
           <PipelineFlow
             stages={stagesData}
             onMarkDirty={onMarkDirty}
+            // wired in 82.7-03 — PipelineFlow prop signature extended in Plan 03
+            // @ts-expect-error
+            onCancelDirty={onCancelDirty}
             futureRange={futureRange}
             futureExpanded={futureExpanded}
             onToggleFuture={() => setFutureExpanded((p) => !p)}
@@ -645,21 +664,35 @@ function DetailPaneInner({
         data-testid="action-footer"
       >
         {activeStage === 1 ? (
-          <Button
-            type="button"
-            size="sm"
-            onClick={handlePrimary}
-            data-testid="detail-pane-primary"
-            data-mode={anyDirty ? "override" : "approve"}
-            style={{
-              background: "var(--v7-lime)",
-              color: "var(--v7-bg)",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            <Check className="h-4 w-4 mr-1" aria-hidden="true" />
-            {primaryLabel}
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handlePrimary}
+              data-testid="detail-pane-primary"
+              data-mode={anyDirty ? "override" : "approve"}
+              style={{
+                background: "var(--v7-lime)",
+                color: "var(--v7-bg)",
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              <Check className="h-4 w-4 mr-1" aria-hidden="true" />
+              {primaryLabel}
+            </Button>
+            {anyDirty && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={resetAllStageFeedback}
+                data-testid="detail-pane-cancel-override"
+              >
+                <Undo2 className="h-4 w-4 mr-1" aria-hidden="true" />
+                Cancel override
+              </Button>
+            )}
+          </>
         ) : null}
         <Button
           type="button"
