@@ -545,7 +545,7 @@ Plans:
 - [ ] **Phase 82.3: Per-stage audit surface** — verdict + reasoning summary + key evidence + screenshots in a per-stage popup on Bulk Review (replaces Phase 77's original "real Stage 2 surface" intent). CONTEXT exists; needs `/gsd-discuss-phase 82.3`.
 - [ ] **Phase 82.4: Feedback capture form** — `email_feedback` table + capture form mounted inside Phase 82.3's popup. Provides the data substrate that V9.0 synthesis reads from. CONTEXT exists; needs `/gsd-discuss-phase 82.4`. Sequenced after 82.3.
 - [x] **Phase 82.6: Footer Approve → recordVerdict wiring** — wired 2026-05-15, deployed 2026-05-16 (Vercel `dyvfktamb`). 7/7 structural must-haves PASS; operator UAT surfaced 4 follow-up UX polish items → Phase 82.7.
-- [ ] **Phase 82.7: Detail-pane post-approve polish** — auto-advance after Approve (D-01), drop double-checkmark on label (D-02), cancel-override escape hatch (D-03), StageFeedbackPanel visual polish (D-04). CONTEXT exists 2026-05-16; needs `/gsd-plan-phase 82.7`.
+- [x] **Phase 82.7: Detail-pane post-approve polish** — D-01..D-04 all closed 2026-05-16 (4/4 plans). Auto-advance after Approve, single checkmark glyph, footer + per-stage cancel-override escape hatch, StageFeedbackPanel bordered card with single-line buttons. Awaiting operator UAT.
 - [ ] **Phase 999.8: Stage 1 LLM 2nd-pass** — 4/4 must-haves green; 2 outstanding browser smokes (operator UAT pending).
 - [ ] `/gsd-audit-milestone v8.0` — formal closure after all four above ship.
 
@@ -678,10 +678,10 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 82.7-01-PLAN.md — D-04 StageFeedbackPanel polish (single-line buttons + bordered card container)
-- [ ] 82.7-02-PLAN.md — D-02 label de-duplication + D-03 footer Cancel override button + onCancelDirty callback wiring (detail-pane.tsx batched edit)
-- [ ] 82.7-03-PLAN.md — D-03 per-stage cancel-override link (pipeline-flow + stage-step prop thread)
-- [ ] 82.7-04-PLAN.md — D-01 auto-advance to next visible row after Approve (selection-context + detail-pane)
+- [x] 82.7-01-PLAN.md — D-04 StageFeedbackPanel polish (single-line buttons + bordered card container)
+- [x] 82.7-02-PLAN.md — D-02 label de-duplication + D-03 footer Cancel override button + onCancelDirty callback wiring (detail-pane.tsx batched edit)
+- [x] 82.7-03-PLAN.md — D-03 per-stage cancel-override link (pipeline-flow + stage-step prop thread)
+- [x] 82.7-04-PLAN.md — D-01 auto-advance to next visible row after Approve (selection-context + detail-pane)
 
 ### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED) ✓ closed 2026-05-11
 
