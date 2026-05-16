@@ -675,7 +675,13 @@ Plans:
 **Goal:** Polish the post-Approve UX surfaced by operator UAT on the deployed Phase 82.6 wiring. Four defects, all in `_shell/detail-pane.tsx` + `StageFeedbackPanel.tsx`: (D-01) auto-advance detail pane to next row after Approve; (D-02) drop duplicate ✓ glyph from primary button label; (D-03) cancel-override escape hatch (per-stage + footer-level) for accidental "override stage" clicks; (D-04) StageFeedbackPanel button + container visual polish (hierarchy, alignment, container rhythm). Pure frontend; no pipeline / server-action / DB changes.
 **Requirements**: D-01..D-04 (see `82.7-CONTEXT.md`)
 **Depends on:** Phase 82.6
-**Plans:** TBD (run `/gsd-plan-phase 82.7`)
+**Plans:** 4 plans
+
+Plans:
+- [ ] 82.7-01-PLAN.md — D-04 StageFeedbackPanel polish (single-line buttons + bordered card container)
+- [ ] 82.7-02-PLAN.md — D-02 label de-duplication + D-03 footer Cancel override button + onCancelDirty callback wiring (detail-pane.tsx batched edit)
+- [ ] 82.7-03-PLAN.md — D-03 per-stage cancel-override link (pipeline-flow + stage-step prop thread)
+- [ ] 82.7-04-PLAN.md — D-01 auto-advance to next visible row after Approve (selection-context + detail-pane)
 
 ### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED) ✓ closed 2026-05-11
 
