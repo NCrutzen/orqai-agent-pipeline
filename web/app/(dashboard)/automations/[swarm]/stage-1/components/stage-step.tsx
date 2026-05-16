@@ -23,6 +23,11 @@ import { fireFeedback } from "@/lib/automations/debtor-email/feedback/fire-feedb
 interface StageStepProps {
   stage: StageData;
   onMarkDirty: () => void;
+  /** Phase 82.7 Plan 03 (D-03 per-stage) — when present and the stage state
+   *  is `'dirty'`, the dirty-branch render shows a `cancel override` text
+   *  button that invokes this callback. Optional so callers without an
+   *  override-cancel flow can omit it. */
+  onCancelDirty?: () => void;
 }
 
 /**
@@ -57,7 +62,7 @@ function nodeBorderColor(state: StageData["state"]): string {
   return "var(--v7-line)";
 }
 
-export function StageStep({ stage, onMarkDirty }: StageStepProps) {
+export function StageStep({ stage, onMarkDirty, onCancelDirty }: StageStepProps) {
   // Phase 82.4 Plan 03 — lift the audit-expander open-state up so the
   // embedded StageFeedbackPanel's ✓ Confirm chip can auto-collapse the
   // expander after a successful POST (operator-momentum). Defaults closed
@@ -229,6 +234,34 @@ export function StageStep({ stage, onMarkDirty }: StageStepProps) {
                 }}
               >
                 ⤓ Override + note save together
+              </div>
+              {/* Phase 82.7 Plan 03 (D-03 per-stage) — per-stage
+                  cancel-override affordance. Mirrors the 'ok' branch
+                  override-stage link styling (brand-secondary, underline on
+                  hover) but inverts the action: clear ONLY this stage's
+                  dirty flag (parent handles via onCancelDirty(stageN);
+                  prose draft notes persist by design). */}
+              <div className="flex items-center justify-between gap-3 mt-1">
+                <span
+                  className="text-[12px] leading-[1.3]"
+                  style={{ color: "var(--v7-amber)", fontFamily: "var(--font-mono)" }}
+                >
+                  Override in progress
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onCancelDirty?.()}
+                  className="text-[12px] leading-[1.3] underline-offset-2 hover:underline transition-colors duration-150 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  style={{
+                    color: "var(--v7-brand-secondary)",
+                    outlineColor: "var(--v7-brand-secondary)",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                  aria-label={`Cancel override on Stage ${stage.n}`}
+                  data-testid={`stage-${stage.n}-cancel-override`}
+                >
+                  cancel override
+                </button>
               </div>
             </>
           )}

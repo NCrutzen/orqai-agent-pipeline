@@ -626,8 +626,6 @@ function DetailPaneInner({
           <PipelineFlow
             stages={stagesData}
             onMarkDirty={onMarkDirty}
-            // wired in 82.7-03 — PipelineFlow prop signature extended in Plan 03
-            // @ts-expect-error
             onCancelDirty={onCancelDirty}
             futureRange={futureRange}
             futureExpanded={futureExpanded}

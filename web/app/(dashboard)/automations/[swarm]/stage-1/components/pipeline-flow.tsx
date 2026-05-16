@@ -52,6 +52,11 @@ interface PipelineFlowProps {
   stages: StageData[];
   /** Called by each StageStep when the operator clicks "override stage". */
   onMarkDirty: (stageN: number) => void;
+  /** Phase 82.7 Plan 03 (D-03 per-stage) — called by each StageStep when the
+   *  operator clicks the per-stage "cancel override" link inside a dirty card.
+   *  Parent clears ONLY stage N's dirty flag (local state in detail-pane.tsx);
+   *  prose draft notes persist. */
+  onCancelDirty: (stageN: number) => void;
   /** Phase 82.5 Plan 05 (R6) — when supplied, trailing skipped stages in
    *  [startN..endN] collapse into a single "future-pill" toggle. */
   futureRange?: { startN: number; endN: number } | null;
@@ -64,6 +69,7 @@ interface PipelineFlowProps {
 export function PipelineFlow({
   stages,
   onMarkDirty,
+  onCancelDirty,
   futureRange,
   futureExpanded,
   onToggleFuture,
@@ -103,7 +109,11 @@ export function PipelineFlow({
           if (!inFutureRange || futureExpanded) {
             return (
               <li key={s.n}>
-                <StageStep stage={s} onMarkDirty={() => onMarkDirty(s.n)} />
+                <StageStep
+                  stage={s}
+                  onMarkDirty={() => onMarkDirty(s.n)}
+                  onCancelDirty={() => onCancelDirty(s.n)}
+                />
               </li>
             );
           }
