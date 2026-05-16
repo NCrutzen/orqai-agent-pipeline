@@ -138,6 +138,14 @@ export interface UnifiedDetailPaneProps {
    *  (StageFeedbackPanel inside DetailPaneInner). Threading the prop through
    *  Plan 06 first lets Plan 05 land its render without touching shells. */
   feedbackMap?: Partial<Record<0 | 1 | 2 | 3, import("@/lib/automations/debtor-email/feedback/types").FeedbackReadBack>>;
+  /** Phase 82.7 Plan 04 (D-01) — operator's filtered visible row ids (same
+   *  array driving <RowList>, BEFORE pendingRemoval trimming). Used by the
+   *  Approve branch of `handlePrimary` to compute the next selection target.
+   *  Optional for non-Stage-1 callers (Stage 0/2/3/4 footer is hidden per
+   *  Phase 82.6 D-02b, so the auto-advance path is unreachable there). When
+   *  omitted, defaults to `[]` and auto-advance falls back to `null` (selection
+   *  clears). */
+  visibleRowIds?: string[];
 }
 
 // ---- Component -----------------------------------------------------------
@@ -157,6 +165,7 @@ export function UnifiedDetailPane({
   stageAudit,
   mailboxLabels,
   feedbackMap,
+  visibleRowIds,
 }: UnifiedDetailPaneProps) {
   // Empty state — RESEARCH §Empty State unified copy (Stage 3/4 wording).
   if (!row) {
@@ -191,6 +200,7 @@ export function UnifiedDetailPane({
       stageAudit={stageAudit}
       mailboxLabels={mailboxLabels}
       feedbackMap={feedbackMap}
+      visibleRowIds={visibleRowIds}
     />
   );
 }
@@ -212,6 +222,7 @@ function DetailPaneInner({
   stageAudit,
   mailboxLabels,
   feedbackMap,
+  visibleRowIds,
 }: UnifiedDetailPaneProps & { row: Row }) {
   // Track dirty axes. Stays {} on mount — the operator opts into override
   // for a stage by clicking that stage's inline "override stage" link
@@ -234,7 +245,11 @@ function DetailPaneInner({
     setDirty({});
   }, [row.id]);
 
-  const { markPendingRemoval } = useSelection();
+  // Phase 82.7 Plan 04 (D-01) — Approve path uses the atomic
+  // markPendingRemovalAndAdvance helper to auto-advance to the next visible
+  // row in one render cycle. Submit-override path (anyDirty===true branch
+  // above) intentionally doesn't auto-advance — see handlePrimary comment.
+  const { markPendingRemovalAndAdvance } = useSelection();
 
   const [stage0Value, setStage0Value] = useState<boolean | null>(null);
   const [bodyOpen, setBodyOpen] = useState(false);
@@ -523,7 +538,21 @@ function DetailPaneInner({
     // fetch omits the id (see selection-context.tsx:66-79), so a failed
     // recordVerdict that left the row present will naturally restore
     // visibility on the next refresh.
-    markPendingRemoval(row.id);
+    //
+    // Phase 82.7 Plan 04 (D-01) — auto-advance to the next visible row in
+    // the operator's filtered list (active stage tab + mailbox + needs-action
+    // filter). Compute `nextId` BEFORE mutating pendingRemovalIds so the
+    // index reflects the list the operator is currently looking at. If the
+    // approved row was the last (or somehow not in the visible list), fall
+    // back to `null` — the detail pane will render the empty/idle state.
+    // Silent UX (no toast) per Phase 82.6 D-03 precedent. Override-branch
+    // path above (anyDirty===true) does NOT auto-advance — operator may
+    // want to verify their override before moving on.
+    const ids = visibleRowIds ?? [];
+    const idx = ids.indexOf(row.id);
+    const nextId =
+      idx >= 0 && idx + 1 < ids.length ? ids[idx + 1] : null;
+    markPendingRemovalAndAdvance(row.id, nextId);
   }
 
   // Mailbox header label — DB-derived map passed by the page (no hardcoded

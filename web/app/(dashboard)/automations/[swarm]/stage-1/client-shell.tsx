@@ -266,6 +266,12 @@ export function Stage1ClientShell({
             stageAudit={stageAudit}
             mailboxLabels={mailboxLabels}
             feedbackMap={paneFeedbackMap}
+            // Phase 82.7 Plan 04 (D-01) — same operator-filtered visible list
+            // that drives <RowList> above (post-mailbox filter, pre-pendingRemoval
+            // trim). Used by detail-pane's handlePrimary Approve branch to
+            // compute the next selection target. Threading the .id array (not
+            // the full Row[]) keeps the prop surface narrow.
+            visibleRowIds={visibleUnified.map((r) => r.id)}
           />
         </div>
       </div>
