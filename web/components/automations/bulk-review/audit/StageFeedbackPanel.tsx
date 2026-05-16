@@ -189,22 +189,13 @@ export function StageFeedbackPanel({
     <div
       data-testid={`stage-feedback-panel-${stage}`}
       style={{
-        padding: "var(--space-3)",
+        padding: "var(--space-4)",
         background: "var(--v7-panel-2)",
-        borderTop: "1px solid var(--v7-border)",
+        border: "1px solid var(--v7-border)",
+        borderRadius: "var(--v7-radius-sm)",
         marginTop: "var(--space-3)",
       }}
     >
-      {/* R5 CONTEXT Discretion: below 1366px viewport collapse the subtitle
-          row of Save/Confirm — icons + data-testid identification persist. */}
-      <style>
-        {`@media (max-width: 1365px) {
-  [data-testid="stage-feedback-save"] [data-row="primary"],
-  [data-testid="stage-feedback-confirm"] [data-row="primary"] {
-    display: none;
-  }
-}`}
-      </style>
       <label
         htmlFor={`stage-feedback-textarea-${stage}`}
         style={{ ...labelStyle, display: "block", marginBottom: "var(--space-1)" }}
@@ -273,11 +264,10 @@ export function StageFeedbackPanel({
           disabled={inFlight !== null}
           aria-label={`Save feedback for Stage ${stage}`}
           style={{
-            display: "flex",
-            flexDirection: "column",
+            display: "inline-flex",
             alignItems: "center",
-            gap: 2,
-            padding: "8px 14px",
+            gap: 6,
+            padding: "6px 14px",
             background: "transparent",
             border: "1px solid var(--v7-brand-secondary)",
             borderRadius: "var(--v7-radius-pill)",
@@ -291,7 +281,7 @@ export function StageFeedbackPanel({
             {inFlight === "unclear" ? "…" : "💾"}
           </span>
           <span data-row="primary" style={{ fontSize: 12 }}>
-            Save note · come back later
+            Save note
           </span>
         </button>
         {/* R5 Confirm — filled lime with ✓ + microcopy subtitle. */}
@@ -303,11 +293,10 @@ export function StageFeedbackPanel({
           disabled={confirmDisabled}
           aria-label={`Confirm Stage ${stage} looks correct`}
           style={{
-            display: "flex",
-            flexDirection: "column",
+            display: "inline-flex",
             alignItems: "center",
-            gap: 2,
-            padding: "8px 14px",
+            gap: 6,
+            padding: "6px 14px",
             background: "var(--v7-lime)",
             border: "1px solid var(--v7-lime)",
             borderRadius: "var(--v7-radius-pill)",
@@ -322,7 +311,7 @@ export function StageFeedbackPanel({
             {inFlight === "confirm" ? "…" : "✓"}
           </span>
           <span data-row="primary" style={{ fontSize: 12 }}>
-            Confirm · looks right
+            Confirm
           </span>
         </button>
       </div>
