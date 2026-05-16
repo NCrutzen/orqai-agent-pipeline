@@ -31,6 +31,13 @@ interface SelectionContextValue {
   pendingRemovalIds: ReadonlySet<string>;
   /** Mark a row for optimistic removal. Idempotent. */
   markPendingRemoval: (id: string) => void;
+  /** Phase 82.7 Plan 04 (D-01) — atomic optimistic-removal + selection-advance
+   *  helper. Adds `id` to `pendingRemovalIds` AND calls `setSelected(nextId)`
+   *  in one render cycle. Used by detail-pane.tsx `handlePrimary` Approve
+   *  branch so the operator can chain Approve clicks without touching the
+   *  list. Existing `markPendingRemoval` is preserved for non-Approve callers
+   *  (override-submit path, Stage 0/2/3 actions). */
+  markPendingRemovalAndAdvance: (id: string, nextId: string | null) => void;
 }
 
 const SelectionContext = createContext<SelectionContextValue | null>(null);
@@ -96,9 +103,39 @@ export function SelectionProvider({
     });
   }, []);
 
+  // Phase 82.7 Plan 04 (D-01) — atomic helper: optimistically remove `id` AND
+  // advance selection to `nextId` in one render cycle. Pre-computed `nextId`
+  // by the caller (detail-pane.tsx) reflects the operator's filtered visible
+  // list at the moment of the Approve click. `setSelected` also updates the
+  // URL via history.replaceState (see L81-88).
+  const markPendingRemovalAndAdvance = useCallback(
+    (id: string, nextId: string | null) => {
+      setPendingRemovalIds((prev) => {
+        if (prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+      setSelected(nextId);
+    },
+    [setSelected],
+  );
+
   const value = useMemo(
-    () => ({ selectedId, setSelected, pendingRemovalIds, markPendingRemoval }),
-    [selectedId, setSelected, pendingRemovalIds, markPendingRemoval],
+    () => ({
+      selectedId,
+      setSelected,
+      pendingRemovalIds,
+      markPendingRemoval,
+      markPendingRemovalAndAdvance,
+    }),
+    [
+      selectedId,
+      setSelected,
+      pendingRemovalIds,
+      markPendingRemoval,
+      markPendingRemovalAndAdvance,
+    ],
   );
 
   return (
