@@ -544,7 +544,8 @@ Plans:
 - [ ] **Phase 82.2: Stage 0 telemetry coverage fix** — bring debtor mailboxes from 26-45% → ≥99% Stage 0 pipeline_events coverage; backfill ≤30d historical rows. Blocker for V9.0 per-email trace. CONTEXT exists; needs `/gsd-discuss-phase 82.2`.
 - [ ] **Phase 82.3: Per-stage audit surface** — verdict + reasoning summary + key evidence + screenshots in a per-stage popup on Bulk Review (replaces Phase 77's original "real Stage 2 surface" intent). CONTEXT exists; needs `/gsd-discuss-phase 82.3`.
 - [ ] **Phase 82.4: Feedback capture form** — `email_feedback` table + capture form mounted inside Phase 82.3's popup. Provides the data substrate that V9.0 synthesis reads from. CONTEXT exists; needs `/gsd-discuss-phase 82.4`. Sequenced after 82.3.
-- [ ] **Phase 82.6: Footer Approve → recordVerdict wiring** — wire Phase 82.5 footer ✓ Approve to call `recordVerdict` so Stage 1 rows actually leave the queue; hide footer Approve on Stages 0/2/3/4. CONTEXT + PATTERNS exist; planned 2026-05-15.
+- [x] **Phase 82.6: Footer Approve → recordVerdict wiring** — wired 2026-05-15, deployed 2026-05-16 (Vercel `dyvfktamb`). 7/7 structural must-haves PASS; operator UAT surfaced 4 follow-up UX polish items → Phase 82.7.
+- [ ] **Phase 82.7: Detail-pane post-approve polish** — auto-advance after Approve (D-01), drop double-checkmark on label (D-02), cancel-override escape hatch (D-03), StageFeedbackPanel visual polish (D-04). CONTEXT exists 2026-05-16; needs `/gsd-plan-phase 82.7`.
 - [ ] **Phase 999.8: Stage 1 LLM 2nd-pass** — 4/4 must-haves green; 2 outstanding browser smokes (operator UAT pending).
 - [ ] `/gsd-audit-milestone v8.0` — formal closure after all four above ship.
 
@@ -664,8 +665,17 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 82.6-01-PLAN.md — Add `approvePrediction` server-action wrapper to `stage-1/actions.ts` (D-01)
-- [ ] 82.6-02-PLAN.md — Wire wrapper into `_shell/detail-pane.tsx` handlePrimary + hide footer Approve on Stages 0/2/3/4 (D-02b, D-03, D-04)
+- [x] 82.6-01-PLAN.md — Add `approvePrediction` server-action wrapper to `stage-1/actions.ts` (D-01) ✓ shipped commit `07be50f`
+- [x] 82.6-02-PLAN.md — Wire wrapper into `_shell/detail-pane.tsx` handlePrimary + hide footer Approve on Stages 0/2/3/4 (D-02b, D-03, D-04) ✓ shipped commits `a45fe21`, `65e820c`
+
+**Verification:** 7/7 structural must-haves PASS (`82.6-VERIFICATION.md`). Deployed to production 2026-05-16 (Vercel `dyvfktamb`). Operator UAT confirmed approve flow works end-to-end; surfaced 4 follow-up UX defects → Phase 82.7.
+
+### Phase 82.7: Detail-pane post-approve polish (v8.0 stabilisation) (INSERTED)
+
+**Goal:** Polish the post-Approve UX surfaced by operator UAT on the deployed Phase 82.6 wiring. Four defects, all in `_shell/detail-pane.tsx` + `StageFeedbackPanel.tsx`: (D-01) auto-advance detail pane to next row after Approve; (D-02) drop duplicate ✓ glyph from primary button label; (D-03) cancel-override escape hatch (per-stage + footer-level) for accidental "override stage" clicks; (D-04) StageFeedbackPanel button + container visual polish (hierarchy, alignment, container rhythm). Pure frontend; no pipeline / server-action / DB changes.
+**Requirements**: D-01..D-04 (see `82.7-CONTEXT.md`)
+**Depends on:** Phase 82.6
+**Plans:** TBD (run `/gsd-plan-phase 82.7`)
 
 ### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED) ✓ closed 2026-05-11
 
