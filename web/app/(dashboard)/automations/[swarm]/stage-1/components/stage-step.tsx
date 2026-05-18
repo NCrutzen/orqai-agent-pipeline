@@ -243,68 +243,11 @@ export function StageStep({ stage, onMarkDirty, onCancelDirty, onSubmitDirty }: 
               >
                 Note and override are saved together
               </div>
-              {/* Phase 82.7.2 Plan 01 (G-05/G-06/G-08) — single action row
-                  collapsing the prior two-row layout (amber duplicate-label
-                  + lime Submit; amber status line + ghost cancel-override
-                  link). Cancel sits on the left (ghost outline,
-                  brand-secondary), Submit on the right (lime-pill, regression
-                  guard from 82.7.1-04 preserved). Both data-testids preserved
-                  for test contract. */}
-              <div className="flex items-center justify-end gap-2 mt-1">
-                <button
-                  type="button"
-                  onClick={() => onCancelDirty?.()}
-                  aria-label={`Cancel override on Stage ${stage.n}`}
-                  data-testid={`stage-${stage.n}-cancel-override`}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "6px 14px",
-                    background: "transparent",
-                    border: "1px solid var(--v7-brand-secondary)",
-                    borderRadius: "var(--v7-radius-pill)",
-                    color: "var(--v7-brand-secondary)",
-                    cursor: "pointer",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                  }}
-                >
-                  cancel override
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSubmitDirty?.()}
-                  aria-label={`Submit override on Stage ${stage.n}`}
-                  data-testid={`stage-${stage.n}-submit-override`}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "6px 14px",
-                    background: "var(--v7-lime)",
-                    border: "1px solid var(--v7-lime)",
-                    borderRadius: "var(--v7-radius-pill)",
-                    color: "var(--v7-bg)",
-                    cursor: "pointer",
-                    fontFamily: "var(--font-mono)",
-                    fontWeight: 600,
-                    fontSize: 12,
-                  }}
-                >
-                  <span data-row="primary">Submit override</span>
-                  <kbd
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 10,
-                      opacity: 0.7,
-                      marginLeft: 4,
-                    }}
-                  >
-                    ⌘⏎
-                  </kbd>
-                </button>
-              </div>
+              {/* Phase 82.7.3 Plan 01 (H-01) — inline Submit/Cancel action
+                  row deleted. The canonical Submit/Cancel/Reject surface is
+                  now the detail-pane footer only (single source of truth).
+                  onSubmitDirty / onCancelDirty props are preserved on
+                  StageStepProps but unused here. */}
             </>
           )}
           {stage.state === "skipped" && (
