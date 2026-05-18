@@ -190,28 +190,38 @@ interface StageBadgeProps {
 }
 
 function StageBadge({ label, variant }: StageBadgeProps) {
+  // Phase 82.7.1 D-12/D-13/D-15 — empty/null label renders a muted em-dash
+  // placeholder chip. Same chip shell (padding, radius, font) so the row's
+  // chip column always has a chip-shaped element (row rhythm preserved per
+  // D-15). Brittle Stage 0 + Stage 2 mappers (page.tsx) pass r.stage_state
+  // directly with no fallback; this is the renderer-side safety net.
+  const trimmed = (label ?? "").toString().trim();
+  const isEmpty = trimmed.length === 0;
   const { bg, fg, border } = badgeColors(variant);
   return (
     <span
       data-testid="stage-badge"
       data-variant={variant}
+      data-empty={isEmpty ? "true" : undefined}
       style={{
         display: "inline-flex",
         alignItems: "center",
         padding: "2px 8px",
         borderRadius: "var(--v7-radius-pill)",
-        border: `1px solid ${border}`,
-        background: bg,
-        color: fg,
+        border: `1px solid ${isEmpty ? "var(--v7-muted)" : border}`,
+        background: isEmpty ? "transparent" : bg,
+        color: isEmpty ? "var(--v7-muted)" : fg,
         fontFamily: "var(--font-mono)",
         fontSize: 11,
         lineHeight: 1.3,
         fontVariantNumeric: "tabular-nums",
         whiteSpace: "nowrap",
         flexShrink: 0,
+        opacity: isEmpty ? 0.7 : 1,
       }}
+      aria-label={isEmpty ? "No category" : undefined}
     >
-      {label}
+      {isEmpty ? "—" : trimmed}
     </span>
   );
 }
