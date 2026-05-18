@@ -102,8 +102,14 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
   // Phase 82.4 Plan 06: Option Z list source. Stage 0 = safety stage (upstream
   // of swarm_noise_categories and swarm_intents; hard separation preserved by
   // the loader filtering on stage=0 only).
-  const needsAction = sp.needs_action === "1";
+  // Stage 0 = safety filter. Per the file banner + the RFC, this surface
+  // exists for emails the safety filter flagged (injection_suspected /
+  // unknown_legacy). 'safe' rows pass through silently and should NOT
+  // surface here — they would otherwise drown the actionable rows in
+  // thousands of noise verdicts. Force needsActionOnly regardless of URL
+  // param; the chip toggle stays for `mine_only` only.
   const mineOnly = sp.mine_only === "1";
+  const needsAction = true; // hardcoded for Stage 0 — see comment above
   const supabaseSrv = await createClient();
   const { data: { user } } = await supabaseSrv.auth.getUser();
   const feedbackPage = await loadStageFeedbackList(admin, {
