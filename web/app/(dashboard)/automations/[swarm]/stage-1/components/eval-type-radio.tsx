@@ -1,14 +1,23 @@
 "use client";
 
 /**
- * Phase 71-04 (REVW-05). eval_type radio cards.
+ * Phase 71-04 (REVW-05) — original implementation.
+ * Phase 82.7.3 Plan 01 (H-02) — plain-English rewrite. The REG/CAP pills
+ * (engineering shorthand) are replaced with sentence-case titles + muted
+ * subheads. Selection feedback still uses the existing checked border swap
+ * (brand-primary outline + brand-primary-soft background). The `c` / `g`
+ * keyboard shortcuts (`_shell/keyboard-shortcuts.tsx:225-226`) and the API
+ * payload (`eval_type: "capability" | "regression"`) are unchanged.
  *
- * Implements UI-SPEC §eval_type radio (REVW-05):
- *   - Two cards: regression (left, default selected) + capability (right).
- *   - Default value = "regression" (CONTEXT D-08 safety bias).
- *   - red `reg` pill + "Used to work" sub | lime `cap` pill + "New pattern" sub.
+ * Layout:
+ *   - Two cards, differentiated by TEXT only — no pills, no dots, no
+ *     colored badges.
+ *   - Card 1 (option `"regression"`): title "Recent regression",
+ *     subhead "Used to work correctly".
+ *   - Card 2 (option `"capability"`): title "New case",
+ *     subhead "Never handled correctly before".
  *   - role="radiogroup", each card role="radio" + aria-checked.
- *   - Tooltip on the section heading.
+ *   - Tooltip on the section heading preserved.
  */
 import {
   RadioGroup,
@@ -57,16 +66,14 @@ export function EvalTypeRadio({ value, onChange }: EvalTypeRadioProps) {
         <Card
           option="regression"
           checked={value === "regression"}
-          pillClass="reg"
-          subhead="Used to work"
-          description="Worked correctly before the most recent model/prompt change."
+          title="Recent regression"
+          subhead="Used to work correctly"
         />
         <Card
           option="capability"
           checked={value === "capability"}
-          pillClass="cap"
-          subhead="New pattern"
-          description="Never handled correctly before, or a brand-new case."
+          title="New case"
+          subhead="Never handled correctly before"
         />
       </RadioGroup>
     </div>
@@ -76,17 +83,14 @@ export function EvalTypeRadio({ value, onChange }: EvalTypeRadioProps) {
 function Card({
   option,
   checked,
-  pillClass,
+  title,
   subhead,
-  description,
 }: {
   option: EvalType;
   checked: boolean;
-  pillClass: "reg" | "cap";
+  title: string;
   subhead: string;
-  description: string;
 }) {
-  const isReg = pillClass === "reg";
   return (
     <label
       className="flex flex-col gap-2 p-3 rounded-[var(--v7-radius-sm)] border cursor-pointer transition-colors duration-150"
@@ -103,30 +107,19 @@ function Card({
         <RadioGroupItem
           value={option}
           aria-checked={checked}
-          aria-label={`${option} — ${subhead}`}
+          aria-label={`${title} — ${subhead}`}
         />
-        <span
-          className="inline-flex items-center px-2 py-0.5 rounded-[var(--v7-radius-pill)] text-[11px] font-semibold uppercase"
-          style={{
-            letterSpacing: "0.04em",
-            background: isReg
-              ? "rgba(255,107,122,0.16)"
-              : "rgba(138,208,94,0.16)",
-            color: isReg ? "var(--v7-red)" : "var(--v7-lime)",
-          }}
-        >
-          {pillClass}
-        </span>
-        <span className="text-[12px] leading-[1.3]" style={{ color: "var(--v7-muted)" }}>
-          {subhead}
-        </span>
+        <span style={{ fontWeight: 600, fontSize: 13 }}>{title}</span>
       </div>
-      <p
-        className="text-[13px] leading-[1.5]"
-        style={{ color: "var(--v7-text)" }}
+      <span
+        style={{
+          color: "var(--v7-text-muted)",
+          fontSize: 12,
+          fontFamily: "var(--font-mono)",
+        }}
       >
-        {description}
-      </p>
+        {subhead}
+      </span>
     </label>
   );
 }
