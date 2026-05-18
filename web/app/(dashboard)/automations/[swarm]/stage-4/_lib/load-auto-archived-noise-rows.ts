@@ -18,6 +18,7 @@
 // approach (pipeline_events first, then email_pipeline.emails via .in(...)).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadEmailMailboxes } from "../../_shell/_lib/load-email-mailboxes";
 
 export interface AutoArchivedNoiseRow {
   id: string;                       // pipeline_events.id
@@ -32,7 +33,7 @@ export interface AutoArchivedNoiseRow {
     sender_email: string | null;
     sender_name: string | null;
     received_at: string | null;
-    mailbox_id: string | null;
+    mailbox_id: string | null;  // numeric mailbox id stringified for page.tsx's Number.parseInt path
   } | null;
   body_text: string | null;
   body_html: string | null;
@@ -64,12 +65,13 @@ export async function loadAutoArchivedNoiseRows(
   );
 
   // Pass 2: email_pipeline.emails for sender/subject/body.
+  // NOTE: emails has no mailbox_id (canonical numeric mailbox lives on
+  // automation_runs — fetched via loadEmailMailboxes below) and no body_html
+  // column. Selecting either yields PostgREST 42703.
   const { data: emails, error: emErr } = await admin
     .schema("email_pipeline")
     .from("emails")
-    .select(
-      "id, subject, sender_email, sender_name, received_at, mailbox_id, body_text, body_html",
-    )
+    .select("id, subject, sender_email, sender_name, received_at, body_text")
     .in("id", emailIds);
 
   if (emErr) throw emErr;
@@ -77,6 +79,10 @@ export async function loadAutoArchivedNoiseRows(
   const emailById = new Map(
     (emails ?? []).map((e) => [e.id as string, e]),
   );
+
+  // Pass 3: mailbox_id lookup via automation_runs (same helper kanban-loader
+  // uses). Required for the V6 mailbox filter on the Stage 4 page.
+  const mailboxByEmailId = await loadEmailMailboxes(admin, emailIds, swarmType);
 
   return events.map((evt): AutoArchivedNoiseRow => {
     const dd = (evt.decision_details ?? {}) as Record<string, unknown>;
@@ -97,11 +103,14 @@ export async function loadAutoArchivedNoiseRows(
             sender_email: (em.sender_email as string | null) ?? null,
             sender_name: (em.sender_name as string | null) ?? null,
             received_at: (em.received_at as string | null) ?? null,
-            mailbox_id: (em.mailbox_id as string | null) ?? null,
+            mailbox_id: ((): string | null => {
+              const v = mailboxByEmailId.get(evt.email_id as string);
+              return v == null ? null : String(v);
+            })(),
           }
         : null,
       body_text: (em?.body_text as string | null) ?? null,
-      body_html: (em?.body_html as string | null) ?? null,
+      body_html: null,  // email_pipeline.emails has no body_html column; page treats null as "use body_text"
     };
   });
 }
