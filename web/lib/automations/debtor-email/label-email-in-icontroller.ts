@@ -40,6 +40,8 @@ export interface LabelEmailResult {
   assigned_label?: string;
   screenshot_before_url: string | null;
   screenshot_after_url: string | null;
+  screenshot_before_path: string | null;
+  screenshot_after_path: string | null;
 }
 
 const ACCOUNTS_TRIGGER = ".select2-container.clients";
@@ -57,6 +59,8 @@ export async function labelEmailInIcontroller(
   const { page } = input;
   let beforeUrl: string | null = null;
   let afterUrl: string | null = null;
+  let beforePath: string | null = null;
+  let afterPath: string | null = null;
   try {
     // Caller already navigated to the detail page; just confirm the
     // accounts widget is present (acts as a detail-page sanity check).
@@ -70,6 +74,8 @@ export async function labelEmailInIcontroller(
         assigned_label: current.text,
         screenshot_before_url: null,
         screenshot_after_url: null,
+        screenshot_before_path: null,
+        screenshot_after_path: null,
       };
     }
     if (
@@ -82,6 +88,8 @@ export async function labelEmailInIcontroller(
         reason: `already labeled to ${current.customer_account_id}`,
         screenshot_before_url: null,
         screenshot_after_url: null,
+        screenshot_before_path: null,
+        screenshot_after_path: null,
       };
     }
 
@@ -90,6 +98,7 @@ export async function labelEmailInIcontroller(
       label: "before",
     });
     beforeUrl = before?.url ?? null;
+    beforePath = before?.path ?? null;
 
     // SELECTORS.md lines 67-110: open picker, type customer_id.
     await page.click(ACCOUNTS_TRIGGER);
@@ -116,6 +125,7 @@ export async function labelEmailInIcontroller(
           label: "brand-mismatch",
         });
         afterUrl = errShot?.url ?? null;
+        afterPath = errShot?.path ?? null;
       } catch {
         /* non-fatal */
       }
@@ -124,6 +134,8 @@ export async function labelEmailInIcontroller(
         reason: `brand_mismatch: highlighted '${annotatedBrand ?? "unknown"}' did not match entity '${input.entity}'`,
         screenshot_before_url: beforeUrl,
         screenshot_after_url: afterUrl,
+        screenshot_before_path: beforePath,
+        screenshot_after_path: afterPath,
       };
     }
 
@@ -144,6 +156,7 @@ export async function labelEmailInIcontroller(
           label: "selection-not-stuck",
         });
         afterUrl = errShot?.url ?? null;
+        afterPath = errShot?.path ?? null;
       } catch {
         /* non-fatal */
       }
@@ -152,6 +165,8 @@ export async function labelEmailInIcontroller(
         reason: "SELECTION_DID_NOT_STICK",
         screenshot_before_url: beforeUrl,
         screenshot_after_url: afterUrl,
+        screenshot_before_path: beforePath,
+        screenshot_after_path: afterPath,
       };
     }
 
@@ -160,12 +175,15 @@ export async function labelEmailInIcontroller(
       label: "after",
     });
     afterUrl = afterShot?.url ?? null;
+    afterPath = afterShot?.path ?? null;
 
     return {
       status: "labeled",
       assigned_label: after,
       screenshot_before_url: beforeUrl,
       screenshot_after_url: afterUrl,
+      screenshot_before_path: beforePath,
+      screenshot_after_path: afterPath,
     };
   } catch (err) {
     try {
@@ -174,6 +192,7 @@ export async function labelEmailInIcontroller(
         label: "error",
       });
       afterUrl = errShot?.url ?? null;
+      afterPath = errShot?.path ?? null;
     } catch {
       /* non-fatal */
     }
@@ -182,6 +201,8 @@ export async function labelEmailInIcontroller(
       reason: err instanceof Error ? err.message : String(err),
       screenshot_before_url: beforeUrl,
       screenshot_after_url: afterUrl,
+      screenshot_before_path: beforePath,
+      screenshot_after_path: afterPath,
     };
   }
 }
