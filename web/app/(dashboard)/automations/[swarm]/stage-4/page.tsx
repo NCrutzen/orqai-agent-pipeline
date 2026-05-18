@@ -106,7 +106,7 @@ export default async function Stage4Page({
   const [allRows, noiseCategories, autoArchivedRows] = await Promise.all([
     loadKanbanRows(admin, swarmType),
     loadSwarmNoiseCategories(admin, swarmType),
-    loadAutoArchivedNoiseRows(admin, swarmType, { limit: 100 }),
+    loadAutoArchivedNoiseRows(admin, swarmType, { limit: 500 }),
   ]);
 
   // Phase 82.8-05 D-02 — three sections on Stage 4:
