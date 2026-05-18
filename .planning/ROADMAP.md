@@ -547,7 +547,11 @@ Plans:
 - [x] **Phase 82.6: Footer Approve → recordVerdict wiring** — wired 2026-05-15, deployed 2026-05-16 (Vercel `dyvfktamb`). 7/7 structural must-haves PASS; operator UAT surfaced 4 follow-up UX polish items → Phase 82.7.
 - [x] **Phase 82.7: Detail-pane post-approve polish** — D-01..D-04 all closed 2026-05-16 (4/4 plans). UAT 2026-05-16 confirmed all 4 D-IDs work; surfaced 5 follow-up items → Phase 82.7.1.
 - [x] **Phase 82.7.1: Detail-pane UAT follow-ups** — E-01..E-05 closed 2026-05-18 (5/5 plans). UAT 2026-05-18 surfaced 4 follow-ups → Phase 82.7.2.
-- [ ] **Phase 82.7.2: Override form rework + tooltip fix + brand-color audit** — F-01 brand-color tooltip silent on hover, F-02 only 3 of 25 rows show colored dot (data/registry audit), F-03 override form structural rework (5 operator-specified changes — consolidate buttons, remove redundant labels, fix color semantics, remove "Override in progress", refine helper text), F-04 retrospective on E-05 placeholder. CONTEXT exists 2026-05-18; needs `/gsd-discuss-phase 82.7.2`.
+- [ ] **Phase 82.7.2: Override form rework + tooltip fix + brand-color audit** — F-01 brand-color tooltip silent on hover, F-02 only 3 of 25 rows show colored dot (data/registry audit), F-03 override form structural rework (5 operator-specified changes), F-04 retrospective on E-05 placeholder. **Plans:** 3 plans across 2 waves (planned 2026-05-18).
+  - [ ] 82.7.2-01-PLAN.md — F-03 override form rework in stage-step.tsx (G-05..G-09)
+  - [ ] 82.7.2-02-PLAN.md — F-02 entity coverage audit + conditional mapper fix in stage-1/page.tsx (G-02..G-04)
+  - [ ] 82.7.2-03-PLAN.md — F-01 brand-swatch tooltip hit-target fix in predicted-row.tsx (G-01)
+  - F-04 — no plan (G-10: leave the em-dash safety guard untouched)
   - [x] 82.7.1-01-PLAN.md — Per-stage Submit override button on Stage 0/2/3/4 (E-01)
   - [x] 82.7.1-02-PLAN.md — 150ms opacity fade-out on pendingRemoval rows (E-02)
   - [x] 82.7.1-03-PLAN.md — Brand-color swatch hover tooltip + brandDisplayName helper (E-03)
