@@ -484,7 +484,17 @@ export const classifierScreenWorker = inngest.createFunction(
         //    Mirrors L402–423 of the pre-deletion ingest route. The
         //    stage_0_safety_pending placeholder is NOT re-created here —
         //    Plan 07 thin-ingest already inserts it BEFORE Stage 0 runs.
-        if (!autoActionAllowed) {
+        //
+        // 2026-05-18 fix: `unknown` MUST NOT enter this branch. The seed
+        // registry row for `unknown` has action='swarm_dispatch' →
+        // `debtor-email/label-resolve.requested` → Stage 2 (entity resolution).
+        // The pre-82.2-06 ingest route emitted the verdict for unknowns; the
+        // refactor's catch-all `if (!autoActionAllowed)` swallowed them into
+        // bulk-review and returned early, silently dropping the Stage 2
+        // handoff. Step 5's comment ("`finalCategoryKey === 'unknown'`
+        // short-circuits to the verdict path on purpose") was already the
+        // intended contract — this guard restores it.
+        if (!autoActionAllowed && finalCategoryKey !== "unknown") {
           await step.run("write-predicted-bulk-review", async () => {
             await admin.from("automation_runs").insert({
               automation: "debtor-email-review",
