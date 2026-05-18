@@ -352,74 +352,12 @@ export function Stage1Widget({
             )}
           </div>
           <EvalTypeRadio value={evalType} onChange={setEvalType} />
-          <div
-            className="flex items-center justify-end gap-2"
-            style={{ paddingTop: "var(--space-4)" }}
-          >
-            <button
-              type="button"
-              onClick={discardOverride}
-              disabled={submitting}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                background: "transparent",
-                border: "1px solid var(--v7-brand-secondary)",
-                borderRadius: "var(--v7-radius-pill)",
-                color: "var(--v7-brand-secondary)",
-                cursor: submitting ? "not-allowed" : "pointer",
-                fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                opacity: submitting ? 0.6 : 1,
-              }}
-            >
-              Discard changes
-              <kbd
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 10,
-                  opacity: 0.7,
-                  marginLeft: 4,
-                }}
-              >
-                Esc
-              </kbd>
-            </button>
-            <button
-              type="button"
-              onClick={onClickSubmit}
-              disabled={submitting || !notesValid}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                background: "var(--v7-lime)",
-                border: "1px solid var(--v7-lime)",
-                borderRadius: "var(--v7-radius-pill)",
-                color: "var(--v7-bg)",
-                cursor: submitting || !notesValid ? "not-allowed" : "pointer",
-                fontFamily: "var(--font-mono)",
-                fontWeight: 600,
-                fontSize: 12,
-                opacity: submitting || !notesValid ? 0.6 : 1,
-              }}
-            >
-              {submitting ? "Submitting override…" : "Submit override"}
-              <kbd
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 10,
-                  opacity: 0.7,
-                  marginLeft: 4,
-                }}
-              >
-                ⌘⏎
-              </kbd>
-            </button>
-          </div>
+          {/* Phase 82.7.3 Plan 01 (H-01) — inline Discard/Submit action row
+              deleted. The canonical Submit/Cancel surface is now the
+              detail-pane footer only. The Esc keyboard handler above wires
+              `bulk-review:override-discard` → discardOverride() and ⌘⏎
+              wires `bulk-review:override-submit` → onClickSubmit(), so both
+              keyboard paths survive intact. */}
         </>
       )}
 

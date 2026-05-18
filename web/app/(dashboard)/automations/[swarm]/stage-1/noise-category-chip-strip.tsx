@@ -80,12 +80,16 @@ export function NoiseCategoryChipStrip({
   // Aggregate per-topic counts. Entries with topic === null are not chip
   // badges (they're swarm-wide aggregates) — exclude them.
   const countByTopic = new Map<string, number>();
-  let totalCount = 0;
+  let needsReviewCount = 0;
   for (const c of counts) {
-    totalCount += c.count;
     if (c.topic !== null) {
       countByTopic.set(c.topic, (countByTopic.get(c.topic) ?? 0) + c.count);
     }
+    // H-05: classifier_queue_counts already filters status='predicted',
+    // so auto-handled + overridden rows are excluded at the RPC layer.
+    // Only exclude `topic === "skip"` here (label-only noise the operator
+    // considers handled).
+    if (c.topic !== "skip") needsReviewCount += c.count;
   }
 
   const allActive = activeTopic === "all" && !activeSub;
@@ -100,7 +104,7 @@ export function NoiseCategoryChipStrip({
   // Phase 82 Plan 06: chip data → `_shell/ChipStrip`. The wrapper retains the
   // URL contract (navigate() above) and the tail Pending Promotion Link pill.
   const chipStripChips: ChipStripChip[] = [
-    { key: "all", label: "All", count: totalCount },
+    { key: "all", label: "Needs review", count: needsReviewCount },
     ...categories.map((cat) => ({
       key: cat.category_key,
       label: cat.display_label,
