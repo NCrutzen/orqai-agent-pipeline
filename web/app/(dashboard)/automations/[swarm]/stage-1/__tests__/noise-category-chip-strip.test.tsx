@@ -1,11 +1,11 @@
 // Phase 81 Plan 03 Task 1 — RTL + URL-write test for noise-category chip strip.
 //
 // Cases (per plan acceptance criteria):
-//   (a) Renders one chip per category + "All" + Pending tail pill.
+//   (a) Renders one chip per category + "Needs review" + Pending tail pill.
 //   (b) Click on a category chip → router.push with ?topic=<key> (sub removed).
-//   (c) Click on "All" chip → router.push with no topic param.
+//   (c) Click on "Needs review" chip → router.push with no topic param.
 //   (d) When activeSub === "pending", the Pending pill has aria-selected="true".
-//   (e) When categories === [], "All" + Pending pill still render.
+//   (e) When categories === [], "Needs review" + Pending pill still render.
 //   (f) (file-level grep) source file contains NO references to `swarm_intents`.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -69,7 +69,7 @@ describe("NoiseCategoryChipStrip", () => {
     count("unknown", 7),
   ];
 
-  it("(a) renders one chip per category + All chip + Pending pill", () => {
+  it("(a) renders one chip per category + Needs review chip + Pending pill", () => {
     render(
       <NoiseCategoryChipStrip
         categories={categories}
@@ -80,9 +80,9 @@ describe("NoiseCategoryChipStrip", () => {
       />,
     );
     const tabs = screen.getAllByRole("tab");
-    // categories (3) + "All" (1) + Pending pill (1) = 5
+    // categories (3) + "Needs review" (1) + Pending pill (1) = 5
     expect(tabs).toHaveLength(categories.length + 2);
-    expect(screen.getByRole("tab", { name: /^All —/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /^Needs review —/ })).toBeInTheDocument();
     expect(
       screen.getByRole("tab", { name: /^Payment —/ }),
     ).toBeInTheDocument();
@@ -112,7 +112,7 @@ describe("NoiseCategoryChipStrip", () => {
     expect(url).not.toContain("sub=");
   });
 
-  it("(c) click on All chip → push with no topic param", () => {
+  it("(c) click on Needs review chip → push with no topic param", () => {
     render(
       <NoiseCategoryChipStrip
         categories={categories}
@@ -122,7 +122,7 @@ describe("NoiseCategoryChipStrip", () => {
         activeSub={null}
       />,
     );
-    fireEvent.click(screen.getByRole("tab", { name: /^All —/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /^Needs review —/ }));
     expect(push).toHaveBeenCalledTimes(1);
     const url = String(push.mock.calls[0][0]);
     expect(url).not.toContain("topic=");
@@ -141,12 +141,12 @@ describe("NoiseCategoryChipStrip", () => {
     );
     const pending = screen.getByRole("tab", { name: /Pending promotion/ });
     expect(pending.getAttribute("aria-selected")).toBe("true");
-    // Conversely, "All" chip is no longer "active" while sub=pending.
-    const all = screen.getByRole("tab", { name: /^All —/ });
-    expect(all.getAttribute("aria-selected")).toBe("false");
+    // Conversely, "Needs review" chip is no longer "active" while sub=pending.
+    const needsReview = screen.getByRole("tab", { name: /^Needs review —/ });
+    expect(needsReview.getAttribute("aria-selected")).toBe("false");
   });
 
-  it("(e) empty categories → All chip + Pending pill still render", () => {
+  it("(e) empty categories → Needs review chip + Pending pill still render", () => {
     render(
       <NoiseCategoryChipStrip
         categories={[]}
@@ -157,8 +157,8 @@ describe("NoiseCategoryChipStrip", () => {
       />,
     );
     const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(2); // All + Pending pill
-    expect(screen.getByRole("tab", { name: /^All —/ })).toBeInTheDocument();
+    expect(tabs).toHaveLength(2); // Needs review + Pending pill
+    expect(screen.getByRole("tab", { name: /^Needs review —/ })).toBeInTheDocument();
     expect(
       screen.getByRole("tab", { name: /Pending promotion/ }),
     ).toBeInTheDocument();
