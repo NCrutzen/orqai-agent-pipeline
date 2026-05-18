@@ -43,6 +43,13 @@ vi.mock("../../_lib/kanban-loader", () => ({
   loadKanbanRows: (...args: unknown[]) => loadKanbanRowsMock(...args),
 }));
 
+// Phase 82.8-05 — Stage 4 page now also loads pipeline_events auto-archived rows.
+const loadAutoArchivedNoiseRowsMock = vi.fn();
+vi.mock("../_lib/load-auto-archived-noise-rows", () => ({
+  loadAutoArchivedNoiseRows: (...args: unknown[]) =>
+    loadAutoArchivedNoiseRowsMock(...args),
+}));
+
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => {
     // Stub admin for the body/timeline pre-fetch. Returns empty arrays.
@@ -158,10 +165,14 @@ beforeEach(() => {
   loadSwarmNoiseCategoriesMock.mockReset();
   loadSwarmIntentsMock.mockReset();
   loadKanbanRowsMock.mockReset();
+  loadAutoArchivedNoiseRowsMock.mockReset();
   loadSwarmNoiseCategoriesMock.mockResolvedValue([
     { category_key: "auto_reply", display_name: "Auto reply" },
     { category_key: "unknown", display_name: "Unknown" },
   ]);
+  // Phase 82.8-05: default empty auto-archived list so tests focused on
+  // handler-error rendering keep their assertions stable.
+  loadAutoArchivedNoiseRowsMock.mockResolvedValue([]);
 });
 
 afterEach(() => {

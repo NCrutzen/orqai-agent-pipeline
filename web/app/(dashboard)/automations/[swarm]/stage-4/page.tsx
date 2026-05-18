@@ -33,6 +33,10 @@ import type { Row } from "../_shell/_lib/types";
 import type { PipelineTimelineEvent } from "../_shell/detail-pane";
 import { Stage4ClientShell } from "./client-shell";
 import { buildStageAuditMap } from "../_shell/_lib/build-stage-audit-map";
+import {
+  loadAutoArchivedNoiseRows,
+  type AutoArchivedNoiseRow,
+} from "./_lib/load-auto-archived-noise-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +50,10 @@ interface PageProps {
 
 // KanbanRow → unified Row. mailbox_id MUST be threaded through from the
 // email_pipeline.emails JOIN so the V6 mailbox filter works (NOT a TODO).
-function toUnifiedRow(k: KanbanRow): Row {
+function toUnifiedRow(
+  k: KanbanRow,
+  badgeLabel: string = "handler_error",
+): Row {
   return {
     id: k.id,
     from_name: k.email_metadata?.sender_name ?? null,
@@ -54,7 +61,26 @@ function toUnifiedRow(k: KanbanRow): Row {
     subject: k.email_metadata?.subject ?? null,
     timestamp: k.email_metadata?.received_at ?? k.created_at,
     mailbox_id: k.email_metadata?.mailbox_id ?? null,
-    stage_badge: { label: "handler_error", variant: "handler" },
+    stage_badge: { label: badgeLabel, variant: "handler" },
+  };
+}
+
+// AutoArchivedNoiseRow → unified Row. Selection key is the pipeline_events.id
+// (`row.id`) to disambiguate from handler-error rows; bodyMap is keyed on
+// `email_id` so the detail-pane lookup chain still resolves. mailbox_id from
+// email_pipeline.emails is a string in this schema — parse to int for the
+// V6 mailbox filter (null on parse failure).
+function autoArchivedToUnifiedRow(a: AutoArchivedNoiseRow): Row {
+  const mbRaw = a.email_metadata?.mailbox_id ?? null;
+  const mb = mbRaw != null ? Number.parseInt(mbRaw, 10) : null;
+  return {
+    id: a.id,
+    from_name: a.email_metadata?.sender_name ?? null,
+    from_email: a.email_metadata?.sender_email ?? null,
+    subject: a.email_metadata?.subject ?? null,
+    timestamp: a.email_metadata?.received_at ?? a.created_at,
+    mailbox_id: mb !== null && !Number.isNaN(mb) ? mb : null,
+    stage_badge: { label: "auto_archived", variant: "handler" },
   };
 }
 
@@ -77,13 +103,21 @@ export default async function Stage4Page({
   const swarm = await loadSwarm(admin, swarmType);
   if (!swarm) notFound();
 
-  const [allRows, noiseCategories] = await Promise.all([
+  const [allRows, noiseCategories, autoArchivedRows] = await Promise.all([
     loadKanbanRows(admin, swarmType),
     loadSwarmNoiseCategories(admin, swarmType),
+    loadAutoArchivedNoiseRows(admin, swarmType, { limit: 100 }),
   ]);
 
-  const stage4Rows = allRows.filter(
+  // Phase 82.8-05 D-02 — three sections on Stage 4:
+  //   1. Handler error  → kanban_reason === 'handler_error'   (red, default OPEN)
+  //   2. Needs review   → kanban_reason === 'handler_needs_review' (amber, COLLAPSED, empty today)
+  //   3. Auto-archived  → pipeline_events stage=4 auto_archived_noise (lime, COLLAPSED)
+  const handlerErrorRows = allRows.filter(
     (r) => r.result.kanban_reason === "handler_error",
+  );
+  const needsReviewRows = allRows.filter(
+    (r) => r.result.kanban_reason === "handler_needs_review",
   );
   const stage3Count = allRows.filter(
     (r) =>
@@ -96,7 +130,17 @@ export default async function Stage4Page({
     (c) => c.category_key !== "unknown",
   );
 
-  const unifiedRows = stage4Rows.map(toUnifiedRow);
+  const handlerErrorUnified = handlerErrorRows.map((r) => toUnifiedRow(r, "handler_error"));
+  const needsReviewUnified = needsReviewRows.map((r) => toUnifiedRow(r, "handler_needs_review"));
+  const autoArchivedUnified = autoArchivedRows.map(autoArchivedToUnifiedRow);
+  // Combined for mailbox filter / selection registration. Handler-error first
+  // (default-open section) so its rows are reachable by keyboard nav before
+  // collapsed-section rows.
+  const unifiedRows = [
+    ...handlerErrorUnified,
+    ...needsReviewUnified,
+    ...autoArchivedUnified,
+  ];
   const mailboxLabels = await loadMailboxLabels(admin, swarmType);
   const mailboxes = getSwarmMailboxes(unifiedRows, mailboxLabels);
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
@@ -108,13 +152,27 @@ export default async function Stage4Page({
   // email body to render in the detail pane without a separate roundtrip.
   const bodyMap: Record<string, { bodyText: string; bodyHtml: string | null }> = {};
   const timelineMap: Record<string, PipelineTimelineEvent[]> = {};
-  const emailIds = Array.from(
-    new Set(
-      stage4Rows
-        .map((r) => r.result?.email_id ?? null)
-        .filter((id): id is string => typeof id === "string" && id.length > 0),
-    ),
-  );
+  // Phase 82.8-05 — pre-fetch covers handler-error + needs-review kanban rows
+  // (have `result.email_id`) PLUS auto-archived rows (have direct `email_id`).
+  // Auto-archived loader already returns body_text/body_html inline, so we
+  // short-circuit those into bodyMap below and skip them in the SELECT.
+  const kanbanEmailIds = [
+    ...handlerErrorRows.map((r) => r.result?.email_id ?? null),
+    ...needsReviewRows.map((r) => r.result?.email_id ?? null),
+  ].filter((id): id is string => typeof id === "string" && id.length > 0);
+  const autoArchivedEmailIds = autoArchivedRows.map((r) => r.email_id);
+  const emailIds = Array.from(new Set([...kanbanEmailIds, ...autoArchivedEmailIds]));
+
+  // Inline-fill bodyMap for auto-archived rows: the loader already fetched
+  // body_text/body_html as part of its Pass 2 SELECT. No second round-trip.
+  for (const r of autoArchivedRows) {
+    if (r.body_text != null || r.body_html != null) {
+      bodyMap[r.email_id] = {
+        bodyText: r.body_text ?? "",
+        bodyHtml: r.body_html ?? null,
+      };
+    }
+  }
   if (emailIds.length > 0) {
     const bodiesPromise = admin
       .schema("email_pipeline")
@@ -162,20 +220,39 @@ export default async function Stage4Page({
       <StageTabStrip
         swarm={swarm}
         currentStage={4}
-        counts={{ 3: stage3Count, 4: stage4Rows.length }}
+        counts={{
+          3: stage3Count,
+          // Stage 4 tab badge = handler_error count only (the active-needs-attention
+          // bucket). needs-review (empty) and auto-archived (informational) are NOT
+          // counted in the tab badge to keep operator focus on the action lane.
+          4: handlerErrorRows.length,
+        }}
       />
       <AutomationRealtimeProvider
         automations={[`${swarmType}-kanban`]}
         initialLimit={500}
       >
         <SelectionProvider
-          rowIds={stage4Rows.map((r) => r.id)}
+          // Phase 82.8-05 — selection rowIds span all three sections.
+          // Handler-error first (default-open) for keyboard nav priority.
+          rowIds={[
+            ...handlerErrorRows.map((r) => r.id),
+            ...needsReviewRows.map((r) => r.id),
+            ...autoArchivedRows.map((r) => r.id),
+          ]}
           initialSelectedId={selectedId}
         >
           <Stage4ClientShell
             swarmType={swarmType}
-            rows={stage4Rows}
-            unifiedRows={unifiedRows}
+            rows={handlerErrorRows}
+            unifiedRows={handlerErrorUnified}
+            needsReviewRows={needsReviewRows}
+            needsReviewUnified={needsReviewUnified}
+            autoArchivedRows={autoArchivedRows}
+            autoArchivedUnified={autoArchivedUnified}
+            handlerErrorCount={handlerErrorRows.length}
+            needsReviewCount={needsReviewRows.length}
+            autoArchivedCount={autoArchivedRows.length}
             noiseCategories={reclassifyNoiseCategories}
             mailboxes={mailboxes}
             selectedMailboxes={selectedMailboxes}
