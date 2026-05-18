@@ -82,6 +82,11 @@ export interface Stage1ClientShellProps {
    *  rowVerdictMap (row strip dots, R3) and a paneFeedbackMap (detail pane
    *  per-stage readback, R1). Optional during cross-wave landings. */
   feedbackMap?: FeedbackMap;
+  /** Phase 82.8-07 D-03 — iController before/after screenshot paths keyed by
+   *  email_id. Loaded server-side from `debtor.email_labels.screenshot_*_path`
+   *  for the page's visible rows; passed through to UnifiedDetailPane which
+   *  mounts <StageScreenshotStrip> inside the Stage 1 audit expander. */
+  screenshotPathsByEmailId?: Record<string, { before: string | null; after: string | null }>;
 }
 
 // Phase 82.5 Plan 06: ACTIVE_STAGE literal — Stage 1 (swarm_noise_categories).
@@ -103,6 +108,7 @@ export function Stage1ClientShell({
   mailboxLabels,
   stageAudit,
   feedbackMap,
+  screenshotPathsByEmailId,
 }: Stage1ClientShellProps) {
   const { selectedId } = useSelection();
 
@@ -273,6 +279,10 @@ export function Stage1ClientShell({
             // compute the next selection target. Threading the .id array (not
             // the full Row[]) keeps the prop surface narrow.
             visibleRowIds={visibleUnified.map((r) => r.id)}
+            // Phase 82.8-07 D-03 — iController before/after screenshot paths
+            // mapped by email_id; UnifiedDetailPane mounts the strip inside
+            // the Stage 1 audit expander.
+            screenshotPathsByEmailId={screenshotPathsByEmailId}
           />
         </div>
       </div>

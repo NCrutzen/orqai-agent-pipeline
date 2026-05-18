@@ -25,6 +25,7 @@
 // pane snappy at ≤25 visible rows).
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -38,6 +39,10 @@ import { Button } from "@/components/ui/button";
 import type { SwarmNoiseCategoryRow, SwarmIntentRow } from "@/lib/swarms/types";
 import type { OverrideAxis } from "@/lib/pipeline-events/types";
 import type { FeedbackReadBack } from "@/lib/automations/debtor-email/feedback/types";
+// Phase 82.8-07 D-03 mount — Stage 1 before/after iController screenshot strip.
+// Reuses the Plan 06 component built in isolation; here we wire the path map
+// through detail-pane and render the strip inside the Stage 1 audit expander.
+import { StageScreenshotStrip } from "@/components/automations/bulk-review/audit/StageScreenshotStrip";
 
 // PipelineTimelineEvent currently lives in stage-1/page.tsx (exported). Plan
 // 06 will lift it to _shell/_lib/ when the unified shell becomes the single
@@ -146,6 +151,14 @@ export interface UnifiedDetailPaneProps {
    *  omitted, defaults to `[]` and auto-advance falls back to `null` (selection
    *  clears). */
   visibleRowIds?: string[];
+  /** Phase 82.8-07 D-03 — per-email iController screenshot paths (before /
+   *  after) sourced from `debtor.email_labels.screenshot_*_path`. Pages load
+   *  the map once (single SELECT keyed on the visible email_id set) and pass
+   *  it through; detail-pane renders <StageScreenshotStrip> inside the Stage 1
+   *  audit expander for the selected row. Empty / missing entries render the
+   *  strip's empty state ("No screenshots available"). Swarms without an
+   *  iController side-effect simply omit the prop. */
+  screenshotPathsByEmailId?: Record<string, { before: string | null; after: string | null }>;
 }
 
 // ---- Component -----------------------------------------------------------
@@ -166,6 +179,7 @@ export function UnifiedDetailPane({
   mailboxLabels,
   feedbackMap,
   visibleRowIds,
+  screenshotPathsByEmailId,
 }: UnifiedDetailPaneProps) {
   // Empty state — RESEARCH §Empty State unified copy (Stage 3/4 wording).
   if (!row) {
@@ -201,6 +215,7 @@ export function UnifiedDetailPane({
       mailboxLabels={mailboxLabels}
       feedbackMap={feedbackMap}
       visibleRowIds={visibleRowIds}
+      screenshotPathsByEmailId={screenshotPathsByEmailId}
     />
   );
 }
@@ -223,6 +238,7 @@ function DetailPaneInner({
   mailboxLabels,
   feedbackMap,
   visibleRowIds,
+  screenshotPathsByEmailId,
 }: UnifiedDetailPaneProps & { row: Row }) {
   // Track dirty axes. Stays {} on mount — the operator opts into override
   // for a stage by clicking that stage's inline "override stage" link
@@ -354,8 +370,31 @@ function DetailPaneInner({
     });
     // Merge: live timeline wins; fall back to caller-supplied for stages
     // the timeline didn't cover.
-    return { ...(stageAudit ?? {}), ...fromTimeline };
-  }, [stageAudit, timeline]);
+    const merged: StageAuditMap = { ...(stageAudit ?? {}), ...fromTimeline };
+
+    // Phase 82.8-07 D-03 — append the iController before/after screenshot strip
+    // INSIDE the Stage 1 audit expander, directly after the existing
+    // Stage1EvidencePanel content. Direct-prop channel per Plan 07:
+    // `screenshotPathsByEmailId` is read straight off the row's email_id; we do
+    // NOT route paths through build-stage-audit-map.ts (audit-map plumbing
+    // stays untouched). Empty / both-null entries render the strip's own
+    // "No screenshots available" empty state, so it is always safe to mount.
+    const paths = screenshotPathsByEmailId?.[row.id];
+    const stripNode = (
+      <StageScreenshotStrip
+        beforePath={paths?.before ?? null}
+        afterPath={paths?.after ?? null}
+      />
+    );
+    const existing = merged[1] as ReactNode | undefined;
+    merged[1] = (
+      <Fragment>
+        {existing ?? null}
+        {stripNode}
+      </Fragment>
+    );
+    return merged;
+  }, [stageAudit, timeline, screenshotPathsByEmailId, row.id]);
 
   // Build the 5-cell StageData[] array. Order matters — [0,1,2,3,4] as const.
   const stagesData: StageData[] = useMemo(() => {

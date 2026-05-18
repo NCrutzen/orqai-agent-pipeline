@@ -173,6 +173,15 @@ export default async function Stage4Page({
       };
     }
   }
+  // Phase 82.8-07 D-03 — preload iController before/after screenshot paths
+  // for every visible email_id. Single SELECT against debtor.email_labels;
+  // the detail-pane mounts <StageScreenshotStrip> in the Stage 1 audit
+  // expander (re-used by Auto-archived rows). Non-debtor-email swarms have
+  // no email_labels rows → empty map → strip renders empty state.
+  const screenshotPathsByEmailId: Record<
+    string,
+    { before: string | null; after: string | null }
+  > = {};
   if (emailIds.length > 0) {
     const bodiesPromise = admin
       .schema("email_pipeline")
@@ -186,11 +195,27 @@ export default async function Stage4Page({
       .in("email_id", emailIds)
       .order("stage", { ascending: true })
       .order("created_at", { ascending: true });
+    const labelsPromise = admin
+      .schema("debtor")
+      .from("email_labels")
+      .select("email_id, screenshot_before_path, screenshot_after_path")
+      .in("email_id", emailIds);
 
-    const [bodiesRes, timelineRes] = await Promise.all([
+    const [bodiesRes, timelineRes, labelsRes] = await Promise.all([
       bodiesPromise,
       timelinePromise,
+      labelsPromise,
     ]);
+    for (const row of (labelsRes.data as Array<{
+      email_id: string;
+      screenshot_before_path: string | null;
+      screenshot_after_path: string | null;
+    }> | null) ?? []) {
+      screenshotPathsByEmailId[row.email_id] = {
+        before: row.screenshot_before_path ?? null,
+        after: row.screenshot_after_path ?? null,
+      };
+    }
 
     for (const e of (bodiesRes.data as Array<{
       id: string;
@@ -260,6 +285,7 @@ export default async function Stage4Page({
             timelineMap={timelineMap}
             stageAudit={buildStageAuditMap({ timeline: [], agentRuns: [], automationRun: null })}
             mailboxLabels={mailboxLabels}
+            screenshotPathsByEmailId={screenshotPathsByEmailId}
           />
         </SelectionProvider>
       </AutomationRealtimeProvider>

@@ -82,6 +82,11 @@ export interface Stage4ClientShellProps {
    *  a verdict dot in the row strip (R3) for symmetry; the feedbackMap is
    *  optional so callers can omit it until the Stage 4 page wires the loader. */
   feedbackMap?: FeedbackMap;
+  /** Phase 82.8-07 D-03 — iController before/after screenshot paths keyed by
+   *  email_id. Used by Auto-archived rows whose detail-pane reuses the same
+   *  Stage 1 audit expander mount-point. Handler-error rows usually have NULL
+   *  paths (the failure aborted before the after-screenshot) → empty state. */
+  screenshotPathsByEmailId?: Record<string, { before: string | null; after: string | null }>;
 }
 
 // Phase 82.5 Plan 06: ACTIVE_STAGE literal — Stage 4 (handler-error). Note
@@ -129,6 +134,7 @@ export function Stage4ClientShell({
   stageAudit,
   mailboxLabels,
   feedbackMap,
+  screenshotPathsByEmailId,
 }: Stage4ClientShellProps) {
   const { selectedId } = useSelection();
 
@@ -171,6 +177,39 @@ export function Stage4ClientShell({
   const selectedEmailId = selectedRow?.result?.email_id ?? null;
   const body = selectedEmailId ? bodyMap[selectedEmailId] ?? null : null;
   const timeline = selectedEmailId ? timelineMap[selectedEmailId] ?? [] : [];
+
+  // Phase 82.8-07 D-03 — UnifiedDetailPane looks up screenshot paths via
+  // `row.id`. In Stage 4, row.id is either a kanban_id (handler-error rows)
+  // or a pipeline_events.id (auto-archived rows) — NEVER email_id. Remap the
+  // email_id-keyed map we received from the page into a row.id-keyed map so
+  // the detail-pane lookup resolves. Stage 1 doesn't need this remap because
+  // PredictedRow.id === email_id there (page.tsx line 608: `id: row.email_id`).
+  const screenshotPathsByRowId = useMemo<
+    Record<string, { before: string | null; after: string | null }> | undefined
+  >(() => {
+    if (!screenshotPathsByEmailId) return undefined;
+    const out: Record<string, { before: string | null; after: string | null }> = {};
+    // Handler-error rows: kanban_id → result.email_id
+    for (const k of rows) {
+      const eid = k.result?.email_id ?? null;
+      if (!eid) continue;
+      const p = screenshotPathsByEmailId[eid];
+      if (p) out[k.id] = p;
+    }
+    // Needs-review rows: same shape as handler-error.
+    for (const k of needsReviewRows) {
+      const eid = k.result?.email_id ?? null;
+      if (!eid) continue;
+      const p = screenshotPathsByEmailId[eid];
+      if (p) out[k.id] = p;
+    }
+    // Auto-archived rows: id = pipeline_events.id, email_id is a direct field.
+    for (const a of autoArchivedRows) {
+      const p = screenshotPathsByEmailId[a.email_id];
+      if (p) out[a.id] = p;
+    }
+    return out;
+  }, [screenshotPathsByEmailId, rows, needsReviewRows, autoArchivedRows]);
 
   // Phase 82.5 Plan 06 — derive rowVerdictMap for the row strip dot (R3).
   // Same kanban_id → email_id bridge as Stage 3.
@@ -281,6 +320,10 @@ export function Stage4ClientShell({
                 stageAudit={stageAudit}
                 mailboxLabels={mailboxLabels}
                 feedbackMap={paneFeedbackMap}
+                // Phase 82.8-07 D-03 — row.id-keyed map (remapped above from
+                // the page's email_id-keyed map) so the strip mounts in the
+                // Stage 1 audit expander for Auto-archived rows.
+                screenshotPathsByEmailId={screenshotPathsByRowId}
               />
             </div>
           </CollapsibleContent>
