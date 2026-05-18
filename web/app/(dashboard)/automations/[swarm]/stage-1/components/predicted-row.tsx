@@ -13,7 +13,7 @@
  *
  * Pure presentational; selection / click handler wired by row-list (Plan 05).
  */
-import { brandColorToken } from "@/lib/swarms/brand-color";
+import { brandColorToken, brandDisplayName } from "@/lib/swarms/brand-color";
 import {
   Tooltip,
   TooltipContent,
@@ -94,17 +94,30 @@ export function PredictedRow({ row, selected, onSelect }: PredictedRowProps) {
     >
       {/* Recipient col */}
       <div className="flex items-center gap-2 min-w-0">
-        <span
-          aria-hidden="true"
-          style={{
-            display: "inline-block",
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            background: `var(${brandColorToken(row.entity_brand)})`,
-            flexShrink: 0,
-          }}
-        />
+        {/* Phase 82.7.1 D-06/D-07/D-08 — brand-color swatch with hover
+            tooltip showing the brand display name. Promotes the swatch
+            from aria-hidden to role=img + aria-label so screen readers
+            surface the brand. Uses Radix Tooltip pattern from the ↻
+            overridden glyph block below (~L181-198). */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                role="img"
+                aria-label={`Brand: ${brandDisplayName(row.entity_brand)}`}
+                style={{
+                  display: "inline-block",
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: `var(${brandColorToken(row.entity_brand)})`,
+                  flexShrink: 0,
+                }}
+              />
+            </TooltipTrigger>
+            <TooltipContent>{brandDisplayName(row.entity_brand)}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <span className="text-[12px] leading-[1.3] font-mono truncate min-w-0">
           {row.recipient_inbox}
         </span>
