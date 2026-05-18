@@ -552,7 +552,10 @@ Plans:
   - [x] 82.7.2-02-PLAN.md — F-02 entity coverage audit + conditional mapper fix in stage-1/page.tsx (G-02..G-04)
   - [x] 82.7.2-03-PLAN.md — F-01 brand-swatch tooltip hit-target fix in predicted-row.tsx (G-01)
   - F-04 — no plan (G-10: leave the em-dash safety guard untouched)
-- [ ] **Phase 82.7.3: Detail-pane + stage-1 list UAT follow-ups (round 2)** — G-01..G-06 surfaced 2026-05-18 immediately after 82.7.2 merge. G-01 duplicate Submit/Cancel buttons (3 visible at once), G-02 REG/CAP labels need user-friendly copy, G-03 footer action row overflows pane width, G-04 mailbox label missing on list rows, G-05 "All 459" counter misleading, G-06 Predictor/Confidence filter rows too prominent. Needs `/gsd-spec-phase 82.7.3` → `/gsd-discuss-phase 82.7.3` → `/gsd-plan-phase 82.7.3`.
+- [x] **Phase 82.7.3: Detail-pane + stage-1 list UAT follow-ups (round 2)** — G-01..G-06 closed 2026-05-18 (3/3 plans, UAT-confirmed). G-01 footer-only Submit/Cancel surface, G-02 plain-English eval-type cards, G-03 540px detail pane (Reject fits), G-04 mono mailbox chip per row, G-05 "Needs review · N" predicate (skip excluded), G-06 predictor/confidence chip rows collapsed by default with URL auto-expand.
+  - [x] 82.7.3-01-PLAN.md — Single Submit/Cancel surface + plain-English eval-type cards (G-01, G-02)
+  - [x] 82.7.3-02-PLAN.md — "Needs review · N" predicate + predictor/confidence chip collapse (G-05, G-06)
+  - [x] 82.7.3-03-PLAN.md — Widen detail pane to 540px + per-row mailbox chip (G-03, G-04)
   - [x] 82.7.1-01-PLAN.md — Per-stage Submit override button on Stage 0/2/3/4 (E-01)
   - [x] 82.7.1-02-PLAN.md — 150ms opacity fade-out on pendingRemoval rows (E-02)
   - [x] 82.7.1-03-PLAN.md — Brand-color swatch hover tooltip + brandDisplayName helper (E-03)
