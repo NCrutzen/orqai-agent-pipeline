@@ -25,3 +25,24 @@ export function brandColorToken(brand: Entity | string | null | undefined): stri
   if (!brand) return FALLBACK_TOKEN;
   return BRAND_COLOR_TOKEN[brand] ?? FALLBACK_TOKEN;
 }
+
+// Phase 82.7.1 D-07 — brand display names colocated with BRAND_COLOR_TOKEN
+// for single-source-of-truth. Used by the brand-swatch tooltip in
+// predicted-row.tsx (E-03). Codes match project_brand_scope.md (5 Benelux
+// brands; iccafe/iccafe-france deferred). The Entity literal-union
+// codegen gate (npm run codegen && git diff --exit-code) catches drift
+// between this map and the generated brand registry.
+const BRAND_DISPLAY_NAME: Record<string, string> = {
+  smeba: "Smeba",
+  "smeba-fire": "Smeba-Fire",
+  berki: "Berki",
+  "sicli-noord": "Sicli-Noord",
+  "sicli-sud": "Sicli-Sud",
+};
+
+const FALLBACK_DISPLAY_NAME = "Unknown brand";
+
+export function brandDisplayName(brand: Entity | string | null | undefined): string {
+  if (!brand) return FALLBACK_DISPLAY_NAME;
+  return BRAND_DISPLAY_NAME[brand] ?? FALLBACK_DISPLAY_NAME;
+}
