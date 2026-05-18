@@ -30,7 +30,6 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Stage1Widget as Stage1CategorySelect } from "../../stage-1/components/stage-1-widget";
 import {
@@ -353,31 +352,73 @@ export function Stage1Widget({
             )}
           </div>
           <EvalTypeRadio value={evalType} onChange={setEvalType} />
-          <div className="flex items-center justify-end gap-2 mt-2">
-            <Button
-              variant="ghost"
+          <div
+            className="flex items-center justify-end gap-2"
+            style={{ paddingTop: "var(--space-4)" }}
+          >
+            <button
+              type="button"
               onClick={discardOverride}
               disabled={submitting}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 14px",
+                background: "transparent",
+                border: "1px solid var(--v7-brand-secondary)",
+                borderRadius: "var(--v7-radius-pill)",
+                color: "var(--v7-brand-secondary)",
+                cursor: submitting ? "not-allowed" : "pointer",
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                opacity: submitting ? 0.6 : 1,
+              }}
             >
               Discard changes
-              <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
+              <kbd
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  opacity: 0.7,
+                  marginLeft: 4,
+                }}
+              >
                 Esc
               </kbd>
-            </Button>
-            <Button
-              variant="default"
+            </button>
+            <button
+              type="button"
               onClick={onClickSubmit}
               disabled={submitting || !notesValid}
               style={{
-                background: "var(--v7-brand-primary)",
-                color: "#fff",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 14px",
+                background: "var(--v7-lime)",
+                border: "1px solid var(--v7-lime)",
+                borderRadius: "var(--v7-radius-pill)",
+                color: "var(--v7-bg)",
+                cursor: submitting || !notesValid ? "not-allowed" : "pointer",
+                fontFamily: "var(--font-mono)",
+                fontWeight: 600,
+                fontSize: 12,
+                opacity: submitting || !notesValid ? 0.6 : 1,
               }}
             >
               {submitting ? "Submitting override…" : "Submit override"}
-              <kbd className="ml-2 px-1.5 py-0.5 rounded-[4px] bg-black/30 text-[11px] font-mono opacity-70">
+              <kbd
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  opacity: 0.7,
+                  marginLeft: 4,
+                }}
+              >
                 ⌘⏎
               </kbd>
-            </Button>
+            </button>
           </div>
         </>
       )}
