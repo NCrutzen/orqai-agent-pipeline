@@ -186,7 +186,7 @@ export default async function Stage4Page({
     const bodiesPromise = admin
       .schema("email_pipeline")
       .from("emails")
-      .select("id, body_text, body_html")
+      .select("id, body_text, body_html, source_id")
       .in("id", emailIds);
     const timelinePromise = admin
       .from("pipeline_events")
@@ -217,15 +217,21 @@ export default async function Stage4Page({
       };
     }
 
+    // source_id → email_id map for the cleanup-worker lookup below.
+    // cleanup-worker stores Outlook message_id in result.message_id;
+    // emails.source_id is the same identifier (debtor-email/ingest/route.ts:215).
+    const sourceIdToEmailId = new Map<string, string>();
     for (const e of (bodiesRes.data as Array<{
       id: string;
       body_text: string | null;
       body_html: string | null;
+      source_id: string | null;
     }> | null) ?? []) {
       bodyMap[e.id] = {
         bodyText: e.body_text ?? "",
         bodyHtml: e.body_html || null,
       };
+      if (e.source_id) sourceIdToEmailId.set(e.source_id, e.id);
     }
     for (const ev of (timelineRes.data as Array<
       PipelineTimelineEvent & { email_id: string | null }
@@ -236,6 +242,40 @@ export default async function Stage4Page({
         stage: ev.stage,
         decision: ev.decision ?? null,
       });
+    }
+
+    // Phase 82.8-12 — fill screenshot paths for Auto-archived rows from
+    // automation_runs.result.screenshots. The noise-cleanup pipeline
+    // (debtor-email-icontroller-cleanup-worker.ts:146) stores screenshots
+    // here, not on debtor.email_labels. email_labels paths (above) win for
+    // the intent-labeled subset; this pass fills in the rest.
+    const sourceIds = Array.from(sourceIdToEmailId.keys());
+    if (sourceIds.length > 0) {
+      const { data: cleanupRuns } = await admin
+        .from("automation_runs")
+        .select("result, created_at")
+        .eq("automation", "debtor-email-cleanup")
+        .in("result->>message_id", sourceIds)
+        .order("created_at", { ascending: false });
+      for (const r of (cleanupRuns as Array<{
+        result: {
+          message_id?: string;
+          screenshots?: {
+            before?: { path?: string | null } | null;
+            after?:  { path?: string | null } | null;
+          } | null;
+        } | null;
+      }> | null) ?? []) {
+        const msgId = r.result?.message_id;
+        if (!msgId) continue;
+        const eid = sourceIdToEmailId.get(msgId);
+        if (!eid) continue;
+        if (screenshotPathsByEmailId[eid]) continue; // email_labels paths win
+        const before = r.result?.screenshots?.before?.path ?? null;
+        const after = r.result?.screenshots?.after?.path ?? null;
+        if (before == null && after == null) continue;
+        screenshotPathsByEmailId[eid] = { before, after };
+      }
     }
   }
 
