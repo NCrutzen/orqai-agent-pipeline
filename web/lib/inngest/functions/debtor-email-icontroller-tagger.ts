@@ -168,6 +168,12 @@ export const debtorEmailIcontrollerTagger = inngest.createFunction(
         if (tagResult.screenshot_after_url) {
           updatePayload.screenshot_after_url = tagResult.screenshot_after_url;
         }
+        if (tagResult.screenshot_before_path) {
+          updatePayload.screenshot_before_path = tagResult.screenshot_before_path;
+        }
+        if (tagResult.screenshot_after_path) {
+          updatePayload.screenshot_after_path = tagResult.screenshot_after_path;
+        }
         if (tagStatus === "tagged") {
           updatePayload.labeled_at = new Date().toISOString();
         }
