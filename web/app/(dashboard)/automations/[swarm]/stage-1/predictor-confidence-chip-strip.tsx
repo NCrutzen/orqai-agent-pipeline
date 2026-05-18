@@ -34,7 +34,7 @@
  *   - Default (no params) → both strips show "All" active (D-06).
  */
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   useRouter,
   usePathname,
@@ -69,6 +69,19 @@ export function PredictorConfidenceChipStrip({
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
+
+  // H-07 + H-08: collapse PREDICTOR + CONFIDENCE chip rows by default;
+  // auto-expand on first render when URL deep-links carry an active filter.
+  // The initialiser runs ONCE on mount — subsequent in-section chip clicks
+  // (which write `?predictor=` / `?confidence=`) MUST NOT re-toggle this,
+  // hence the functional `useState(() => ...)` instead of `useEffect`.
+  const [expanded, setExpanded] = useState(() => {
+    const p = search?.get("predictor");
+    const c = search?.get("confidence");
+    const pActive = p && p !== "all";
+    const cActive = c && c !== "all";
+    return Boolean(pActive || cActive);
+  });
 
   const navigatePredictor = useCallback(
     (next: string) => {
@@ -112,46 +125,78 @@ export function PredictorConfidenceChipStrip({
       }}
       aria-label="Filter Stage 1 by predictor and confidence"
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-        <span
-          style={{
-            fontSize: 11,
-            fontFamily: "var(--v7-font-mono, monospace)",
-            color: "var(--v7-text-muted)",
-            minWidth: 80,
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-          }}
-        >
-          Predictor
-        </span>
-        <ChipStrip
-          chips={PREDICTOR_CHIPS}
-          active={activePredictorKey}
-          onChange={navigatePredictor}
-          ariaLabel="Filter Stage 1 by predictor"
-        />
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-        <span
-          style={{
-            fontSize: 11,
-            fontFamily: "var(--v7-font-mono, monospace)",
-            color: "var(--v7-text-muted)",
-            minWidth: 80,
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-          }}
-        >
-          Confidence
-        </span>
-        <ChipStrip
-          chips={CONFIDENCE_CHIPS}
-          active={activeConfidenceKey}
-          onChange={navigateConfidence}
-          ariaLabel="Filter Stage 1 by LLM confidence"
-        />
-      </div>
+      <button
+        type="button"
+        onClick={() => setExpanded((p) => !p)}
+        aria-expanded={expanded}
+        data-testid="advanced-filters-toggle"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          alignSelf: "flex-start",
+          gap: 4,
+          padding: "2px 0",
+          background: "transparent",
+          border: "none",
+          color: "var(--v7-brand-secondary)",
+          fontFamily: "var(--font-mono)",
+          fontSize: 12,
+          cursor: "pointer",
+          textDecoration: "none",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.textDecoration = "underline";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.textDecoration = "none";
+        }}
+      >
+        {expanded ? "Hide advanced filters" : "Show advanced filters"}
+      </button>
+      {expanded && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontFamily: "var(--v7-font-mono, monospace)",
+                color: "var(--v7-text-muted)",
+                minWidth: 80,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Predictor
+            </span>
+            <ChipStrip
+              chips={PREDICTOR_CHIPS}
+              active={activePredictorKey}
+              onChange={navigatePredictor}
+              ariaLabel="Filter Stage 1 by predictor"
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontFamily: "var(--v7-font-mono, monospace)",
+                color: "var(--v7-text-muted)",
+                minWidth: 80,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Confidence
+            </span>
+            <ChipStrip
+              chips={CONFIDENCE_CHIPS}
+              active={activeConfidenceKey}
+              onChange={navigateConfidence}
+              ariaLabel="Filter Stage 1 by LLM confidence"
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
