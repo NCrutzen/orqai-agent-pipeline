@@ -1,21 +1,27 @@
 "use client";
 
-// Phase 82 Plan 04 — Stage 4 client shell wrapper.
+// Phase 82.8 Plan 05 — Stage 4 client shell with three collapsible sections.
 //
-// Bridges the RSC page (which has the raw kanban rows + email metadata +
-// pre-fetched body/timeline maps) to the unified _shell/ primitives. The
-// client wrapper is needed because UnifiedDetailPane consumes the current
-// `selectedId` from selection-context to know which row to render.
+// Sections (D-02):
+//   1. Handler error   (red,   defaultOpen)    — handler_error kanban rows + detail-pane
+//   2. Needs review    (amber, COLLAPSED)      — handler_needs_review kanban rows (empty today)
+//   3. Auto-archived   (lime,  COLLAPSED)      — pipeline_events stage=4 auto_archived_noise
 //
 // Hard-separation contract (docs/agentic-pipeline/README.md):
 //   - `categories` prop = swarm_noise_categories (Stage 1 widget — Reclassify).
 //   - `intents` prop = [] (Stage 4 has NO Replay path; preserves hard
 //     separation — never blurs Stage 1 noise vs Stage 3 intent).
+//   - Auto-archived rows are Stage 1 noise-filter outputs surfaced as Stage 4
+//     telemetry events for the "handled" overview; they remain rooted in
+//     swarm_noise_categories (NEVER in swarm_intents).
 //   - activeStage = 4 so the Stage 4 cell is pre-expanded.
 //
-// Row mapping: KanbanRow → Row (unified shell shape).  mailbox_id MUST be
-// threaded through from email_metadata so the V6 mailbox filter actually
-// filters Stage 4 rows.
+// Selection model: a single selectedId spans all three sections. For the
+// Auto-archived section the row id is the pipeline_events.id; detail-pane
+// body/timeline lookups still key off email_id (resolved via the relevant
+// row source — bodyMap is keyed on email_id and was filled inline by the
+// page-side loader). Handler-error widget only renders for KanbanRow
+// selections — not for auto-archived selections.
 
 import { useMemo } from "react";
 
@@ -25,6 +31,7 @@ import type {
   FeedbackReadBack,
 } from "@/lib/automations/debtor-email/feedback/types";
 import type { KanbanRow } from "../_lib/kanban-loader";
+import type { AutoArchivedNoiseRow } from "./_lib/load-auto-archived-noise-rows";
 import { RowList } from "../_shell/row-list";
 import { MailboxFilter } from "../_shell/mailbox-filter";
 import {
@@ -36,6 +43,11 @@ import { useSelection } from "../_shell/selection-context";
 import { KeyboardShortcuts } from "../_shell/keyboard-shortcuts";
 import type { MailboxOption } from "../_shell/_lib/get-swarm-mailboxes";
 import type { Row } from "../_shell/_lib/types";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface BodyEntry {
   bodyText: string;
@@ -44,8 +56,20 @@ interface BodyEntry {
 
 export interface Stage4ClientShellProps {
   swarmType: string;
+  // Handler-error (section 1, default-open) — drives the detail-pane.
   rows: KanbanRow[];
   unifiedRows: Row[];
+  // Needs-review (section 2, COLLAPSED; empty today).
+  needsReviewRows: KanbanRow[];
+  needsReviewUnified: Row[];
+  // Auto-archived (section 3, COLLAPSED).
+  autoArchivedRows: AutoArchivedNoiseRow[];
+  autoArchivedUnified: Row[];
+  // Section header counts (rendered in the trigger badge).
+  handlerErrorCount: number;
+  needsReviewCount: number;
+  autoArchivedCount: number;
+
   noiseCategories: SwarmNoiseCategoryRow[];
   mailboxes: MailboxOption[];
   selectedMailboxes: number[];
@@ -64,10 +88,39 @@ export interface Stage4ClientShellProps {
 // paneFeedbackMap is gated to undefined when ACTIVE_STAGE > 3.
 const ACTIVE_STAGE = 4 as const;
 
+const SECTION_TRIGGER_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "var(--space-2)",
+  width: "100%",
+  padding: "var(--space-2) var(--space-3)",
+  border: "1px solid var(--v7-border)",
+  borderRadius: "var(--v7-radius-md, 6px)",
+  background: "var(--v7-surface-1, transparent)",
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const SECTION_BADGE_STYLE: React.CSSProperties = {
+  marginLeft: "var(--space-2)",
+  fontSize: 12,
+  fontWeight: 500,
+  opacity: 0.85,
+};
+
 export function Stage4ClientShell({
   swarmType,
   rows,
   unifiedRows,
+  needsReviewRows,
+  needsReviewUnified,
+  autoArchivedRows,
+  autoArchivedUnified,
+  handlerErrorCount,
+  needsReviewCount,
+  autoArchivedCount,
   noiseCategories,
   mailboxes,
   selectedMailboxes,
@@ -79,21 +132,29 @@ export function Stage4ClientShell({
 }: Stage4ClientShellProps) {
   const { selectedId } = useSelection();
 
-  // Apply mailbox filter client-side. Server-rendered list is the full set;
-  // URL ?mailbox= params narrow it. Mirrors Stage 1's behavior.
-  const visibleUnified = useMemo(() => {
-    if (selectedMailboxes.length === 0) return unifiedRows;
+  // Apply mailbox filter client-side across all three sections. Server-rendered
+  // lists are the full set; URL ?mailbox= params narrow them. Mirrors Stage 1.
+  const filterByMailbox = useMemo(() => {
+    if (selectedMailboxes.length === 0) {
+      return (xs: Row[]) => xs;
+    }
     const allowed = new Set(selectedMailboxes);
-    return unifiedRows.filter(
-      (r) => r.mailbox_id !== null && allowed.has(r.mailbox_id),
-    );
-  }, [unifiedRows, selectedMailboxes]);
+    return (xs: Row[]) =>
+      xs.filter((r) => r.mailbox_id !== null && allowed.has(r.mailbox_id));
+  }, [selectedMailboxes]);
+
+  const visibleUnified = useMemo(() => filterByMailbox(unifiedRows), [filterByMailbox, unifiedRows]);
+  const visibleNeedsReview = useMemo(() => filterByMailbox(needsReviewUnified), [filterByMailbox, needsReviewUnified]);
+  const visibleAutoArchived = useMemo(() => filterByMailbox(autoArchivedUnified), [filterByMailbox, autoArchivedUnified]);
 
   const visibleKanbanIds = useMemo(
     () => new Set(visibleUnified.map((r) => r.id)),
     [visibleUnified],
   );
 
+  // Detail-pane selection — handler-error rows only. Auto-archived & needs-review
+  // selection-by-click is permitted but does NOT mount the handler-error widget
+  // (no error to surface for auto-archived; needs-review widget arrives later).
   const selectedRow: KanbanRow | null = useMemo(() => {
     if (!selectedId) return null;
     const k = rows.find((r) => r.id === selectedId);
@@ -135,17 +196,12 @@ export function Stage4ClientShell({
     const entry = feedbackMap[selectedEmailId];
     if (!entry) return undefined;
     if (ACTIVE_STAGE > 3) return undefined; // Stage 4 has no panel surface
-    // Unreachable while ACTIVE_STAGE === 4, but kept for symmetry with
-    // Stage 1/3 shells in case the literal moves.
+    // Unreachable while ACTIVE_STAGE === 4, but kept for symmetry.
     return undefined;
   }, [selectedEmailId, feedbackMap]);
 
-  // Stage 4 handler-error widget — surfaced via the extrasBelowPipeline
-  // slot (Phase 82.1 Plan 04 renamed the slot from taggingFailuresSection
-  // to extrasBelowPipeline; semantics unchanged — renders inline below the
-  // pipeline cells). Plan 06 lifts this into a real Stage4Widget; until
-  // then this preserves the error_name + error_detail UI from the old
-  // stage-4/detail-pane.tsx.
+  // Stage 4 handler-error widget — selectedRow lives in the handler-error
+  // bucket only (selection model preserves prior Phase-82.5 behavior).
   const handlerErrorWidget = selectedRow ? (
     <Stage4HandlerErrorWidget row={selectedRow} />
   ) : null;
@@ -177,73 +233,110 @@ export function Stage4ClientShell({
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             gap: "var(--space-3)",
           }}
         >
-          {/* Single 'Handler errors <count>' chip — Stage 4 has one row
-              category. Stays visible for parity with Stages 1/3 strips. */}
-          <div role="tablist" aria-label="Stage 4 filter">
-            <button
-              type="button"
-              role="tab"
-              aria-selected="true"
-              disabled
-              style={{
-                padding: "var(--space-1) var(--space-3)",
-                borderRadius: "var(--v7-radius-pill)",
-                background: "var(--v7-brand-primary-soft)",
-                border: "1px solid var(--v7-brand-primary)",
-                color: "var(--v7-brand-primary)",
-                fontSize: 12,
-                cursor: "default",
-              }}
-            >
-              Handler errors{" "}
-              <span style={{ opacity: 0.7 }}>{visibleUnified.length}</span>
-            </button>
-          </div>
-          <MailboxFilter
-            mailboxes={mailboxes}
-            selected={selectedMailboxes}
-          />
+          <MailboxFilter mailboxes={mailboxes} selected={selectedMailboxes} />
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(640px, 1fr) 540px",
-            gap: "var(--space-3)",
-            minHeight: 320,
-          }}
-        >
-          <RowList
-            rows={visibleUnified}
-            emptyState={{
-              title: "No handler errors",
-              body: "Stage 4 handlers ran cleanly in the visible window.",
-            }}
-            feedbackMap={rowVerdictMap}
-            mailboxLabels={mailboxLabels}
-          />
-          {/* Hard-separation: Stage 4 detail pane receives `categories` (for
-              the Reclassify-to-noise Stage 1 cell) and `intents=[]` (Stage 4
-              has NO Replay-edit path — RFC line 8-15 lock). */}
-          <UnifiedDetailPane
-            row={selectedUnified}
-            swarmType={swarmType}
-            activeStage={4}
-            categories={noiseCategories}
-            intents={[]}
-            timeline={timeline}
-            bodyText={body?.bodyText ?? null}
-            bodyHtml={body?.bodyHtml ?? null}
-            extrasBelowPipeline={handlerErrorWidget}
-            stageAudit={stageAudit}
-            mailboxLabels={mailboxLabels}
-            feedbackMap={paneFeedbackMap}
-          />
-        </div>
+        {/* Section 1: Handler error (red, default OPEN) — drives detail-pane. */}
+        <Collapsible defaultOpen>
+          <CollapsibleTrigger style={SECTION_TRIGGER_STYLE}>
+            <span style={{ color: "var(--v7-red)" }}>Handler error</span>
+            <span style={SECTION_BADGE_STYLE}>({handlerErrorCount})</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(640px, 1fr) 540px",
+                gap: "var(--space-3)",
+                minHeight: 320,
+                marginTop: "var(--space-2)",
+              }}
+            >
+              <RowList
+                rows={visibleUnified}
+                emptyState={{
+                  title: "No handler errors",
+                  body: "Stage 4 handlers ran cleanly in the visible window.",
+                }}
+                feedbackMap={rowVerdictMap}
+                mailboxLabels={mailboxLabels}
+              />
+              {/* Hard-separation: Stage 4 detail pane receives `categories` (for
+                  the Reclassify-to-noise Stage 1 cell) and `intents=[]` (Stage 4
+                  has NO Replay-edit path — RFC line 8-15 lock). */}
+              <UnifiedDetailPane
+                row={selectedUnified}
+                swarmType={swarmType}
+                activeStage={4}
+                categories={noiseCategories}
+                intents={[]}
+                timeline={timeline}
+                bodyText={body?.bodyText ?? null}
+                bodyHtml={body?.bodyHtml ?? null}
+                extrasBelowPipeline={handlerErrorWidget}
+                stageAudit={stageAudit}
+                mailboxLabels={mailboxLabels}
+                feedbackMap={paneFeedbackMap}
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Section 2: Needs review (amber, COLLAPSED) — empty today. */}
+        <Collapsible>
+          <CollapsibleTrigger style={SECTION_TRIGGER_STYLE}>
+            <span style={{ color: "var(--v7-amber)" }}>Needs review</span>
+            <span style={SECTION_BADGE_STYLE}>({needsReviewCount})</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            {needsReviewCount === 0 ? (
+              <div
+                style={{
+                  padding: "var(--space-4)",
+                  fontSize: 13,
+                  color: "var(--v7-text-muted, var(--muted-foreground))",
+                }}
+              >
+                No handlers awaiting review
+              </div>
+            ) : (
+              <div style={{ marginTop: "var(--space-2)" }}>
+                <RowList
+                  rows={visibleNeedsReview}
+                  emptyState={{
+                    title: "No handlers awaiting review",
+                    body: "All review-required handlers have been processed.",
+                  }}
+                  mailboxLabels={mailboxLabels}
+                />
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Section 3: Auto-archived (lime, COLLAPSED) — 30d backfilled + live. */}
+        <Collapsible>
+          <CollapsibleTrigger style={SECTION_TRIGGER_STYLE}>
+            <span style={{ color: "var(--v7-lime)" }}>Auto-archived</span>
+            <span style={SECTION_BADGE_STYLE}>({autoArchivedCount})</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div style={{ marginTop: "var(--space-2)" }}>
+              <RowList
+                rows={visibleAutoArchived}
+                emptyState={{
+                  title: "No auto-archived emails",
+                  body: "Nothing has been auto-archived in the visible window.",
+                }}
+                mailboxLabels={mailboxLabels}
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </>
   );

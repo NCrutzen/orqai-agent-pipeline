@@ -22,7 +22,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadEmailMailboxes } from "../_shell/_lib/load-email-mailboxes";
 
-export type KanbanReason = "no_handler" | "low_confidence" | "handler_error";
+export type KanbanReason =
+  | "no_handler"
+  | "low_confidence"
+  | "handler_error"
+  | "handler_needs_review"; // Phase 82.8 D-02 — empty today; populated when first review-required handler ships.
 
 export interface KanbanRow {
   id: string;
