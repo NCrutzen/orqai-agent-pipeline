@@ -546,7 +546,12 @@ Plans:
 - [ ] **Phase 82.4: Feedback capture form** — `email_feedback` table + capture form mounted inside Phase 82.3's popup. Provides the data substrate that V9.0 synthesis reads from. CONTEXT exists; needs `/gsd-discuss-phase 82.4`. Sequenced after 82.3.
 - [x] **Phase 82.6: Footer Approve → recordVerdict wiring** — wired 2026-05-15, deployed 2026-05-16 (Vercel `dyvfktamb`). 7/7 structural must-haves PASS; operator UAT surfaced 4 follow-up UX polish items → Phase 82.7.
 - [x] **Phase 82.7: Detail-pane post-approve polish** — D-01..D-04 all closed 2026-05-16 (4/4 plans). UAT 2026-05-16 confirmed all 4 D-IDs work; surfaced 5 follow-up items → Phase 82.7.1.
-- [ ] **Phase 82.7.1: Detail-pane UAT follow-ups** — 5 items from 82.7 UAT: E-01 Stage 0 override has no submit path (blocker), E-02 silent Approve (add loading cue), E-03 orange brand-dot legend/tooltip, E-04 override form button polish, E-05 some rows missing category chip. CONTEXT exists; needs `/gsd-discuss-phase 82.7.1`.
+- [ ] **Phase 82.7.1: Detail-pane UAT follow-ups** — 5 items from 82.7 UAT (E-01..E-05). Context locked 2026-05-18 (D-01..D-15). **Plans:** 5 plans across 3 waves.
+  - [ ] 82.7.1-01-PLAN.md — Per-stage Submit override button on Stage 0/2/3/4 (E-01)
+  - [ ] 82.7.1-02-PLAN.md — 150ms opacity fade-out on pendingRemoval rows (E-02)
+  - [ ] 82.7.1-03-PLAN.md — Brand-color swatch hover tooltip + brandDisplayName helper (E-03)
+  - [ ] 82.7.1-04-PLAN.md — Override form button polish: lime Submit + ghost Discard + var(--space-4) padding (E-04)
+  - [ ] 82.7.1-05-PLAN.md — Em-dash placeholder for empty StageBadge + D-13 mapper investigation (E-05)
 - [ ] **Phase 999.8: Stage 1 LLM 2nd-pass** — 4/4 must-haves green; 2 outstanding browser smokes (operator UAT pending).
 - [ ] `/gsd-audit-milestone v8.0` — formal closure after all four above ship.
 
