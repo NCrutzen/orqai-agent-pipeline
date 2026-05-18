@@ -14,7 +14,7 @@
 // once as a right-aligned mono span); this version renders the badge label
 // ONCE. The subject occupies the middle slot — never the intent code again.
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { EmptyState, Row } from "./_lib/types";
 import { RowVerdictDot } from "./components/row-verdict-dot";
 import { useSelection } from "./selection-context";
@@ -37,10 +37,39 @@ export function RowList({ rows, emptyState, rightEdgeSlot, feedbackMap }: RowLis
   // (graceful default until Plan 06 page-level prefetch lands).
   const { selectedId, setSelected, pendingRemovalIds } = useSelection();
 
+  // Phase 82.7.1 Plan 02 — D-04/D-05 fade-then-unmount.
+  // `pendingRemovalIds` (from selection-context) controls opacity instantly.
+  // `_unmount` is a local deferred Set: a row is added 180ms after it enters
+  // pendingRemovalIds (150ms fade + 30ms slop), and only then does the render
+  // filter strip it. This gives the CSS opacity transition a window to play.
+  // Both Approve auto-advance and Submit-override flows write to
+  // pendingRemovalIds, so both inherit the fade automatically (D-05).
+  const [_unmount, setUnmount] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    if (pendingRemovalIds.size === 0) return;
+    const timers: number[] = [];
+    pendingRemovalIds.forEach((id) => {
+      if (_unmount.has(id)) return;
+      const t = window.setTimeout(() => {
+        setUnmount((prev) => {
+          if (prev.has(id)) return prev;
+          const next = new Set(prev);
+          next.add(id);
+          return next;
+        });
+      }, 180);
+      timers.push(t);
+    });
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+    };
+  }, [pendingRemovalIds, _unmount]);
+
   const visible =
-    pendingRemovalIds.size === 0
+    _unmount.size === 0
       ? rows
-      : rows.filter((r) => !pendingRemovalIds.has(r.id));
+      : rows.filter((r) => !_unmount.has(r.id));
 
   if (visible.length === 0) {
     return (
@@ -72,6 +101,7 @@ export function RowList({ rows, emptyState, rightEdgeSlot, feedbackMap }: RowLis
     <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
       {visible.map((r) => {
         const isSelected = r.id === selectedId;
+        const isPending = pendingRemovalIds.has(r.id);
         return (
           <li
             key={r.id}
@@ -79,6 +109,7 @@ export function RowList({ rows, emptyState, rightEdgeSlot, feedbackMap }: RowLis
             role="button"
             tabIndex={0}
             aria-selected={isSelected}
+            data-pending={isPending ? "true" : undefined}
             style={{
               padding: isSelected
                 ? "var(--space-2) var(--space-4) var(--space-2) calc(var(--space-4) - 2px)"
@@ -88,7 +119,7 @@ export function RowList({ rows, emptyState, rightEdgeSlot, feedbackMap }: RowLis
                 ? "2px solid var(--v7-brand-primary)"
                 : "2px solid transparent",
               background: isSelected ? "var(--v7-bg-2)" : "transparent",
-              cursor: "pointer",
+              cursor: isPending ? "default" : "pointer",
               display: "grid",
               gridTemplateColumns: rightEdgeSlot
                 ? "140px 200px minmax(0, 1fr) 150px auto"
@@ -96,6 +127,13 @@ export function RowList({ rows, emptyState, rightEdgeSlot, feedbackMap }: RowLis
               alignItems: "center",
               gap: "var(--space-3)",
               position: "relative",
+              // Phase 82.7.1 D-04/D-05 — 150ms ease-out fade before unmount.
+              // Filter on _unmount (deferred 180ms) keeps the row in DOM for
+              // the transition window. pointerEvents disabled during fade so
+              // a half-faded row cannot be re-selected.
+              opacity: isPending ? 0 : 1,
+              transition: "opacity 150ms ease-out",
+              pointerEvents: isPending ? "none" : "auto",
             }}
           >
             <RowVerdictDot verdict={feedbackMap?.[r.id] ?? null} />
