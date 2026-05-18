@@ -120,7 +120,15 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
     operatorId: user?.id,
     before: sp.before,
   });
-  const allRows: Row[] = feedbackPage.rows.map(toUnifiedRow);
+  // The loader's NEEDS_ACTION_DECISIONS for stage=0 includes both
+  // 'injection_suspected' and 'unknown_legacy'. 'unknown_legacy' is a
+  // Phase 82.2 backfill artefact for emails ingested before Stage 0
+  // existed — those rows do NOT need human review (we couldn't classify
+  // them historically; nothing to do about them now). Restrict the
+  // operator surface to live safety-flagged rows only.
+  const allRows: Row[] = feedbackPage.rows
+    .filter((r) => r.stage_state === "injection_suspected")
+    .map(toUnifiedRow);
   const mailboxLabels = await loadMailboxLabels(admin, swarmType);
   const mailboxes = getSwarmMailboxes(allRows, mailboxLabels);
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
