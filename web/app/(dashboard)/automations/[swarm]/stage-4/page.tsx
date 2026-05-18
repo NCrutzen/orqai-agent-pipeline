@@ -251,13 +251,11 @@ export default async function Stage4Page({
     // the intent-labeled subset; this pass fills in the rest.
     const sourceIds = Array.from(sourceIdToEmailId.keys());
     if (sourceIds.length > 0) {
-      const { data: cleanupRuns } = await admin
-        .from("automation_runs")
-        .select("result, created_at")
-        .eq("automation", "debtor-email-cleanup")
-        .in("result->>message_id", sourceIds)
-        .order("created_at", { ascending: false });
-      for (const r of (cleanupRuns as Array<{
+      // PostgREST URL length safety: chunk into 50, mirroring loadEmailMailboxes.
+      // Outlook message_ids are ~70 chars each; a 241-row .in(...) easily
+      // exceeds PostgREST's default ~8KB URL cap and returns empty silently.
+      const CHUNK = 50;
+      const cleanupRows: Array<{
         result: {
           message_id?: string;
           screenshots?: {
@@ -265,7 +263,25 @@ export default async function Stage4Page({
             after?:  { path?: string | null } | null;
           } | null;
         } | null;
-      }> | null) ?? []) {
+      }> = [];
+      for (let i = 0; i < sourceIds.length; i += CHUNK) {
+        const slice = sourceIds.slice(i, i + CHUNK);
+        const { data, error } = await admin
+          .from("automation_runs")
+          .select("result, created_at")
+          .eq("automation", "debtor-email-cleanup")
+          .in("result->>message_id", slice)
+          .order("created_at", { ascending: false });
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `stage-4 cleanup-runs lookup failed (chunk ${i}): ${error.message}`,
+          );
+          continue;
+        }
+        if (data) cleanupRows.push(...(data as typeof cleanupRows));
+      }
+      for (const r of cleanupRows) {
         const msgId = r.result?.message_id;
         if (!msgId) continue;
         const eid = sourceIdToEmailId.get(msgId);
