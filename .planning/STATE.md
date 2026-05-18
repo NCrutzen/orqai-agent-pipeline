@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: phase_complete
-stopped_at: Completed 82.7.3 (G-01..G-06 UAT-confirmed 2026-05-18)
+stopped_at: Completed 82.8-08-PLAN.md
 last_updated: "2026-05-18T13:10:00.000Z"
 progress:
   total_phases: 22
@@ -25,16 +25,17 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: 82.7.3 (detail-pane-and-stage-1-list-uat-followups-round-2) — CLOSED 2026-05-18 (3/3 plans, G-01..G-06 UAT-confirmed)
-Next phase: 82.8 (stage-4-handled-overview-and-stage-1-screenshots) — 8 plans queued
-Milestone: v8.0 Agentic Platform (Phases 63-82.4)
-Last shipped: Phase 82.7.3 (2026-05-18) — single Submit/Cancel surface, plain-English eval-type, 540px detail pane, mailbox chip per row, "Needs review · N" predicate, predictor/confidence collapse
+Phase: 82.8 (stage-4-handled-overview-and-stage-1-screenshots) — COMPLETE
+Next phase: `/gsd-audit-milestone v8.0`
+Milestone: v8.0 Agentic Platform (Phases 63-82.8)
+Last shipped: Phase 82.8 (2026-05-18) — Stage 4 three-section overview (handler error / needs review / auto-archived) + Stage 1 before/after screenshot strip in audit expander; debtor.email_labels screenshot path columns + 30d backfill
 
 **v8.0 closure punch list (gates before /gsd-audit-milestone v8.0):**
 
-- [ ] Phase 82.2: Stage 0 telemetry coverage fix — CONTEXT stub exists; needs `/gsd-discuss-phase 82.2`
-- [ ] Phase 82.3: Per-stage audit surface — CONTEXT stub exists; needs `/gsd-discuss-phase 82.3` (parallel-safe with 82.2)
-- [ ] Phase 82.4: Feedback capture form — CONTEXT stub exists; sequenced AFTER 82.3
+- [x] Phase 82.2: Stage 0 telemetry coverage fix — SHIPPED (verified via git log)
+- [x] Phase 82.3: Per-stage audit surface — SHIPPED
+- [x] Phase 82.4: Feedback capture form — SHIPPED
+- [x] Phase 82.8: Stage 4 handled overview + Stage 1 before/after screenshots — SHIPPED
 - [ ] Phase 999.8: 2 outstanding browser smokes — operator UAT pending
 
 **v8.0 reframes (locked 2026-05-12):**
@@ -49,7 +50,7 @@ Last shipped: Phase 82.7.3 (2026-05-18) — single Submit/Cancel surface, plain-
 - V10.0 Sales-email canonical pipeline (depends on V9.0 capture surface live)
 - V11.0 Intent-prioritised handlers (depends on V10.0 multi-swarm signal)
 
-**Next action:** `/gsd-discuss-phase 82.2` and `/gsd-discuss-phase 82.3` (parallel-safe), then plan + execute both. 82.4 sequenced after 82.3.
+**Next action:** `/gsd-audit-milestone v8.0` — punch list reconciled, ready for milestone close.
 
 ## Performance Metrics
 
