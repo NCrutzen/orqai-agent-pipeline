@@ -174,7 +174,18 @@ export function Stage4ClientShell({
     return visibleUnified.find((r) => r.id === selectedId) ?? null;
   }, [visibleUnified, selectedId]);
 
-  const selectedEmailId = selectedRow?.result?.email_id ?? null;
+  // Phase 82.8-11 — widen selectedEmailId resolution across all three sections.
+  // Handler-error & Needs-review rows: row.id = kanban_id, email_id on `result`.
+  // Auto-archived rows: row.id = pipeline_events.id, email_id as direct field.
+  const selectedEmailId = useMemo<string | null>(() => {
+    if (!selectedId) return null;
+    if (selectedRow?.result?.email_id) return selectedRow.result.email_id as string;
+    const nr = needsReviewRows.find((r) => r.id === selectedId);
+    if (nr?.result?.email_id) return nr.result.email_id as string;
+    const a = autoArchivedRows.find((r) => r.id === selectedId);
+    if (a?.email_id) return a.email_id;
+    return null;
+  }, [selectedId, selectedRow, needsReviewRows, autoArchivedRows]);
   const body = selectedEmailId ? bodyMap[selectedEmailId] ?? null : null;
   const timeline = selectedEmailId ? timelineMap[selectedEmailId] ?? [] : [];
 
@@ -279,107 +290,124 @@ export function Stage4ClientShell({
           <MailboxFilter mailboxes={mailboxes} selected={selectedMailboxes} />
         </div>
 
-        {/* Section 1: Handler error (red, default OPEN) — drives detail-pane. */}
-        <Collapsible defaultOpen>
-          <CollapsibleTrigger style={SECTION_TRIGGER_STYLE}>
-            <span style={{ color: "var(--v7-red)" }}>Handler error</span>
-            <span style={SECTION_BADGE_STYLE}>({handlerErrorCount})</span>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(640px, 1fr) 540px",
-                gap: "var(--space-3)",
-                minHeight: 320,
-                marginTop: "var(--space-2)",
-              }}
-            >
-              <RowList
-                rows={visibleUnified}
-                emptyState={{
-                  title: "No handler errors",
-                  body: "Stage 4 handlers ran cleanly in the visible window.",
-                }}
-                feedbackMap={rowVerdictMap}
-                mailboxLabels={mailboxLabels}
-              />
-              {/* Hard-separation: Stage 4 detail pane receives `categories` (for
-                  the Reclassify-to-noise Stage 1 cell) and `intents=[]` (Stage 4
-                  has NO Replay-edit path — RFC line 8-15 lock). */}
-              <UnifiedDetailPane
-                row={selectedUnified}
-                swarmType={swarmType}
-                activeStage={4}
-                categories={noiseCategories}
-                intents={[]}
-                timeline={timeline}
-                bodyText={body?.bodyText ?? null}
-                bodyHtml={body?.bodyHtml ?? null}
-                extrasBelowPipeline={handlerErrorWidget}
-                stageAudit={stageAudit}
-                mailboxLabels={mailboxLabels}
-                feedbackMap={paneFeedbackMap}
-                // Phase 82.8-07 D-03 — row.id-keyed map (remapped above from
-                // the page's email_id-keyed map) so the strip mounts in the
-                // Stage 1 audit expander for Auto-archived rows.
-                screenshotPathsByEmailId={screenshotPathsByRowId}
-              />
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+        {/* Phase 82.8-11 — sections in left column, detail-pane in sticky right
+            column. Pane was previously rendered inside Section 1 only, hiding it
+            when other sections drove selection. Outer 2-col grid keeps the
+            pane visible regardless of which section is expanded. */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(640px, 1fr) 540px",
+            gap: "var(--space-3)",
+            alignItems: "start",
+          }}
+        >
+          {/* Left column: all three section collapsibles, stacked. */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--space-3)",
+            }}
+          >
+            {/* Section 1: Handler error (red, default OPEN). */}
+            <Collapsible defaultOpen>
+              <CollapsibleTrigger style={SECTION_TRIGGER_STYLE}>
+                <span style={{ color: "var(--v7-red)" }}>Handler error</span>
+                <span style={SECTION_BADGE_STYLE}>({handlerErrorCount})</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div style={{ marginTop: "var(--space-2)" }}>
+                  <RowList
+                    rows={visibleUnified}
+                    emptyState={{
+                      title: "No handler errors",
+                      body: "Stage 4 handlers ran cleanly in the visible window.",
+                    }}
+                    feedbackMap={rowVerdictMap}
+                    mailboxLabels={mailboxLabels}
+                  />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
-        {/* Section 2: Needs review (amber, COLLAPSED) — empty today. */}
-        <Collapsible>
-          <CollapsibleTrigger style={SECTION_TRIGGER_STYLE}>
-            <span style={{ color: "var(--v7-amber)" }}>Needs review</span>
-            <span style={SECTION_BADGE_STYLE}>({needsReviewCount})</span>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            {needsReviewCount === 0 ? (
-              <div
-                style={{
-                  padding: "var(--space-4)",
-                  fontSize: 13,
-                  color: "var(--v7-text-muted, var(--muted-foreground))",
-                }}
-              >
-                No handlers awaiting review
-              </div>
-            ) : (
-              <div style={{ marginTop: "var(--space-2)" }}>
-                <RowList
-                  rows={visibleNeedsReview}
-                  emptyState={{
-                    title: "No handlers awaiting review",
-                    body: "All review-required handlers have been processed.",
-                  }}
-                  mailboxLabels={mailboxLabels}
-                />
-              </div>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
+            {/* Section 2: Needs review (amber, COLLAPSED) — empty today. */}
+            <Collapsible>
+              <CollapsibleTrigger style={SECTION_TRIGGER_STYLE}>
+                <span style={{ color: "var(--v7-amber)" }}>Needs review</span>
+                <span style={SECTION_BADGE_STYLE}>({needsReviewCount})</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                {needsReviewCount === 0 ? (
+                  <div
+                    style={{
+                      padding: "var(--space-4)",
+                      fontSize: 13,
+                      color: "var(--v7-text-muted, var(--muted-foreground))",
+                    }}
+                  >
+                    No handlers awaiting review
+                  </div>
+                ) : (
+                  <div style={{ marginTop: "var(--space-2)" }}>
+                    <RowList
+                      rows={visibleNeedsReview}
+                      emptyState={{
+                        title: "No handlers awaiting review",
+                        body: "All review-required handlers have been processed.",
+                      }}
+                      mailboxLabels={mailboxLabels}
+                    />
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
 
-        {/* Section 3: Auto-archived (lime, COLLAPSED) — 30d backfilled + live. */}
-        <Collapsible>
-          <CollapsibleTrigger style={SECTION_TRIGGER_STYLE}>
-            <span style={{ color: "var(--v7-lime)" }}>Auto-archived</span>
-            <span style={SECTION_BADGE_STYLE}>({autoArchivedCount})</span>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div style={{ marginTop: "var(--space-2)" }}>
-              <RowList
-                rows={visibleAutoArchived}
-                emptyState={{
-                  title: "No auto-archived emails",
-                  body: "Nothing has been auto-archived in the visible window.",
-                }}
-                mailboxLabels={mailboxLabels}
-              />
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+            {/* Section 3: Auto-archived (lime, COLLAPSED) — 30d backfilled + live. */}
+            <Collapsible>
+              <CollapsibleTrigger style={SECTION_TRIGGER_STYLE}>
+                <span style={{ color: "var(--v7-lime)" }}>Auto-archived</span>
+                <span style={SECTION_BADGE_STYLE}>({autoArchivedCount})</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div style={{ marginTop: "var(--space-2)" }}>
+                  <RowList
+                    rows={visibleAutoArchived}
+                    emptyState={{
+                      title: "No auto-archived emails",
+                      body: "Nothing has been auto-archived in the visible window.",
+                    }}
+                    mailboxLabels={mailboxLabels}
+                  />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+
+          {/* Right column: detail-pane (sticky-ish, drives off any selection).
+              Hard-separation: Stage 4 detail pane receives `categories` (for the
+              Reclassify-to-noise Stage 1 cell) and `intents=[]` (Stage 4 has NO
+              Replay-edit path — RFC line 8-15 lock). The handler-error widget
+              only renders when a handler-error row is selected; for Auto-archived
+              and Needs-review selections it falls through to null. */}
+          <div style={{ position: "sticky", top: "var(--space-3)", minHeight: 320 }}>
+            <UnifiedDetailPane
+              row={selectedUnified}
+              swarmType={swarmType}
+              activeStage={4}
+              categories={noiseCategories}
+              intents={[]}
+              timeline={timeline}
+              bodyText={body?.bodyText ?? null}
+              bodyHtml={body?.bodyHtml ?? null}
+              extrasBelowPipeline={handlerErrorWidget}
+              stageAudit={stageAudit}
+              mailboxLabels={mailboxLabels}
+              feedbackMap={paneFeedbackMap}
+              screenshotPathsByEmailId={screenshotPathsByRowId}
+            />
+          </div>
+        </div>
       </div>
     </>
   );
