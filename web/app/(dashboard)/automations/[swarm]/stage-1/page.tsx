@@ -305,6 +305,11 @@ export interface PageData {
    *  Without this, clicking any non-initial row leaves DetailPane with an
    *  empty selectedTimeline → every stage card renders "Stage didn't run". */
   timelineMap: Record<string, PipelineTimelineEvent[]>;
+  /** Phase 82.8-07 D-03 — iController before/after screenshot paths keyed by
+   *  email_id, sourced from `debtor.email_labels.screenshot_*_path`. Threaded
+   *  through Stage1ClientShell → UnifiedDetailPane for the audit-expander
+   *  screenshot strip. Empty for non-debtor-email swarms. */
+  screenshotPathsByEmailId: Record<string, { before: string | null; after: string | null }>;
 }
 
 /**
@@ -402,6 +407,7 @@ export async function loadPageData(
       selectedBody: null,
       bodyMap: {},
       timelineMap: {},
+      screenshotPathsByEmailId: {},
     };
   }
 
@@ -867,6 +873,16 @@ export async function loadPageData(
   const timelineMap: Record<string, PipelineTimelineEvent[]> = {};
   let coordinatorMap: Awaited<ReturnType<typeof loadCoordinatorRunsForReview>> | null = null;
   let taggingMap: Awaited<ReturnType<typeof loadTaggingFailuresForReview>> | null = null;
+  // Phase 82.8-07 D-03 — iController before/after screenshot paths from
+  // debtor.email_labels keyed on email_id (== PredictedRow.id by construction
+  // here, see page.tsx line 608: `id: row.email_id`). Threaded through the
+  // client-shell to UnifiedDetailPane.screenshotPathsByEmailId so the Stage 1
+  // audit expander renders <StageScreenshotStrip>. Empty map for non-debtor
+  // swarms (debtor schema only); strip renders its empty state automatically.
+  const screenshotPathsByEmailId: Record<
+    string,
+    { before: string | null; after: string | null }
+  > = {};
   if (rows.length > 0) {
     const emailIds = rows.map((r) => r.id).filter(Boolean);
     const taggingPairs = rows
@@ -902,12 +918,38 @@ export async function loadPageData(
         ? loadTaggingFailuresForReview(taggingPairs)
         : Promise.resolve(null as Awaited<ReturnType<typeof loadTaggingFailuresForReview>> | null);
 
-    const [bodiesRes, timelineRes, coord, tag] = await Promise.all([
+    // Phase 82.8-07 D-03 — debtor.email_labels query for screenshot paths.
+    // Non-debtor swarms: skip the cross-schema hit; map stays empty.
+    const labelsPromise =
+      swarmType === "debtor-email"
+        ? admin
+            .schema("debtor")
+            .from("email_labels")
+            .select("email_id, screenshot_before_path, screenshot_after_path")
+            .in("email_id", emailIds)
+        : Promise.resolve({ data: null as Array<{
+            email_id: string;
+            screenshot_before_path: string | null;
+            screenshot_after_path: string | null;
+          }> | null });
+
+    const [bodiesRes, timelineRes, coord, tag, labelsRes] = await Promise.all([
       bodiesPromise,
       timelinePromise,
       coordinatorPromise,
       taggingPromise,
+      labelsPromise,
     ]);
+    for (const lbl of (labelsRes.data as Array<{
+      email_id: string;
+      screenshot_before_path: string | null;
+      screenshot_after_path: string | null;
+    }> | null) ?? []) {
+      screenshotPathsByEmailId[lbl.email_id] = {
+        before: lbl.screenshot_before_path ?? null,
+        after: lbl.screenshot_after_path ?? null,
+      };
+    }
 
     for (const e of (bodiesRes.data as Array<{
       id: string;
@@ -1009,6 +1051,7 @@ export async function loadPageData(
     selectedBody: initialSelectedBody,
     bodyMap: initialBodyMap,
     timelineMap,
+    screenshotPathsByEmailId,
   };
 }
 
@@ -1209,6 +1252,7 @@ export default async function SwarmReviewPage({
                 stageAudit={buildStageAuditMap({ timeline: data.selectedTimeline ?? [], agentRuns: [], automationRun: null })}
                 mailboxLabels={mailboxLabels}
                 feedbackMap={feedbackMap}
+                screenshotPathsByEmailId={data.screenshotPathsByEmailId}
               />
             )}
             <Cheatsheet />
