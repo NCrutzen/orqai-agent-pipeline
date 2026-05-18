@@ -196,6 +196,12 @@ export function StageStep({ stage, onMarkDirty, onCancelDirty, onSubmitDirty }: 
                   // onMarkDirty() runs first and unchanged; fireFeedback is
                   // fire-and-forget and never throws.
                   onMarkDirty();
+                  // 2026-05-18 — auto-expand SHOW DETAILS on override so the
+                  // note textarea (inside StageFeedbackPanel) becomes visible.
+                  // The "Note and override are saved together" hint pointed
+                  // at a textarea that was hidden behind the collapsed
+                  // expander, leaving operators with no obvious note field.
+                  setAuditOpen(true);
                   if (stage.emailId && stage.n !== 4) {
                     void fireFeedback({
                       email_id: stage.emailId,
@@ -267,6 +273,9 @@ export function StageStep({ stage, onMarkDirty, onCancelDirty, onSubmitDirty }: 
                   // Phase 82.4 Plan 04 — same additive feedback row as the
                   // state==='ok' branch. See comment there.
                   onMarkDirty();
+                  // 2026-05-18 — mirror the 'ok' branch: auto-open SHOW
+                  // DETAILS so the note textarea is visible.
+                  setAuditOpen(true);
                   if (stage.emailId && stage.n !== 4) {
                     void fireFeedback({
                       email_id: stage.emailId,
