@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
-status: unknown
-stopped_at: Completed 82.7.1-05-PLAN.md
+status: phase-complete
+stopped_at: Phase 82.7.1 complete (5/5 plans, 15/15 D-IDs PASS) — operator UAT pending
 last_updated: "2026-05-18T07:25:30.164Z"
 progress:
   total_phases: 22
@@ -20,13 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 82.7 — detail-pane post-approve polish (COMPLETE 2026-05-16, awaiting operator UAT)
+**Current focus:** Phase 82.7.1 — detail-pane UAT follow-ups (COMPLETE 2026-05-18, awaiting operator UAT)
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 82.7 — COMPLETE (4/4 plans)
-Plan: 4 of 4
+Phase: 82.7.1 — COMPLETE (5/5 plans)
+Plan: 5 of 5
 Milestone: v8.0 Agentic Platform (Phases 63-82.4)
 Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verified live 2026-05-12)
 
