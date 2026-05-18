@@ -742,7 +742,15 @@ function DetailPaneInner({
         }}
         data-testid="action-footer"
       >
-        {activeStage === 1 ? (
+        {/* Phase 82.6 D-02b kept the batch-Approve button Stage-1-only because
+            batch-approve is a Stage-1 concept (visible-ok stages → kanban
+            status flip). Phase 82.7.3 H-01 deleted the inline per-stage Submit
+            assuming the footer would cover overrides — but the footer's
+            activeStage===1 guard hid Submit on Stage 0/2/3 too, leaving the
+            'Note and override saved together' hint pointing at a nonexistent
+            button. 2026-05-18 fix: show Submit on any stage with a dirty
+            override (except Stage 4 read-only); keep Approve Stage-1-only. */}
+        {activeStage !== 4 && (anyDirty || activeStage === 1) ? (
           <>
             <Button
               type="button"
