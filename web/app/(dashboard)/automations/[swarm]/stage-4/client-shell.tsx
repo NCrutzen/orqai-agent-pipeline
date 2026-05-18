@@ -169,10 +169,19 @@ export function Stage4ClientShell({
     return k;
   }, [rows, selectedId, visibleKanbanIds]);
 
+  // Phase 82.8-11 — search across ALL three section row sets, not just
+  // visibleUnified (which is handler-error only per the page's
+  // unifiedRows={handlerErrorUnified} prop). Otherwise Auto-archived /
+  // Needs-review selections fail to resolve and the pane stays empty.
   const selectedUnified: Row | null = useMemo(() => {
     if (!selectedId) return null;
-    return visibleUnified.find((r) => r.id === selectedId) ?? null;
-  }, [visibleUnified, selectedId]);
+    return (
+      visibleUnified.find((r) => r.id === selectedId) ??
+      visibleNeedsReview.find((r) => r.id === selectedId) ??
+      visibleAutoArchived.find((r) => r.id === selectedId) ??
+      null
+    );
+  }, [visibleUnified, visibleNeedsReview, visibleAutoArchived, selectedId]);
 
   // Phase 82.8-11 — widen selectedEmailId resolution across all three sections.
   // Handler-error & Needs-review rows: row.id = kanban_id, email_id on `result`.
