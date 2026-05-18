@@ -22,6 +22,7 @@ import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { categorizeEmail, archiveEmail } from "@/lib/outlook";
 import { loadSwarmNoiseCategories } from "@/lib/swarms/registry";
 import { evaluateSideEffects } from "@/lib/swarms/side-effects";
+import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 
 export const classifierVerdictWorker = inngest.createFunction(
   { id: "classifier/verdict-worker", retries: 2 },
@@ -233,6 +234,67 @@ export const classifierVerdictWorker = inngest.createFunction(
               });
             }
           }
+          // Phase 82.8 D-01: Stage 4 handled-overview telemetry write.
+          // archived_at MUST be generated INSIDE step.run (Phase 65 replay-safety).
+          // Idempotent via Phase 82.2 unique index pipeline_events_one_per_stage_email
+          // (UNIQUE on email_id + swarm_type + stage WHERE email_id IS NOT NULL).
+          // Stage 4 success row is informational only — hard-separation preserved
+          // (no intent fields, no dispatch; Stage 1 noise registry untouched).
+          await step.run("emit-stage-4-handled", async () => {
+            // Resolve email_pipeline.emails.id from Outlook message_id. We can't
+            // reuse `emailRow` above — it's only loaded when stage1Dispatches
+            // exist, and it doesn't select `id`. Independent lookup inside this
+            // step keeps the emit replay-atomic.
+            const { data: emailIdRow, error: lookupErr } = await admin
+              .schema("email_pipeline")
+              .from("emails")
+              .select("id")
+              .or(
+                `source_id.eq.${message_id},internet_message_id.eq.${message_id}`,
+              )
+              .maybeSingle();
+            if (lookupErr) {
+              throw new Error(`emails id-lookup failed: ${lookupErr.message}`);
+            }
+            if (!emailIdRow?.id) {
+              // No email_pipeline row — can't satisfy the unique index's
+              // email_id IS NOT NULL predicate. Skip silently; Stage 4 row
+              // would be untrackable without an email_id anyway.
+              return;
+            }
+            try {
+              await emitPipelineEvent(admin, {
+                swarm_type: swarm_type ?? "debtor-email",
+                stage: 4,
+                email_id: emailIdRow.id,
+                decision: "auto_archived_noise",
+                decision_details: {
+                  noise_category: category.category_key,
+                  source_stage: 1,
+                  archived_at: new Date().toISOString(),
+                },
+                automation_run_id,
+                triggered_by: "pipeline",
+              });
+            } catch (err) {
+              // Postgres SQLSTATE 23505 = unique_violation. The emit helper
+              // wraps PostgrestError into a generic Error keeping the message;
+              // Supabase canonical wording includes "duplicate key value" and
+              // the index name. Match on multiple signals for robustness.
+              const code = (err as { code?: string } | null)?.code;
+              const msg = (err as Error)?.message ?? "";
+              const isUniqueViolation =
+                code === "23505" ||
+                msg.includes("duplicate key value") ||
+                msg.includes("23505") ||
+                msg.includes("pipeline_events_one_per_stage_email");
+              if (isUniqueViolation) {
+                // Stage 4 row already exists for this email — idempotent no-op.
+                return;
+              }
+              throw err;
+            }
+          });
           break;
         }
         case "swarm_dispatch": {
