@@ -40,6 +40,7 @@ import {
 } from "../_shell/detail-pane";
 import type { StageAuditMap } from "../_shell/_lib/audit-types";
 import { useSelection } from "../_shell/selection-context";
+import { StageScreenshotStrip } from "@/components/automations/bulk-review/audit/StageScreenshotStrip";
 import { KeyboardShortcuts } from "../_shell/keyboard-shortcuts";
 import type { MailboxOption } from "../_shell/_lib/get-swarm-mailboxes";
 import type { Row } from "../_shell/_lib/types";
@@ -261,6 +262,38 @@ export function Stage4ClientShell({
 
   // Stage 4 handler-error widget — selectedRow lives in the handler-error
   // bucket only (selection model preserves prior Phase-82.5 behavior).
+  // Phase 82.8-11 — surface the iController before/after screenshot strip
+  // ABOVE the detail-pane's Stage 1 audit expander so operators on Stage 4
+  // see the thumbs without expanding the audit row. Strip is mounted via
+  // extrasBelowPipeline (renders directly below the pipeline). Only mount
+  // when paths exist for the selected row; empty render is the strip's own
+  // empty state, which is fine but visually noisy on Stage 4.
+  const screenshotStripNode = useMemo(() => {
+    if (!selectedId) return null;
+    const paths = screenshotPathsByRowId?.[selectedId];
+    if (!paths || (paths.before == null && paths.after == null)) return null;
+    return (
+      <div style={{ marginTop: "var(--space-3)" }}>
+        <div
+          style={{
+            fontSize: "11px",
+            fontWeight: 500,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            color: "var(--v7-text-muted, var(--muted-foreground))",
+            marginBottom: "var(--space-2)",
+          }}
+        >
+          iController screenshots
+        </div>
+        <StageScreenshotStrip
+          beforePath={paths.before}
+          afterPath={paths.after}
+        />
+      </div>
+    );
+  }, [selectedId, screenshotPathsByRowId]);
+
   const handlerErrorWidget = selectedRow ? (
     <Stage4HandlerErrorWidget row={selectedRow} />
   ) : null;
@@ -409,7 +442,14 @@ export function Stage4ClientShell({
               timeline={timeline}
               bodyText={body?.bodyText ?? null}
               bodyHtml={body?.bodyHtml ?? null}
-              extrasBelowPipeline={handlerErrorWidget}
+              extrasBelowPipeline={
+                handlerErrorWidget || screenshotStripNode ? (
+                  <>
+                    {handlerErrorWidget}
+                    {screenshotStripNode}
+                  </>
+                ) : null
+              }
               stageAudit={stageAudit}
               mailboxLabels={mailboxLabels}
               feedbackMap={paneFeedbackMap}
