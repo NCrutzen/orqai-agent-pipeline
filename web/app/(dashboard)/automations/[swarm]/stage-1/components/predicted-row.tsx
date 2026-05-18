@@ -98,22 +98,39 @@ export function PredictedRow({ row, selected, onSelect }: PredictedRowProps) {
             tooltip showing the brand display name. Promotes the swatch
             from aria-hidden to role=img + aria-label so screen readers
             surface the brand. Uses Radix Tooltip pattern from the ↻
-            overridden glyph block below (~L181-198). */}
+            overridden glyph block below (~L181-198).
+            Phase 82.7.2 F-01 — wrap the 6×6 visual swatch in a 14×14
+            transparent hit-target so Radix Tooltip reliably receives
+            pointer events. Matches the hit-area of the sibling ↻
+            overridden-glyph tooltip below (~L194-211). Visual swatch
+            dimensions unchanged. */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <span
-                role="img"
-                aria-label={`Brand: ${brandDisplayName(row.entity_brand)}`}
                 style={{
-                  display: "inline-block",
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: `var(${brandColorToken(row.entity_brand)})`,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 14,
+                  height: 14,
                   flexShrink: 0,
+                  cursor: "default",
                 }}
-              />
+              >
+                <span
+                  role="img"
+                  aria-label={`Brand: ${brandDisplayName(row.entity_brand)}`}
+                  style={{
+                    display: "inline-block",
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: `var(${brandColorToken(row.entity_brand)})`,
+                    flexShrink: 0,
+                  }}
+                />
+              </span>
             </TooltipTrigger>
             <TooltipContent>{brandDisplayName(row.entity_brand)}</TooltipContent>
           </Tooltip>
