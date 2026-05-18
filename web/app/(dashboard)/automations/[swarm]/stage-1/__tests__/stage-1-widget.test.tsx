@@ -232,11 +232,14 @@ describe("Stage1Widget (shell)", () => {
       target: { value: "Real regression: model said admit, actually dispute" },
     });
 
-    // Click Submit override.
-    const submit = await screen.findByRole("button", {
-      name: /submit override/i,
-    });
-    fireEvent.click(submit);
+    // Phase 82.7.3 Plan 01 (BLOCK-02) — the inline Submit button was
+    // deleted by H-01. Trigger the canonical ⌘⏎ submit path the widget
+    // itself listens for: dispatch the same `bulk-review:override-submit`
+    // window event that `_shell/keyboard-shortcuts.tsx` fires on ⌘⏎
+    // (key: "Enter", metaKey: true). The widget's onClickSubmit handler
+    // is invoked end-to-end.
+    fireEvent.keyDown(window, { key: "Enter", metaKey: true });
+    window.dispatchEvent(new Event("bulk-review:override-submit"));
 
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalledWith(
@@ -299,10 +302,10 @@ describe("Stage1Widget (shell)", () => {
     fireEvent.change(notes, {
       target: { value: "Override note for the optimistic-removal test" },
     });
-    const submit = await screen.findByRole("button", {
-      name: /submit override/i,
-    });
-    fireEvent.click(submit);
+    // Phase 82.7.3 Plan 01 (BLOCK-02) — see comment above; ⌘⏎ canonical
+    // submit path (key: "Enter", metaKey: true) via the custom event.
+    fireEvent.keyDown(window, { key: "Enter", metaKey: true });
+    window.dispatchEvent(new Event("bulk-review:override-submit"));
 
     await waitFor(() => {
       expect(markPendingRemovalSpy).toHaveBeenCalledWith("email-uuid-1");
