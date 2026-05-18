@@ -39,6 +39,7 @@ LEFT JOIN public.pipeline_events pe1
 WHERE el.icontroller_tag_status = 'tagged'
   AND el.labeled_at >= NOW() - INTERVAL '30 days'
   AND el.email_id IS NOT NULL
+  AND pe1.id IS NOT NULL                  -- 82.8-09: restrict to rows that had a Stage 1 event (excludes Stage 3 intent labels)
 ON CONFLICT ON CONSTRAINT pipeline_events_one_per_stage_email DO NOTHING;
 
 -- ===== PASS B: screenshot_*_path extraction from existing URLs =====
