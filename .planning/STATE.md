@@ -4,7 +4,7 @@ milestone: v8.0
 milestone_name: Agentic Platform
 status: unknown
 stopped_at: Completed 82.7.1-05-PLAN.md
-last_updated: "2026-05-18T08:06:53.355Z"
+last_updated: "2026-05-18T10:16:44.449Z"
 progress:
   total_phases: 22
   completed_phases: 13
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 82.7.2 — override-form-rework-and-tooltip-fix
+**Current focus:** Phase 82.7.3 — detail-pane-and-stage-1-list-uat-followups-round-2
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 82.7.2 (override-form-rework-and-tooltip-fix) — EXECUTING
+Phase: 82.7.3 (detail-pane-and-stage-1-list-uat-followups-round-2) — EXECUTING
 Plan: 1 of 3
 Milestone: v8.0 Agentic Platform (Phases 63-82.4)
 Last shipped: Phase 82.1 (2026-05-11) + stage-0 placeholder fix `cf317b4` (verified live 2026-05-12)
@@ -261,4 +261,4 @@ Items acknowledged at v7.0 close on 2026-04-30 — known-deferred, not gating mi
 
 See .planning/milestones/v7.0-* archive files for full milestone state.
 
-**Planned Phase:** 82.6 (footer-approve-recordverdict-wiring) — 2 plans — 2026-05-15T12:35:03.134Z
+**Planned Phase:** 82.8 (stage-4-handled-overview-and-stage-1-screenshots) — 8 plans — 2026-05-18T08:46:59.106Z

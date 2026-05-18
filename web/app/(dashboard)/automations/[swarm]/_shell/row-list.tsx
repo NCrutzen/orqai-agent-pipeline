@@ -29,9 +29,14 @@ export interface RowListProps {
    *  Plan 04 wires the visual rendering. Currently accepted-but-ignored;
    *  Plan 04 will consume and render the dot. */
   feedbackMap?: Record<string, "confirm" | "override" | "unclear" | null>;
+  /** Phase 82.7.3 Plan 03 (H-04): id → short alias resolved server-side via
+   *  loadMailboxLabels. Optional so existing call-sites that don't thread it
+   *  compile unchanged. When provided AND row.mailbox_id resolves to a
+   *  truthy label, a small mono pill chip renders before the sender text. */
+  mailboxLabels?: Record<number, string>;
 }
 
-export function RowList({ rows, emptyState, rightEdgeSlot, feedbackMap }: RowListProps) {
+export function RowList({ rows, emptyState, rightEdgeSlot, feedbackMap, mailboxLabels }: RowListProps) {
   // Phase 82.5 Plan 04: consume feedbackMap to render the per-row verdict dot.
   // When the prop is undefined, every row renders the dashed empty-state dot
   // (graceful default until Plan 06 page-level prefetch lands).
@@ -143,13 +148,45 @@ export function RowList({ rows, emptyState, rightEdgeSlot, feedbackMap }: RowLis
               style={{
                 fontSize: 13,
                 color: "var(--v7-text)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
                 minWidth: 0,
+                overflow: "hidden",
+                whiteSpace: "nowrap",
               }}
             >
-              {r.from_name ?? r.from_email ?? "(unknown sender)"}
+              {mailboxLabels && r.mailbox_id != null && mailboxLabels[r.mailbox_id] && (
+                <span
+                  data-testid="row-mailbox-chip"
+                  style={{
+                    flexShrink: 0,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    padding: "1px 6px",
+                    fontSize: 10,
+                    fontFamily: "var(--font-mono)",
+                    background: "var(--v7-panel-2)",
+                    color: "var(--v7-text-muted)",
+                    border: "1px solid var(--v7-line)",
+                    borderRadius: "var(--v7-radius-pill)",
+                    lineHeight: 1.4,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {mailboxLabels[r.mailbox_id]}
+                </span>
+              )}
+              <span
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  minWidth: 0,
+                }}
+              >
+                {r.from_name ?? r.from_email ?? "(unknown sender)"}
+              </span>
             </span>
             <span
               data-testid="row-subject"
