@@ -28,6 +28,12 @@ interface StageStepProps {
    *  button that invokes this callback. Optional so callers without an
    *  override-cancel flow can omit it. */
   onCancelDirty?: () => void;
+  /** Phase 82.7.1 D-01/D-02 — per-stage Submit affordance. Mirrors
+   *  onCancelDirty. Parent (detail-pane.tsx) dispatches the
+   *  `bulk-review:override-submit` window event the listening Stage widget
+   *  already handles (W6 single-write). Optional so callers without an
+   *  override flow can omit. */
+  onSubmitDirty?: () => void;
 }
 
 /**
@@ -62,7 +68,7 @@ function nodeBorderColor(state: StageData["state"]): string {
   return "var(--v7-line)";
 }
 
-export function StageStep({ stage, onMarkDirty, onCancelDirty }: StageStepProps) {
+export function StageStep({ stage, onMarkDirty, onCancelDirty, onSubmitDirty }: StageStepProps) {
   // Phase 82.4 Plan 03 — lift the audit-expander open-state up so the
   // embedded StageFeedbackPanel's ✓ Confirm chip can auto-collapse the
   // expander after a successful POST (operator-momentum). Defaults closed
@@ -234,6 +240,53 @@ export function StageStep({ stage, onMarkDirty, onCancelDirty }: StageStepProps)
                 }}
               >
                 ⤓ Override + note save together
+              </div>
+              {/* Phase 82.7.1 D-01/D-02 — per-stage Submit override.
+                  Fires the same `bulk-review:override-submit` window event
+                  the Stage 1 footer Submit dispatches today (W6 single-write
+                  contract — see detail-pane.tsx handlePrimary). Label is
+                  singular per D-02; ⌘⏎ keychip mirrors the keyboard
+                  binding. Styling matches the StageFeedbackPanel Confirm
+                  lime-pill template (82.7-01). */}
+              <div className="flex items-center justify-between gap-3 mt-1">
+                <span
+                  className="text-[12px] leading-[1.3]"
+                  style={{ color: "var(--v7-amber)", fontFamily: "var(--font-mono)" }}
+                >
+                  Submit Stage {stage.n} override
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onSubmitDirty?.()}
+                  aria-label={`Submit override on Stage ${stage.n}`}
+                  data-testid={`stage-${stage.n}-submit-override`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 14px",
+                    background: "var(--v7-lime)",
+                    border: "1px solid var(--v7-lime)",
+                    borderRadius: "var(--v7-radius-pill)",
+                    color: "var(--v7-bg)",
+                    cursor: "pointer",
+                    fontFamily: "var(--font-mono)",
+                    fontWeight: 600,
+                    fontSize: 12,
+                  }}
+                >
+                  <span data-row="primary">Submit override</span>
+                  <kbd
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      opacity: 0.7,
+                      marginLeft: 4,
+                    }}
+                  >
+                    ⌘⏎
+                  </kbd>
+                </button>
               </div>
               {/* Phase 82.7 Plan 03 (D-03 per-stage) — per-stage
                   cancel-override affordance. Mirrors the 'ok' branch

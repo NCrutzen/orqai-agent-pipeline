@@ -318,6 +318,18 @@ function DetailPaneInner({
     });
   }, []);
 
+  // Phase 82.7.1 D-01/D-02 — per-stage Submit affordance for Stage 0/2/3/4.
+  // Fires the same `bulk-review:override-submit` window event the footer
+  // Submit dispatches on Stage 1 (see handlePrimary below), preserving the
+  // W6 single-write contract — a direct POST here would double-write. Footer
+  // remains scoped to activeStage === 1 (Phase 82.6 D-02b) — this callback is
+  // the per-stage parallel for Stages 0/2/3/4. stageN is currently unused
+  // because the listening Stage widget already knows which stage it owns;
+  // accepted for prop-shape parity with onCancelDirty.
+  const onSubmitDirty = useCallback((_stageN: number) => {
+    window.dispatchEvent(new Event(KEYBOARD_EVENTS.overrideSubmit));
+  }, []);
+
   // Phase 82.3 Plan 11 — always build the audit map from the LIVE timeline
   // prop. The page-level stageAudit prop is computed server-side from
   // data.selectedTimeline (the initial selection only) and never refreshes
@@ -656,6 +668,7 @@ function DetailPaneInner({
             stages={stagesData}
             onMarkDirty={onMarkDirty}
             onCancelDirty={onCancelDirty}
+            onSubmitDirty={onSubmitDirty}
             futureRange={futureRange}
             futureExpanded={futureExpanded}
             onToggleFuture={() => setFutureExpanded((p) => !p)}

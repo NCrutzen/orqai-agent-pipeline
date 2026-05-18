@@ -57,6 +57,12 @@ interface PipelineFlowProps {
    *  Parent clears ONLY stage N's dirty flag (local state in detail-pane.tsx);
    *  prose draft notes persist. */
   onCancelDirty: (stageN: number) => void;
+  /** Phase 82.7.1 D-01/D-02 — per-stage Submit affordance. Called by each
+   *  StageStep when the operator clicks the per-stage Submit override button
+   *  inside a dirty card. Parent dispatches the existing
+   *  KEYBOARD_EVENTS.overrideSubmit window event (W6 single-write contract;
+   *  the listening Stage widget performs the canonical POST). */
+  onSubmitDirty: (stageN: number) => void;
   /** Phase 82.5 Plan 05 (R6) — when supplied, trailing skipped stages in
    *  [startN..endN] collapse into a single "future-pill" toggle. */
   futureRange?: { startN: number; endN: number } | null;
@@ -70,6 +76,7 @@ export function PipelineFlow({
   stages,
   onMarkDirty,
   onCancelDirty,
+  onSubmitDirty,
   futureRange,
   futureExpanded,
   onToggleFuture,
@@ -113,6 +120,7 @@ export function PipelineFlow({
                   stage={s}
                   onMarkDirty={() => onMarkDirty(s.n)}
                   onCancelDirty={() => onCancelDirty(s.n)}
+                  onSubmitDirty={() => onSubmitDirty(s.n)}
                 />
               </li>
             );
