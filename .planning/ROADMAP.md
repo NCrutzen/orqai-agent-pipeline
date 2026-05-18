@@ -547,11 +547,12 @@ Plans:
 - [x] **Phase 82.6: Footer Approve → recordVerdict wiring** — wired 2026-05-15, deployed 2026-05-16 (Vercel `dyvfktamb`). 7/7 structural must-haves PASS; operator UAT surfaced 4 follow-up UX polish items → Phase 82.7.
 - [x] **Phase 82.7: Detail-pane post-approve polish** — D-01..D-04 all closed 2026-05-16 (4/4 plans). UAT 2026-05-16 confirmed all 4 D-IDs work; surfaced 5 follow-up items → Phase 82.7.1.
 - [x] **Phase 82.7.1: Detail-pane UAT follow-ups** — E-01..E-05 closed 2026-05-18 (5/5 plans). UAT 2026-05-18 surfaced 4 follow-ups → Phase 82.7.2.
-- [ ] **Phase 82.7.2: Override form rework + tooltip fix + brand-color audit** — F-01 brand-color tooltip silent on hover, F-02 only 3 of 25 rows show colored dot (data/registry audit), F-03 override form structural rework (5 operator-specified changes), F-04 retrospective on E-05 placeholder. **Plans:** 3 plans across 2 waves (planned 2026-05-18).
-  - [ ] 82.7.2-01-PLAN.md — F-03 override form rework in stage-step.tsx (G-05..G-09)
-  - [ ] 82.7.2-02-PLAN.md — F-02 entity coverage audit + conditional mapper fix in stage-1/page.tsx (G-02..G-04)
-  - [ ] 82.7.2-03-PLAN.md — F-01 brand-swatch tooltip hit-target fix in predicted-row.tsx (G-01)
+- [x] **Phase 82.7.2: Override form rework + tooltip fix + brand-color audit** — 3/3 plans complete 2026-05-18. F-02 + F-03 fully verified; F-01 component-verified but `predicted-row.tsx` not in active rendering tree (operator UAT required); F-04 closed as no-op (G-10). UAT 2026-05-18 surfaced 6 follow-ups → Phase 82.7.3.
+  - [x] 82.7.2-01-PLAN.md — F-03 override form rework in stage-step.tsx (G-05..G-09)
+  - [x] 82.7.2-02-PLAN.md — F-02 entity coverage audit + conditional mapper fix in stage-1/page.tsx (G-02..G-04)
+  - [x] 82.7.2-03-PLAN.md — F-01 brand-swatch tooltip hit-target fix in predicted-row.tsx (G-01)
   - F-04 — no plan (G-10: leave the em-dash safety guard untouched)
+- [ ] **Phase 82.7.3: Detail-pane + stage-1 list UAT follow-ups (round 2)** — G-01..G-06 surfaced 2026-05-18 immediately after 82.7.2 merge. G-01 duplicate Submit/Cancel buttons (3 visible at once), G-02 REG/CAP labels need user-friendly copy, G-03 footer action row overflows pane width, G-04 mailbox label missing on list rows, G-05 "All 459" counter misleading, G-06 Predictor/Confidence filter rows too prominent. Needs `/gsd-spec-phase 82.7.3` → `/gsd-discuss-phase 82.7.3` → `/gsd-plan-phase 82.7.3`.
   - [x] 82.7.1-01-PLAN.md — Per-stage Submit override button on Stage 0/2/3/4 (E-01)
   - [x] 82.7.1-02-PLAN.md — 150ms opacity fade-out on pendingRemoval rows (E-02)
   - [x] 82.7.1-03-PLAN.md — Brand-color swatch hover tooltip + brandDisplayName helper (E-03)
@@ -693,6 +694,23 @@ Plans:
 - [x] 82.7-02-PLAN.md — D-02 label de-duplication + D-03 footer Cancel override button + onCancelDirty callback wiring (detail-pane.tsx batched edit)
 - [x] 82.7-03-PLAN.md — D-03 per-stage cancel-override link (pipeline-flow + stage-step prop thread)
 - [x] 82.7-04-PLAN.md — D-01 auto-advance to next visible row after Approve (selection-context + detail-pane)
+
+### Phase 82.8: Stage 4 handled overview + Stage 1 before/after screenshots (v8.0 stabilisation) (INSERTED)
+
+**Goal:** Close three operator-flow gaps surfaced 2026-05-18. (D-01) Stage 1 success path emits Stage 4 `auto_archived_noise` telemetry; (D-02) Stage 4 tab renders three collapsible sections (Handler error / Needs review / Auto-archived) with badge counts and English labels; (D-03) Stage 1 + Stage 4 detail-panes render before/after iController screenshots via a path-based StageScreenshotStrip + signed-URL-on-demand reads (replacing the 1h-expired URL writes). Includes 30d backfill of Stage 4 auto-archived rows + path-extract from existing signed URLs. File-disjoint from parallel Phase 82.7.1 except the explicit detail-pane mount-point (gated).
+**Requirements**: D-01..D-07 (see `82.8-CONTEXT.md`)
+**Depends on:** Phase 82.4 (feedback infra shipped), Phase 82.7.1 (only for Plan 07 detail-pane mount gate)
+**Plans:** 8 plans
+
+Plans:
+- [ ] 82.8-01-PLAN.md — additive screenshot_*_path columns migration on debtor.email_labels (D-04)
+- [ ] 82.8-02-PLAN.md — classifier-verdict-worker emits Stage 4 auto_archived_noise after categorize_archive (D-01)
+- [ ] 82.8-03-PLAN.md — label-email-in-icontroller + tagger persist screenshot_*_path columns (D-04)
+- [ ] 82.8-04-PLAN.md — 30d backfill: Stage 4 auto_archived_noise rows + URL-to-path extract (D-07)
+- [ ] 82.8-05-PLAN.md — Stage 4 page: three collapsible sections + loadAutoArchivedNoiseRows loader (D-02)
+- [ ] 82.8-06-PLAN.md — StageScreenshotStrip component (file-disjoint, Vitest, D-03 read-side)
+- [ ] 82.8-07-PLAN.md — mount StageScreenshotStrip in detail-pane + thread paths from stage-1/stage-4 pages (D-03, gated on 82.7.1 ship)
+- [ ] 82.8-08-PLAN.md — STATE.md punch-list reconcile (mark 82.2/82.3/82.4/82.8 complete)
 
 ### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED) ✓ closed 2026-05-11
 
