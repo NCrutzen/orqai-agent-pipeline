@@ -754,6 +754,54 @@ export async function loadPageData(
     ).slice(0, PAGE_SIZE);
     rows = summaryRows.map(mapSummaryToPredictedRow);
 
+    // Phase 82.7.2-02 (F-02 Branch B): hydrate `entity` from raw
+    // pipeline_events.decision_details->>entity. The summary view
+    // (pipeline_events_email_summary) does NOT project entity or
+    // entity_brand (see findings 82.7.2-F-02-FINDINGS.md Q4), so the
+    // noise-tab mapper sets entity=null at L614 by default. The safety
+    // mapper mapEventToPredictedRow at L442 already reads entity from
+    // decision_details — this hydration brings the noise-tab to parity.
+    //
+    // Coverage: 7-day audit (F-02 findings Q2) showed 274/275 = 99.6 %
+    // of Stage 1 emits carry decision_details.entity, so the JOIN-back
+    // is high-yield. Query is bounded to the current page's email_ids
+    // (rows.length ≤ PAGE_SIZE).
+    //
+    // NOTE: entity_brand stays untouched on the PredictedRow shape.
+    // The brand-swatch in predicted-row.tsx reads row.entity_brand, not
+    // row.entity — wiring the swatch is intentionally deferred because
+    // the 5-brand registry (web/lib/swarms/brand-color.ts) does not
+    // include `fire-control` (40 % of debtor-email Stage 1 rows). A
+    // partial wiring would surface the lime/pink/amber dots for smeba/
+    // smeba-fire/berki but leave fire-control on the muted fallback,
+    // which would still read as "broken" to operators. Out-of-scope
+    // flag tracked in F-02 findings; awaits Nick's registry-expansion
+    // decision per CONTEXT G-03 / project_brand_scope.md.
+    if (rows.length > 0) {
+      const entityRowIds = rows.map((r) => r.id);
+      const entityRes = await admin
+        .from("pipeline_events")
+        .select("email_id, decision_details")
+        .eq("swarm_type", swarmType)
+        .eq("stage", 1)
+        .in("email_id", entityRowIds);
+      const entityByEmail = new Map<string, string>();
+      for (const row of (entityRes.data ?? []) as Array<{
+        email_id: string | null;
+        decision_details: Record<string, unknown> | null;
+      }>) {
+        if (!row.email_id) continue;
+        const ent = row.decision_details?.entity;
+        if (typeof ent === "string" && ent.length > 0 && !entityByEmail.has(row.email_id)) {
+          entityByEmail.set(row.email_id, ent);
+        }
+      }
+      rows = rows.map((r) => ({
+        ...r,
+        entity: entityByEmail.get(r.id) ?? r.entity,
+      }));
+    }
+
     // Phase 82.4 follow-up: hydrate mailbox_id from automation_runs so the
     // V6 MailboxFilter actually filters. decision_details->>mailbox_id is
     // always null in production (verified 2026-05-13); the canonical numeric
