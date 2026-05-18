@@ -217,7 +217,7 @@ export function Stage1ClientShell({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) 460px",
+            gridTemplateColumns: "minmax(640px, 1fr) 540px",
             gap: "var(--space-3)",
             minHeight: 320,
           }}
@@ -229,6 +229,7 @@ export function Stage1ClientShell({
               body: "Predicted classifications appear here as the ingest route writes them.",
             }}
             feedbackMap={rowVerdictMap}
+            mailboxLabels={mailboxLabels}
             rightEdgeSlot={(row) => {
               // Phase 999.8 Plan 08 (D-08, D-12). Per-row predictor chip
               // mounted via the canonical RowList rightEdgeSlot extension

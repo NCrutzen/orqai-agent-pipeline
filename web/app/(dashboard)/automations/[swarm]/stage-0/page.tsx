@@ -240,7 +240,7 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) 460px",
+              gridTemplateColumns: "minmax(640px, 1fr) 540px",
               gap: "var(--space-3)",
               minHeight: 320,
             }}
@@ -253,6 +253,7 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
                   body: "When the safety filter records a verdict, it will appear here.",
                 }}
                 feedbackMap={rowVerdictMap}
+                mailboxLabels={mailboxLabels}
               />
               {loadMoreHref && (
                 <div style={{ padding: "var(--space-3) var(--space-4)" }}>

@@ -212,7 +212,7 @@ export function Stage4ClientShell({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) 460px",
+            gridTemplateColumns: "minmax(640px, 1fr) 540px",
             gap: "var(--space-3)",
             minHeight: 320,
           }}
@@ -224,6 +224,7 @@ export function Stage4ClientShell({
               body: "Stage 4 handlers ran cleanly in the visible window.",
             }}
             feedbackMap={rowVerdictMap}
+            mailboxLabels={mailboxLabels}
           />
           {/* Hard-separation: Stage 4 detail pane receives `categories` (for
               the Reclassify-to-noise Stage 1 cell) and `intents=[]` (Stage 4

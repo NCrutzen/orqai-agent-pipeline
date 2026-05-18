@@ -222,7 +222,7 @@ export function Stage3ClientShell({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) 460px",
+            gridTemplateColumns: "minmax(640px, 1fr) 540px",
             gap: "var(--space-3)",
             minHeight: 320,
           }}
@@ -234,6 +234,7 @@ export function Stage3ClientShell({
               body: "Pipeline is fully resolving intents in the visible window.",
             }}
             feedbackMap={rowVerdictMap}
+            mailboxLabels={mailboxLabels}
           />
           {/* Hard-separation: Stage 3 detail pane receives `intents` (for the
               Stage 3 ranked-intent override widget) AND `categories` (for the
