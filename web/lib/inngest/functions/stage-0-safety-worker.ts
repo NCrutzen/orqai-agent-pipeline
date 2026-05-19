@@ -39,6 +39,7 @@ import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { regexScreen } from "@/lib/stage-0/regex-screen";
 import { llmInjectionVerdict } from "@/lib/stage-0/llm-verdict";
 import { stripQuotedHistory } from "@/lib/stage-0/strip-quoted-history";
+import { normalizeBody } from "@/lib/stage-0/normalize-body";
 import { OrqClientTimeoutError } from "@/lib/automations/orq-agents/client";
 import {
   check as budgetCheck,
@@ -63,6 +64,10 @@ type VerdictSource =
       strip_changed: boolean;
       strip_delta_chars: number;
       strip_fallback_reason: string | null;
+      normalize_changed: boolean;
+      normalize_delta_chars: number;
+      normalize_removed: string;
+      normalize_fallback_reason: string | null;
     };
 
 type DownstreamEmit =
@@ -161,13 +166,22 @@ export const stage0SafetyWorker = inngest.createFunction(
         },
       };
     } else {
+      // Stage-0-only body normalization. Strips Outlook / Mimecast / Q2Q
+      // chrome (zero-width signature walls, "CAUTION: External Sender",
+      // "Internal (…) / External (…)" envelope lines, "Protection by Q2Q"
+      // banner) that the safety LLM was reading as injection signals.
+      // Original body still flows to Stage 1 (Pitfall 4 below).
+      const normalizeResult = await step.run("normalize-body", () =>
+        normalizeBody(body),
+      );
+
       // Phase 999.7 — strip quoted reply history before any classifier sees
       // the body. Sole consumer of the stripped body is Stage 0 (regex screen +
       // LLM verdict). The ORIGINAL body is forwarded to Stage 1 unchanged
       // (RESEARCH.md Pitfall 4) so noise rules like auto-reply / OOO that
       // depend on full-thread markers still fire.
       const stripResult = await step.run("strip-quoted-history", () =>
-        stripQuotedHistory(body),
+        stripQuotedHistory(normalizeResult.normalized),
       );
       const classifierBody = stripResult.stripped;
 
@@ -255,6 +269,10 @@ export const stage0SafetyWorker = inngest.createFunction(
           strip_changed: stripResult.changed,
           strip_delta_chars: stripResult.delta_chars,
           strip_fallback_reason: stripResult.fallback_reason ?? null,
+          normalize_changed: normalizeResult.changed,
+          normalize_delta_chars: normalizeResult.delta_chars,
+          normalize_removed: normalizeResult.removed,
+          normalize_fallback_reason: normalizeResult.fallback_reason ?? null,
         };
         if (llmResult.verdict === "safe") {
           downstreamEmit = {
@@ -340,6 +358,11 @@ export const stage0SafetyWorker = inngest.createFunction(
           strip_changed: verdictSource.strip_changed,
           strip_delta_chars: verdictSource.strip_delta_chars,
           strip_fallback_reason: verdictSource.strip_fallback_reason,
+          // Stage-0 body normalization telemetry
+          normalize_changed: verdictSource.normalize_changed,
+          normalize_delta_chars: verdictSource.normalize_delta_chars,
+          normalize_removed: verdictSource.normalize_removed,
+          normalize_fallback_reason: verdictSource.normalize_fallback_reason,
         };
         if (automation_run_id) {
           const { error } = await admin
