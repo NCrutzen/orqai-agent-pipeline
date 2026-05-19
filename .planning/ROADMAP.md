@@ -587,8 +587,8 @@ Plans:
 
   **Plans:** 8 plans (wave layout: 1→01, 2→02, 3→03, 4→04, 5→05, 6→06+06b, 7→07)
   - [x] 83-01-PLAN.md — Schema: body_full_text + body_unique_text columns + conversation_context table (D-01, D-03, D-04)
-  - [ ] 83-02-PLAN.md — Flip fetchMessageBody preference: body over uniqueBody; extend return shape with bodyUniqueText + rawJson (D-01, D-02)
-  - [ ] 83-03-PLAN.md — Both swarms ingest writers persist body_full_text + body_unique_text + body_html + raw_json (D-02, D-03, D-05, D-10)
+  - [x] 83-02-PLAN.md — Flip fetchMessageBody preference: body over uniqueBody; extend return shape with bodyUniqueText + rawJson (D-01, D-02)
+  - [x] 83-03-PLAN.md — Both swarms ingest writers persist body_full_text + body_unique_text + body_html + raw_json (D-02, D-03, D-05, D-10)
   - [ ] 83-04-PLAN.md — fetchConversationMessages helper + ingest wiring to persist 2 priors per inbound email (D-04)
   - [ ] 83-05-PLAN.md — One-shot 30-day backfill script: bodies + conversation_context across debtor-email + sales-email (D-05)
   - [ ] 83-06-PLAN.md — Stage 3 coordinator reads body_full_text; emits wrapped XML assembled_input with D-08 truncation + D-09 cap + telemetry (D-06 Stage 3, D-08, D-09, D-10)
