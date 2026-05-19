@@ -100,8 +100,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
 
   // 1) Fetch authoritative subject/body/from from Graph (via Zapier SDK).
   let meta: { subject: string; from: string; fromName: string; receivedAt: string };
-  let bodyText: string;
-  let bodyHtml: string;
+  let msg: {
+    bodyText: string;        // full thread (Phase 83 D-01)
+    bodyUniqueText: string;  // new bit only
+    bodyHtml: string;
+    rawJson: Record<string, unknown>;
+  };
   try {
     const [m, b] = await Promise.all([
       getMessageMeta(sourceMailbox, messageId),
@@ -113,8 +117,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       fromName: m.fromName,
       receivedAt: m.receivedAt,
     };
-    bodyText = b.bodyText;
-    bodyHtml = b.bodyHtml;
+    msg = {
+      bodyText: b.bodyText,
+      bodyUniqueText: b.bodyUniqueText,
+      bodyHtml: b.bodyHtml,
+      rawJson: b.rawJson,
+    };
   } catch (err) {
     const errText = String(err);
     const is404 = /\b404\b/.test(errText);
@@ -156,8 +164,16 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
           source_id: messageId,
           mailbox: sourceMailbox,
           subject,
-          body_text: bodyText,
-          body_html: bodyHtml || null,
+          // D-10 dual-write: keep body_text == bodyUniqueText (same
+          // semantics as pre-Phase-83 behavior; classifier path migrates
+          // to body_full_text in Plan 83-06).
+          body_text: msg.bodyUniqueText,
+          // D-03 new columns (Phase 83):
+          body_full_text: msg.bodyText,
+          body_unique_text: msg.bodyUniqueText,
+          // D-02 always write (Phase 83):
+          body_html: msg.bodyHtml || null,
+          raw_json: msg.rawJson,
           sender_email: meta.from || null,
           sender_name: meta.fromName || null,
           received_at: meta.receivedAt || isoNow,
@@ -238,7 +254,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
         message_id: messageId,
         source_mailbox: sourceMailbox,
         subject,
-        body_text: bodyText,
+        // Stage 0 input: feed the full thread per Phase 83 D-01.
+        body_text: msg.bodyText,
         // Phase 74 D-01 — swarm_type derived at ingest boundary.
         swarm_type: "sales-email",
         // Phase 74 D-02 — sales-email has no entity concept.
