@@ -18,7 +18,7 @@ Design decisions that emerged during this spike session. Non-negotiable for the 
 | # | Name | Type | Validates | Verdict | Tags |
 |---|------|------|-----------|---------|------|
 | 001 | smeba-info-backfill | standard | Backfill `info@smeba.nl` 90d corpus into `email_pipeline.emails`; produce volume baseline (count, date range, daily rate, inbox/sent split, top senders/domains) | ✓ VALIDATED — 5,504 rows, 90d, 61.2/day inbound, 188 sent total. `[SPAM]` is 54.5% of inbound; 96% single-msg threads; own-domain loopback present | recon, corpus |
-| 002 | smeba-info-noise-patterns | standard | Cluster the corpus by sender-domain + subject-pattern + body markers; identify dominant noise categories with sample counts | PENDING | recon, noise |
+| 002 | smeba-info-noise-patterns | standard | Cluster the corpus by sender-domain + subject-pattern + body markers; identify dominant noise categories with sample counts | ✓ VALIDATED — 6 rules classify 76.9% of inbound. Big surprise: own_domain_loopback (17.9%) isn't noise — it's internal workflow CC. Drops marketing/newsletter (0.2%) as DOA — M365 catches it upstream | recon, noise |
 | 003 | smeba-vs-debtor-noise-overlap | standard | Classify the Smeba corpus through debtor-email's existing 4 noise regex rules; measure overlap % and identify info-only categories. Answers "is this really a different swarm vocabulary or a brand variant?" | PENDING | recon, architecture |
 | 004 | smeba-non-noise-shape | standard | Eyeball-sample ~30 non-noise emails; preview department-routing distribution (sales/finance/support/HR/other) for Phase 88 capacity planning. Preview only — NOT hand-curation | PENDING | recon, preview |
 

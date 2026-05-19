@@ -1,0 +1,134 @@
+=== Spike 002 — info@smeba.nl noise clustering ===
+
+Inbound rows: 5316
+
+Cluster sizes (first-match-wins, ordered by rule specificity):
+key                             count      %
+--------------------------------------------------
+m365_spam_tag                    2899   54.5%
+auto_reply_ooo                     12    0.2%
+meta_facebook_notification          1    0.0%
+noreply_notification              214    4.0%
+marketing_newsletter               13    0.2%
+own_domain_loopback               950   17.9%
+unknown                          1227   23.1%
+--------------------------------------------------
+noise total (excl. unknown)      4089   76.9%
+
+
+--- m365_spam_tag (2899) — sample subjects + senders ---
+  beobank.ondersteuning@beomobile.online         [SPAM] Aanvraag tot activering van mijn DigiPass – Dringend
+  2020/182@ueno-fc.co.jp                         [SPAM] UndeIiverable: 3 HeId Messages
+  account@gsicojp.com                            [SPAM] Invoice No: TU-9078-2025
+  noreply@formlinksystems.com                    [SPAM] Latest Upgrade for info@smeba.nl is available .
+  info@regiebouw.nl                              [SPAM] Vakman in E of W nodig? Bekijk onze beschikbare vaklieden!
+  Nieuwsbrief@warmte365.nl                       [SPAM] De stille succesfactor achter warmtepompen
+  info@nieuwsbriefhidalgo.nl                     [SPAM] 👕Versterk je merk – 10 gepersonaliseerde hoodies met logo voor €169,50!
+  work@nf.info-nfgroup.eu                        [SPAM] Potential Collaboration Opportunity
+
+--- auto_reply_ooo (12) — sample subjects + senders ---
+  eric@smeba.nl                                  Automatisch antwoord: [CASE:722064] Afspraak maken (Smeba) - 1589215 - 531562/49
+  arend@smeba.nl                                 Automatisch antwoord: [CASE:722705] Afspraak maken (Smeba) - 1598644 - 531584/52
+  eric@smeba.nl                                  Automatisch antwoord: [CASE:726790] Openingstijden of n.a.w. aanpassen (Smeba) -
+  eric@smeba.nl                                  Automatisch antwoord: [CASE:735341] Afspraak maken (Smeba) - 1492004 - 479574/47
+  eric@smeba.nl                                  Automatisch antwoord: [CASE:739438] Openingstijden of n.a.w. aanpassen (Smeba) -
+  RiSc@smeba.nl                                  Automatisch antwoord: [CASE:739875] ERIKS bv Orderbevestiging  354262720, uw ref
+  RiSc@smeba.nl                                  Automatisch antwoord: [CASE:741293] levering brandblussers
+  eric@smeba.nl                                  Automatisch antwoord: [CASE:743273] Niet aanwezig (Smeba) - 1580867 - 520007/521
+
+--- meta_facebook_notification (1) — sample subjects + senders ---
+  102299100065@r1.deped.gov.ph                   [META GERVERIFIEERD] Gefeliciteerd! Je pagina komt nu in aanmerking om gratis ee
+
+--- noreply_notification (214) — sample subjects + senders ---
+  noreply@securitas.nl                           60289 Smeba Brandbeveiliging V.O.F.
+  noreply@lidl.nl                                Werkbon Lidl
+  noreply@jumbo.com                              Excel specificatie 2000046815
+  noreply@jumbo.com                              Betalingsadvies van 20.02.2026
+  noreply@securitas.nl                           60289 Smeba Brandbeveiliging V.O.F.
+  no-reply@login.antispamcloud.com               N-able SpamExperts Report: 20260212 - 20260219 (deruitersafety.nl)
+  noreply-gms_nl@securitas.net                   Report from SOC
+  noreply@securitas.nl                           60289 Smeba Brandbeveiliging V.O.F.
+
+--- marketing_newsletter (13) — sample subjects + senders ---
+  info@mail.watt-baer.de                         Ihre Stromabrechnung / Rückerstattung
+  mailing@chocolateriepierre.nl                  🐣 Een stijlvol Paasgeschenk voor medewerkers & klanten
+  offertes@vve.nl                                Offerteverzoek Brandveiligheid voor VvE met 25-50 appartementen uit Alphen Aan D
+  newsletter@mailing.ets-informatics.be          Geniet van onze expertise binnen uw branche!
+  marketing@vanwalraven.com                      Uw mening telt! Help ons onze service te verbeteren
+  messages@mail.12build.com                      Offerteaanvraag - TU/e Technische Universiteit Eindhoven
+  eurobridge@mail.com                            Fire Production coverall ( textile garments)
+  jde@mailing.ipsos.nl                           Uitnodiging JDE tevredenheidsonderzoek
+
+--- own_domain_loopback (950) — sample subjects + senders ---
+  lehu@smeba.nl                                  Afspraak maken (Smeba) - 1599108 - 433998/433998 R.A.M. Vousten
+  lehu@smeba.nl                                  Afspraak maken (Smeba) - 1599088 - 530673/532449 Ebben Beheer B.V.
+  Leo@smeba.nl                                   FW: [CASE:716526] Brandblussers
+  SjHo@smeba.nl                                  Openingstijden of n.a.w. aanpassen (Smeba) - 1473514 - 474331/427949 Shell (Dema
+  SjHo@smeba.nl                                  Niet aanwezig (Smeba) - 1562490 - 468369/468369 J Kuysters
+  chha@smeba-fire.be                             Niet aanwezig (Smeba) - 1587775 - 477061/625364 WBF studio 4
+  kevin.mortier.sf@moyneroberts.com              Niet aanwezig (Smeba) - 1565807 - 522620/625363 Toerisme
+  SjHo@smeba.nl                                  Openingstijden of n.a.w. aanpassen (Smeba) - 1569373 - 442475/442475 Simon Level
+
+--- unknown (1227) — sample subjects + senders ---
+  brecht@test-tell.com                           Herstel het vertrouwen: Test-Tell helpt je scoren!⭐⭐⭐⭐⭐
+  andy@freschrealestate.nl                       Offerte blusmiddelen
+  inlenen@vebriwork.com                          Vebri Work | Beschikbaar personeel week 9
+  conny@totaalvve.nl                             Contract inzake controle brandblussers Edisonstraat 58 te Den Haag, NAW gegevens
+  conny@totaalvve.nl                             Contract inzake controle brandblussers Edisonstraat 92 te Den Haag, NAW gegevens
+  Finance.Mouscron@fedasil.be                    Fedasil Mouscron - marché public S&l/AO/427/2015 - bon de commande 162442 01/09/
+  sales01@gd-standalone.com                      Discover the Versatility of Our LED Emergency Batten
+  FA@heuvelgroep.nl                              Betaalspecificatie
+
+--- 'unknown' bucket — top 25 sender domains ---
+    123  gmail.com
+     77  outlook.com
+     39  firemail.de
+     21  hotmail.com
+     15  mindef.nl
+     14  fedasil.be
+     13  cbre.com
+     13  ocean-securities.com
+     13  cargill.com
+     11  vebriwork.com
+     11  impexcompany.nl
+     11  taiwantrade.com
+     11  fedex.com
+     10  lasaulec.nl
+     10  impexcompany.be
+     10  vbtgroep.nl
+      9  vt2000.nl
+      9  janssentrack.be
+      9  p-solutions.ba
+      8  unica.nl
+      8  rabobank.nl
+      8  ballast-nedam.nl
+      8  skynet.be
+      7  supplier.coupahost.com
+      7  heijmans.nl
+
+--- 'unknown' bucket — top 25 sender addresses ---
+     13  test@ocean-securities.com
+     11  inlenen@vebriwork.com
+     11  info@impexcompany.nl
+     11  subscribeletter@taiwantrade.com
+     11  trackingupdates@fedex.com
+     10  info@impexcompany.be
+      9  payment_notification@cbre.com
+      9  janssen.bookkeeping@janssentrack.be
+      9  engineering@p-solutions.ba
+      8  hamdyelsayed398@gmail.com
+      8  procurement_be@cargill.com
+      7  do_not_reply@supplier.coupahost.com
+      7  adele.buckley@q2q-it.com
+      7  rabo.alerts@rabobank.nl
+      6  donalking2211@gmail.com
+      6  nijmegen@bastruckcenter.com
+      6  crediteurenadministratie@asito.nl
+      6  administratie@baslease.com
+      6  info@auto-tweedehands.com
+      6  zakelijkefactuur@facturen.postnl.nl
+      6  roger.vandenhoudt@skynet.be
+      6  nasseralmaskati@algurabinvestment.org
+      6  info@omarabdulla.biz
+      5  facturen@weightmanager.nl
+      5  arjan@wr.nl
