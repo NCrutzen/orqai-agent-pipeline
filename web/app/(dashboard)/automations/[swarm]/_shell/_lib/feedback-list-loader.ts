@@ -64,6 +64,13 @@ export interface FeedbackListParams {
   operatorId?: string;
   /** Page size. Default 50, capped at 100. */
   limit?: number;
+  /**
+   * 2026-05-19 — Stage 0 dismiss-on-approve semantics. When true, drop any row
+   * the operator has already written feedback for at this stage (own_latest_verdict
+   * not null). Stage 0 enables this so Approve / Submit-override removes the row
+   * from the queue. Requires operatorId.
+   */
+  excludeReviewed?: boolean;
 }
 
 export interface FeedbackListRow {
@@ -255,9 +262,17 @@ export async function loadStageFeedbackList(
 
   // Apply mineOnly AFTER merge: keep only rows where the operator already
   // has a feedback row at this stage.
-  const filtered = params.mineOnly
+  let filtered = params.mineOnly
     ? merged.filter((r) => r.own_latest_verdict !== null)
     : merged;
+
+  // 2026-05-19 — Stage 0 dismiss-on-approve. Drop rows where the operator
+  // already wrote feedback at this stage (the action UI has acted on it).
+  // Note: feedback queries filter by operatorId when present, so this is
+  // scoped to the calling operator — co-operators still see fresh rows.
+  if (params.excludeReviewed) {
+    filtered = filtered.filter((r) => r.own_latest_verdict === null);
+  }
 
   // Sort: bucket priority (needs_action < auto_handled < own_reviewed),
   // then received_at desc.

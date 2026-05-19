@@ -415,6 +415,8 @@ function DetailPaneInner({
             <Stage0Widget
               value={stage0Value}
               onChange={(next) => setStage0Value(next)}
+              emailId={row.id}
+              swarmType={swarmType}
             />
           );
         } else if (n === 1) {

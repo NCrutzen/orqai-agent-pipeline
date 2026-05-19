@@ -119,6 +119,10 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
     mineOnly,
     operatorId: user?.id,
     before: sp.before,
+    // 2026-05-19 — Stage 0 approve/override flow writes email_feedback; once
+    // operator has acted, drop the row from the queue. Without this the row
+    // stayed visible after Approve and Submit-override appeared to do nothing.
+    excludeReviewed: !!user?.id,
   });
   // The loader's NEEDS_ACTION_DECISIONS for stage=0 includes both
   // 'injection_suspected' and 'unknown_legacy'. 'unknown_legacy' is a
