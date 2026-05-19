@@ -148,7 +148,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     from: string;
     fromName: string;
     receivedAt: string;
-    body: string;
+    bodyText: string;        // full thread (Plan 83-02 — was msg.body)
+    bodyUniqueText: string;  // new bit only
+    bodyHtml: string;
+    rawJson: Record<string, unknown>;
   };
   try {
     const [meta, msgBody] = await Promise.all([
@@ -160,7 +163,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       from: meta.from,
       fromName: meta.fromName,
       receivedAt: meta.receivedAt,
-      body: msgBody.bodyText,
+      bodyText: msgBody.bodyText,
+      bodyUniqueText: msgBody.bodyUniqueText,
+      bodyHtml: msgBody.bodyHtml,
+      rawJson: msgBody.rawJson,
     };
   } catch (err) {
     const errText = String(err);
@@ -215,7 +221,15 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
           source: "zapier-debtor-ingest",
           mailbox: sourceMailbox,
           subject: msg.subject,
-          body_text: msg.body,
+          // D-10 dual-write: keep body_text == bodyUniqueText (same semantics
+          // as pre-Phase-83 behavior) so existing consumers don't regress.
+          body_text: msg.bodyUniqueText,
+          // D-03 new columns (Phase 83):
+          body_full_text: msg.bodyText,
+          body_unique_text: msg.bodyUniqueText,
+          // D-02 always write (Phase 83):
+          body_html: msg.bodyHtml,
+          raw_json: msg.rawJson,
           sender_email: msg.from,
           sender_name: msg.fromName,
           received_at: msg.receivedAt,
@@ -294,7 +308,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
         message_id: messageId,
         source_mailbox: sourceMailbox,
         subject: msg.subject,
-        body_text: msg.body,
+        // Stage 0 input: feed the full thread per Phase 83 D-01.
+        body_text: msg.bodyText,
         // Phase 74 D-01/D-02 — swarm_type + entity threaded at ingest boundary.
         swarm_type: "debtor-email",
         entity: settings.entity ?? null,

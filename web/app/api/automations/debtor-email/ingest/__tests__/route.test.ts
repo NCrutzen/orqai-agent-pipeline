@@ -125,7 +125,11 @@ describe("POST /api/automations/debtor-email/ingest — D-A thin ingest", () => 
       categories: [],
     } as unknown as Awaited<ReturnType<typeof outlook.getMessageMeta>>);
     vi.mocked(outlook.fetchMessageBody).mockResolvedValue({
-      bodyText: "body text",
+      bodyText: "FULL THREAD: debtor original + reply",
+      bodyUniqueText: "NEW REPLY ONLY",
+      bodyHtml: "<p>FULL THREAD: debtor original + reply</p>",
+      bodyType: "html",
+      rawJson: { conversationId: "AAQk-test", internetMessageId: "<m@test>" },
     } as unknown as Awaited<ReturnType<typeof outlook.fetchMessageBody>>);
   });
 
@@ -161,8 +165,27 @@ describe("POST /api/automations/debtor-email/ingest — D-A thin ingest", () => 
     expect(data.fromName).toBe("Alice");
     expect(data.receivedAt).toBe("2026-05-05T10:00:00Z");
     expect(data.subject).toBe("any subject");
-    expect(data.body_text).toBe("body text");
+    // Phase 83 D-01: Stage 0 receives the FULL THREAD body, not the unique part.
+    expect(data.body_text).toBe("FULL THREAD: debtor original + reply");
     expect(data.safety_overridden).toBeUndefined(); // Pitfall 5
+  });
+
+  it("Phase 83 D-02/D-03/D-10 — writes five-field body payload to email_pipeline.emails", async () => {
+    await postIngest({
+      messageId: "outlook-msg-id-phase83",
+      source_mailbox: "debiteuren@smeba.nl",
+    });
+    const emailInserts = supabaseInserts.filter((r) => r.table === "emails" && r.schema === "email_pipeline");
+    expect(emailInserts).toHaveLength(1);
+    const payload = emailInserts[0].payload;
+    // D-10 dual-write: legacy body_text == bodyUniqueText (unchanged semantics).
+    expect(payload.body_text).toBe("NEW REPLY ONLY");
+    // D-03 new columns:
+    expect(payload.body_full_text).toBe("FULL THREAD: debtor original + reply");
+    expect(payload.body_unique_text).toBe("NEW REPLY ONLY");
+    // D-02 always write:
+    expect(payload.body_html).toBe("<p>FULL THREAD: debtor original + reply</p>");
+    expect((payload.raw_json as Record<string, unknown>).conversationId).toBe("AAQk-test");
   });
 
   it("does NOT emit any pipeline_events row (Stage 1 emit is now Plan 06 worker's job)", async () => {
