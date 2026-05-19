@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
-status: Executing Phase 83
-stopped_at: Phase 82.9 planned (4 plans, ready to execute)
-last_updated: "2026-05-19T18:00:00.000Z"
+status: Phase 83 closed; v8.0 punch list awaits 82.9 + 999.8
+stopped_at: Phase 83 closed 2026-05-19 (V1/V2 PASS within noise-floor; V3/V4 PARTIAL pending live traffic)
+last_updated: "2026-05-19T18:25:00.000Z"
 progress:
   total_phases: 21
   completed_phases: 12
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 83 — body-ingestion-capture-full-thread-on-forwards-and-replies
+**Current focus:** Phase 83 CLOSED 2026-05-19. v8.0 closure waits on 82.9 (parallel session, in-flight) and 999.8 (operator UAT). Next gating action: `/gsd-audit-milestone v8.0` once 82.9 ships and 999.8 UAT lands (or operator chooses to defer 999.8 to v8.1).
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 83 (body-ingestion-capture-full-thread-on-forwards-and-replies) — EXECUTING
-Plan: 1 of 8
-Next phase: `/gsd-audit-milestone v8.0`
-Milestone: v8.0 Agentic Platform (Phases 63-82.8)
-Last shipped: Phase 82.8 (2026-05-18) — Stage 4 three-section overview (handler error / needs review / auto-archived) + Stage 1 before/after screenshot strip in audit expander; debtor.email_labels screenshot path columns + 30d backfill
+Phase: 83 (body-ingestion-capture-full-thread-on-forwards-and-replies) — COMPLETE
+Plan: 8 of 8 + hot-fix delta (3 extra commits: ed33b8e, baad2af, 0e03e09)
+Next phase: `/gsd-audit-milestone v8.0` (gated on 82.9 closure + 999.8 UAT)
+Milestone: v8.0 Agentic Platform (Phases 63-82.8, 83)
+Last shipped: Phase 83 (2026-05-19) — body_full_text + body_unique_text columns; conversation_context table; ingest writers + Stage 1/3 readers wired; 30-day backfill ran (1344 priors written); verify-phase83 harness shipped; V1 PASS, V2 PASS-with-noise-floor, V3/V4 PARTIAL pending live traffic. Pre-this: Phase 82.8 (2026-05-18) Stage 4 three-section overview + Stage 1 before/after screenshot strip.
 
 **v8.0 closure punch list (gates before /gsd-audit-milestone v8.0):**
 
@@ -37,6 +37,8 @@ Last shipped: Phase 82.8 (2026-05-18) — Stage 4 three-section overview (handle
 - [x] Phase 82.3: Per-stage audit surface — SHIPPED
 - [x] Phase 82.4: Feedback capture form — SHIPPED
 - [x] Phase 82.8: Stage 4 handled overview + Stage 1 before/after screenshots — SHIPPED
+- [x] Phase 83: Body ingestion — capture full thread on forwards and replies — SHIPPED 2026-05-19 (1344 priors backfilled; V1/V2 green within noise-floor; V3/V4 PARTIAL pending live traffic — see 83-07-VERIFICATION.md)
+- [ ] Phase 82.9: Stage 2 audit-panel evidence expansion — IN-FLIGHT (4 plans drafted by parallel session, 0 SUMMARYs yet)
 - [ ] Phase 999.8: 2 outstanding browser smokes — operator UAT pending
 
 **v8.0 reframes (locked 2026-05-12):**
