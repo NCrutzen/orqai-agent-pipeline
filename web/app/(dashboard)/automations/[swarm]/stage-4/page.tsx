@@ -190,7 +190,7 @@ export default async function Stage4Page({
       .in("id", emailIds);
     const timelinePromise = admin
       .from("pipeline_events")
-      .select("id, stage, email_id, decision, created_at")
+      .select("id, stage, email_id, decision, confidence, decision_details, created_at")
       .eq("swarm_type", swarmType)
       .in("email_id", emailIds)
       .order("stage", { ascending: true })
@@ -241,6 +241,8 @@ export default async function Stage4Page({
       (timelineMap[key] ??= []).push({
         stage: ev.stage,
         decision: ev.decision ?? null,
+        decision_details: ev.decision_details ?? null,
+        confidence: ev.confidence ?? null,
       });
     }
 

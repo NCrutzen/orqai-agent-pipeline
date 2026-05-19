@@ -51,6 +51,13 @@ import { StageScreenshotStrip } from "@/components/automations/bulk-review/audit
 export interface PipelineTimelineEvent {
   stage: number;
   decision?: string | null;
+  // 2026-05-19 — buildStageAuditMap's bridges read decision_details and
+  // confidence at runtime. Marked optional so client shells that fetch a
+  // narrower projection still type-check; pages that want working audit
+  // panels (stages 0/1/2/3) must select these columns and push them into
+  // their timelineMap.
+  decision_details?: Record<string, unknown> | null;
+  confidence?: number | null;
 }
 
 import { PipelineFlow, type StageData, type StageState } from "../stage-1/components/pipeline-flow";

@@ -166,7 +166,7 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
         .in("id", emailIds),
       admin
         .from("pipeline_events")
-        .select("id, stage, decision, decision_details, created_at, email_id")
+        .select("id, stage, decision, confidence, decision_details, created_at, email_id")
         .in("email_id", emailIds)
         .order("created_at", { ascending: true }),
       loadFeedbackMap(admin, emailIds, ACTIVE_STAGE, viewerId),
