@@ -37,6 +37,7 @@ vi.mock("@/lib/automations/debtor-email/mailboxes", () => ({
 vi.mock("@/lib/outlook", () => ({
   getMessageMeta: vi.fn(),
   fetchMessageBody: vi.fn(),
+  fetchConversationMessages: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/admin", () => {
@@ -79,6 +80,16 @@ vi.mock("@/lib/supabase/admin", () => {
       supabaseInserts.push({ table, schema, payload });
       return chain;
     });
+    chain.upsert = vi.fn(
+      (payload: Record<string, unknown> | Record<string, unknown>[], opts?: Record<string, unknown>) => {
+        supabaseInserts.push({
+          table: `${table}:upsert`,
+          schema,
+          payload: { rows: payload, opts: opts ?? {} } as Record<string, unknown>,
+        });
+        return Promise.resolve({ data: null, error: null });
+      },
+    );
     return chain;
   }
   function makeAdmin() {
@@ -131,6 +142,10 @@ describe("POST /api/automations/debtor-email/ingest — D-A thin ingest", () => 
       bodyType: "html",
       rawJson: { conversationId: "AAQk-test", internetMessageId: "<m@test>" },
     } as unknown as Awaited<ReturnType<typeof outlook.fetchMessageBody>>);
+    // Phase 83 D-04 default: most tests expect no prior messages so the
+    // conversation_context upsert doesn't fire. The dedicated D-04 test
+    // overrides this with .mockResolvedValueOnce([prior1, prior2]).
+    vi.mocked(outlook.fetchConversationMessages).mockResolvedValue([]);
   });
 
   it("creates ONE pending placeholder automation_runs row and fires stage-0/email.received UNCONDITIONALLY", async () => {
@@ -278,5 +293,44 @@ describe("POST /api/automations/debtor-email/ingest — D-A thin ingest", () => 
 
     // No Stage 0 dispatch.
     expect(sendCalls).toHaveLength(0);
+  });
+
+  it("Phase 83 D-04 — upserts 2 prior messages into email_pipeline.conversation_context with position=1 + position=2", async () => {
+    const outlook = await import("@/lib/outlook");
+    vi.mocked(outlook.fetchConversationMessages).mockResolvedValueOnce([
+      {
+        sourceMessageId: "prior-B",
+        senderEmail: "elger@smeba-fire.be",
+        subject: "Re: invoice 123",
+        receivedAt: "2026-05-18T09:00:00Z",
+        bodyText: "elger reply",
+      },
+      {
+        sourceMessageId: "prior-C",
+        senderEmail: "debtor@cbre.com",
+        subject: "invoice 123",
+        receivedAt: "2026-05-17T08:00:00Z",
+        bodyText: "original debtor msg",
+      },
+    ]);
+
+    await postIngest({
+      messageId: "outlook-msg-id-d04",
+      source_mailbox: "debiteuren@smeba.nl",
+    });
+
+    const convUpserts = supabaseInserts.filter(
+      (r) => r.table === "conversation_context:upsert" && r.schema === "email_pipeline",
+    );
+    expect(convUpserts).toHaveLength(1);
+    const payload = convUpserts[0].payload as { rows: Array<Record<string, unknown>>; opts: Record<string, unknown> };
+    const rows = payload.rows;
+    expect(rows).toHaveLength(2);
+    expect(rows[0].position).toBe(1);
+    expect(rows[0].source_message_id).toBe("prior-B");
+    expect(rows[0].email_id).toBe("email-uuid-1");
+    expect(rows[1].position).toBe(2);
+    expect(rows[1].source_message_id).toBe("prior-C");
+    expect(payload.opts.onConflict).toBe("email_id,position");
   });
 });

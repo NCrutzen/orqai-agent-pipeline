@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inngest } from "@/lib/inngest/client";
-import { getMessageMeta, fetchMessageBody } from "@/lib/outlook";
+import { getMessageMeta, fetchMessageBody, fetchConversationMessages } from "@/lib/outlook";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -207,6 +207,59 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       } else {
         emailId = inserted.id;
       }
+    }
+  }
+
+  // Phase 83 D-04: ALWAYS fetch last 2 prior messages in the same conversation
+  // when conversationId is known. Pure read (no Stage dispatch impact); writes
+  // to email_pipeline.conversation_context. Idempotent via PK (email_id, position).
+  // Soft-failure: ingest never fails because the thread fetch hiccupped — the
+  // error is captured as an automation_runs row for observability (T-83-13).
+  const conversationId =
+    typeof msg.rawJson?.conversationId === "string"
+      ? (msg.rawJson.conversationId as string)
+      : "";
+  if (emailId && conversationId) {
+    try {
+      const priors = await fetchConversationMessages(
+        sourceMailbox,
+        conversationId,
+        messageId,
+        2,
+      );
+      if (priors.length > 0) {
+        const rows = priors.map((p, idx) => ({
+          email_id: emailId!,
+          position: idx + 1,
+          source_message_id: p.sourceMessageId,
+          sender_email: p.senderEmail,
+          subject: p.subject,
+          received_at: p.receivedAt || null,
+          body_text: p.bodyText,
+        }));
+        await admin
+          .schema("email_pipeline")
+          .from("conversation_context")
+          .upsert(rows, { onConflict: "email_id,position" });
+      }
+    } catch (convErr) {
+      await admin.from("automation_runs").insert({
+        automation: "sales-email-review",
+        status: "completed",
+        swarm_type: "sales-email",
+        topic: null,
+        entity: null,
+        mailbox_id: null,
+        result: {
+          stage: "phase83_conversation_context_fetch",
+          email_id: emailId,
+          conversation_id: conversationId,
+          outcome: "soft_failure",
+        },
+        error_message: String(convErr),
+        triggered_by: "zapier:outlook-ingest",
+        completed_at: new Date().toISOString(),
+      });
     }
   }
 
