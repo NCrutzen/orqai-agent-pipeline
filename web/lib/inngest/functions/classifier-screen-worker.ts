@@ -121,6 +121,13 @@ export const classifierScreenWorker = inngest.createFunction(
       source_mailbox,
       subject,
       body_text,
+      // Phase 83 Plan 06b (D-06 / D-10) — Stage 1 reads body_full_text with
+      // body_text fallback so the regex engine and the LLM 2nd-pass on
+      // 'unknown' see the FULL thread on forwards/replies. The upstream
+      // Stage 0 payload may not always include body_full_text yet (rolling
+      // dual-write per D-10); falling back to body_text keeps behavior
+      // unchanged for any emitter that hasn't switched.
+      body_full_text,
       swarm_type,
       entity,
       // Phase 82.2 Plan 07 D-A passthrough fields — used by the debtor-email
@@ -137,6 +144,7 @@ export const classifierScreenWorker = inngest.createFunction(
       source_mailbox: string;
       subject: string;
       body_text: string;
+      body_full_text?: string | null;
       swarm_type: string;
       entity?: string | null;
       mailbox_id?: number | null;
@@ -195,7 +203,10 @@ export const classifierScreenWorker = inngest.createFunction(
         // patterns are subject + body driven; a missing `from` doesn't
         // affect classification quality for those branches.
         from: "",
-        bodySnippet: (body_text ?? "").slice(0, 2000),
+        // Phase 83 Plan 06b D-06: prefer body_full_text (full thread) for
+        // regex evaluation; fall back to body_text when the upstream emitter
+        // hasn't switched yet (D-10 dual-write window).
+        bodySnippet: (body_full_text ?? body_text ?? "").slice(0, 2000),
       });
       return {
         invoked: true,
@@ -233,7 +244,9 @@ export const classifierScreenWorker = inngest.createFunction(
               "stage-1-category-classifier",
               {
                 subject: subject ?? "",
-                body_text: body_text ?? "",
+                // Phase 83 Plan 06b D-10: LLM 2nd-pass also sees full thread
+                // with body_text fallback. Prompt + schema unchanged.
+                body_text: body_full_text ?? body_text ?? "",
                 categories: enabledCategories.map((c) => ({
                   category_key: c.category_key,
                   display_label: c.display_label,

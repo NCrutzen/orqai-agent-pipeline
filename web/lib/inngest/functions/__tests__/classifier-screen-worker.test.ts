@@ -176,6 +176,7 @@ const baseEvent = (
     entity: string | null;
     subject: string;
     body_text: string;
+    body_full_text: string | null;
   }> = {},
 ) => ({
   id: overrides.id ?? "evt-1",
@@ -187,6 +188,11 @@ const baseEvent = (
     source_mailbox: "debiteuren@smeba.nl",
     subject: overrides.subject ?? "Test subject",
     body_text: overrides.body_text ?? "Test body",
+    // Phase 83 Plan 06b — Stage 1 reads body_full_text with body_text
+    // fallback. Tests can pass null/undefined to exercise the fallback,
+    // or a distinct string to verify the wider-input substitution.
+    body_full_text:
+      overrides.body_full_text === undefined ? null : overrides.body_full_text,
     swarm_type: overrides.swarm_type ?? "debtor-email",
     entity: overrides.entity ?? "smeba",
   },
@@ -358,6 +364,49 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
           source_mailbox: "debiteuren@smeba.nl",
         }),
       }),
+    );
+  });
+
+  it("Phase 83 Plan 06b D-06 / regex bodySnippet prefers body_full_text over body_text (wider-input substitution)", async () => {
+    // When the event carries BOTH body_full_text (full thread) and body_text
+    // (legacy unique-only), the regex engine must see the full thread. This
+    // is the whole point of Phase 83: forwards/replies are classified on
+    // the entire conversation, not just the new fragment.
+    loadSwarmMock.mockResolvedValue(DEBTOR_SWARM_ROW);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
+    classifyMock.mockReturnValue({
+      category: "unknown",
+      confidence: 0,
+      matchedRule: null,
+    });
+    // Stub LLM 2nd-pass so the unknown path doesn't blow up; the assertion
+    // we care about is on `classify` (the regex engine) being fed the wider
+    // input. The LLM forward assertion is covered below.
+    invokeOrqAgentMock.mockResolvedValue({
+      raw: { category_key: "unknown", confidence: "high", reasoning: null },
+      agent: { agent_key: "stage-1-category-classifier" },
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      billing: { total_cost: 0 },
+      cost_cents: 0,
+    });
+
+    const cache: StepCache = new Map();
+    await handler({
+      event: baseEvent({
+        body_full_text: "FULL THREAD",
+        body_text: "NEW ONLY",
+      }),
+      step: makeStepStub(cache),
+    });
+
+    // Regex engine fed the FULL thread, not the unique-only fragment.
+    expect(classifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ bodySnippet: "FULL THREAD" }),
+    );
+    // LLM 2nd-pass on `unknown` also receives the full thread (D-10).
+    expect(invokeOrqAgentMock).toHaveBeenCalledWith(
+      "stage-1-category-classifier",
+      expect.objectContaining({ body_text: "FULL THREAD" }),
     );
   });
 
