@@ -57,6 +57,8 @@ export interface CreateInvoiceDraftParams {
   brandId: string;
   /** NXT order type (bijv. "DO" voor Directe Order) */
   orderTypeId: string;
+  /** Kostenplaats — Companies.OrderReference uit NXT, gevuld op het kostenplaats-veld in NXT */
+  orderReference?: string | null;
   /** Regels die op de order moeten komen */
   lines: DraftOrderLine[];
   /** Voor traceerbaarheid — originele NXT order codes die de bron van deze facturatie vormen */
@@ -246,12 +248,19 @@ async function fillOrderHeader(page: Page, params: CreateInvoiceDraftParams, tod
 
   // Subscription is al "None" default — niks doen
 
-  // Referentie naar originele orders (voor traceerbaarheid)
-  const refText = `heeren-oefeningen facturatie — bron: ${params.sourceBillingOrderCodes.join(", ")}`;
+  // Reference = Kostenplaats. Primair: Companies.OrderReference uit NXT (orderReference).
+  // Fallback: traceerbaarheid-string met bron-orders (oude gedrag, voor records zonder
+  // orderReference). Heeren Loo's boekhouding heeft de Kostenplaats nodig om de factuur
+  // op het juiste grootboek te kunnen wegboeken.
+  const refText = params.orderReference?.trim()
+    ? params.orderReference.trim()
+    : `heeren-oefeningen facturatie — bron: ${params.sourceBillingOrderCodes.join(", ")}`;
   const refInput = page.locator('textarea[name="reference1"]').first();
   if (await refInput.count() > 0) {
     await refInput.fill(refText);
-    console.log(`[form] Reference → ${refText}`);
+    console.log(`[form] Reference (Kostenplaats) → ${refText}`);
+  } else {
+    console.warn(`[form] Reference-veld niet gevonden — Kostenplaats "${refText}" niet ingevuld`);
   }
 }
 

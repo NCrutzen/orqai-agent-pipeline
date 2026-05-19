@@ -62,6 +62,7 @@ export const processHeerenOefening = inngest.createFunction(
       siteId,
       brandId,
       orderTypeId,
+      orderReference,
       quantity,
       unitPrice,
       description,
@@ -91,6 +92,7 @@ export const processHeerenOefening = inngest.createFunction(
         if (siteId) fase2Updates.site_id = siteId;
         if (brandId) fase2Updates.brand_id = brandId;
         if (orderTypeId) fase2Updates.order_type_id = orderTypeId;
+        if (orderReference) fase2Updates.order_reference = orderReference;
         if (quantity != null) fase2Updates.quantity = quantity;
         if (unitPrice != null) fase2Updates.unit_price = unitPrice;
         if (description) fase2Updates.description = description;
@@ -117,6 +119,7 @@ export const processHeerenOefening = inngest.createFunction(
           site_id: siteId ?? null,
           brand_id: brandId ?? null,
           order_type_id: orderTypeId ?? null,
+          order_reference: orderReference ?? null,
           quantity: quantity ?? null,
           unit_price: unitPrice ?? null,
           description: description ?? null,
@@ -242,6 +245,7 @@ interface StagingRecord {
   site_id: string | null;
   brand_id: string | null;
   order_type_id: string | null;
+  order_reference: string | null;
   quantity: number | null;
   unit_price: number | null;
   description: string | null;
@@ -302,7 +306,7 @@ export const createMonthlyInvoiceDrafts = inngest.createFunction(
       const twoMonthsAgo = new Date(Date.now() - 1000 * 60 * 60 * 24 * 62).toISOString();
       const { data, error } = await admin
         .from("heeren_oefeningen_staging")
-        .select("id, billing_order_code, billing_item_id, customer_id, site_id, brand_id, order_type_id, quantity, unit_price, description")
+        .select("id, billing_order_code, billing_item_id, customer_id, site_id, brand_id, order_type_id, order_reference, quantity, unit_price, description")
         .eq("status", "processed")
         .is("new_billing_order_code", null)
         .is("invoice_draft_created_at", null)
@@ -341,6 +345,7 @@ export const createMonthlyInvoiceDrafts = inngest.createFunction(
           siteId: first.site_id as string,
           brandId: first.brand_id as string,
           orderTypeId: first.order_type_id as string,
+          orderReference: first.order_reference ?? null,
           lines,
           sourceBillingOrderCodes: sourceCodes,
           auth,

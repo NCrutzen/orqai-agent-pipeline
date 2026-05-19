@@ -44,13 +44,14 @@ async function main() {
     processed_at: new Date().toISOString(),
     screenshot_before: "test-before.png",
     screenshot_after: "test-after.png",
-    // Fase 2 velden — Beter Horen BV op acceptance
-    customer_id: "200007",
-    site_id: "318887",
-    brand_id: "SB",
-    order_type_id: "DO",
-    quantity: 2,
-    unit_price: 45.0,
+    // Fase 2 velden — Heeren Loo realistische input (vanuit echte Fase 1 staging-row)
+    customer_id: process.env.SEED_CUSTOMER_ID ?? "590518",
+    site_id: process.env.SEED_SITE_ID ?? "629195",
+    brand_id: process.env.SEED_BRAND_ID ?? "BB",
+    order_type_id: process.env.SEED_ORDER_TYPE_ID ?? "DOTR",
+    order_reference: process.env.SEED_ORDER_REFERENCE ?? "TEST-KOSTENPLAATS",
+    quantity: Number(process.env.SEED_QUANTITY ?? "1"),
+    unit_price: Number(process.env.SEED_UNIT_PRICE ?? "45.0"),
     description: "Test oefening her-facturatie (seed-and-test-fase2)",
   };
 
@@ -78,6 +79,7 @@ async function main() {
     siteId: record.site_id,
     brandId: record.brand_id,
     orderTypeId: record.order_type_id,
+    orderReference: record.order_reference,
     lines: [{ itemId: record.billing_item_id, quantity: record.quantity, unitPrice: record.unit_price, stagingId }],
     sourceBillingOrderCodes: [testRunId],
     auth,

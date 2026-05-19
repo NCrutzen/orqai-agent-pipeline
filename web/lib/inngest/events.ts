@@ -125,6 +125,8 @@ export type Events = {
       quantity?: number;
       unitPrice?: number;
       orderTypeId?: string;
+      /** Kostenplaats — Companies.OrderReference uit NXT */
+      orderReference?: string;
       description?: string;
       /** NXT environment — default "production" */
       environment?: "production" | "acceptance";
