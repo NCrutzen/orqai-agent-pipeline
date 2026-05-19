@@ -210,6 +210,21 @@ export const debtorEmailCoordinator = inngest.createFunction(
             ranked: output.ranked,
             language: output.language,
             urgency: output.urgency,
+            // 2026-05-19 — Stage 3 audit-panel evidence expansion.
+            // Persist the model/prompt version + the classifier inputs so the
+            // audit UI can render an INPUTS section without a JOIN back to
+            // agent_runs. Subject is excerpted to ≤140 chars (the panel uses
+            // it as a "you sent the classifier THIS" reminder, not a full
+            // body view — the existing Show full email link covers that).
+            intent_version: INTENT_VERSION_V2,
+            inputs: {
+              sender_email: email.sender_email ?? null,
+              sender_domain: sender_domain || null,
+              mailbox: email.mailbox ?? null,
+              entity,
+              subject_excerpt: (email.subject ?? "").slice(0, 140) || null,
+              received_at: email.received_at ?? null,
+            },
           },
           agent_run_id,
           automation_run_id: automation_run_id ?? null,

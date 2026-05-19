@@ -90,8 +90,63 @@ function formatConfidence(c: number): string {
   return `${(c * 100).toFixed(0)}%`;
 }
 
+// 2026-05-19 — expanded evidence panel.
+// Sections from top to bottom:
+//   INPUTS      — what the classifier was handed (sender, mailbox, entity,
+//                 subject excerpt, received_at). Present on rows written after
+//                 the 2026-05-19 coordinator writer change; absent (rendered
+//                 as a muted "legacy run" line) on older rows.
+//   METADATA    — language/urgency/intent_version chips (email-level outputs)
+//   REASONING   — top-1 reasoning for the selected intent
+//   EVIDENCE    — ranked intent rows; each runner-up now shows its own
+//                 reasoning + sub_type + document_reference below the chip
+//   raw JSON    — unchanged
+const metaChipStyle: React.CSSProperties = {
+  ...chipBaseStyle,
+  background: "var(--chip-muted-bg, transparent)",
+  color: "var(--text-muted, #8a93a3)",
+};
+
+const inputRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(80px, max-content) 1fr",
+  columnGap: "var(--space-3, 12px)",
+  rowGap: "var(--space-1, 4px)",
+  fontSize: 12,
+  lineHeight: 1.5,
+};
+
+const inputLabelStyle: React.CSSProperties = {
+  color: "var(--text-muted, #8a93a3)",
+  fontFamily: "var(--font-geist-mono, monospace)",
+};
+
+const inputValueStyle: React.CSSProperties = {
+  color: "var(--text, #e6ebf2)",
+  fontFamily: "var(--font-geist-mono, monospace)",
+  wordBreak: "break-word",
+};
+
+function InputRow({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <>
+      <span style={inputLabelStyle}>{label}</span>
+      <span style={inputValueStyle}>{value}</span>
+    </>
+  );
+}
+
 export function Stage3EvidencePanel({ payload }: Props) {
-  const { ranked_intents, coordinator_reasoning, selected_intent_key } = payload;
+  const {
+    ranked_intents,
+    coordinator_reasoning,
+    selected_intent_key,
+    language,
+    urgency,
+    intent_version,
+    inputs,
+  } = payload;
 
   const isEmpty =
     ranked_intents.length === 0 &&
@@ -111,8 +166,58 @@ export function Stage3EvidencePanel({ payload }: Props) {
     );
   }
 
+  const hasInputs =
+    inputs &&
+    (inputs.sender_email ||
+      inputs.sender_domain ||
+      inputs.mailbox ||
+      inputs.entity ||
+      inputs.subject_excerpt ||
+      inputs.received_at);
+  const hasMetadata = language || urgency || intent_version;
+
   return (
     <div style={{ padding: "var(--space-3, 12px)" }}>
+      {/* INPUTS */}
+      <div style={sectionWrapStyle}>
+        <div style={sectionHeaderStyle}>INPUTS</div>
+        {hasInputs ? (
+          <div style={inputRowStyle} data-testid="stage3-inputs">
+            <InputRow label="from" value={inputs?.sender_email ?? null} />
+            <InputRow label="domain" value={inputs?.sender_domain ?? null} />
+            <InputRow label="mailbox" value={inputs?.mailbox ?? null} />
+            <InputRow label="entity" value={inputs?.entity ?? null} />
+            <InputRow label="subject" value={inputs?.subject_excerpt ?? null} />
+            <InputRow label="received" value={inputs?.received_at ?? null} />
+          </div>
+        ) : (
+          <div style={{ ...mutedStyle, fontStyle: "italic" }}>
+            Legacy run — classifier inputs were not captured.
+          </div>
+        )}
+      </div>
+
+      {/* METADATA */}
+      {hasMetadata ? (
+        <div style={sectionWrapStyle}>
+          <div style={sectionHeaderStyle}>METADATA</div>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "var(--space-2, 8px)",
+            }}
+            data-testid="stage3-metadata"
+          >
+            {language ? <span style={metaChipStyle}>language: {language}</span> : null}
+            {urgency ? <span style={metaChipStyle}>urgency: {urgency}</span> : null}
+            {intent_version ? (
+              <span style={metaChipStyle}>model: {intent_version}</span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {/* REASONING */}
       <div style={sectionWrapStyle}>
         <div style={sectionHeaderStyle}>REASONING</div>
@@ -140,7 +245,7 @@ export function Stage3EvidencePanel({ payload }: Props) {
               margin: 0,
               display: "flex",
               flexDirection: "column",
-              gap: "var(--space-2, 8px)",
+              gap: "var(--space-3, 12px)",
             }}
           >
             {ranked_intents.map((row) => {
@@ -148,29 +253,68 @@ export function Stage3EvidencePanel({ payload }: Props) {
               const testid = isSelected
                 ? "stage3-intent-row-selected"
                 : `stage3-intent-row-${row.intent_key}`;
+              const meta: string[] = [];
+              if (row.sub_type) meta.push(`sub_type: ${row.sub_type}`);
+              if (row.document_reference) meta.push(`doc_ref: ${row.document_reference}`);
               return (
                 <li
                   key={row.intent_key}
                   data-testid={testid}
                   style={{
                     display: "flex",
-                    alignItems: "center",
-                    gap: "var(--space-2, 8px)",
-                    fontWeight: isSelected ? 600 : 400,
+                    flexDirection: "column",
+                    gap: "var(--space-1, 4px)",
                   }}
                 >
-                  {isSelected ? (
-                    <span
-                      aria-hidden="true"
-                      style={{ color: "var(--accent, #ff6a34)" }}
-                    >
-                      ▶
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "var(--space-2, 8px)",
+                      fontWeight: isSelected ? 600 : 400,
+                    }}
+                  >
+                    {isSelected ? (
+                      <span
+                        aria-hidden="true"
+                        style={{ color: "var(--accent, #ff6a34)" }}
+                      >
+                        ▶
+                      </span>
+                    ) : null}
+                    <span style={intentKeyStyle}>{row.intent_key}</span>
+                    <span style={confidenceChipStyle(row.confidence)}>
+                      {formatConfidence(row.confidence)}
                     </span>
+                  </div>
+                  {row.reasoning ? (
+                    <div
+                      style={{
+                        ...bodyStyle,
+                        fontSize: 12,
+                        color: isSelected
+                          ? "var(--text, #e6ebf2)"
+                          : "var(--text-muted, #8a93a3)",
+                        paddingLeft: isSelected ? "calc(var(--space-3, 12px) + 4px)" : 0,
+                      }}
+                    >
+                      {row.reasoning}
+                    </div>
                   ) : null}
-                  <span style={intentKeyStyle}>{row.intent_key}</span>
-                  <span style={confidenceChipStyle(row.confidence)}>
-                    {formatConfidence(row.confidence)}
-                  </span>
+                  {meta.length > 0 ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "var(--space-2, 8px)",
+                        paddingLeft: isSelected ? "calc(var(--space-3, 12px) + 4px)" : 0,
+                      }}
+                    >
+                      {meta.map((m) => (
+                        <span key={m} style={metaChipStyle}>{m}</span>
+                      ))}
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

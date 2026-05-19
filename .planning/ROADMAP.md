@@ -586,7 +586,7 @@ Plans:
 - [ ] **Phase 83: Body ingestion — capture full thread on forwards and replies** — Stage 3 misclassifies forwards and replies because Outlook ingest stores only Graph's `uniqueBody` (the new bit), dropping the quoted debtor original. Evidence in `email_pipeline.emails` 2026-05-19: `body_text=∅, body_html=∅, raw_json=[]` on `FW:` rows; Elger's `Re: Re:` chains store only his reply, never the originating debtor message. Fix at `web/lib/outlook/client.ts:207` (prefer `body` over `uniqueBody`), persist `body_html` + `raw_json`, add `body_full_text` / `body_unique_text` columns, conversation-aware fallback via `conversationId`, 90-day backfill. CONTEXT exists; needs `/gsd-discuss-phase 83`.
 
   **Plans:** 8 plans (wave layout: 1→01, 2→02, 3→03, 4→04, 5→05, 6→06+06b, 7→07)
-  - [ ] 83-01-PLAN.md — Schema: body_full_text + body_unique_text columns + conversation_context table (D-01, D-03, D-04)
+  - [x] 83-01-PLAN.md — Schema: body_full_text + body_unique_text columns + conversation_context table (D-01, D-03, D-04)
   - [ ] 83-02-PLAN.md — Flip fetchMessageBody preference: body over uniqueBody; extend return shape with bodyUniqueText + rawJson (D-01, D-02)
   - [ ] 83-03-PLAN.md — Both swarms ingest writers persist body_full_text + body_unique_text + body_html + raw_json (D-02, D-03, D-05, D-10)
   - [ ] 83-04-PLAN.md — fetchConversationMessages helper + ingest wiring to persist 2 priors per inbound email (D-04)
@@ -750,6 +750,26 @@ Plans:
 - [ ] 82.8-06-PLAN.md — StageScreenshotStrip component (file-disjoint, Vitest, D-03 read-side)
 - [ ] 82.8-07-PLAN.md — mount StageScreenshotStrip in detail-pane + thread paths from stage-1/stage-4 pages (D-03, gated on 82.7.1 ship)
 - [ ] 82.8-08-PLAN.md — STATE.md punch-list reconcile (mark 82.2/82.3/82.4/82.8 complete)
+
+### Phase 82.9: Stage 2 audit-panel evidence expansion — persist resolver inputs + LLM tiebreaker reasoning (INSERTED)
+
+**Goal:** Expand the Stage 2 audit panel from method+customer chip to a full evidence surface: INPUTS section (per-path: thread_inheritance / sender_match / identifier_match / llm_tiebreaker / unresolved), REASONING section when an LLM tiebreaker fired, and the full candidate list (not just the count). Requires widening `ResolveResult` in `web/lib/automations/debtor-email/resolve-debtor.ts` and the `decision_details` payload in `web/lib/inngest/functions/classifier-label-resolver.ts:209-222` so the new fields survive the INSERT into `pipeline_events`. Mapper bridge + `Stage2AuditPayload` + `Stage2EvidencePanel.tsx` extended in lockstep. New rows surface immediately; historical rows show the existing slim shape (no backfill — Stage 2 candidate detail is reconstructible from NXT but expensive; not worth a one-off backfill).
+
+**Requirements:**
+- INPUT-01: `thread_inheritance` → store `prior_email_label_id`, `conversation_id`
+- INPUT-02: `sender_match` → store `sender_email`, `candidates: [{id, name}]`
+- INPUT-03: `identifier_match` → store `matched_identifiers: string[]`, `candidates: [{id, name}]`
+- INPUT-04: `llm_tiebreaker` → store `candidates`, `llm_reason`, `llm_confidence`, optional `llm_model`
+- TYPE-01: extend `Stage2AuditPayload` with `inputs` + `candidates` + `reasoning` (LLM path only)
+- UI-01: panel renders `INPUTS` block above EVIDENCE; `REASONING` below for tiebreaker path
+- BRIDGE-01: mapper reads new keys; legacy rows still degrade to the chip-only render
+
+**Depends on:** Phase 82.3 (audit-panel infrastructure), `fix(stage-2): bridge label-resolver evidence into audit panel` (commit `35c2bed`)
+
+**Plans:** TBD (run /gsd-plan-phase 82.9 to break down — likely 3 plans: resolver+writer, types+mapper, panel UI)
+
+Plans:
+- [ ] TBD
 
 ### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED) ✓ closed 2026-05-11
 

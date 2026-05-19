@@ -143,9 +143,21 @@ function asTopCandidates(
 
 function asRankedIntents(
   v: unknown,
-): Array<{ intent_key: string; confidence: number }> {
+): Array<{
+  intent_key: string;
+  confidence: number;
+  reasoning?: string | null;
+  sub_type?: string | null;
+  document_reference?: string | null;
+}> {
   if (!Array.isArray(v)) return [];
-  const out: Array<{ intent_key: string; confidence: number }> = [];
+  const out: Array<{
+    intent_key: string;
+    confidence: number;
+    reasoning?: string | null;
+    sub_type?: string | null;
+    document_reference?: string | null;
+  }> = [];
   for (const r of v) {
     if (!isRecord(r)) continue;
     // Accept both the canonical audit shape ({intent_key, confidence:number})
@@ -162,10 +174,39 @@ function asRankedIntents(
       else if (label === "low") confidence = 0.4;
     }
     if (intent_key !== null && confidence !== null) {
-      out.push({ intent_key, confidence });
+      out.push({
+        intent_key,
+        confidence,
+        reasoning: asString(r.reasoning),
+        sub_type: asString(r.sub_type),
+        document_reference: asString(r.document_reference),
+      });
     }
   }
   return out;
+}
+
+function asStage3Inputs(
+  v: unknown,
+):
+  | {
+      sender_email?: string | null;
+      sender_domain?: string | null;
+      mailbox?: string | null;
+      entity?: string | null;
+      subject_excerpt?: string | null;
+      received_at?: string | null;
+    }
+  | null {
+  if (!isRecord(v)) return null;
+  return {
+    sender_email: asString(v.sender_email),
+    sender_domain: asString(v.sender_domain),
+    mailbox: asString(v.mailbox),
+    entity: asString(v.entity),
+    subject_excerpt: asString(v.subject_excerpt),
+    received_at: asString(v.received_at),
+  };
 }
 
 /**
@@ -464,11 +505,27 @@ export function buildStageAuditMap<
       coordinator_reasoning !== null ||
       selected_intent_key !== null
     ) {
+      // 2026-05-19 — Stage 3 audit-panel evidence expansion.
+      // Pull language/urgency/intent_version/inputs from decision_details
+      // first (canonical writer surface), fall back to agent_runs.tool_outputs
+      // .intent_first_pass for runs predating the coordinator writer change.
+      const language =
+        asString(d.language) ?? asString(firstPass.language);
+      const urgency =
+        asString(d.urgency) ?? asString(firstPass.urgency);
+      const intent_version =
+        asString(d.intent_version) ?? asString(firstPass.intent_version);
+      const inputs =
+        asStage3Inputs(d.inputs) ?? asStage3Inputs(firstPass.inputs);
       const payload: Stage3AuditPayload = {
         stage: 3,
         ranked_intents,
         coordinator_reasoning,
         selected_intent_key,
+        language,
+        urgency,
+        intent_version,
+        inputs,
         raw: { ...d, ...tool },
       };
       map[3] = createElement(Stage3EvidencePanel, { payload }) as ReactNode;

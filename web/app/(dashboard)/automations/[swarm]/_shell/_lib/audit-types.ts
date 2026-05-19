@@ -38,10 +38,35 @@ export interface Stage2AuditPayload {
 export interface Stage3AuditPayload {
   stage: 3;
   /** intent_key from swarm_intents taxonomy. Hard-separation lock — NEVER
-   *  references swarm_noise_categories. */
-  ranked_intents: Array<{ intent_key: string; confidence: number }>;
+   *  references swarm_noise_categories.
+   *  reasoning/sub_type/document_reference are per-intent — surfaced in the
+   *  expanded audit panel (2026-05-19) so operators can see WHY each runner-
+   *  up intent was considered, not just the top-1 reasoning. */
+  ranked_intents: Array<{
+    intent_key: string;
+    confidence: number;
+    reasoning?: string | null;
+    sub_type?: string | null;
+    document_reference?: string | null;
+  }>;
   coordinator_reasoning: string | null;
   selected_intent_key: string | null;
+  /** Email-level classifier outputs (decision_details root, not per-intent). */
+  language?: string | null;
+  urgency?: string | null;
+  /** Prompt/model version that produced this classification. */
+  intent_version?: string | null;
+  /** Inputs handed to the intent agent (subject excerpt, sender, mailbox,
+   *  entity, received_at). Populated by the coordinator writer 2026-05-19;
+   *  historical rows have this field absent. */
+  inputs?: {
+    sender_email?: string | null;
+    sender_domain?: string | null;
+    mailbox?: string | null;
+    entity?: string | null;
+    subject_excerpt?: string | null;
+    received_at?: string | null;
+  } | null;
   raw: Record<string, unknown>;
 }
 
