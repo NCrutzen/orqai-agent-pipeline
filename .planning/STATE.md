@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
-status: Ready to execute
+status: Executing Phase 83
 stopped_at: Phase 83 context gathered
-last_updated: "2026-05-19T15:57:07.624Z"
+last_updated: "2026-05-19T16:05:26.179Z"
 progress:
   total_phases: 21
   completed_phases: 12
@@ -20,12 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 82.8 — stage-4-handled-overview-and-stage-1-screenshots (82.7.3 closed 2026-05-18, UAT-confirmed)
+**Current focus:** Phase 83 — body-ingestion-capture-full-thread-on-forwards-and-replies
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 82.8 (stage-4-handled-overview-and-stage-1-screenshots) — COMPLETE
+Phase: 83 (body-ingestion-capture-full-thread-on-forwards-and-replies) — EXECUTING
+Plan: 1 of 8
 Next phase: `/gsd-audit-milestone v8.0`
 Milestone: v8.0 Agentic Platform (Phases 63-82.8)
 Last shipped: Phase 82.8 (2026-05-18) — Stage 4 three-section overview (handler error / needs review / auto-archived) + Stage 1 before/after screenshot strip in audit expander; debtor.email_labels screenshot path columns + 30d backfill
