@@ -40,7 +40,7 @@ export interface MapperTimelineEvent {
   // Optional — used by Stage 0 verdict derivation (the worker's
   // decision_details has no `llm_injection_verdict` key; the verdict
   // lives on `pipeline_events.decision` itself: 'safe' | 'injection_suspected').
-  decision?: string;
+  decision?: string | null;
 }
 
 export interface MapperAgentRun {
