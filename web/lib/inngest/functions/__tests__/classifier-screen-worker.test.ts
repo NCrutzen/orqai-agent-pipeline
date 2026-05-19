@@ -708,7 +708,13 @@ describe("Phase 82.2 D-A — category dispatch (moved from ingest)", () => {
     },
   });
 
-  it("Test A: unknown category (no whitelist match) → status='predicted' automation_runs row, no Outlook side-effects", async () => {
+  it("Test A: unknown category → emit classifier/verdict.recorded with predicted_category='unknown' (Stage 2 handoff), no bulk-review row, no Outlook side-effects", async () => {
+    // 82.2-06 regression fix (2026-05-19): `unknown` skips the bulk-review
+    // branch AND the auto-action branch and emits the verdict directly so
+    // the verdict-worker dispatches `swarm_noise_categories.unknown.action=
+    // 'swarm_dispatch'` → `debtor-email/label-resolve.requested` (Stage 2).
+    // Previously this test asserted a bulk-review `predicted` row, which
+    // codified the bug (Phase 82.2-06 swallowed unknowns into bulk-review).
     classifyMock.mockReturnValue({
       category: "unknown",
       confidence: 0,
@@ -720,12 +726,27 @@ describe("Phase 82.2 D-A — category dispatch (moved from ingest)", () => {
 
     expect(categorizeEmailMock).not.toHaveBeenCalled();
     expect(archiveEmailMock).not.toHaveBeenCalled();
+
+    // No bulk-review predicted row should be written for unknown.
     const predicted = automationRunsInserts.find(
       (r) => r.status === "predicted",
     );
-    expect(predicted).toBeDefined();
-    expect((predicted!.result as Record<string, unknown>).stage).toBe(
-      "zapier_ingest_classify",
+    expect(predicted).toBeUndefined();
+
+    // verdict.recorded should be emitted with predicted_category='unknown'.
+    const verdictCall = inngestSend.mock.calls.find(
+      ([payload]) =>
+        (payload as { name: string }).name === "classifier/verdict.recorded" &&
+        ((payload as { data: { predicted_category: string } }).data
+          .predicted_category === "unknown"),
+    );
+    expect(verdictCall).toBeDefined();
+    expect((verdictCall![0] as { data: Record<string, unknown> }).data).toMatchObject(
+      {
+        decision: "approve",
+        predicted_category: "unknown",
+        override_category: null,
+      },
     );
   });
 

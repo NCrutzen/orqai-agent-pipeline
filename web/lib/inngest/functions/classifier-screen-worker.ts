@@ -480,28 +480,64 @@ export const classifierScreenWorker = inngest.createFunction(
         const autoActionAllowed =
           isWhitelistMatch && settings.auto_label_enabled;
 
+        // 82.2-06 regression fix (2026-05-19): `unknown` exits BOTH Step 3
+        // (bulk-review) and Step 4 (auto-action). It has no Outlook side-
+        // effects and is dispatched to Stage 2 (label-resolver) by the
+        // verdict-worker via swarm_noise_categories.unknown.action=
+        // 'swarm_dispatch'. Step 5's emit-verdict path at line 757+ already
+        // handles unknowns correctly via `gateClearsForAutoArchive`, but
+        // it's unreachable from inside this `if (settings)` block — every
+        // path through Step 3 and Step 4 either returns or falls into the
+        // missing-label failure. Emit the verdict here with the same
+        // payload as Step 5; verdict-worker picks it up and routes to
+        // `debtor-email/label-resolve.requested`. See debug session
+        // .planning/debug/stage-2-customer-mapping-stuck.md.
+        //
+        // History: Phase 82.2-06 (acd7634) moved Stage 1 dispatch into
+        // this worker but routed unknowns through Step 3's catch-all
+        // `if (!autoActionAllowed)` where they were silently swallowed.
+        // Partial fix 0a737f4 exempted unknowns from Step 3 — they then
+        // fell into Step 4's `DEBTOR_CATEGORY_LABEL[finalCategoryKey]`
+        // lookup which returns undefined for 'unknown' and writes a
+        // failed/categorize row with "no Outlook label for category
+        // unknown" (17 such rows accumulated between fix landing
+        // 2026-05-18 20:19 and root-cause find 2026-05-19 10:55). This
+        // commit closes the regression.
+        if (finalCategoryKey === "unknown") {
+          await step.run("emit-verdict-unknown", async () =>
+            (inngest.send as unknown as SendFn)({
+              name: "classifier/verdict.recorded",
+              data: {
+                automation_run_id,
+                swarm_type,
+                decision: "approve",
+                message_id,
+                source_mailbox,
+                predicted_category: "unknown",
+                override_category: null,
+              },
+            }),
+          );
+          return {
+            ok: true,
+            regex_category: regexOutcome.category,
+            llm_invoked: llmInvoked,
+            final_category_key: "unknown",
+            dispatch: "stage_2_handoff",
+          };
+        }
+
         // 3. Bulk-review branch: !autoActionAllowed → status='predicted'.
         //    Mirrors L402–423 of the pre-deletion ingest route. The
         //    stage_0_safety_pending placeholder is NOT re-created here —
         //    Plan 07 thin-ingest already inserts it BEFORE Stage 0 runs.
-        //
-        // 2026-05-18 fix: `unknown` MUST NOT enter this branch. The seed
-        // registry row for `unknown` has action='swarm_dispatch' →
-        // `debtor-email/label-resolve.requested` → Stage 2 (entity resolution).
-        // The pre-82.2-06 ingest route emitted the verdict for unknowns; the
-        // refactor's catch-all `if (!autoActionAllowed)` swallowed them into
-        // bulk-review and returned early, silently dropping the Stage 2
-        // handoff. Step 5's comment ("`finalCategoryKey === 'unknown'`
-        // short-circuits to the verdict path on purpose") was already the
-        // intended contract — this guard restores it.
-        if (!autoActionAllowed && finalCategoryKey !== "unknown") {
+        if (!autoActionAllowed) {
           await step.run("write-predicted-bulk-review", async () => {
             await admin.from("automation_runs").insert({
               automation: "debtor-email-review",
               status: "predicted",
               swarm_type: "debtor-email",
-              topic:
-                finalCategoryKey === "unknown" ? null : finalCategoryKey,
+              topic: finalCategoryKey,
               entity: settings.entity,
               mailbox_id: mailboxId,
               result: {
@@ -546,9 +582,10 @@ export const classifierScreenWorker = inngest.createFunction(
         //    delivery does not double-tag.
         const label = DEBTOR_CATEGORY_LABEL[finalCategoryKey];
         if (!label) {
-          // Whitelisted match for an unknown category — defensive bail-out.
-          // Should not happen because whitelist keys map to known categories
-          // by construction, but we surface it rather than fire Outlook.
+          // Defensive bail-out: a whitelisted category with no Outlook
+          // label mapping. Should not happen — whitelist keys map to known
+          // categories by construction, and `unknown` exited above. Surface
+          // it rather than fire Outlook with an undefined label.
           await step.run("write-no-label-failure", async () => {
             await admin.from("automation_runs").insert({
               automation: "debtor-email-review",
