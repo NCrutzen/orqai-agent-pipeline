@@ -301,61 +301,91 @@ async function readSearchDebug(page: Page): Promise<string> {
 }
 
 /**
- * Defense-in-depth (2026-05-12): the per-mailbox URL (`/messages/index/mailbox/{id}`,
- * commit a76d0a2) scopes the LIST view but iController's sidebar Account sub-filter
- * is persisted in session state and gets applied server-side to the `bulkDelete`
- * POST. When the row being deleted belongs to a sibling Account that is not the
- * currently-selected one, iController returns 2xx but silently excludes the row
- * from the delete set — verify-pass then re-finds the row → "Delete verification
- * failed".
+ * After Pass 1 deletes a row, confirm the SPECIFIC iController message
+ * id is gone from the result set. Sender-search pre-filters the inbox to
+ * one sender; then we check the DOM for `<input name="message[]" value="{id}">`.
  *
- * This helper looks for a sidebar "clear Account" / "all accounts" affordance
- * inside `#messages-nav` / `.sidebar`. The selectors are best-effort and tolerant:
- * if nothing matches, we return what we observed (active-account label + whether
- * a reset was clicked) so the caller can stash it for diagnosis. Silent no-op on
- * any DOM mismatch — we never want to make the path worse than before.
+ * Why id-based, not subject+timestamp: senders like Lidl, Unica, and
+ * vendor auto-replies often produce N identical-subject rows within the
+ * 60-second match tolerance. The old verify-pass re-ran subject+timestamp
+ * search and found a sibling, then reported "still present" — a false
+ * positive that drove a chronic 36% failure rate (2026-05-19 root-cause
+ * investigation, `.planning/debug/icontroller-bulkdelete-failures.md`).
+ *
+ * The id we check is iController's internal numeric `message[]` value —
+ * the same value `selectAndDelete` POSTs to bulkDelete. Stable across
+ * the post-delete page reload.
+ *
+ * Returns true when the id is no longer present (delete confirmed).
  */
-async function resetSidebarAccountFilter(
+async function verifyMessageGone(
   page: Page,
-): Promise<{ activeAccount: string | null; resetClicked: boolean }> {
-  return page
-    .evaluate(() => {
-      const root =
-        document.querySelector<HTMLElement>("#messages-nav") ||
-        document.querySelector<HTMLElement>(".sidebar") ||
-        document.body;
-
-      // Phase 1: identify whatever the sidebar treats as "currently selected"
-      // for the Account sub-filter. iController templates have used `.active`,
-      // `.selected`, and `aria-current` across versions — probe all three.
-      const activeEl = root.querySelector<HTMLElement>(
-        "a.active, li.active > a, a.selected, li.selected > a, a[aria-current='page'], a[aria-current='true']",
-      );
-      const activeAccount =
-        activeEl && (activeEl.textContent || "").trim().length > 0
-          ? (activeEl.textContent || "").trim().replace(/^»\s*/, "").slice(0, 120)
-          : null;
-
-      // Phase 2: try to click an "all accounts" / clear-filter affordance.
-      // Patterns observed in similar PHP/Symfony admins:
-      //   - text starts with "Alle" / "All"
-      //   - href ends in `/account` (no id) or `/account/0` or `?account=`
-      const anchors = Array.from(root.querySelectorAll<HTMLAnchorElement>("a[href]"));
-      const resetTextRe = /^(alle\b|all\b|all accounts|alle accounts|reset)/i;
-      const resetHrefRe = /\/account(\/0)?$|\?account=$|\?account=0$/;
-      const candidate = anchors.find((a) => {
-        const txt = (a.textContent || "").trim();
-        const href = a.getAttribute("href") || "";
-        return resetTextRe.test(txt) || resetHrefRe.test(href);
-      });
-
-      if (candidate) {
-        candidate.click();
-        return { activeAccount, resetClicked: true };
+  email: EmailIdentifiers,
+  deletedMessageId: string,
+): Promise<boolean> {
+  // Re-trigger the sender-scoped search so the DataTables result set is
+  // narrowed to one sender — keeps the DOM small and avoids paginating
+  // 1200+ rows just to confirm a single delete.
+  const searchSelectors = [
+    'input[placeholder="Search in mails..."]',
+    'input[placeholder*="Search in mails"]',
+    'input[placeholder*="Search"]',
+    ".dataTables_filter input",
+    "#messages-list_filter input",
+    'input[type="search"]',
+  ];
+  let typed = false;
+  for (const sel of searchSelectors) {
+    const input = page.locator(sel).first();
+    if (await input.isVisible({ timeout: 800 }).catch(() => false)) {
+      await input.fill("");
+      const waitForXhr = page
+        .waitForResponse(
+          (r) => {
+            const u = r.url();
+            return (
+              r.request().resourceType() === "xhr" &&
+              (u.includes("/messages") || u.includes("DataTables") || u.includes("draw="))
+            );
+          },
+          { timeout: 4000 },
+        )
+        .catch(() => null);
+      await input.fill(email.from);
+      const wantPrefix = `${email.from.toLowerCase()} (`;
+      const clicked = await page
+        .locator("ul.ui-autocomplete:visible li.ui-menu-item")
+        .evaluateAll((items, prefix) => {
+          for (const li of items) {
+            const txt = (li.textContent || "").trim().toLowerCase();
+            if (txt.startsWith(prefix)) {
+              (li as HTMLElement).click();
+              return true;
+            }
+          }
+          return false;
+        }, wantPrefix)
+        .catch(() => false);
+      if (!clicked) {
+        await input.press("Enter").catch(() => null);
       }
-      return { activeAccount, resetClicked: false };
-    })
-    .catch(() => ({ activeAccount: null, resetClicked: false }));
+      await waitForXhr;
+      typed = true;
+      break;
+    }
+  }
+  if (!typed) {
+    // Search box missing — fall back to checking the un-filtered DOM. If
+    // the row is on a later page we may miss it, but that's no worse than
+    // the prior behaviour and only fires when iController's chrome changed.
+  }
+
+  return page
+    .evaluate((id) => {
+      const sel = `#messages-list input[name="message[]"][value="${id}"]`;
+      return document.querySelector(sel) === null;
+    }, deletedMessageId)
+    .catch(() => false);
 }
 
 /**
@@ -410,7 +440,7 @@ async function highlightRow(page: Page, rowIndex: number): Promise<string | null
  *     browser session, so auth travels with it
  *   - response status is the truth, not an optimistic toast
  */
-async function selectAndDelete(page: Page, rowIndex: number): Promise<void> {
+async function selectAndDelete(page: Page, rowIndex: number): Promise<string> {
   const rowSelector = `#messages-list tbody tr:nth-child(${rowIndex + 1})`;
 
   const extracted = await page.evaluate((sel) => {
@@ -461,6 +491,7 @@ async function selectAndDelete(page: Page, rowIndex: number): Promise<void> {
   // No DOM-settle wait needed — the in-page DataTables doesn't know we
   // bypassed it, and Pass 2's `page.goto(listUrl)` does a fresh navigation
   // anyway, which reflects authoritative server state.
+  return extracted.messageId;
 }
 
 export interface PreviewResult {
@@ -563,13 +594,6 @@ export async function deleteEmailOnPage(
       .waitForSelector("#messages-list", { timeout: 6000 })
       .catch(() => null);
 
-    // Defense-in-depth (2026-05-12): some iController sessions persist a
-    // sidebar Account sub-filter server-side, which silently excludes rows
-    // belonging to sibling Accounts from `bulkDelete`. Reset before Pass 1
-    // so the find probe and the eventual delete POST see the same row set.
-    // Safe no-op on DOM mismatch.
-    let sidebarReset = await resetSidebarAccountFilter(page);
-
     const rowIndex = await findEmailViaSearch(page, email);
     if (rowIndex === -1) {
       const debug = await readSearchDebug(page);
@@ -588,38 +612,34 @@ export async function deleteEmailOnPage(
     await highlightRow(page, rowIndex);
     await page.waitForTimeout(400);
 
+    let deletedMessageId = "";
     const audit = await captureBeforeAfter(
       page,
       AUTOMATION_NAME,
       `delete-${email.company}`,
       async () => {
-        await selectAndDelete(page, rowIndex);
+        deletedMessageId = await selectAndDelete(page, rowIndex);
       },
     );
 
-    // Post-delete verification (2026-05-06): selectAndDelete previously
-    // returned success on click-without-throw, even if the delete XHR
-    // failed silently or the modal mis-clicked. Re-search the inbox to
-    // confirm the row is actually gone before reporting deleted.
-    // Use the same per-mailbox URL as Pass 1 so verify sees the same
-    // row population (see Pass 1 comment for full rationale).
+    // Post-delete verification (2026-05-19 rewrite): verify the SPECIFIC
+    // iController message_id is gone, not "some row matching subject+time".
+    // The prior subject+timestamp re-search false-positived whenever a
+    // sibling row (same sender, identical subject within 60s, or different
+    // sender with substring-matching subject within 60s) was still in the
+    // inbox — driving ~36% chronic verify failures across all 4 mailboxes
+    // even though the bulkDelete POST had succeeded.
     await page.goto(listUrl, { waitUntil: "domcontentloaded" });
     await page
       .waitForSelector("#messages-list", { timeout: 6000 })
       .catch(() => null);
-    // Same sidebar-reset as Pass 1. The post-delete navigation re-applies
-    // the session-sticky Account filter; reset again so the verify probe
-    // sees the full mailbox row set. Stash the state for error reporting.
-    sidebarReset = await resetSidebarAccountFilter(page);
-    const stillPresentIndex = await findEmailViaSearch(page, email);
-    if (stillPresentIndex !== -1) {
-      const sidebarHint = ` [sidebar: activeAccount=${JSON.stringify(sidebarReset.activeAccount)}, resetClicked=${sidebarReset.resetClicked}]`;
+    const gone = await verifyMessageGone(page, email, deletedMessageId);
+    if (!gone) {
       return {
         success: false,
         emailFound: true,
         screenshots: { before: audit.before, after: audit.after },
-        error:
-          "Delete verification failed: email still present after click sequence (silent XHR failure or modal mis-click suspected)" + sidebarHint,
+        error: `Delete verification failed: iController message_id=${deletedMessageId} still present after bulkDelete POST`,
       };
     }
 
