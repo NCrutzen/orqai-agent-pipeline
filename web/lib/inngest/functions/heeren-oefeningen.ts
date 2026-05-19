@@ -168,6 +168,9 @@ export const processHeerenOefening = inngest.createFunction(
           .from("heeren_oefeningen_staging")
           .update({
             status: "failed",
+            invoice_error: result.error ?? "Onbekende Browserless fout",
+            screenshot_before: result.screenshots?.before ?? null,
+            screenshot_after: result.screenshots?.after ?? null,
           })
           .eq("id", stagingId);
         throw new Error(`NXT browser automation mislukt: ${result.error}`);
@@ -251,11 +254,12 @@ interface StagingRecord {
 function groupForInvoicing(records: StagingRecord[]): Map<string, StagingRecord[]> {
   const groups = new Map<string, StagingRecord[]>();
   for (const r of records) {
-    if (!r.customer_id || !r.site_id || !r.brand_id || !r.order_type_id || r.quantity == null || r.unit_price == null) {
-      console.warn(`[fase2] Skip staging ${r.id} — ontbrekende velden (customer/site/brand/type/qty/price)`);
+    if (!r.customer_id || !r.brand_id || !r.order_type_id || r.quantity == null || r.unit_price == null) {
+      console.warn(`[fase2] Skip staging ${r.id} — ontbrekende velden (customer/brand/type/qty/price)`);
       continue;
     }
-    const key = `${r.customer_id}|${r.site_id}|${r.brand_id}|${r.order_type_id}`;
+    // site_id is optional — top-level customers zonder mother-company hebben geen site
+    const key = `${r.customer_id}|${r.site_id ?? "_nosite"}|${r.brand_id}|${r.order_type_id}`;
     const existing = groups.get(key) ?? [];
     existing.push(r);
     groups.set(key, existing);

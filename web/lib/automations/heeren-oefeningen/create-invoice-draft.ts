@@ -224,8 +224,12 @@ async function fillOrderHeader(page: Page, params: CreateInvoiceDraftParams, tod
   // Order type (md-select name=orderType)
   await selectMdOption(page, 'md-select[name="orderType"]', params.orderTypeId, "Order type");
 
-  // Site (md-select met ng-model="vm.selectedSiteId")
-  await selectMdOption(page, 'md-select[ng-model="vm.selectedSiteId"]', params.siteId, "Site");
+  // Site (md-select met ng-model="vm.selectedSiteId") — optional: top-level customers (geen mother) hebben geen site
+  if (params.siteId) {
+    await selectMdOption(page, 'md-select[ng-model="vm.selectedSiteId"]', params.siteId, "Site");
+  } else {
+    console.log(`[form] Site → overgeslagen (geen siteId in staging record)`);
+  }
 
   // Company/Brand (md-select name=company) — vaak auto-gevuld vanuit customer; hidden bij DO order type
   await selectMdOption(page, 'md-select[name="company"]', params.brandId, "Company", { optional: true });
@@ -314,17 +318,62 @@ async function saveAsDraft(page: Page): Promise<{ url: string; uuid: string | nu
   const uuidMatch = finalUrl.match(/\/detail\/([a-f0-9-]{36})/i);
   const uuid = uuidMatch ? uuidMatch[1] : null;
 
-  // Order code in de pagina zoeken (bijv. in breadcrumb of titel)
+  // Angular SPA: detail-data is vaak nog niet in de DOM direct na de URL-redirect.
+  // Poll tot ~8s op de order-code (6-10 cijfers) in titel/headers/breadcrumb/inputs.
   let code: string | null = null;
-  try {
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
     code = await page.evaluate(() => {
-      const m = (document.title || "").match(/\b(\d{6,10})\b/);
-      if (m) return m[1];
-      const h = document.querySelector("h1, h2, md-toolbar")?.textContent ?? "";
-      const m2 = h.match(/\b(\d{6,10})\b/);
-      return m2 ? m2[1] : null;
-    });
-  } catch {}
+      const pick = (text: string | null | undefined): string | null => {
+        if (!text) return null;
+        const m = text.match(/\b(\d{6,10})\b/);
+        return m ? m[1] : null;
+      };
+      // 1) document.title
+      const t = pick(document.title);
+      if (t) return t;
+      // 2) breadcrumbs / toolbar headers
+      const headerSelectors = [
+        "md-toolbar",
+        "h1", "h2", "h3",
+        "[class*='breadcrumb']",
+        "[class*='page-title']",
+        "[class*='order-header']",
+      ];
+      for (const sel of headerSelectors) {
+        for (const el of Array.from(document.querySelectorAll(sel))) {
+          const c = pick(el.textContent);
+          if (c) return c;
+        }
+      }
+      // 3) input velden die de code als value tonen (read-only ID-veld)
+      for (const inp of Array.from(document.querySelectorAll<HTMLInputElement>("input[readonly], input[disabled], input[type='text']"))) {
+        const c = pick(inp.value);
+        if (c) {
+          // Skip als de waarde gelijk is aan een UUID-deel — alleen pure cijferreeksen
+          if (/^\d{6,10}$/.test(inp.value.trim())) return c;
+        }
+      }
+      // 4) Last resort: scan visible labels naast "Order" / "Code" tekst
+      const labels = Array.from(document.querySelectorAll("label, span, div"))
+        .filter((el) => /\border\s*(code|nr|number|id)\b/i.test(el.textContent ?? ""))
+        .slice(0, 20);
+      for (const lbl of labels) {
+        const next = lbl.parentElement?.textContent ?? "";
+        const c = pick(next);
+        if (c) return c;
+      }
+      return null;
+    }).catch(() => null);
+    if (code) break;
+    await page.waitForTimeout(500);
+  }
+
+  if (code) {
+    console.log(`[save] ✓ Order code gevonden: ${code}`);
+  } else {
+    console.log(`[save] ⚠ Geen order code uit DOM; UUID fallback (${uuid})`);
+  }
 
   return { url: finalUrl, uuid, code };
 }
