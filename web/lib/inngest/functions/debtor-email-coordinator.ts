@@ -26,6 +26,7 @@
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { invokeIntentAgent } from "@/lib/automations/debtor-email/coordinator/invoke-intent";
+import { assembleInput } from "@/lib/automations/debtor-email/coordinator/assemble-input";
 import {
   createRun,
   findCachedOutput,
@@ -41,6 +42,15 @@ import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { numericConfidence } from "@/lib/pipeline-events/types";
 
 const SWARM_TYPE = "debtor-email";
+
+// Phase 83 Plan 06 (D-08 fallback) — static tenant-domain list while
+// swarms.tenant_domains is not yet registry-driven. TODO(phase-84 D-03):
+// swap to a registry lookup over swarms.tenant_domains JSONB once Phase 84
+// ships that column. See T-83-19 mitigation in 83-06-PLAN.md.
+const TENANT_DOMAINS = ["smeba.nl", "smeba-fire.be", "moyneroberts.com"];
+
+// Phase 83 Plan 06 (D-09) — hard cap on the Stage 3 assembled input.
+const STAGE_3_INPUT_CAP_CHARS = 8000;
 
 // Inngest's typed `inngest.send` rejects dynamic event names because the
 // `<swarm_type>/predicted` event name is composed at runtime from SWARM_TYPE.
@@ -127,7 +137,53 @@ export const debtorEmailCoordinator = inngest.createFunction(
       // zod-derived literal unions. Cast back to the v2 shape after the await
       // — the value is already validated by intentAgentOutputSchemaV2 inside
       // invokeIntentAgent (or originated from a previously validated cache row).
-      const outputRaw = await step.run("classify-intent", async () => {
+      //
+      // Phase 83 D-06: the side-effects below (email row select for
+      // body_full_text, conversation_context select for priors, and the
+      // pure assembleInput call) live inside this same step.run boundary
+      // so Inngest replay re-derives the assembled input deterministically.
+      const classifyResult = await step.run("classify-intent", async () => {
+          // Phase 83 D-10 reader switch — fetch body_full_text with body_text
+          // fallback. The event payload still carries body_text (legacy emit
+          // shape) but Plan 83-03 dual-writes body_full_text; we prefer the
+          // wider field. If neither column is populated yet on a not-yet-
+          // backfilled row, fall back to event.data.body_text.
+          const { data: emailRow } = await supabase
+            .from("emails")
+            .select("body_full_text, body_text")
+            .eq("id", email_id)
+            .maybeSingle();
+          const bodyFull =
+            (emailRow as { body_full_text?: string | null } | null)
+              ?.body_full_text
+            ?? (emailRow as { body_text?: string | null } | null)?.body_text
+            ?? email.body_text
+            ?? "";
+
+          // Phase 83 D-04 — conversation_context priors, ordered position ASC.
+          const { data: priorsRows } = await supabase
+            .from("conversation_context")
+            .select("position, sender_email, subject, received_at, body_text")
+            .eq("email_id", email_id)
+            .order("position", { ascending: true });
+          const priors = (priorsRows ?? []).map(
+            (r: Record<string, unknown>) => ({
+              position: Number(r.position),
+              senderEmail: (r.sender_email as string | null) ?? null,
+              subject: (r.subject as string | null) ?? null,
+              receivedAt: (r.received_at as string | null) ?? null,
+              bodyText: (r.body_text as string | null) ?? null,
+            }),
+          );
+
+          const assembled = assembleInput({
+            subject: email.subject ?? "",
+            bodyFull,
+            priors,
+            tenantDomains: TENANT_DOMAINS,
+            capChars: STAGE_3_INPUT_CAP_CHARS,
+          });
+
           const cached = await findCachedOutput<Record<string, unknown>>(
             supabase,
             email_id,
@@ -149,6 +205,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
               inngest_run_id,
               subject: email.subject,
               body_text: email.body_text,
+              assembled_input: assembled.text,
               sender_email: email.sender_email,
               sender_domain,
               mailbox: email.mailbox,
@@ -182,10 +239,25 @@ export const debtorEmailCoordinator = inngest.createFunction(
             intent_version: INTENT_VERSION_V2,
             reasoning: top.reasoning,
           });
-          return output;
+          // Phase 83 D-09 telemetry: surface input_chars + truncated so the
+          // persist-ranked step writes coordinator_runs.decision_details.input_size.
+          return {
+            output,
+            inputSize: {
+              input_chars: assembled.inputChars,
+              truncated: assembled.truncated,
+            },
+          };
         },
       );
-      const output = outputRaw as unknown as IntentAgentOutputV2;
+      const output = (classifyResult as unknown as {
+        output: IntentAgentOutputV2;
+        inputSize: { input_chars: number; truncated: boolean };
+      }).output;
+      const inputSize = (classifyResult as unknown as {
+        output: IntentAgentOutputV2;
+        inputSize: { input_chars: number; truncated: boolean };
+      }).inputSize;
 
       // ---- 4) Persist ranked_intents on coordinator_runs --------------------
       await step.run("persist-ranked", async () => {
@@ -224,6 +296,12 @@ export const debtorEmailCoordinator = inngest.createFunction(
               entity,
               subject_excerpt: (email.subject ?? "").slice(0, 140) || null,
               received_at: email.received_at ?? null,
+            },
+            // Phase 83 D-09 telemetry — assembled-input size + truncation
+            // flag for post-deploy monitoring of token-bloat / R-01 watch.
+            input_size: {
+              input_chars: inputSize.input_chars,
+              truncated: inputSize.truncated,
             },
           },
           agent_run_id,
