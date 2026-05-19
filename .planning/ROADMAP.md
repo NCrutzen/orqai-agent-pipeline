@@ -590,7 +590,7 @@ Plans:
   - [x] 83-02-PLAN.md — Flip fetchMessageBody preference: body over uniqueBody; extend return shape with bodyUniqueText + rawJson (D-01, D-02)
   - [x] 83-03-PLAN.md — Both swarms ingest writers persist body_full_text + body_unique_text + body_html + raw_json (D-02, D-03, D-05, D-10)
   - [x] 83-04-PLAN.md — fetchConversationMessages helper + ingest wiring to persist 2 priors per inbound email (D-04)
-  - [ ] 83-05-PLAN.md — One-shot 30-day backfill script: bodies + conversation_context across debtor-email + sales-email (D-05)
+  - [x] 83-05-PLAN.md — One-shot 30-day backfill script: bodies + conversation_context across debtor-email + sales-email (D-05)
   - [ ] 83-06-PLAN.md — Stage 3 coordinator reads body_full_text; emits wrapped XML assembled_input with D-08 truncation + D-09 cap + telemetry (D-06 Stage 3, D-08, D-09, D-10)
   - [ ] 83-06b-PLAN.md — Stage 1 regex screen worker reads body_full_text with body_text fallback (D-06 Stage 1, D-10) — parallel sibling of 83-06 in wave 6
   - [ ] 83-07-PLAN.md — Read-only verification harness + operator §1/§2/§3/§5 sign-off checkpoint
@@ -766,10 +766,23 @@ Plans:
 
 **Depends on:** Phase 82.3 (audit-panel infrastructure), `fix(stage-2): bridge label-resolver evidence into audit panel` (commit `35c2bed`)
 
-**Plans:** TBD (run /gsd-plan-phase 82.9 to break down — likely 3 plans: resolver+writer, types+mapper, panel UI)
+**Plans:** 4 plans (Wave 1: 01 Zap+Zod schema · Wave 2: 02 resolver+writer, 03 types+mapper · Wave 3: 04 panel UI)
 
+**Cross-cutting constraints:**
+- D-01 discriminated union schema (`decision_details.inputs` keyed by `method`) — referenced by plans 02, 03, 04
+- D-04 forward-only + mapper legacy fallback (`inputs == null`) — referenced by plans 03, 04
+- Three-tier `recent_invoices` bound (SQL LIMIT 5 → Zod .max(5) → mapper .slice(0,5)) — referenced by plans 01, 02, 03
+
+**Wave 1**
 Plans:
-- [ ] TBD
+- [ ] 82.9-01: Zapier `nxt.candidate_details` schema extension (contact_person + recent_invoices) + Zod + registry UPDATE
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 82.9-02: Resolver widening + writer extension (ResolveResult discriminated `inputs`, classifier-label-resolver decision_details payload)
+- [ ] 82.9-03: Audit-types + mapper + vitest extension (Stage2AuditPayload discriminated union, exhaustive method switch, legacy fallback)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 82.9-04: Stage2EvidencePanel.tsx rewrite (INPUTS / REASONING / CANDIDATES sections mirroring Stage3EvidencePanel)
 
 ### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED) ✓ closed 2026-05-11
 
