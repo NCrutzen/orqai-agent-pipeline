@@ -564,6 +564,32 @@ Plans:
 - [ ] **Phase 999.8: Stage 1 LLM 2nd-pass** — 4/4 must-haves green; 2 outstanding browser smokes (operator UAT pending).
 - [ ] `/gsd-audit-milestone v8.0` — formal closure after all four above ship.
 
+### v8.1 Validation + Visibility (Phases 83-87)
+
+**Milestone goal:** Observe → understand → THEN automate. Before any v8.2 handler work, fix the **input + calibration + visibility** layers so that Stage 3 intent distribution reflects reality, not artifacts of upstream parsing bugs or impoverished prompt context. Originally framed around Phases 76-79 (mostly absorbed into v8.0 closure or reframed as V9.0/V10.0/V11.0); reopened 2026-05-19 after Stage 3 intent-distribution analysis surfaced ingestion + calibration gaps that would corrupt V8.2's handler-prioritisation signal.
+
+**Core principle (locked 2026-05-19):** Intent vocabulary emerges from the **LLM's proposals + operator promotion** during dry-run, never from hand-curation. Phase 86 builds the discovery surface; V9.0 builds the promotion side.
+
+**Dependency graph:**
+```
+83 (input fix) ──┬──> 85 (prompt v3 + V3 schema with intent_proposal)
+                 │      │
+                 │      └──> 86 (proposal capture + cluster UI)
+                 │              │
+84 (Stage 1 noise) ──> 87 (retro-classify + intent-volume baseline)
+                 │              │
+86 ──────────────┴──────────────┘
+                                │
+                                └──> V8.2 (handlers picked from baseline)
+```
+
+- [ ] **Phase 83: Body ingestion — capture full thread on forwards and replies** — Stage 3 misclassifies forwards and replies because Outlook ingest stores only Graph's `uniqueBody` (the new bit), dropping the quoted debtor original. Evidence in `email_pipeline.emails` 2026-05-19: `body_text=∅, body_html=∅, raw_json=[]` on `FW:` rows; Elger's `Re: Re:` chains store only his reply, never the originating debtor message. Fix at `web/lib/outlook/client.ts:207` (prefer `body` over `uniqueBody`), persist `body_html` + `raw_json`, add `body_full_text` / `body_unique_text` columns, conversation-aware fallback via `conversationId`, 90-day backfill. CONTEXT exists; needs `/gsd-discuss-phase 83`.
+- [ ] **Phase 84: Stage 1 noise rules for AP-automation FYI traffic** — Deterministic FYI senders (Coupa PO notifications, Coupa Betaald/Goedgekeurd, ISS PtP auto-replies, M365 quarantine, FrieslandCampina portal rejects, FarmPlus bank-change, RSK phishing notices, own-domain outbound loopback) reach Stage 3 and force-bin into `payment_dispute`/`general_inquiry`/`other`. 9 noise categories with sender + subject regex rules added to `swarm_noise_categories`. New `swarms.tenant_domains` column + codegen for own-domain loopback rule. Wilson-CI shadow gate before promotion to `auto_active`. CONTEXT exists; needs `/gsd-discuss-phase 84`. **Can run in parallel with 83.**
+- [ ] **Phase 85: Stage 3 prompt v3 — intent definitions + per-intent few-shot + open-set output schema** — Live `debtor-intent-agent` has zero per-intent descriptions and 3 examples for 8 intents; 5 intents have zero few-shot. Ship prompt v3 with `<intent_definitions>` block (6 boundary-pair disambiguation rules), ≥8 new few-shot examples sourced from real corpus, and JSON-schema V3 adding `intent_proposal: string|null` + `proposal_reason: string|null` (closed-list `intent` enum unchanged; Stage 4 dispatch unaffected). `intent_version='2026-05-19.v3'`. CONTEXT exists; needs `/gsd-discuss-phase 85`. **Depends on 83.**
+- [ ] **Phase 86: Open-set intent discovery — capture and cluster surface** — Persists `intent_proposal` + `proposal_reason` in `coordinator_runs.ranked_intents` JSONB; new `intent_proposals_v1` view; new Bulk Review "Intent proposals" tab showing weekly clusters (Levenshtein ≥0.85 string-similarity, no LLM in the cluster path), sample emails per cluster, the closed-list intent the agent picked instead. **Read-only — no promotion button.** Promotion to `swarm_intents` is V9.0's Learning Inbox responsibility. Cross-swarm by default. CONTEXT exists; needs `/gsd-discuss-phase 86`. **Depends on 85.**
+- [ ] **Phase 87: Retro-classification + intent-volume baseline** — Re-runs the V3 Stage 3 agent against 30-90 days of corpus emails (read from Supabase, not Graph — idempotent), produces a falsifiable comparison report: pre-v8.1 distribution vs post-v8.1 distribution. New `stage_3_retro_runs` table + `intent_volume_baselines` snapshot table that V8.2 / V9.0 / V11.0 read. Hand-graded 20-row diff precision check. Acceptance: ≥50% of 2026-05-05..2026-05-19 catch-all rows reclassify away from `general_inquiry`/`other`; Coupa PO + auto-replies + own-domain loopback rows absent from Stage 3 entirely; ≥5 distinct proposal clusters captured during live window. CONTEXT exists; needs `/gsd-discuss-phase 87`. **Depends on 83+84+85+86 all live.**
+- [ ] `/gsd-audit-milestone v8.1` — formal closure after Phase 87 passes.
+
 <details>
 <summary>V5.0 Cross-Swarm Intelligence -- DEFINED</summary>
 
