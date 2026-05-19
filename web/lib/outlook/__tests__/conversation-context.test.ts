@@ -195,7 +195,7 @@ describe("fetchConversationMessages", () => {
 
   it("issues a Graph $filter=conversationId eq query newest-first", async () => {
     await fetchConversationMessages("info@smeba.nl", "cid-X", "A", 2);
-    expect(lastRequestedUrl).toContain("conversationId%20eq%20%27cid-X%27");
+    expect(lastRequestedUrl).toContain("conversationId%20eq%20'cid-X'");
     expect(lastRequestedUrl).toContain("$orderby=receivedDateTime%20desc");
   });
 });

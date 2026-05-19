@@ -265,6 +265,66 @@ export async function fetchMessageBody(
   };
 }
 
+export interface PriorMessage {
+  sourceMessageId: string;
+  senderEmail: string;
+  subject: string;
+  receivedAt: string;
+  bodyText: string;
+}
+
+/**
+ * Phase 83 D-04: fetch the most-recent prior messages in the same Graph
+ * conversation. Excludes the message id `excludeId` (typically the current
+ * inbound message). Returns up to `topN` messages, newest-first.
+ *
+ * Cost: 1 Graph call per inbound email (Graph returns current + priors in
+ * a single $filter=conversationId query, $top=topN+1).
+ */
+export async function fetchConversationMessages(
+  mailbox: string,
+  conversationId: string,
+  excludeId: string,
+  topN: number = 2,
+): Promise<PriorMessage[]> {
+  if (!conversationId) {
+    throw new TypeError("fetchConversationMessages: conversationId is required");
+  }
+  const fields = "id,subject,from,receivedDateTime,body";
+  const filter = encodeURIComponent(`conversationId eq '${conversationId}'`);
+  const orderby = encodeURIComponent("receivedDateTime desc");
+  const url = `/users/${enc(mailbox)}/messages?$filter=${filter}&$orderby=${orderby}&$top=${topN + 1}&$select=${fields}`;
+  const res = await graphFetch(url);
+  if (!res.ok) {
+    throw new Error(`fetchConversationMessages ${res.status}: ${await res.text()}`);
+  }
+  const data = (await res.json()) as {
+    value: Array<{
+      id: string;
+      subject?: string;
+      from?: { emailAddress: { address: string } };
+      receivedDateTime?: string;
+      body?: { contentType?: "text" | "html"; content?: string };
+    }>;
+  };
+  const priors: PriorMessage[] = [];
+  for (const m of data.value) {
+    if (priors.length >= topN) break;
+    if (m.id === excludeId) continue;
+    const ct = m.body?.contentType ?? "text";
+    const content = m.body?.content ?? "";
+    const bodyText = ct === "html" ? stripHtml(content) : content;
+    priors.push({
+      sourceMessageId: m.id,
+      senderEmail: m.from?.emailAddress.address ?? "",
+      subject: m.subject ?? "",
+      receivedAt: m.receivedDateTime ?? "",
+      bodyText,
+    });
+  }
+  return priors;
+}
+
 function stripHtml(html: string): string {
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, "")
