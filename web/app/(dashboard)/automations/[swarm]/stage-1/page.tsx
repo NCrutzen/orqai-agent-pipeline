@@ -673,6 +673,11 @@ export async function loadPageData(
           "total_cost_cents, tool_call_count, first_event_at, last_event_at",
       )
       .eq("swarm_type", swarmType)
+      // 2026-05-19 — Stage 0 gates Stage 1 (RFC: docs/agentic-pipeline/README.md).
+      // Rows with stage_0_decision='injection_suspected' belong on the ?tab=safety
+      // surface; 'unknown_legacy' is hidden from operator surfaces (commit 3797f7c).
+      // Only 'safe' should flow into any Stage 1 sub-tab.
+      .eq("stage_0_decision", "safe")
       .order("last_event_at", { ascending: false })
       // Buffer = 4× page size so the post-filter slice (predicted-status
       // whitelist) still has enough rows to cover a viewport even on swarms
