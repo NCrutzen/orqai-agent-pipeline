@@ -16,6 +16,13 @@ export type InvokeIntentInput = {
   inngest_run_id: string;
   subject: string;
   body_text: string;
+  /**
+   * Phase 83 D-06: wrapped XML structure (<inbound_message>+<quoted_thread>)
+   * assembled by `assembleInput`. This is what the Stage 3 prompt actually
+   * sees; body_text remains in the Orq variables payload for trace visibility
+   * only and is no longer interpolated into the prompt text.
+   */
+  assembled_input: string;
   sender_email: string;
   sender_domain: string;
   mailbox: string;
@@ -50,13 +57,32 @@ function sortKeys<T extends Record<string, unknown>>(obj: T): T {
   return sorted as T;
 }
 
-function buildUserMessage(promptVars: Record<string, unknown>): string {
-  // Key-sorted JSON blob preserves idempotency across Inngest replays.
-  return `Classify the following debtor email.\n\n${JSON.stringify(
-    promptVars,
-    null,
-    2,
-  )}\n\nReturn the JSON object. No preamble.`;
+function buildUserMessage(promptVars: {
+  email_id: string;
+  run_id: string;
+  sender_email: string;
+  sender_domain: string;
+  mailbox: string;
+  entity: string;
+  assembled_input: string;
+}): string {
+  // Phase 83 D-06: prompt text is a context block (XML-tagged metadata) plus
+  // the wrapped <inbound_message>/<quoted_thread> assembled_input. Replay-
+  // safety holds because assembled_input is deterministic for a given
+  // (email_id, conversation_context state) pair.
+  return (
+    `Classify the following debtor email.\n\n` +
+    `<context>\n` +
+    `  <email_id>${promptVars.email_id}</email_id>\n` +
+    `  <run_id>${promptVars.run_id}</run_id>\n` +
+    `  <sender_email>${promptVars.sender_email}</sender_email>\n` +
+    `  <sender_domain>${promptVars.sender_domain}</sender_domain>\n` +
+    `  <mailbox>${promptVars.mailbox}</mailbox>\n` +
+    `  <entity>${promptVars.entity}</entity>\n` +
+    `</context>\n` +
+    `${promptVars.assembled_input}\n` +
+    `Return the JSON object. No preamble.`
+  );
 }
 
 export async function invokeIntentAgent(
@@ -68,12 +94,16 @@ export async function invokeIntentAgent(
 
   // `received_at` is logged as an Orq variable for traces but kept out of the
   // prompt text so retries N minutes later hash to the same prompt string.
+  // Phase 83 D-06: prompt text is the wrapped XML assembled_input; subject /
+  // body_text / received_at stay in `variables` for Orq trace visibility but
+  // are no longer interpolated into the user message.
   const promptVars = sortKeys({
     email_id: input.email_id,
     inngest_run_id: input.inngest_run_id,
     stage: "classify",
     subject: input.subject,
     body_text: input.body_text,
+    assembled_input: input.assembled_input,
     sender_email: input.sender_email,
     sender_domain: input.sender_domain,
     mailbox: input.mailbox,
@@ -91,7 +121,20 @@ export async function invokeIntentAgent(
   const body = {
     message: {
       role: "user",
-      parts: [{ kind: "text", text: buildUserMessage(promptVars) }],
+      parts: [
+        {
+          kind: "text",
+          text: buildUserMessage({
+            email_id: input.email_id,
+            run_id: input.inngest_run_id,
+            sender_email: input.sender_email,
+            sender_domain: input.sender_domain,
+            mailbox: input.mailbox,
+            entity: input.entity,
+            assembled_input: input.assembled_input,
+          }),
+        },
+      ],
     },
     configuration: { blocking: true, variables },
   };

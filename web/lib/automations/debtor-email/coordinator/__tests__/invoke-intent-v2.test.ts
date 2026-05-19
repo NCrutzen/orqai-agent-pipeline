@@ -31,6 +31,8 @@ const baseInput = {
   inngest_run_id: "evt-1",
   subject: "Kopie factuur",
   body_text: "Mag ik een kopie?",
+  assembled_input:
+    "<inbound_message>\n  <subject>Kopie factuur</subject>\n  <body>Mag ik een kopie?</body>\n</inbound_message>\n<quoted_thread>\n</quoted_thread>",
   sender_email: "test@example.com",
   sender_domain: "example.com",
   mailbox: "debiteuren@smeba.nl",
