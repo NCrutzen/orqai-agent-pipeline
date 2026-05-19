@@ -290,10 +290,13 @@ export async function fetchConversationMessages(
   if (!conversationId) {
     throw new TypeError("fetchConversationMessages: conversationId is required");
   }
+  // Phase 83 hot-fix: Graph rejects $filter=conversationId combined with
+  // $orderby=receivedDateTime as 400 InefficientFilter on most mailboxes.
+  // Drop $orderby and sort client-side. Bump $top to give us enough rows to
+  // pick the newest topN after sorting.
   const fields = "id,subject,from,receivedDateTime,body";
   const filter = encodeURIComponent(`conversationId eq '${conversationId}'`);
-  const orderby = encodeURIComponent("receivedDateTime desc");
-  const url = `/users/${enc(mailbox)}/messages?$filter=${filter}&$orderby=${orderby}&$top=${topN + 1}&$select=${fields}`;
+  const url = `/users/${enc(mailbox)}/messages?$filter=${filter}&$top=${topN + 5}&$select=${fields}`;
   const res = await graphFetch(url);
   if (!res.ok) {
     throw new Error(`fetchConversationMessages ${res.status}: ${await res.text()}`);
@@ -307,8 +310,13 @@ export async function fetchConversationMessages(
       body?: { contentType?: "text" | "html"; content?: string };
     }>;
   };
+  const sorted = [...data.value].sort((a, b) => {
+    const at = a.receivedDateTime ?? "";
+    const bt = b.receivedDateTime ?? "";
+    return bt.localeCompare(at);
+  });
   const priors: PriorMessage[] = [];
-  for (const m of data.value) {
+  for (const m of sorted) {
     if (priors.length >= topN) break;
     if (m.id === excludeId) continue;
     const ct = m.body?.contentType ?? "text";

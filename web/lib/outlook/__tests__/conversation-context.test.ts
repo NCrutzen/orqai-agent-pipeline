@@ -193,9 +193,9 @@ describe("fetchConversationMessages", () => {
     expect(out[1].sourceMessageId).toBe("P2");
   });
 
-  it("issues a Graph $filter=conversationId eq query newest-first", async () => {
+  it("issues a Graph $filter=conversationId eq query without $orderby (Phase 83 hot-fix — InefficientFilter sidestep, sort client-side)", async () => {
     await fetchConversationMessages("info@smeba.nl", "cid-X", "A", 2);
     expect(lastRequestedUrl).toContain("conversationId%20eq%20'cid-X'");
-    expect(lastRequestedUrl).toContain("$orderby=receivedDateTime%20desc");
+    expect(lastRequestedUrl).not.toContain("$orderby");
   });
 });
