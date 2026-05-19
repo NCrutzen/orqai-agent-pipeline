@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: phase_complete
-stopped_at: Completed 82.8-08-PLAN.md
-last_updated: "2026-05-18T13:10:00.000Z"
+stopped_at: Phase 83 context gathered
+last_updated: "2026-05-19T12:41:35.500Z"
 progress:
-  total_phases: 22
-  completed_phases: 13
-  total_plans: 67
-  completed_plans: 67
+  total_phases: 21
+  completed_phases: 12
+  total_plans: 63
+  completed_plans: 63
   percent: 100
 ---
 
@@ -250,10 +250,10 @@ Last shipped: Phase 82.8 (2026-05-18) — Stage 4 three-section overview (handle
 
 ## Session Continuity
 
-Last session: 2026-05-18T07:25:30.156Z
-Stopped at: Completed 82.7.1-05-PLAN.md
+Last session: 2026-05-19T12:41:35.484Z
+Stopped at: Phase 83 context gathered
 Resume with: `/gsd-execute-phase 65`
-Resume file: None
+Resume file: .planning/phases/83-body-ingestion-capture-full-thread-on-forwards-and-replies/83-CONTEXT.md
 
 ## Deferred Items
 
