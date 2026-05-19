@@ -37,6 +37,10 @@ import type {
 export interface MapperTimelineEvent {
   stage: number;
   decision_details: Record<string, unknown> | null;
+  // Optional — used by Stage 0 verdict derivation (the worker's
+  // decision_details has no `llm_injection_verdict` key; the verdict
+  // lives on `pipeline_events.decision` itself: 'safe' | 'injection_suspected').
+  decision?: string;
 }
 
 export interface MapperAgentRun {
@@ -225,11 +229,35 @@ export function buildStageAuditMap<
     const d = isRecord(stage0Event.decision_details)
       ? stage0Event.decision_details
       : {};
+    // 2026-05-19 — schema bridge between stage-0-safety-worker and the audit UI.
+    // Worker (computeEmitPayload, stage-0-safety-worker.ts) emits:
+    //   { regex_matched: string|null, llm_reason: string|null, matched_span, ... }
+    // Reader expected the older Plan 02 schema (regex_patterns_fired[], llm_reasoning,
+    // llm_injection_verdict, budget_headroom_cents). Bridge both: prefer the
+    // canonical keys when present, fall back to the worker's keys, and derive
+    // the injection verdict from pipeline_events.decision (the worker doesn't
+    // duplicate it inside decision_details).
+    const regexFromArray = asStringArray(d.regex_patterns_fired);
+    const regexFromScalar = asString(d.regex_matched);
+    const regex_patterns_fired =
+      regexFromArray.length > 0
+        ? regexFromArray
+        : regexFromScalar
+          ? [regexFromScalar]
+          : [];
+    const llm_reasoning = asString(d.llm_reasoning) ?? asString(d.llm_reason);
+    const explicitVerdict = asStage0Verdict(d.llm_injection_verdict);
+    const derivedVerdict: Stage0Verdict | null =
+      stage0Event.decision === "injection_suspected"
+        ? "flagged"
+        : stage0Event.decision === "safe"
+          ? "clean"
+          : null;
     const payload: Stage0AuditPayload = {
       stage: 0,
-      regex_patterns_fired: asStringArray(d.regex_patterns_fired),
-      llm_injection_verdict: asStage0Verdict(d.llm_injection_verdict),
-      llm_reasoning: asString(d.llm_reasoning),
+      regex_patterns_fired,
+      llm_injection_verdict: explicitVerdict ?? derivedVerdict,
+      llm_reasoning,
       budget_headroom_cents: asNumber(d.budget_headroom_cents),
       raw: d,
     };
