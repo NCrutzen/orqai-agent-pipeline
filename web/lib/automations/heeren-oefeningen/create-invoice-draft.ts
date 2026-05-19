@@ -327,53 +327,30 @@ async function saveAsDraft(page: Page): Promise<{ url: string; uuid: string | nu
   const uuidMatch = finalUrl.match(/\/detail\/([a-f0-9-]{36})/i);
   const uuid = uuidMatch ? uuidMatch[1] : null;
 
-  // Angular SPA: detail-data is vaak nog niet in de DOM direct na de URL-redirect.
-  // Poll tot ~8s op de order-code (6-10 cijfers) in titel/headers/breadcrumb/inputs.
+  // Angular SPA na Save: de h4 met order-code ("Order #380213") rendert pas na
+  // een paar seconden. Force-reload op de detail-URL versnelt het beschikbaar krijgen
+  // van de breadcrumb-data; daarna pollen we tot 15s als safety net.
+  await page.goto(finalUrl, { waitUntil: "domcontentloaded", timeout: 15_000 }).catch(() => {});
+  await page.waitForTimeout(2500);
+
+  // NB: page.evaluate() blokken hier vermijden — tsx transpilatie injecteert __name
+  // helpers die in browser-context ReferenceError gooien (eerder masked door .catch()).
+  // In plaats daarvan: native Playwright locators op de "h4 small" breadcrumb in NXT.
   let code: string | null = null;
-  const deadline = Date.now() + 8000;
+  const deadline = Date.now() + 15000;
+  const PICK = /#?\b(\d{6,10})\b/;
+  const candidates = ["h4 small", "h4", "md-toolbar"];
   while (Date.now() < deadline) {
-    code = await page.evaluate(() => {
-      const pick = (text: string | null | undefined): string | null => {
-        if (!text) return null;
-        const m = text.match(/\b(\d{6,10})\b/);
-        return m ? m[1] : null;
-      };
-      // 1) document.title
-      const t = pick(document.title);
-      if (t) return t;
-      // 2) breadcrumbs / toolbar headers
-      const headerSelectors = [
-        "md-toolbar",
-        "h1", "h2", "h3",
-        "[class*='breadcrumb']",
-        "[class*='page-title']",
-        "[class*='order-header']",
-      ];
-      for (const sel of headerSelectors) {
-        for (const el of Array.from(document.querySelectorAll(sel))) {
-          const c = pick(el.textContent);
-          if (c) return c;
-        }
+    for (const sel of candidates) {
+      const loc = page.locator(sel);
+      const n = await loc.count().catch(() => 0);
+      for (let i = 0; i < Math.min(n, 5); i++) {
+        const txt = await loc.nth(i).textContent().catch(() => null);
+        const m = txt?.match(PICK);
+        if (m) { code = m[1]; break; }
       }
-      // 3) input velden die de code als value tonen (read-only ID-veld)
-      for (const inp of Array.from(document.querySelectorAll<HTMLInputElement>("input[readonly], input[disabled], input[type='text']"))) {
-        const c = pick(inp.value);
-        if (c) {
-          // Skip als de waarde gelijk is aan een UUID-deel — alleen pure cijferreeksen
-          if (/^\d{6,10}$/.test(inp.value.trim())) return c;
-        }
-      }
-      // 4) Last resort: scan visible labels naast "Order" / "Code" tekst
-      const labels = Array.from(document.querySelectorAll("label, span, div"))
-        .filter((el) => /\border\s*(code|nr|number|id)\b/i.test(el.textContent ?? ""))
-        .slice(0, 20);
-      for (const lbl of labels) {
-        const next = lbl.parentElement?.textContent ?? "";
-        const c = pick(next);
-        if (c) return c;
-      }
-      return null;
-    }).catch(() => null);
+      if (code) break;
+    }
     if (code) break;
     await page.waitForTimeout(500);
   }
