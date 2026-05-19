@@ -1576,3 +1576,42 @@ Plans:
 - [ ] 999.8-06-PLAN.md — Wave 4: labeling-flip-cron per-predictor Wilson-CI + D-03 calibration-drift signal (2% warn / 5% alarm)
 - [ ] 999.8-07-PLAN.md — Wave 5: Stage 1 chip-strip filter chips (predictor + confidence) + loadPageData filters (D-05, D-06, D-11) — depends on Phase 81 merged
 - [ ] 999.8-08-PLAN.md — Wave 5: Per-row predictor chip on row card (D-08, D-12) — depends on Phase 81 merged
+
+### Phase 999.9: info@smeba.nl info-routing swarm — registry-only onboarding (BACKLOG)
+
+**Goal:** Onboard `info@smeba.nl` as its own swarm (`swarm_type='info-routing'`, `entity_brand='smeba'`) using only registry inserts — proving the cross-swarm thesis on a second swarm type after debtor-email + sales-email. Stage 0→1 noise filter for ~61 inbound emails/day; Stage 3 ships as a shadow placeholder with a single `triage_required` intent. Real router vocabulary (department-routing) emerges through Phase 86's discovery surface — never hand-curated.
+
+**Hard prerequisites (cannot start until ALL four close):**
+- Phase 78 (build-time codegen for `swarm_intents` + `swarm_noise_categories` literal-union TS types)
+- Phase 84 (`swarms.tenant_domains` column + own-domain loopback rule + codegen)
+- Phase 85 (Stage 3 prompt v3 + V3 schema with `intent_proposal` field)
+- Phase 86 (`intent_proposals_v1` view + Bulk Review cluster tab, cross-swarm by default)
+
+Earliest practical start = V8.2 cycle, after `/gsd-audit-milestone v8.1` confirms 78/84/85/86 all landed.
+
+**Pre-work already done (Spikes 001-004, 2026-05-19):**
+- 5,505 rows of `info@smeba.nl` 90-day corpus persisted in `email_pipeline.emails` (idempotent on `source_id`; re-runs cheap)
+- Cross-tenant Graph access via `zapier@moyneroberts.com` connection `56014785` verified
+- 7-rule first-match-wins noise classifier proven against corpus: 76.9% noise coverage (~14 emails/day reach Stage 3, ~7/day real business email)
+- Cross-swarm rule transferability quantified: 56% of debtor-email's production regex transfers cleanly (`spam`, `payment_admittance`, `auto_reply`, `ooo_temporary`, `ooo_permanent`); +1 new rule (`generic_noreply_notification`, 4.0% volume); `own_domain_loopback` (17.9%) inherits Phase 84
+
+**Reference documents (read before /gsd-discuss-phase 999.9):**
+- Full proposal: `docs/designs/2026-05-19-smeba-info-routing-swarm-proposal.md` (5 open plan-time questions kept deliberately unresolved)
+- Implementation blueprint: `.claude/skills/spike-findings-agent-workforce/references/info-routing-swarm-phase-88.md` (auto-loads via CLAUDE.md routing line)
+- Spike series + verdicts: `.planning/spikes/MANIFEST.md`
+- Architecture canon: `docs/agentic-pipeline/README.md` + `stage-1-regex.md`
+
+**Open plan-time questions (deferred to /gsd-discuss-phase 999.9):**
+1. Does `generic_noreply_notification` ship info-routing-only or promote cross-swarm to debtor-email?
+2. Outlook label vocabulary — share debtor-email labels or info-routing-specific labels?
+3. `payment_admittance` archive-vs-forward — debtor-email archives; info-routing might forward to finance since this IS the misroute case (62 of 5,316 emails over 90d are misrouted payment confirmations)
+4. Shadow-mode duration before flipping Stage 3 live? (Recommendation: 2 weeks ≈ ~200 router decisions for Phase 86 to cluster against)
+5. Block on Phase 64 (Stage 0)? Spike 004 measured ~7% phishing leakage past M365 `[SPAM]` (~1/day) — recommendation: ship without, accept the risk surface
+
+**Why this is NOT a brand variant of debtor-email:** Stage 3 dispatches by department (sales/finance/HR/support), not by debt-collection intent (`payment_dispute`, `credit_request`, `invoice_copy_request`). No useful Stage 3 overlap. The fact that Stage 1 rules are mostly reusable is exactly what the registry-driven architecture is designed for — same regex, different `swarm_type` row.
+
+**Requirements:** TBD (5 plan-time questions above resolve into requirements)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-discuss-phase 999.9 once v8.1 phases 78/84/85/86 are confirmed live)
