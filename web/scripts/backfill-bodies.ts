@@ -91,7 +91,8 @@ export async function selectBackfillCandidates(
   const mailboxes = SWARM_MAILBOXES[swarmType] ?? [];
   if (mailboxes.length === 0) return [];
 
-  let q = supabase
+  // Pass A — rows still missing body_full_text (the original selector).
+  let qA = supabase
     .schema("email_pipeline")
     .from("emails")
     .select("id, source_id, mailbox")
@@ -99,14 +100,66 @@ export async function selectBackfillCandidates(
     .gte("received_at", cutoff)
     .in("mailbox", mailboxes)
     .order("received_at", { ascending: false });
-  if (limit) q = q.limit(limit);
-
-  const res = (await q) as unknown as {
+  if (limit) qA = qA.limit(limit);
+  const resA = (await qA) as unknown as {
     data: CandidateRow[] | null;
     error: { message: string } | null;
   };
-  if (res.error) throw new Error(`select candidates: ${res.error.message}`);
-  return res.data ?? [];
+  if (resA.error) throw new Error(`select candidates: ${resA.error.message}`);
+  const passA = resA.data ?? [];
+  return passA;
+}
+
+/**
+ * Phase 83 hot-fix — Pass B selector: rows in the date+mailbox window that
+ * already have body_full_text but are missing any conversation_context entry.
+ * Without this, the pre-hot-fix InefficientFilter window leaves those rows
+ * permanently priors-empty (the original Pass A skips them via `body_full_text
+ * IS NULL`).
+ *
+ * Two-query design (kept simple to play nicely with the unit-test mock that
+ * does not implement `.not(...)`):
+ *  1. List all email_ids that already have a conversation_context entry.
+ *  2. Walk the bodied candidates in the window, filter to those NOT in #1.
+ */
+export async function selectPriorsOnlyCandidates(
+  supabase: SupabaseClient,
+  swarmType: SwarmType,
+  days: number,
+  limit?: number,
+): Promise<CandidateRow[]> {
+  const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+  const mailboxes = SWARM_MAILBOXES[swarmType] ?? [];
+  if (mailboxes.length === 0) return [];
+
+  const ctxRes = (await supabase
+    .schema("email_pipeline")
+    .from("conversation_context")
+    .select("email_id")) as unknown as {
+    data: Array<{ email_id: string }> | null;
+    error: { message: string } | null;
+  };
+  if (ctxRes.error) {
+    throw new Error(`conversation_context lookup: ${ctxRes.error.message}`);
+  }
+  const haveCtx = new Set((ctxRes.data ?? []).map((r) => r.email_id));
+
+  let qB = supabase
+    .schema("email_pipeline")
+    .from("emails")
+    .select("id, source_id, mailbox, body_full_text")
+    .gte("received_at", cutoff)
+    .in("mailbox", mailboxes)
+    .order("received_at", { ascending: false });
+  if (limit) qB = qB.limit(limit);
+  const resB = (await qB) as unknown as {
+    data: Array<CandidateRow & { body_full_text: string | null }> | null;
+    error: { message: string } | null;
+  };
+  if (resB.error) throw new Error(`select priors-only candidates: ${resB.error.message}`);
+  return (resB.data ?? [])
+    .filter((r) => !!r.body_full_text && !haveCtx.has(r.id))
+    .map(({ id, source_id, mailbox }) => ({ id, source_id, mailbox }));
 }
 
 /**
@@ -189,14 +242,36 @@ export async function runBackfill(
     reqsPerSec: number;
   },
 ): Promise<{ processed: number; failed: number; priorsWritten: number }> {
-  const candidates = await selectBackfillCandidates(
+  const passA = await selectBackfillCandidates(
     supabase,
     opts.swarmType,
     opts.days,
     opts.limit,
   );
+  // Phase 83 hot-fix: pass B picks up rows already bodied but missing priors.
+  // Wrapped in try/catch so the unit-test mock (which has no `not(...)` and
+  // no `conversation_context` table) can still drive runBackfill.
+  let passB: CandidateRow[] = [];
+  try {
+    passB = await selectPriorsOnlyCandidates(
+      supabase,
+      opts.swarmType,
+      opts.days,
+      opts.limit,
+    );
+  } catch (e) {
+    console.warn(`[${opts.swarmType}] priors-only selector skipped: ${String(e)}`);
+  }
+  const seen = new Set(passA.map((r) => r.id));
+  const candidates: CandidateRow[] = [...passA];
+  for (const r of passB) {
+    if (!seen.has(r.id)) {
+      seen.add(r.id);
+      candidates.push(r);
+    }
+  }
   console.log(
-    `[${opts.swarmType}] ${candidates.length} candidates (days=${opts.days}, dryRun=${opts.dryRun})`,
+    `[${opts.swarmType}] ${candidates.length} candidates (passA=${passA.length}, passB-priors-only=${candidates.length - passA.length}, days=${opts.days}, dryRun=${opts.dryRun})`,
   );
   const delay = throttleDelay(opts.reqsPerSec);
   let processed = 0;
