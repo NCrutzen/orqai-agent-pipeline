@@ -41,6 +41,10 @@ export interface MapperTimelineEvent {
   // decision_details has no `llm_injection_verdict` key; the verdict
   // lives on `pipeline_events.decision` itself: 'safe' | 'injection_suspected').
   decision?: string | null;
+  // Optional — Stage 2 confidence is emitted numerically on the
+  // pipeline_events row (the label-resolver writes no agent_runs row,
+  // so this is the only confidence channel available to the audit UI).
+  confidence?: number | null;
 }
 
 export interface MapperAgentRun {
@@ -317,21 +321,74 @@ export function buildStageAuditMap<
   }
 
   // ----- Stage 2 ---------------------------------------------------------
+  // 2026-05-19 — schema bridge between classifier-label-resolver and the
+  // audit UI. The resolver writes evidence to pipeline_events.decision_details
+  // (customer_account_id, customer_name, method, candidates_considered) +
+  // pipeline_events.confidence (numeric). It does NOT write an agent_runs row
+  // for Stage 2, so reading from stage2Run.context alone yields an all-null
+  // payload and the panel falls into its empty-state branch. Bridge: prefer
+  // the new agent_runs.context shape when present (forward-compatible), fall
+  // back to pipeline_events.decision_details with `method` mapped to the
+  // Stage2Source UI vocab. Same pattern as the Stage 0/1 bridges above.
   if (stage2Event || stage2Run) {
     const ctx = isRecord(stage2Run?.context)
       ? (stage2Run!.context as Record<string, unknown>)
       : {};
+    const d = isRecord(stage2Event?.decision_details)
+      ? (stage2Event!.decision_details as Record<string, unknown>)
+      : {};
     const result = isRecord(automationRun?.result)
       ? (automationRun!.result as Record<string, unknown>)
       : null;
+
+    // identifier_source: prefer ctx.identifier_source (new shape); fall back
+    // to mapping decision_details.method → Stage2Source. When the event's
+    // decision is "unresolved", surface the destructive chip directly.
+    const ctxSource = asStage2Source(ctx.identifier_source);
+    const method = asString(d.method);
+    const methodMapped: Stage2Source | null =
+      method === "thread_inheritance"
+        ? "thread"
+        : method === "sender_match"
+          ? "sender"
+          : method === "identifier_match" || method === "llm_tiebreaker"
+            ? "identifier"
+            : method === "unresolved"
+              ? "unresolved"
+              : null;
+    const unresolvedByDecision: Stage2Source | null =
+      stage2Event?.decision === "unresolved" ? "unresolved" : null;
+    const identifier_source =
+      ctxSource ?? methodMapped ?? unresolvedByDecision;
+
+    // confidence: prefer ctx.confidence (new shape, either label or numeric);
+    // fall back to numeric pipeline_events.confidence on the event row.
+    const confidence =
+      textConfidenceLabel(ctx.confidence) ??
+      numericToLabel(ctx.confidence) ??
+      numericToLabel(stage2Event?.confidence ?? null);
+
+    // top_candidates: prefer ctx.top_candidates (new shape, array of triples);
+    // fall back to a single-item list for the resolved customer. The
+    // resolver's `candidates_considered` is a count, not an array, so we
+    // can't reconstruct a full candidate list from pipeline_events alone.
+    let top_candidates = asTopCandidates(ctx.top_candidates);
+    if (top_candidates.length === 0) {
+      const accId = asString(d.customer_account_id);
+      const name = asString(d.customer_name);
+      const score = asNumber(stage2Event?.confidence ?? null);
+      if (accId !== null && name !== null) {
+        top_candidates = [{ account_id: accId, name, score: score ?? 0 }];
+      }
+    }
+
     const payload: Stage2AuditPayload = {
       stage: 2,
-      identifier_source: asStage2Source(ctx.identifier_source),
-      confidence:
-        textConfidenceLabel(ctx.confidence) ?? numericToLabel(ctx.confidence),
-      top_candidates: asTopCandidates(ctx.top_candidates),
+      identifier_source,
+      confidence,
+      top_candidates,
       screenshot_paths: extractScreenshotPaths(result),
-      raw: { ...ctx, ...(result ?? {}) },
+      raw: { ...d, ...ctx, ...(result ?? {}) },
     };
     map[2] = createElement(Stage2EvidencePanel, { payload }) as ReactNode;
   }
