@@ -1,2 +1,2 @@
-export { categorizeEmail, archiveEmail, listInboxMessages, fetchMessageBody, getMessageMeta } from "./client";
-export type { OutlookActionResult, OutlookMessage } from "./client";
+export { categorizeEmail, archiveEmail, listInboxMessages, fetchMessageBody, getMessageMeta, fetchConversationMessages } from "./client";
+export type { OutlookActionResult, OutlookMessage, PriorMessage } from "./client";
