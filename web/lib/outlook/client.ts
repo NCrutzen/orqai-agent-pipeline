@@ -185,16 +185,51 @@ export async function getMessageMeta(
 }
 
 /**
- * Fetch the full body of a single message. Returns plain text (stripped) and
- * raw HTML — UI decides which to render. `bodyType` reports Graph's original
- * content type so the caller can fall back to html when text is empty.
+ * Phase 83-02 (D-01 + D-02): canonical return shape for a fetched message.
+ *
+ * `bodyText` is derived from Graph's `body.content` — the FULL THREAD
+ * (original + every quoted reply). `bodyUniqueText` is the new-part-only
+ * rendering from `uniqueBody.content`, kept as a sibling so downstream
+ * consumers (Stage 3 / training pipelines) can still see what the sender
+ * actually typed without re-fetching.
+ *
+ * `bodyHtml` and `rawJson` provide an escape hatch: if a future consumer
+ * wants to defer stripping or recover lost context, the full HTML and the
+ * verbatim Graph envelope are right here.
+ */
+export interface FetchedMessageBody {
+  /** Plain-text rendering of Graph body.content — full thread incl. quoted history. */
+  bodyText: string;
+  /** Plain-text rendering of Graph uniqueBody.content — new part only. "" if Graph omitted uniqueBody. */
+  bodyUniqueText: string;
+  /** Raw HTML of body.content when contentType === "html". "" otherwise. */
+  bodyHtml: string;
+  /** Graph's reported contentType for body. */
+  bodyType: "text" | "html";
+  /** Verbatim Graph message envelope JSON. Recovery path for retro-extraction (D-02). */
+  rawJson: Record<string, unknown>;
+}
+
+/**
+ * Fetch the full body of a single message.
+ *
+ * D-01 FLIP (Phase 83): we now prefer Graph's `body` (the full thread) over
+ * `uniqueBody` for `bodyText`. The new-part-only rendering is still
+ * available via `bodyUniqueText`.
+ *
+ * D-02: the wider `$select` lets a single Graph call hand back enough
+ * envelope data (`conversationId`, `internetMessageId`, recipients, raw
+ * body) for the writer in Plan 83-03 to persist `raw_json` without a
+ * second round-trip.
  */
 export async function fetchMessageBody(
   mailbox: string,
   messageId: string,
-): Promise<{ bodyText: string; bodyHtml: string; bodyType: "text" | "html" }> {
+): Promise<FetchedMessageBody> {
+  const fields =
+    "body,uniqueBody,internetMessageId,conversationId,from,toRecipients,ccRecipients";
   const res = await graphFetch(
-    `/users/${enc(mailbox)}/messages/${enc(messageId)}?$select=body,uniqueBody`,
+    `/users/${enc(mailbox)}/messages/${enc(messageId)}?$select=${fields}`,
   );
   if (!res.ok) {
     throw new Error(`fetchMessageBody ${res.status}: ${await res.text()}`);
@@ -202,15 +237,32 @@ export async function fetchMessageBody(
   const data = (await res.json()) as {
     body?: { contentType?: "text" | "html"; content?: string };
     uniqueBody?: { contentType?: "text" | "html"; content?: string };
+    [k: string]: unknown;
   };
-  // Prefer uniqueBody (the part the sender wrote, quoted replies stripped).
-  const b = data.uniqueBody?.content ? data.uniqueBody : data.body;
-  const contentType = (b?.contentType ?? "text") as "text" | "html";
-  const content = b?.content ?? "";
-  if (contentType === "html") {
-    return { bodyText: stripHtml(content), bodyHtml: content, bodyType: "html" };
-  }
-  return { bodyText: content, bodyHtml: "", bodyType: "text" };
+
+  // D-01: ALWAYS prefer body (full thread). uniqueBody surfaces separately.
+  const fullBody = data.body ?? {};
+  const uniqBody = data.uniqueBody ?? {};
+  const bodyType = (fullBody.contentType ?? "text") as "text" | "html";
+  const bodyContent = fullBody.content ?? "";
+  const uniqContent = uniqBody.content ?? "";
+  const uniqType = (uniqBody.contentType ?? "text") as "text" | "html";
+
+  const bodyText = bodyType === "html" ? stripHtml(bodyContent) : bodyContent;
+  const bodyUniqueText = uniqContent
+    ? uniqType === "html"
+      ? stripHtml(uniqContent)
+      : uniqContent
+    : "";
+  const bodyHtml = bodyType === "html" ? bodyContent : "";
+
+  return {
+    bodyText,
+    bodyUniqueText,
+    bodyHtml,
+    bodyType,
+    rawJson: data as Record<string, unknown>,
+  };
 }
 
 function stripHtml(html: string): string {
