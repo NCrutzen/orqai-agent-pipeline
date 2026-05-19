@@ -148,8 +148,19 @@ function asRankedIntents(
   const out: Array<{ intent_key: string; confidence: number }> = [];
   for (const r of v) {
     if (!isRecord(r)) continue;
-    const intent_key = asString(r.intent_key);
-    const confidence = asNumber(r.confidence);
+    // Accept both the canonical audit shape ({intent_key, confidence:number})
+    // and the runtime coordinator shape ({intent, confidence:label}) from
+    // pipeline_events.decision_details.ranked / agent_runs.tool_outputs
+    // .intent_first_pass.ranked. The runtime is authoritative; the audit
+    // shape is a normalised projection.
+    const intent_key = asString(r.intent_key) ?? asString(r.intent);
+    let confidence = asNumber(r.confidence);
+    if (confidence === null) {
+      const label = asString(r.confidence);
+      if (label === "high") confidence = 0.9;
+      else if (label === "medium") confidence = 0.7;
+      else if (label === "low") confidence = 0.4;
+    }
     if (intent_key !== null && confidence !== null) {
       out.push({ intent_key, confidence });
     }
@@ -410,9 +421,44 @@ export function buildStageAuditMap<
     const tool = isRecord(stage3Run?.tool_outputs)
       ? (stage3Run!.tool_outputs as Record<string, unknown>)
       : {};
-    const ranked_intents = asRankedIntents(tool.ranked_intents);
-    const coordinator_reasoning = asString(tool.coordinator_reasoning);
-    const selected_intent_key = asString(tool.selected_intent_key);
+    const d = isRecord(stage3Event?.decision_details)
+      ? (stage3Event!.decision_details as Record<string, unknown>)
+      : {};
+    // 2026-05-19 — schema bridge between debtor-email-coordinator and the
+    // audit UI. The coordinator writes:
+    //   - agent_runs.tool_outputs.intent_first_pass = IntentAgentOutputV2
+    //     (shape: { ranked: [{intent, confidence:label, reasoning, ...}],
+    //       language, urgency, intent_version })
+    //   - pipeline_events.decision_details = { ranked, language, urgency }
+    //   - pipeline_events.decision = top.intent (the selected intent_key)
+    // The canonical Stage3AuditPayload uses {intent_key, confidence:number}
+    // and reads `coordinator_reasoning` + `selected_intent_key` at the top
+    // level. Bridge: try the canonical keys first, then fall back to the
+    // runtime shapes (intent_first_pass.ranked / decision_details.ranked /
+    // top.reasoning / pipeline_events.decision).
+    const firstPass = isRecord(tool.intent_first_pass)
+      ? (tool.intent_first_pass as Record<string, unknown>)
+      : {};
+    const rankedRaw =
+      (Array.isArray(tool.ranked_intents) && tool.ranked_intents) ||
+      (Array.isArray(firstPass.ranked) && firstPass.ranked) ||
+      (Array.isArray(d.ranked) && d.ranked) ||
+      null;
+    const ranked_intents = asRankedIntents(rankedRaw);
+    // Coordinator reasoning: prefer the canonical key on tool_outputs, then
+    // top-1 reasoning from the ranked array. The coordinator hoists top-1
+    // reasoning onto agent_runs.reasoning, but that column isn't in the
+    // MapperAgentRun shape — sourcing from ranked[0].reasoning is equivalent.
+    const coordinator_reasoning =
+      asString(tool.coordinator_reasoning) ??
+      asString(firstPass.reasoning) ??
+      (isRecord(rankedRaw?.[0]) ? asString(rankedRaw[0].reasoning) : null);
+    const selected_intent_key =
+      asString(tool.selected_intent_key) ??
+      asString(stage3Event?.decision) ??
+      (isRecord(rankedRaw?.[0])
+        ? asString(rankedRaw[0].intent_key) ?? asString(rankedRaw[0].intent)
+        : null);
     if (
       ranked_intents.length > 0 ||
       coordinator_reasoning !== null ||
@@ -423,7 +469,7 @@ export function buildStageAuditMap<
         ranked_intents,
         coordinator_reasoning,
         selected_intent_key,
-        raw: tool,
+        raw: { ...d, ...tool },
       };
       map[3] = createElement(Stage3EvidencePanel, { payload }) as ReactNode;
     }
