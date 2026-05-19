@@ -1,7 +1,19 @@
 # Handoff — Heeren Oefeningen Fase 2
 
-**Datum:** 2026-04-21
-**Status:** Productie-geverifieerd end-to-end. Wacht alleen nog op Zapier SQL update voor automatische runs.
+**Datum:** 2026-05-19 (laatste update)
+**Status:** Fase 1 live op productie, Fase 2 productie-geverifieerd. Wacht op een echte Heeren oefening-regel in NXT om end-to-end Fase 1 + Fase 2 cron te bevestigen.
+
+## Update 2026-05-19
+
+- Zapier SQL-query gefinaliseerd en getest: pikt Heeren-lines op met `UseNxtInvoicing=1 AND CourseTheme=2` en levert alle Fase 2 velden (customer, site, brand, orderType, quantity, unitPrice). Brand = `'BB'` als string (zoals NXT-dropdown verwacht), niet de interne UUID `54ce175b-...`.
+- Eerste echte Fase 1 webhook-run: payload-validatie OK, staging-row aangemaakt met alle Fase 2 velden correct gevuld (`customer_id=590518`, `site_id=629195`, `brand_id=BB`, `order_type_id=DOTR`). Delete-stap faalde wegens reeds-saved bron-order — geen code-issue.
+- Drie patches op `main` (commit `ca1f991`):
+  1. `newOrderCode` extractie pollt 8s en kijkt in toolbar/breadcrumb/inputs/labels (vervangt fragiele title-only check).
+  2. Site-dropdown wordt overgeslagen wanneer `siteId` leeg is (top-level customers zonder mother-company).
+  3. Bij Fase 1 fail wordt de Browserless-error nu naar `staging.invoice_error` geschreven i.p.v. alleen Inngest-side te throwen.
+- Project geregistreerd in Supabase `projects` (`24ae5949-8b1c-4ec8-a590-f9121951aae8`).
+
+**Openstaand:** echte Fase 1 → Fase 2 round-trip op een nieuwe Heeren oefening-regel (te triggeren via "Run Zap now" zodra de regel in NXT staat).
 
 ## TL;DR
 

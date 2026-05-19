@@ -1,9 +1,10 @@
 # Heeren Oefeningen Facturatie
 
-**Status:** Fase 1 live (acceptance) · Fase 2 code klaar, wacht op migration + Zapier
+**Status:** Fase 1 live op productie · Fase 2 productie-geverifieerd, wacht op echte test-regel
 **Type:** hybrid (Zapier → Vercel → Inngest → Browserless)
 **Eigenaar:** Automation team
 **Systemen:** NXT (browser automation — geen API)
+**Supabase project-id:** `24ae5949-8b1c-4ec8-a590-f9121951aae8`
 
 ## Wat doet het
 
@@ -93,32 +94,41 @@ Schema staat in `supabase/schema-heeren-oefeningen.sql` + `supabase/migrations/2
 - Input: `customer_id`, `site_id`, `brand_id`, `order_type_id`, `quantity`, `unit_price`, `description` (gevuld door Zapier SQL)
 - Resultaat: `new_order_uuid`, `new_billing_order_code`, `invoice_draft_created_at`, `invoice_draft_screenshot`, `invoice_error`
 
-## Zapier SQL query (target)
+## Zapier SQL query (live)
+
+Bevestigd op productie 2026-05-19. Brand komt als string-code (`'BB'`) i.p.v. UUID — dat is wat de NXT dropdown verwacht. Site is NULL voor top-level customers zonder mother-company; de Fase 2 code skipt de site-dropdown dan automatisch.
 
 ```sql
 SELECT
-  sol.BillingOrderCode   AS "billingOrderCode",
-  sol.BillingOrderId     AS "billingOrderId",
-  sol.BillingOrderLineId AS "billingOrderLineId",
-  sol.ItemId             AS "billingItemId",
-  sol.CourseId           AS "courseId",
-  -- Fase 2 velden
-  c.NxtCustomerId        AS "customerId",   -- bijv. "200007"
-  s.NxtSiteId            AS "siteId",       -- bijv. "318887"
-  c.BrandId              AS "brandId",      -- bijv. "SB"
-  'DOTR'                 AS "orderTypeId",  -- "Training / Opleiding" (NXT code DOTR) — matcht het type van de bron-orders
-  sol.Quantity           AS "quantity",
-  sol.UnitPrice          AS "unitPrice",
-  sol.Description        AS "description"
+    sol.Id                       AS id,
+    sol.BillingOrderCode         AS billingOrderCode,
+    sol.BillingOrderId           AS billingOrderId,
+    sol.BillingOrderLineId       AS billingOrderLineId,
+    sol.BillingItemId            AS billingItemId,
+    sol.CourseId                 AS courseId,
+    sol.BillingItemPrice         AS unitPrice,
+    CASE
+        WHEN c.MotherCompanyId IS NOT NULL THEN mc.ExternalCode
+        ELSE c.ExternalCode
+    END                          AS customerId,
+    CASE
+        WHEN c.MotherCompanyId IS NOT NULL THEN c.ExternalCode
+        ELSE NULL
+    END                          AS siteId,
+    'BB'                         AS brandId,        -- NXT brand-code (string), niet de interne UUID
+    'DOTR'                       AS orderTypeId,
+    1                            AS quantity,
+    'Production'                 AS [environment]
 FROM SalesOrderLines sol
-JOIN SalesOrders so ON so.Id = sol.OrderId
-JOIN Customers c    ON c.Id  = so.CustomerId
-JOIN Sites s        ON s.Id  = so.SiteId
-WHERE sol.CourseTheme = 3
-  AND c.Name LIKE '%Heeren Loo%'
+    INNER JOIN Companies c   ON c.Id  = sol.CompanyId
+    LEFT JOIN  Companies mc  ON mc.Id = c.MotherCompanyId
+WHERE sol.UseNxtInvoicing = 1
+  AND sol.CourseTheme = 2
+  AND c.Name LIKE '%Heeren%'
+ORDER BY sol.Id DESC;
 ```
 
-> **Let op:** de exacte kolomnamen hierboven zijn placeholders — de NXT DBA moet de juiste namen bevestigen. De Vercel webhook verwacht de JSON-keys precies zoals hierboven in de `AS "..."` clauses.
+`description` wordt door de Fase 1 Browserless-stap uit het NXT-scherm gegrepen tijdens delete; niet via Zapier nodig.
 
 ## Testen
 
@@ -150,13 +160,14 @@ curl -X POST https://{deploy}/api/automations/heeren-oefeningen/create-invoices 
   -d '{"webhookSecret": "{secret}", "triggeredBy": "handmatig-test", "forceRun": true}'
 ```
 
-## Productie go-live (nog openstaand)
+## Productie go-live (status)
 
-1. **Supabase migration uitvoeren**: `supabase/migrations/20260421_heeren_oefeningen_fase2.sql` in de SQL editor
-2. **Zapier SQL query uitbreiden** met de 7 nieuwe velden (zie template hierboven)
-3. **NXT credentials** omzetten naar `environment = 'production'` in de Supabase `credentials` tabel
-4. **URL aanpassen** in `delete-order-line.ts` **en** `create-invoice-draft.ts`: `acc.sb.n-xt.org` → productie URL
-5. **Smoke test** op productie met 1 record voordat we de cron loslaten
+- [x] Supabase migration uitgevoerd (`supabase/migrations/20260421_heeren_oefeningen_fase2.sql`)
+- [x] Zapier SQL query live met Fase 2 velden
+- [x] NXT credentials productie (`environment='production'` in Supabase `credentials`)
+- [x] URLs per environment uit `systems` tabel (geen hardcoded acc-URL meer)
+- [x] Fase 1 webhook geverifieerd op productie (staging-row 2026-05-19 met correcte Fase 2 velden)
+- [ ] Echte Fase 1 → Fase 2 round-trip op een nieuwe Heeren oefening-regel
 
 ## Ontwerpkeuzes
 
