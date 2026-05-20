@@ -75,7 +75,7 @@ describe("CORD-01 invokeIntentAgent V2", () => {
     expect(result.output.intent_version).toBe(INTENT_VERSION_V2);
   });
 
-  it("rejects v1 single-label shape with informative 'v2 output schema mismatch' error", async () => {
+  it("rejects v1 single-label shape with informative schema-mismatch error", async () => {
     const v1Json = JSON.stringify({
       intent: "copy_document_request",
       sub_type: null,
@@ -88,8 +88,11 @@ describe("CORD-01 invokeIntentAgent V2", () => {
     });
     global.fetch = vi.fn().mockResolvedValue(mockOrqResponse(v1Json)) as unknown as typeof fetch;
 
+    // Phase 85 D-07 — tolerant gate emits "output schema mismatch (version=...)".
+    // v1 outputs hit the V2 branch (default fallback) and fail there on the
+    // intent_version literal mismatch + missing ranked[] keys.
     await expect(invokeIntentAgent(baseInput)).rejects.toThrow(
-      /v2 output schema mismatch/,
+      /output schema mismatch/,
     );
   });
 });
