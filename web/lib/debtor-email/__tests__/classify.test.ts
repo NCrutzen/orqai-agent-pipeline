@@ -236,3 +236,394 @@ describe("60-09 regression — non-ooo bodies still fall through to subject_auto
     expect(result.matchedRule).toBe("subject_autoreply");
   });
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+// Phase 84 D-01 — Stage 1 noise rules for AP-automation FYI traffic.
+//
+// 7 new in-classifier matchers (loopback rule belongs in the screen-worker,
+// per PATTERNS.md). All 7 describe-groups below are RED today: the matchers
+// do not exist in classify.ts yet — Wave 2 (84-03) implements them. Each
+// group covers positive / negative / boundary fixtures, with the boundary
+// case proving discriminator anchoring (e.g. `betwist` ≠ `betaald`).
+//
+// Reference: .planning/phases/84-.../84-CONTEXT.md D-01 (8 locked keys).
+// ───────────────────────────────────────────────────────────────────────────
+
+// Phase 84 D-01 — coupa_invoice_paid_notification
+describe("Phase 84 D-01 — coupa_invoice_paid_notification", () => {
+  it("positive (corpus 39f17226): Factuur 17332578 gemarkeerd als Betaald door ISS", () => {
+    const result = classify({
+      subject: "Factuur 17332578 gemarkeerd als Betaald door ISS",
+      from: "do_not_reply@issworld.coupahost.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("coupa_invoice_paid_notification");
+    expect(result.matchedRule).toBe("coupa_invoice_paid_notification");
+  });
+
+  it("positive (corpus f33c0c32): Factuur 17332579 gemarkeerd als Betaald door ISS", () => {
+    const result = classify({
+      subject: "Factuur 17332579 gemarkeerd als Betaald door ISS",
+      from: "do_not_reply@issworld.coupahost.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("coupa_invoice_paid_notification");
+    expect(result.matchedRule).toBe("coupa_invoice_paid_notification");
+  });
+
+  it("positive: synthetic invoice-number variant", () => {
+    const result = classify({
+      subject: "Factuur 12345678 gemarkeerd als Betaald door ISS",
+      from: "do_not_reply@issworld.coupahost.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("coupa_invoice_paid_notification");
+    expect(result.matchedRule).toBe("coupa_invoice_paid_notification");
+  });
+
+  it("negative: broad 'gemarkeerd als Betaald' without 'door ISS' anchor falls through", () => {
+    // Without the `door ISS` vendor anchor, this is a generic paid-marker
+    // (existing payment_admittance) — not the Phase 84 Coupa-specific noise.
+    const result = classify({
+      subject: "Factuur 99999 gemarkeerd als Betaald",
+      from: "human.sender@some-customer.nl",
+      bodySnippet: "",
+    });
+    expect(result.category).not.toBe("coupa_invoice_paid_notification");
+  });
+
+  it("boundary (corpus 'Dropped from scope'): 'gemarkeerd als betwist door ISS' MUST NOT match", () => {
+    // CONTEXT.md `<domain>` block 'Dropped from scope': dispute templates
+    // (`Factuurnummer # is gemarkeerd als betwist door ISS`) MUST stay in
+    // Stage 3 — they are NOT paid-notifications.
+    const result = classify({
+      subject: "Factuurnummer 12345 is gemarkeerd als betwist door ISS",
+      from: "do_not_reply@issworld.coupahost.com",
+      bodySnippet: "",
+    });
+    expect(result.category).not.toBe("coupa_invoice_paid_notification");
+  });
+});
+
+// Phase 84 D-01 — coupa_invoice_approved_notification
+describe("Phase 84 D-01 — coupa_invoice_approved_notification", () => {
+  it("positive (corpus c415624d): Factuur 17332578 is goedgekeurd voor betaling door ISS", () => {
+    const result = classify({
+      subject: "Factuur 17332578 is goedgekeurd voor betaling door ISS",
+      from: "do_not_reply@issworld.coupahost.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("coupa_invoice_approved_notification");
+    expect(result.matchedRule).toBe("coupa_invoice_approved_notification");
+  });
+
+  it("positive (corpus 7ff782a0): Factuur 17332579 is goedgekeurd voor betaling door ISS", () => {
+    const result = classify({
+      subject: "Factuur 17332579 is goedgekeurd voor betaling door ISS",
+      from: "do_not_reply@issworld.coupahost.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("coupa_invoice_approved_notification");
+    expect(result.matchedRule).toBe("coupa_invoice_approved_notification");
+  });
+
+  it("positive: synthetic invoice-number variant", () => {
+    const result = classify({
+      subject: "Factuur 12345678 is goedgekeurd voor betaling door ISS",
+      from: "do_not_reply@issworld.coupahost.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("coupa_invoice_approved_notification");
+    expect(result.matchedRule).toBe("coupa_invoice_approved_notification");
+  });
+
+  it("negative: generic 'goedgekeurd' without 'voor betaling door ISS' anchor falls through", () => {
+    const result = classify({
+      subject: "Uw offerte is goedgekeurd",
+      from: "sales@some-customer.nl",
+      bodySnippet: "",
+    });
+    expect(result.category).not.toBe("coupa_invoice_approved_notification");
+  });
+
+  it("boundary: CBRE-variant 'goedgekeurd voor betaling door CBRE' MUST NOT match (D-06 ISS-only)", () => {
+    // RESEARCH Open Q #2: Phase 84 ships `door ISS` ONLY; CBRE-variants
+    // stay in Stage 3 (dispute risk in CONTEXT.md `<domain>`).
+    const result = classify({
+      subject: "Factuur 17340342 is goedgekeurd voor betaling door CBRE",
+      from: "do_not_reply@cbre.coupahost.com",
+      bodySnippet: "",
+    });
+    expect(result.category).not.toBe("coupa_invoice_approved_notification");
+  });
+});
+
+// Phase 84 D-01 — iss_ptp_autoreply
+describe("Phase 84 D-01 — iss_ptp_autoreply", () => {
+  it("positive (corpus 74008945): Invoice-PtP@nl.issworld.com — Factuur 25122603", () => {
+    const result = classify({
+      subject:
+        "Automatisch antwoord: Documenten n.a.v. uitgevoerde werkzaamheden. Factuur: 25122603",
+      from: "Invoice-PtP@nl.issworld.com",
+      bodySnippet:
+        "Dit mailadres is uitsluitend bedoeld voor het automatisch verwerken van facturen.",
+    });
+    expect(result.category).toBe("iss_ptp_autoreply");
+    expect(result.matchedRule).toBe("iss_ptp_autoreply");
+  });
+
+  it("positive (corpus 204952d2): Invoice-PtP@nl.issworld.com — Factuur 17341747", () => {
+    const result = classify({
+      subject:
+        "Automatisch antwoord: Documenten n.a.v. uitgevoerde werkzaamheden. Factuur: 17341747",
+      from: "Invoice-PtP@nl.issworld.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("iss_ptp_autoreply");
+    expect(result.matchedRule).toBe("iss_ptp_autoreply");
+  });
+
+  it("positive (corpus e80e084f): Invoice-PtP@nl.issworld.com — Factuur 17341439", () => {
+    const result = classify({
+      subject:
+        "Automatisch antwoord: Documenten n.a.v. uitgevoerde werkzaamheden. Factuur: 17341439",
+      from: "Invoice-PtP@nl.issworld.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("iss_ptp_autoreply");
+    expect(result.matchedRule).toBe("iss_ptp_autoreply");
+  });
+
+  it("negative: ISS PtP sender but generic subject (no Documenten anchor) falls through", () => {
+    const result = classify({
+      subject: "Vraag over factuur",
+      from: "Invoice-PtP@nl.issworld.com",
+      bodySnippet: "",
+    });
+    expect(result.category).not.toBe("iss_ptp_autoreply");
+  });
+
+  it("boundary: generic 'Automatisch antwoord: Out of office' from random sender MUST match auto_reply (existing), NOT iss_ptp_autoreply", () => {
+    // Pitfall 2 (regex specificity ordering): the new ISS-PtP rule must NOT
+    // swallow the generic SUBJECT_AUTO_REPLY branch.
+    const result = classify({
+      subject: "Automatisch antwoord: Out of office",
+      from: "jan.de.vries@example.nl",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("auto_reply");
+    expect(result.matchedRule).not.toBe("iss_ptp_autoreply");
+  });
+});
+
+// Phase 84 D-01 — frieslandcampina_portal_reject
+describe("Phase 84 D-01 — frieslandcampina_portal_reject", () => {
+  it("positive: Robbie.Robot@frieslandcampina.com 'FINAL_REMINDER_Invoice received for Candex'", () => {
+    const result = classify({
+      subject:
+        "FINAL_REMINDER_Invoice received for Candex related purchase(s)_PO12345_20260520",
+      from: "Robbie.Robot@frieslandcampina.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("frieslandcampina_portal_reject");
+    expect(result.matchedRule).toBe("frieslandcampina_portal_reject");
+  });
+
+  it("positive (variant): different PO number, same template", () => {
+    const result = classify({
+      subject:
+        "FINAL_REMINDER_Invoice received for Candex related purchase(s)_PO99999_20260415",
+      from: "Robbie.Robot@frieslandcampina.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("frieslandcampina_portal_reject");
+    expect(result.matchedRule).toBe("frieslandcampina_portal_reject");
+  });
+
+  it("positive (variant): subject without trailing date", () => {
+    const result = classify({
+      subject: "FINAL_REMINDER_Invoice received for Candex related purchase(s)",
+      from: "Robbie.Robot@frieslandcampina.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("frieslandcampina_portal_reject");
+    expect(result.matchedRule).toBe("frieslandcampina_portal_reject");
+  });
+
+  it("negative: frieslandcampina human sender (not Robbie.Robot) falls through", () => {
+    const result = classify({
+      subject: "Vraag over factuur 12345",
+      from: "anna.bakker@frieslandcampina.com",
+      bodySnippet: "",
+    });
+    expect(result.category).not.toBe("frieslandcampina_portal_reject");
+  });
+
+  it("boundary: Robbie.Robot sender with a generic subject (no Candex anchor) does NOT match", () => {
+    const result = classify({
+      subject: "Robbie test message",
+      from: "Robbie.Robot@frieslandcampina.com",
+      bodySnippet: "",
+    });
+    expect(result.category).not.toBe("frieslandcampina_portal_reject");
+  });
+});
+
+// Phase 84 D-01 — m365_quarantine
+describe("Phase 84 D-01 — m365_quarantine", () => {
+  it("positive (corpus 676adada): q2q@apexfire.ie 'Microsoft 365 security: You have messages in quarantine'", () => {
+    const result = classify({
+      subject: "Microsoft 365 security: You have messages in quarantine",
+      from: "q2q@apexfire.ie",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("m365_quarantine");
+    expect(result.matchedRule).toBe("m365_quarantine");
+  });
+
+  it("positive (corpus e3d6add8): q2q@apexfire.ie variant, different mailbox", () => {
+    const result = classify({
+      subject: "Microsoft 365 security: You have messages in quarantine",
+      from: "q2q@apexfire.ie",
+      bodySnippet: "Review and release your quarantined messages.",
+    });
+    expect(result.category).toBe("m365_quarantine");
+    expect(result.matchedRule).toBe("m365_quarantine");
+  });
+
+  it("positive (synthetic): Microsoft 365 quarantine notice from any apexfire-style sender", () => {
+    const result = classify({
+      subject: "Microsoft 365 security: You have messages in quarantine",
+      from: "q2q@example-tenant.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("m365_quarantine");
+    expect(result.matchedRule).toBe("m365_quarantine");
+  });
+
+  it("negative: random subject without 'quarantine' keyword falls through", () => {
+    const result = classify({
+      subject: "Status update",
+      from: "q2q@apexfire.ie",
+      bodySnippet: "",
+    });
+    expect(result.category).not.toBe("m365_quarantine");
+  });
+
+  it("boundary: '[SPAM] You have messages in quarantine' prefers spam (Exchange upstream-tag wins)", () => {
+    // The pre-existing subject_spam_prefix branch fires FIRST. m365_quarantine
+    // must not override it — corpus shows real `[SPAM] You have messages in
+    // quarantine` rows (Dmayer36@Prairieinet.Net) that should stay spam.
+    const result = classify({
+      subject: "[SPAM] You have messages in quarantine",
+      from: "Dmayer36@Prairieinet.Net",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("spam");
+    expect(result.matchedRule).toBe("subject_spam_prefix");
+  });
+});
+
+// Phase 84 D-01 — sender_phishing_notice
+describe("Phase 84 D-01 — sender_phishing_notice", () => {
+  it("positive (corpus 6ca61888): melanie@rskinstallatie.nl 'Uitleg pishing mail'", () => {
+    const result = classify({
+      subject: "Uitleg pishing mail",
+      from: "melanie@rskinstallatie.nl",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("sender_phishing_notice");
+    expect(result.matchedRule).toBe("sender_phishing_notice");
+  });
+
+  it("positive (corpus e4afd80b): melanie@rskinstallatie.nl 'Voorgaande mail niet openen'", () => {
+    const result = classify({
+      subject: "Voorgaande mail niet openen",
+      from: "melanie@rskinstallatie.nl",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("sender_phishing_notice");
+    expect(result.matchedRule).toBe("sender_phishing_notice");
+  });
+
+  it("positive (variant): combined 'pishing' subject from rskinstallatie sender", () => {
+    const result = classify({
+      subject: "Phishing mail — niet openen",
+      from: "melanie@rskinstallatie.nl",
+      bodySnippet: "Voorgaande mail was phishing, niet openen.",
+    });
+    expect(result.category).toBe("sender_phishing_notice");
+    expect(result.matchedRule).toBe("sender_phishing_notice");
+  });
+
+  it("negative: rskinstallatie sender with normal business subject does NOT match", () => {
+    const result = classify({
+      subject: "RSK-FACT-DOC-26198",
+      from: "melanie@rskinstallatie.nl",
+      bodySnippet: "",
+    });
+    expect(result.category).not.toBe("sender_phishing_notice");
+  });
+
+  it("boundary: 'pishing' subject from unrelated sender does NOT match (R-03 narrow pattern)", () => {
+    // R-03: rule is one-supplier-narrow today. A pishing keyword alone from
+    // a random sender stays unknown until corpus broadens.
+    const result = classify({
+      subject: "Uitleg pishing mail",
+      from: "stranger@somewhere.com",
+      bodySnippet: "",
+    });
+    expect(result.category).not.toBe("sender_phishing_notice");
+  });
+});
+
+// Phase 84 D-01 — supplier_bank_change_notification
+describe("Phase 84 D-01 — supplier_bank_change_notification", () => {
+  it("positive (corpus 1b668e99): info@farmplus.nl 'Wijziging huisbankier en betaalgegevens'", () => {
+    const result = classify({
+      subject: "FarmPlus Wijziging huisbankier en betaalgegevens FarmPlus",
+      from: "info@farmplus.nl",
+      bodySnippet: "Onze nieuwe IBAN is NL12ABNA0123456789.",
+    });
+    expect(result.category).toBe("supplier_bank_change_notification");
+    expect(result.matchedRule).toBe("supplier_bank_change_notification");
+  });
+
+  it("positive (variant): info@farmplus.nl with shorter subject + IBAN body", () => {
+    const result = classify({
+      subject: "Wijziging huisbankier FarmPlus",
+      from: "info@farmplus.nl",
+      bodySnippet: "Per direct gebruiken wij een nieuw IBAN voor alle betalingen.",
+    });
+    expect(result.category).toBe("supplier_bank_change_notification");
+    expect(result.matchedRule).toBe("supplier_bank_change_notification");
+  });
+
+  it("positive (variant): info@farmplus.nl announcing betaalgegevens change", () => {
+    const result = classify({
+      subject: "Belangrijke wijziging betaalgegevens",
+      from: "info@farmplus.nl",
+      bodySnippet: "Onze nieuwe huisbankier is ING; IBAN NL98INGB0123456789.",
+    });
+    expect(result.category).toBe("supplier_bank_change_notification");
+    expect(result.matchedRule).toBe("supplier_bank_change_notification");
+  });
+
+  it("negative: farmplus.nl sender with unrelated subject falls through", () => {
+    const result = classify({
+      subject: "Vraag over levering",
+      from: "info@farmplus.nl",
+      bodySnippet: "",
+    });
+    expect(result.category).not.toBe("supplier_bank_change_notification");
+  });
+
+  it("boundary: 'IBAN' mention from a non-supplier sender does NOT match", () => {
+    const result = classify({
+      subject: "Mijn IBAN is gewijzigd",
+      from: "klant@external.nl",
+      bodySnippet: "Mijn IBAN is gewijzigd.",
+    });
+    expect(result.category).not.toBe("supplier_bank_change_notification");
+  });
+});
