@@ -114,19 +114,35 @@ export function NoiseCategoryChipStrip({
 
   // Phase 82 Plan 06: chip data → `_shell/ChipStrip`. The wrapper retains the
   // URL contract (navigate() above) and the tail Pending Promotion Link pill.
-  const chipStripChips: ChipStripChip[] = [
-    { key: "all", label: "Needs review", count: verdictPendingCount },
-    ...categories.map((cat) => ({
-      key: cat.category_key,
-      label: cat.display_label,
-      count: countByTopic.get(cat.category_key) ?? 0,
-    })),
-  ];
   const activeKey = allActive
     ? "all"
     : activeSub
       ? "" // No chip is active when ?sub=pending takes over
       : activeTopic;
+
+  // Hide zero-count category chips so the strip doesn't sprawl across 12+
+  // empty pills (UAT 2026-05-20). Keep currently-active chip even when its
+  // count is zero so a deep-linked or just-emptied filter stays visible —
+  // otherwise the active styling would have nothing to anchor to.
+  //
+  // The leftmost "Needs review" chip omits its count number until Phase 89
+  // moves the verdict-pending RPC onto the same data source as the visible
+  // row list. The current verdictPendingCount comes from a
+  // classifier_queue_verdict_pending RPC (not yet applied to prod) whose
+  // automation_runs anti-join returns numbers up to ~22× the visible-list
+  // length — see .planning/phases/88-review-surface-cleanup/88-UAT-FINDINGS.md
+  // F-03. Showing no number is less misleading than showing the wrong number.
+  void verdictPendingCount;
+  const chipStripChips: ChipStripChip[] = [
+    { key: "all", label: "Needs review" },
+    ...categories
+      .map((cat) => ({
+        key: cat.category_key,
+        label: cat.display_label,
+        count: countByTopic.get(cat.category_key) ?? 0,
+      }))
+      .filter((chip) => chip.count > 0 || chip.key === activeKey),
+  ];
 
   return (
     <div

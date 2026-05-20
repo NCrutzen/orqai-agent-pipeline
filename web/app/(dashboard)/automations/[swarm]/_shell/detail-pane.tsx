@@ -714,7 +714,7 @@ function DetailPaneInner({
       </section>
 
       <section
-        style={{ padding: "var(--space-4)", flex: 1 }}
+        style={{ padding: "var(--space-4)" }}
         data-testid="pipeline-section"
       >
         <div
@@ -758,7 +758,12 @@ function DetailPaneInner({
           padding: "var(--space-4)",
           borderTop: "1px solid var(--v7-border)",
           display: "flex",
+          flexWrap: "wrap",
           gap: "var(--space-2)",
+          position: "sticky",
+          bottom: 0,
+          background: "var(--v7-panel)",
+          zIndex: 1,
         }}
         data-testid="action-footer"
       >

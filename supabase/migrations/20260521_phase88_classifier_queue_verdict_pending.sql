@@ -3,6 +3,14 @@
 -- noise-category-chip-strip.tsx with a server-side anti-join against
 -- email_feedback.
 --
+-- ⚠ NOT YET APPLIED to production. UAT 2026-05-20 found that this anti-join
+-- against automation_runs returns ~198 for debtor-email, while the actual
+-- Stage 1 row list (which reads from pipeline_events_email_summary filtered
+-- by stage_0='safe' AND a predicted-status join) shows ~9 rows. The right
+-- semantic source is pipeline_events_email_summary, not automation_runs.
+-- See .planning/phases/88-review-surface-cleanup/88-UAT-FINDINGS.md for the
+-- full data-source mismatch report and the follow-up phase scoped to fix it.
+--
 -- Signal: row in automation_runs.status='predicted' for this swarm AND no
 -- row in email_feedback at stage=1 for that email_id (canonical Stage 1
 -- verdict marker per supabase/migrations/20260513c_email_feedback.sql).
