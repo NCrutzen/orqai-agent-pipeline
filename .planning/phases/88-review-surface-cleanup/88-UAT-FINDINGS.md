@@ -29,9 +29,9 @@ Net change in `_shell/detail-pane.tsx`:
 
 **Fix:** Filter `categories.map(...)` so a chip only renders when `count > 0` *or* it equals the currently-active key. Deep-link case (operator lands on a category whose count just dropped to zero) is preserved — that chip stays visible until the user navigates away.
 
-## Open — deferred to Phase 89+ planning
+## Resolved during UAT, second pass (committed to this branch)
 
-### F-03 — "Needs review = 0" and "Auto-reply = 80 but 8 visible" reflect a deeper data-source mismatch
+### F-03 — "Needs review = 0" and "Auto-reply = 80 but 8 visible" reflect a deeper data-source mismatch (fixed)
 
 **Symptom:** Stage 1 chip strip shows `Needs review 0` and `Auto-reply 80` while the visible row list under the strip has ~9 rows total (Stage 1 tab header reads "Stage 1 · Noise 9").
 
@@ -56,17 +56,33 @@ Phase 88 D-02's design assumption — that an `email_feedback`-based anti-join o
 
 **Why this didn't show up in tests:** The `noise-category-chip-strip` vitest suite passes a mock `verdictPendingCount` prop directly. The loader tests in `stage-1/__tests__/load-page-data.test.ts` mock the RPC return values. No test asserts that chip count == visible-list length against real data. The verifier agent worked from PLAN/SUMMARY artefacts and grep — neither catches this kind of semantic divergence.
 
-**Recommended scope for a Phase 89 follow-up plan:**
+**Fix applied 2026-05-20 (same UAT session):**
 
-- Replace `classifier_queue_counts` with an RPC (or RLS-aware view) that reads from `pipeline_events_email_summary`, applies the exact same Stage 0 + predicted-status filter chain that the list uses, and groups by `decision_details->>'topic'`. Same return shape, swap data source.
-- Replace `classifier_queue_verdict_pending` with a derivation from the same source (`stage_1_decision IS NULL` OR equivalent).
-- Add an integration test that runs the loader + counts RPC against a seeded test DB and asserts `sum(chip_counts) == visible_list_length` (allowing one chip per topic).
-- DO NOT apply the current `20260521_phase88_classifier_queue_verdict_pending.sql` migration — leave the file on the branch as documentation of the wrong path; supersede it in the Phase 89 migration with `drop function … if exists` for the verdict-pending RPC plus the replacement counts RPC.
+Both `classifier_queue_counts` and `classifier_queue_verdict_pending` were rebuilt on `pipeline_events_email_summary` in `supabase/migrations/20260521_phase88_classifier_queue_verdict_pending.sql`. The migration was applied to production (`mvqjhlxfvtqqubqgdvhz`) via Supabase MCP `apply_migration` after smoke validation confirmed per-topic counts matched the loader's filter chain.
 
-**Migration file status:** kept on disk at `supabase/migrations/20260521_phase88_classifier_queue_verdict_pending.sql` with a header note marking it `NOT YET APPLIED` and referencing this findings doc. Removing the file would lose the cross-reference; leaving it lets the Phase 89 planner see exactly what was tried and why it was abandoned.
+Post-fix smoke (debtor-email):
+
+| topic | count |
+|---|---|
+| (uncategorised) | 122 |
+| auto_reply | 59 |
+| payment_admittance | 55 |
+| ooo_permanent | 4 |
+| ooo_temporary | 3 |
+| safety_review | 1 |
+| supplier_bank_change_notification | 1 |
+
+`classifier_queue_verdict_pending('debtor-email')` returns 245 = sum of the per-topic counts. Chip strip's "Needs review" badge now displays this total; per-category chips display the matching topic count.
+
+**Note on chip vs visible-list gap:** chip totals (e.g. Auto-reply 59) reflect the full Stage 1 review backlog. The list view paginates from the latest 400 summary rows then slices to PAGE_SIZE = 100, so the operator may only see ~8 of the 59 in the first page. This is intentional — chip count = "how much work in this bucket across all time"; "Older →" pagination handles the visibility gap. Consider a future "X of Y" indicator on the row list header if this turns out to confuse operators.
+
+**Code changes:**
+
+- `web/app/(dashboard)/automations/[swarm]/stage-1/noise-category-chip-strip.tsx` — re-enabled the `count` binding on the "Needs review" chip (the UAT-pass-1 workaround of omitting the count was rolled back once the RPC data source was fixed).
+- Tests (`stage-1/__tests__/noise-category-chip-strip.test.tsx`) — reverted to assert count badges present, mirroring the pre-UAT shape.
+- Loader (`stage-1/page.tsx`) — no change required; same RPC names + return shapes.
 
 ## Production DB state after UAT
 
-- No DDL applied. `classifier_queue_verdict_pending` does NOT exist; `classifier_queue_counts` remains on its 2026-04-28 definition.
-- Phase 88 code on the branch references the missing RPC at `stage-1/page.tsx:426` and gracefully degrades to `0` when the call returns null. This is the source of the "Needs review 0" symptom — it is a *deploy-side* bug (code shipped pointing at a non-existent RPC), masked locally by the same null-coalesce.
-- Action: either (a) revert `stage-1/page.tsx` to drop the verdict-pending call and the chip's `count` binding until Phase 89, or (b) accept the silent-zero in production as a temporary state. **Recommendation: (a)** — silent-zero on a high-visibility chip is itself a UX defect.
+- Both RPCs live in production with the corrected join chain. Smoke-tested.
+- No application-code redeploy required on the loader (function names + return shapes preserved). The frontend changes above ship with this branch's existing commits.

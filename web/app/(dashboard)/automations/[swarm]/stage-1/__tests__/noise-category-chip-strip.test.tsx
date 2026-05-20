@@ -90,7 +90,7 @@ describe("NoiseCategoryChipStrip", () => {
     const tabs = screen.getAllByRole("tab");
     // categories (3) + "Needs review" (1) + Pending pill (1) = 5
     expect(tabs).toHaveLength(categories.length + 2);
-    expect(screen.getByRole("tab", { name: /^Needs review$/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /^Needs review —/ })).toBeInTheDocument();
     expect(
       screen.getByRole("tab", { name: /^Payment —/ }),
     ).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe("NoiseCategoryChipStrip", () => {
         verdictPendingCount={5}
       />,
     );
-    fireEvent.click(screen.getByRole("tab", { name: /^Needs review$/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /^Needs review —/ }));
     expect(push).toHaveBeenCalledTimes(1);
     const url = String(push.mock.calls[0][0]);
     expect(url).not.toContain("topic=");
@@ -153,7 +153,7 @@ describe("NoiseCategoryChipStrip", () => {
     const pending = screen.getByRole("tab", { name: /Pending promotion/ });
     expect(pending.getAttribute("aria-selected")).toBe("true");
     // Conversely, "Needs review" chip is no longer "active" while sub=pending.
-    const needsReview = screen.getByRole("tab", { name: /^Needs review$/ });
+    const needsReview = screen.getByRole("tab", { name: /^Needs review —/ });
     expect(needsReview.getAttribute("aria-selected")).toBe("false");
   });
 
@@ -170,7 +170,7 @@ describe("NoiseCategoryChipStrip", () => {
     );
     const tabs = screen.getAllByRole("tab");
     expect(tabs).toHaveLength(2); // Needs review + Pending pill
-    expect(screen.getByRole("tab", { name: /^Needs review$/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /^Needs review —/ })).toBeInTheDocument();
     expect(
       screen.getByRole("tab", { name: /Pending promotion/ }),
     ).toBeInTheDocument();
@@ -185,12 +185,7 @@ describe("NoiseCategoryChipStrip", () => {
     expect(src).not.toContain("swarm_intents");
   });
 
-  it("(g) Phase 88 + UAT 2026-05-20: verdictPendingCount prop is accepted but no count badge renders", () => {
-    // UAT F-03: the verdict-pending RPC's anti-join data source disagrees
-    // with the visible row list by an order of magnitude (~22×). Until
-    // Phase 89 moves the RPC onto pipeline_events_email_summary, the chip
-    // omits the count badge — showing no number is less misleading than
-    // showing the wrong one.
+  it("(g) Phase 88: verdictPendingCount=12 → badge '12' on Needs review chip", () => {
     render(
       <NoiseCategoryChipStrip
         categories={categories}
@@ -201,13 +196,12 @@ describe("NoiseCategoryChipStrip", () => {
         verdictPendingCount={12}
       />,
     );
-    const needsReview = screen.getByRole("tab", { name: /^Needs review$/ });
-    expect(needsReview).toBeInTheDocument();
-    expect(within(needsReview).queryByText("12")).toBeNull();
-    expect(needsReview.getAttribute("aria-label")).toBe("Needs review");
+    const needsReview = screen.getByRole("tab", { name: /^Needs review —/ });
+    expect(within(needsReview).getByText("12")).toBeInTheDocument();
+    expect(needsReview.getAttribute("aria-label")).toMatch(/Needs review — 12 rows/);
   });
 
-  it("(h) UAT 2026-05-20: verdictPendingCount=0 also renders chip with no badge", () => {
+  it("(h) Phase 88: verdictPendingCount=0 → Needs review chip still renders with badge 0", () => {
     render(
       <NoiseCategoryChipStrip
         categories={categories}
@@ -218,10 +212,10 @@ describe("NoiseCategoryChipStrip", () => {
         verdictPendingCount={0}
       />,
     );
-    const needsReview = screen.getByRole("tab", { name: /^Needs review$/ });
+    const needsReview = screen.getByRole("tab", { name: /^Needs review —/ });
     expect(needsReview).toBeInTheDocument();
-    expect(within(needsReview).queryByText("0")).toBeNull();
-    expect(needsReview.getAttribute("aria-label")).toBe("Needs review");
+    expect(within(needsReview).getByText("0")).toBeInTheDocument();
+    expect(needsReview.getAttribute("aria-label")).toMatch(/Needs review — 0 rows/);
   });
 
   it("(i) Phase 88 D-02c default landing — Needs review chip active when no topic/sub", () => {
@@ -240,7 +234,7 @@ describe("NoiseCategoryChipStrip", () => {
         verdictPendingCount={7}
       />,
     );
-    const needsReview = screen.getByRole("tab", { name: /^Needs review$/ });
+    const needsReview = screen.getByRole("tab", { name: /^Needs review —/ });
     expect(needsReview.getAttribute("aria-selected")).toBe("true");
     // No category chip should be active in the default landing.
     expect(

@@ -125,16 +125,14 @@ export function NoiseCategoryChipStrip({
   // count is zero so a deep-linked or just-emptied filter stays visible —
   // otherwise the active styling would have nothing to anchor to.
   //
-  // The leftmost "Needs review" chip omits its count number until Phase 89
-  // moves the verdict-pending RPC onto the same data source as the visible
-  // row list. The current verdictPendingCount comes from a
-  // classifier_queue_verdict_pending RPC (not yet applied to prod) whose
-  // automation_runs anti-join returns numbers up to ~22× the visible-list
-  // length — see .planning/phases/88-review-surface-cleanup/88-UAT-FINDINGS.md
-  // F-03. Showing no number is less misleading than showing the wrong number.
-  void verdictPendingCount;
+  // verdictPendingCount + per-category counts both come from the
+  // pipeline_events_email_summary-based RPCs (migration
+  // 20260521_phase88_classifier_queue_verdict_pending.sql, applied
+  // 2026-05-20 post-UAT F-03). They mirror the loader's filter chain
+  // exactly so chip totals reflect the full Stage 1 review backlog,
+  // not just the paginated 100-row window the row list shows.
   const chipStripChips: ChipStripChip[] = [
-    { key: "all", label: "Needs review" },
+    { key: "all", label: "Needs review", count: verdictPendingCount },
     ...categories
       .map((cat) => ({
         key: cat.category_key,
