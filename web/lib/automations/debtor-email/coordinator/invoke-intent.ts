@@ -3,8 +3,12 @@ import {
   // Plan 65-05 backfill regression comparator; Phase 66 deletes v1.
   intentAgentOutputSchema,
   intentAgentOutputSchemaV2,
+  // Phase 85 D-07 — V3 schema + discriminator. V2 stays alive one release.
+  INTENT_VERSION_V3,
+  intentAgentOutputSchemaV3,
   type IntentAgentOutput,
   type IntentAgentOutputV2,
+  type IntentAgentOutputV3,
 } from "./types";
 
 const ORQ_ENDPOINT = "https://api.orq.ai/v2/agents";
@@ -41,7 +45,8 @@ export type InvokeIntentOptions = {
 };
 
 export type InvokeIntentResult = {
-  output: IntentAgentOutputV2;
+  // Phase 85 D-07 — discriminated union; narrow via `output.intent_version`.
+  output: IntentAgentOutputV2 | IntentAgentOutputV3;
   raw: string;
 };
 
@@ -182,15 +187,20 @@ export async function invokeIntentAgent(
     throw e;
   }
 
-  // Phase 65 (D-12): switch validator to v2 ranked-intent schema. The v1 schema
-  // import is kept alive for Plan 65-05 regression backfill but is no longer
-  // wired into the production transport. v1 outputs from a stale agent
-  // deployment will fail this gate with an informative zod issues blob — the
-  // INTENT_VERSION_V2 literal mismatch alone is enough to trip safeParse.
-  const validated = intentAgentOutputSchemaV2.safeParse(parsed);
+  // Phase 85 (D-07) — tolerant Zod gate. Sniff intent_version BEFORE
+  // safeParse so the error message points at the schema for the version the
+  // agent actually returned. Single discriminator site — downstream consumers
+  // narrow via `if (output.intent_version === INTENT_VERSION_V3)`.
+  // V1 outputs still fail this gate (no matching literal in either branch).
+  const version = (parsed as { intent_version?: unknown })?.intent_version;
+  const schema =
+    version === INTENT_VERSION_V3
+      ? intentAgentOutputSchemaV3
+      : intentAgentOutputSchemaV2;
+  const validated = schema.safeParse(parsed);
   if (!validated.success) {
     const e = new Error(
-      `Intent-agent v2 output schema mismatch: ${JSON.stringify(
+      `Intent-agent output schema mismatch (version=${String(version)}): ${JSON.stringify(
         validated.error.issues,
       )}`,
     );

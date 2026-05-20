@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v8.1
 milestone_name: Validation + Visibility
-status: ready_to_plan
-stopped_at: Phase 82.9 context gathered
-last_updated: "2026-05-20T13:01:28.878Z"
-last_activity: 2026-05-20 -- Phase 88 execution started
+status: executing
+stopped_at: Phase 86-01 partial (deploy gate)
+last_updated: "2026-05-20T14:30:00.000Z"
+last_activity: 2026-05-20 -- Phase 86 execution (Plan 01 migrations applied, V3 deploy-gate hit)
 progress:
   total_phases: 55
-  completed_phases: 40
-  total_plans: 229
-  completed_plans: 221
-  percent: 73
+  completed_phases: 42
+  total_plans: 233
+  completed_plans: 233
+  percent: 76
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 88 — review-surface-cleanup
+**Current focus:** Phase 86 — open-set-intent-discovery-capture-and-cluster-surface (Plan 01 partial, deploy-gate pending merge of v8.1 → main + Vercel redeploy)
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 089
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-05-20
+Phase: 86 (open-set-intent-discovery-capture-and-cluster-surface) — EXECUTING
+Plan: 1 of 4 (migrations applied; view n=0 pending v8.1 → main merge + Vercel deploy)
+Status: Blocked on Phase 85 consumer-code deploy. Phase 84 ✓, Phase 85 ✓ (Orq.ai live, code on v8.1 branch). Phase 88 + 89 + v8.0 closure landed on main in parallel.
+Last activity: 2026-05-20 -- Phase 86-01 migrations applied; surfaced deploy-pipeline drift; merged main → v8.1
 
 ## Performance Metrics
 

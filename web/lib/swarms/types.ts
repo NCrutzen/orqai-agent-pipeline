@@ -61,6 +61,13 @@ export interface SwarmRow {
   // canonical reader and raises MalformedRegistryError when the legacy
   // string-array shape is still in place post-Wave-1.
   entity_brand: string[] | Record<string, unknown>[] | null;
+  // Phase 84 D-03 — tenant mail domains for this swarm (jsonb array of
+  // lowercase domain strings). Powers the own_outbound_invoice_loopback
+  // Stage 1 rule (classifier-screen-worker.ts) and retires the Phase 83
+  // TENANT_DOMAINS fallback stub in debtor-email-coordinator.ts.
+  // Source of truth: public.swarms.tenant_domains (jsonb NOT NULL DEFAULT '[]').
+  // Codegen mirror: web/lib/automations/debtor-email/coordinator/tenant-domains.generated.ts.
+  tenant_domains: string[];
 }
 
 // Phase 68 — one row in public.swarm_intents. Composite PK (swarm_type, intent_key).

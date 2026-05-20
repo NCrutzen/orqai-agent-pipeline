@@ -137,6 +137,13 @@ export const classifierScreenWorker = inngest.createFunction(
       from: fromFromEvent,
       fromName: fromNameFromEvent,
       receivedAt: receivedAtFromEvent,
+      // Phase 84 D-03 — direction guards the own_outbound_invoice_loopback
+      // rule (R-02 spoofing mitigation). Producer (stage-0-safety-worker)
+      // threads it from the original ingest payload. Missing value defaults
+      // to 'inbound' in the loopback evaluator below — every ingest path
+      // today is inbound (debtor-email/ingest/route.ts writes direction
+      // 'inbound' to email_pipeline.emails).
+      direction: directionFromEvent,
     } = event.data as {
       automation_run_id: string;
       email_id: string;
@@ -151,6 +158,7 @@ export const classifierScreenWorker = inngest.createFunction(
       from?: string | null;
       fromName?: string | null;
       receivedAt?: string | null;
+      direction?: "inbound" | "outbound" | null;
     };
 
     if (!swarm_type) {
@@ -178,7 +186,9 @@ export const classifierScreenWorker = inngest.createFunction(
 
     // ───── Step 2: regex (D-16.2, D-03, D-04) ─────────────────────────
     // Skipped when stage1_regex_module is null (sales-email per D-03).
-    const regexOutcome = await step.run("regex", async () => {
+    // Phase 84 D-03 — declared `let` so the loopback rule below can mutate
+    // the outcome's category to skip the LLM 2nd-pass on a positive match.
+    let regexOutcome = await step.run("regex", async () => {
       if (!swarmRow.stage1_regex_module) {
         return {
           invoked: false,
@@ -198,11 +208,14 @@ export const classifierScreenWorker = inngest.createFunction(
       }
       const result = mod.classify({
         subject: subject ?? "",
-        // sender_email is not on the classifier/screen.requested payload
-        // post-Plan-02. The debtor regex's auto_reply / OOO / payment
-        // patterns are subject + body driven; a missing `from` doesn't
-        // affect classification quality for those branches.
-        from: "",
+        // Phase 84 D-01 — pass `from` so the new sender-anchored matchers
+        // (iss_ptp_autoreply, frieslandcampina_portal_reject,
+        // sender_phishing_notice, supplier_bank_change_notification) can
+        // fire. Stage 0 producer threads `from` per Phase 82.2 Plan 07 D-A;
+        // missing on edge cases falls back to empty string (no false-match
+        // because all sender-anchored matchers are AND-gated on an empty
+        // subject anchor would also still need to match).
+        from: fromFromEvent ?? "",
         // Phase 83 Plan 06b D-06: prefer body_full_text (full thread) for
         // regex evaluation; fall back to body_text when the upstream emitter
         // hasn't switched yet (D-10 dual-write window).
@@ -222,6 +235,46 @@ export const classifierScreenWorker = inngest.createFunction(
     let llmError: string | null = null;
     let llmCategoryKey: string | null = null;
     let agentRunId: string | null = null;
+
+    // ───── Phase 84 D-03 own_outbound_invoice_loopback (R-02 direction guard) ─
+    // Worker-side because classify.ts signature lacks 'from' historically and
+    // 'direction' is not in scope inside the regex module (Pitfall 3). The
+    // rule fires when:
+    //   1. Regex Pass 1 abstained (category === 'unknown'), AND
+    //   2. direction === 'inbound' (R-02: spoofed external-from senders that
+    //      happen to claim a tenant domain on the wire are blocked when
+    //      direction is anything other than inbound), AND
+    //   3. The from-address's lowercased domain ∈ swarmRow.tenant_domains.
+    //
+    // tenant_domains is read from the live swarm row (loadSwarm cache) per
+    // PATTERNS.md Option A — coordinator uses the codegen-emitted constant,
+    // the worker reads the registry. Empty tenant_domains silently never
+    // fires (R-05 default).
+    //
+    // In-memory mutation only — no step.run wrapper needed (Pitfall 3
+    // recommendation). Replay-safe: deterministic from event.data fields.
+    if (regexOutcome.category === "unknown") {
+      const tenantDomains = (swarmRow.tenant_domains as string[] | undefined) ?? [];
+      const fromDomain = (fromFromEvent ?? "").split("@")[1]?.toLowerCase() ?? "";
+      // Default: when producer omits direction, treat as 'inbound' (every
+      // ingest path today writes inbound to email_pipeline.emails). Outbound
+      // forwards would arrive via a separate sync stream that MUST explicitly
+      // populate direction='outbound' on the event.
+      const effectiveDirection = directionFromEvent ?? "inbound";
+      if (
+        effectiveDirection === "inbound" &&
+        fromDomain.length > 0 &&
+        tenantDomains.includes(fromDomain)
+      ) {
+        regexOutcome = {
+          ...regexOutcome,
+          category: "own_outbound_invoice_loopback",
+          matchedRule: "own_outbound_invoice_loopback",
+          invoked: true,
+        };
+        finalCategoryKey = "own_outbound_invoice_loopback";
+      }
+    }
 
     // ───── Step 3: LLM call only on regex='unknown' (D-16.3, D-10, D-11) ─
     if (regexOutcome.category === "unknown") {

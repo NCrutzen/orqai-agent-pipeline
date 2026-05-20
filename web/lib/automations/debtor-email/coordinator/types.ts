@@ -121,6 +121,40 @@ export type RankedIntentEntry = z.infer<typeof rankedIntentEntrySchema>;
 export type IntentAgentOutputV2 = z.infer<typeof intentAgentOutputSchemaV2>;
 
 // ---------------------------------------------------------------------------
+// Phase 85 (D-04) — V3 adds intent_proposal + proposal_reason (additive).
+// V2 schema kept exported for one release per D-07 backward-compat.
+// Phase 86+ deletes V2 once production traffic is 100% V3 (RESEARCH Open Q #1:
+// 14-day window).
+// ---------------------------------------------------------------------------
+
+export const INTENT_VERSION_V3 = "2026-05-19.v3" as const;
+
+export const intentAgentOutputSchemaV3 = z.object({
+  ranked: z.array(rankedIntentEntrySchema).min(1).max(5),
+  language: z.enum(LANGUAGE),
+  urgency: z.enum(URGENCY),
+  intent_version: z.literal(INTENT_VERSION_V3),
+  intent_proposal: z
+    .string()
+    .max(64)
+    .regex(/^[a-z][a-z0-9_]*$/)
+    .nullable(),
+  proposal_reason: z.string().max(280).nullable(),
+});
+
+export type IntentAgentOutputV3 = z.infer<typeof intentAgentOutputSchemaV3>;
+
+// Phase 85 D-07: discriminated union for tolerant parsing at the transport
+// boundary. invoke-intent.ts is the single switch site; downstream consumers
+// narrow via `if (output.intent_version === INTENT_VERSION_V3)`.
+export const intentAgentOutputSchemaAny = z.discriminatedUnion("intent_version", [
+  intentAgentOutputSchemaV2,
+  intentAgentOutputSchemaV3,
+]);
+
+export type IntentAgentOutputAny = z.infer<typeof intentAgentOutputSchemaAny>;
+
+// ---------------------------------------------------------------------------
 // Body agent output schema (matches agents/debtor-copy-document-body-agent.md)
 // ---------------------------------------------------------------------------
 

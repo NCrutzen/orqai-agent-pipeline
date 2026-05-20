@@ -22,7 +22,19 @@ export type Category =
   | "ooo_permanent"
   | "payment_admittance"
   | "spam"
-  | "unknown";
+  | "unknown"
+  // Phase 84 D-01 — 7 in-classifier noise categories (regex Pass 1).
+  | "coupa_invoice_paid_notification"
+  | "coupa_invoice_approved_notification"
+  | "iss_ptp_autoreply"
+  | "frieslandcampina_portal_reject"
+  | "m365_quarantine"
+  | "sender_phishing_notice"
+  | "supplier_bank_change_notification"
+  // Phase 84 D-03 — worker-assigned (never returned by classify()).
+  // Listed in the union for type-completeness so downstream consumers
+  // (verdict-worker, page.tsx) can narrow on the full closed list.
+  | "own_outbound_invoice_loopback";
 
 export interface ClassifyInput {
   subject: string;
@@ -234,6 +246,54 @@ const SUBJECT_PAYMENT_HINT =
 const BODY_PAYMENT_CONFIRMATION =
   /\b(betaalspecificatie|betalingsspecificatie|bankafschrift|(?:hebben|zijn)\s+overgemaakt|betaling(?:en)?\s+(?:van|voor|overgemaakt|gedaan)|betaalbewijs|(?:payment|remittance)\s+(?:advice|details|notification|specification|has\s+been\s+made|was\s+made|remitted|enclosed)|amount\s+(?:credited|paid|remitted)|avis\s+de\s+paiement|betaalinstructie)\b/i;
 
+// ───────────────────────── Phase 84 D-01 noise matchers ───────────────────
+//
+// Seven sender+subject (or sender+subject+body) anchored matchers placed
+// BEFORE the generic SUBJECT_AUTO_REPLY / SENDER_PAYMENT_ROLE branches per
+// RESEARCH Pitfall 2 (specificity-first). All patterns are anchored (^/$)
+// where appropriate with bounded quantifiers (\d{1,12}) to prevent
+// catastrophic backtracking (V5 ASVS / ReDoS guard).
+
+// Coupa-Betaald: anchored on `door ISS` ONLY per RESEARCH Open Q #2.
+// `door CBRE` / `betwist door ISS` MUST NOT match — disputes stay in Stage 3.
+const SUBJECT_COUPA_INVOICE_PAID =
+  /^Factuur\s+\d{1,12}\s+gemarkeerd\s+als\s+Betaald\s+door\s+ISS$/i;
+
+// Coupa-Goedgekeurd: anchored on `voor betaling door ISS` ONLY.
+// CBRE variant deferred (D-06 dispute risk per CONTEXT.md).
+const SUBJECT_COUPA_INVOICE_APPROVED =
+  /^Factuur\s+\d{1,12}\s+is\s+goedgekeurd\s+voor\s+betaling\s+door\s+ISS$/i;
+
+// ISS PtP auto-reply: sender-pinned to Invoice-PtP@nl.issworld.com PLUS
+// the Documenten-subject anchor. Subject-only "Automatisch antwoord:" must
+// fall through to the existing SUBJECT_AUTO_REPLY (Pitfall 2 boundary).
+const SENDER_ISS_PTP = /^Invoice-PtP@nl\.issworld\.com$/i;
+const SUBJECT_ISS_PTP_AUTOREPLY =
+  /^Automatisch\s+antwoord:\s+Documenten\s+n\.a\.v\./i;
+
+// FrieslandCampina portal reject: sender-pinned to Robbie.Robot bot.
+const SENDER_FRIESLANDCAMPINA = /^Robbie\.Robot@frieslandcampina\.com$/i;
+const SUBJECT_FC_CANDEX =
+  /^FINAL_REMINDER_Invoice\s+received\s+for\s+Candex\s+related\s+purchase\(s\)/i;
+
+// M365 quarantine: subject-based — the quarantine notice text is the anchor.
+// Sender varies per tenant (q2q@apexfire.ie, q2q@<tenant>.com) so subject
+// is the discriminator. Synthetic positive test asserts cross-tenant match.
+const SUBJECT_M365_QUARANTINE =
+  /Microsoft\s+365\s+security:\s+You\s+have\s+messages\s+in\s+quarantine/i;
+
+// Sender phishing notice: sender-pinned to melanie@rskinstallatie.nl PLUS
+// pishing/phishing/"niet openen" anchor (one-supplier-narrow per R-03).
+const SENDER_RSK_PHISHING = /^melanie@rskinstallatie\.nl$/i;
+const SUBJECT_PHISHING_NOTICE =
+  /(uitleg\s+pishing\s+mail|voorgaande\s+mail\s+niet\s+openen|p(?:h|)ishing\s+mail.*niet\s+openen)/i;
+
+// Supplier bank-change notification: sender-pinned to info@farmplus.nl PLUS
+// bank/IBAN change anchor in subject OR body (one-supplier-narrow today).
+const SENDER_FARMPLUS = /^info@farmplus\.nl$/i;
+const SUBJECT_OR_BODY_BANK_CHANGE =
+  /\b(IBAN|huisbankier|bankrekening|betaalgegevens)\b/i;
+
 // ─────────────────────────────────────────────────────────────── classify ──
 
 export function classify(input: ClassifyInput): ClassifyResult {
@@ -272,6 +332,90 @@ export function classify(input: ClassifyInput): ClassifyResult {
   // touch `[SPAM]`, but covering both is cheap and handles "RE: [SPAM] ...".
   if (/^\s*(?:(?:re|fw|fwd|tr|aw|sv|antw)\s*:\s*)*\[SPAM\]/i.test(subject)) {
     return { category: "spam", confidence: 0.99, matchedRule: "subject_spam_prefix" };
+  }
+
+  // ── Phase 84 D-01 noise matchers (specificity-first per Pitfall 2) ────────
+  // Placed AFTER subject_spam_prefix (upstream Exchange tag wins — see the
+  // m365_quarantine boundary test) and BEFORE subject_submission_rejected,
+  // subject_autoreply, subject_acknowledgement, subject_ticket_ref, and the
+  // SENDER_PAYMENT_ROLE branches. Each matcher combines a sender pin AND a
+  // subject (or subject/body) anchor unless the subject anchor alone is
+  // sufficiently discriminative (Coupa templates, M365 quarantine text).
+
+  if (SUBJECT_COUPA_INVOICE_PAID.test(normSubject)) {
+    // Anchored on `door ISS` only per RESEARCH Open Q #2 — `door CBRE` /
+    // `betwist` stay in Stage 3 for dispute visibility.
+    return {
+      category: "coupa_invoice_paid_notification",
+      confidence: 0.99,
+      matchedRule: "coupa_invoice_paid_notification",
+    };
+  }
+  if (SUBJECT_COUPA_INVOICE_APPROVED.test(normSubject)) {
+    // ISS-only; CBRE variant deferred (D-06 dispute risk).
+    return {
+      category: "coupa_invoice_approved_notification",
+      confidence: 0.99,
+      matchedRule: "coupa_invoice_approved_notification",
+    };
+  }
+  if (
+    SENDER_ISS_PTP.test(from) &&
+    SUBJECT_ISS_PTP_AUTOREPLY.test(normSubject)
+  ) {
+    // sender+subject AND — generic "Automatisch antwoord:" from other senders
+    // stays on the existing SUBJECT_AUTO_REPLY branch (Pitfall 2 boundary).
+    return {
+      category: "iss_ptp_autoreply",
+      confidence: 0.99,
+      matchedRule: "iss_ptp_autoreply",
+    };
+  }
+  if (
+    SENDER_FRIESLANDCAMPINA.test(from) &&
+    SUBJECT_FC_CANDEX.test(normSubject)
+  ) {
+    return {
+      category: "frieslandcampina_portal_reject",
+      confidence: 0.99,
+      matchedRule: "frieslandcampina_portal_reject",
+    };
+  }
+  if (SUBJECT_M365_QUARANTINE.test(normSubject)) {
+    // Subject-only discriminator: corpus shows the same exact phrase across
+    // tenants (apexfire.ie, example-tenant.com). The [SPAM] boundary test
+    // is already won by the subject_spam_prefix branch above.
+    return {
+      category: "m365_quarantine",
+      confidence: 0.99,
+      matchedRule: "m365_quarantine",
+    };
+  }
+  if (
+    SENDER_RSK_PHISHING.test(from) &&
+    SUBJECT_PHISHING_NOTICE.test(normSubject)
+  ) {
+    // Sender-pinned today (R-03 one-supplier-narrow). Broadens once corpus
+    // shows additional senders with the same vendor-warning template.
+    return {
+      category: "sender_phishing_notice",
+      confidence: 0.99,
+      matchedRule: "sender_phishing_notice",
+    };
+  }
+  if (
+    SENDER_FARMPLUS.test(from) &&
+    (SUBJECT_OR_BODY_BANK_CHANGE.test(normSubject) ||
+      SUBJECT_OR_BODY_BANK_CHANGE.test(body))
+  ) {
+    // Sender-pinned to FarmPlus today; IBAN/bank keywords on their own are
+    // not discriminative (legitimate AR can mention IBAN). The boundary test
+    // ("Mijn IBAN is gewijzigd" from klant@external.nl) MUST NOT match.
+    return {
+      category: "supplier_bank_change_notification",
+      confidence: 0.99,
+      matchedRule: "supplier_bank_change_notification",
+    };
   }
 
   // Vendor-system rejection van onze invoice-submission (bv. "Te veel PDF
