@@ -99,6 +99,14 @@ export const stage0SafetyWorker = inngest.createFunction(
       from?: string | null;
       fromName?: string | null;
       receivedAt?: string | null;
+      // Phase 84 D-03 — `direction` widened end-to-end so the Stage 1 worker
+      // can apply the own_outbound_invoice_loopback rule's direction='inbound'
+      // guard (R-02 spoofing mitigation). Optional today: ingest routes write
+      // `direction: 'inbound'` to email_pipeline.emails (debtor-email
+      // ingest/route.ts:236); when the event omits the field the Stage 1
+      // worker treats it as 'inbound' by default (every ingest path today is
+      // inbound — outbound forwards arrive via a separate sync stream).
+      direction?: "inbound" | "outbound" | null;
     };
 
     const {
@@ -113,6 +121,7 @@ export const stage0SafetyWorker = inngest.createFunction(
       from = null,
       fromName = null,
       receivedAt = null,
+      direction = null,
     } = data;
     const body = data.body_text ?? data.body ?? "";
     // Phase 74 D-01 — swarm_type is threaded from the ingest route via
@@ -162,6 +171,10 @@ export const stage0SafetyWorker = inngest.createFunction(
           from,
           fromName,
           receivedAt,
+          // Phase 84 D-03 — passthrough so Stage 1's loopback rule can apply
+          // the direction='inbound' guard. Operator-override re-emit preserves
+          // upstream direction (null falls back to inbound in the worker).
+          direction,
           safety_overridden: true,
         },
       };
@@ -299,6 +312,8 @@ export const stage0SafetyWorker = inngest.createFunction(
               from,
               fromName,
               receivedAt,
+              // Phase 84 D-03 — passthrough for Stage 1 loopback guard.
+              direction,
             },
           };
         }
