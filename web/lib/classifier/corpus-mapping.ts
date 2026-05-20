@@ -23,6 +23,22 @@ export const AGREEMENT_MAP: Record<Category, { categories: string[]; intents: st
   // Catch-all + hard-blocks. Never promotable; isAgreement always returns false.
   spam: { categories: [], intents: [] },
   unknown: { categories: [], intents: [] },
+  // Phase 84 D-01 — new noise categories. The 6,114-row LLM-judge corpus
+  // (Phase 60-08) predates these keys, so empty arrays force isAgreement
+  // false. Promotion for these rules runs via the D-05 corpus-evidence path
+  // (operator hand-confirm) + Wilson-CI on live shadow telemetry —
+  // classifier_rule_telemetry view aggregates agent_runs.rule_key directly
+  // without going through this AGREEMENT_MAP.
+  coupa_invoice_paid_notification: { categories: [], intents: [] },
+  coupa_invoice_approved_notification: { categories: [], intents: [] },
+  iss_ptp_autoreply: { categories: [], intents: [] },
+  frieslandcampina_portal_reject: { categories: [], intents: [] },
+  m365_quarantine: { categories: [], intents: [] },
+  sender_phishing_notice: { categories: [], intents: [] },
+  supplier_bank_change_notification: { categories: [], intents: [] },
+  // Phase 84 D-03 — worker-assigned; classify() never returns it. Listed for
+  // exhaustive Category narrowing.
+  own_outbound_invoice_loopback: { categories: [], intents: [] },
 };
 
 /**
