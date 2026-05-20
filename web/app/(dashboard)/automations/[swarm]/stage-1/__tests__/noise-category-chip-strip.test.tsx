@@ -1,4 +1,7 @@
 // Phase 81 Plan 03 Task 1 — RTL + URL-write test for noise-category chip strip.
+// Phase 88 Plan 03 — rewired to verdictPendingCount prop (was needsReviewCount
+// client-side aggregation over `topic !== "skip"`). Added zero-case + default
+// landing visual-active assertions per D-02c.
 //
 // Cases (per plan acceptance criteria):
 //   (a) Renders one chip per category + "Needs review" + Pending tail pill.
@@ -7,9 +10,13 @@
 //   (d) When activeSub === "pending", the Pending pill has aria-selected="true".
 //   (e) When categories === [], "Needs review" + Pending pill still render.
 //   (f) (file-level grep) source file contains NO references to `swarm_intents`.
+//   (g) Phase 88: verdictPendingCount=12 → badge "12" on Needs review chip.
+//   (h) Phase 88: verdictPendingCount=0 → Needs review chip still renders (no hide).
+//   (i) Phase 88 D-02c default landing — Needs review chip active when no
+//        ?topic / ?sub (verifies the default-landing visual-active state).
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -77,6 +84,7 @@ describe("NoiseCategoryChipStrip", () => {
         activeTopic="all"
         candidateCount={3}
         activeSub={null}
+        verdictPendingCount={5}
       />,
     );
     const tabs = screen.getAllByRole("tab");
@@ -103,6 +111,7 @@ describe("NoiseCategoryChipStrip", () => {
         activeTopic="all"
         candidateCount={3}
         activeSub={null}
+        verdictPendingCount={5}
       />,
     );
     fireEvent.click(screen.getByRole("tab", { name: /^Payment —/ }));
@@ -120,6 +129,7 @@ describe("NoiseCategoryChipStrip", () => {
         activeTopic="payment"
         candidateCount={3}
         activeSub={null}
+        verdictPendingCount={5}
       />,
     );
     fireEvent.click(screen.getByRole("tab", { name: /^Needs review —/ }));
@@ -137,6 +147,7 @@ describe("NoiseCategoryChipStrip", () => {
         activeTopic="all"
         candidateCount={3}
         activeSub="pending"
+        verdictPendingCount={5}
       />,
     );
     const pending = screen.getByRole("tab", { name: /Pending promotion/ });
@@ -154,6 +165,7 @@ describe("NoiseCategoryChipStrip", () => {
         activeTopic="all"
         candidateCount={0}
         activeSub={null}
+        verdictPendingCount={0}
       />,
     );
     const tabs = screen.getAllByRole("tab");
@@ -171,5 +183,66 @@ describe("NoiseCategoryChipStrip", () => {
       "utf8",
     );
     expect(src).not.toContain("swarm_intents");
+  });
+
+  it("(g) Phase 88: verdictPendingCount=12 → badge '12' on Needs review chip", () => {
+    render(
+      <NoiseCategoryChipStrip
+        categories={categories}
+        counts={counts}
+        activeTopic="all"
+        candidateCount={3}
+        activeSub={null}
+        verdictPendingCount={12}
+      />,
+    );
+    const needsReview = screen.getByRole("tab", { name: /^Needs review —/ });
+    // Badge sits inside the chip as a child span; assert the chip subtree
+    // contains the literal "12" — not the unrelated `count("payment", 12)`
+    // which renders on the Payment chip's badge.
+    expect(within(needsReview).getByText("12")).toBeInTheDocument();
+    // The aria-label also encodes the count ("Needs review — 12 rows").
+    expect(needsReview.getAttribute("aria-label")).toMatch(/Needs review — 12 rows/);
+  });
+
+  it("(h) Phase 88: verdictPendingCount=0 → Needs review chip still renders with badge 0", () => {
+    render(
+      <NoiseCategoryChipStrip
+        categories={categories}
+        counts={counts}
+        activeTopic="all"
+        candidateCount={3}
+        activeSub={null}
+        verdictPendingCount={0}
+      />,
+    );
+    const needsReview = screen.getByRole("tab", { name: /^Needs review —/ });
+    expect(needsReview).toBeInTheDocument();
+    expect(within(needsReview).getByText("0")).toBeInTheDocument();
+    expect(needsReview.getAttribute("aria-label")).toMatch(/Needs review — 0 rows/);
+  });
+
+  it("(i) Phase 88 D-02c default landing — Needs review chip active when no topic/sub", () => {
+    // Default-landing contract: activeTopic="all" + activeSub=null →
+    // Needs review chip is visually active (aria-selected="true"). Verifies
+    // the URL-less landing renders the chip in its highlighted state so
+    // operators see "you are looking at the verdict-pending bucket" without
+    // needing to click anything.
+    render(
+      <NoiseCategoryChipStrip
+        categories={categories}
+        counts={counts}
+        activeTopic="all"
+        candidateCount={3}
+        activeSub={null}
+        verdictPendingCount={7}
+      />,
+    );
+    const needsReview = screen.getByRole("tab", { name: /^Needs review —/ });
+    expect(needsReview.getAttribute("aria-selected")).toBe("true");
+    // No category chip should be active in the default landing.
+    expect(
+      screen.getByRole("tab", { name: /^Payment —/ }).getAttribute("aria-selected"),
+    ).toBe("false");
   });
 });

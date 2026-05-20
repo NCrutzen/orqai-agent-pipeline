@@ -51,6 +51,16 @@ interface NoiseCategoryChipStripProps {
   candidateCount: number;
   /** sp.sub ?? null — when "pending", the Pending pill is active. */
   activeSub: string | null;
+  /**
+   * Phase 88 D-02: server-computed verdict-pending count. Rows in
+   * automation_runs.status='predicted' for this swarm with no email_feedback
+   * row at stage=1. Sourced from the
+   * classifier_queue_verdict_pending(p_swarm_type) RPC. Replaces the prior
+   * client-side `topic !== 'skip'` aggregation — that summed all non-skip
+   * topics, which over-counted auto-handled rows the operator never
+   * needs to look at.
+   */
+  verdictPendingCount: number;
 }
 
 export function NoiseCategoryChipStrip({
@@ -59,6 +69,7 @@ export function NoiseCategoryChipStrip({
   activeTopic,
   candidateCount,
   activeSub,
+  verdictPendingCount,
 }: NoiseCategoryChipStripProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -79,18 +90,18 @@ export function NoiseCategoryChipStrip({
 
   // Aggregate per-topic counts. Entries with topic === null are not chip
   // badges (they're swarm-wide aggregates) — exclude them.
+  //
+  // Phase 88 D-02: the "Needs review" leftmost chip no longer aggregates
+  // non-skip topics here. It binds directly to the verdictPendingCount
+  // prop, which is sourced from the classifier_queue_verdict_pending RPC
+  // (anti-join on email_feedback at stage=1). The old client-side sum
+  // over-counted auto-handled rows.
   const countByTopic = new Map<string, number>();
-  let needsReviewCount = 0;
-  for (const c of counts) {
+  counts.forEach((c) => {
     if (c.topic !== null) {
       countByTopic.set(c.topic, (countByTopic.get(c.topic) ?? 0) + c.count);
     }
-    // H-05: classifier_queue_counts already filters status='predicted',
-    // so auto-handled + overridden rows are excluded at the RPC layer.
-    // Only exclude `topic === "skip"` here (label-only noise the operator
-    // considers handled).
-    if (c.topic !== "skip") needsReviewCount += c.count;
-  }
+  });
 
   const allActive = activeTopic === "all" && !activeSub;
   const pendingHref = (() => {
@@ -104,7 +115,7 @@ export function NoiseCategoryChipStrip({
   // Phase 82 Plan 06: chip data → `_shell/ChipStrip`. The wrapper retains the
   // URL contract (navigate() above) and the tail Pending Promotion Link pill.
   const chipStripChips: ChipStripChip[] = [
-    { key: "all", label: "Needs review", count: needsReviewCount },
+    { key: "all", label: "Needs review", count: verdictPendingCount },
     ...categories.map((cat) => ({
       key: cat.category_key,
       label: cat.display_label,
