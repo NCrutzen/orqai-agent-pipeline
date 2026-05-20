@@ -1328,6 +1328,26 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
+### Phase 89: Stage 1 LLM 2nd-pass auto-action promotion track
+**Goal**: Every LLM 2nd-pass noise verdict carries a `llm:{category_key}:{confidence}` `rule_key` so the existing Wilson-CI promotion pipeline can promote high-confidence LLM rules to `auto_active`, letting `classifier-screen-worker`'s whitelist gate auto-archive LLM-classified noise instead of routing it to bulk-review.
+**Depends on**: none (independent of 83-88); benefits from Phase 84 landing first (more regex-rule baseline data), but does not block
+**Requirements**: TBD
+**Success Criteria** (what must be TRUE):
+  1. `classifier_rules` carries `llm:*:high` rows for every active `(swarm × noise_category)` combination (eager seed via Inngest one-shot, idempotent ON CONFLICT)
+  2. `classifier-screen-worker` LLM path writes `agent_runs.rule_key = "llm:" + category_key + ":" + confidence` and Stage-1 review UI threads the same key into `recordVerdict`
+  3. Historic LLM verdicts are backfilled with the new `rule_key` (idempotent migration; `human_verdict` is NOT retro-stamped) so a Wilson-CI shadow run on 30 days of corpus data identifies ≥1 promotable `llm:*:high` rule_key
+  4. After a `llm:*:high` rule_key is promoted, an LLM verdict of the matching category+confidence on debtor-email produces an `automation_runs` row with `triggered_by='stage-1-worker'` and `result.stage='categorize+archive'`
+  5. No changes to `classifier_rule_telemetry`, the promotion cron, or the debtor-only auto-action dispatch gate (`stage1_regex_module === DEBTOR_REGEX_MODULE_KEY`) — the LLM path slots into the existing mechanism
+**Plans**: 7 plans
+- [ ] 089-01-PLAN.md — Wave 0 probe: verify automation_runs.rule_key state + decision_details field paths
+- [ ] 089-02-PLAN.md — classifier-screen-worker.ts: rule_key inserts + effectiveMatchedRule + tests
+- [ ] 089-03-PLAN.md — classifier-llm-rules-seed Inngest one-shot + test + registration
+- [ ] 089-04-PLAN.md — supabase migration: historic rule_key backfill (idempotent)
+- [ ] 089-05-PLAN.md — Stage-1 RSC row-loader synthesizes ruleKey for LLM rows + threads into recordVerdict
+- [ ] 089-06-PLAN.md — [BLOCKING] supabase db push + idempotency + human_verdict safety verification
+- [ ] 089-07-PLAN.md — shadow-eval harness + seed fire + SC-89-05 git diff + SC-89-04 UAT runbook
+**UI hint**: no
+
 ## Progress
 
 **Execution Order:**
