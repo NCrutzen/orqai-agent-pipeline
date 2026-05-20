@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
-status: Phase 83 closed; v8.0 punch list awaits 82.9 + 999.8
-stopped_at: Phase 83 closed 2026-05-19 (V1/V2 PASS within noise-floor; V3/V4 PARTIAL pending live traffic)
-last_updated: "2026-05-19T18:25:00.000Z"
+status: Executing Phase 82.9
+stopped_at: Phase 82.9 context gathered
+last_updated: "2026-05-20T04:11:00.948Z"
 progress:
   total_phases: 21
   completed_phases: 12
@@ -20,13 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 83 CLOSED 2026-05-19. v8.0 closure waits on 82.9 (parallel session, in-flight) and 999.8 (operator UAT). Next gating action: `/gsd-audit-milestone v8.0` once 82.9 ships and 999.8 UAT lands (or operator chooses to defer 999.8 to v8.1).
+**Current focus:** Phase 82.9 — Stage 2 audit-panel evidence expansion
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 83 (body-ingestion-capture-full-thread-on-forwards-and-replies) — COMPLETE
-Plan: 8 of 8 + hot-fix delta (3 extra commits: ed33b8e, baad2af, 0e03e09)
+Phase: 82.9 (Stage 2 audit-panel evidence expansion) — EXECUTING
+Plan: 1 of 4
 Next phase: `/gsd-audit-milestone v8.0` (gated on 82.9 closure + 999.8 UAT)
 Milestone: v8.0 Agentic Platform (Phases 63-82.8, 83)
 Last shipped: Phase 83 (2026-05-19) — body_full_text + body_unique_text columns; conversation_context table; ingest writers + Stage 1/3 readers wired; 30-day backfill ran (1344 priors written); verify-phase83 harness shipped; V1 PASS, V2 PASS-with-noise-floor, V3/V4 PARTIAL pending live traffic. Pre-this: Phase 82.8 (2026-05-18) Stage 4 three-section overview + Stage 1 before/after screenshot strip.

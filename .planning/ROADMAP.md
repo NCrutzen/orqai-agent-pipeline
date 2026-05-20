@@ -788,7 +788,7 @@ Plans:
 - [x] 82.9-03: Audit-types + mapper + vitest extension (Stage2AuditPayload discriminated union, exhaustive method switch, legacy fallback)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 82.9-04: Stage2EvidencePanel.tsx rewrite (INPUTS / REASONING / CANDIDATES sections mirroring Stage3EvidencePanel)
+- [x] 82.9-04: Stage2EvidencePanel.tsx rewrite (INPUTS / REASONING / CANDIDATES sections mirroring Stage3EvidencePanel)
 
 ### Phase 81.1: v7 token gap fix — add missing --space-N scale + v7-text-muted/v7-border aliases (INSERTED) ✓ closed 2026-05-11
 
