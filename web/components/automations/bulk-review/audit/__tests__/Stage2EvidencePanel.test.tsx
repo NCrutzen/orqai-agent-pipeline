@@ -113,3 +113,220 @@ describe("Stage2EvidencePanel", () => {
     expect(screen.getByTestId("stage2-raw-json-slot")).toBeTruthy();
   });
 });
+
+// Phase 82.9 — evidence expansion fixtures (D-01 discriminated inputs + D-03
+// rich candidates + D-04 legacy fallback). Mirrors Stage3 panel coverage.
+
+// Phase 82.9
+const fixtureThreadInheritance: Stage2AuditPayload = {
+  stage: 2,
+  identifier_source: "thread",
+  confidence: "high",
+  top_candidates: [],
+  screenshot_paths: { before: null, after: null },
+  raw: {},
+  inputs: {
+    kind: "thread_inheritance",
+    prior_email_label_id: "label-abc-123",
+    conversation_id: "conv-xyz-789",
+  },
+  candidates: undefined,
+  reasoning: null,
+};
+
+// Phase 82.9
+const fixtureSenderMatch: Stage2AuditPayload = {
+  stage: 2,
+  identifier_source: "sender",
+  confidence: "high",
+  top_candidates: [],
+  screenshot_paths: { before: null, after: null },
+  raw: {},
+  inputs: {
+    kind: "sender_match",
+    sender_email: "billing@acme-bv.example",
+    candidates: [
+      {
+        id: "ACC-100",
+        name: "Acme BV",
+        contact_person: "Jane Operator",
+        recent_invoices: ["INV-2026-001", "INV-2026-002"],
+      },
+    ],
+  },
+  candidates: [
+    {
+      id: "ACC-100",
+      name: "Acme BV",
+      contact_person: "Jane Operator",
+      recent_invoices: ["INV-2026-001", "INV-2026-002"],
+    },
+  ],
+  reasoning: null,
+};
+
+// Phase 82.9
+const fixtureIdentifierMatch: Stage2AuditPayload = {
+  stage: 2,
+  identifier_source: "identifier",
+  confidence: "high",
+  top_candidates: [],
+  screenshot_paths: { before: null, after: null },
+  raw: {},
+  inputs: {
+    kind: "identifier_match",
+    matched_identifiers: ["INV-2026-555", "INV-2026-556"],
+    candidates: [
+      {
+        id: "ACC-200",
+        name: "Beta NV",
+        contact_person: null,
+        recent_invoices: [],
+      },
+    ],
+  },
+  candidates: [
+    {
+      id: "ACC-200",
+      name: "Beta NV",
+      contact_person: null,
+      recent_invoices: [],
+    },
+  ],
+  reasoning: null,
+};
+
+// Phase 82.9
+const fixtureLlmTiebreaker: Stage2AuditPayload = {
+  stage: 2,
+  identifier_source: "identifier",
+  confidence: "medium",
+  top_candidates: [],
+  screenshot_paths: { before: null, after: null },
+  raw: {},
+  inputs: {
+    kind: "llm_tiebreaker",
+    sender_email: "finance@gamma.example",
+    matched_identifiers: ["INV-2026-999"],
+    candidates: [
+      {
+        id: "ACC-300",
+        name: "Gamma Ltd",
+        contact_person: "Chris Contact",
+        recent_invoices: ["INV-2026-999"],
+      },
+      {
+        id: "ACC-301",
+        name: "Gamma Holding",
+        contact_person: null,
+        recent_invoices: [],
+      },
+    ],
+    llm_reason: "Best match — closest brand.",
+  },
+  candidates: [
+    {
+      id: "ACC-300",
+      name: "Gamma Ltd",
+      contact_person: "Chris Contact",
+      recent_invoices: ["INV-2026-999"],
+    },
+    {
+      id: "ACC-301",
+      name: "Gamma Holding",
+      contact_person: null,
+      recent_invoices: [],
+    },
+  ],
+  reasoning: "Best match — closest brand.",
+};
+
+// Phase 82.9
+const fixtureUnresolved: Stage2AuditPayload = {
+  stage: 2,
+  identifier_source: "unresolved",
+  confidence: "low",
+  top_candidates: [],
+  screenshot_paths: { before: null, after: null },
+  raw: {},
+  inputs: {
+    kind: "unresolved",
+    sender_email: "unknown@nowhere.example",
+    matched_identifiers: [],
+  },
+  candidates: undefined,
+  reasoning: null,
+};
+
+// Phase 82.9
+const fixtureLegacy: Stage2AuditPayload = {
+  stage: 2,
+  identifier_source: "thread",
+  confidence: "high",
+  top_candidates: [
+    { account_id: "ACC-LEGACY-1", name: "Legacy Customer", score: 0.8 },
+  ],
+  screenshot_paths: { before: null, after: null },
+  raw: {},
+  inputs: null,
+  candidates: undefined,
+  reasoning: null,
+};
+
+describe("Stage2EvidencePanel — Phase 82.9 evidence expansion", () => {
+  it("thread_inheritance renders prior_email_label_id + conversation_id, no REASONING", () => {
+    render(<Stage2EvidencePanel payload={fixtureThreadInheritance} />);
+    expect(screen.getByText("label-abc-123")).toBeTruthy();
+    expect(screen.getByText("conv-xyz-789")).toBeTruthy();
+    expect(screen.queryByText("REASONING")).toBeNull();
+    expect(screen.queryByTestId("stage2-reasoning")).toBeNull();
+  });
+
+  it("sender_match renders sender_email + candidate contact_person + recent invoice, no REASONING", () => {
+    render(<Stage2EvidencePanel payload={fixtureSenderMatch} />);
+    expect(screen.getByText("billing@acme-bv.example")).toBeTruthy();
+    expect(screen.getByText(/Jane Operator/)).toBeTruthy();
+    expect(screen.getByText("INV-2026-001")).toBeTruthy();
+    expect(screen.queryByText("REASONING")).toBeNull();
+  });
+
+  it("identifier_match renders both matched_identifier chips, no REASONING", () => {
+    render(<Stage2EvidencePanel payload={fixtureIdentifierMatch} />);
+    expect(screen.getByText("INV-2026-555")).toBeTruthy();
+    expect(screen.getByText("INV-2026-556")).toBeTruthy();
+    expect(screen.queryByText("REASONING")).toBeNull();
+  });
+
+  it("llm_tiebreaker renders REASONING body + matched_identifiers + candidate contact_person", () => {
+    render(<Stage2EvidencePanel payload={fixtureLlmTiebreaker} />);
+    expect(screen.getByText("REASONING")).toBeTruthy();
+    expect(screen.getByTestId("stage2-reasoning")).toBeTruthy();
+    expect(screen.getByText("Best match — closest brand.")).toBeTruthy();
+    // INV-2026-999 appears twice: once in INPUTS matched_identifiers chip,
+    // once in CANDIDATES recent_invoices chip. Assert at least one match.
+    expect(screen.getAllByText("INV-2026-999").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/Chris Contact/)).toBeTruthy();
+  });
+
+  it("unresolved renders sender_email + empty matched_identifiers, no REASONING, no candidates", () => {
+    render(<Stage2EvidencePanel payload={fixtureUnresolved} />);
+    expect(screen.getByText("INPUTS")).toBeTruthy();
+    expect(screen.getByText("unknown@nowhere.example")).toBeTruthy();
+    expect(screen.queryByText("REASONING")).toBeNull();
+    // CANDIDATES section skipped on unresolved (matches existing UI contract).
+    expect(screen.queryByTestId("stage2-candidates-list")).toBeNull();
+  });
+
+  it("legacy row renders muted 'Legacy run — limited evidence captured.' line + preserves EVIDENCE chips + slim candidate fallback", () => {
+    render(<Stage2EvidencePanel payload={fixtureLegacy} />);
+    expect(
+      screen.getByText("Legacy run — limited evidence captured."),
+    ).toBeTruthy();
+    // EVIDENCE chips preserved (Pitfall 4 back-compat).
+    expect(screen.getByText("thread")).toBeTruthy();
+    expect(screen.getByText("high")).toBeTruthy();
+    // Slim top_candidates fallback rendered under CANDIDATES.
+    expect(screen.getByText(/ACC-LEGACY-1/)).toBeTruthy();
+    expect(screen.getByText(/Legacy Customer/)).toBeTruthy();
+  });
+});
