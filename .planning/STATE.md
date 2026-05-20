@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
 status: Ready to execute
-stopped_at: Phase 82.9 context gathered
-last_updated: "2026-05-20T05:48:42.171Z"
+stopped_at: Phase 089 executed (code-side); operator checkpoints pending
+last_updated: "2026-05-20T09:00:00.000Z"
 progress:
   total_phases: 21
   completed_phases: 12
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 82.9 CLOSED 2026-05-20 (code-side). All 4 plans landed: Zod extension (01), resolver+writer discriminated `inputs` (02), audit-types+mapper (03), Stage2EvidencePanel UI rewrite (04). Two human-action checkpoints documented: Zap edit + prod migration apply (01-T3) and panel visual UAT (04-T3). v8.0 closure now waits only on 999.8 operator UAT, then `/gsd-audit-milestone v8.0`.
+**Current focus:** Phase 089 CLOSED 2026-05-20 (code-side). 7/7 plans landed across 4 waves: Wave 0 probe (01) surfaced that `automation_runs.rule_key` column does not exist → DECISION-01=NO routed LLM threading exclusively through `agent_runs.rule_key` + Stage 1 page.tsx form payload. Wave 1 worker rule_key writes (02), Inngest seed function (03), backfill migration SQL (04), page.tsx ruleKey synth (05). Wave 2 backfill applied to live Supabase (06) — 839 rows (456 debtor + 383 sales). Wave 3 shadow-eval harness + automated SC-89-05 git-diff gate (07). Acceptance: SC-89-01/02/05 PASS, SC-89-03 pending operator retro-review (all 839 backfilled rows have human_verdict=NULL), SC-89-04 deferred per CONTEXT D-02 (mutate flag flip is operator runbook). v8.0 punch list still gates on 999.8 operator UAT.
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 82.9 (Stage 2 audit-panel evidence expansion) — COMPLETE (code-side); operator checkpoints pending
-Plan: 4 of 4 + VERIFICATION.md
-Next phase: `/gsd-audit-milestone v8.0` (gated on 82.9 closure + 999.8 UAT)
+Phase: 089 (Stage 1 LLM 2nd-pass auto-action promotion track) — COMPLETE (code-side); operator checkpoints pending (SC-89-03 retro-review, SC-89-04 mutate-flag flip)
+Plan: 7 of 7 + SHADOW-REPORT.md
+Next phase: `/gsd-audit-milestone v8.0` (gated on 999.8 UAT + Phase 089 SC-89-03/04 operator actions)
 Milestone: v8.0 Agentic Platform (Phases 63-82.8, 83)
 Last shipped: Phase 83 (2026-05-19) — body_full_text + body_unique_text columns; conversation_context table; ingest writers + Stage 1/3 readers wired; 30-day backfill ran (1344 priors written); verify-phase83 harness shipped; V1 PASS, V2 PASS-with-noise-floor, V3/V4 PARTIAL pending live traffic. Pre-this: Phase 82.8 (2026-05-18) Stage 4 three-section overview + Stage 1 before/after screenshot strip.
 
@@ -39,6 +39,7 @@ Last shipped: Phase 83 (2026-05-19) — body_full_text + body_unique_text column
 - [x] Phase 82.8: Stage 4 handled overview + Stage 1 before/after screenshots — SHIPPED
 - [x] Phase 83: Body ingestion — capture full thread on forwards and replies — SHIPPED 2026-05-19 (1344 priors backfilled; V1/V2 green within noise-floor; V3/V4 PARTIAL pending live traffic — see 83-07-VERIFICATION.md)
 - [x] Phase 82.9: Stage 2 audit-panel evidence expansion — SHIPPED 2026-05-20 (4/4 plans, 50/50 tests green; 2 human-action checkpoints documented: Zap UI edit + prod migration apply, panel visual UAT)
+- [x] Phase 089: Stage 1 LLM 2nd-pass auto-action promotion track — SHIPPED 2026-05-20 (7/7 plans across 4 waves; 839 rows backfilled live; SC-89-01/02/05 PASS; SC-89-03 pending operator retro-review; SC-89-04 mutate-flag UAT runbook documented). Latent defect surfaced: `automation_runs.rule_key` column missing → out-of-scope followup filed.
 - [ ] Phase 999.8: 2 outstanding browser smokes — operator UAT pending
 
 **v8.0 reframes (locked 2026-05-12):**
