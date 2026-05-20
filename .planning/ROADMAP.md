@@ -119,6 +119,12 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 - [ ] **Phase 86: Open-set intent discovery** — persists `intent_proposal` in `coordinator_runs.ranked_intents` JSONB; `intent_proposals_v1` view; new Bulk Review "Intent proposals" tab with weekly Levenshtein clusters. Read-only — no promotion button (V9.0 owns Learning Inbox). Cross-swarm by default. **Depends on 85.**
 - [ ] **Phase 87: Retro-classification + intent-volume baseline** — re-runs V3 Stage 3 agent against 30-90 days of corpus (read from Supabase, idempotent); `stage_3_retro_runs` + `intent_volume_baselines` tables; V8.2/V9.0/V11.0 read this. **Depends on 83+84+85+86 all live.**
 - [ ] **Phase 88: Review-surface cleanup** — three operator-confusion items on the unified `_shell/`: (D-01) override + note flow consolidation on Stages 0/2/3; (D-02) Stage 1 "Needs review" chip semantics rename + verdict-based "Pending my review" chip; (D-03) Stage 4 layout parity with Stage 1/2/3 chip-strip pattern + detail-pane width regression fix. Pure frontend. **Independent of 83-87.**
+  **Plans:** 4 plans
+  Plans:
+  - [ ] 88-01-PLAN.md — Wave 0 pre-flight: RPC column shape verify + needs_action deeplink grep + in-browser detail-pane width repro
+  - [ ] 88-02-PLAN.md — Wave 1: D-01 wire Stage 2 + Stage 3 override widgets (fused note+override + cancel-override) into _shell/detail-pane
+  - [ ] 88-03-PLAN.md — Wave 1: D-02 verdict-pending RPC + chip semantics rewire + NeedsActionChip + ?needs_action URL deletion
+  - [ ] 88-04-PLAN.md — Wave 2: D-03 Stage 4 chip-strip swap (4 outcome-state chips) + conditional width-regression fix per Wave 0 Q3
 - [ ] **Phase 88.1: Stage-named Inngest functions + Stage 2 telemetry alignment** — rename `classifier-label-resolver` → `stage-2-customer-resolver`, `debtor-email-icontroller-tagger` → `stage-2-icontroller-label-applier`, `debtor-email-icontroller-cleanup-worker` → `stage-1-icontroller-noise-cleanup`. Lock tagger as Stage 2. Higher blast radius — own deploy window. Could slip to V9 if v8.1 calendar tightens.
 - [ ] `/gsd-audit-milestone v8.1` — formal closure after Phases 87 + 88 (+ 88.1 if not slipped) pass.
 
