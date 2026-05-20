@@ -51,3 +51,41 @@ $ bash .git/hooks/pre-push
 [pre-push] Running Supabase advisor check...
 Supabase advisor: 0 ERROR, 3 WARN, 23 INFO. OK.
 ```
+
+## Post-migration impact audit
+
+Question we asked after applying both migrations: *did anything in the codebase break?*
+Method: enumerate every Supabase write call (`.insert/.update/.upsert/.delete/.rpc`), classify by client role, then live-check service-role grants against the touched tables/functions. Cross-checked with live REST smoke (service-role positive + anon-key negative).
+
+### Write call sites — codebase-wide
+249 write call sites across 99 unique files.
+
+| Bucket | Files | Verdict |
+|---|---|---|
+| `createAdminClient` (service role) | 67 | Bypasses RLS — unaffected. |
+| Raw `@supabase/supabase-js` with `serviceKey`/`SUPABASE_SERVICE_KEY` | 19 | Confirmed service-role key in every file. |
+| Server client (authenticated session) | 0 | None. |
+| Browser client (authenticated session) | 2 | `run-detail-client.tsx` reads only (the `.delete` is `URL.searchParams.delete`, not Supabase); `create-project-modal.tsx` inserts into `projects` under the unchanged `auth.uid() = created_by` policy. |
+| "Other" (no Supabase client) | 11 | 10 are React state setters / URL API; 1 is `crypto.ts` using Node's cipher `.update()`. Zero Supabase writes. |
+
+### Inngest deep-dive (36 functions)
+
+| Bucket | Count |
+|---|---|
+| `createAdminClient` | 34 |
+| No Supabase access (`browserless-keepalive.ts`, `debtor-email-bridge.ts`) | 2 |
+| Anon / authenticated | 0 |
+
+RPCs called by Inngest (3 unique), live-checked for `service_role` EXECUTE:
+- `coordinator_complete_handler(uuid, boolean)` — ✅ EXECUTE
+- `stage0_backfill_candidates(integer)` — ✅ EXECUTE
+- `stage0_coverage_24h(text, text)` — ✅ EXECUTE
+
+Tables written by Inngest (31 unique across `public, debtor, email_pipeline`): live-checked — `service_role` has `INSERT + UPDATE + DELETE = true` on every one, including the two newly RLS-locked tables (`email_pipeline.conversation_context`, `public.dashboard_snapshots`).
+
+### Live REST smoke
+- Service role: 200 OK with rows on every touched surface (`sales.kb_chunks`, `email_pipeline.conversation_context`, `learnings`, `dashboard_snapshots`, `classifier_rule_telemetry` view).
+- Anon key on the same surfaces: 200 `[]` (RLS-denied) or 401 (grant-denied). Anon INSERT into `learnings` — previously allowed by the dropped `qual=true` policy — now `401 permission denied for table`.
+
+### Verdict
+**No write path in the codebase is broken.** All backend writes go through service-role clients (RLS bypass, full write grants). The two authenticated-client writes target tables whose policies were not modified. Zero anon writers existed before or after.
