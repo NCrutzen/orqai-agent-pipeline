@@ -1010,3 +1010,200 @@ describe("Phase 999.4 — Classifier screen worker — deadline triggers existin
     );
   });
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+// Phase 84 D-03 — own_outbound_invoice_loopback (worker-level rule).
+//
+// The loopback rule lives in the SCREEN WORKER (not classify.ts) because the
+// regex module signature carries no `from`/`direction` today (PATTERNS.md
+// Pitfall 3 / RESEARCH §336-351). The worker reads swarmRow.tenant_domains
+// after the regex pass returns 'unknown', applies a direction='inbound' guard
+// (D-03 / R-02 spoofing mitigation), and sets the verdict accordingly.
+//
+// RED today: the worker has no loopback branch. Wave 2 (84-03) wires it.
+// The event payload extension (`direction` field) and `swarms.tenant_domains`
+// column-add are owned by Wave 1.
+// ───────────────────────────────────────────────────────────────────────────
+
+const FIRE_CONTROL_SWARM_ROW = {
+  ...DEBTOR_SWARM_ROW,
+  // Phase 84 D-03 — tenant_domains added by Wave 1 migration. The worker
+  // test fixture pre-empts the column so Wave 2's loopback branch reads it.
+  tenant_domains: ["fire-control.nl"],
+};
+
+const loopbackEvent = (
+  overrides: Partial<{
+    from: string;
+    direction: string;
+    source_mailbox: string;
+  }> = {},
+) => ({
+  id: "evt-loopback-1",
+  name: "classifier/screen.requested",
+  data: {
+    automation_run_id: "ar-loopback-1",
+    email_id: "email-loopback-1",
+    message_id: "msg-loopback-1",
+    source_mailbox: overrides.source_mailbox ?? "administratie@fire-control.nl",
+    subject: "Invoice 25122522",
+    body_text: "",
+    body_full_text: null,
+    swarm_type: "debtor-email",
+    entity: "fire-control",
+    mailbox_id: 12,
+    from: overrides.from ?? "administratie@fire-control.nl",
+    fromName: "Administratie",
+    receivedAt: "2026-05-12T08:00:00Z",
+    // Phase 84 D-03 — event widening (Open Q #1 resolution: event-widening
+    // chosen over per-call DB lookup). Wave 2 must thread this through from
+    // stage-0-safety-worker.ts. Tests pre-empt the field.
+    direction: overrides.direction ?? "inbound",
+  },
+});
+
+describe("Phase 84 D-03 — own_outbound_invoice_loopback (worker-level rule, Pitfall 1: noise-only)", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    agentRunsInserts.length = 0;
+    automationRunsInserts.length = 0;
+    labelingSettingsRow = null;
+    adminMock = makeAdminMock();
+    loadSwarmMock.mockReset();
+    loadSwarmNoiseCategoriesMock.mockReset();
+    emitPipelineEventMock.mockReset();
+    emitPipelineEventMock.mockResolvedValue(undefined);
+    invokeOrqAgentMock.mockReset();
+    // Default: LLM 2nd-pass returns 'unknown' so any fallthrough doesn't
+    // accidentally produce a different positive verdict.
+    invokeOrqAgentMock.mockResolvedValue({
+      raw: { category_key: "unknown", confidence: "high", reasoning: null },
+      agent: { agent_key: "stage-1-category-classifier" },
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      billing: { total_cost: 0 },
+      cost_cents: 0,
+    });
+    classifyMock.mockReset();
+    // Regex Pass 1 returns 'unknown' so the loopback branch can fire.
+    classifyMock.mockReturnValue({
+      category: "unknown",
+      confidence: 0,
+      matchedRule: null,
+    });
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    readWhitelistMock.mockReset();
+    readWhitelistMock.mockResolvedValue(new Set<string>());
+    categorizeEmailMock.mockReset();
+    categorizeEmailMock.mockResolvedValue({ success: true, error: null });
+    archiveEmailMock.mockReset();
+    archiveEmailMock.mockResolvedValue({ success: true, error: null });
+    getMessageMetaMock.mockReset();
+    getMessageMetaMock.mockResolvedValue({
+      subject: "",
+      from: "",
+      fromName: "",
+      receivedAt: "",
+      categories: [] as string[],
+    });
+    emitAutomationRunStaleMock.mockReset();
+    emitAutomationRunStaleMock.mockResolvedValue(undefined);
+    vi.resetModules();
+    const mod = await import("../classifier-screen-worker");
+    handler = (
+      mod.classifierScreenWorker as unknown as {
+        handler: typeof handler;
+      }
+    ).handler;
+  });
+
+  it("positive: tenant-domain inbound from administratie@fire-control.nl → own_outbound_invoice_loopback", async () => {
+    loadSwarmMock.mockResolvedValue(FIRE_CONTROL_SWARM_ROW);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
+
+    const cache: StepCache = new Map();
+    await handler({ event: loopbackEvent(), step: makeStepStub(cache) });
+
+    expect(inngestSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "classifier/verdict.recorded",
+        data: expect.objectContaining({
+          predicted_category: "own_outbound_invoice_loopback",
+        }),
+      }),
+    );
+  });
+
+  it("negative (D-03 direction guard): direction='outbound' MUST NOT trigger loopback", async () => {
+    // R-02 / D-03: a `from` that matches a tenant domain but with
+    // direction='outbound' is MR sending its own invoice — never a loopback.
+    loadSwarmMock.mockResolvedValue(FIRE_CONTROL_SWARM_ROW);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
+
+    const cache: StepCache = new Map();
+    await handler({
+      event: loopbackEvent({ direction: "outbound" }),
+      step: makeStepStub(cache),
+    });
+
+    expect(inngestSend).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          predicted_category: "own_outbound_invoice_loopback",
+        }),
+      }),
+    );
+  });
+
+  it("negative (Pitfall 3 spoofing): external sender claiming tenant domain MUST NOT trigger loopback", async () => {
+    // The direction='inbound' guard exists specifically because a spoofed
+    // external email could carry from='admin@fire-control.nl' on the wire.
+    // We test that even with direction=inbound, an external sender from a
+    // non-tenant domain does NOT trigger the loopback rule.
+    loadSwarmMock.mockResolvedValue(FIRE_CONTROL_SWARM_ROW);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
+
+    const cache: StepCache = new Map();
+    await handler({
+      event: loopbackEvent({
+        from: "customer@external.example",
+        direction: "inbound",
+      }),
+      step: makeStepStub(cache),
+    });
+
+    expect(inngestSend).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          predicted_category: "own_outbound_invoice_loopback",
+        }),
+      }),
+    );
+  });
+
+  it("negative (no tenant_domains): empty tenant_domains MUST NOT trigger loopback", async () => {
+    // R-05 / D-03 default: a swarm without populated tenant_domains stays
+    // safe — the loopback rule silently never fires for that swarm.
+    loadSwarmMock.mockResolvedValue({
+      ...FIRE_CONTROL_SWARM_ROW,
+      tenant_domains: [],
+    });
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
+
+    const cache: StepCache = new Map();
+    await handler({
+      event: loopbackEvent({ from: "administratie@fire-control.nl" }),
+      step: makeStepStub(cache),
+    });
+
+    expect(inngestSend).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          predicted_category: "own_outbound_invoice_loopback",
+        }),
+      }),
+    );
+  });
+});
