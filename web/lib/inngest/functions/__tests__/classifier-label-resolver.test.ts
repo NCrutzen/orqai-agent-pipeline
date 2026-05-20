@@ -551,6 +551,225 @@ describe("Phase 68 — registry-driven Stage-2 dispatch", () => {
   });
 });
 
+// Phase 82.9 (Plan 02) — Stage 2 decision_details.inputs persistence.
+// Verifies the writer passes the discriminated `inputs` field through on the
+// success path and OMITS it on the resolver-error path (D-04 legacy fallback).
+describe("Stage 2 decision_details — Phase 82.9", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  async function loadHandler(): Promise<{
+    handler: typeof handler;
+    captures: ReturnType<typeof makeAdminMock>["__captures"];
+  }> {
+    vi.clearAllMocks();
+    adminMock = makeAdminMock();
+    resolveDebtorMock.mockReset();
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../classifier-label-resolver");
+    return {
+      handler: (mod.classifierLabelResolver as unknown as {
+        handler: typeof handler;
+      }).handler,
+      captures: (adminMock as unknown as {
+        __captures: ReturnType<typeof makeAdminMock>["__captures"];
+      }).__captures,
+    };
+  }
+
+  function findStage2PipelineEvent(
+    captures: ReturnType<typeof makeAdminMock>["__captures"],
+  ) {
+    return captures.supabaseInserts.find(
+      (i) =>
+        i.table === "pipeline_events" &&
+        (i.payload as { stage?: number }).stage === 2,
+    );
+  }
+
+  it("thread_inheritance success → decision_details.inputs.kind = 'thread_inheritance'", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "thread_inheritance",
+      customer_account_id: "cust-99",
+      customer_name: "Klant Holding",
+      confidence: "high",
+      candidates_considered: undefined,
+      inputs: {
+        kind: "thread_inheritance",
+        prior_email_label_id: "label-prev-uuid",
+        conversation_id: "conv-1",
+      },
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const pe = findStage2PipelineEvent(captures);
+    expect(pe).toBeTruthy();
+    expect(pe!.payload).toMatchObject({
+      decision_details: expect.objectContaining({
+        inputs: expect.objectContaining({
+          kind: "thread_inheritance",
+          prior_email_label_id: "label-prev-uuid",
+          conversation_id: "conv-1",
+        }),
+      }),
+    });
+  });
+
+  it("sender_match success → decision_details.inputs.kind = 'sender_match'", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "sender_match",
+      customer_account_id: "cust-123",
+      customer_name: "Klant BV",
+      confidence: "high",
+      candidates_considered: 1,
+      inputs: {
+        kind: "sender_match",
+        sender_email: "klant@example.com",
+        candidates: [
+          {
+            id: "cust-123",
+            name: "Klant BV",
+            contact_person: "Jan",
+            recent_invoices: ["INV-1"],
+          },
+        ],
+      },
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const pe = findStage2PipelineEvent(captures);
+    expect(pe).toBeTruthy();
+    expect(pe!.payload).toMatchObject({
+      decision_details: expect.objectContaining({
+        method: "sender_match",
+        customer_account_id: "cust-123",
+        inputs: expect.objectContaining({
+          kind: "sender_match",
+          sender_email: "klant@example.com",
+        }),
+      }),
+    });
+  });
+
+  it("identifier_match success → decision_details.inputs.kind = 'identifier_match'", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "identifier_match",
+      customer_account_id: "cust-777",
+      customer_name: "Identifier Klant",
+      confidence: "high",
+      candidates_considered: 1,
+      inputs: {
+        kind: "identifier_match",
+        matched_identifiers: ["INV-1111"],
+        candidates: [
+          {
+            id: "cust-777",
+            name: "Identifier Klant",
+            contact_person: null,
+            recent_invoices: ["INV-1111"],
+          },
+        ],
+      },
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const pe = findStage2PipelineEvent(captures);
+    expect(pe).toBeTruthy();
+    expect(pe!.payload).toMatchObject({
+      decision_details: expect.objectContaining({
+        inputs: expect.objectContaining({
+          kind: "identifier_match",
+          matched_identifiers: ["INV-1111"],
+        }),
+      }),
+    });
+  });
+
+  it("llm_tiebreaker success → decision_details.inputs.kind = 'llm_tiebreaker' with llm_reason", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "llm_tiebreaker",
+      customer_account_id: "cust-A",
+      customer_name: "Klant A",
+      confidence: "medium",
+      candidates_considered: 2,
+      reason: "subject mentions Klant A",
+      inputs: {
+        kind: "llm_tiebreaker",
+        sender_email: "klant@example.com",
+        matched_identifiers: ["INV-2222", "INV-3333"],
+        candidates: [
+          { id: "cust-A", name: "Klant A", contact_person: null, recent_invoices: [] },
+          { id: "cust-B", name: "Klant B", contact_person: null, recent_invoices: [] },
+        ],
+        llm_reason: "subject mentions Klant A",
+      },
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const pe = findStage2PipelineEvent(captures);
+    expect(pe).toBeTruthy();
+    expect(pe!.payload).toMatchObject({
+      decision_details: expect.objectContaining({
+        inputs: expect.objectContaining({
+          kind: "llm_tiebreaker",
+          llm_reason: "subject mentions Klant A",
+        }),
+      }),
+    });
+  });
+
+  it("unresolved success → decision_details.inputs.kind = 'unresolved'", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "unresolved",
+      customer_account_id: null,
+      customer_name: null,
+      confidence: "none",
+      candidates_considered: 0,
+      inputs: {
+        kind: "unresolved",
+        sender_email: "ghost@example.com",
+        matched_identifiers: [],
+      },
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const pe = findStage2PipelineEvent(captures);
+    expect(pe).toBeTruthy();
+    expect(pe!.payload).toMatchObject({
+      decision_details: expect.objectContaining({
+        inputs: expect.objectContaining({
+          kind: "unresolved",
+        }),
+      }),
+    });
+  });
+
+  it("resolverError path → decision_details has NO inputs key (D-04 legacy fallback)", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockRejectedValueOnce(new Error("nxt timeout"));
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const pe = findStage2PipelineEvent(captures);
+    expect(pe).toBeTruthy();
+    const details = (pe!.payload as { decision_details: Record<string, unknown> })
+      .decision_details;
+    expect(details.failure_reason).toBe("nxt timeout");
+    expect(details).not.toHaveProperty("inputs");
+  });
+});
+
 // Phase 70 — TELE-01 Stage 2 dual-write coverage.
 describe("Phase 70 — TELE-01 Stage 2 dual-write", () => {
   let handler: (ctx: unknown) => Promise<unknown>;

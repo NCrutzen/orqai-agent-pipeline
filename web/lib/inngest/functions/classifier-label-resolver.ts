@@ -222,10 +222,12 @@ export const classifierLabelResolver = inngest.createFunction(
               candidates_considered: result.candidates_considered ?? null,
             }
           : {
+              method: result.method,
               customer_account_id: result.customer_account_id,
               customer_name: result.customer_name,
-              method: result.method,
               candidates_considered: result.candidates_considered ?? null,
+              // Phase 82.9 — discriminated evidence payload (D-01).
+              inputs: result.inputs,
             },
         automation_run_id: automation_run_id ?? null,
         triggered_by: "pipeline",
