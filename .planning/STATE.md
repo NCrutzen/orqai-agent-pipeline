@@ -2,9 +2,10 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
-status: Ready to execute
-stopped_at: Phase 089 executed (code-side); operator checkpoints pending
-last_updated: "2026-05-20T09:00:00.000Z"
+status: Awaiting next milestone
+stopped_at: Phase 82.9 context gathered
+last_updated: "2026-05-20T10:21:02.624Z"
+last_activity: 2026-05-20 — Milestone v8.0 completed and archived
 progress:
   total_phases: 21
   completed_phases: 12
@@ -25,36 +26,10 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: 089 (Stage 1 LLM 2nd-pass auto-action promotion track) — COMPLETE (code-side); operator checkpoints pending (SC-89-03 retro-review, SC-89-04 mutate-flag flip)
-Plan: 7 of 7 + SHADOW-REPORT.md
-Next phase: `/gsd-audit-milestone v8.0` (gated on 999.8 UAT + Phase 089 SC-89-03/04 operator actions)
-Milestone: v8.0 Agentic Platform (Phases 63-82.8, 83)
-Last shipped: Phase 83 (2026-05-19) — body_full_text + body_unique_text columns; conversation_context table; ingest writers + Stage 1/3 readers wired; 30-day backfill ran (1344 priors written); verify-phase83 harness shipped; V1 PASS, V2 PASS-with-noise-floor, V3/V4 PARTIAL pending live traffic. Pre-this: Phase 82.8 (2026-05-18) Stage 4 three-section overview + Stage 1 before/after screenshot strip.
-
-**v8.0 closure punch list (gates before /gsd-audit-milestone v8.0):**
-
-- [x] Phase 82.2: Stage 0 telemetry coverage fix — SHIPPED (verified via git log)
-- [x] Phase 82.3: Per-stage audit surface — SHIPPED
-- [x] Phase 82.4: Feedback capture form — SHIPPED
-- [x] Phase 82.8: Stage 4 handled overview + Stage 1 before/after screenshots — SHIPPED
-- [x] Phase 83: Body ingestion — capture full thread on forwards and replies — SHIPPED 2026-05-19 (1344 priors backfilled; V1/V2 green within noise-floor; V3/V4 PARTIAL pending live traffic — see 83-07-VERIFICATION.md)
-- [x] Phase 82.9: Stage 2 audit-panel evidence expansion — SHIPPED 2026-05-20 (4/4 plans, 50/50 tests green; Plan 01 Task 3 CLOSED 2026-05-20 — prod migration applied 04:46 UTC, Zap published live with descendant-walking contact CTE + placeholder filter, smoke-tested via customer 506909; Plan 04 Task 3 visual UAT still pending in Block B of v8.0-CLOSURE-UAT.md)
-- [x] Phase 089: Stage 1 LLM 2nd-pass auto-action promotion track — SHIPPED 2026-05-20 (7/7 plans across 4 waves; 839 rows backfilled live; SC-89-01/02/05 PASS; SC-89-03 pending operator retro-review; SC-89-04 mutate-flag UAT runbook documented). Latent defect surfaced: `automation_runs.rule_key` column missing → out-of-scope followup filed.
-- [x] Phase 999.8: Operator UAT COMPLETE 2026-05-20 — Stage 1 chip strip + URL round-trip + garbage-drop + ?sub=pending guard verified live on /automations/debtor-email/stage-1. Therese regression smoke PASS: email 067428ad sent to administratie@fire-control.nl resolved as Stage 1 predictor=llm_2nd_pass, confidence=medium, category=unknown, NO categorize+archive side-effect (only Stage 0 automation_runs row exists). Per-row LLM·medium chip rendering verified in cached view.
-
-**v8.0 reframes (locked 2026-05-12):**
-
-- Phase 72 (Promotion Recommender) → **V9.0** full milestone (prose-feedback synthesis)
-- Phase 73 (sales-email validation) → **V10.0** full milestone (Phase 78 never executed)
-- Phase 77 (Stage 2/3 e2e verification) → **superseded by Phase 82.3** + debtor-person operator onboarding
-
-**Next milestones defined (see `.planning/MILESTONES.md`):**
-
-- V9.0 Promotion Recommender + Learning Inbox (depends on v8.0 closure)
-- V10.0 Sales-email canonical pipeline (depends on V9.0 capture surface live)
-- V11.0 Intent-prioritised handlers (depends on V10.0 multi-swarm signal)
-
-**Next action:** `/gsd-audit-milestone v8.0` — punch list reconciled, ready for milestone close.
+Phase: Milestone v8.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-20 — Milestone v8.0 completed and archived
 
 ## Performance Metrics
 
@@ -273,3 +248,7 @@ Items acknowledged at v7.0 close on 2026-04-30 — known-deferred, not gating mi
 See .planning/milestones/v7.0-* archive files for full milestone state.
 
 **Planned Phase:** 82.8 (stage-4-handled-overview-and-stage-1-screenshots) — 8 plans — 2026-05-18T08:46:59.106Z
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd:new-milestone
