@@ -35,7 +35,9 @@ import {
 } from "@/lib/automations/debtor-email/coordinator/agent-runs";
 import {
   INTENT_VERSION_V2,
+  INTENT_VERSION_V3,
   type IntentAgentOutputV2,
+  type IntentAgentOutputV3,
 } from "@/lib/automations/debtor-email/coordinator/types";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
@@ -187,22 +189,29 @@ export const debtorEmailCoordinator = inngest.createFunction(
             capChars: STAGE_3_INPUT_CAP_CHARS,
           });
 
+          // Phase 85 D-07 — cache-key flips to V3. Version-literal flip
+          // automatically invalidates V2 cache rows (findCachedOutput filters
+          // on `intent_version = INTENT_VERSION_V3`). Transient window: until
+          // Plan 03 deploys the V3 agent prompt, cache-miss → V2 output stored
+          // under V3 cache key. The discriminated union accepts both shapes
+          // so no run breaks; rows naturally re-key once V3 ships (PATTERNS §A).
           const cached = await findCachedOutput<Record<string, unknown>>(
             supabase,
             email_id,
             "intent_version",
-            INTENT_VERSION_V2,
+            INTENT_VERSION_V3,
             "tool_outputs",
           );
           const cachedFirst = cached?.intent_first_pass as
             | IntentAgentOutputV2
+            | IntentAgentOutputV3
             | undefined;
 
           // Cache hit reuses the prior LLM output but MUST still hoist it
           // onto THIS agent_run_id — otherwise duplicate triggers for the
           // same email_id (manual replay scripts, upstream redelivery) leave
           // the new agent_runs row with intent=null + tool_outputs={}.
-          const output: IntentAgentOutputV2 = cachedFirst
+          const output: IntentAgentOutputV2 | IntentAgentOutputV3 = cachedFirst
             ?? (await invokeIntentAgent({
               email_id,
               inngest_run_id,
@@ -239,7 +248,10 @@ export const debtorEmailCoordinator = inngest.createFunction(
             language: output.language,
             confidence: top.confidence,
             urgency: output.urgency,
-            intent_version: INTENT_VERSION_V2,
+            // Phase 85 D-07 — provenance sourced from the LLM response, not
+            // a hardcoded constant. Audit trail now records the actual
+            // intent_version the agent returned (V2 or V3).
+            intent_version: output.intent_version,
             reasoning: top.reasoning,
           });
           // Phase 83 D-09 telemetry: surface input_chars + truncated so the
@@ -254,11 +266,11 @@ export const debtorEmailCoordinator = inngest.createFunction(
         },
       );
       const output = (classifyResult as unknown as {
-        output: IntentAgentOutputV2;
+        output: IntentAgentOutputV2 | IntentAgentOutputV3;
         inputSize: { input_chars: number; truncated: boolean };
       }).output;
       const inputSize = (classifyResult as unknown as {
-        output: IntentAgentOutputV2;
+        output: IntentAgentOutputV2 | IntentAgentOutputV3;
         inputSize: { input_chars: number; truncated: boolean };
       }).inputSize;
 
@@ -291,7 +303,9 @@ export const debtorEmailCoordinator = inngest.createFunction(
             // agent_runs. Subject is excerpted to ≤140 chars (the panel uses
             // it as a "you sent the classifier THIS" reminder, not a full
             // body view — the existing Show full email link covers that).
-            intent_version: INTENT_VERSION_V2,
+            // Phase 85 D-07 — intent_version reflects the actual agent output
+            // shape (V2 or V3), not a hardcoded constant.
+            intent_version: output.intent_version,
             inputs: {
               sender_email: email.sender_email ?? null,
               sender_domain: sender_domain || null,
@@ -306,6 +320,16 @@ export const debtorEmailCoordinator = inngest.createFunction(
               input_chars: inputSize.input_chars,
               truncated: inputSize.truncated,
             },
+            // Phase 85 D-04 — additive telemetry, only present on V3 outputs.
+            // Phase 86 reads from this JSONB to build the proposal-capture
+            // surface. Closed-list path (proposal=null) still emits the keys
+            // for shape stability; open-set path carries the snake_case
+            // candidate + reason. NO `swarm_intents` write — intents live
+            // only in JSONB telemetry per V9.0 promotion gating.
+            ...(output.intent_version === INTENT_VERSION_V3 && {
+              intent_proposal: output.intent_proposal,
+              proposal_reason: output.proposal_reason,
+            }),
           },
           agent_run_id,
           automation_run_id: automation_run_id ?? null,
