@@ -45,7 +45,24 @@ interface PageProps {
   searchParams: Promise<{
     mailbox?: string | string[];
     selected?: string;
+    outcome?: string;
   }>;
+}
+
+// Phase 88 Plan 04 — D-03 outcome-state chip-strip URL contract.
+// `?outcome=handler_error|needs_review|auto_archived|all` (default "all").
+// Unknown values coerce to "all" (defensive parse).
+export type Stage4Outcome = "all" | "handler_error" | "needs_review" | "auto_archived";
+const STAGE_4_OUTCOMES: ReadonlySet<Stage4Outcome> = new Set<Stage4Outcome>([
+  "all",
+  "handler_error",
+  "needs_review",
+  "auto_archived",
+]);
+function parseOutcome(raw: string | string[] | undefined): Stage4Outcome {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  const s = String(v ?? "all");
+  return (STAGE_4_OUTCOMES as Set<string>).has(s) ? (s as Stage4Outcome) : "all";
 }
 
 // KanbanRow → unified Row. mailbox_id MUST be threaded through from the
@@ -145,6 +162,9 @@ export default async function Stage4Page({
   const mailboxes = getSwarmMailboxes(unifiedRows, mailboxLabels);
   const selectedMailboxes = parseSelectedMailboxes(sp.mailbox);
   const selectedId = sp.selected ?? null;
+  // Phase 88 Plan 04 D-03 — outcome-state filter (chip-strip). `activeOutcome`
+  // forwarded to client-shell drives the row-visibility filter + active chip.
+  const activeOutcome: Stage4Outcome = parseOutcome(sp.outcome);
 
   // Body + timeline pre-fetch (Pitfall 3 — MANDATORY). Mirrors stage-1/page.tsx
   // lines 696-727 pattern: parallel SELECT against email_pipeline.emails
@@ -327,6 +347,7 @@ export default async function Stage4Page({
         >
           <Stage4ClientShell
             swarmType={swarmType}
+            activeOutcome={activeOutcome}
             rows={handlerErrorRows}
             unifiedRows={handlerErrorUnified}
             needsReviewRows={needsReviewRows}

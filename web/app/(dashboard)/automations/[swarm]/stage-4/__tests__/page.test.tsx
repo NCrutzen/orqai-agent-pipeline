@@ -53,14 +53,21 @@ vi.mock("../_lib/load-auto-archived-noise-rows", () => ({
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => {
     // Stub admin for the body/timeline pre-fetch. Returns empty arrays.
-    const builder = {
+    // Plan 88-04: added `.not()` + `.limit()` to support loadMailboxLabels
+    // chain (loadMailboxLabels uses .eq().not().not().limit()).
+    const builder: Record<string, unknown> = {};
+    Object.assign(builder, {
       select: () => builder,
       eq: () => builder,
       in: () => builder,
+      not: () => builder,
+      limit: () => builder,
       order: () => builder,
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
+      single: () => Promise.resolve({ data: null, error: null }),
       then: (cb: (v: { data: unknown; error: unknown }) => unknown) =>
         Promise.resolve(cb({ data: [], error: null })),
-    };
+    });
     return {
       from: () => builder,
       schema: () => ({ from: () => builder }),
@@ -293,6 +300,110 @@ describe("Stage 4 page (unified shell)", () => {
     const pagePath = path.join(__dirname, "..", "page.tsx");
     const src = fs.readFileSync(pagePath, "utf-8");
     expect(src.toLowerCase()).not.toContain("bulk review");
+  });
+
+  // -- Phase 88 Plan 04 D-03 — outcome-state chip-strip ---------------------
+
+  it("D-03 [Task 2 — outcome parse]: ?outcome=handler_error → handler_error chip is active and only handler-error rows render", async () => {
+    loadSwarmMock.mockResolvedValue(makeSwarmRow("debtor-email"));
+    loadKanbanRowsMock.mockResolvedValue([
+      makeKanbanRow({ id: "he-1", kanban_reason: "handler_error" }),
+      makeKanbanRow({ id: "skip-1", kanban_reason: "no_handler" }),
+    ]);
+    const ui = await Stage4Page({
+      params: Promise.resolve({ swarm: "debtor-email" }),
+      searchParams: Promise.resolve({ outcome: "handler_error" }),
+    });
+    render(ui);
+    // Chip with key "handler_error" should be aria-selected=true.
+    const chip = screen.getByRole("tab", { name: /Handler error/i });
+    expect(chip.getAttribute("aria-selected")).toBe("true");
+    // Handler-error row visible.
+    expect(screen.getByText("Subject he-1")).toBeInTheDocument();
+  });
+
+  it("D-03 [Task 2 — outcome parse]: ?outcome=needs_review → needs_review chip active", async () => {
+    loadSwarmMock.mockResolvedValue(makeSwarmRow("debtor-email"));
+    loadKanbanRowsMock.mockResolvedValue([]);
+    const ui = await Stage4Page({
+      params: Promise.resolve({ swarm: "debtor-email" }),
+      searchParams: Promise.resolve({ outcome: "needs_review" }),
+    });
+    render(ui);
+    const chip = screen.getByRole("tab", { name: /Needs review/i });
+    expect(chip.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("D-03 [Task 2 — outcome parse]: ?outcome=auto_archived → auto_archived chip active", async () => {
+    loadSwarmMock.mockResolvedValue(makeSwarmRow("debtor-email"));
+    loadKanbanRowsMock.mockResolvedValue([]);
+    const ui = await Stage4Page({
+      params: Promise.resolve({ swarm: "debtor-email" }),
+      searchParams: Promise.resolve({ outcome: "auto_archived" }),
+    });
+    render(ui);
+    const chip = screen.getByRole("tab", { name: /Auto-archived/i });
+    expect(chip.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("D-03 [Task 2 — outcome parse]: missing ?outcome → 'All' chip active (default)", async () => {
+    loadSwarmMock.mockResolvedValue(makeSwarmRow("debtor-email"));
+    loadKanbanRowsMock.mockResolvedValue([]);
+    const ui = await Stage4Page({
+      params: Promise.resolve({ swarm: "debtor-email" }),
+      searchParams: Promise.resolve({}),
+    });
+    render(ui);
+    const chip = screen.getByRole("tab", { name: /^All/i });
+    expect(chip.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("D-03 [Task 2 — outcome parse]: ?outcome=foo (unknown) coerces to 'All'", async () => {
+    loadSwarmMock.mockResolvedValue(makeSwarmRow("debtor-email"));
+    loadKanbanRowsMock.mockResolvedValue([]);
+    const ui = await Stage4Page({
+      params: Promise.resolve({ swarm: "debtor-email" }),
+      searchParams: Promise.resolve({ outcome: "foo" }),
+    });
+    render(ui);
+    const chip = screen.getByRole("tab", { name: /^All/i });
+    expect(chip.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("D-03 [Task 3 — chips render]: four chips render with brand-token dots on non-All chips", async () => {
+    loadSwarmMock.mockResolvedValue(makeSwarmRow("debtor-email"));
+    loadKanbanRowsMock.mockResolvedValue([
+      makeKanbanRow({ id: "he-1", kanban_reason: "handler_error" }),
+    ]);
+    const ui = await Stage4Page({
+      params: Promise.resolve({ swarm: "debtor-email" }),
+      searchParams: Promise.resolve({}),
+    });
+    render(ui);
+    // Four chips total.
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.length).toBe(4);
+    // Labels in order.
+    expect(tabs[0].textContent).toMatch(/All/);
+    expect(tabs[1].textContent).toMatch(/Handler error/);
+    expect(tabs[2].textContent).toMatch(/Needs review/);
+    expect(tabs[3].textContent).toMatch(/Auto-archived/);
+  });
+
+  it("D-03 [Task 3 — hard-sep]: client-shell.tsx contains NO swarm_intents references", () => {
+    const csPath = path.join(__dirname, "..", "client-shell.tsx");
+    const src = fs.readFileSync(csPath, "utf-8");
+    expect(src).not.toMatch(/swarm_intents/);
+    expect(src).not.toMatch(/SwarmIntentRow/);
+    // intents={[]} preserved on UnifiedDetailPane mount.
+    expect(src).toMatch(/intents=\{\[\]\}/);
+  });
+
+  it("D-03 [Task 3 — chip-strip]: client-shell.tsx has NO Collapsible imports/usages", () => {
+    const csPath = path.join(__dirname, "..", "client-shell.tsx");
+    const src = fs.readFileSync(csPath, "utf-8");
+    expect(src).not.toMatch(/Collapsible/);
+    expect(src).toMatch(/ChipStrip/);
   });
 
   it("unknown swarm: notFound() throws NEXT_NOT_FOUND", async () => {
