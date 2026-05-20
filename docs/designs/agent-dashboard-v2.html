@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Workforce Dashboard V2</title>
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&f[]=cabinet-grotesk@500,700,800&display=swap" rel="stylesheet">
+  <style>
+    :root, [data-theme="light"] {
+      --bg:#f6f3ee; --bg-2:#fbfaf7; --panel:#f9f6f1; --panel-2:#f2eee8; --line:#d5d1ca;
+      --text:#231f19; --muted:#6f6a61; --faint:#958f84; --inverse:#fbfaf7;
+      --teal:#01696f; --blue:#0c6aa7; --lime:#4d8d1c; --amber:#b66a11; --pink:#b93e8a; --red:#b5454e;
+      --teal-soft:rgba(1,105,111,.12); --blue-soft:rgba(12,106,167,.12); --amber-soft:rgba(182,106,17,.13); --pink-soft:rgba(185,62,138,.13);
+      --shadow-1:0 8px 24px rgba(28,24,18,.08); --shadow-2:0 24px 70px rgba(28,24,18,.14); --radius:22px; --radius-sm:14px; --pill:999px;
+    }
+    [data-theme="dark"] {
+      --bg:#0c1117; --bg-2:#101722; --panel:rgba(19,26,36,.82); --panel-2:#151d29; --line:rgba(255,255,255,.08);
+      --text:#edf3fb; --muted:#9fadc4; --faint:#6b7688; --inverse:#091018;
+      --teal:#3ac7c9; --blue:#69a8ff; --lime:#8ad05e; --amber:#ffb547; --pink:#ff78cf; --red:#ff6b7a;
+      --teal-soft:rgba(58,199,201,.13); --blue-soft:rgba(105,168,255,.13); --amber-soft:rgba(255,181,71,.13); --pink-soft:rgba(255,120,207,.13);
+      --shadow-1:0 10px 30px rgba(0,0,0,.22); --shadow-2:0 30px 100px rgba(0,0,0,.42);
+    }
+    *{box-sizing:border-box} html,body{margin:0;padding:0} body{font-family:'Satoshi',sans-serif;background:radial-gradient(circle at top right, rgba(58,199,201,.08), transparent 26%), radial-gradient(circle at bottom left, rgba(105,168,255,.08), transparent 30%), var(--bg);color:var(--text);min-height:100vh;overflow:hidden}
+    button,input,select{font:inherit;color:inherit} button{cursor:pointer} a{color:inherit;text-decoration:none}
+    .shell{display:grid;grid-template-columns:286px 1fr;height:100vh;overflow:hidden}
+    .sidebar{background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));backdrop-filter:blur(18px);border-right:1px solid var(--line);padding:22px;display:flex;flex-direction:column;gap:18px}
+    .brand{display:flex;align-items:center;gap:14px;padding:10px 8px 18px}
+    .brand-mark{width:46px;height:46px;border-radius:16px;background:linear-gradient(135deg,var(--teal),var(--blue));display:grid;place-items:center;box-shadow:0 10px 32px rgba(58,199,201,.28)}
+    .brand h1{font-family:'Cabinet Grotesk',sans-serif;font-size:1.2rem;margin:0}.brand p{margin:3px 0 0;color:var(--muted);font-size:.9rem}
+    .nav-group{display:grid;gap:8px}.nav-label{padding:0 8px;color:var(--faint);font-size:.75rem;text-transform:uppercase;letter-spacing:.14em}
+    .nav-btn{display:flex;justify-content:space-between;align-items:center;width:100%;padding:14px 14px;border:1px solid transparent;background:transparent;border-radius:16px;color:var(--muted);transition:.18s ease}
+    .nav-btn:hover,.nav-btn.active{background:rgba(255,255,255,.04);border-color:var(--line);color:var(--text);transform:translateX(2px)}
+    .badge{padding:5px 9px;border-radius:999px;font-size:.75rem;background:rgba(255,255,255,.05);border:1px solid var(--line)}
+    .side-bottom{margin-top:auto;display:grid;gap:12px}.glass{background:var(--panel);backdrop-filter:blur(18px);border:1px solid var(--line);box-shadow:var(--shadow-1)}
+    .mini-card{padding:14px 15px;border-radius:18px}.mini-card strong{display:block;font-family:'Cabinet Grotesk',sans-serif;font-size:1.2rem}.mini-card span{color:var(--muted);font-size:.88rem}
+    .theme-toggle{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border:none;border-radius:18px}
+
+    .main{display:grid;grid-template-rows:auto auto auto 1fr;gap:18px;padding:20px;overflow:hidden}
+    .topbar{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+    .headline h2{margin:0;font-family:'Cabinet Grotesk',sans-serif;font-size:2rem;letter-spacing:-.03em}.headline p{margin:8px 0 0;color:var(--muted);max-width:70ch}
+    .top-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.input,.select,.chip{height:46px;border-radius:999px;border:1px solid var(--line);background:var(--panel);padding:0 16px;backdrop-filter:blur(14px)}
+    .chip{display:flex;align-items:center}
+
+    .briefing{display:grid;grid-template-columns:1.4fr .8fr;gap:18px}
+    .panel{border-radius:28px;padding:20px}
+    .briefing-card{position:relative;overflow:hidden}
+    .briefing-card:before{content:'';position:absolute;inset:-20% auto auto 58%;width:260px;height:260px;background:radial-gradient(circle, rgba(58,199,201,.18), transparent 62%);pointer-events:none}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:.78rem;color:var(--muted)}
+    .pulse{width:8px;height:8px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 0 rgba(58,199,201,.6);animation:pulse 1.8s infinite}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(58,199,201,.6)}70%{box-shadow:0 0 0 12px rgba(58,199,201,0)}100%{box-shadow:0 0 0 0 rgba(58,199,201,0)}}
+    .briefing-title{font-family:'Cabinet Grotesk',sans-serif;font-size:1.8rem;line-height:1.05;margin:16px 0 10px;max-width:14ch}
+    .briefing-text{color:var(--muted);font-size:1rem;max-width:64ch}
+    .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}
+    .kpi{padding:14px;border-radius:20px;background:rgba(255,255,255,.035);border:1px solid var(--line)}
+    .kpi label{display:block;font-size:.76rem;color:var(--faint);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+    .kpi strong{font-family:'Cabinet Grotesk',sans-serif;font-size:1.65rem;display:flex;align-items:flex-end;gap:8px}
+    .delta{font-size:.78rem;color:var(--lime)}
+
+    .graph-card{display:grid;grid-template-rows:auto 1fr;gap:14px}
+    .graph-head{display:flex;justify-content:space-between;align-items:center}
+    .graph{position:relative;height:260px;border-radius:22px;background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));border:1px solid var(--line);overflow:hidden}
+    .graph svg{position:absolute;inset:0;width:100%;height:100%}.node{position:absolute;padding:10px 12px;border-radius:16px;background:rgba(10,15,22,.88);border:1px solid rgba(255,255,255,.08);min-width:122px;box-shadow:var(--shadow-1)}
+    [data-theme="light"] .node{background:rgba(255,255,255,.92)}
+    .node label{display:block;font-size:.72rem;color:var(--faint);margin-bottom:4px}.node strong{display:block;font-size:.96rem}
+    .node small{color:var(--muted)}
+    .node.orch{outline:1px solid rgba(58,199,201,.3);box-shadow:0 0 0 1px rgba(58,199,201,.14), 0 20px 60px rgba(58,199,201,.08)}
+    .particle{fill:var(--teal);filter:drop-shadow(0 0 8px rgba(58,199,201,.9));animation:travel 5.2s linear infinite}
+    .particle.two{animation-delay:1.2s;fill:var(--blue)}
+    .particle.three{animation-delay:2.8s;fill:var(--amber)}
+    @keyframes travel{0%{offset-distance:0%}100%{offset-distance:100%}}
+
+    .agents-panel{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+    .agent-card{padding:16px;border-radius:24px;position:relative;overflow:hidden;transition:.22s ease;cursor:pointer}
+    .agent-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-2);border-color:rgba(255,255,255,.12)}
+    .agent-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.role{color:var(--muted);font-size:.93rem;min-height:40px}
+    .agent-state{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;border:1px solid var(--line);font-size:.76rem;background:rgba(255,255,255,.04)}
+    .tiny-dot{width:8px;height:8px;border-radius:50%}.agent-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}.agent-metric{padding:11px 10px;border-radius:16px;background:rgba(255,255,255,.035);border:1px solid var(--line)}
+    .agent-metric span{display:block;color:var(--faint);font-size:.72rem;margin-bottom:6px}.agent-metric strong{font-size:1rem}
+    .agent-skill-row{display:flex;flex-wrap:wrap;gap:8px}.skill{padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:.76rem;color:var(--muted)}
+
+    .workbench{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;min-height:0;overflow:hidden}
+    .kanban-panel{display:grid;grid-template-rows:auto 1fr;gap:14px;min-height:0}
+    .panel-head{display:flex;justify-content:space-between;align-items:center}
+    .kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;min-height:0}
+    .column{border-radius:22px;padding:10px;background:rgba(255,255,255,.025);border:1px solid var(--line);display:grid;grid-template-rows:auto 1fr;min-height:0}
+    .column-head{display:flex;justify-content:space-between;align-items:center;padding:6px 6px 12px 6px}.column-title{font-weight:700}.count{color:var(--muted);font-size:.8rem}
+    .job-list{display:grid;gap:10px;overflow:auto;padding-right:3px}
+    .job{padding:14px;border-radius:18px;background:linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02));border:1px solid var(--line);box-shadow:var(--shadow-1);cursor:grab;transition:.18s ease}
+    .job:hover{transform:translateY(-2px)} .job h4{margin:0 0 8px;font-size:.97rem} .job p{margin:0;color:var(--muted);font-size:.88rem}
+    .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tag{padding:6px 9px;border-radius:999px;font-size:.74rem;border:1px solid var(--line);background:rgba(255,255,255,.04)} .tag.warn{background:var(--amber-soft)} .tag.risk{background:var(--pink-soft)} .tag.ok{background:var(--teal-soft)}
+
+    .telemetry-panel{display:grid;grid-template-rows:auto auto 1fr;gap:14px;min-height:0}
+    .timeline{padding:14px;border-radius:22px;background:rgba(255,255,255,.025);border:1px solid var(--line);display:grid;gap:12px}
+    .timeline-grid{position:relative;height:146px;border-radius:18px;background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));overflow:hidden;border:1px solid var(--line)}
+    .timeline-grid:before{content:'';position:absolute;inset:0;background:linear-gradient(90deg, transparent 0 11.1%, rgba(255,255,255,.05) 11.1% 11.3%, transparent 11.3% 22.2%, rgba(255,255,255,.05) 22.2% 22.4%, transparent 22.4% 33.3%, rgba(255,255,255,.05) 33.3% 33.5%, transparent 33.5% 44.4%, rgba(255,255,255,.05) 44.4% 44.6%, transparent 44.6% 55.5%, rgba(255,255,255,.05) 55.5% 55.7%, transparent 55.7% 66.6%, rgba(255,255,255,.05) 66.6% 66.8%, transparent 66.8% 77.7%, rgba(255,255,255,.05) 77.7% 77.9%, transparent 77.9% 88.8%, rgba(255,255,255,.05) 88.8% 89%, transparent 89% 100%)}
+    .lane{position:absolute;left:0;right:0;height:32px;display:flex;align-items:center;padding-left:92px;font-size:.78rem;color:var(--muted)}
+    .lane:nth-child(1){top:14px}.lane:nth-child(2){top:56px}.lane:nth-child(3){top:98px}
+    .bar{position:absolute;height:18px;border-radius:999px;display:flex;align-items:center;padding:0 10px;font-size:.72rem;color:#081018;font-weight:700;box-shadow:0 6px 16px rgba(0,0,0,.18)}
+    .thinking{background:linear-gradient(90deg, var(--pink), #ffb0df)} .tool{background:linear-gradient(90deg, var(--blue), #b5d0ff)} .wait{background:linear-gradient(90deg, var(--amber), #ffd89a)} .done{background:linear-gradient(90deg, var(--teal), #b7f6f7)}
+
+    .terminal{display:grid;grid-template-rows:auto 1fr;min-height:0}.terminal-shell{display:grid;gap:8px;overflow:auto;padding:14px;border-radius:22px;background:#071018;border:1px solid rgba(105,168,255,.14);font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 20px 70px rgba(0,0,0,.24)}
+    .log{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;font-size:.84rem;line-height:1.45;color:#b8d7ff}.log time{color:#6f8ab1}.log .type{padding:2px 8px;border-radius:999px;background:rgba(105,168,255,.12);border:1px solid rgba(105,168,255,.15);font-size:.72rem}
+    .log .payload{color:#dbeaff}.caret{display:inline-block;width:10px;height:1.1em;background:var(--teal);margin-left:4px;animation:blink 1s steps(1) infinite}.hidden{display:none}
+    @keyframes blink{50%{opacity:0}}
+
+    .drawer{position:fixed;top:16px;right:-560px;width:min(540px,calc(100vw - 20px));height:calc(100vh - 32px);padding:18px;border-radius:28px;transition:.28s cubic-bezier(.16,1,.3,1);z-index:24}
+    .drawer.open{right:16px}.drawer-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.drawer-body{display:grid;gap:16px;margin-top:14px;height:calc(100% - 72px);overflow:auto;padding-right:4px}.close{height:42px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04)}
+    .backdrop{position:fixed;inset:0;background:rgba(3,7,13,.34);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:.2s ease;z-index:20}.backdrop.show{opacity:1;pointer-events:auto}
+    .main.dim{transform:scale(.985);filter:blur(2px);transition:.28s cubic-bezier(.16,1,.3,1)}
+
+    @media (max-width:1280px){.agents-panel{grid-template-columns:repeat(2,1fr)}.briefing{grid-template-columns:1fr}.workbench{grid-template-columns:1fr}.kanban{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:920px){body{overflow:auto}.shell{grid-template-columns:1fr;height:auto}.sidebar{border-right:none;border-bottom:1px solid var(--line)}.main{overflow:visible;grid-template-rows:auto auto auto auto}.kanban{grid-template-columns:1fr}.agents-panel,.kpi-grid{grid-template-columns:1fr}.drawer{width:calc(100vw - 20px)}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path d="M12 3l7 4v10l-7 4-7-4V7l7-4z"></path><path d="M12 8v8M8.2 10.1 12 12l3.8-1.9"></path>
+          </svg>
+        </div>
+        <div><h1>Agent OS</h1><p>Control room for swarms</p></div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Views</div>
+        <button class="nav-btn active"><span>Tender swarm</span><span class="badge">Live</span></button>
+        <button class="nav-btn"><span>Debtor swarm</span><span class="badge">8</span></button>
+        <button class="nav-btn"><span>Consultancy swarm</span><span class="badge">5</span></button>
+        <button class="nav-btn"><span>Agent health</span><span class="badge">21/24</span></button>
+        <button class="nav-btn"><span>Trace explorer</span><span class="badge">Beta</span></button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Smart filters</div>
+        <button class="nav-btn"><span>Only blocked jobs</span><span>→</span></button>
+        <button class="nav-btn"><span>Needs human review</span><span>→</span></button>
+        <button class="nav-btn"><span>High SLA risk</span><span>→</span></button>
+      </div>
+      <div class="side-bottom">
+        <button class="theme-toggle glass" id="themeToggle"><span>Toggle theme</span><span>◐</span></button>
+        <div class="mini-card glass"><strong>7</strong><span>Active swarms</span></div>
+        <div class="mini-card glass"><strong>142</strong><span>Jobs today</span></div>
+      </div>
+    </aside>
+
+    <main class="main" id="mainArea">
+      <section class="topbar">
+        <div class="headline">
+          <h2>Tender Management Swarm</h2>
+          <p>A cinematic operating view: narrative briefing, live delegation graph, subagent cards, Kanban execution, swimlane observability, and a Claude-style terminal stream.</p>
+        </div>
+        <div class="top-actions">
+          <input class="input glass" type="search" value="NL BHV tenders" aria-label="Search jobs">
+          <select class="select glass" aria-label="Stage filter"><option>All stages</option><option>Only active</option><option>Human review</option></select>
+          <div class="chip glass">Last sync 28s ago</div>
+        </div>
+      </section>
+
+      <section class="briefing">
+        <article class="panel glass briefing-card">
+          <div class="eyebrow"><span class="pulse"></span>Autonomous briefing</div>
+          <div class="briefing-title">The swarm is healthy, but compliance is becoming the bottleneck.</div>
+          <p class="briefing-text">Tender Orchestrator completed 26 jobs today and is currently routing 18 active dossiers. Three jobs are blocked, mostly because declarations and insurance files still need human sign-off. The compliance lane is the pressure point, so the orchestrator is slowing new drafts until review capacity opens up.</p>
+          <div class="kpi-grid">
+            <div class="kpi"><label>Active jobs</label><strong><span id="kpiActive">18</span> <span class="delta">+3</span></strong></div>
+            <div class="kpi"><label>Human review</label><strong><span id="kpiReview">4</span> <span class="delta">stable</span></strong></div>
+            <div class="kpi"><label>Blocked</label><strong><span id="kpiBlocked">3</span> <span class="delta" style="color:var(--amber)">watch</span></strong></div>
+            <div class="kpi"><label>Done today</label><strong><span id="kpiDone">26</span> <span class="delta">+9</span></strong></div>
+          </div>
+        </article>
+        <article class="panel glass graph-card">
+          <div class="graph-head">
+            <div>
+              <div class="eyebrow">Live delegation graph</div>
+              <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.2rem;margin-top:10px">Who is talking to whom</div>
+            </div>
+            <div class="badge">3 active paths</div>
+          </div>
+          <div class="graph" id="graphArea">
+            <svg viewBox="0 0 1000 420" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="pathA" x1="0" x2="1"><stop offset="0%" stop-color="rgba(58,199,201,.15)"/><stop offset="100%" stop-color="rgba(105,168,255,.35)"/></linearGradient>
+                <linearGradient id="pathB" x1="0" x2="1"><stop offset="0%" stop-color="rgba(255,120,207,.12)"/><stop offset="100%" stop-color="rgba(255,181,71,.35)"/></linearGradient>
+              </defs>
+              <path id="p1" d="M180,110 C320,120 360,170 500,180" fill="none" stroke="url(#pathA)" stroke-width="4" stroke-linecap="round"/>
+              <path id="p2" d="M180,110 C330,90 430,70 610,100" fill="none" stroke="url(#pathA)" stroke-width="4" stroke-linecap="round"/>
+              <path id="p3" d="M500,180 C620,200 720,230 840,250" fill="none" stroke="url(#pathB)" stroke-width="4" stroke-linecap="round"/>
+              <circle class="particle" r="6"><animateMotion dur="5.4s" repeatCount="indefinite" rotate="auto"><mpath href="#p1"/></animateMotion></circle>
+              <circle class="particle two" r="6"><animateMotion dur="6.1s" repeatCount="indefinite" rotate="auto"><mpath href="#p2"/></animateMotion></circle>
+              <circle class="particle three" r="6"><animateMotion dur="4.8s" repeatCount="indefinite" rotate="auto"><mpath href="#p3"/></animateMotion></circle>
+            </svg>
+            <div class="node orch" style="left:24px;top:66px"><label>ORCHESTRATOR</label><strong>Tender Orchestrator</strong><small>12 decisions this hour</small></div>
+            <div class="node" style="left:430px;top:136px"><label>SUBAGENT</label><strong>Drafter Agent</strong><small>5 active jobs</small></div>
+            <div class="node" style="left:560px;top:50px"><label>SUBAGENT</label><strong>Qualifier Agent</strong><small>6 active jobs</small></div>
+            <div class="node" style="left:770px;top:206px"><label>SUBAGENT</label><strong>Compliance Agent</strong><small>2 waiting on human</small></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel glass">
+        <div class="panel-head" style="margin-bottom:14px">
+          <div>
+            <div class="eyebrow">Subagent fleet</div>
+            <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.3rem;margin-top:8px">Each agent is clickable and opens a recursive detail view</div>
+          </div>
+          <div class="badge">4 specialists</div>
+        </div>
+        <div class="agents-panel" id="agentsPanel"></div>
+      </section>
+
+      <section class="workbench">
+        <article class="panel glass kanban-panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">Execution board</div>
+              <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.3rem;margin-top:8px">Kanban for business stages, not micro-steps</div>
+            </div>
+            <div class="badge">Drag between stages</div>
+          </div>
+          <div class="kanban" id="kanban"></div>
+        </article>
+
+        <article class="panel glass telemetry-panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">Observability</div>
+              <div style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.3rem;margin-top:8px">Parallel swimlanes and live terminal</div>
+            </div>
+            <div class="badge">Real-time</div>
+          </div>
+          <div class="timeline">
+            <div style="display:flex;justify-content:space-between;align-items:center"><strong>Gantt-style agent timeline</strong><span class="count">Past 24 minutes</span></div>
+            <div class="timeline-grid">
+              <div class="lane">Qualifier</div>
+              <div class="bar thinking" style="left:25%;top:21px;width:20%">Thinking</div>
+              <div class="bar tool" style="left:47%;top:21px;width:18%">Portal search</div>
+              <div class="bar done" style="left:67%;top:21px;width:12%">Delegated</div>
+
+              <div class="lane">Drafter</div>
+              <div class="bar tool" style="left:18%;top:63px;width:28%">Template merge</div>
+              <div class="bar thinking" style="left:49%;top:63px;width:24%">Answer synth</div>
+              <div class="bar wait" style="left:76%;top:63px;width:14%">Waiting docs</div>
+
+              <div class="lane">Compliance</div>
+              <div class="bar tool" style="left:38%;top:105px;width:18%">Checklist</div>
+              <div class="bar wait" style="left:58%;top:105px;width:24%">Human sign-off</div>
+            </div>
+          </div>
+          <div class="terminal">
+            <div style="display:flex;justify-content:space-between;align-items:center"><strong>Claude-style event stream</strong><span class="count">Streaming</span></div>
+            <div class="terminal-shell" id="terminal"></div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <div class="backdrop" id="backdrop"></div>
+  <aside class="drawer glass" id="drawer" aria-label="Agent detail drawer">
+    <div class="drawer-head">
+      <div>
+        <div class="eyebrow"><span class="pulse"></span>Recursive agent view</div>
+        <div id="drawerTitle" style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.6rem;margin-top:12px">Qualifier Agent</div>
+        <p id="drawerRole" style="margin:8px 0 0;color:var(--muted)">Screens opportunities, scores fit, and flags blockers.</p>
+      </div>
+      <button class="close" id="closeDrawer">Close</button>
+    </div>
+    <div class="drawer-body">
+      <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);margin-top:0">
+        <div class="kpi"><label>Active</label><strong id="drawerActive">6</strong></div>
+        <div class="kpi"><label>Avg cycle</label><strong id="drawerCycle">18m</strong></div>
+      </div>
+      <div class="panel" style="padding:16px;border-radius:22px;background:rgba(255,255,255,.03);border:1px solid var(--line)">
+        <strong style="display:block;margin-bottom:8px">Mini hierarchy</strong>
+        <p id="drawerDesc" style="margin:0;color:var(--muted)">This agent behaves like a micro-orchestrator with its own intake, verification, and escalation logic.</p>
+      </div>
+      <div class="timeline">
+        <div style="display:flex;justify-content:space-between;align-items:center"><strong>Recent communication</strong><span class="count">Last 5 events</span></div>
+        <div id="drawerTimeline" style="display:grid;gap:12px"></div>
+      </div>
+      <div class="panel" style="padding:16px;border-radius:22px;background:rgba(255,255,255,.03);border:1px solid var(--line)">
+        <strong style="display:block;margin-bottom:10px">Local workflow</strong>
+        <div class="row"><span class="tag">Inbox</span><span class="tag">Score</span><span class="tag">Clarify</span><span class="tag">Escalate</span><span class="tag ok">Done</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <script>
+    const agents = [
+      {id:'qualifier',name:'Qualifier Agent',role:'Screens opportunities, scores fit, and flags blockers.',state:'Busy',tone:'var(--amber)',active:6,queue:4,errors:1,cycle:'18m',skills:['Fit scoring','RFP parsing','Rule checks'],timeline:['Received 3 new opportunities from Orchestrator','Escalated one dossier with missing insurance attachments','Handed 2 qualified tenders to Drafter Agent']},
+      {id:'drafter',name:'Drafter Agent',role:'Builds first-pass bid packages and answer drafts.',state:'Running',tone:'var(--teal)',active:5,queue:3,errors:0,cycle:'31m',skills:['Template fill','Answer synthesis','Evidence bundling'],timeline:['Pulled reusable text blocks from prior submissions','Generated response draft for BHV 2026 lot 3','Requested compliance verification before final packaging']},
+      {id:'compliance',name:'Compliance Agent',role:'Checks legal, admin, and mandatory submission criteria.',state:'Bottleneck',tone:'var(--pink)',active:4,queue:2,errors:0,cycle:'14m',skills:['Checklist review','Deadline control','Attachment validation'],timeline:['Flagged unsigned declaration in one submission','Approved 3 packages for human final check','Updated risk score after deadline metadata refresh']},
+      {id:'submission',name:'Submission Agent',role:'Prepares final package, portal actions, and archive trail.',state:'Ready',tone:'var(--blue)',active:3,queue:1,errors:0,cycle:'11m',skills:['Portal prep','Audit logging','Archive sync'],timeline:['Queued two approved tenders for portal submission','Created archive package with timestamps and evidence','Notified orchestrator that one case is fully closed']}
+    ];
+
+    const jobsByColumn = {
+      backlog:[{title:'BHV Limburg municipality',desc:'New dossier intake and fit scoring',tags:['High value','New']},{title:'Campus safety mini-tender',desc:'Need tender pack download',tags:['Review docs']}],
+      ready:[{title:'Industrial site BHV pack',desc:'Ready for drafting package',tags:['Template matched','Ready']},{title:'Healthcare response update',desc:'Ready for compliance check',tags:['Priority','Near SLA'],warn:true}],
+      progress:[{title:'Education tender lot 2',desc:'Drafting answers and evidence list',tags:['Needs evidence','Parallel']},{title:'BHV Zuid pilot',desc:'Scoring in progress',tags:['Client question']}],
+      review:[{title:'Rotterdam safety contract',desc:'Waiting for legal sign-off',tags:['Blocked','Human review'],risk:true},{title:'Event BHV framework',desc:'Human approval requested',tags:['Needs approval']}],
+      done:[{title:'Arnhem annual BHV renewal',desc:'Submitted and archived',tags:['Submitted','Archived'],ok:true},{title:'North region tender',desc:'Closed today',tags:['Done','Handoff']}]
+    };
+
+    const stageTitles = {backlog:'Backlog',ready:'Ready',progress:'In progress',review:'Human / review',done:'Done'};
+    const terminalEvents = [
+      ['18:30:12','🔧 PreToolUse','Qualifier → portal.search({region:"Limburg"})'],
+      ['18:30:14','✅ PostToolUse','portal.search returned 12 opportunities'],
+      ['18:30:21','🧠 Reasoning','Orchestrator routed 2 high-fit dossiers to Drafter'],
+      ['18:30:34','📦 PreCompact','Context compacted after 11 tool calls'],
+      ['18:30:46','👤 HumanGate','Compliance requested manual sign-off'],
+      ['18:31:02','✅ Done','Submission archived Arnhem annual BHV renewal']
+    ];
+
+    const agentsPanel = document.getElementById('agentsPanel');
+    const kanban = document.getElementById('kanban');
+    const drawer = document.getElementById('drawer');
+    const backdrop = document.getElementById('backdrop');
+    const mainArea = document.getElementById('mainArea');
+    const terminal = document.getElementById('terminal');
+
+    function renderAgents(){
+      agentsPanel.innerHTML = agents.map(a => `
+        <article class="agent-card glass" data-agent="${a.id}">
+          <div class="agent-top">
+            <div>
+              <div class="agent-state"><span class="tiny-dot" style="background:${a.tone}"></span>${a.state}</div>
+              <h3 style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.18rem;margin:12px 0 6px">${a.name}</h3>
+              <div class="role">${a.role}</div>
+            </div>
+            <div class="badge">Open</div>
+          </div>
+          <div class="agent-metrics">
+            <div class="agent-metric"><span>Active</span><strong>${a.active}</strong></div>
+            <div class="agent-metric"><span>Queue</span><strong>${a.queue}</strong></div>
+            <div class="agent-metric"><span>Errors</span><strong>${a.errors}</strong></div>
+          </div>
+          <div class="agent-skill-row">${a.skills.map(s => `<span class="skill">${s}</span>`).join('')}</div>
+        </article>`).join('');
+      document.querySelectorAll('[data-agent]').forEach(el => el.addEventListener('click', ()=>openDrawer(el.dataset.agent)));
+    }
+
+    function renderKanban(){
+      kanban.innerHTML = Object.entries(stageTitles).map(([key,title]) => `
+        <section class="column" data-column="${key}">
+          <div class="column-head"><div class="column-title">${title}</div><div class="count">${jobsByColumn[key].length}</div></div>
+          <div class="job-list">${jobsByColumn[key].map((j,i)=>`
+            <article class="job" draggable="true" data-from="${key}" data-index="${i}">
+              <h4>${j.title}</h4><p>${j.desc}</p>
+              <div class="row">
+                ${j.tags.map(t => `<span class="tag ${j.warn?'warn':''} ${j.risk?'risk':''} ${j.ok?'ok':''}">${t}</span>`).join('')}
+              </div>
+            </article>`).join('')}</div>
+        </section>`).join('');
+
+      let drag = null;
+      document.querySelectorAll('.job').forEach(card => card.addEventListener('dragstart', ()=>{drag={from:card.dataset.from,index:Number(card.dataset.index)}}));
+      document.querySelectorAll('.job-list').forEach(list => {
+        list.addEventListener('dragover', e => e.preventDefault());
+        list.addEventListener('drop', function(e){
+          e.preventDefault();
+          if(!drag) return;
+          const to = this.parentElement.dataset.column;
+          const moved = jobsByColumn[drag.from].splice(drag.index,1)[0];
+          jobsByColumn[to].unshift(moved);
+          renderKanban();
+          bumpKPIs();
+        })
+      })
+    }
+
+    function openDrawer(id){
+      const a = agents.find(x => x.id===id); if(!a) return;
+      document.getElementById('drawerTitle').textContent = a.name;
+      document.getElementById('drawerRole').textContent = a.role;
+      document.getElementById('drawerActive').textContent = a.active;
+      document.getElementById('drawerCycle').textContent = a.cycle;
+      document.getElementById('drawerDesc').textContent = `${a.name} behaves like a micro-orchestrator: it intake-checks work, runs targeted tools, and escalates or delegates results back into the swarm.`;
+      document.getElementById('drawerTimeline').innerHTML = a.timeline.map(t => `<div style="display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start"><div style="width:12px;height:12px;border-radius:50%;background:${a.tone};margin-top:5px;box-shadow:0 0 0 6px color-mix(in srgb, ${a.tone} 16%, transparent)"></div><div style="color:var(--muted)">${t}</div></div>`).join('');
+      drawer.classList.add('open'); backdrop.classList.add('show'); mainArea.classList.add('dim');
+    }
+    function closeDrawer(){drawer.classList.remove('open'); backdrop.classList.remove('show'); mainArea.classList.remove('dim')}
+
+    function streamTerminal(){
+      terminal.innerHTML = '';
+      terminalEvents.forEach((ev, idx) => {
+        setTimeout(() => {
+          const row = document.createElement('div');
+          row.className = 'log';
+          row.innerHTML = `<time>${ev[0]}</time><div><span class="type">${ev[1]}</span> <span class="payload">${ev[2]}</span></div>`;
+          terminal.appendChild(row);
+          terminal.scrollTop = terminal.scrollHeight;
+        }, idx * 520);
+      });
+      setTimeout(() => {
+        const live = document.createElement('div');
+        live.className = 'log';
+        live.innerHTML = `<time>live</time><div><span class="type">…</span> <span class="payload">Awaiting next event<span class="caret"></span></span></div>`;
+        terminal.appendChild(live);
+      }, terminalEvents.length * 520 + 150);
+    }
+
+    function bumpKPIs(){
+      document.getElementById('kpiActive').textContent = Object.values(jobsByColumn).reduce((n, arr, idx) => idx===4 ? n : n + arr.length, 0);
+      document.getElementById('kpiReview').textContent = jobsByColumn.review.length;
+      document.getElementById('kpiBlocked').textContent = jobsByColumn.review.filter(j => j.risk).length + 2;
+      document.getElementById('kpiDone').textContent = 24 + jobsByColumn.done.length;
+    }
+
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const root = document.documentElement;
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    });
+    document.getElementById('closeDrawer').addEventListener('click', closeDrawer);
+    backdrop.addEventListener('click', closeDrawer);
+
+    renderAgents();
+    renderKanban();
+    bumpKPIs();
+    streamTerminal();
+  </script>
+</body>
+</html>

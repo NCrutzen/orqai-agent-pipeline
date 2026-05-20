@@ -1,0 +1,126 @@
+=== Spike 004 — random sample of post-noise unknown bucket ===
+
+Total inbound: 5316
+Post-noise unknown (router workload): 1236
+Sampling 30 (seed=42, deterministic)
+
+
+#01  2026-04-27  Procurement_BE@cargill.com
+     Subj: Cargill Purchase Order 4521445260 IZEGEM 09 BE GEO
+     Body: CAUTION: External Sender Cargill Purchase Order 4521445260 IZEGEM 09 BE GEO
+
+#02  2026-02-19  safety@maasoever.com
+     Subj: inspectie/offerte
+     Body: CAUTION: External Sender Goedemorgen, Graag de lopende offerte voor het vervangen van de haspel mailen naar td@maasoever.com. Dit mailadres voortaan gebruiken voor alle communicatie, ipv het mailadres van Eric Somers. De offerte moet uitgeb
+
+#03  2026-03-30  udegbunam.v@firemail.de
+     Subj: Unsolicited application as Second-Level Supporter (IT Support)
+     Body: CAUTION: External Sender (Relocation possible; Willing to travel without issues; Home-Office negotiable) Dear HR Manager, I am writing to present myself as a Second-Level Supporter with strong skills in IT support. With a solid technical ba
+
+#04  2026-02-24  lead.P2P@p2p.basware.com
+     Subj: Niet conform inkoopordernummer 17336133
+     Body: CAUTION: External Sender Geachte heer/mevrouw, Hierbij sturen wij uw factuur 17336133 retour met als reden: De waarde van uw factuur wijkt af van de waarde van de ontvangen inkoopordernummer. U dient ten alle tijden conform inkoopordernumme
+
+#05  2026-04-24  arjen@stroom-partner.nl
+     Subj: Korte check: betaalt u te veel?
+     Body: CAUTION: External Sender Korte check: betaald u meer dan nodig voor energie? Wij helpen bedrijven gemiddeld €500 tot €3.500 per jaar besparen — zonder aanpassingen aan installaties of bedrijfsvoering. Één kort gesprek is genoeg om te weten 
+
+#06  2026-03-05  info@insolvenzrecht-gabel.de
+     Subj: Insolvenzverwalter: Aktueller Warenbestand zur freihändigen Verwertung
+     Body: CAUTION: External Sender Hochwertige Neuware aus Verwertung: IT, Foto, Solar – 101 Artikel. ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ ͏ Rechtsanwalt Gabel Tel: +49 69 20085295 info@insolvenzrecht-gabel.de ​ ​ Sehr geehrte Da
+
+#07  2026-05-04  zakelijkefactuur@facturen.postnl.nl
+     Subj: Uw PostNL factuur 1106-26315789, periode 01-04-2026 - 30-04-2026
+     Body: CAUTION: External Sender Geachte heer, mevrouw, Bijgaand ontvangt u uw factuur en bijbehorend UBL bestand van Koninklijke PostNL B.V., over de periode 01-04-2026 - 30-04-2026 met factuurnummer 1106-26315789. Het verbruiksoverzicht van deze 
+
+#08  2026-03-05  lhhpelypvractsrvlvawitw@nss.sellpia247.com
+     Subj: Meta Verified: Verifieer de pagina van uw bedrijf om het blauwe verificatiebadge van Meta Verified te ontvange
+     Body: CAUTION: External Sender Meta voor Bedrijven Officiële uitnodiging van Meta Meta Verified Geachte bedrijfsbeheerder, Laat de wereld zien dat u serieus bent. Meta Verified helpt om meer vertrouwen op te bouwen bij nieuwe klanten en uw merk t
+
+#09  2026-03-19  Paul.Witteman@asfaltnu.nl
+     Subj: FW: ANAII opmerking uit jaarlijks onderhoud
+     Body: CAUTION: External Sender Goede morgen, Afgelopen jaar is er onderhoud/inspectie uitgevoerd aan onze Blusgasinstallatie. Zie de werkbon in de bijlage. In de werkbon staat beschreven dat dat de cilinders nog steeds geactiveerd worden bij een 
+
+#10  2026-03-10  raees.m@firemail.de
+     Subj: Initiativbewerbung als Maschinenbauingenieur, Qualitätsmanager, Projektkoordinator
+     Body: CAUTION: External Sender (Umzugsbereitschaft: ja, ohne Probleme; Reisebereitschaft: ja, ohne Probleme; Home-Office: möglich) Sehr geehrte Damen und Herren, als engagierter Maschinenbauingenieur mit fundierter Erfahrung im Qualitätsmanagemen
+
+#11  2026-03-16  joost@spacewinner.nl
+     Subj: kopie facturen
+     Body: CAUTION: External Sender Goedendag: SPACEWINNER Enschede BV heeft vanaf ABN AMRO 49.79.39.126 de volgende transactie gedaan. Hiervoor heb ik geen factuur in mijn administratie. Datum: 24-11-25 Bedrag 242,00 Omschrijving: Smeba Brandbeveilig
+
+#12  2026-04-23  jarka@justrealestatebv.com
+     Subj: Adreswijziging Just Real Estate B.V.
+     Body: CAUTION: External Sender Geachte klanten en leveranciers, Graag informeren wij u dat Just Real Estate B.V. per 12 mei is verhuisd. Ons nieuwe adres is: Kerkstraat 25A 3171 GD Poortugaal Wij verzoeken u vriendelijk om dit adres in uw adminis
+
+#13  2026-02-24  milou.joosten@mezzoscholen.nl
+     Subj: Opzegging overeenkomst controle blusmiddelen
+     Body: CAUTION: External Sender Beste meneer/mevrouw, Bij deze wil ik u laten weten dat onze metameer locatie in Stevensbeek na dit schooljaar zal sluiten. Graag zouden wij ons contract per 1 juli 2026 op willen zeggen, vanaf dan zal het gebouw ui
+
+#14  2026-04-29  CrediteurenBE@hansanders.com
+     Subj: Nexeye Payment advice 2000075037
+     Body: CAUTION: External Sender Voor algemene zaken of vragen over deze betaalspecificatie kunt u terecht op het volgende emailadres: CrediteurenBE@hansanders.com Met vriendelijke groet, Crediteurenadministratie
+
+#15  2026-03-18  gert.claes@cawdekempen.be
+     Subj: Fwd: Prijsvraag keuring brandblusapparaten
+     Body: CAUTION: External Sender Beste, Wij zijn op zoek naar een partner voor de jaarlijkse keuring van onze blusmiddelen. Hierna stuur ik u een lijst met onze locaties en de blusmiddelen. Ik veronderstel dat jullie de nodige attestering kunnen vo
+
+#16  2026-02-19  info@impexcompany.nl
+     Subj: Smeba - Uw Maandelijkse Auto-verkoopherinnering: Wij Kopen Actief!
+     Body: CAUTION: External Sender Ontvanger Smeba Antwerpen, Feb. 18, 2026, 10:04 p.m. Betreft: Export van gebruikte bedrijfs- en personenauto’s Geachte heer / mevrouw, Overweegt u uw auto binnenkort te verkopen? Neem dan contact met ons op via in
+
+#17  2026-03-13  Merybook.nic@outlook.com
+     Subj: Re: Quick Help with Your Bookkeeping
+     Body: CAUTION: External Sender Hy, What if your bookkeeping was fully managed starting this month? We offer flexible outsourced support for AP/AR, Payroll, Reconciliations, Reporting & Virtual Assistance — with no hiring or training required. If 
+
+#18  2026-03-03  suzanne@intraservice.nl
+     Subj: RESERVE YOUR BOOTH TODAY for ESS+ by SICUR Feria International de Seguridad Colombia
+     Body: CAUTION: External Sender RESERVE YOUR BOOTH TODAY! With more than 32 years of experience, ESS+ is the leading meeting point where global manufacturers, integrators, distributors, cybersecurity, fire, safety, and industrial security companie
+
+#19  2026-04-25  gracerriley8@gmail.com
+     Subj: Let’s continue your mobile app discussion
+     Body: CAUTION: External Sender Hi, Greetings of the day! We provide end-to-end Mobile App Development services for iOS and Android platforms, including Native and Hybrid app solutions. Our experience includes rental booking, taxi/cab services, tr
+
+#20  2026-03-12  info@auto-tweedehands.com
+     Subj: Smeba Fire - Autoverkoop herinnering: Uw auto is waardevol, verkoop nu.
+     Body: CAUTION: External Sender Ontvanger Smeba Fire "" 2220 Antwerpen, 12 maart 2026 21:14 Betreft: tweedehands bedrijfswagens voor export Geachte heer / mevrouw, Bent u van plan om uw auto op korte termijn of in de toekomst te verkopen? Dan r
+
+#21  2026-03-03  Trackingupdates@fedex.com
+     Subj: Uw zending is onderweg en wordt vandaag afgeleverd 889200056851
+     Body: CAUTION: External Sender Uw zending komt vandaag aan. Uw zending is onderweg en wordt vandaag afgeleverd. Geplande leverdatum Voor 18:00 Krijg meer controle over uw zendingen Afleverinstructies opslaan, bewijs van aflevering verkrijgen
+
+#22  2026-03-18  Dimity3456@hotmail.com
+     Subj: Reach their ideal audience
+     Body: CAUTION: External Sender Hello, Our SEO services help businesses increase visibility, reach their ideal audience globally, and generate more revenue through targeted strategies. If you're interested, please share your website URL, target ci
+
+#23  2026-03-24  communication@vo.eu
+     Subj: Korte vraag over onze samenwerking
+     Body: CAUTION: External Sender Beste Customer,V.O. ondersteunt u al geruime tijd bij uw intellectuele eigendom — een samenwerking die wij zeer waarderen. Om scherp te blijven en onze dienstverlening verder te verbeteren, laten wij momenteel een k
+
+#24  2026-02-19  aecomremittances@aecom.com
+     Subj: Separate Remittance Advice: paper document number - 3020736
+     Body: CAUTION: External Sender Payment Remittance Advice From Payer CE_NLD_URS HNK Den HaagOude Middenweg 17 Den Haag NL 2491 AC Trading Partner To Payee SMEBA BRANDBEVEILIGING BV SMEBA BRANDBEVEILIGING BV BIJSTER
+
+#25  2026-03-26  mrtomansah9@gmail.com
+     Subj: INQUIRY FOR SUPPLY
+     Body: CAUTION: External Sender Atten: Pls There is An Order To Supply The Following Agric & Hospital Products Under The Following Target Prices By UNDC. Therefore, Suppliers Are Needed: (1). Red Chilli Powder: $10.00 per 500gr (2). Garlic Powder:
+
+#26  2026-04-08  Procurement_BE@cargill.com
+     Subj: Cargill-Third Reminder-Purchase Order Acknowledgement Required-4521292909-E02-1FUA
+     Body: CAUTION: External Sender Cher fournisseur, Les lignes de Bon De Commande ci-dessous doivent être confirmées. Veuillez mettre à jour le tableau avec les informations pertinentes pour confirmer. Fournir un Accusé de Réception de Bon De Comman
+
+#27  2026-02-22  info@tandarts-oeffelt.nl
+     Subj: factuur 17322535
+     Body: CAUTION: External Sender Beste Smeba, Op 10-8-2025 en 18-8-2025 heb ik factuur 17322535 overgemaakt. Dit is dus een dubbele betaling. Gaarne per ommegaande €310,38 terug overmaken naar: NL54 ABNA 0523 3715 27 Bedankt. Met vriendelijke groet
+
+#28  2026-02-19  Madhu.Web.Expert@outlook.com
+     Subj: Cost
+     Body: CAUTION: External Sender Hi , I am still waiting for your reply May I send a price list? Best regards, ________________________________ From: Madhu Rai <Madhu.Web.Expert@outlook.com> Sent: Tuesday, February 10, 2026 3:43 AM To: Madhu Rai <
+
+#29  2026-04-26  innovatiemonitor@seo.nl
+     Subj: Uitnodiging Nederlandse Innovatie Monitor 2026
+     Body: CAUTION: External Sender Geachte heer Cosgrove, Blijven Nederlandse bedrijven vooroplopen in innovatie? Welke invloed heeft AI op hun bedrijfsprestaties? Wat verwachten zij van de overheid als het gaat om het stimuleren van innovatie? En ho
+
+#30  2026-03-31  arjan@wr.nl
+     Subj: Vacatures vervullen zonder risico.
+     Body: CAUTION: External Sender Hi Personeelszaken​, Vorige week stuurde ik je een mail over het invullen van vacatures zonder risico (no cure no pay). Ik wilde even checken of dit momenteel speelt bij jullie. De arbeidsmarkt blijft krap en veel o

@@ -1,9 +1,10 @@
 ---
 slug: icontroller-bulkdelete-failures
-status: root_cause_identified
+status: resolved
 trigger: 54/148 (36%) iController bulkDelete failures with disproven sidebar-Account hypothesis — re-investigate the real failure mode
 created: 2026-05-19
-updated: 2026-05-19
+updated: 2026-05-20
+resolved: 2026-05-20
 goal: find_and_fix
 parent_session: pipeline-health-2026-05-19
 ---

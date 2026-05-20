@@ -1,9 +1,10 @@
 ---
 slug: pipeline-health-2026-05-19
-status: closed_partial
+status: resolved
 trigger: Pipeline Health Check 2026-05-19 ~09:53 AMS — multiple red/orange flags across debtor-email pipeline
 created: 2026-05-19
-updated: 2026-05-19
+updated: 2026-05-20
+resolved: 2026-05-20
 goal: find_and_fix
 spawned_followup: icontroller-bulkdelete-failures
 ---

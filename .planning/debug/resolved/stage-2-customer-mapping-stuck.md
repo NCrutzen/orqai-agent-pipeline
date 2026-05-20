@@ -1,9 +1,10 @@
 ---
 slug: stage-2-customer-mapping-stuck
-status: root_cause_identified
+status: resolved
 trigger: Stage 2 rows appear to never trigger the customer-labelling SEARCH action (dry-run should still search, just not apply the label)
 created: 2026-05-19
-updated: 2026-05-19
+updated: 2026-05-20
+resolved: 2026-05-20
 goal: find_and_fix
 ---
 
