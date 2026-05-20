@@ -103,6 +103,7 @@ export const classifierLabelResolver = inngest.createFunction(
         result = await runThreadInheritanceOnly({
           admin,
           conversation_id: emailRow.conversation_id ?? null,
+          from_email: emailRow.sender_email ?? null,
         });
       } else {
         try {
@@ -121,6 +122,12 @@ export const classifierLabelResolver = inngest.createFunction(
             customer_account_id: null,
             customer_name: null,
             confidence: "none",
+            // Phase 82.9 — discriminated inputs even on resolver-error path.
+            inputs: {
+              kind: "unresolved",
+              sender_email: emailRow.sender_email ?? null,
+              matched_identifiers: [],
+            },
           };
         }
       }
@@ -359,6 +366,7 @@ export const classifierLabelResolver = inngest.createFunction(
 async function runThreadInheritanceOnly(args: {
   admin: ReturnType<typeof createAdminClient>;
   conversation_id: string | null;
+  from_email: string | null;
 }): Promise<ResolveResult> {
   if (!args.conversation_id) {
     return {
@@ -366,12 +374,19 @@ async function runThreadInheritanceOnly(args: {
       customer_account_id: null,
       customer_name: null,
       confidence: "none",
+      // Phase 82.9 — discriminated inputs on no-NXT fallback.
+      inputs: {
+        kind: "unresolved",
+        sender_email: args.from_email,
+        matched_identifiers: [],
+      },
     };
   }
   const { data: prior } = await args.admin
     .schema("debtor")
     .from("email_labels")
-    .select("customer_account_id, debtor_id, debtor_name")
+    // Phase 82.9 — include id for prior_email_label_id inputs.
+    .select("id, customer_account_id, debtor_id, debtor_name")
     .eq("conversation_id", args.conversation_id)
     .or("customer_account_id.not.is.null,debtor_id.not.is.null")
     .in("status", ["labeled", "dry_run"])
@@ -379,16 +394,27 @@ async function runThreadInheritanceOnly(args: {
     .limit(1)
     .maybeSingle();
 
+  const priorRow = prior as
+    | {
+        id?: string | null;
+        customer_account_id?: string | null;
+        debtor_id?: string | null;
+        debtor_name?: string | null;
+      }
+    | null;
   const accountId =
-    (prior as { customer_account_id?: string | null; debtor_id?: string | null } | null)
-      ?.customer_account_id ?? (prior as { debtor_id?: string | null } | null)?.debtor_id ?? null;
+    priorRow?.customer_account_id ?? priorRow?.debtor_id ?? null;
   if (accountId) {
     return {
       method: "thread_inheritance",
       customer_account_id: accountId,
-      customer_name:
-        (prior as { debtor_name?: string | null } | null)?.debtor_name ?? null,
+      customer_name: priorRow?.debtor_name ?? null,
       confidence: "high",
+      inputs: {
+        kind: "thread_inheritance",
+        prior_email_label_id: priorRow?.id ?? "",
+        conversation_id: args.conversation_id,
+      },
     };
   }
   return {
@@ -396,6 +422,11 @@ async function runThreadInheritanceOnly(args: {
     customer_account_id: null,
     customer_name: null,
     confidence: "none",
+    inputs: {
+      kind: "unresolved",
+      sender_email: args.from_email,
+      matched_identifiers: [],
+    },
   };
 }
 

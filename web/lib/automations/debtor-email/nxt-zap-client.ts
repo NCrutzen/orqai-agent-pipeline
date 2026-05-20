@@ -142,6 +142,10 @@ const CandidateDetailMatchSchema = z.object({
   classification: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   modified_on: z.string(),
+  // Phase 82.9 (Plan 01) — extended candidate richness for Stage 2 audit panel.
+  // Forward-compat: tolerate missing/null from legacy Zap responses.
+  contact_person: z.string().nullable().optional(),
+  recent_invoices: z.array(z.string()).nullable().optional().transform((v) => v ?? []),
 });
 
 const ResponseSchemaByTool = {
