@@ -1,16 +1,21 @@
 "use client";
 
-// Phase 82.4 Plan 06 — Two URL-param-driven toggle chips for the per-stage
+// Phase 82.4 Plan 06 — URL-param-driven toggle chip for the per-stage
 // Option Z list surface (Stages 0/1/2/3).
 //
-// These chips are presentation primitives: they accept `active` + `onToggle`
-// and render the V7 pill styling. URL-param plumbing (parsing, router.replace,
-// resetting `before` on toggle) lives in `stage-list-chips.tsx` — the page
-// boundary mounts that wrapper.
+// Phase 88 Plan 03 (D-02 cleanup): the prior "Needs action" toggle chip is
+// removed. The "Needs review" chip on Stage 1's NoiseCategoryChipStrip now
+// carries the verdict-pending signal (count from
+// classifier_queue_verdict_pending RPC). The two-axis split collapsed into
+// one verdict axis. MineOnlyChip survives — it tracks a different concern
+// (operator-mine vs cross-operator history) and is unrelated to
+// verdict-pending.
+//
+// Presentation primitive: accepts `active` + `onToggle` and renders the V7
+// pill styling. URL-param plumbing lives in `stage-list-chips.tsx`.
 //
 // Default OFF on every tab (audit-first culture per 82.4-CONTEXT.md): the
-// operator must opt in to inbox-only view. Both chips default OFF; no chip
-// is "preselected".
+// operator must opt in to mine-only view; no chip is "preselected".
 //
 // Hard-separation lock: this file does not import any swarm registry helper.
 // The same chip ships for every stage on every swarm.
@@ -52,12 +57,6 @@ function ToggleChip({
     >
       {label}
     </button>
-  );
-}
-
-export function NeedsActionChip(props: ToggleChipProps) {
-  return (
-    <ToggleChip {...props} label="Needs action" testId="needs-action-chip" />
   );
 }
 

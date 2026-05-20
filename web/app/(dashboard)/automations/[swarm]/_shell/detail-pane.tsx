@@ -62,7 +62,8 @@ export interface PipelineTimelineEvent {
 
 import { PipelineFlow, type StageData, type StageState } from "../stage-1/components/pipeline-flow";
 import { Stage1Widget } from "./components/stage-1-widget";
-import { Stage3Widget } from "../stage-1/components/stage-3-widget";
+import { Stage2OverrideWidget } from "./components/stage-2-widget";
+import { Stage3OverrideWidget } from "./components/stage-3-widget";
 import { Stage0Widget } from "./components/stage-0-widget";
 import type { PredictedRow } from "../stage-1/page";
 import { approvePrediction } from "../stage-1/actions";
@@ -445,30 +446,40 @@ function DetailPaneInner({
             widget = null;
           }
         } else if (n === 2) {
-          // Placeholder — Plan 06 wires Stage2Widget (async customer search).
-          widget = (
-            <div
-              data-testid="stage-2-widget-placeholder"
-              style={{
-                padding: "var(--space-3)",
-                fontSize: 13,
-                color: "var(--v7-text-muted)",
-              }}
-            >
-              Stage 2 customer override — wired in Plan 06.
-            </div>
-          );
+          // Phase 88 Plan 02 — Stage 2 customer override widget. Wraps the
+          // existing async customer-search picker with fused note textarea
+          // (D-01b) + override POST handler. Requires predictedRow for the
+          // POST + recordVerdict args; absent → render nothing (parity with
+          // Stage 1 widget guard above).
+          if (predictedRow) {
+            widget = (
+              <Stage2OverrideWidget
+                value={null}
+                onChange={() => onMarkDirty(2)}
+                row={predictedRow}
+                swarmType={swarmType}
+              />
+            );
+          } else {
+            widget = null;
+          }
         } else if (n === 3) {
-          // HARD-SEP: Stage3Widget receives `intents` ONLY. Never `categories`.
-          widget = (
-            <Stage3Widget
-              intents={_intents}
-              value={null}
-              onChange={() => {
-                /* Plan 06 */
-              }}
-            />
-          );
+          // Phase 88 Plan 02 — Stage 3 intent override widget. HARD-SEP:
+          // consumes `intents` ONLY. Requires predictedRow for the override
+          // POST + recordVerdict args.
+          if (predictedRow) {
+            widget = (
+              <Stage3OverrideWidget
+                intents={_intents}
+                value={ev?.decision ?? null}
+                onChange={() => onMarkDirty(3)}
+                row={predictedRow}
+                swarmType={swarmType}
+              />
+            );
+          } else {
+            widget = null;
+          }
         } else if (n === 4) {
           // Placeholder — Plan 06 wires Stage4Widget (quality + reason text).
           widget = (
@@ -703,7 +714,7 @@ function DetailPaneInner({
       </section>
 
       <section
-        style={{ padding: "var(--space-4)", flex: 1 }}
+        style={{ padding: "var(--space-4)" }}
         data-testid="pipeline-section"
       >
         <div
@@ -747,7 +758,12 @@ function DetailPaneInner({
           padding: "var(--space-4)",
           borderTop: "1px solid var(--v7-border)",
           display: "flex",
+          flexWrap: "wrap",
           gap: "var(--space-2)",
+          position: "sticky",
+          bottom: 0,
+          background: "var(--v7-panel)",
+          zIndex: 1,
         }}
         data-testid="action-footer"
       >

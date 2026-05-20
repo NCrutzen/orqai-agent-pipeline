@@ -51,6 +51,16 @@ interface NoiseCategoryChipStripProps {
   candidateCount: number;
   /** sp.sub ?? null — when "pending", the Pending pill is active. */
   activeSub: string | null;
+  /**
+   * Phase 88 D-02: server-computed verdict-pending count. Rows in
+   * automation_runs.status='predicted' for this swarm with no email_feedback
+   * row at stage=1. Sourced from the
+   * classifier_queue_verdict_pending(p_swarm_type) RPC. Replaces the prior
+   * client-side `topic !== 'skip'` aggregation — that summed all non-skip
+   * topics, which over-counted auto-handled rows the operator never
+   * needs to look at.
+   */
+  verdictPendingCount: number;
 }
 
 export function NoiseCategoryChipStrip({
@@ -59,6 +69,7 @@ export function NoiseCategoryChipStrip({
   activeTopic,
   candidateCount,
   activeSub,
+  verdictPendingCount,
 }: NoiseCategoryChipStripProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -79,18 +90,18 @@ export function NoiseCategoryChipStrip({
 
   // Aggregate per-topic counts. Entries with topic === null are not chip
   // badges (they're swarm-wide aggregates) — exclude them.
+  //
+  // Phase 88 D-02: the "Needs review" leftmost chip no longer aggregates
+  // non-skip topics here. It binds directly to the verdictPendingCount
+  // prop, which is sourced from the classifier_queue_verdict_pending RPC
+  // (anti-join on email_feedback at stage=1). The old client-side sum
+  // over-counted auto-handled rows.
   const countByTopic = new Map<string, number>();
-  let needsReviewCount = 0;
-  for (const c of counts) {
+  counts.forEach((c) => {
     if (c.topic !== null) {
       countByTopic.set(c.topic, (countByTopic.get(c.topic) ?? 0) + c.count);
     }
-    // H-05: classifier_queue_counts already filters status='predicted',
-    // so auto-handled + overridden rows are excluded at the RPC layer.
-    // Only exclude `topic === "skip"` here (label-only noise the operator
-    // considers handled).
-    if (c.topic !== "skip") needsReviewCount += c.count;
-  }
+  });
 
   const allActive = activeTopic === "all" && !activeSub;
   const pendingHref = (() => {
@@ -103,19 +114,33 @@ export function NoiseCategoryChipStrip({
 
   // Phase 82 Plan 06: chip data → `_shell/ChipStrip`. The wrapper retains the
   // URL contract (navigate() above) and the tail Pending Promotion Link pill.
-  const chipStripChips: ChipStripChip[] = [
-    { key: "all", label: "Needs review", count: needsReviewCount },
-    ...categories.map((cat) => ({
-      key: cat.category_key,
-      label: cat.display_label,
-      count: countByTopic.get(cat.category_key) ?? 0,
-    })),
-  ];
   const activeKey = allActive
     ? "all"
     : activeSub
       ? "" // No chip is active when ?sub=pending takes over
       : activeTopic;
+
+  // Hide zero-count category chips so the strip doesn't sprawl across 12+
+  // empty pills (UAT 2026-05-20). Keep currently-active chip even when its
+  // count is zero so a deep-linked or just-emptied filter stays visible —
+  // otherwise the active styling would have nothing to anchor to.
+  //
+  // verdictPendingCount + per-category counts both come from the
+  // pipeline_events_email_summary-based RPCs (migration
+  // 20260521_phase88_classifier_queue_verdict_pending.sql, applied
+  // 2026-05-20 post-UAT F-03). They mirror the loader's filter chain
+  // exactly so chip totals reflect the full Stage 1 review backlog,
+  // not just the paginated 100-row window the row list shows.
+  const chipStripChips: ChipStripChip[] = [
+    { key: "all", label: "Needs review", count: verdictPendingCount },
+    ...categories
+      .map((cat) => ({
+        key: cat.category_key,
+        label: cat.display_label,
+        count: countByTopic.get(cat.category_key) ?? 0,
+      }))
+      .filter((chip) => chip.count > 0 || chip.key === activeKey),
+  ];
 
   return (
     <div

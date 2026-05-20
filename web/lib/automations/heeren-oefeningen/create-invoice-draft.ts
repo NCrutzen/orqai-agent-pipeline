@@ -59,6 +59,12 @@ export interface CreateInvoiceDraftParams {
   orderTypeId: string;
   /** Kostenplaats — Companies.OrderReference uit NXT, gevuld op het kostenplaats-veld in NXT */
   orderReference?: string | null;
+  /**
+   * Wanneer true: doorloop na "Save as draft" ook de stappen
+   * Confirm (vm.saveAsConfirm) → Invoice (vm.createInvoice) → Process (vm.process).
+   * Default false (alleen draft aanmaken — Heeren legacy maandelijkse pad).
+   */
+  autoInvoice?: boolean;
   /** Regels die op de order moeten komen */
   lines: DraftOrderLine[];
   /** Voor traceerbaarheid — originele NXT order codes die de bron van deze facturatie vormen */
@@ -77,6 +83,15 @@ export interface CreateInvoiceDraftResult {
   newOrderUrl: string | null;
   /** Supabase Storage URL van de screenshot na opslaan */
   screenshotUrl: string | null;
+  /** Bij autoInvoice=true: timestamps van elke transitie + invoice info */
+  confirmedAt?: string | null;
+  invoiceUuid?: string | null;
+  invoiceUrl?: string | null;
+  invoicedAt?: string | null;
+  processedAt?: string | null;
+  /** Laatst bekende status — voor debugging als ergens onderweg gefaald */
+  finalOrderStatus?: string | null;
+  finalInvoiceStatus?: string | null;
   error?: string;
 }
 
@@ -364,6 +379,76 @@ async function saveAsDraft(page: Page): Promise<{ url: string; uuid: string | nu
   return { url: finalUrl, uuid, code };
 }
 
+/**
+ * Klik "Save" (vm.saveAsConfirm) op een prospect-order detail page.
+ * Verandert status van `prospect` → `open`.
+ *
+ * Pre: page bevindt zich op /orders/.../detail/{uuid} met status prospect.
+ * Post: status = `open`, "Invoice" knop is nu zichtbaar.
+ */
+async function confirmOrder(page: Page): Promise<void> {
+  const saveBtn = page.locator('button[ng-click="vm.saveAsConfirm()"]').first();
+  await saveBtn.waitFor({ state: "visible", timeout: 10_000 });
+  await saveBtn.click();
+  // Wachten tot de Invoice-knop verschijnt — bewijst dat de status nu `open` is.
+  await page.locator('button[ng-click="vm.createInvoice()"]').first()
+    .waitFor({ state: "visible", timeout: 15_000 });
+}
+
+/**
+ * Klik "Invoice" (vm.createInvoice) op een open-order detail page.
+ * Navigeert naar /invoices/.../detail/{invoiceUuid}, invoice status = OPEN.
+ *
+ * Pre: page bevindt zich op /orders/.../detail/{uuid} met status `open`.
+ * Post: page is op /invoices/.../detail/{invoiceUuid}, "Process" knop zichtbaar.
+ */
+async function createInvoiceFromOrder(page: Page): Promise<{ invoiceUuid: string; invoiceUrl: string }> {
+  const invoiceBtn = page.locator('button[ng-click="vm.createInvoice()"]').first();
+  await invoiceBtn.waitFor({ state: "visible", timeout: 10_000 });
+  await Promise.all([
+    page.waitForURL(/\/invoices\/.+\/detail\//, { timeout: 30_000 }).catch(() => {}),
+    invoiceBtn.click(),
+  ]);
+  await page.waitForTimeout(2500);
+
+  const invoiceUrl = page.url();
+  const m = invoiceUrl.match(/\/invoices\/[^/]+\/[^/]+\/detail\/([a-f0-9]+)/i);
+  const invoiceUuid = m ? m[1] : "";
+  if (!invoiceUuid) {
+    throw new Error(`Invoice UUID niet uit URL te halen: ${invoiceUrl}`);
+  }
+
+  // Wacht tot de Process-knop verschijnt
+  await page.locator('button[ng-click="vm.process()"]').first()
+    .waitFor({ state: "visible", timeout: 15_000 });
+
+  return { invoiceUuid, invoiceUrl };
+}
+
+/**
+ * Klik "Process" (vm.process) op de invoice detail page.
+ * Verandert invoice status van OPEN → PROCESSING.
+ *
+ * Pre: page bevindt zich op /invoices/.../detail/{invoiceUuid} met status OPEN.
+ * Post: status = PROCESSING (eindstaat — geen Process knop meer).
+ */
+async function processInvoice(page: Page): Promise<void> {
+  const processBtn = page.locator('button[ng-click="vm.process()"]').first();
+  await processBtn.waitFor({ state: "visible", timeout: 10_000 });
+  await processBtn.click();
+  // Wachten tot de Process-knop weg is (PROCESSING-staat = niet meer klikbaar).
+  await page.locator('button[ng-click="vm.process()"]').first()
+    .waitFor({ state: "detached", timeout: 15_000 })
+    .catch(async () => {
+      // Fallback: misschien blijft de knop staan maar wordt 'ie disabled, of
+      // verbergt Angular hem. Check status-input.
+      const status = await page.locator('input[name="invoiceStatus"]').first()
+        .inputValue().catch(() => "");
+      if (status.toUpperCase() === "PROCESSING") return;
+      throw new Error(`Process klik leek niet door te komen, status=${status}`);
+    });
+}
+
 export async function createInvoiceDraft(params: CreateInvoiceDraftParams): Promise<CreateInvoiceDraftResult> {
   if (params.lines.length === 0) {
     return { success: false, newOrderUuid: null, newOrderCode: null, newOrderUrl: null, screenshotUrl: null, error: "Geen regels opgegeven" };
@@ -427,13 +512,72 @@ export async function createInvoiceDraft(params: CreateInvoiceDraftParams): Prom
     // Screenshot na opslaan
     const screenshotUrl = await saveScreenshotToStorage(page, `after-save-${uuid ?? "unknown"}`);
 
-    return {
+    // Bij autoInvoice=false: stop hier (legacy maandelijkse pad)
+    if (!params.autoInvoice) {
+      return {
+        success: true,
+        newOrderUuid: uuid,
+        newOrderCode: code,
+        newOrderUrl: url,
+        screenshotUrl,
+      };
+    }
+
+    // === autoInvoice: doorloop confirm → invoice → process ===
+    const result: CreateInvoiceDraftResult = {
       success: true,
       newOrderUuid: uuid,
       newOrderCode: code,
       newOrderUrl: url,
       screenshotUrl,
     };
+
+    // Stap 1: Save (vm.saveAsConfirm) → status `open`
+    try {
+      await confirmOrder(page);
+      result.confirmedAt = new Date().toISOString();
+      result.finalOrderStatus = "open";
+      console.log(`[autoInvoice] ✓ confirmed (status=open)`);
+    } catch (e: any) {
+      await saveScreenshotToStorage(page, `confirm-fail-${uuid ?? "unknown"}`);
+      result.success = false;
+      result.error = `Confirm step mislukt: ${e.message}`;
+      return result;
+    }
+
+    // Stap 2: Invoice (vm.createInvoice) → redirect naar invoice page
+    try {
+      const inv = await createInvoiceFromOrder(page);
+      result.invoiceUuid = inv.invoiceUuid;
+      result.invoiceUrl = inv.invoiceUrl;
+      result.invoicedAt = new Date().toISOString();
+      result.finalInvoiceStatus = "OPEN";
+      console.log(`[autoInvoice] ✓ invoice gegenereerd (uuid=${inv.invoiceUuid})`);
+    } catch (e: any) {
+      await saveScreenshotToStorage(page, `invoice-fail-${uuid ?? "unknown"}`);
+      result.success = false;
+      result.error = `Invoice step mislukt: ${e.message}`;
+      return result;
+    }
+
+    // Stap 3: Process (vm.process) → status PROCESSING (eindstaat)
+    try {
+      await processInvoice(page);
+      result.processedAt = new Date().toISOString();
+      result.finalInvoiceStatus = "PROCESSING";
+      console.log(`[autoInvoice] ✓ processed (status=PROCESSING)`);
+    } catch (e: any) {
+      await saveScreenshotToStorage(page, `process-fail-${uuid ?? "unknown"}`);
+      result.success = false;
+      result.error = `Process step mislukt: ${e.message}`;
+      return result;
+    }
+
+    // Final screenshot
+    const finalShot = await saveScreenshotToStorage(page, `final-invoiced-${uuid ?? "unknown"}`);
+    if (finalShot) result.screenshotUrl = finalShot;
+
+    return result;
   } catch (err: any) {
     console.error("[fase2] Fout:", err.message);
     return {

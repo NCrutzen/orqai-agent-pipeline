@@ -61,7 +61,6 @@ interface PageProps {
   searchParams: Promise<{
     mailbox?: string | string[];
     selected?: string;
-    needs_action?: string;
     mine_only?: string;
     before?: string;
   }>;
@@ -100,14 +99,17 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
   // Phase 82.4 Plan 06: Option Z list source for Stage 2 (entity / customer
   // mapping). Hard-separation preserved by passing stage=2 — loader never
   // blurs Stage 1 (noise) or Stage 3 (intent).
-  const needsAction = sp.needs_action === "1";
+  //
+  // Phase 88 Plan 03 (D-02): the URL-level needs-action toggle was removed
+  // (verdict axis collapsed into Stage 1's "Needs review" chip).
+  // The loader's `needsActionOnly` param is preserved but no longer driven
+  // by Stage 2 — default false here.
   const mineOnly = sp.mine_only === "1";
   const supabaseSrv = await createClient();
   const { data: { user } } = await supabaseSrv.auth.getUser();
   const feedbackPage = await loadStageFeedbackList(admin, {
     stage: 2,
     swarmType,
-    needsActionOnly: needsAction,
     mineOnly,
     operatorId: user?.id,
     before: sp.before,
@@ -175,7 +177,6 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
     } else if (sp.mailbox) {
       qs.append("mailbox", sp.mailbox);
     }
-    if (needsAction) qs.set("needs_action", "1");
     if (mineOnly) qs.set("mine_only", "1");
     if (sp.selected) qs.set("selected", sp.selected);
     qs.set("before", feedbackPage.nextBefore);
@@ -240,7 +241,7 @@ export default async function Stage2Page({ params, searchParams }: PageProps) {
             }}
           >
             {/* Phase 82.4 Plan 06: Option Z toggle chips (default OFF). */}
-            <StageListChips needsAction={needsAction} mineOnly={mineOnly} />
+            <StageListChips mineOnly={mineOnly} />
             <MailboxFilter
               mailboxes={mailboxes}
               selected={selectedMailboxes}
