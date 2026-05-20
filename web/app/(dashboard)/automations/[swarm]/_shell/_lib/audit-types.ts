@@ -26,13 +26,61 @@ export interface Stage1AuditPayload {
   raw: Record<string, unknown>;
 }
 
+// Phase 82.9 — discriminated evidence payload (D-01). `inputs` absent on legacy
+// rows (D-04). `candidates` + `reasoning` are richer per-method evidence.
+// Existing top-level fields (identifier_source, confidence, top_candidates,
+// screenshot_paths, raw) are preserved for back-compat (Pitfall 4).
+export type CandidateView = {
+  id: string;
+  name: string;
+  contact_person: string | null;
+  recent_invoices: string[];
+};
+
+export type Stage2InputsView =
+  | {
+      kind: "thread_inheritance";
+      prior_email_label_id: string;
+      conversation_id: string;
+    }
+  | {
+      kind: "sender_match";
+      sender_email: string;
+      candidates: CandidateView[];
+    }
+  | {
+      kind: "identifier_match";
+      matched_identifiers: string[];
+      candidates: CandidateView[];
+    }
+  | {
+      kind: "llm_tiebreaker";
+      sender_email: string | null;
+      matched_identifiers: string[];
+      candidates: CandidateView[];
+      llm_reason: string;
+    }
+  | {
+      kind: "unresolved";
+      sender_email: string | null;
+      matched_identifiers: string[];
+    };
+
 export interface Stage2AuditPayload {
   stage: 2;
+  // EXISTING — DO NOT REMOVE (Pitfall 4 back-compat):
   identifier_source: "thread" | "sender" | "identifier" | "unresolved" | null;
   confidence: "high" | "medium" | "low" | null;
   top_candidates: Array<{ account_id: string; name: string; score: number }>;
   screenshot_paths: { before: string | null; after: string | null };
   raw: Record<string, unknown>;
+  // Phase 82.9 — populated on rows written after deploy; null/absent on legacy rows.
+  /** Discriminated by `kind`. Null on legacy rows (decision_details.inputs absent in JSONB). */
+  inputs?: Stage2InputsView | null;
+  /** Rich candidate list. Present when `inputs.kind` is `sender_match` / `identifier_match` / `llm_tiebreaker`. */
+  candidates?: CandidateView[];
+  /** LLM tiebreaker reason. Present only when `inputs?.kind === "llm_tiebreaker"`. */
+  reasoning?: string | null;
 }
 
 export interface Stage3AuditPayload {

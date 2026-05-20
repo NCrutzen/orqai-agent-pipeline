@@ -23,6 +23,8 @@ import type {
   Stage0AuditPayload,
   Stage1AuditPayload,
   Stage2AuditPayload,
+  Stage2InputsView,
+  CandidateView,
   Stage3AuditPayload,
   StageAuditMap,
 } from "./audit-types";
@@ -137,6 +139,27 @@ function asTopCandidates(
     if (account_id !== null && name !== null && score !== null) {
       out.push({ account_id, name, score });
     }
+  }
+  return out;
+}
+
+// Phase 82.9 — tolerant narrowing for Stage 2 candidate evidence (D-03).
+// Enforces Tier-3 of the three-tier `recent_invoices.length <= 5` bound
+// (Tier 1: SQL LIMIT 5, Tier 2: Zod .max(5), Tier 3: this slice).
+function asCandidates(v: unknown): CandidateView[] {
+  if (!Array.isArray(v)) return [];
+  const out: CandidateView[] = [];
+  for (const c of v) {
+    if (!isRecord(c)) continue;
+    const id = asString(c.id);
+    const name = asString(c.name);
+    if (id === null || name === null) continue;
+    out.push({
+      id,
+      name,
+      contact_person: asString(c.contact_person),
+      recent_invoices: asStringArray(c.recent_invoices).slice(0, 5),
+    });
   }
   return out;
 }
@@ -434,12 +457,75 @@ export function buildStageAuditMap<
       }
     }
 
+    // Phase 82.9 — discriminated evidence (D-01). Legacy rows have no `inputs`
+    // key in decision_details (D-04 — detect via `isRecord(d.inputs)` per
+    // Pitfall 3, NOT via `method == null`). Unknown future methods tolerantly
+    // degrade to legacy render via the `default:` arm — mapper NEVER throws.
+    const inputsRaw = isRecord(d.inputs) ? d.inputs : null;
+    const methodKey = asString(d.method);
+
+    let stage2Inputs: Stage2InputsView | null = null;
+    let candidates: CandidateView[] | undefined;
+    let reasoning: string | null = null;
+
+    if (inputsRaw !== null) {
+      switch (methodKey) {
+        case "thread_inheritance":
+          stage2Inputs = {
+            kind: "thread_inheritance",
+            prior_email_label_id: asString(inputsRaw.prior_email_label_id) ?? "",
+            conversation_id: asString(inputsRaw.conversation_id) ?? "",
+          };
+          break;
+        case "sender_match":
+          candidates = asCandidates(inputsRaw.candidates);
+          stage2Inputs = {
+            kind: "sender_match",
+            sender_email: asString(inputsRaw.sender_email) ?? "",
+            candidates,
+          };
+          break;
+        case "identifier_match":
+          candidates = asCandidates(inputsRaw.candidates);
+          stage2Inputs = {
+            kind: "identifier_match",
+            matched_identifiers: asStringArray(inputsRaw.matched_identifiers),
+            candidates,
+          };
+          break;
+        case "llm_tiebreaker":
+          candidates = asCandidates(inputsRaw.candidates);
+          reasoning = asString(inputsRaw.llm_reason);
+          stage2Inputs = {
+            kind: "llm_tiebreaker",
+            sender_email: asString(inputsRaw.sender_email),
+            matched_identifiers: asStringArray(inputsRaw.matched_identifiers),
+            candidates,
+            llm_reason: reasoning ?? "",
+          };
+          break;
+        case "unresolved":
+          stage2Inputs = {
+            kind: "unresolved",
+            sender_email: asString(inputsRaw.sender_email),
+            matched_identifiers: asStringArray(inputsRaw.matched_identifiers),
+          };
+          break;
+        default:
+          // Tolerant: unknown future method falls back to legacy render (D-04).
+          stage2Inputs = null;
+      }
+    }
+
     const payload: Stage2AuditPayload = {
       stage: 2,
       identifier_source,
       confidence,
       top_candidates,
       screenshot_paths: extractScreenshotPaths(result),
+      inputs: stage2Inputs,
+      candidates,
+      reasoning,
       raw: { ...d, ...ctx, ...(result ?? {}) },
     };
     map[2] = createElement(Stage2EvidencePanel, { payload }) as ReactNode;
