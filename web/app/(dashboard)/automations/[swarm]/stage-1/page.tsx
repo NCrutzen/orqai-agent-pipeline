@@ -249,6 +249,29 @@ export interface PredictedRow {
    * `LLM · <confidence>`. NULL otherwise.
    */
   llmConfidence?: "low" | "medium" | "high" | null;
+  /**
+   * Phase 89 Plan 05 (SC-89-02). Synthesized LLM rule_key of the form
+   * `llm:{llm_category_key}:{llm_confidence}` for rows whose Stage 1
+   * predictor is `llm_2nd_pass`. Field paths locked in 089-WAVE0-PROBE
+   * DECISION-02 (flat snake_case top-level on decision_details, verified
+   * across 5/5 sampled prod rows).
+   *
+   * Threaded downstream into the recordVerdict / approvePrediction form
+   * payload so operator approve/reject lands on the same
+   * (swarm_type, rule_key) aggregate in classifier_rule_telemetry as the
+   * prediction itself.
+   *
+   * NULL when:
+   *   - predictor !== 'llm_2nd_pass'  (regex rows source their rule_key
+   *     from the existing path — never synthesized as llm:*)
+   *   - llm_category_key / llm_confidence missing on decision_details
+   *   - llm_category_key === 'unknown'  (Plan 03 seed-exclusion: must
+   *     never auto-promote on unknown:* per CONTEXT D-03)
+   *
+   * Hard-separation: derived strictly from stage=1 pipeline_events events;
+   * never reads Stage 3 / swarm_intents.
+   */
+  ruleKey?: string | null;
 }
 
 /**
@@ -991,7 +1014,7 @@ export async function loadPageData(
   if (rows.length > 0) {
     rows = rows.map((r) => {
       const stage1 = (timelineMap[r.id] ?? []).find((ev) => ev.stage === 1);
-      if (!stage1) return r;
+      if (!stage1) return { ...r, ruleKey: r.ruleKey ?? null };
       const d = (stage1.decision_details ?? {}) as Record<string, unknown>;
       const rawPred = d.predictor;
       const predictor: PredictedRow["predictor"] =
@@ -1001,7 +1024,38 @@ export async function loadPageData(
         rawConf === "low" || rawConf === "medium" || rawConf === "high"
           ? rawConf
           : null;
-      return { ...r, predictor, llmConfidence };
+
+      // Phase 89 Plan 05 (SC-89-02, WAVE0-PROBE DECISION-02). Synthesize
+      // ruleKey='llm:{cat}:{conf}' from decision_details so operator approvals
+      // on LLM-predicted rows land on the same (swarm_type, rule_key) aggregate
+      // in classifier_rule_telemetry as the prediction.
+      //
+      // Field paths (flat snake_case, top-level on decision_details) verified
+      // across 5/5 sampled prod rows in 089-WAVE0-PROBE.md DECISION-02.
+      //
+      // Guards (skip synthesis → ruleKey=null, fall through to existing
+      // regex path for regex rows):
+      //   - predictor !== 'llm_2nd_pass'
+      //   - llm_category_key / llm_confidence missing or empty
+      //   - llm_category_key === 'unknown' (Plan 03 seed-exclusion per
+      //     CONTEXT D-03: never auto-promote on unknown:*)
+      //
+      // Hard-separation: derived from stage===1 events only; never reads
+      // Stage 3 / swarm_intents.
+      const rawLlmCat = d.llm_category_key;
+      const llmCategoryKey =
+        typeof rawLlmCat === "string" && rawLlmCat.length > 0
+          ? rawLlmCat
+          : null;
+      const ruleKey: string | null =
+        predictor === "llm_2nd_pass" &&
+        llmCategoryKey !== null &&
+        llmCategoryKey !== "unknown" &&
+        llmConfidence !== null
+          ? `llm:${llmCategoryKey}:${llmConfidence}`
+          : null;
+
+      return { ...r, predictor, llmConfidence, ruleKey };
     });
     const sel = selectedRow;
     if (sel) {
