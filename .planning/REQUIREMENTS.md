@@ -21,16 +21,16 @@
 
 ### Stage 0 — Input safety
 
-- [ ] **SAFE-01**: System detects prompt-injection attempts (e.g. "ignore previous instructions") in inbound email body before any LLM call sees the content
-- [ ] **SAFE-02**: Suspect emails are flagged `injection_suspected` and routed to human-only review, never to coordinator or handler
-- [ ] **SAFE-03**: Detection uses a layered approach (regex patterns + lightweight LLM classifier) per Anthropic's Constitutional Classifiers / prompt-injection-defenses guidance
-- [ ] **SAFE-04**: Operator can audit injection-flagged emails in Bulk Review with the trigger pattern surfaced
+- [x] **SAFE-01**: System detects prompt-injection attempts (e.g. "ignore previous instructions") in inbound email body before any LLM call sees the content
+- [x] **SAFE-02**: Suspect emails are flagged `injection_suspected` and routed to human-only review, never to coordinator or handler
+- [x] **SAFE-03**: Detection uses a layered approach (regex patterns + lightweight LLM classifier) per Anthropic's Constitutional Classifiers / prompt-injection-defenses guidance
+- [x] **SAFE-04**: Operator can audit injection-flagged emails in Bulk Review with the trigger pattern surfaced
 
 ### Per-run budgets & tool guardrails
 
-- [ ] **BUDG-01**: Each pipeline run has a hard token + cost ceiling enforced in Inngest; runs exceeding the ceiling halt and escalate to human queue
-- [ ] **BUDG-02**: Tool calls are gated by an intent allowlist (`zapier_tools.allowed_for_intents`) — a copy-document handler cannot call payment-update tools
-- [ ] **BUDG-03**: Operator sees per-email token cost in the Bulk Review UI; outliers (>3× median) surface as their own override axis
+- [x] **BUDG-01**: Each pipeline run has a hard token + cost ceiling enforced in Inngest; runs exceeding the ceiling halt and escalate to human queue
+- [x] **BUDG-02**: Tool calls are gated by an intent allowlist (`zapier_tools.allowed_for_intents`) — a copy-document handler cannot call payment-update tools
+- [x] **BUDG-03**: Operator sees per-email token cost in the Bulk Review UI; outliers (>3× median) surface as their own override axis
 
 ### Stage 3 coordinator redesign
 
@@ -60,19 +60,19 @@
 
 ### Bulk Review redesign
 
-- [ ] **REVW-01**: Operator can override at Stage 1 (wrong category) → re-routes to noise / archive / different category
-- [ ] **REVW-02**: Operator can override at Stage 2 (wrong customer) → corrects customer_account_id, optionally re-runs Stage 3+4
-- [ ] **REVW-03**: Operator can override at Stage 3 (wrong intent) → re-emits to a different handler-agent
-- [ ] **REVW-04**: Operator can override at Stage 4 (wrong handler output) → records `draft_quality` + reason for handler prompt tuning
-- [ ] **REVW-05**: Each override is tagged with `eval_type ∈ {capability, regression}` so model swaps don't silently break previously-correct decisions
-- [ ] **REVW-06**: Operator sees one row per email aggregating all 4 stage decisions + per-run cost + tool calls
+- [x] **REVW-01**: Operator can override at Stage 1 (wrong category) → re-routes to noise / archive / different category
+- [x] **REVW-02**: Operator can override at Stage 2 (wrong customer) → corrects customer_account_id, optionally re-runs Stage 3+4
+- [x] **REVW-03**: Operator can override at Stage 3 (wrong intent) → re-emits to a different handler-agent
+- [x] **REVW-04**: Operator can override at Stage 4 (wrong handler output) → records `draft_quality` + reason for handler prompt tuning
+- [x] **REVW-05**: Each override is tagged with `eval_type ∈ {capability, regression}` so model swaps don't silently break previously-correct decisions
+- [x] **REVW-06**: Operator sees one row per email aggregating all 4 stage decisions + per-run cost + tool calls
 
 ### swarm_registry generalisation
 
-- [ ] **SWRM-01**: `public.swarms` table extended with `stage1_regex_module`, `stage2_entity_resolver`, `stage3_coordinator_agent_key`, `side_effects[]` jsonb, canonical context-shape contract
-- [ ] **SWRM-02**: New `swarm_intents` table (`intent_key`, `handler_agent_key`, `handler_event`, `requires_orchestration`) replaces hardcoded intent → handler mappings
-- [ ] **SWRM-03**: Adding a new swarm = registry INSERTs only; zero edits to verdict-worker / classifier code
-- [ ] **SWRM-04**: `verdict-worker` `if swarm_type === 'debtor-email'` gate replaced by `side_effects[]` lookup
+- [x] **SWRM-01**: `public.swarms` table extended with `stage1_regex_module`, `stage2_entity_resolver`, `stage3_coordinator_agent_key`, `side_effects[]` jsonb, canonical context-shape contract
+- [x] **SWRM-02**: New `swarm_intents` table (`intent_key`, `handler_agent_key`, `handler_event`, `requires_orchestration`) replaces hardcoded intent → handler mappings
+- [x] **SWRM-03**: Adding a new swarm = registry INSERTs only; zero edits to verdict-worker / classifier code
+- [x] **SWRM-04**: `verdict-worker` `if swarm_type === 'debtor-email'` gate replaced by `side_effects[]` lookup
 
 ### Handler-agent canonicalisation (cross-swarm reuse)
 
