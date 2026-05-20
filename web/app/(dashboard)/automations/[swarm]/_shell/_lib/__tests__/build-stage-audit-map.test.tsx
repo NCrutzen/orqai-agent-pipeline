@@ -265,6 +265,214 @@ describe("buildStageAuditMap", () => {
     }).not.toThrow();
   });
 
+  // Phase 82.9 — discriminated Stage 2 evidence payload (D-01) + legacy fallback (D-04).
+  // Exercises the mapper's 5 method arms + tolerant legacy branch via the rich
+  // `decision_details.inputs` shape introduced by Phase 82.9 Plan 02.
+  describe("Stage 2 — Phase 82.9 discriminated inputs", () => {
+    function stage2Payload(map: ReturnType<typeof buildStageAuditMap>) {
+      const node = map[2];
+      // Existing tests in this file render the node; we want the typed payload
+      // off the React element to assert structure directly. createElement
+      // returns a ReactElement whose `.props` carries `{ payload }`.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (node as any).props.payload as Record<string, any>;
+    }
+
+    it("thread_inheritance — populates prior_email_label_id + conversation_id", () => {
+      const map = buildStageAuditMap({
+        timeline: [
+          mkEvent(2, {
+            method: "thread_inheritance",
+            customer_account_id: "cust-1",
+            customer_name: "Acme",
+            inputs: {
+              prior_email_label_id: "label-uuid-1",
+              conversation_id: "conv-1",
+            },
+          }),
+        ],
+        agentRuns: [],
+        automationRun: null,
+      });
+      const payload = stage2Payload(map);
+      expect(payload.inputs?.kind).toBe("thread_inheritance");
+      expect(payload.inputs?.prior_email_label_id).toBe("label-uuid-1");
+      expect(payload.inputs?.conversation_id).toBe("conv-1");
+      expect(payload.candidates).toBeUndefined();
+      expect(payload.reasoning).toBeNull();
+    });
+
+    it("sender_match — populates sender_email + candidates with contact_person + recent_invoices", () => {
+      const map = buildStageAuditMap({
+        timeline: [
+          mkEvent(2, {
+            method: "sender_match",
+            customer_account_id: "cust-2",
+            customer_name: "Beta",
+            inputs: {
+              sender_email: "x@y.com",
+              candidates: [
+                {
+                  id: "cust-2",
+                  name: "Beta",
+                  contact_person: "Jane",
+                  recent_invoices: ["INV-1", "INV-2"],
+                },
+              ],
+            },
+          }),
+        ],
+        agentRuns: [],
+        automationRun: null,
+      });
+      const payload = stage2Payload(map);
+      expect(payload.inputs?.kind).toBe("sender_match");
+      expect(payload.inputs?.sender_email).toBe("x@y.com");
+      expect(payload.candidates?.[0].contact_person).toBe("Jane");
+      expect(payload.candidates?.[0].recent_invoices.length).toBe(2);
+      expect(payload.reasoning).toBeNull();
+    });
+
+    it("identifier_match — populates matched_identifiers + candidates", () => {
+      const map = buildStageAuditMap({
+        timeline: [
+          mkEvent(2, {
+            method: "identifier_match",
+            customer_account_id: "cust-3",
+            customer_name: "Gamma",
+            inputs: {
+              matched_identifiers: ["INV-7", "INV-8"],
+              candidates: [
+                {
+                  id: "cust-3",
+                  name: "Gamma",
+                  contact_person: null,
+                  recent_invoices: [],
+                },
+              ],
+            },
+          }),
+        ],
+        agentRuns: [],
+        automationRun: null,
+      });
+      const payload = stage2Payload(map);
+      expect(payload.inputs?.kind).toBe("identifier_match");
+      expect(payload.inputs?.matched_identifiers).toEqual(["INV-7", "INV-8"]);
+      expect(payload.candidates?.length).toBe(1);
+      expect(payload.candidates?.[0].contact_person).toBeNull();
+    });
+
+    it("llm_tiebreaker — populates llm_reason + candidates + reasoning field", () => {
+      const map = buildStageAuditMap({
+        timeline: [
+          mkEvent(2, {
+            method: "llm_tiebreaker",
+            customer_account_id: "c1",
+            customer_name: "C1",
+            inputs: {
+              sender_email: null,
+              matched_identifiers: ["INV-9"],
+              candidates: [
+                {
+                  id: "c1",
+                  name: "C1",
+                  contact_person: null,
+                  recent_invoices: ["A", "B", "C", "D", "E"],
+                },
+              ],
+              llm_reason: "Best match because foo.",
+            },
+          }),
+        ],
+        agentRuns: [],
+        automationRun: null,
+      });
+      const payload = stage2Payload(map);
+      expect(payload.inputs?.kind).toBe("llm_tiebreaker");
+      expect(payload.reasoning).toBe("Best match because foo.");
+      expect(payload.inputs?.llm_reason).toBe("Best match because foo.");
+      expect(payload.candidates?.[0].recent_invoices.length).toBe(5);
+    });
+
+    it("llm_tiebreaker — recent_invoices over 5 are sliced to 5 (Tier-3 bound)", () => {
+      const map = buildStageAuditMap({
+        timeline: [
+          mkEvent(2, {
+            method: "llm_tiebreaker",
+            customer_account_id: "c1",
+            customer_name: "C1",
+            inputs: {
+              sender_email: null,
+              matched_identifiers: [],
+              candidates: [
+                {
+                  id: "c1",
+                  name: "C1",
+                  contact_person: null,
+                  recent_invoices: ["1", "2", "3", "4", "5", "6", "7"],
+                },
+              ],
+              llm_reason: "overflow",
+            },
+          }),
+        ],
+        agentRuns: [],
+        automationRun: null,
+      });
+      const payload = stage2Payload(map);
+      expect(payload.candidates?.[0].recent_invoices.length).toBe(5);
+      expect(payload.candidates?.[0].recent_invoices[4]).toBe("5");
+    });
+
+    it("unresolved — populates sender_email + matched_identifiers, no candidates", () => {
+      const map = buildStageAuditMap({
+        timeline: [
+          mkEvent(2, {
+            method: "unresolved",
+            customer_account_id: null,
+            customer_name: null,
+            inputs: {
+              sender_email: "z@q.com",
+              matched_identifiers: [],
+            },
+          }),
+        ],
+        agentRuns: [],
+        automationRun: null,
+      });
+      const payload = stage2Payload(map);
+      expect(payload.inputs?.kind).toBe("unresolved");
+      expect(payload.inputs?.sender_email).toBe("z@q.com");
+      expect(payload.inputs?.matched_identifiers).toEqual([]);
+      expect(payload.candidates).toBeUndefined();
+    });
+
+    it("legacy row — decision_details.inputs absent → payload.inputs is null, no throw", () => {
+      expect(() => {
+        const map = buildStageAuditMap({
+          timeline: [
+            mkEvent(2, {
+              method: "sender_match",
+              customer_account_id: "cust-legacy",
+              customer_name: "Legacy Co",
+              candidates_considered: 2,
+              // NO `inputs` key — legacy row (D-04)
+            }),
+          ],
+          agentRuns: [],
+          automationRun: null,
+        });
+        const payload = stage2Payload(map);
+        // Loose equal — null OR undefined both acceptable.
+        expect(payload.inputs ?? null).toBeNull();
+        // Back-compat (Pitfall 4): top-level fields still populated.
+        expect(payload.identifier_source).toBe("sender");
+        expect(payload.top_candidates.length).toBeGreaterThan(0);
+      }).not.toThrow();
+    });
+  });
+
   it("hard-separation guardrail: Stage 1 panel DOM never contains 'intent_key'; Stage 3 never contains 'rule_key'", () => {
     const map = buildStageAuditMap({
       timeline: [
