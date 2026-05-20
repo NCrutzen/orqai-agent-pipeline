@@ -1,5 +1,46 @@
 # Milestones
 
+## v8.0 Agentic Platform (Shipped: 2026-05-20)
+
+**Phases:** 31 in-scope phases closed (63-89 core + 56.7, 80.1, 81.1, 82.1-82.9, 089, 999.7, 999.8)
+**Requirements:** 49/49 in-scope satisfied (8 deferred — 5 LERN→V9.0, 3 SALES→V10.0)
+**Flows verified:** 7/7 cross-phase end-to-end
+**Archive:** `milestones/v8.0-ROADMAP.md` · `milestones/v8.0-REQUIREMENTS.md` · `milestones/v8.0-MILESTONE-AUDIT.md`
+
+**Headline accomplishments:**
+
+1. **Canonical 5-stage funnel architecture** locked across debtor-email and sales-email (`docs/agentic-pipeline/README.md`): Stage 0 input safety → Stage 1 regex+LLM noise filter → Stage 2 entity resolution → Stage 3 intent coordinator → Stage 4 handler. Registry-driven (`swarms`, `swarm_intents`, `swarm_noise_categories`) — adding a swarm is an INSERT, not a code change.
+2. **Stage 0 safety + per-run budgets** (Phase 64) — prompt-injection regex + LLM classifier, `injection_suspected` lane, hard token/cost ceilings (16k after Phase 999.7 strip-quoted-history fix), intent-scoped tool allowlist.
+3. **Stage 1 LLM 2nd-pass + confidence gate** (Phases 74, 999.8) — `stage-1-category-classifier` on `unknown` regex output; `high`-only auto-archive; predictor attribution (regex vs LLM) on every verdict; per-predictor Wilson-CI in promotion cron.
+4. **Stage 1 LLM auto-action promotion track** (Phase 089) — `llm:{category}:{confidence}` synthetic rule_keys flow through the same Wilson-CI lifecycle as regex rules; 839 rows backfilled live.
+5. **Stage 2 closure** (Phase 67) — non-blocking iController DOM tagging; per-row mailbox resolution; Stage 2 evidence panel (Phase 82.9) surfaces resolver+LLM-tiebreaker reasoning + before/after screenshots.
+6. **Stage 3 ranked multi-intent coordinator** (Phase 65) — ordered intents + confidence scores; orchestrator-worker escalation on low confidence / high intent count / `requires_orchestration` flag.
+7. **Pipeline consolidation** (Phase 66) — single canonical flow; `debtor-email-triage` retired.
+8. **Telemetry consolidation** (Phase 70) — `pipeline_events` canonical table; Stage 0 coverage backfilled to ≥99% per debtor mailbox (Phase 82.2).
+9. **Unified stage shell + 4-axis Bulk Review** (Phases 71, 82, 82.1-82.8) — Stage 0/1/2/3/4 converged on one row+detail+chip-strip+mailbox-filter UX. Per-stage audit popups (Phase 82.3), `email_feedback` capture form (Phase 82.4) — data substrate V9.0 reads from.
+10. **Stage 3 → Kanban human-lane** (Phase 76) — zero silent dead-letters.
+11. **Body ingestion fix** (Phase 83) — `body_full_text` + `body_unique_text` columns + conversation_context (2 priors per inbound); 30-day backfill (1344 priors); Stage 1+3 readers wired.
+12. **Sales-email Stage 0+1 live** — partial cross-swarm proof; full V10.0 milestone defined to ship the canonical Stage 2/3 path.
+
+**Reframes locked 2026-05-12:** Phase 72 (Promotion Recommender) → V9.0 full milestone (prose-feedback synthesis); Phase 73 (sales-email validation) → V10.0 full milestone (Phase 78 never executed); Phase 77 (Stage 2/3 e2e verification) → superseded by Phase 82.3.
+
+**Operator UAT (Phase 999.8 + 82.9):** Stage 1 chip strip + URL round-trip + garbage-drop + `?sub=pending` guard verified live 2026-05-20. Therese regression smoke PASS (email 067428ad → predictor=llm_2nd_pass, no side-effect). Phase 82.9 prod migration applied + Zap published live with descendant-walking contact CTE.
+
+**Known deferred items (acknowledged at close; counted in audit `tech_debt`):**
+
+- 3 open debug sessions (icontroller-bulkdelete-failures, pipeline-health-2026-05-19 Cluster A, stage-2-customer-mapping-stuck) at `root_cause_identified` / `closed_partial` — investigations parked, not open bugs in shipped flows.
+- 14 unresolved VERIFICATION.md stubs (`human_needed`) — formal retro-verification stubs absent for 10 phases that closed via SUMMARY chain (66, 67, 68, 69, 74, 80.1, 81.1, 82.2, 82.3, 089). Lightweight stubs scheduled for v8.1 grooming.
+- 5 partial-UAT phases (61, 71, 80, 82.4, 82.5) — operator UAT scenarios documented; substantively-shipped per audit.
+- 10 incomplete quick-tasks (orq-agent + project-housekeeping items) and 5 pending todos (granular dry-run gating, override+note flow consolidation, Stage 1 chip semantics, label-resolver rename, Stage 4 layout parity) — scoped into v8.1 phases 88/88.1 or V9.0.
+- 1 dormant seed (SEED-001 info@smeba.nl routing swarm → Phase 999.9, blocked on v8.1 phases 84/85/86).
+- Phase 89 operator runbook items: SC-89-03 retro-review of 839 backfilled rows + SC-89-04 mutate-flag flip — runbook documented, operator action pending.
+
+See `milestones/v8.0-MILESTONE-AUDIT.md` for full audit detail.
+
+---
+
+---
+
 ## V11.0 Intent-Prioritised Handlers (Defined: 2026-05-12)
 
 **Phases:** TBD (numbered after V10.0 phases are finalized)
@@ -69,6 +110,10 @@
 **Inherited from Phase 82.4 (already shipped under v8.0):**
 
 - `email_feedback` table + Stage 2 incorrect-mapping form + Stage 3 confirm-or-correct form + own-feedback-history view + fuzzy-match guardrail on new-intent typing.
+
+**Seed (planted 2026-05-20):**
+
+- **Granular dry-run gating — per stage, per handler, with review-pane labeling.** Replace the single `labeling_settings.dry_run` boolean (which only gates Stage 3 intent labeling today, while `debtor-email-icontroller-cleanup-worker` writes live regardless — 867 real iController deletes in the last ~4 weeks despite SMEBA being "dry-run") with per-stage / per-handler gates: `stage_1_archive_dry_run`, `stage_1_cleanup_dry_run`, `stage_3_labeling_dry_run`, `stage_4_handler_<name>_dry_run` (or a `dry_run_gates jsonb` map keyed by stage+side-effect). Stamp origin dry-run status on `pipeline_events.decision_details` at emit time so Bulk Review can render a `dry-run` chip per row (computed from event payload, not lookup time — survives flips). Pairs naturally with V9.0's promotion-criteria work (each gate can have its own Wilson-CI threshold instead of one global). **Source todo:** `2026-05-18-granular-dry-run-gating-per-stage-and-handler.md`. Open question: whether to also add kill-switch flags for the always-live classifier stages (Stage 0/2/3 classifier) for runaway-classifier scenarios — probably a separate feature-flag mechanism, not `labeling_settings`.
 
 **Architectural decisions (locked):**
 

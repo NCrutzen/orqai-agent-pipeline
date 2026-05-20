@@ -1,11 +1,20 @@
 "use client";
 
-// Phase 82.8 Plan 05 — Stage 4 client shell with three collapsible sections.
+// Phase 88 Plan 04 Task 1: Width fix branch = A (NO regression per Wave 0 Q3).
+// See .planning/phases/88-review-surface-cleanup/88-WAVE0-FINDINGS.md Q3.
+// Sticky wrapper at ~line 435 retained unchanged.
 //
-// Sections (D-02):
-//   1. Handler error   (red,   defaultOpen)    — handler_error kanban rows + detail-pane
-//   2. Needs review    (amber, COLLAPSED)      — handler_needs_review kanban rows (empty today)
-//   3. Auto-archived   (lime,  COLLAPSED)      — pipeline_events stage=4 auto_archived_noise
+// Phase 88 Plan 04 D-03 — Stage 4 outcome-state chip-strip (replaces the
+// three collapsible sections from Phase 82.8 Plan 05).
+//
+// Outcome chips (bounded set, NOT per-handler — see CONTEXT D-03a lock):
+//   1. All             — union of all three buckets
+//   2. Handler error   (red)   — handler_error kanban rows
+//   3. Needs review    (amber) — handler_needs_review kanban rows
+//   4. Auto-archived   (lime)  — pipeline_events stage=4 auto_archived_noise
+//
+// URL contract: `?outcome=handler_error|needs_review|auto_archived` (omit for "all").
+// Chip click → router.replace; selecting "All" deletes the param.
 //
 // Hard-separation contract (docs/agentic-pipeline/README.md):
 //   - `categories` prop = swarm_noise_categories (Stage 1 widget — Reclassify).
@@ -13,17 +22,20 @@
 //     separation — never blurs Stage 1 noise vs Stage 3 intent).
 //   - Auto-archived rows are Stage 1 noise-filter outputs surfaced as Stage 4
 //     telemetry events for the "handled" overview; they remain rooted in
-//     swarm_noise_categories (NEVER in swarm_intents).
+//     the noise registry (NEVER the intent registry).
 //   - activeStage = 4 so the Stage 4 cell is pre-expanded.
 //
-// Selection model: a single selectedId spans all three sections. For the
-// Auto-archived section the row id is the pipeline_events.id; detail-pane
-// body/timeline lookups still key off email_id (resolved via the relevant
-// row source — bodyMap is keyed on email_id and was filled inline by the
-// page-side loader). Handler-error widget only renders for KanbanRow
-// selections — not for auto-archived selections.
+// Selection model: a single selectedId spans all three sections (now: all
+// chip buckets). For the Auto-archived bucket the row id is the
+// pipeline_events.id; detail-pane body/timeline lookups still key off
+// email_id (resolved via the relevant row source — bodyMap is keyed on
+// email_id and was filled inline by the page-side loader). Handler-error
+// widget only renders for KanbanRow selections — not for auto-archived
+// selections. The chip filter narrows what's *visible*; selectedId may
+// point to a row that's currently hidden, and the existing resolution
+// logic (selectedRow visibility guard) decides whether the widget renders.
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
 import type {
@@ -44,11 +56,8 @@ import { StageScreenshotStrip } from "@/components/automations/bulk-review/audit
 import { KeyboardShortcuts } from "../_shell/keyboard-shortcuts";
 import type { MailboxOption } from "../_shell/_lib/get-swarm-mailboxes";
 import type { Row } from "../_shell/_lib/types";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { ChipStrip, type ChipStripChip } from "../_shell/chip-strip";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface BodyEntry {
   bodyText: string;
@@ -88,33 +97,14 @@ export interface Stage4ClientShellProps {
    *  Stage 1 audit expander mount-point. Handler-error rows usually have NULL
    *  paths (the failure aborted before the after-screenshot) → empty state. */
   screenshotPathsByEmailId?: Record<string, { before: string | null; after: string | null }>;
+  /** Phase 88 Plan 04 D-03 — outcome-state chip filter (URL `?outcome=`).
+   *  Drives which subset of rows is rendered in the unified RowList. */
+  activeOutcome: "all" | "handler_error" | "needs_review" | "auto_archived";
 }
 
 // Phase 82.5 Plan 06: ACTIVE_STAGE literal — Stage 4 (handler-error). Note
 // paneFeedbackMap is gated to undefined when ACTIVE_STAGE > 3.
 const ACTIVE_STAGE = 4 as const;
-
-const SECTION_TRIGGER_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "var(--space-2)",
-  width: "100%",
-  padding: "var(--space-2) var(--space-3)",
-  border: "1px solid var(--v7-border)",
-  borderRadius: "var(--v7-radius-md, 6px)",
-  background: "var(--v7-surface-1, transparent)",
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
-  textAlign: "left",
-};
-
-const SECTION_BADGE_STYLE: React.CSSProperties = {
-  marginLeft: "var(--space-2)",
-  fontSize: 12,
-  fontWeight: 500,
-  opacity: 0.85,
-};
 
 export function Stage4ClientShell({
   swarmType,
@@ -136,8 +126,25 @@ export function Stage4ClientShell({
   mailboxLabels,
   feedbackMap,
   screenshotPathsByEmailId,
+  activeOutcome,
 }: Stage4ClientShellProps) {
   const { selectedId } = useSelection();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Phase 88 Plan 04 D-03 — chip-click → URL writer. "all" deletes the param;
+  // other keys set ?outcome=<key>. Uses router.replace so back-button shows
+  // pre-Stage-4 history, not chip-toggle history.
+  const onChipSelect = useCallback(
+    (key: string) => {
+      const qs = new URLSearchParams(searchParams?.toString() ?? "");
+      if (key === "all") qs.delete("outcome");
+      else qs.set("outcome", key);
+      const q = qs.toString();
+      router.replace(q ? `?${q}` : "?");
+    },
+    [router, searchParams],
+  );
 
   // Apply mailbox filter client-side across all three sections. Server-rendered
   // lists are the full set; URL ?mailbox= params narrow them. Mirrors Stage 1.
@@ -298,10 +305,72 @@ export function Stage4ClientShell({
     <Stage4HandlerErrorWidget row={selectedRow} />
   ) : null;
 
+  // Phase 88 Plan 04 D-03 — chip definitions (outcome-state, not per-handler).
+  // CONTEXT D-03a lock: bounded set, NOT per-handler. Counts pre-mailbox-filter
+  // so the chip badges reflect the swarm-wide outcome distribution; visible
+  // rows respect the mailbox filter.
+  const chips: ChipStripChip[] = [
+    {
+      key: "all",
+      label: "All",
+      count: handlerErrorCount + needsReviewCount + autoArchivedCount,
+    },
+    {
+      key: "handler_error",
+      label: "Handler error",
+      count: handlerErrorCount,
+      brandToken: "--v7-red",
+    },
+    {
+      key: "needs_review",
+      label: "Needs review",
+      count: needsReviewCount,
+      brandToken: "--v7-amber",
+    },
+    {
+      key: "auto_archived",
+      label: "Auto-archived",
+      count: autoArchivedCount,
+      brandToken: "--v7-lime",
+    },
+  ];
+
+  // Filtered row source for the unified RowList. Mailbox filter already
+  // applied to visibleUnified / visibleNeedsReview / visibleAutoArchived.
+  const visibleRows: Row[] =
+    activeOutcome === "handler_error"
+      ? visibleUnified
+      : activeOutcome === "needs_review"
+        ? visibleNeedsReview
+        : activeOutcome === "auto_archived"
+          ? visibleAutoArchived
+          : [...visibleUnified, ...visibleNeedsReview, ...visibleAutoArchived];
+
+  const emptyState =
+    activeOutcome === "handler_error"
+      ? {
+          title: "No handler errors",
+          body: "Stage 4 handlers ran cleanly in the visible window.",
+        }
+      : activeOutcome === "needs_review"
+        ? {
+            title: "No handlers awaiting review",
+            body: "All review-required handlers have been processed.",
+          }
+        : activeOutcome === "auto_archived"
+          ? {
+              title: "No auto-archived emails",
+              body: "Nothing has been auto-archived in the visible window.",
+            }
+          : {
+              title: "Nothing to review",
+              body: "No handler errors, needs-review rows, or auto-archived emails in the visible window.",
+            };
+
   return (
     <>
       <KeyboardShortcuts
-        rowIds={visibleUnified.map((r) => r.id)}
+        rowIds={visibleRows.map((r) => r.id)}
         enabledShortcuts={
           new Set([
             "approve",
@@ -332,10 +401,16 @@ export function Stage4ClientShell({
           <MailboxFilter mailboxes={mailboxes} selected={selectedMailboxes} />
         </div>
 
-        {/* Phase 82.8-11 — sections in left column, detail-pane in sticky right
-            column. Pane was previously rendered inside Section 1 only, hiding it
-            when other sections drove selection. Outer 2-col grid keeps the
-            pane visible regardless of which section is expanded. */}
+        {/* Phase 88 Plan 04 D-03 — chip-strip mounted above the 2-col grid
+            (chip click writes ?outcome=). Detail-pane on the right stays
+            sticky; left column hosts a single filtered RowList whose source
+            depends on activeOutcome. */}
+        <ChipStrip
+          ariaLabel="Filter Stage 4 by outcome state"
+          active={activeOutcome}
+          onChange={onChipSelect}
+          chips={chips}
+        />
         <div
           style={{
             display: "grid",
@@ -344,7 +419,7 @@ export function Stage4ClientShell({
             alignItems: "start",
           }}
         >
-          {/* Left column: all three section collapsibles, stacked. */}
+          {/* Left column: single RowList filtered by activeOutcome. */}
           <div
             style={{
               display: "flex",
@@ -352,78 +427,12 @@ export function Stage4ClientShell({
               gap: "var(--space-3)",
             }}
           >
-            {/* Section 1: Handler error (red, default OPEN). */}
-            <Collapsible defaultOpen>
-              <CollapsibleTrigger style={SECTION_TRIGGER_STYLE}>
-                <span style={{ color: "var(--v7-red)" }}>Handler error</span>
-                <span style={SECTION_BADGE_STYLE}>({handlerErrorCount})</span>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div style={{ marginTop: "var(--space-2)" }}>
-                  <RowList
-                    rows={visibleUnified}
-                    emptyState={{
-                      title: "No handler errors",
-                      body: "Stage 4 handlers ran cleanly in the visible window.",
-                    }}
-                    feedbackMap={rowVerdictMap}
-                    mailboxLabels={mailboxLabels}
-                  />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-
-            {/* Section 2: Needs review (amber, COLLAPSED) — empty today. */}
-            <Collapsible>
-              <CollapsibleTrigger style={SECTION_TRIGGER_STYLE}>
-                <span style={{ color: "var(--v7-amber)" }}>Needs review</span>
-                <span style={SECTION_BADGE_STYLE}>({needsReviewCount})</span>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                {needsReviewCount === 0 ? (
-                  <div
-                    style={{
-                      padding: "var(--space-4)",
-                      fontSize: 13,
-                      color: "var(--v7-text-muted, var(--muted-foreground))",
-                    }}
-                  >
-                    No handlers awaiting review
-                  </div>
-                ) : (
-                  <div style={{ marginTop: "var(--space-2)" }}>
-                    <RowList
-                      rows={visibleNeedsReview}
-                      emptyState={{
-                        title: "No handlers awaiting review",
-                        body: "All review-required handlers have been processed.",
-                      }}
-                      mailboxLabels={mailboxLabels}
-                    />
-                  </div>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
-
-            {/* Section 3: Auto-archived (lime, COLLAPSED) — 30d backfilled + live. */}
-            <Collapsible>
-              <CollapsibleTrigger style={SECTION_TRIGGER_STYLE}>
-                <span style={{ color: "var(--v7-lime)" }}>Auto-archived</span>
-                <span style={SECTION_BADGE_STYLE}>({autoArchivedCount})</span>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div style={{ marginTop: "var(--space-2)" }}>
-                  <RowList
-                    rows={visibleAutoArchived}
-                    emptyState={{
-                      title: "No auto-archived emails",
-                      body: "Nothing has been auto-archived in the visible window.",
-                    }}
-                    mailboxLabels={mailboxLabels}
-                  />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
+            <RowList
+              rows={visibleRows}
+              emptyState={emptyState}
+              feedbackMap={rowVerdictMap}
+              mailboxLabels={mailboxLabels}
+            />
           </div>
 
           {/* Right column: detail-pane (sticky-ish, drives off any selection).

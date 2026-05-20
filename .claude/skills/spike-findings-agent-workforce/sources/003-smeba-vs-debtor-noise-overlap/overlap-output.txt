@@ -1,0 +1,83 @@
+=== Spike 003 — debtor-email classifier vs Smeba info corpus ===
+
+Inbound rows: 5316
+
+=== Category breakdown (debtor-email categories applied to Smeba) ===
+category                   count      %
+---------------------------------------------
+spam                        2899   54.5%
+unknown                     2341   44.0%
+payment_admittance            62    1.2%
+ooo_temporary                  8    0.2%
+auto_reply                     5    0.1%
+ooo_permanent                  1    0.0%
+
+=== Matched rule breakdown ===
+   2899  54.5%  subject_spam_prefix
+   2288  43.0%  no_match
+     48   0.9%  payment_blocked_request_template
+     35   0.7%  payment_subject
+     21   0.4%  payment_sender+subject
+      8   0.2%  subject_autoreply+body_temporary
+      6   0.1%  payment_system_sender+body
+      3   0.1%  subject_autoreply
+      3   0.1%  payment_blocked_refund
+      2   0.0%  payment_blocked_by_dispute
+      2   0.0%  subject_ticket_ref
+      1   0.0%  subject_autoreply+body_permanent
+
+
+--- spam (2899) — sample of 6 ---
+  beobank.ondersteuning@beomobile.online    [SPAM] Aanvraag tot activering van mijn DigiPass – Dringend
+  2020/182@ueno-fc.co.jp                    [SPAM] UndeIiverable: 3 HeId Messages
+  account@gsicojp.com                       [SPAM] Invoice No: TU-9078-2025
+  noreply@formlinksystems.com               [SPAM] Latest Upgrade for info@smeba.nl is available .
+  info@regiebouw.nl                         [SPAM] Vakman in E of W nodig? Bekijk onze beschikbare vaklieden!
+  Nieuwsbrief@warmte365.nl                  [SPAM] De stille succesfactor achter warmtepompen
+
+--- payment_admittance (62) — sample of 6 ---
+  noreply@jumbo.com                         Excel specificatie 2000046815
+  noreply@jumbo.com                         Betalingsadvies van 20.02.2026
+  FA@heuvelgroep.nl                         Betaalspecificatie
+  finance_nl@atalianworld.com               Betaalspecificatie
+  aecomremittances@aecom.com                Separate Remittance Advice: paper document number - 3020736
+  noreply@jumbo.com                         Excel specificatie 2000048615
+
+--- ooo_temporary (8) — sample of 6 ---
+  eric@smeba.nl                             Automatisch antwoord: [CASE:722064] Afspraak maken (Smeba) - 1589215 - 5315
+  eric@smeba.nl                             Automatisch antwoord: [CASE:726790] Openingstijden of n.a.w. aanpassen (Sme
+  eric@smeba.nl                             Automatisch antwoord: [CASE:735341] Afspraak maken (Smeba) - 1492004 - 4795
+  eric@smeba.nl                             Automatisch antwoord: [CASE:739438] Openingstijden of n.a.w. aanpassen (Sme
+  eric@smeba.nl                             Automatisch antwoord: [CASE:743273] Niet aanwezig (Smeba) - 1580867 - 52000
+  mebo@smeba.nl                             Automatisch antwoord: [CASE:746004] Re: FW: Documentatie alarminstallatie e
+
+--- auto_reply (5) — sample of 6 ---
+  arend@smeba.nl                            Automatisch antwoord: [CASE:722705] Afspraak maken (Smeba) - 1598644 - 5315
+  RiSc@smeba.nl                             Automatisch antwoord: [CASE:739875] ERIKS bv Orderbevestiging  354262720, u
+  RiSc@smeba.nl                             Automatisch antwoord: [CASE:741293] levering brandblussers
+  learningnetwork@ictforag.com              [KB0]- Belangrijke oproep: actualiseer uw ondernemingsgegevens
+  menitola@tolatiles.com                    [KB0]- Belangrijke oproep: actualiseer uw ondernemingsgegevens
+
+--- ooo_permanent (1) — sample of 6 ---
+  Christophe.Chen@smeba.nl                  Automatisch antwoord: [CASE:747442] WKA voor factuurverwerking: 56760
+
+
+=== unknown-bucket shape (1227 emails) ===
+Top 15 sender domains in 'unknown':
+    648  smeba.nl
+    189  moyneroberts.com
+    123  gmail.com
+    108  smeba-fire.be
+     81  securitas.nl
+     77  outlook.com
+     39  firemail.de
+     21  hotmail.com
+     17  email.rabobank.nl
+     15  mindef.nl
+     15  fedex.com
+     14  fedasil.be
+     13  ocean-securities.com
+     13  cargill.com
+     12  unica.nl
+
+=== How debtor-email classifies Smeba's own-domain-loopback bucket (Spike 002: 950 rows) ===

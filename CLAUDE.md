@@ -167,6 +167,16 @@ const browser = await chromium.connectOverCDP(
 ### Supabase
 - Service role voor automation writes (geen RLS server-side)
 - JSONB double-encoding: `while (typeof state === 'string') state = JSON.parse(state)`
+- **RLS verplicht op élke nieuwe tabel in een PostgREST-exposed schema** (`public, debtor, sales, email_pipeline, email_insights, automation`). De Supabase security advisor flagt `rls_disabled_in_public` als ERROR-level en `npm run check:supabase` faalt CI bij elke ERROR-level lint. Pattern (één migration, drie SQL-statements minimum):
+  1. `CREATE TABLE ...`
+  2. `ALTER TABLE ... ENABLE ROW LEVEL SECURITY;`
+  3. Minstens één expliciete policy. Backend-only tabel → `CREATE POLICY <name>_service_all ON ... FOR ALL TO service_role USING (true) WITH CHECK (true);`. UI-zichtbare tabel → daarbij `FOR SELECT TO authenticated USING (...)`.
+- **NOOIT** een policy met `TO anon` of `TO public` met `USING (true)` toevoegen. Anon writes zijn globaal gerevoked + default privileges blokkeren dat ook voor nieuwe tabellen (migration `20260520_harden_rls`). Als anon-toegang écht moet, justificeer in PR + comment in de migration.
+- **NOOIT** een view met `SECURITY DEFINER` op `public` of een exposed schema. Gebruik altijd `CREATE VIEW ... WITH (security_invoker = true)` (of `ALTER VIEW ... SET (security_invoker = true)` voor bestaande) zodat RLS van de aanroepende rol geldt.
+- Migration template: `supabase/migrations/_template.sql` — kopiëren bij elke nieuwe tabel.
+- Pre-push hook draait `npm run check:supabase` automatisch (geïnstalleerd via `bash scripts/install-git-hooks.sh`, eenmalig per clone). Faalt op élke ERROR-level advisor lint. Bypass alleen met `git push --no-verify` en alleen als je weet waarom.
+- **Nieuwe SECURITY DEFINER functies**: altijd `SET search_path = <schema>, pg_catalog, pg_temp` toevoegen (zonder dit flagt de advisor `function_search_path_mutable`). Anon/authenticated EXECUTE alleen toekennen als de UI de functie via RPC moet aanroepen; verder `REVOKE EXECUTE ... FROM anon, authenticated, public`. Trigger-functies hebben géén EXECUTE-grants nodig — triggers vuren onafhankelijk van EXECUTE-rechten.
+- **Nieuwe extensions**: nooit in `public`. Gebruik `CREATE EXTENSION ... WITH SCHEMA extensions;`. `pg_trgm` en `vector` staan momenteel nog in `public` (zie `.planning/todos/pending/2026-05-20-move-public-extensions-out.md`).
 - **Build-time codegen for registry-driven literal-union TS types** (Phase 69 D-03). Wanneer een registry-tabel kolom (e.g. `swarms.entity_brand` jsonb) source-of-truth is voor een gesloten enumeratie EN de codebase strict TS-typing wil, hardcode de literal-union NIET in code. In plaats daarvan: schrijf een `tsx`-script (`scripts/gen-entity-types.ts`) dat de registry op build-time leest en een `*.generated.ts` file emit met `as const` array + literal-union type. Run via `npm run codegen`. CI gate: `npm run codegen && git diff --exit-code` om drift te detecteren. Pattern: stable diffs vereisen alfabetische sortering van codes in het script. Idempotency: lees bestaande file, skip write als identiek. NOOIT `*.generated.ts` met de hand bewerken. Verlengt het 'registry as source of truth'-principe (Phase 68 swarms/swarm_intents) tot het type-systeem zonder onboarding-friction.
 
 → `docs/supabase-patterns.md`

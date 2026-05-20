@@ -261,6 +261,81 @@ describe("Phase 999.8 D-01 / D-10 — classifier-screen-worker confidence gate",
     expect(names).not.toContain("classifier/screen.requires_review");
   });
 
+  // Phase 89 Pitfall 2 regression guard — after the LLM rule_key /
+  // effectiveMatchedRule edit, a regex hit MUST still preserve the regex
+  // matchedRule (no llm:* substitution). Verified via end-to-end behavior:
+  // if the worker incorrectly synthesized an llm:* key on the regex-only
+  // path, the predicted.rule field in the bulk-review automation_runs row
+  // would carry an llm:* string. Here we assert the regex-hit + non-
+  // whitelisted scenario writes a bulk-review row whose predicted.rule
+  // equals the literal regex matchedRule, NEVER an llm:* string.
+  it("Phase 89 regression guard — regex hit predicted.rule preserves regex matchedRule (no llm:* substitution)", async () => {
+    classifyMock.mockReturnValue({
+      category: "payment_admittance",
+      confidence: 0.9,
+      matchedRule: "payment_subject",
+    });
+    // Capture automation_runs inserts via a one-off admin override since
+    // the canonical adminMock in this file ignores non-agent_runs tables.
+    const automationRunsInserts: Record<string, unknown>[] = [];
+    const debtorSettings = {
+      source_mailbox: "debiteuren@smeba.nl",
+      entity: "smeba",
+      icontroller_company: "smebabrandbeveiliging",
+      ingest_enabled: true,
+      auto_label_enabled: true,
+      triage_shadow_mode: false,
+    };
+    adminMock = {
+      from: vi.fn((table: string) => {
+        if (table === "agent_runs") {
+          return {
+            insert: vi.fn(async (row: Record<string, unknown>) => {
+              agentRunsInserts.push(row);
+              return { data: null, error: null };
+            }),
+          };
+        }
+        if (table === "automation_runs") {
+          return {
+            insert: vi.fn(async (row: Record<string, unknown>) => {
+              automationRunsInserts.push(row);
+              return { data: null, error: null };
+            }),
+          };
+        }
+        return { insert: vi.fn(async () => ({ data: null, error: null })) };
+      }),
+      schema: vi.fn(() => ({
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: async () => ({ data: debtorSettings, error: null }),
+            })),
+          })),
+        })),
+      })),
+    } as unknown as typeof adminMock;
+    vi.resetModules();
+    const mod = await import("../classifier-screen-worker");
+    const localHandler = (
+      mod.classifierScreenWorker as unknown as {
+        handler: (ctx: unknown) => Promise<unknown>;
+      }
+    ).handler;
+
+    const cache: StepCache = new Map();
+    await localHandler({ event: baseEvent(), step: makeStepStub(cache) });
+
+    const predicted = automationRunsInserts.find(
+      (r) => r.status === "predicted",
+    );
+    expect(predicted).toBeDefined();
+    const result = predicted!.result as { predicted: { rule: string | null } };
+    expect(result.predicted.rule).toBe("payment_subject");
+    expect(result.predicted.rule?.startsWith("llm:")).not.toBe(true);
+  });
+
   it("LLM high confidence → emits classifier/verdict.recorded, NOT requires_review", async () => {
     invokeOrqAgentMock.mockResolvedValue({
       raw: {

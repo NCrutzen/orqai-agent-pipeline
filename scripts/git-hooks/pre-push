@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Pre-push hook for agent-workforce.
+#
+# Runs `npm run check:supabase` from web/ to fail the push if the Supabase
+# security advisor has any ERROR-level lints (RLS disabled, definer-views, etc.).
+#
+# Install via: scripts/install-git-hooks.sh
+#
+# Bypass for an emergency push: `git push --no-verify` — but you better know why.
+
+set -euo pipefail
+
+# Skip if web/.env.local missing or SUPABASE_ACCESS_TOKEN absent (e.g. CI clone
+# with no secrets) — the CI pipeline should run the same check separately.
+if [ ! -f web/.env.local ]; then
+  echo "[pre-push] web/.env.local missing — skipping Supabase advisor check."
+  exit 0
+fi
+
+if ! grep -q '^SUPABASE_ACCESS_TOKEN=' web/.env.local; then
+  echo "[pre-push] SUPABASE_ACCESS_TOKEN not set — skipping Supabase advisor check."
+  exit 0
+fi
+
+echo "[pre-push] Running Supabase advisor check..."
+cd web
+if ! npm run --silent check:supabase; then
+  echo ""
+  echo "[pre-push] Supabase advisor flagged ERROR-level issue(s). Push blocked."
+  echo "[pre-push] Fix them, or bypass with: git push --no-verify (use sparingly)."
+  exit 1
+fi

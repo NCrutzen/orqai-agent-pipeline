@@ -68,7 +68,6 @@ interface PageProps {
   searchParams: Promise<{
     mailbox?: string | string[];
     selected?: string;
-    needs_action?: string;
     mine_only?: string;
     before?: string;
   }>;
@@ -106,16 +105,17 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
   // exists for emails the safety filter flagged (injection_suspected /
   // unknown_legacy). 'safe' rows pass through silently and should NOT
   // surface here — they would otherwise drown the actionable rows in
-  // thousands of noise verdicts. Force needsActionOnly regardless of URL
-  // param; the chip toggle stays for `mine_only` only.
+  // thousands of noise verdicts. Force needsActionOnly at the LOADER level
+  // unconditionally (server-side filter, not a URL param). Phase 88 D-02
+  // removed the URL-level needs-action toggle entirely; the server-side
+  // `needsActionOnly` filter on loadStageFeedbackList is preserved here.
   const mineOnly = sp.mine_only === "1";
-  const needsAction = true; // hardcoded for Stage 0 — see comment above
   const supabaseSrv = await createClient();
   const { data: { user } } = await supabaseSrv.auth.getUser();
   const feedbackPage = await loadStageFeedbackList(admin, {
     stage: 0,
     swarmType,
-    needsActionOnly: needsAction,
+    needsActionOnly: true, // server-side safety-filter — see comment above
     mineOnly,
     operatorId: user?.id,
     before: sp.before,
@@ -200,7 +200,6 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
     } else if (sp.mailbox) {
       qs.append("mailbox", sp.mailbox);
     }
-    if (needsAction) qs.set("needs_action", "1");
     if (mineOnly) qs.set("mine_only", "1");
     if (sp.selected) qs.set("selected", sp.selected);
     qs.set("before", feedbackPage.nextBefore);
@@ -248,7 +247,7 @@ export default async function Stage0Page({ params, searchParams }: PageProps) {
             }}
           >
             {/* Phase 82.4 Plan 06: Option Z toggle chips (default OFF). */}
-            <StageListChips needsAction={needsAction} mineOnly={mineOnly} />
+            <StageListChips mineOnly={mineOnly} />
             <MailboxFilter
               mailboxes={mailboxes}
               selected={selectedMailboxes}

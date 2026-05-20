@@ -26,6 +26,7 @@ import { debtorEmailIcontrollerTagger } from "@/lib/inngest/functions/debtor-ema
 import { browserlessKeepalive } from "@/lib/inngest/functions/browserless-keepalive";
 import { debtorEmailCoordinator } from "@/lib/inngest/functions/debtor-email-coordinator";
 import { classifierBackfill } from "@/lib/inngest/functions/classifier-backfill";
+import { classifierLLMRulesSeed } from "@/lib/inngest/functions/classifier-llm-rules-seed";
 import { classifierCorpusBackfill } from "@/lib/inngest/functions/classifier-corpus-backfill";
 import { classifierSpotcheckSampler } from "@/lib/inngest/functions/classifier-spotcheck-sampler";
 import { classifierPromotionCron } from "@/lib/inngest/functions/classifier-promotion-cron";
@@ -65,6 +66,7 @@ export const { GET, POST, PUT } = serve({
     browserlessKeepalive,
     debtorEmailCoordinator,
     classifierBackfill,
+    classifierLLMRulesSeed,
     classifierCorpusBackfill,
     classifierSpotcheckSampler,
     classifierPromotionCron,

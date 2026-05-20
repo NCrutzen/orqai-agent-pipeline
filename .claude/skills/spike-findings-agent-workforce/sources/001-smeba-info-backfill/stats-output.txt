@@ -1,0 +1,75 @@
+=== Spike 001 — info@smeba.nl baseline stats ===
+
+Total rows: 5504
+Date range: 2026-02-18 → 2026-05-19  (90 days)
+Avg daily volume: 61.2/day
+
+Direction split:
+  incoming: 5316
+  sent: 188
+
+Inbound flags:
+  with attachments: 639  (12.0%)
+  is_read=true:     5316  (100.0%)
+
+Top 20 sender domains (inbound):
+    661  12.4%  smeba.nl
+    308   5.8%  outlook.com
+    189   3.6%  moyneroberts.com
+    123   2.3%  gmail.com
+    110   2.1%  hotmail.com
+    109   2.1%  smeba-fire.be
+     82   1.5%  securitas.nl
+     78   1.5%  planet.nl
+     58   1.1%  business.facebook.com
+     43   0.8%  kingsberry.be
+     42   0.8%  marmarafuar.net
+     42   0.8%  firemail.de
+     40   0.8%  hardware-crmpoint.com
+     30   0.6%  tatakimc.com.tr
+     29   0.5%  mail.basworld.com
+     29   0.5%  kpnplanet.nl
+     28   0.5%  machinesbroker.mdrctr.com
+     27   0.5%  antwerp-auctions.be
+     26   0.5%  secure-hosting.blog
+     25   0.5%  metaalnieuws.nl
+
+Top 20 sender addresses (inbound):
+     82  noreply@securitas.nl
+     63  info@smeba.nl
+     58  noreply@business.facebook.com
+     53  dave.rozekrans.sb@moyneroberts.com
+     44  pabo@smeba.nl
+     42  news@marmarafuar.net
+     40  marketing@hardware-crmpoint.com
+     37  chha@smeba-fire.be
+     37  peter@smeba-fire.be
+     36  opleidingen@kingsberry.be
+     34  sten.claessen.sb@moyneroberts.com
+     30  lehu@smeba.nl
+     30  paco@smeba.nl
+     29  kim.van.groot.battave.sb@moyneroberts.com
+     28  info@machinesbroker.mdrctr.com
+     27  jada@smeba.nl
+     27  dontreply@antwerp-auctions.be
+     25  metaalnieuwsbrief@metaalnieuws.nl
+     25  anja.huybrechts@ectect.be
+     25  newsletter@info.slagharen.com
+
+Subject prefix / marker frequency (inbound):
+   2899  [SPAM]
+    203  RE:
+     53  FW:
+     12  ~automatisch antwoord
+      6  ~delivery failure
+      6  FWD:
+      5  TR:
+      3  ~undeliverable
+      2  [KB0]
+      1  [BD]
+      1  [META GERVERIFIEERD]
+
+Threads:
+  unique conversations:  5261
+  single-message threads: 5056  (96.1%)
+  max thread length:     8

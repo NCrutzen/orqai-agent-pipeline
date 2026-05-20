@@ -174,6 +174,15 @@ export type Events = {
       triggeredBy?: string;
     };
   };
+  // Phase 89 (Plan 03) — one-shot eager seed of llm:{cat}:high candidate
+  // rows into classifier_rules for every (active swarm × enabled noise
+  // category != 'unknown'). Idempotent via ON CONFLICT. Re-fire when a
+  // new swarm or swarm_noise_categories row lands.
+  "classifier/llm-rules-seed.run": {
+    data: {
+      triggeredBy?: string;
+    };
+  };
   // Phase 60-08 — sample hard-case rows into agent_runs review queue
   "classifier/spotcheck.queue": {
     data: {

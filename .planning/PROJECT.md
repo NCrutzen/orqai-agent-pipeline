@@ -75,7 +75,7 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 - [x] Claude-style terminal event stream (Supabase Realtime)
 - [x] Data integration: Supabase + Orq.ai API (traces, tool calls, agent metrics)
 
-**v8.0 Agentic Platform** (shipped substantively — closure pending 82.2 + 82.4):
+**v8.0 Agentic Platform** (shipped 2026-05-20 — 31 phases, 49/49 in-scope requirements, 7/7 flows verified — see `milestones/v8.0-ROADMAP.md`):
 - [x] Architecture RFC (Phase 63) — canonical 5-stage funnel locked
 - [x] Stage 0 input safety / prompt-injection guard (Phase 64)
 - [x] Per-run token & cost budgets + tool-call allowlists per intent (Phase 64)
@@ -88,19 +88,25 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 - [x] Single canonical `pipeline_events` table (Phase 70) — *coverage gap, see Phase 82.2*
 - [x] Stage 1 LLM Category Classifier — swarm-agnostic (Phase 74)
 - [x] **Sales-email Stage 0/1 canary**: 181 emails ingested (30d), 91% Stage 0 reach, Stage 1 LLM classifying — corpus accruing for V10.0 rule design. (Was Half B of original v8.0 charter; satisfied incidentally by Phase 74 rollout.)
-- [ ] **Phase 82.2** — Stage 0 telemetry coverage fix (stabilisation, in flight)
-- [ ] **Phase 82.3** — Per-stage audit surface (click-through popup with verdict + evidence + screenshots; 80/20 cut)
-- [ ] **Phase 82.4** — Feedback capture infrastructure mounted inside 82.3's popup (`email_feedback` table + Stage 2/3 forms + history view, no synthesis)
+- [x] **Phase 82.2** — Stage 0 telemetry coverage fix (debtor mailboxes ≥99%)
+- [x] **Phase 82.3** — Per-stage audit surface (click-through popup with verdict + evidence + screenshots)
+- [x] **Phase 82.4** — Feedback capture infrastructure (`email_feedback` table + Stage 2/3 forms + history view)
+- [x] **Phase 82.9** — Stage 2 audit-panel evidence expansion (resolver inputs + LLM tiebreaker reasoning)
+- [x] **Phase 83** — Body ingestion fix (1344 priors backfilled; Stage 1+3 read full thread)
+- [x] **Phase 089** — Stage 1 LLM 2nd-pass auto-action promotion track (839 rows backfilled)
 - [→] Promotion recommender + Learning Inbox **synthesis layer** — **moved to V9.0** (T2 draft-proposer on top of 82.4 capture)
 - [→] Sales-email full operator onboarding — **moved to V10.0** (Stage 2 Sugar resolver, Stage 3 sales intent agent, multi-operator handling)
 
 ### Active
 
-**v8.0 stabilisation** (this week + next): three phases gating closure, sequential not parallel — operator needs the read surface (82.3) before the form (82.4) is useful:
-- Phase 82.2 — Stage 0 telemetry coverage fix (26–45% → ≥99% on debtor mailboxes)
-- Phase 82.3 — Per-stage audit surface so the debtor-person can see *what each stage did* (verdict + reasoning + iController screenshots) before commenting
-- Phase 82.4 — Feedback capture form inside 82.3's popup so prose feedback lands in `email_feedback`. Capture only; V9.0 synthesises.
-- Hard deadline: all three ship before 2026-05-18 (debtor-person onboarding).
+**v8.1 Validation + Visibility** — observe → understand → THEN automate. Fix input + calibration + visibility gaps before V8.2 handler work. Anchor goal: Stage 3 intent distribution reflects reality, not parsing artifacts.
+
+- Phase 84 — Stage 1 noise rules for AP-automation FYI traffic (Coupa/ISS/M365 quarantine/own-domain loopback)
+- Phase 85 — Stage 3 prompt v3 (intent definitions + few-shot + open-set schema with `intent_proposal`)
+- Phase 86 — Open-set intent discovery (proposal capture + Bulk Review cluster tab)
+- Phase 87 — Retro-classification + intent-volume baseline (`stage_3_retro_runs`, `intent_volume_baselines`)
+- Phase 88 — Review-surface cleanup (override+note flow, Stage 1 chip semantics, Stage 4 layout parity)
+- Phase 88.1 — Stage-named Inngest functions + Stage 2 telemetry alignment (rename label-resolver/tagger/cleanup)
 
 ### Defined (not yet active)
 
@@ -117,14 +123,11 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 - CLI skill management -- lives in orqai-agent-pipeline repo
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: v8.0 stabilisation → V9.0 prep
+## Current Milestone: v8.1 Validation + Visibility (active)
 
-**This week (v8.0 closure):**
-- Phase 82.2: Stage 0 telemetry coverage fix (26–45% → ≥99% on debtor mailboxes) — blocker for the Learning Inbox per-email trace
-- Debtor-person operator onboarding (week of 2026-05-18) — first human-in-the-loop on Stage 2/3
-- Once 82.2 lands + 999.8 browser smokes pass: formal v8.0 audit and closure
+**v8.0 closed 2026-05-20** — 31 in-scope phases, 49/49 in-scope requirements satisfied, 7/7 cross-phase flows verified. Operator UAT PASS via Phase 999.8 + 82.9 sign-off. Debtor-person onboarded 2026-05-18 with Bulk Review + audit panels + feedback capture live. Sales-email Stage 0+1 producing live traces. Archive: `milestones/v8.0-ROADMAP.md`.
 
-**v8.0 delivered substantively** — 5-stage funnel canonical across debtor-email, registry-driven swarm config (Phase 68), cross-swarm handler reuse (Phase 69), unified Bulk Review shell (Phase 82). Reframed Phase 72 (Promotion Recommender) into a full milestone (V9.0) once the prose-feedback approach replaced the original telemetry-only design. Reframed Phase 73 (sales-email validation) into V10.0 because Phase 78 was never executed.
+**v8.1 anchor:** intent vocabulary emerges from the LLM's proposals + operator promotion during dry-run, never from hand-curation (locked 2026-05-19). Phase 86 builds the discovery surface; V9.0 builds the promotion side. Calendar gated on Phase 87's retro-classification baseline before V8.2 handler work begins.
 
 **Pipeline architectural decisions (locked):**
 - Workflow-first per Anthropic guidance; agents (autonomous loops) only where decomposition is genuinely required
@@ -179,4 +182,4 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 **Abandoned decisions (V3/V4/V5/V6):** node graph swarm builder, AI-vision screenshot annotation, Playwright auto-generation as pipeline stage, cross-swarm intelligence layer. Retained in `MILESTONES.md` history for traceability.
 
 ---
-*Last updated: 2026-05-12 — milestone hygiene after Phase 55–58/74 sweep, V9/V10/V11 framing locked*
+*Last updated: 2026-05-20 — after v8.0 milestone closure (31 phases, 49/49 in-scope requirements, audit PASSED)*
