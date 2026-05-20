@@ -272,6 +272,12 @@ export const classifierScreenWorker = inngest.createFunction(
               status: "predicted",
               confidence: parsed.confidence,
               reasoning: parsed.reasoning,
+              // Phase 89 SC-89-02: synthesize LLM rule_key so the
+              // classifier_rule_telemetry view (WHERE rule_key IS NOT NULL)
+              // aggregates LLM verdicts and the Wilson-CI promotion cron can
+              // promote llm:*:high once n/agree thresholds are met. Replay-
+              // safe: deterministic from `parsed.*` inside this step.run.
+              rule_key: `llm:${parsed.category_key}:${parsed.confidence}`,
               tool_outputs: {
                 stage1_category: parsed.category_key,
                 gated_to: finalKey,
@@ -314,6 +320,12 @@ export const classifierScreenWorker = inngest.createFunction(
               confidence: "low",
               reasoning: null,
               error_message: msg,
+              // Phase 89 SC-89-02: sentinel rule_key on the failure-coerced
+              // row so failure telemetry remains attributable. The
+              // classifier_rule_telemetry view filters human_verdict IS NOT
+              // NULL, so failure rows (human_verdict NULL by default) never
+              // pollute promotion aggregates.
+              rule_key: "llm:unknown:low",
               tool_outputs: { error: msg },
             });
             if (failureInsert.error) {
@@ -488,8 +500,17 @@ export const classifierScreenWorker = inngest.createFunction(
           async () => Array.from(await readWhitelist(admin, "debtor-email")),
         );
         const whitelistSet = new Set(whitelist);
-        const matchedRule = regexOutcome.matchedRule ?? "";
-        const isWhitelistMatch = whitelistSet.has(matchedRule);
+        // Phase 89 SC-89-04: when LLM 2nd-pass was invoked, synthesize
+        // matchedRule from the LLM output so the whitelist gate matches
+        // promoted `llm:*:high` rule_keys (mechanism that activates auto-
+        // archive once a rule is promoted by the Wilson-CI cron). Regex
+        // path falls through unchanged (llmInvoked=false → original
+        // regexOutcome.matchedRule preserved per Pitfall 2 regression guard).
+        const effectiveMatchedRule =
+          llmInvoked && llmCategoryKey && llmConfidence
+            ? `llm:${llmCategoryKey}:${llmConfidence}`
+            : (regexOutcome.matchedRule ?? "");
+        const isWhitelistMatch = whitelistSet.has(effectiveMatchedRule);
         const autoActionAllowed =
           isWhitelistMatch && settings.auto_label_enabled;
 
@@ -562,7 +583,10 @@ export const classifierScreenWorker = inngest.createFunction(
                 from: fromFromEvent ?? null,
                 predicted: {
                   category: finalCategoryKey,
-                  rule: regexOutcome.matchedRule,
+                  // Phase 89: thread effectiveMatchedRule (regex matchedRule
+                  // OR synthesized llm:{cat}:{conf}) so the bulk-review row's
+                  // predicted.rule reflects the actual classifier signal.
+                  rule: effectiveMatchedRule || null,
                 },
                 action:
                   isWhitelistMatch && !settings.auto_label_enabled
@@ -720,7 +744,10 @@ export const classifierScreenWorker = inngest.createFunction(
               triggered_by: "stage-1-worker",
               predicted: {
                 category: finalCategoryKey,
-                rule: regexOutcome.matchedRule,
+                // Phase 89: thread effectiveMatchedRule into auto-action
+                // audit row so the audit log reflects whether dispatch fired
+                // via a regex hit or via a promoted llm:*:high rule_key.
+                rule: effectiveMatchedRule || null,
               },
             },
             triggered_by: "stage-1-worker",
