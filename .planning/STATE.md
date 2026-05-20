@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v8.0
-milestone_name: Agentic Platform
-status: Awaiting next milestone
-stopped_at: Phase 82.9 context gathered
-last_updated: "2026-05-20T10:21:02.624Z"
-last_activity: 2026-05-20 — Milestone v8.0 completed and archived
+milestone: v8.1
+milestone_name: Validation + Visibility
+status: planning
+last_updated: "2026-05-20T10:34:22.192Z"
+last_activity: 2026-05-20
 progress:
-  total_phases: 21
-  completed_phases: 12
-  total_plans: 63
-  completed_plans: 63
-  percent: 57
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -26,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: Milestone v8.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-05-20 — Milestone v8.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-05-20 — Milestone v8.1 started
 
 ## Performance Metrics
 
