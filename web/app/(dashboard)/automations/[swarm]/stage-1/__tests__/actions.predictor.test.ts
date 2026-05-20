@@ -281,6 +281,63 @@ describe("Phase 999.8 D-08 — recordVerdict writes predictor='llm_2nd_pass' whe
     await expect(recordVerdict(badInput)).rejects.toThrow();
   });
 
+  // Phase 89 Plan 05 (SC-89-02 second half) — recordVerdict must accept and
+  // persist a synthesized LLM rule_key of the form `llm:{cat}:{conf}` so the
+  // (swarm_type, rule_key, human_verdict) aggregate in classifier_rule_telemetry
+  // tracks LLM-predicted rows the same way it tracks regex rule_keys.
+  it("Phase 89-05: accepts rule_key='llm:auto_reply:high' and writes it to agent_runs", async () => {
+    pipelineEventFixture = {
+      decision_details: {
+        llm_invoked: true,
+        llm_category_key: "auto_reply",
+        llm_confidence: "high",
+        regex: { invoked: true, matchedRule: "no_match", category: "unknown" },
+        final_category_key: "auto_reply",
+      },
+    };
+
+    await recordVerdict(baseInput({ rule_key: "llm:auto_reply:high" }));
+
+    expect(agentRunsInserts.length).toBe(1);
+    expect(agentRunsInserts[0]).toEqual(
+      expect.objectContaining({ rule_key: "llm:auto_reply:high" }),
+    );
+  });
+
+  it("Phase 89-05: rejects empty rule_key (z.string().min(1) guard)", async () => {
+    pipelineEventFixture = {
+      decision_details: { llm_invoked: true, final_category_key: "auto_reply" },
+    };
+
+    await expect(
+      recordVerdict(baseInput({ rule_key: "" })),
+    ).rejects.toThrow();
+  });
+
+  it("Phase 89-05: preserves regex rule_key (e.g. 'payment_subject') unchanged for regex rows", async () => {
+    pipelineEventFixture = {
+      decision_details: {
+        llm_invoked: false,
+        regex: {
+          invoked: true,
+          matchedRule: "payment_subject",
+          category: "payment_admittance",
+        },
+        final_category_key: "payment_admittance",
+      },
+    };
+
+    await recordVerdict(baseInput({ rule_key: "payment_subject" }));
+
+    expect(agentRunsInserts.length).toBe(1);
+    expect(agentRunsInserts[0]).toEqual(
+      expect.objectContaining({
+        rule_key: "payment_subject",
+        predictor: "regex",
+      }),
+    );
+  });
+
   it("pipeline_events lookup filters by email_id (NOT automation_run_id aliasing)", async () => {
     pipelineEventFixture = {
       decision_details: { llm_invoked: true, final_category_key: "auto_reply" },
