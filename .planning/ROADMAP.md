@@ -108,7 +108,13 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 ```
 
 - [x] **Phase 83: Body ingestion** — full thread capture on forwards and replies. SHIPPED 2026-05-19. 1344 priors backfilled; V1/V2 green within noise-floor; V3/V4 PARTIAL pending live traffic.
-- [ ] **Phase 84: Stage 1 noise rules for AP-automation FYI traffic** — 9 noise categories (Coupa PO/Betaald/Goedgekeurd, ISS PtP auto-replies, M365 quarantine, FrieslandCampina rejects, FarmPlus bank-change, RSK phishing notices, own-domain outbound loopback). New `swarms.tenant_domains` column + codegen. Wilson-CI shadow gate before promotion. **Can run in parallel with 83.**
+- [ ] **Phase 84: Stage 1 noise rules for AP-automation FYI traffic** — 8 noise categories locked 2026-05-20 (Coupa Betaald/Goedgekeurd, ISS PtP auto-reply, M365 quarantine, FrieslandCampina rejects, RSK phishing notices, FarmPlus supplier bank-change, own-domain outbound loopback — Coupa PO dropped per calibration). New `swarms.tenant_domains` column + codegen. Wilson-CI shadow gate before promotion. Cross-swarm by default (debtor-email + sales-email). **Can run in parallel with 83.**
+  **Plans:** 4 plans
+  Plans:
+  - [ ] 84-01-PLAN.md — Wave 0: RED tests (classify + worker loopback) + hard-separation static check + CORPUS-SAMPLES.md (>=10 hand-confirmed positives per category, per-swarm)
+  - [ ] 84-02-PLAN.md — Wave 1: 3 migrations (tenant_domains column + 16 swarm_noise_categories rows + 8 classifier_rules candidates) + gen-tenant-domains.ts codegen + retire debtor-email-coordinator.ts:50 stub + BLOCKING supabase db push
+  - [ ] 84-03-PLAN.md — Wave 2: 7 classify.ts matchers (specificity-ordered) + own_outbound_invoice_loopback in classifier-screen-worker.ts (D-03 direction guard) + direction passthrough from stage-0-safety-worker
+  - [ ] 84-04-PLAN.md — Wave 3: PROMOTION-RUNBOOK.md + operator-driven 7-day shadow + D-05 gate evaluation + per-category promotion / R-04 rollback
 - [ ] **Phase 85: Stage 3 prompt v3** — intent definitions + per-intent few-shot + open-set output schema (`intent_proposal` + `proposal_reason` fields; closed-list `intent` enum unchanged). `intent_version='2026-05-19.v3'`. **Depends on 83.**
 - [ ] **Phase 86: Open-set intent discovery** — persists `intent_proposal` in `coordinator_runs.ranked_intents` JSONB; `intent_proposals_v1` view; new Bulk Review "Intent proposals" tab with weekly Levenshtein clusters. Read-only — no promotion button (V9.0 owns Learning Inbox). Cross-swarm by default. **Depends on 85.**
 - [ ] **Phase 87: Retro-classification + intent-volume baseline** — re-runs V3 Stage 3 agent against 30-90 days of corpus (read from Supabase, idempotent); `stage_3_retro_runs` + `intent_volume_baselines` tables; V8.2/V9.0/V11.0 read this. **Depends on 83+84+85+86 all live.**
