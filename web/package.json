@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "audit:orq-agents": "tsx scripts/audit-orq-agents.ts",
+    "check:supabase": "tsx scripts/check-supabase-advisors.ts",
     "codegen": "tsx scripts/gen-entity-types.ts",
     "test:e2e": "playwright test"
   },
