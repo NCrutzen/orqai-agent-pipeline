@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Agentic Platform
-status: Executing Phase 82.9
-stopped_at: Phase 82.9 context gathered
-last_updated: "2026-05-20T04:11:00.948Z"
+status: Phase 82.9 closed (code-side); 2 human-action checkpoints documented
+stopped_at: Phase 82.9 closed 2026-05-20 (4/4 plans landed; Zap edit + UI UAT deferred to operator)
+last_updated: "2026-05-20T05:30:00.000Z"
 progress:
   total_phases: 21
   completed_phases: 12
@@ -20,13 +20,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 82.9 — Stage 2 audit-panel evidence expansion
+**Current focus:** Phase 82.9 CLOSED 2026-05-20 (code-side). All 4 plans landed: Zod extension (01), resolver+writer discriminated `inputs` (02), audit-types+mapper (03), Stage2EvidencePanel UI rewrite (04). Two human-action checkpoints documented: Zap edit + prod migration apply (01-T3) and panel visual UAT (04-T3). v8.0 closure now waits only on 999.8 operator UAT, then `/gsd-audit-milestone v8.0`.
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 82.9 (Stage 2 audit-panel evidence expansion) — EXECUTING
-Plan: 1 of 4
+Phase: 82.9 (Stage 2 audit-panel evidence expansion) — COMPLETE (code-side); operator checkpoints pending
+Plan: 4 of 4 + VERIFICATION.md
 Next phase: `/gsd-audit-milestone v8.0` (gated on 82.9 closure + 999.8 UAT)
 Milestone: v8.0 Agentic Platform (Phases 63-82.8, 83)
 Last shipped: Phase 83 (2026-05-19) — body_full_text + body_unique_text columns; conversation_context table; ingest writers + Stage 1/3 readers wired; 30-day backfill ran (1344 priors written); verify-phase83 harness shipped; V1 PASS, V2 PASS-with-noise-floor, V3/V4 PARTIAL pending live traffic. Pre-this: Phase 82.8 (2026-05-18) Stage 4 three-section overview + Stage 1 before/after screenshot strip.
@@ -38,7 +38,7 @@ Last shipped: Phase 83 (2026-05-19) — body_full_text + body_unique_text column
 - [x] Phase 82.4: Feedback capture form — SHIPPED
 - [x] Phase 82.8: Stage 4 handled overview + Stage 1 before/after screenshots — SHIPPED
 - [x] Phase 83: Body ingestion — capture full thread on forwards and replies — SHIPPED 2026-05-19 (1344 priors backfilled; V1/V2 green within noise-floor; V3/V4 PARTIAL pending live traffic — see 83-07-VERIFICATION.md)
-- [ ] Phase 82.9: Stage 2 audit-panel evidence expansion — IN-FLIGHT (4 plans drafted by parallel session, 0 SUMMARYs yet)
+- [x] Phase 82.9: Stage 2 audit-panel evidence expansion — SHIPPED 2026-05-20 (4/4 plans, 50/50 tests green; 2 human-action checkpoints documented: Zap UI edit + prod migration apply, panel visual UAT)
 - [ ] Phase 999.8: 2 outstanding browser smokes — operator UAT pending
 
 **v8.0 reframes (locked 2026-05-12):**
