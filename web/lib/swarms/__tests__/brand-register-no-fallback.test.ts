@@ -46,6 +46,7 @@ function makeAdmin(brands: BrandRegister[]): SupabaseClient {
     stage3_coordinator_agent_key: null,
     canonical_context_shape: null,
     entity_brand: brands as unknown as SwarmRow["entity_brand"],
+    tenant_domains: [],
   };
   const builder = {
     select: vi.fn().mockReturnThis(),

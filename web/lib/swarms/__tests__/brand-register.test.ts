@@ -67,6 +67,7 @@ function swarmRowWith(entityBrand: unknown): SwarmRow {
     stage3_coordinator_agent_key: null,
     canonical_context_shape: null,
     entity_brand: entityBrand as SwarmRow["entity_brand"],
+    tenant_domains: [],
   };
 }
 

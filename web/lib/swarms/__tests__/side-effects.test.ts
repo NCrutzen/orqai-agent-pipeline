@@ -34,6 +34,7 @@ const baseSwarm = (sideEffects: unknown[]): SwarmRow => ({
   stage3_coordinator_agent_key: "debtor-intent-agent",
   canonical_context_shape: null,
   entity_brand: ["smeba"],
+  tenant_domains: [],
 });
 
 const icontrollerTagDescriptor = {

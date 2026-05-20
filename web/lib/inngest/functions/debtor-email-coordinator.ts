@@ -47,8 +47,10 @@ const SWARM_TYPE = "debtor-email";
 // Phase 84 D-03 — tenant domains sourced from the swarms registry via the
 // codegen-emitted map (tenant-domains.generated.ts). Phase 83 fallback stub
 // retired; coordinator no longer carries a hardcoded list. Source of truth
-// is public.swarms.tenant_domains.
-const TENANT_DOMAINS = TENANT_DOMAINS_BY_SWARM[SWARM_TYPE];
+// is public.swarms.tenant_domains. Spread to a fresh string[] because the
+// generated value is `readonly` (`as const`) and assembleInput expects a
+// mutable string[].
+const TENANT_DOMAINS: string[] = [...TENANT_DOMAINS_BY_SWARM[SWARM_TYPE]];
 
 // Phase 83 Plan 06 (D-09) — hard cap on the Stage 3 assembled input.
 const STAGE_3_INPUT_CAP_CHARS = 8000;
