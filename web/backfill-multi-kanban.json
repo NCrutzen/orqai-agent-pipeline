@@ -1,0 +1,586 @@
+[
+  {
+    "id": "06c71e67-25b1-4028-a27d-04c83cbab963",
+    "email_id": "5ade6b55-1dfe-474c-ad94-4e26fdf21e42",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": null,
+          "reasoning": "Sender requests certificate following maintenance; werkbon reference 1598150 in subject but not explicitly tied to certificate in body.",
+          "confidence": "medium",
+          "document_reference": "1598150"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "07cf63a6-0a63-4fb1-9a07-ee696132f2b4",
+    "email_id": "b4b8a456-9db0-45e4-bb08-0d0030f9cf5e",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "payment_dispute",
+          "sub_type": null,
+          "reasoning": "Sender refuses payment pending explanation of disputed invoice, mentions waiting >1 month for response.",
+          "confidence": "high",
+          "document_reference": "33050611"
+        },
+        {
+          "intent": "general_inquiry",
+          "sub_type": null,
+          "reasoning": "Sender demands answer to unspecified questions about invoice raised a month ago.",
+          "confidence": "medium",
+          "document_reference": null
+        }
+      ],
+      "urgency": "high",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "08ac7fbd-f5b0-4c60-9a71-7a12444662a1",
+    "email_id": "365cc739-5973-4362-8a47-a7d489a3b0f6",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "peppol_request",
+          "sub_type": null,
+          "reasoning": "IKEA invites recipient to connect via SAP Business Network for order/invoicing system change.",
+          "confidence": "high",
+          "document_reference": null
+        }
+      ],
+      "urgency": "normal",
+      "language": "en",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "15b7d83a-4546-44da-ac28-b921aef4f40f",
+    "email_id": "ca247abc-5525-4059-abff-a63378740d87",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "credit_request",
+          "sub_type": null,
+          "reasoning": "Sender asks colleague to review credit note question from client, references prior April 8 email.",
+          "confidence": "medium",
+          "document_reference": null
+        },
+        {
+          "intent": "general_inquiry",
+          "sub_type": null,
+          "reasoning": "Follow-up on previous correspondence regarding credit notes, unclear if new action needed.",
+          "confidence": "low",
+          "document_reference": null
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "317324cc-ef3d-4caf-974a-0997204072b4",
+    "email_id": "094e9d1e-1cd8-4fe9-a1e7-292a842ae144",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": "werkbon",
+          "reasoning": "Explicit werkbon request; subject contains werkzaamheden reference 1512971.",
+          "confidence": "high",
+          "document_reference": "1512971"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "38d46975-cd3f-49ef-8d80-54dd1ed950c3",
+    "email_id": "de4d54aa-bf24-43ba-89ea-c694f335f4ad",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "general_inquiry",
+          "sub_type": null,
+          "reasoning": "Sender requests WKA data via attached letter; no specific document copy or standard AR concern.",
+          "confidence": "medium",
+          "document_reference": null
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "5464e9f3-b3d4-4f61-a71c-25d6b2baff02",
+    "email_id": "a9df616d-babb-48b1-9825-fae20e1e433f",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": "invoice",
+          "reasoning": "Sender explicitly requests details for invoice 33050742.",
+          "confidence": "high",
+          "document_reference": "33050742"
+        },
+        {
+          "intent": "payment_dispute",
+          "sub_type": null,
+          "reasoning": "Sender disputes pricing on invoice 33050742, demands adjusted invoice, threatens non-payment.",
+          "confidence": "high",
+          "document_reference": "33050742"
+        },
+        {
+          "intent": "contract_inquiry",
+          "sub_type": null,
+          "reasoning": "Sender questions rate increases and pricing structure over years.",
+          "confidence": "medium",
+          "document_reference": null
+        }
+      ],
+      "urgency": "high",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "6f57bb7a-1935-4201-b166-5f1de7f1bbed",
+    "email_id": "5698f247-c247-4cb8-b408-12cf24f9ee1f",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "payment_dispute",
+          "sub_type": null,
+          "reasoning": "Sender mentions unregistered complaint requiring compensation; dispute context present but reference unclear.",
+          "confidence": "medium",
+          "document_reference": null
+        },
+        {
+          "intent": "general_inquiry",
+          "sub_type": null,
+          "reasoning": "Internal forward about complaint handling; may need colleague action rather than debtor resolution.",
+          "confidence": "low",
+          "document_reference": null
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "73e5e475-e5b1-438c-b206-3a180aee12b9",
+    "email_id": "f4e49357-cf78-48dc-a3bb-3fffb26d1b5a",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": "werkbon",
+          "reasoning": "Sender explicitly states missing werkbon attachment; subject contains werkbon reference 1607474.",
+          "confidence": "high",
+          "document_reference": "1607474"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "782999e2-61ba-4418-874e-c4c939845805",
+    "email_id": "b4b8a456-9db0-45e4-bb08-0d0030f9cf5e",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "payment_dispute",
+          "sub_type": null,
+          "reasoning": "Sender refuses payment pending explanation of disputed invoice, mentions waiting >1 month for response.",
+          "confidence": "high",
+          "document_reference": "33050611"
+        },
+        {
+          "intent": "general_inquiry",
+          "sub_type": null,
+          "reasoning": "Sender demands answer to unspecified questions about invoice raised a month ago.",
+          "confidence": "medium",
+          "document_reference": null
+        }
+      ],
+      "urgency": "high",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "81705b42-8530-461b-94d9-6a1773521cef",
+    "email_id": "5698f247-c247-4cb8-b408-12cf24f9ee1f",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "payment_dispute",
+          "sub_type": null,
+          "reasoning": "Sender mentions unregistered complaint requiring compensation; dispute context present but reference unclear.",
+          "confidence": "medium",
+          "document_reference": null
+        },
+        {
+          "intent": "general_inquiry",
+          "sub_type": null,
+          "reasoning": "Internal forward about complaint handling; may need colleague action rather than debtor resolution.",
+          "confidence": "low",
+          "document_reference": null
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "84ecf9ea-d1d5-4c57-819e-e20ede20dfb3",
+    "email_id": "094e9d1e-1cd8-4fe9-a1e7-292a842ae144",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": "werkbon",
+          "reasoning": "Explicit werkbon request; subject contains werkzaamheden reference 1512971.",
+          "confidence": "high",
+          "document_reference": "1512971"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "85d72c65-a6a3-478c-a4f7-1061a872c620",
+    "email_id": "a9df616d-babb-48b1-9825-fae20e1e433f",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": "invoice",
+          "reasoning": "Sender explicitly requests details for invoice 33050742.",
+          "confidence": "high",
+          "document_reference": "33050742"
+        },
+        {
+          "intent": "payment_dispute",
+          "sub_type": null,
+          "reasoning": "Sender disputes pricing on invoice 33050742, demands adjusted invoice, threatens non-payment.",
+          "confidence": "high",
+          "document_reference": "33050742"
+        },
+        {
+          "intent": "contract_inquiry",
+          "sub_type": null,
+          "reasoning": "Sender questions rate increases and pricing structure over years.",
+          "confidence": "medium",
+          "document_reference": null
+        }
+      ],
+      "urgency": "high",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "86a7b248-4939-4955-968d-8a7601a5aca6",
+    "email_id": "fdd6490d-d997-45d1-a6fe-09dfb237ea67",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 6,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "payment_dispute",
+          "sub_type": null,
+          "reasoning": "Formal protest citing missing mandatory fields (PO, contract, period); requests credit note and reissue.",
+          "confidence": "high",
+          "document_reference": "33050836"
+        },
+        {
+          "intent": "credit_request",
+          "sub_type": null,
+          "reasoning": "Explicit request for credit note to cancel invoice 33050836.",
+          "confidence": "high",
+          "document_reference": "33050836"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "912b6d2b-90c3-47bf-8029-0cbb0d649b79",
+    "email_id": "8352e70d-7db6-4303-967a-7bacc17ea8c6",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "general_inquiry",
+          "sub_type": null,
+          "reasoning": "Sender asks delivery confirmation for fire extinguisher; werkbon reference in subject but body seeks clarification not document copy.",
+          "confidence": "medium",
+          "document_reference": "1625331"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "9aafba6b-fe3f-44da-8ef2-d1f8ee394dc2",
+    "email_id": "e6f4b976-4b4c-4924-b86e-e7e13f91640d",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": "invoice",
+          "reasoning": "Subject explicitly mentions invoice return with reference 33050878.",
+          "confidence": "high",
+          "document_reference": "33050878"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "a270e22f-0939-4fdd-aed0-263710072f5d",
+    "email_id": "87c317bd-955e-4bb9-b55d-618f0a735e1a",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": "invoice",
+          "reasoning": "Subject explicitly mentions 'Factuur: 33050611' in document context thread.",
+          "confidence": "high",
+          "document_reference": "33050611"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "a641de19-bb95-460a-a443-1d2a01efbffd",
+    "email_id": "e6f4b976-4b4c-4924-b86e-e7e13f91640d",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": "invoice",
+          "reasoning": "Subject explicitly mentions invoice return with reference 33050878.",
+          "confidence": "high",
+          "document_reference": "33050878"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "aa28308d-a1b3-419e-b784-3a20cc3d9f16",
+    "email_id": "de4d54aa-bf24-43ba-89ea-c694f335f4ad",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "general_inquiry",
+          "sub_type": null,
+          "reasoning": "Sender requests WKA data via attached letter; no specific document copy or standard AR concern.",
+          "confidence": "medium",
+          "document_reference": null
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "d3341107-965d-4683-91dc-8dcfffbe407b",
+    "email_id": "87c317bd-955e-4bb9-b55d-618f0a735e1a",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": "invoice",
+          "reasoning": "Subject explicitly mentions 'Factuur: 33050611' in document context thread.",
+          "confidence": "high",
+          "document_reference": "33050611"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "da0c1802-d427-4188-8ec8-021c5857b4d5",
+    "email_id": "5ade6b55-1dfe-474c-ad94-4e26fdf21e42",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": null,
+          "reasoning": "Sender requests certificate following maintenance; werkbon reference 1598150 in subject but not explicitly tied to certificate in body.",
+          "confidence": "medium",
+          "document_reference": "1598150"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "e1aa70f4-3e95-467c-aafa-18f3054cb449",
+    "email_id": "8352e70d-7db6-4303-967a-7bacc17ea8c6",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "general_inquiry",
+          "sub_type": null,
+          "reasoning": "Sender asks delivery confirmation for fire extinguisher; werkbon reference in subject but body seeks clarification not document copy.",
+          "confidence": "medium",
+          "document_reference": "1625331"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "e6260a3d-621f-433e-8775-d0bca23fc3c5",
+    "email_id": "ca247abc-5525-4059-abff-a63378740d87",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "credit_request",
+          "sub_type": null,
+          "reasoning": "Sender asks colleague to review credit note question from client, references prior April 8 email.",
+          "confidence": "medium",
+          "document_reference": null
+        },
+        {
+          "intent": "general_inquiry",
+          "sub_type": null,
+          "reasoning": "Follow-up on previous correspondence regarding credit notes, unclear if new action needed.",
+          "confidence": "low",
+          "document_reference": null
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "eab3fe4c-43c9-443b-8962-2a8594238aae",
+    "email_id": "f4e49357-cf78-48dc-a3bb-3fffb26d1b5a",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": "werkbon",
+          "reasoning": "Sender explicitly states missing werkbon attachment; subject contains werkbon reference 1607474.",
+          "confidence": "high",
+          "document_reference": "1607474"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "fc2c47e5-35e9-4671-9cfe-6c7165c31236",
+    "email_id": "d704b4d2-2b2a-4cba-88ee-5589401f4393",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 2,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "payment_dispute",
+          "sub_type": null,
+          "reasoning": "Sender disputes invoice amount (270 vs expected 120 euro), requests resolution for high charge.",
+          "confidence": "high",
+          "document_reference": "17341438"
+        },
+        {
+          "intent": "contract_inquiry",
+          "sub_type": null,
+          "reasoning": "Sender questions service terms regarding old fire extinguisher exchange policy change.",
+          "confidence": "medium",
+          "document_reference": null
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  }
+]

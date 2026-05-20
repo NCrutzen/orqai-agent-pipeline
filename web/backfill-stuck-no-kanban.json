@@ -1,0 +1,96 @@
+[
+  {
+    "id": "15f061f0-cf0d-4af2-8651-82ad15303b6d",
+    "email_id": "00000000-0000-4065-c000-000000000003",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 0,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "general_inquiry",
+          "sub_type": null,
+          "reasoning": "Vague request referencing 'that thing from before' without specifics or actionable details.",
+          "confidence": "low",
+          "document_reference": null
+        }
+      ],
+      "urgency": "low",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "8246972d-8b2a-4956-85a0-37616895b349",
+    "email_id": "00000000-0000-4065-d000-000000000004",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 0,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "payment_dispute",
+          "sub_type": null,
+          "reasoning": "Sender formally disputes invoice 2026-0999 claiming work was never performed.",
+          "confidence": "high",
+          "document_reference": "2026-0999"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "c4109a75-12c3-44cc-938a-013b14e62131",
+    "email_id": "00000000-0000-4065-a000-000000000001",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 0,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": "invoice",
+          "reasoning": "Invoice copy requested but reference '2026-0123' has only 4 digits, below 5-digit minimum threshold.",
+          "confidence": "medium",
+          "document_reference": null
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  },
+  {
+    "id": "d701bf22-b9b2-4c9a-855e-587891d97faf",
+    "email_id": "00000000-0000-4065-b000-000000000002",
+    "swarm_type": "debtor-email",
+    "kanban_rows": 0,
+    "intent_first_pass": {
+      "ranked": [
+        {
+          "intent": "copy_document_request",
+          "sub_type": "invoice",
+          "reasoning": "Explicit invoice copy request with verbatim reference 2026-0456.",
+          "confidence": "high",
+          "document_reference": "2026-0456"
+        },
+        {
+          "intent": "address_change",
+          "sub_type": null,
+          "reasoning": "Sender announces new address Nieuwstraat 12, 1234 AB Amsterdam for update.",
+          "confidence": "high",
+          "document_reference": null
+        },
+        {
+          "intent": "payment_dispute",
+          "sub_type": null,
+          "reasoning": "Sender disputes invoice 2026-0789, claims amount too high, requests investigation.",
+          "confidence": "high",
+          "document_reference": "2026-0789"
+        }
+      ],
+      "urgency": "normal",
+      "language": "nl",
+      "intent_version": "2026-05-01.v2"
+    }
+  }
+]

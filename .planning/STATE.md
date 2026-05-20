@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v8.1
 milestone_name: Validation + Visibility
-status: planning
-last_updated: "2026-05-20T10:34:22.192Z"
-last_activity: 2026-05-20
+status: executing
+stopped_at: Phase 82.9 context gathered
+last_updated: "2026-05-20T11:44:16.313Z"
+last_activity: 2026-05-20 -- Phase 84 execution started
 progress:
-  total_phases: 0
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 54
+  completed_phases: 39
+  total_plans: 225
+  completed_plans: 221
+  percent: 98
 ---
 
 # Project State
@@ -20,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 089 CLOSED 2026-05-20 (code-side). 7/7 plans landed across 4 waves: Wave 0 probe (01) surfaced that `automation_runs.rule_key` column does not exist → DECISION-01=NO routed LLM threading exclusively through `agent_runs.rule_key` + Stage 1 page.tsx form payload. Wave 1 worker rule_key writes (02), Inngest seed function (03), backfill migration SQL (04), page.tsx ruleKey synth (05). Wave 2 backfill applied to live Supabase (06) — 839 rows (456 debtor + 383 sales). Wave 3 shadow-eval harness + automated SC-89-05 git-diff gate (07). Acceptance: SC-89-01/02/05 PASS, SC-89-03 pending operator retro-review (all 839 backfilled rows have human_verdict=NULL), SC-89-04 deferred per CONTEXT D-02 (mutate flag flip is operator runbook). v8.0 punch list still gates on 999.8 operator UAT.
+**Current focus:** Phase 84 — stage-1-noise-rules-for-ap-automation-fyi-traffic
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-05-20 — Milestone v8.1 started
+Phase: 84 (stage-1-noise-rules-for-ap-automation-fyi-traffic) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 84
+Last activity: 2026-05-20 -- Phase 84 execution started
 
 ## Performance Metrics
 

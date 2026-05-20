@@ -40,14 +40,15 @@ import {
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { numericConfidence } from "@/lib/pipeline-events/types";
+import { TENANT_DOMAINS_BY_SWARM } from "@/lib/automations/debtor-email/coordinator/tenant-domains.generated";
 
 const SWARM_TYPE = "debtor-email";
 
-// Phase 83 Plan 06 (D-08 fallback) — static tenant-domain list while
-// swarms.tenant_domains is not yet registry-driven. TODO(phase-84 D-03):
-// swap to a registry lookup over swarms.tenant_domains JSONB once Phase 84
-// ships that column. See T-83-19 mitigation in 83-06-PLAN.md.
-const TENANT_DOMAINS = ["smeba.nl", "smeba-fire.be", "moyneroberts.com"];
+// Phase 84 D-03 — tenant domains sourced from the swarms registry via the
+// codegen-emitted map (tenant-domains.generated.ts). Phase 83 fallback stub
+// retired; coordinator no longer carries a hardcoded list. Source of truth
+// is public.swarms.tenant_domains.
+const TENANT_DOMAINS = TENANT_DOMAINS_BY_SWARM[SWARM_TYPE];
 
 // Phase 83 Plan 06 (D-09) — hard cap on the Stage 3 assembled input.
 const STAGE_3_INPUT_CAP_CHARS = 8000;

@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>MR Agent Workforce — Week in Review (1–8 May 2026)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #f5f3ee;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    color: #0e1b2c;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    width: 1240px;
+    margin: 0 auto;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(217,164,65,0.10), transparent 60%),
+      radial-gradient(1000px 600px at -10% 90%, rgba(35,82,124,0.08), transparent 60%),
+      #ffffff;
+    padding: 52px 56px 60px 56px;
+  }
+
+  .brand-row {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #e7e2d6;
+    padding-bottom: 14px; margin-bottom: 22px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    color: #0e1b2c; letter-spacing: 0.18em;
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+  }
+  .brand .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: linear-gradient(135deg, #d9a441, #b07a1f);
+    box-shadow: 0 0 0 3px rgba(217,164,65,0.18);
+  }
+  .meta { color: #6a6253; font-size: 12px; letter-spacing: 0.04em; }
+
+  h1.title {
+    font-size: 56px; line-height: 1.02; font-weight: 800;
+    letter-spacing: -0.02em; color: #0e1b2c; margin-bottom: 12px;
+  }
+  h1.title .accent {
+    background: linear-gradient(120deg, #b07a1f 0%, #d9a441 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  p.lede {
+    font-size: 18px; line-height: 1.5; color: #4a5566;
+    max-width: 920px; margin-bottom: 8px;
+  }
+  .phase-callout {
+    display: inline-flex; align-items: center; gap: 10px;
+    margin-top: 18px; padding: 10px 16px;
+    background: #fff8eb; border: 1px solid #ecd9a4;
+    color: #7a5310; font-size: 13px; font-weight: 600; border-radius: 999px;
+  }
+  .phase-callout .pulse {
+    width: 8px; height: 8px; border-radius: 50%; background: #d9a441;
+    box-shadow: 0 0 0 0 rgba(217,164,65,0.7);
+    animation: pulse 1.6s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(217,164,65,0.7); }
+    70%  { box-shadow: 0 0 0 8px rgba(217,164,65,0); }
+    100% { box-shadow: 0 0 0 0 rgba(217,164,65,0); }
+  }
+
+  /* ============= top hero stats ============= */
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-top: 26px;
+  }
+  .hero-stat {
+    background: #ffffff;
+    border: 1px solid #e7e2d6;
+    border-radius: 14px;
+    padding: 22px 20px 18px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-stat::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, #b07a1f, #d9a441);
+  }
+  .hero-stat .label {
+    font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: #6a6253; font-weight: 700; margin-bottom: 8px;
+  }
+  .hero-stat .value {
+    font-size: 56px; font-weight: 800; color: #0e1b2c;
+    letter-spacing: -0.04em; line-height: 1;
+  }
+  .hero-stat .value .small { font-size: 24px; color: #b07a1f; margin-left: 2px; }
+  .hero-stat .sub { font-size: 12.5px; color: #4a5566; margin-top: 8px; line-height: 1.4; }
+
+  /* ============= section header ============= */
+  .section { margin-top: 46px; }
+  .section-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 6px; border-top: 2px solid #0e1b2c; padding-top: 18px;
+  }
+  .section-num {
+    font-size: 13px; color: #d9a441; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  .section-when { font-size: 13px; color: #6a6253; letter-spacing: 0.04em; }
+  .section-title {
+    font-size: 32px; font-weight: 800; letter-spacing: -0.01em;
+    color: #0e1b2c; margin-bottom: 6px;
+  }
+  .section-sub {
+    font-size: 16px; color: #4a5566; line-height: 1.5;
+    max-width: 920px; margin-bottom: 22px;
+  }
+
+  /* ============= 5-step funnel diagram ============= */
+  .funnel {
+    background: linear-gradient(180deg, #fff8eb 0%, #fdf1d4 100%);
+    border: 1px solid #ecd9a4;
+    border-radius: 18px;
+    padding: 26px 24px 22px 24px;
+    margin-top: 8px;
+  }
+  .funnel-title {
+    font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #7a5310; font-weight: 700; margin-bottom: 4px;
+  }
+  .funnel-sub {
+    font-size: 14px; color: #4a5566; margin-bottom: 18px;
+  }
+  .stages {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    align-items: stretch;
+  }
+  .stage {
+    background: #ffffff;
+    border: 1px solid #e7e2d6;
+    border-radius: 12px;
+    padding: 14px 12px 14px 12px;
+    position: relative;
+  }
+  .stage::after {
+    content: '→';
+    position: absolute;
+    right: -12px; top: 50%; transform: translateY(-50%);
+    color: #b07a1f; font-weight: 800; font-size: 18px;
+    z-index: 2;
+  }
+  .stage:last-child::after { display: none; }
+  .stage .num {
+    display: inline-block;
+    font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #ffffff; background: #1B7A3A;
+    padding: 3px 8px; border-radius: 4px; font-weight: 700; margin-bottom: 8px;
+  }
+  .stage h4 {
+    font-size: 14.5px; font-weight: 800; color: #0e1b2c;
+    line-height: 1.15; margin-bottom: 6px;
+  }
+  .stage .what {
+    font-size: 12px; color: #4a5566; line-height: 1.4; margin-bottom: 10px;
+  }
+  .stage .changed {
+    font-size: 11px; line-height: 1.35;
+    background: #fff3dc; color: #7a5310;
+    border-left: 3px solid #d9a441;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .stage .changed b { color: #5d3a1a; }
+
+  /* ============= phase highlight grid (re-cast as "what shipped") ============= */
+  .phase-grid {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .phase-card {
+    background: #ffffff;
+    border: 1px solid #e7e2d6;
+    border-radius: 14px;
+    padding: 18px 18px 16px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .phase-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, #1B7A3A, #4ca56b);
+  }
+  .phase-card .head {
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .phase-card .tag {
+    font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #1B7A3A; font-weight: 700;
+  }
+  .phase-card h4 {
+    font-size: 16px; font-weight: 800; color: #0e1b2c;
+    letter-spacing: -0.01em; line-height: 1.2; margin-bottom: 8px;
+  }
+  .phase-card p {
+    font-size: 13px; line-height: 1.5; color: #2c3a4d;
+  }
+  .phase-card p b { color: #0e1b2c; }
+
+  /* ============= new-on-the-team strip ============= */
+  .team-strip {
+    margin-top: 28px;
+    background: #ffffff;
+    border: 1px solid #e7e2d6;
+    border-radius: 14px;
+    padding: 20px 22px 18px 22px;
+  }
+  .team-strip-head {
+    display: flex; align-items: baseline; gap: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #f1ede1;
+    padding-bottom: 12px;
+  }
+  .team-strip-head h3 {
+    font-size: 18px; font-weight: 800; color: #0e1b2c; letter-spacing: -0.01em;
+  }
+  .team-strip-head .desc { font-size: 13.5px; color: #4a5566; }
+  .team-rows {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+  .team-mini {
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  .team-mini .av {
+    width: 72px; height: 72px; border-radius: 50%;
+    overflow: hidden; flex-shrink: 0;
+    border: 3px solid #ffffff;
+    box-shadow: 0 0 0 1px #e7e2d6, 0 4px 14px rgba(14,27,44,0.08);
+    background: #f5f3ee;
+  }
+  .team-mini .av img { width: 100%; height: 100%; display: block; }
+  .team-mini .body h5 {
+    font-size: 14.5px; font-weight: 800; color: #0e1b2c; letter-spacing: -0.01em;
+    margin-bottom: 2px;
+  }
+  .team-mini .body .role {
+    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #6a6253; font-weight: 700; margin-bottom: 6px;
+  }
+  .team-mini .body .pill {
+    display: inline-block;
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 999px;
+    background: #e7f5ec; color: #1B7A3A;
+    font-weight: 700; margin-bottom: 8px;
+  }
+  .team-mini .body .pill.upgraded { background: #fff3dc; color: #8a5a10; }
+  .team-mini .body p {
+    font-size: 12px; line-height: 1.45; color: #2c3a4d;
+  }
+
+  /* ============= numbers-that-matter band ============= */
+  .numbers-band {
+    margin-top: 8px;
+    background: linear-gradient(135deg, #0e1b2c 0%, #1a2b44 100%);
+    color: #f5f3ee;
+    border-radius: 18px;
+    padding: 28px 28px 26px 28px;
+  }
+  .numbers-band h3 {
+    font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #d9a441; font-weight: 700; margin-bottom: 4px;
+  }
+  .numbers-band .head {
+    font-size: 26px; font-weight: 800; letter-spacing: -0.01em;
+    color: #ffffff; margin-bottom: 22px;
+  }
+  .numbers-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px 26px;
+  }
+  .num-cell {
+    border-left: 3px solid #d9a441;
+    padding: 4px 0 4px 14px;
+  }
+  .num-cell .v {
+    font-size: 36px; font-weight: 800; color: #ffffff;
+    letter-spacing: -0.02em; line-height: 1;
+  }
+  .num-cell .v .small { font-size: 18px; color: #d9a441; margin-left: 4px; }
+  .num-cell .l {
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #d9a441; font-weight: 700; margin-top: 8px; margin-bottom: 6px;
+  }
+  .num-cell .s { font-size: 12px; color: #b8c1d0; line-height: 1.4; }
+
+  /* ============= mailbox grid ============= */
+  .mailbox-band {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 18px;
+  }
+  .mailbox-card {
+    background: #ffffff; border: 1px solid #e7e2d6; border-radius: 14px;
+    padding: 20px 22px;
+  }
+  .mailbox-card h3 {
+    font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #6a6253; font-weight: 700; margin-bottom: 14px;
+  }
+  .mb-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .mb {
+    background: #fafaf6; border: 1px solid #e7e2d6;
+    border-left: 4px solid #1B7A3A;
+    padding: 10px 12px; border-radius: 8px;
+    font-size: 13px;
+  }
+  .mb.connecting { border-left-color: #d9a441; background: #fff8eb; }
+  .mb.planned    { border-left-color: #4A6B8A; background: #f6f9fc; }
+  .mb .name { font-weight: 700; color: #0e1b2c; }
+  .mb .status {
+    font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #1B7A3A; font-weight: 700; display: block; margin-top: 2px;
+  }
+  .mb.connecting .status { color: #8a5a10; }
+  .mb.planned .status    { color: #4A6B8A; }
+
+  .auto-card {
+    background: #ffffff; border: 1px solid #e7e2d6; border-radius: 14px;
+    padding: 20px 22px;
+  }
+  .auto-card h4 {
+    font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #6a6253; font-weight: 700; margin-bottom: 14px;
+  }
+  .auto-card .row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0; border-top: 1px solid #f1ede1;
+    font-size: 13px; line-height: 1.45; color: #2c3a4d;
+  }
+  .auto-card .row:first-of-type { border-top: none; padding-top: 4px; }
+  .auto-card .row .check {
+    flex: 0 0 18px; height: 18px; border-radius: 50%;
+    background: #1B7A3A; color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    margin-top: 1px;
+  }
+  .auto-card .row .check.human { background: #d9a441; }
+  .auto-card .row b { color: #0e1b2c; }
+
+  /* ============= next week pillars ============= */
+  .ramp-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    margin-top: 8px;
+  }
+  .ramp-card {
+    background: #ffffff;
+    border: 1px solid #e7e2d6;
+    border-radius: 14px;
+    padding: 22px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .ramp-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, #4A6B8A, #7e95b1);
+  }
+  .ramp-card .head {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 12px;
+  }
+  .ramp-card .num {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: #ffffff;
+    background: linear-gradient(135deg, #4A6B8A, #7e95b1);
+    font-size: 14px;
+  }
+  .ramp-card h3 {
+    font-size: 17px; font-weight: 800; letter-spacing: -0.01em; color: #0e1b2c;
+  }
+  .ramp-card p {
+    font-size: 13px; line-height: 1.5; color: #2c3a4d; margin-bottom: 10px;
+  }
+  .ramp-card .why {
+    font-size: 11.5px; line-height: 1.45; color: #6a6253;
+    background: #f5f3ee;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border-left: 3px solid #d9a441;
+  }
+  .ramp-card .why b { color: #5d3a1a; }
+  .ramp-card .target {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    background: #e7f5ec; color: #1B7A3A;
+    padding: 4px 10px; border-radius: 999px; font-weight: 700;
+  }
+
+  /* ============= legend + footer ============= */
+  .legend {
+    display: flex; gap: 14px;
+    margin-top: 36px; margin-bottom: 8px;
+    font-size: 11px; letter-spacing: 0.06em;
+    text-transform: uppercase; color: #6a6253;
+  }
+  .legend .pill { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .pill .d { width: 8px; height: 8px; border-radius: 50%; }
+
+  footer {
+    margin-top: 26px;
+    padding-top: 22px;
+    border-top: 1px solid #e7e2d6;
+    display: flex; align-items: center; justify-content: space-between;
+    color: #6a6253; font-size: 12px;
+  }
+  footer .left { font-weight: 700; color: #0e1b2c; letter-spacing: 0.04em; }
+  footer .center { font-style: italic; }
+  footer .right { letter-spacing: 0.04em; }
+
+  @media print {
+    .page { box-shadow: none; }
+    .stage, .phase-card, .ramp-card, .team-strip, .funnel, .numbers-band { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ============= HEADER ============= -->
+  <div class="brand-row">
+    <div class="brand"><span class="dot"></span> Moyne Roberts · Agent Workforce · Week in Review</div>
+    <div class="meta">Week 19 · 1 → 8 May 2026</div>
+  </div>
+
+  <h1 class="title">The AI workforce now runs <span class="accent">every Dutch debtor mailbox</span>.</h1>
+  <p class="lede">
+    Big week of plumbing. We finished consolidating from custom-built scripts (one per brand, one per team) to a single AI workforce that processes every customer email through the same five-step process.
+  </p>
+  <p class="lede" style="margin-top:8px;">
+    Every Dutch debtor mailbox is now live on it, plus the first Belgian one (Smeba Fire). The Sales mailbox <b>verkoop@smeba.nl</b> is connected and pulling email — the rest of the steps get switched on next week.
+  </p>
+  <div class="phase-callout"><span class="pulse"></span> 100% of Dutch debtor email now runs on the new platform.</div>
+
+  <!-- ============= HERO STATS ============= -->
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="label">Mailboxes live</div>
+      <div class="value">6<span class="small"> + 1</span></div>
+      <div class="sub">5 Dutch + 1 Belgian debtor mailboxes processing automatically · Sales connecting</div>
+    </div>
+    <div class="hero-stat">
+      <div class="label">Coverage</div>
+      <div class="value">100<span class="small">%</span></div>
+      <div class="sub">of Dutch debtor email is now handled by the new platform</div>
+    </div>
+    <div class="hero-stat">
+      <div class="label">AI agents at work</div>
+      <div class="value">13</div>
+      <div class="sub">2 new this week (Cleo joined; Debbie went live) · 7 specialists ready</div>
+    </div>
+    <div class="hero-stat">
+      <div class="label">Major upgrades shipped</div>
+      <div class="value">10</div>
+      <div class="sub">in 7 days · platform-wide architectural consolidation complete</div>
+    </div>
+  </div>
+
+  <!-- ============= SECTION 1: HOW IT WORKS NOW ============= -->
+  <section class="section">
+    <div class="section-head">
+      <div class="section-num">Section 1 · How it works now</div>
+      <div class="section-when">Same process, every brand, every team</div>
+    </div>
+    <div class="section-title">Every customer email goes through five steps.</div>
+    <div class="section-sub">
+      Until last week, each brand and each team had its own custom script. Now there's one shared process — the same five steps run for Smeba, Berki, Fire Control, every other brand, and (next week) Sales. Adding the next mailbox is configuration, not a rebuild.
+    </div>
+
+    <div class="funnel">
+      <div class="funnel-title">The five-step process · live in production</div>
+      <div class="funnel-sub">Each step does one job. If it can't decide, the email goes to a human queue with the reason flagged.</div>
+      <div class="stages">
+
+        <div class="stage">
+          <span class="num">Step 1</span>
+          <h4>Security check</h4>
+          <div class="what">Spots manipulation attempts and limits cost per email before any AI reads the message.</div>
+          <div class="changed"><b>This week:</b> hardened so the inbox keeps moving even if the AI hangs.</div>
+        </div>
+
+        <div class="stage">
+          <span class="num">Step 2</span>
+          <h4>Sort the noise</h4>
+          <div class="what">Auto-replies, out-of-office, payment confirmations are archived without a human ever seeing them.</div>
+          <div class="changed"><b>This week:</b> added a smart sorter (Cleo) for everything the simple rules can't slot.</div>
+        </div>
+
+        <div class="stage">
+          <span class="num">Step 3</span>
+          <h4>Match the customer</h4>
+          <div class="what">Figures out which customer the email is from — across 6 brands and 4 languages.</div>
+          <div class="changed"><b>This week:</b> the match is now automatically tagged in iController. No more manual tagging.</div>
+        </div>
+
+        <div class="stage">
+          <span class="num">Step 4</span>
+          <h4>Decide the action</h4>
+          <div class="what">Reads the email and routes it to the right specialist — invoice copy, payment dispute, address change, etc.</div>
+          <div class="changed"><b>This week:</b> a team lead (Debbie) now splits emails when one message needs more than one specialist.</div>
+        </div>
+
+        <div class="stage">
+          <span class="num">Step 5</span>
+          <h4>Do the work</h4>
+          <div class="what">A specialist drafts the reply, attaches the right file, queues it in iController. Operator hits Send.</div>
+          <div class="changed"><b>This week:</b> the same specialists now work for any team. Sales reuses the Debtor specialists out-of-the-box.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- What shipped this week -->
+    <div class="phase-grid">
+
+      <div class="phase-card">
+        <div class="head"><div class="tag">Shipped</div></div>
+        <h4>One unified process for every brand</h4>
+        <p>Replaced the patchwork of brand-specific scripts. Every email — Smeba, Berki, Fire Control, Sicli, Smeba Fire — now follows the same five steps. <b>Adding a new brand is configuration, not a rebuild.</b></p>
+      </div>
+
+      <div class="phase-card">
+        <div class="head"><div class="tag">Shipped</div></div>
+        <h4>Onboarding a new mailbox = a config row</h4>
+        <p>The platform's "what does each mailbox do" map moved from hard-coded into the codebase to a <b>configuration table</b>. Future mailboxes (UK, IE, new departments) onboard by adding a row, not by writing code.</p>
+      </div>
+
+      <div class="phase-card">
+        <div class="head"><div class="tag">Shipped</div></div>
+        <h4>One audit trail for every AI decision</h4>
+        <p>Every choice the AI makes — and every operator override — now lands in <b>one place</b>. Full transparency, ready for compliance review, and the foundation for measuring impact per intent.</p>
+      </div>
+
+      <div class="phase-card">
+        <div class="head"><div class="tag">Shipped</div></div>
+        <h4>Sales mailbox can clean its own noise</h4>
+        <p>When Sales goes live next week, the AI can already auto-archive auto-replies and out-of-office messages. <b>Sales reuses the Debtor pipeline</b> end-to-end, including SugarCRM where Debtor uses iController.</p>
+      </div>
+
+      <div class="phase-card">
+        <div class="head"><div class="tag">Shipped</div></div>
+        <h4>Operator queue: nothing falls through</h4>
+        <p>If the AI isn't confident, the email shows up in a human queue with the reason flagged: <b>"low confidence"</b>, <b>"no specialist exists yet"</b>, or <b>"specialist failed"</b>. Operators always know what to look at.</p>
+      </div>
+
+      <div class="phase-card">
+        <div class="head"><div class="tag">Shipped</div></div>
+        <h4>Security layer is now bulletproof</h4>
+        <p>The Step 1 security check now <b>fails gracefully</b>. If the AI hangs or hiccups, emails keep flowing. Operators are never blocked by a backend issue — the platform self-heals and sweeps stale rows.</p>
+      </div>
+
+    </div>
+
+    <!-- Team strip -->
+    <div class="team-strip">
+      <div class="team-strip-head">
+        <h3>Two new on the team this week</h3>
+        <span class="desc">Plus one existing agent got a major upgrade.</span>
+      </div>
+      <div class="team-rows">
+
+        <div class="team-mini">
+          <div class="av"><img src="avatars/cleo.svg" alt="Cleo"/></div>
+          <div class="body">
+            <h5>Cleo</h5>
+            <div class="role">The Smart Sorter · Step 2</div>
+            <div class="pill">New this week</div>
+            <p>Reads the email and slots it into the right category whenever the simple rules can't decide. Works for Debtor and Sales out of the box — same agent, both teams.</p>
+          </div>
+        </div>
+
+        <div class="team-mini">
+          <div class="av"><img src="avatars/debbie.svg" alt="Debbie"/></div>
+          <div class="body">
+            <h5>Debbie</h5>
+            <div class="role">The Team Lead · Step 4</div>
+            <div class="pill">Live this week</div>
+            <p>Splits an email across multiple specialists when one message needs more than one ("send invoice 12345 AND change my address"). Stitches their work into a single reply.</p>
+          </div>
+        </div>
+
+        <div class="team-mini">
+          <div class="av"><img src="avatars/customerid.svg" alt="Customer-ID Agent"/></div>
+          <div class="body">
+            <h5>Customer-ID Agent</h5>
+            <div class="role">Customer Matcher · Step 3</div>
+            <div class="pill upgraded">Upgraded this week</div>
+            <p>Now closes the loop end-to-end: when she matches the customer, she also <b>tags the email under that account in iController automatically</b>. No more manual tagging.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ============= SECTION 2: NUMBERS THAT MATTER ============= -->
+  <section class="section">
+    <div class="section-head">
+      <div class="section-num">Section 2 · Numbers that matter</div>
+      <div class="section-when">Production reality, May 2026</div>
+    </div>
+    <div class="section-title">What the platform processes today.</div>
+    <div class="section-sub">
+      Real production data. The platform now sees every customer email across six debtor mailboxes — auto-resolves the noise, auto-tags the matches, drafts replies for the rest. Operators stay in the loop on every reply that leaves the building.
+    </div>
+
+    <div class="numbers-band">
+      <h3>State of play</h3>
+      <div class="head">Six brands · four languages · one platform.</div>
+      <div class="numbers-grid">
+
+        <div class="num-cell">
+          <div class="v">6</div>
+          <div class="l">Brands in production</div>
+          <div class="s">Smeba · Smeba-Fire · Fire Control · Sicli-Noord · Sicli-Sud · Berki</div>
+        </div>
+
+        <div class="num-cell">
+          <div class="v">4</div>
+          <div class="l">Languages handled</div>
+          <div class="s">Dutch (92%) · English (6%) · German (2%) · French — all auto-classified</div>
+        </div>
+
+        <div class="num-cell">
+          <div class="v">8</div>
+          <div class="l">Customer-request types</div>
+          <div class="s">Invoice copy · payment dispute · address change · credit note · contract · Peppol · general · other</div>
+        </div>
+
+        <div class="num-cell">
+          <div class="v">13</div>
+          <div class="l">AI agents working</div>
+          <div class="s">1 security · 2 sorters · 1 customer matcher · 2 routers · 7 specialists</div>
+        </div>
+
+        <div class="num-cell">
+          <div class="v">197</div>
+          <div class="l">Copy-doc requests measured</div>
+          <div class="s">13-month real telemetry sample · ~45/month and trending up</div>
+        </div>
+
+        <div class="num-cell">
+          <div class="v">1<span class="small"> / 7</span></div>
+          <div class="l">Specialists in production</div>
+          <div class="s">Invoice-Copy Drafter live · 6 more designed and ready to switch on</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="mailbox-band">
+      <div class="mailbox-card">
+        <h3>Mailbox status · 7 mailboxes wired</h3>
+        <div class="mb-grid">
+          <div class="mb"><div class="name">debiteuren@smeba.nl</div><span class="status">Live · debtor · NL</span></div>
+          <div class="mb"><div class="name">debiteuren@berki.nl</div><span class="status">Live · debtor · NL</span></div>
+          <div class="mb"><div class="name">debiteuren@firecontrol</div><span class="status">Live · debtor · NL</span></div>
+          <div class="mb"><div class="name">debiteuren@sicli-noord</div><span class="status">Live · debtor · NL</span></div>
+          <div class="mb"><div class="name">debiteuren@sicli-sud</div><span class="status">Live · debtor · NL</span></div>
+          <div class="mb"><div class="name">debiteuren@smeba-fire</div><span class="status">Live · debtor · BE</span></div>
+          <div class="mb connecting"><div class="name">verkoop@smeba.nl</div><span class="status">Connecting · sales · NL</span></div>
+          <div class="mb planned"><div class="name">UK debtor mailbox</div><span class="status">Planned · 2026</span></div>
+          <div class="mb planned"><div class="name">IE debtor mailbox</div><span class="status">Planned · 2026</span></div>
+        </div>
+      </div>
+
+      <div class="auto-card">
+        <h4>What humans never see vs what humans review</h4>
+        <div class="row"><div class="check">✓</div><div><b>Out-of-office, auto-replies, payment confirmations</b> — archived in Outlook + cleared from iController automatically. Three categories, end-to-end, no human touch.</div></div>
+        <div class="row"><div class="check">✓</div><div><b>Customer matching</b> — auto-tagged in iController without manual lookup.</div></div>
+        <div class="row"><div class="check">✓</div><div><b>Invoice-copy reply drafts</b> — composed in iController with the right PDF attached, in the customer's language.</div></div>
+        <div class="row"><div class="check human">★</div><div><b>Hits Send</b> on every reply — operators always have the final click. <b>We never auto-send.</b></div></div>
+        <div class="row"><div class="check human">★</div><div><b>Reviews ambiguous cases</b> in the operator queue, with the AI's reasoning visible.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============= SECTION 3: NEXT WEEK ============= -->
+  <section class="section">
+    <div class="section-head">
+      <div class="section-num">Section 3 · Next week</div>
+      <div class="section-when">Verify, then expand</div>
+    </div>
+    <div class="section-title">Three priorities for week 20.</div>
+    <div class="section-sub">
+      The platform shape is locked. Next week is about confirming Step 3 actually matches customers correctly in production, getting the Sales mailbox live, and tightening the iController integration so it stays solid as we scale.
+    </div>
+
+    <div class="ramp-grid">
+
+      <div class="ramp-card">
+        <div class="head">
+          <div class="num">1</div>
+          <h3>Verify customer matching in production</h3>
+        </div>
+        <p>
+          We just shipped a lot. Before adding more, we'll measure: does the AI match the right customer on a real sample of inbound mail? <b>Target: 90%+</b> matched correctly automatically; the rest surfaces in the operator queue with the reason flagged.
+        </p>
+        <span class="target">Target · 90% auto-match</span>
+        <div class="why" style="margin-top:10px;"><b>Why now:</b> measure before we build more on top — we don't want to build specialists on a shaky foundation.</div>
+      </div>
+
+      <div class="ramp-card">
+        <div class="head">
+          <div class="num">2</div>
+          <h3>Sales mailbox goes fully live</h3>
+        </div>
+        <p>
+          <b>verkoop@smeba.nl</b> is fetching today but the rest of the steps aren't switched on yet. Next week we wire up Steps 1–4 for Sales, reusing every agent the Debtor pipeline already runs. <b>Same automation, no new code.</b>
+        </p>
+        <span class="target">Target · Sales auto-archive live</span>
+        <div class="why" style="margin-top:10px;"><b>Why now:</b> Sales actually has more invoice-copy volume than Debtor (43 of 85 in our 13-month sample) — the bigger volume sits here.</div>
+      </div>
+
+      <div class="ramp-card">
+        <div class="head">
+          <div class="num">3</div>
+          <h3>iController hardening &amp; cleanup</h3>
+        </div>
+        <p>
+          iController is where humans review and send. Tightening the rare edge cases — queue stalls, retry flakes, session edge cases — keeps operators trusting the system as we scale to more mailboxes and more specialists.
+        </p>
+        <span class="target">Target · zero queue stalls</span>
+        <div class="why" style="margin-top:10px;"><b>Why now:</b> iController is our human-in-the-loop boundary. Trust here = trust in the whole platform.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============= LEGEND + FOOTER ============= -->
+  <div class="legend">
+    <span class="pill"><span class="d" style="background:#1B7A3A;"></span>Live in production</span>
+    <span class="pill"><span class="d" style="background:#d9a441;"></span>Connecting</span>
+    <span class="pill"><span class="d" style="background:#4A6B8A;"></span>Planned</span>
+  </div>
+
+  <footer>
+    <div class="left">Moyne Roberts · Agent Workforce</div>
+    <div class="center">One AI workforce · every brand · every team</div>
+    <div class="right">Week 19 · 1–8 May 2026</div>
+  </footer>
+
+</div>
+</body>
+</html>
