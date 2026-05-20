@@ -20,16 +20,22 @@ hand-confirmed positives + zero hand-confirmed FPs + 7-day live shadow shows
 no FPs). The table below records today's evidence; the 7-day shadow is
 Wave 3 (84-04).
 
-| category | live_positives (debtor-email) | live_positives (sales-email) | hand_FPs | Wilson_path_eligible | corpus_path_eligible | gate_disposition |
-|----------|-------------------------------|------------------------------|----------|----------------------|----------------------|------------------|
-| coupa_invoice_paid_notification     | 3 (90d) | 0 | 0 | unlikely (<30) | NO (<10) | **corpus-short** — extend window or accept shadow-only |
-| coupa_invoice_approved_notification | 3 (90d) | 0 | 0 | unlikely (<30) | NO (<10) | **corpus-short** — same |
-| iss_ptp_autoreply                   | 3 (90d) | 0 | 0 | unlikely (<30) | NO (<10) | **corpus-short** — same |
-| frieslandcampina_portal_reject      | 3 (90d) | 0 | 0 | unlikely (<30) | NO (<10) | **corpus-short** — same; Christiaan.Knipping FP risk noted |
-| m365_quarantine                     | 3 (90d) | 0 | 0 | unlikely (<30) | NO (<10) | **corpus-short** — same |
-| sender_phishing_notice              | 2 (90d) | 0 | 0 | unlikely (<30) | NO (<10) | **corpus-short** — narrow to one supplier (R-03) |
-| supplier_bank_change_notification   | 1 (90d) | 0 | 0 | NO (N=1)        | NO (<10) | **corpus-very-short** — keep shadow-only, do not auto-promote |
-| own_outbound_invoice_loopback       | 20+ (90d) | 0 | 0 | likely (N≥30 after 7d) | YES (≥10) | **eligible** — corpus path open |
+| category | live_positives (debtor-email) | live_positives (sales-email) | hand_FPs | Wilson_path_eligible | corpus_path_eligible | gate_disposition | Day 7 decision (operator fills in) | promotion_date |
+|----------|-------------------------------|------------------------------|----------|----------------------|----------------------|------------------|------------------------------------|----------------|
+| coupa_invoice_paid_notification     | 3 (90d) | 0 | 0 | unlikely (<30) | NO (<10) | **corpus-short** — extend window or accept shadow-only | _(EXTEND / PROMOTE / HOLD / DROP-sales-email)_ | _(YYYY-MM-DD)_ |
+| coupa_invoice_approved_notification | 3 (90d) | 0 | 0 | unlikely (<30) | NO (<10) | **corpus-short** — same | _(EXTEND / PROMOTE / HOLD / DROP-sales-email)_ | _(YYYY-MM-DD)_ |
+| iss_ptp_autoreply                   | 3 (90d) | 0 | 0 | unlikely (<30) | NO (<10) | **corpus-short** — same | _(EXTEND / PROMOTE / HOLD / DROP-sales-email)_ | _(YYYY-MM-DD)_ |
+| frieslandcampina_portal_reject      | 3 (90d) | 0 | 0 | unlikely (<30) | NO (<10) | **corpus-short** — same; Christiaan.Knipping FP risk noted | _(EXTEND / PROMOTE / HOLD / DROP-sales-email)_ | _(YYYY-MM-DD)_ |
+| m365_quarantine                     | 3 (90d) | 0 | 0 | unlikely (<30) | NO (<10) | **corpus-short** — same | _(EXTEND / PROMOTE / HOLD / DROP-sales-email)_ | _(YYYY-MM-DD)_ |
+| sender_phishing_notice              | 2 (90d) | 0 | 0 | unlikely (<30) | NO (<10) | **corpus-short** — narrow to one supplier (R-03) | _(EXTEND / PROMOTE / HOLD / DROP-sales-email)_ | _(YYYY-MM-DD)_ |
+| supplier_bank_change_notification   | 1 (90d) | 0 | 0 | NO (N=1)        | NO (<10) | **corpus-very-short** — keep shadow-only, do not auto-promote | _(EXTEND / PROMOTE / HOLD / DROP-sales-email)_ | _(YYYY-MM-DD)_ |
+| own_outbound_invoice_loopback       | 20+ (90d) | 0 | 0 | likely (N≥30 after 7d) | YES (≥10) | **eligible** — corpus path open | _(EXTEND / PROMOTE / HOLD / DROP-sales-email)_ | _(YYYY-MM-DD)_ |
+
+**Filling rule (per PROMOTION-RUNBOOK.md section 3):**
+- `PROMOTE` = status flipped to `promoted` for at least one swarm; fill `promotion_date`.
+- `EXTEND` = shadow continues past Day 7; revisit weekly.
+- `HOLD` = `status='candidate'` indefinitely (re-evaluate in V8.2).
+- `DROP-sales-email` = `swarm_noise_categories.enabled=false` for the sales-email row only (R-04); debtor-email row may still PROMOTE.
 
 **Operator action required (R-04 / Pitfall 7):** for the 7 categories where
 the corpus-evidence path is short, decide whether to extend the corpus
