@@ -34,11 +34,20 @@ export const PROMOTE_N_MIN = 30;
 export const PROMOTE_CI_LO_MIN = 0.92;
 // D-03: Demote with hysteresis at CI-lo < 0.88 (4pp gap to prevent flapping).
 export const DEMOTE_CI_LO_MAX = 0.88;
+// 2026-05-20 (asymmetric-hysteresis fix): demotion now mirrors promotion's
+// minimum-N requirement so a previously-promoted rule cannot be demoted by
+// a single (or near-single) observation. Before this gate, payment_subject
+// and payment_sender+subject were demoted on 2026-05-11 at n=2 and n=1 —
+// 100% agreement but Wilson 95% lower bound of 0.34 / 0.21 (well below
+// 0.88). Demotion at n<30 is statistically uninformative; defer the
+// decision until enough data accumulates. See
+// .planning/debug/stage-2-customer-mapping-stuck.md context discussion.
+export const DEMOTE_N_MIN = 30;
 
 export function shouldPromote(n: number, ciLo: number): boolean {
   return n >= PROMOTE_N_MIN && ciLo >= PROMOTE_CI_LO_MIN;
 }
 
-export function shouldDemote(ciLo: number): boolean {
-  return ciLo < DEMOTE_CI_LO_MAX;
+export function shouldDemote(n: number, ciLo: number): boolean {
+  return n >= DEMOTE_N_MIN && ciLo < DEMOTE_CI_LO_MAX;
 }

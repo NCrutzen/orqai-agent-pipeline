@@ -85,7 +85,7 @@ export async function evaluateRule(
   }
 
   const promote = status === "candidate" && shouldPromote(telemetry.n, ci_lo);
-  const demote = status === "promoted" && shouldDemote(ci_lo);
+  const demote = status === "promoted" && shouldDemote(telemetry.n, ci_lo);
 
   let action: EvaluationAction = "no_change";
 

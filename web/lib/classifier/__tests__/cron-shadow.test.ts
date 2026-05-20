@@ -190,6 +190,26 @@ describe("D-19: classifier-promotion-cron shadow vs live mode", () => {
     expect(updatePayload).toHaveProperty("agree", 196);
   });
 
+  it("2026-05-20 asymmetric-hysteresis fix: a promoted rule whose telemetry window shrinks below n=30 stays promoted (no demotion)", async () => {
+    // Pre-fix bug: payment_subject and payment_sender+subject were demoted on
+    // 2026-05-11 at n=2 (2/2, ci_lo=0.342) and n=1 (1/1, ci_lo=0.207). 100%
+    // agreement, but Wilson lower bound is far below 0.88 at small N — so
+    // shouldDemote(ci_lo) fired and the rules got demoted, removing them from
+    // the auto-action whitelist. Demotion requires n >= DEMOTE_N_MIN (30) now.
+    const { admin, spies } = makeAdminStub();
+    const t = tel("payment_subject", 2, 2); // 100% agree, n below new floor
+    const r = rule("payment_subject", "promoted");
+
+    const result = await evaluateRule(admin, t, r, true);
+
+    expect(result.action).toBe("no_change");
+    // classifier_rules.status is NOT touched.
+    const updateCalls = spies.update.mock.calls;
+    for (const [payload] of updateCalls) {
+      expect(payload).not.toHaveProperty("status");
+    }
+  });
+
   it("manual_block rules are NEVER promoted or demoted regardless of telemetry (T-60-03-05)", async () => {
     // Even in live mode, with telemetry that would otherwise promote.
     const { admin, spies } = makeAdminStub();
