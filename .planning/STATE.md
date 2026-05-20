@@ -40,7 +40,7 @@ Last shipped: Phase 83 (2026-05-19) — body_full_text + body_unique_text column
 - [x] Phase 83: Body ingestion — capture full thread on forwards and replies — SHIPPED 2026-05-19 (1344 priors backfilled; V1/V2 green within noise-floor; V3/V4 PARTIAL pending live traffic — see 83-07-VERIFICATION.md)
 - [x] Phase 82.9: Stage 2 audit-panel evidence expansion — SHIPPED 2026-05-20 (4/4 plans, 50/50 tests green; Plan 01 Task 3 CLOSED 2026-05-20 — prod migration applied 04:46 UTC, Zap published live with descendant-walking contact CTE + placeholder filter, smoke-tested via customer 506909; Plan 04 Task 3 visual UAT still pending in Block B of v8.0-CLOSURE-UAT.md)
 - [x] Phase 089: Stage 1 LLM 2nd-pass auto-action promotion track — SHIPPED 2026-05-20 (7/7 plans across 4 waves; 839 rows backfilled live; SC-89-01/02/05 PASS; SC-89-03 pending operator retro-review; SC-89-04 mutate-flag UAT runbook documented). Latent defect surfaced: `automation_runs.rule_key` column missing → out-of-scope followup filed.
-- [ ] Phase 999.8: 2 outstanding browser smokes — operator UAT pending
+- [x] Phase 999.8: Operator UAT COMPLETE 2026-05-20 — Stage 1 chip strip + URL round-trip + garbage-drop + ?sub=pending guard verified live on /automations/debtor-email/stage-1. Therese regression smoke PASS: email 067428ad sent to administratie@fire-control.nl resolved as Stage 1 predictor=llm_2nd_pass, confidence=medium, category=unknown, NO categorize+archive side-effect (only Stage 0 automation_runs row exists). Per-row LLM·medium chip rendering verified in cached view.
 
 **v8.0 reframes (locked 2026-05-12):**
 
