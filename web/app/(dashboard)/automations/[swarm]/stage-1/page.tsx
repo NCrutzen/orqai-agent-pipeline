@@ -114,12 +114,15 @@ export interface PageSearchParams {
   predictor?: string;
   confidence?: string;
   /**
-   * Phase 82.4 Plan 06. Option Z chips: "Needs action" + "My feedback only".
+   * Phase 82.4 Plan 06. Option Z chip: "My feedback only".
    * Default OFF on every tab (audit-first culture per 82.4-CONTEXT.md);
-   * only `=== "1"` enables them. Both reset `before` on toggle to keep
+   * only `=== "1"` enables it. Resets `before` on toggle to keep
    * pagination consistent with the active filter.
+   *
+   * Phase 88 Plan 03 (D-02): the sibling `needs_action` chip and its URL
+   * param were removed — the verdict-pending axis is now carried by the
+   * "Needs review" chip on NoiseCategoryChipStrip.
    */
-  needs_action?: string;
   mine_only?: string;
 }
 

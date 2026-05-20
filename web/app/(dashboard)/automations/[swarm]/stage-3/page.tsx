@@ -56,7 +56,6 @@ interface PageProps {
   searchParams: Promise<{
     mailbox?: string | string[];
     selected?: string;
-    needs_action?: string;
     mine_only?: string;
     before?: string;
   }>;
