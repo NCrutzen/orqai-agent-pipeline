@@ -142,6 +142,10 @@ const CandidateDetailMatchSchema = z.object({
   classification: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   modified_on: z.string(),
+  // Phase 82.9 additions (D-03) — Zap returns these only after Plan 01 Zap edit ships.
+  // .optional() ensures back-compat with old Zap responses (Pitfall 5).
+  contact_person: z.string().nullable().optional(),
+  recent_invoices: z.array(z.string()).max(5).optional().default([]),
 });
 
 const ResponseSchemaByTool = {
