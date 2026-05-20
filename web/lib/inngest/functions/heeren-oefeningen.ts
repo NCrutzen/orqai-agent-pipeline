@@ -210,32 +210,13 @@ export const processHeerenOefening = inngest.createFunction(
 );
 
 // =============================================================================
-// FASE 2: Maandelijkse facturatie cron
+// FASE 2: Dagelijkse facturatie — autoInvoice flow
+//
+// Cron: dagelijks 18:00 Europe/Amsterdam, ma-vr. Voor elke staging-row met
+// status=processed (Fase 1 done) en zonder facturatie-traces: maak een NXT
+// order met autoInvoice=true → doorloopt automatisch confirm → invoice →
+// process (PROCESSING) zodat de factuur direct de deur uit is.
 // =============================================================================
-
-/**
- * Bepaalt of een datum de laatste werkdag (Mon-Fri) van de maand is.
- * We werken in de Nederlandse tijdzone door de Date components in UTC te lezen
- * vanuit een string die in Europe/Amsterdam is genormaliseerd.
- */
-function isLastWorkdayOfMonth(now: Date): boolean {
-  // Normaliseer naar Europe/Amsterdam
-  const nl = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Amsterdam" }));
-  const year = nl.getFullYear();
-  const month = nl.getMonth();
-  const day = nl.getDate();
-  const dow = nl.getDay(); // 0 = zondag, 6 = zaterdag
-
-  if (dow === 0 || dow === 6) return false; // weekend is geen werkdag
-
-  // Loop vooruit tot einde maand — als er geen volgende Mon-Fri is, is dit de laatste werkdag
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  for (let d = day + 1; d <= lastDay; d++) {
-    const dow2 = new Date(year, month, d).getDay();
-    if (dow2 !== 0 && dow2 !== 6) return false;
-  }
-  return true;
-}
 
 interface StagingRecord {
   id: string;
@@ -274,31 +255,21 @@ function groupForInvoicing(records: StagingRecord[]): Map<string, StagingRecord[
 export const createMonthlyInvoiceDrafts = inngest.createFunction(
   {
     id: "heeren-oefeningen-create-monthly-invoice-drafts",
-    name: "Heeren Oefeningen — maandelijkse facturatie drafts",
+    name: "Heeren Oefeningen — dagelijkse autoInvoice run",
     retries: 1,
   },
   [
-    // Dagelijks om 18:00 Europe/Amsterdam; interne last-workday-check bepaalt of we echt draaien
+    // Dagelijks 18:00 Europe/Amsterdam, ma-vr. Geen last-workday gate meer —
+    // we maken iedere werkdag een facturatie-batch zodat oefening-regels niet
+    // langer dan ~24u in staging blijven hangen.
     { cron: "TZ=Europe/Amsterdam 0 18 * * 1-5" },
-    // Handmatige trigger (met forceRun=true) voor testen
+    // Handmatige trigger (met forceRun=true heeft nu alleen nog effect voor logging).
     { event: "automation/heeren-oefeningen.create-invoices" },
   ],
   async ({ event, step, logger }) => {
-    const forceRun = Boolean((event as any)?.data?.forceRun);
     const triggeredBy = String((event as any)?.data?.triggeredBy ?? "cron");
     const rawEnv = (event as any)?.data?.environment;
     const nxtEnv: NxtEnvironment = rawEnv === "acceptance" ? "acceptance" : "production";
-
-    // Step 0: check of het vandaag de laatste werkdag is (tenzij forceRun)
-    const shouldRun = await step.run("check-last-workday", async () => {
-      if (forceRun) return { run: true, reason: "forceRun=true" };
-      const run = isLastWorkdayOfMonth(new Date());
-      return { run, reason: run ? "laatste werkdag van de maand" : "niet laatste werkdag — skip" };
-    });
-    logger.info(`[fase2] ${shouldRun.reason}`);
-    if (!shouldRun.run) {
-      return { skipped: true, reason: shouldRun.reason };
-    }
 
     // Step 1: haal staging records op (processed, nog niet gefactureerd, laatste 2 maanden)
     const records = await step.run("load-pending-records", async () => {
@@ -346,6 +317,7 @@ export const createMonthlyInvoiceDrafts = inngest.createFunction(
           brandId: first.brand_id as string,
           orderTypeId: first.order_type_id as string,
           orderReference: first.order_reference ?? null,
+          autoInvoice: true,
           lines,
           sourceBillingOrderCodes: sourceCodes,
           auth,
@@ -362,12 +334,25 @@ export const createMonthlyInvoiceDrafts = inngest.createFunction(
         if (result.success) {
           update.new_order_uuid = result.newOrderUuid;
           if (result.newOrderCode) update.new_billing_order_code = result.newOrderCode;
-          // Als er geen human-readable code was, slaan we de UUID ook op als code-placeholder
-          // zodat volgende cron-runs deze records skippen (NOT NULL filter).
           if (!result.newOrderCode && result.newOrderUuid) update.new_billing_order_code = result.newOrderUuid;
           if (result.screenshotUrl) update.invoice_draft_screenshot = result.screenshotUrl;
+          // autoInvoice lifecycle-traces (alleen aanwezig bij autoInvoice=true)
+          if (result.confirmedAt) update.confirmed_at = result.confirmedAt;
+          if (result.invoicedAt) update.invoiced_at = result.invoicedAt;
+          if (result.processedAt) update.invoice_processed_at = result.processedAt;
+          if (result.invoiceUuid) update.invoice_uuid = result.invoiceUuid;
+          if (result.invoiceUrl) update.invoice_url = result.invoiceUrl;
+          if (result.finalInvoiceStatus) update.final_invoice_status = result.finalInvoiceStatus;
           update.invoice_error = null;
         } else {
+          // Gedeeltelijke flow: schrijf wat we wél hebben weg samen met de error
+          if (result.newOrderUuid) update.new_order_uuid = result.newOrderUuid;
+          if (result.newOrderCode) update.new_billing_order_code = result.newOrderCode;
+          if (result.confirmedAt) update.confirmed_at = result.confirmedAt;
+          if (result.invoicedAt) update.invoiced_at = result.invoicedAt;
+          if (result.invoiceUuid) update.invoice_uuid = result.invoiceUuid;
+          if (result.invoiceUrl) update.invoice_url = result.invoiceUrl;
+          if (result.finalInvoiceStatus) update.final_invoice_status = result.finalInvoiceStatus;
           update.invoice_error = result.error ?? "onbekende fout";
         }
         const { error } = await admin
