@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
     result = await runThreadInheritanceOnly({
       supabase,
       conversation_id: convId,
+      from_email: input.from_email ?? null,
     });
   } else {
     try {
@@ -125,6 +126,12 @@ export async function POST(request: NextRequest) {
         customer_account_id: null,
         customer_name: null,
         confidence: "none",
+        // Phase 82.9 — discriminated inputs on resolver-error fallback.
+        inputs: {
+          kind: "unresolved",
+          sender_email: input.from_email ?? null,
+          matched_identifiers: [],
+        },
       };
     }
   }
@@ -194,6 +201,7 @@ export async function POST(request: NextRequest) {
 async function runThreadInheritanceOnly(args: {
   supabase: ReturnType<typeof createAdminClient>;
   conversation_id: string | null;
+  from_email: string | null;
 }): Promise<ResolveResult> {
   if (!args.conversation_id) {
     return {
@@ -201,12 +209,18 @@ async function runThreadInheritanceOnly(args: {
       customer_account_id: null,
       customer_name: null,
       confidence: "none",
+      inputs: {
+        kind: "unresolved",
+        sender_email: args.from_email,
+        matched_identifiers: [],
+      },
     };
   }
   const { data: prior } = await args.supabase
     .schema("debtor")
     .from("email_labels")
-    .select("customer_account_id, debtor_id, debtor_name")
+    // Phase 82.9 — include id for prior_email_label_id inputs.
+    .select("id, customer_account_id, debtor_id, debtor_name")
     .eq("conversation_id", args.conversation_id)
     .or("customer_account_id.not.is.null,debtor_id.not.is.null")
     .in("status", ["labeled", "dry_run"])
@@ -214,16 +228,27 @@ async function runThreadInheritanceOnly(args: {
     .limit(1)
     .maybeSingle();
 
+  const priorRow = prior as
+    | {
+        id?: string | null;
+        customer_account_id?: string | null;
+        debtor_id?: string | null;
+        debtor_name?: string | null;
+      }
+    | null;
   const accountId =
-    (prior as { customer_account_id?: string | null; debtor_id?: string | null } | null)
-      ?.customer_account_id ?? (prior as { debtor_id?: string | null } | null)?.debtor_id ?? null;
+    priorRow?.customer_account_id ?? priorRow?.debtor_id ?? null;
   if (accountId) {
     return {
       method: "thread_inheritance",
       customer_account_id: accountId,
-      customer_name:
-        (prior as { debtor_name?: string | null } | null)?.debtor_name ?? null,
+      customer_name: priorRow?.debtor_name ?? null,
       confidence: "high",
+      inputs: {
+        kind: "thread_inheritance",
+        prior_email_label_id: priorRow?.id ?? "",
+        conversation_id: args.conversation_id,
+      },
     };
   }
   return {
@@ -231,6 +256,11 @@ async function runThreadInheritanceOnly(args: {
     customer_account_id: null,
     customer_name: null,
     confidence: "none",
+    inputs: {
+      kind: "unresolved",
+      sender_email: args.from_email,
+      matched_identifiers: [],
+    },
   };
 }
 
