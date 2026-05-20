@@ -84,9 +84,12 @@ export function Stage3OverrideWidget({
     setSubmitting(false);
   }, [row.id]);
 
+  // SwarmIntentRow has no display_label; intent_key IS the canonical label
+  // (see web/lib/swarms/types.ts). Keep this as a passthrough map for
+  // forward-compat with any future label column.
   const intentLabelByKey = useMemo(() => {
     const m = new Map<string, string>();
-    for (const i of intents) m.set(i.intent_key, i.display_label);
+    for (const i of intents) m.set(i.intent_key, i.intent_key);
     return m;
   }, [intents]);
 

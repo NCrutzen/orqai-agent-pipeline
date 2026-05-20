@@ -49,7 +49,7 @@ vi.mock("sonner", () => ({
 // trigger onChange with a fixed intent_key.
 vi.mock("../../stage-1/components/stage-3-widget", () => ({
   Stage3Widget: (props: {
-    intents: Array<{ intent_key: string; display_label: string }>;
+    intents: Array<{ intent_key: string }>;
     value: string | null;
     onChange: (intentKey: string) => void;
   }) => (
@@ -77,21 +77,23 @@ const INTENTS: SwarmIntentRow[] = [
   {
     swarm_type: "debtor-email",
     intent_key: "general_inquiry",
-    display_label: "General inquiry",
-    display_order: 1,
-    enabled: true,
-    swarm_dispatch: null,
+    handler_agent_key: null,
+    handler_event: "debtor-email/general_inquiry.dispatch",
+    handler_status: "placeholder",
     requires_orchestration: false,
-  } as SwarmIntentRow,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+  },
   {
     swarm_type: "debtor-email",
     intent_key: "credit_request",
-    display_label: "Credit request",
-    display_order: 2,
-    enabled: true,
-    swarm_dispatch: null,
+    handler_agent_key: null,
+    handler_event: "debtor-email/credit_request.dispatch",
+    handler_status: "placeholder",
     requires_orchestration: false,
-  } as SwarmIntentRow,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+  },
 ];
 
 function makeRow() {
