@@ -21,9 +21,18 @@ import { evaluateSideEffects } from "../side-effects";
 
 const STUB_SWARM = "sales-email-stub";
 
-const hasServiceRole =
-  !!process.env.SUPABASE_SERVICE_ROLE_KEY &&
-  !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+// Phase 88.2-04: test-setup.ts seeds default Supabase env vars
+// (`http://localhost:54321` + `test-service-role-key`) so the admin client
+// can construct in worktrees without `.env.local`. Those values are not
+// reachable hosts, so any beforeAll that actually inserts will fail with
+// "fetch failed". Treat the well-known stubs as "no service role" — this
+// test wants a real Supabase project.
+const isStubUrl = (u: string | undefined): boolean =>
+  !u || u === "dummy" || u.startsWith("http://localhost") || u.includes("dummy");
+const isStubKey = (k: string | undefined): boolean =>
+  !k || k === "dummy" || k === "test-service-role-key";
+const hasServiceRole = !isStubKey(process.env.SUPABASE_SERVICE_ROLE_KEY) &&
+  !isStubUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
 describe.skipIf(!hasServiceRole)(
   "Phase 68 SWRM-03: zero-code-edit swarm onboarding",

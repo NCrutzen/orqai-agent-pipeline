@@ -39,7 +39,24 @@ const insertMock = vi.fn();
 const eqMock = vi.fn();
 
 function makeChainable(table: string) {
+  // Phase 88.2-02: minimal .select() chain returning empty data so production
+  // dedupe-by-existing-row checks (e.g. classifier-verdict-worker:187) don't
+  // blow up. Returns a generic chainable terminating in {data:[], error:null}.
+  const selectChain: Record<string, unknown> = {};
+  selectChain.eq = () => selectChain;
+  selectChain.in = () => selectChain;
+  selectChain.limit = () => selectChain;
+  selectChain.order = () => selectChain;
+  selectChain.not = () => selectChain;
+  selectChain.or = () => selectChain;
+  selectChain.maybeSingle = () =>
+    Promise.resolve({ data: null, error: null });
+  selectChain.single = () =>
+    Promise.resolve({ data: null, error: null });
+  selectChain.then = (cb: (v: { data: unknown; error: unknown }) => unknown) =>
+    Promise.resolve(cb({ data: [], error: null }));
   return {
+    select: () => selectChain,
     update: (payload: Record<string, unknown>) => {
       updateMock(table, payload);
       return {
@@ -59,7 +76,16 @@ function makeChainable(table: string) {
 }
 
 const fromMock = vi.fn((table: string) => makeChainable(table));
-const adminClientMock = { from: fromMock };
+// Phase 88.2-02 (D-04..D-06): admin.schema(s).from(t) uses the shared
+// chainable Proxy mock so any future chain method (.or, .not, .ilike, …)
+// works without code changes here. Empty default response short-circuits
+// the cleanup-email-load step in classifier-verdict-worker.
+import { createSupabaseAdminMock } from "@/test-utils/supabase-mock";
+const schemaProxy = createSupabaseAdminMock({
+  defaultResponse: { data: [], error: null },
+});
+const schemaMock = vi.fn((_schemaName: string) => schemaProxy);
+const adminClientMock = { from: fromMock, schema: schemaMock };
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => adminClientMock,

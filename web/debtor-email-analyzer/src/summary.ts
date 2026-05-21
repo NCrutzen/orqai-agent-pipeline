@@ -6,7 +6,7 @@ const debtor = createClient(config.supabase.url, config.supabase.serviceKey, {
 });
 
 async function main() {
-  const all: any[] = [];
+  const all: Record<string, unknown>[] = [];
   let offset = 0;
   while (true) {
     const { data } = await debtor

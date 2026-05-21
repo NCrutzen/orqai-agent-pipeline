@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.1
 milestone_name: Validation + Visibility
 status: executing
-stopped_at: Phase 86-01 partial (deploy gate)
-last_updated: "2026-05-20T14:30:00.000Z"
-last_activity: 2026-05-20 -- Phase 86 execution (Plan 01 migrations applied, V3 deploy-gate hit)
+stopped_at: Phase 88.2 context gathered
+last_updated: "2026-05-21T09:01:14.627Z"
+last_activity: 2026-05-21 -- Phase 88.2 execution started
 progress:
-  total_phases: 55
-  completed_phases: 42
-  total_plans: 233
-  completed_plans: 233
-  percent: 76
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 5
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 86 — open-set-intent-discovery-capture-and-cluster-surface (Plan 01 partial, deploy-gate pending merge of v8.1 → main + Vercel redeploy)
+**Current focus:** Phase 88.2 — tier-2-ci-backlog-cleanup
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 86 (open-set-intent-discovery-capture-and-cluster-surface) — EXECUTING
-Plan: 1 of 4 (migrations applied; view n=0 pending v8.1 → main merge + Vercel deploy)
-Status: Blocked on Phase 85 consumer-code deploy. Phase 84 ✓, Phase 85 ✓ (Orq.ai live, code on v8.1 branch). Phase 88 + 89 + v8.0 closure landed on main in parallel.
-Last activity: 2026-05-20 -- Phase 86-01 migrations applied; surfaced deploy-pipeline drift; merged main → v8.1
+Phase: 88.2 (tier-2-ci-backlog-cleanup) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 88.2
+Last activity: 2026-05-21 -- Phase 88.2 execution started
 
 ## Performance Metrics
 
@@ -134,6 +134,7 @@ Last activity: 2026-05-20 -- Phase 86-01 migrations applied; surfaced deploy-pip
 - Phase 87 added (2026-05-19) to v8.1: Retro-classification + intent-volume baseline. Closes v8.1. Re-runs V3 Stage 3 agent against 30-90d of corpus emails (read from Supabase, not Graph — idempotent), produces falsifiable comparison report: pre-v8.1 vs post-v8.1 distribution. New `stage_3_retro_runs` table + `intent_volume_baselines` snapshot table read by V8.2/V9.0/V11.0. Hand-graded 20-row diff precision check. Acceptance carries Phase 83 D-07 forward (≥50% catch-all rows reclassify) plus Phase 84 verification (Coupa-PO/auto-reply/own-domain absent from Stage 3) plus Phase 86 (≥5 proposal clusters captured). CONTEXT at `.planning/phases/87-retro-classification-and-intent-volume-baseline/87-CONTEXT.md`. Depends on 83+84+85+86 all live. Needs `/gsd-discuss-phase 87`.
 - v8.1 dependency graph: 83 ──> 85 ──> 86 ──> 87. 84 ──> 87 in parallel. v8.1 closes with `/gsd-audit-milestone v8.1` after 87 passes; output feeds V8.2 (handler picks) + V9.0 (Learning Inbox synthesis) + V11.0 (intent-prioritisation dashboard).
 - Phase 81 added: Fold Stage 1 (Bulk Review) into the stage-keyed shell — closes the loop on Sketch 005 / Phase 76 D-04/D-05 (REVISED). Phase 76-08 explicitly chose option (A) "minimum churn" (re-export /review/page.tsx) over option (B) (wrap in _shell + StageTabStrip), so /stage-1 still renders the legacy "Bulk Review" chrome with no stage-tab strip and Pending Promotion sub-view never wires (?sub=pending pushed by QueueTree, but loadPageData reads ?tab=pending which the redirect rewrites away). Output: Stage 1 sits under the same shell as 0/3/4, "Bulk Review" stops being a UI noun, Pending Promotion sub-view actually renders, and a thin Stage 2 placeholder lets the registry-driven tab strip resolve.
+- Phase 88.2 inserted after Phase 88.1: Tier-2 CI backlog cleanup (URGENT)
 
 ### Decisions
 
@@ -230,10 +231,10 @@ Last activity: 2026-05-20 -- Phase 86-01 migrations applied; surfaced deploy-pip
 
 ## Session Continuity
 
-Last session: 2026-05-19T16:22:22.158Z
-Stopped at: Phase 82.9 context gathered
+Last session: 2026-05-21T08:29:23.990Z
+Stopped at: Phase 88.2 context gathered
 Resume with: `/gsd-execute-phase 65`
-Resume file: .planning/phases/82.9-stage-2-audit-panel-evidence-expansion/82.9-CONTEXT.md
+Resume file: .planning/phases/88.2-tier-2-ci-backlog-cleanup/88.2-CONTEXT.md
 
 ## Deferred Items
 

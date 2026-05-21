@@ -39,7 +39,13 @@ const url =
 const key =
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY ?? "";
 
-const hasCreds = Boolean(url && key);
+// Phase 88.2-04: test-setup.ts seeds stub Supabase env vars so `createClient`
+// constructs cleanly in worktrees without `.env.local`. Treat the well-known
+// stubs as "no creds" — the live-DB invariant scan needs a real Supabase
+// host, otherwise PostgREST queries fail with ECONNREFUSED.
+const isStubUrl = !url || url === "dummy" || url.startsWith("http://localhost") || url.includes("dummy");
+const isStubKey = !key || key === "dummy" || key === "test-service-role-key";
+const hasCreds = !isStubUrl && !isStubKey;
 
 describe("Hard-separation invariant: swarm_noise_categories ∩ swarm_intents = ∅", () => {
   it.skipIf(!hasCreds)(

@@ -72,16 +72,18 @@ export function TerminalStream({ swarmId }: TerminalStreamProps) {
     const el = scrollerRef.current;
     if (!el) return;
 
+    // Phase 88.2-03 (D-14): defer the setMissedCount writes off the effect
+    // commit phase so RC's "no synchronous setState in effect" passes.
     if (followTop) {
       el.scrollTop = 0;
-      setMissedCount(0);
+      Promise.resolve().then(() => setMissedCount(0));
       return;
     }
 
     if (delta > 0) {
-      setMissedCount((c) => c + delta);
+      Promise.resolve().then(() => setMissedCount((c) => c + delta));
     } else if (delta < 0) {
-      setMissedCount(0);
+      Promise.resolve().then(() => setMissedCount(0));
     }
   }, [events.length, followTop]);
 

@@ -14,7 +14,7 @@ async function main() {
   console.log(`=== DRILL INTO INTENT: ${intent} ===\n`);
 
   // Get all analysis rows for this intent
-  const analyses: any[] = [];
+  const analyses: Record<string, unknown>[] = [];
   let offset = 0;
   while (true) {
     const { data } = await debtor
@@ -32,7 +32,7 @@ async function main() {
 
   // Get the email details for these
   const emailIds = analyses.map((a) => a.email_id);
-  const emails: any[] = [];
+  const emails: Record<string, unknown>[] = [];
   // Fetch in chunks of 100 (Supabase IN filter limit)
   for (let i = 0; i < emailIds.length; i += 100) {
     const chunk = emailIds.slice(i, i + 100);

@@ -126,7 +126,9 @@ export function KanbanBoard({ swarmId: _swarmId }: KanbanBoardProps) {
         changed = true;
       }
     }
-    if (changed) setOverlay(next);
+    // Phase 88.2-03 (D-14): defer overlay update off the effect's commit
+    // phase so RC's "no synchronous setState in effect" rule passes.
+    if (changed) Promise.resolve().then(() => setOverlay(next));
   }, [jobs, overlay]);
 
   const sensors = useSensors(

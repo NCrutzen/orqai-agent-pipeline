@@ -28,7 +28,27 @@ import { inngest } from "@/lib/inngest/client";
 import * as adminMod from "@/lib/supabase/admin";
 import { budgetBreachHandler } from "../budget-breach-handler";
 
-const adminMocks = (adminMod as unknown as { __mocks__: any }).__mocks__;
+// Phase 88.2-03 lint-narrow (D-10).
+type MockRow = Record<string, unknown> & {
+  status?: string;
+  topic?: string;
+  triggered_by?: string;
+  error_message?: string;
+  result?: Record<string, unknown> & { source_automation_run_id?: string };
+};
+type AdminMocks = {
+  from: ReturnType<typeof vi.fn>;
+  insert: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
+  eq: ReturnType<typeof vi.fn>;
+};
+type BudgetEvent = {
+  event: { data: Record<string, unknown> };
+  step: { run: ReturnType<typeof vi.fn> };
+};
+type BudgetHandler = (e: BudgetEvent) => Promise<unknown>;
+
+const adminMocks = (adminMod as unknown as { __mocks__: AdminMocks }).__mocks__;
 const createFunctionMock = inngest.createFunction as unknown as ReturnType<
   typeof vi.fn
 >;
@@ -39,8 +59,8 @@ function makeStep() {
   };
 }
 
-function getHandler() {
-  return (budgetBreachHandler as unknown as { handler: any }).handler;
+function getHandler(): BudgetHandler {
+  return (budgetBreachHandler as unknown as { handler: BudgetHandler }).handler;
 }
 
 beforeEach(() => {
@@ -67,17 +87,17 @@ describe("BUDG-01: budget-breach-handler marks originating run failed", () => {
     });
 
     expect(adminMocks.update).toHaveBeenCalled();
-    const updateArgs = adminMocks.update.mock.calls.map((c: any[]) => c[0]);
+    const updateArgs = adminMocks.update.mock.calls.map((c: unknown[]) => c[0] as MockRow);
     const failedUpdate = updateArgs.find(
-      (row: any) => row?.status === "failed",
+      (row: MockRow) => row?.status === "failed",
     );
     expect(failedUpdate).toBeDefined();
-    expect(failedUpdate.error_message).toMatch(/budget breach/i);
+    expect(failedUpdate!.error_message).toMatch(/budget breach/i);
 
     // .eq("id", automation_run_id) was called
     const eqCalls = adminMocks.eq.mock.calls;
     const idEq = eqCalls.find(
-      (c: any[]) => c[0] === "id" && c[1] === "ar-orig",
+      (c: unknown[]) => c[0] === "id" && c[1] === "ar-orig",
     );
     expect(idEq).toBeDefined();
   });
@@ -99,13 +119,13 @@ describe("BUDG-01: budget-breach-handler files Kanban human-review row", () => {
       step,
     });
 
-    const insertArgs = adminMocks.insert.mock.calls.map((c: any[]) => c[0]);
+    const insertArgs = adminMocks.insert.mock.calls.map((c: unknown[]) => c[0] as MockRow);
     const kanbanRow = insertArgs.find(
-      (row: any) => row?.topic === "budget_breach",
+      (row: MockRow) => row?.topic === "budget_breach",
     );
     expect(kanbanRow).toBeDefined();
-    expect(kanbanRow.triggered_by).toBe("budget-breach-handler");
-    expect(kanbanRow.result?.source_automation_run_id).toBe("ar-orig");
+    expect(kanbanRow!.triggered_by).toBe("budget-breach-handler");
+    expect(kanbanRow!.result?.source_automation_run_id).toBe("ar-orig");
   });
 });
 

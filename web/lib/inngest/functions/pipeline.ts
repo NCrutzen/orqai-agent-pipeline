@@ -493,7 +493,7 @@ export const executePipeline = inngest.createFunction(
                   runId,
                   approvalId: id,
                   recipientEmail: userData.user.email,
-                  projectName: (runData as any).projects?.name || "Unknown Project",
+                  projectName: (runData as { projects?: { name?: string } }).projects?.name || "Unknown Project",
                   projectId: runData.project_id,
                   stepName: stage.displayName,
                 });

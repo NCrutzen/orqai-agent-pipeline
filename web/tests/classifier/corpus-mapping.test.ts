@@ -61,12 +61,24 @@ describe("60-08 isAgreement — agreement-table truth", () => {
     expect(isAgreement("payment_admittance", "payment", "auto_reply")).toBe(true);
   });
 
-  it("AGREEMENT_MAP exposes all 5 Category values", () => {
+  it("AGREEMENT_MAP exposes all Category values", () => {
+    // Phase 88.2-04: noise-category registry expanded since the original 5
+    // values; assertion now checks the current key set rather than a hard-
+    // coded 5. unknown's empty-arrays invariant is still verified below.
     expect(Object.keys(AGREEMENT_MAP).sort()).toEqual([
       "auto_reply",
+      "coupa_invoice_approved_notification",
+      "coupa_invoice_paid_notification",
+      "frieslandcampina_portal_reject",
+      "iss_ptp_autoreply",
+      "m365_quarantine",
       "ooo_permanent",
       "ooo_temporary",
+      "own_outbound_invoice_loopback",
       "payment_admittance",
+      "sender_phishing_notice",
+      "spam",
+      "supplier_bank_change_notification",
       "unknown",
     ]);
     // unknown has empty arrays — never agrees

@@ -9,7 +9,7 @@ async function main() {
   console.log("=== DEBTOR EMAIL ANALYSIS ===\n");
 
   // 1. Overall stats — paginate to get all rows (Supabase default limit is 1000)
-  const allEmails: any[] = [];
+  const allEmails: Record<string, unknown>[] = [];
   let offset = 0;
   const pageSize = 1000;
   while (true) {

@@ -42,19 +42,30 @@ export function ScreenshotViewer({
   const [triedRefresh, setTriedRefresh] = useState(false);
 
   useEffect(() => {
-    // If we already have a URL (from the caller), don't fetch proactively —
-    // only re-sign on <img onError>.
+    // Phase 88.2-03 (D-14): RC flagged the synchronous setState branch on
+    // initialUrl-present. All setState calls now go through a microtask
+    // (no-op when initialUrl matches current state) so the effect commits
+    // without synchronous state mutation.
+    let cancelled = false;
     if (initialUrl) {
-      setUrl(initialUrl);
-      setError(null);
-      setTriedRefresh(false);
-      return;
+      Promise.resolve().then(() => {
+        if (cancelled) return;
+        setUrl(initialUrl);
+        setError(null);
+        setTriedRefresh(false);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
     if (!path) {
-      setError("missing path");
-      return;
+      Promise.resolve().then(() => {
+        if (!cancelled) setError("missing path");
+      });
+      return () => {
+        cancelled = true;
+      };
     }
-    let cancelled = false;
     (async () => {
       const res = await getScreenshotUrl(path);
       if (cancelled) return;

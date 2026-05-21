@@ -8,7 +8,14 @@ import { config } from "./config.js";
 // Dynamic import — the static ESM import was unable to resolve named exports
 // from a .ts file under ../../lib in this tsx + Node 24 configuration. Dynamic
 // import works around the static-resolution bug.
-const classifierMod: any = await import("../../lib/debtor-email/classify.ts" as string);
+// Phase 88.2-03 (D-12): dynamic ESM import — boundary unknown then narrowed.
+const classifierMod = (await import("../../lib/debtor-email/classify.ts" as string)) as {
+  classify: (i: { subject: string; from: string; bodySnippet?: string }) => {
+    category: string;
+    confidence: number;
+    matchedRule: string;
+  };
+};
 const classify: (i: { subject: string; from: string; bodySnippet?: string }) => {
   category: string;
   confidence: number;

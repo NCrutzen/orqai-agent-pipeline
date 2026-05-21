@@ -148,14 +148,17 @@ export function Stage4ClientShell({
 
   // Apply mailbox filter client-side across all three sections. Server-rendered
   // lists are the full set; URL ?mailbox= params narrow them. Mirrors Stage 1.
-  const filterByMailbox = useMemo(() => {
-    if (selectedMailboxes.length === 0) {
-      return (xs: Row[]) => xs;
-    }
-    const allowed = new Set(selectedMailboxes);
-    return (xs: Row[]) =>
-      xs.filter((r) => r.mailbox_id !== null && allowed.has(r.mailbox_id));
-  }, [selectedMailboxes]);
+  // Phase 88.2-03 (D-14): RC reported "memoization could not be preserved"
+  // on the function-returning useMemo. useCallback expresses the same
+  // identity-stable function intent and round-trips cleanly through RC.
+  const filterByMailbox = useCallback(
+    (xs: Row[]) => {
+      if (selectedMailboxes.length === 0) return xs;
+      const allowed = new Set(selectedMailboxes);
+      return xs.filter((r) => r.mailbox_id !== null && allowed.has(r.mailbox_id));
+    },
+    [selectedMailboxes],
+  );
 
   const visibleUnified = useMemo(() => filterByMailbox(unifiedRows), [filterByMailbox, unifiedRows]);
   const visibleNeedsReview = useMemo(() => filterByMailbox(needsReviewUnified), [filterByMailbox, needsReviewUnified]);

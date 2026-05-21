@@ -97,8 +97,12 @@ function makeStep() {
 // ---- Import the function under test (RED until Task 2 lands) ------------
 import { stage0Backfill } from "../stage-0-backfill";
 
-function getHandler() {
-  return (stage0Backfill as unknown as { handler: any }).handler;
+// Phase 88.2-03 lint-narrow (D-10).
+type BackfillCtx = { step: { run: ReturnType<typeof vi.fn> }; event?: { data?: Record<string, unknown> } };
+type BackfillResult = Record<string, unknown>;
+type BackfillHandler = (ctx: BackfillCtx) => Promise<BackfillResult>;
+function getHandler(): BackfillHandler {
+  return (stage0Backfill as unknown as { handler: BackfillHandler }).handler;
 }
 
 beforeEach(() => {

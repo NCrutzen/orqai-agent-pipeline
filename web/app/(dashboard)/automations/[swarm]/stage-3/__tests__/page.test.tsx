@@ -38,22 +38,14 @@ vi.mock("../../_lib/kanban-loader", () => ({
   loadKanbanRows: (...args: unknown[]) => loadKanbanRowsMock(...args),
 }));
 
-vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: () => {
-    const builder = {
-      select: () => builder,
-      eq: () => builder,
-      in: () => builder,
-      order: () => builder,
-      then: (cb: (v: { data: unknown; error: unknown }) => unknown) =>
-        Promise.resolve(cb({ data: [], error: null })),
-    };
-    return {
-      from: () => builder,
-      schema: () => ({ from: () => builder }),
-    };
-  },
-}));
+// Phase 88.2-02 (D-04..D-06): chainable Proxy admin mock with default empty.
+vi.mock("@/lib/supabase/admin", async () => {
+  const { createSupabaseAdminMock } = await import("@/test-utils/supabase-mock");
+  const adminMock = createSupabaseAdminMock({
+    defaultResponse: { data: [], error: null },
+  });
+  return { admin: adminMock, createAdminClient: () => adminMock };
+});
 
 vi.mock("next/navigation", () => ({
   notFound: () => {

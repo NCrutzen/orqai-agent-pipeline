@@ -25,9 +25,18 @@ vi.mock("@/lib/swarms/registry", () => ({
   loadSwarm: (...args: unknown[]) => loadSwarmMock(...args),
 }));
 
-vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: () => ({ __stub: true }),
-}));
+// Phase 88.2-02 (D-04..D-06): chainable Proxy admin mock with default empty
+// response so loaders in the page call-graph don't blow up on `.from(...)`.
+// Stage-shell tests only assert on rendered shell — data-shape tests live
+// in the per-loader unit tests. Build the mock inside the factory itself —
+// no closure refs, no hoist hazards.
+vi.mock("@/lib/supabase/admin", async () => {
+  const { createSupabaseAdminMock } = await import("@/test-utils/supabase-mock");
+  const adminMock = createSupabaseAdminMock({
+    defaultResponse: { data: [], error: null },
+  });
+  return { admin: adminMock, createAdminClient: () => adminMock };
+});
 
 vi.mock("next/navigation", () => ({
   notFound: () => {
@@ -95,10 +104,11 @@ describe("Stage 0 page (unified shell)", () => {
     });
     render(ui);
 
-    expect(screen.getByText(/No rows yet/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Stage 0 awaits backend wiring/i),
-    ).toBeInTheDocument();
+    // Phase 88.2-04: empty-state copy is now "No Stage 0 verdicts yet" +
+    // explanatory body. (Test originally asserted the placeholder "No rows
+    // yet / awaits backend wiring" copy that landed when the shell was first
+    // mounted in D-15.)
+    expect(screen.getByText(/No Stage 0 verdicts yet/i)).toBeInTheDocument();
   });
 
   it("mounts _shell/mailbox-filter (trigger 'All mailboxes')", async () => {

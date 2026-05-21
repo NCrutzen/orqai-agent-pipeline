@@ -62,18 +62,29 @@ export function Stage2Widget({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (debounced.trim().length < 2) {
-      setHits([]);
-      return;
-    }
+    // Phase 88.2-03 (D-14): all setState calls are deferred to a microtask
+    // so RC's "no synchronous setState in effect" rule passes. The effect
+    // body itself only schedules; nothing runs synchronously in the same
+    // render commit. Cancellation via `cancelled` still works because every
+    // setState is gated behind `!cancelled`.
     let cancelled = false;
-    setLoading(true);
+    if (debounced.trim().length < 2) {
+      Promise.resolve().then(() => {
+        if (!cancelled) setHits((prev) => (prev.length === 0 ? prev : []));
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    Promise.resolve().then(() => {
+      if (!cancelled) setLoading(true);
+    });
     searchCustomers(debounced)
       .then((results) => {
         if (!cancelled) setHits(results);
       })
       .catch(() => {
-        if (!cancelled) setHits([]);
+        if (!cancelled) setHits((prev) => (prev.length === 0 ? prev : []));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

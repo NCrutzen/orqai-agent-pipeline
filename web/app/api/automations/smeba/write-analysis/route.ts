@@ -10,14 +10,17 @@ export async function POST(request: NextRequest) {
   }
 
   const rawText = await request.text().catch(() => "");
-  let parsed: any = null;
+  // Phase 88.2-03 (D-12): JSON.parse of external Orq.ai/Zapier payload — boundary unknown.
+  let parsed: unknown = null;
   try { parsed = JSON.parse(rawText); } catch {}
   // Log only the payload structure, never the content (GDPR — no email bodies in logs)
   const payloadKeys = parsed && typeof parsed === "object" ? Object.keys(parsed) : [];
   console.log("[smeba/write-analysis] payload keys:", payloadKeys.join(","));
 
   // Orq.ai may wrap arguments: { arguments: {...} } or { input: {...} } or flat
-  const body = parsed?.arguments ?? parsed?.input ?? parsed ?? {};
+  type SmebaPayload = Record<string, unknown> & { arguments?: Record<string, unknown>; input?: Record<string, unknown>; email_id?: string; emailId?: string };
+  const parsedRec = (parsed && typeof parsed === "object" ? (parsed as SmebaPayload) : {}) as SmebaPayload;
+  const body: SmebaPayload = (parsedRec.arguments as SmebaPayload | undefined) ?? (parsedRec.input as SmebaPayload | undefined) ?? parsedRec ?? {};
 
   // email_id from Zapier = SugarCRM UUID (source_id in email_pipeline.emails)
   const sourceId = body?.email_id ?? body?.emailId;

@@ -29,26 +29,15 @@ vi.mock("@/lib/swarms/registry", () => ({
   loadSwarmIntents: (...args: unknown[]) => loadSwarmIntentsMock(...args),
 }));
 
-// Chainable admin client used by loadPageData. All chains resolve to empty
-// data so the default branch produces a no-row PageData. Defined inside the
-// vi.mock factory to satisfy Vitest's hoisting (factory runs before any
-// top-level const).
-vi.mock("@/lib/supabase/admin", () => {
-  const b: Record<string, unknown> = {};
-  b.rpc = () => Promise.resolve({ data: [], error: null });
-  b.from = () => b;
-  b.schema = () => b;
-  b.select = () => b;
-  b.eq = () => b;
-  b.gte = () => b;
-  b.lt = () => b;
-  b.order = () => b;
-  b.limit = () => b;
-  b.in = () => b;
-  b.single = () => Promise.resolve({ data: null, error: null });
-  b.then = (cb: (v: { data: unknown; error: unknown }) => unknown) =>
-    Promise.resolve(cb({ data: [], error: null }));
-  return { createAdminClient: () => b };
+// Phase 88.2-02 (D-04..D-06): chainable Proxy admin mock with default empty
+// response. Replaces the ad-hoc inline builder that broke when loaders added
+// new chain methods (e.g. .not, .schema).
+vi.mock("@/lib/supabase/admin", async () => {
+  const { createSupabaseAdminMock } = await import("@/test-utils/supabase-mock");
+  const adminMock = createSupabaseAdminMock({
+    defaultResponse: { data: [], error: null },
+  });
+  return { admin: adminMock, createAdminClient: () => adminMock };
 });
 
 const loadStage2WeeklyCountMock = vi.fn();

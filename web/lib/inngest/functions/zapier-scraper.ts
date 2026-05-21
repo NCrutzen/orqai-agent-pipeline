@@ -1,3 +1,4 @@
+import type { BrowserContextOptions } from "playwright-core";
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveCredentials } from "@/lib/credentials/proxy";
@@ -86,7 +87,8 @@ export const scrapeZapierAnalytics = inngest.createFunction(
         try {
           const context = storageState
             ? await browser.newContext({
-                storageState: storageState as any,
+                // Phase 88.2-03 (D-12): JSON.parse of external Supabase blob — boundary type.
+                storageState: storageState as BrowserContextOptions["storageState"],
               })
             : await browser.newContext();
           const page = await context.newPage();

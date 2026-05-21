@@ -77,7 +77,8 @@ describe("computeLayout", () => {
     const layout = computeLayout([makeAgent("Solo")]);
     expect(layout).toHaveLength(1);
     expect(layout[0].isOrchestrator).toBe(true);
-    expect(layout[0].xPct).toBeCloseTo(18);
+    // Phase 88.2-04: ORCHESTRATOR_X anchor shifted from 18 → 22 (lib/v7/graph/layout.ts:28).
+    expect(layout[0].xPct).toBeCloseTo(22);
     expect(layout[0].yPct).toBeCloseTo(50);
   });
 

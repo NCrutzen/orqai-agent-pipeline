@@ -5,6 +5,44 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Phase 88.2-03 lint-narrow (D-10 inline minimal interfaces). These shapes
+// describe the in-test mock payloads that the worker writes to Supabase /
+// emits via inngest.send; they're co-located with usage and not exported.
+type MockRow = Record<string, unknown> & {
+  result?: Record<string, unknown> & {
+    verdict?: string;
+    stage?: string;
+    llm_reason?: string;
+    strip_changed?: boolean;
+    strip_delta_chars?: number;
+    strip_fallback_reason?: string | null;
+    source_automation_run_id?: string;
+  };
+  topic?: string | null;
+  status?: string;
+  triggered_by?: string;
+  error_message?: string;
+};
+type PipelineInsert = { table: string; payload: MockRow & {
+  stage?: number;
+  decision?: string;
+  email_id?: string;
+  swarm_type?: string;
+  confidence?: unknown;
+  automation_run_id?: string;
+  cost_cents?: number;
+  decision_details?: Record<string, unknown>;
+} };
+type SendPayload = { name?: string; data?: Record<string, unknown> };
+type AdminMocks = {
+  from: ReturnType<typeof vi.fn>;
+  insert: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
+  eq: ReturnType<typeof vi.fn>;
+  supabaseInserts: PipelineInsert[];
+  _resetInserts: () => void;
+};
+
 // --- Mock all I/O boundaries before importing the worker ---
 
 vi.mock("@/lib/stage-0/regex-screen", () => ({
@@ -42,8 +80,8 @@ vi.mock("@/lib/inngest/client", () => ({
 vi.mock("@/lib/supabase/admin", () => {
   // Phase 70 — capture inserts per-table so the dual-write assertion can
   // distinguish automation_runs vs pipeline_events.
-  const supabaseInserts: Array<{ table: string; payload: any }> = [];
-  const insert = vi.fn(async (payload: any) => {
+  const supabaseInserts: PipelineInsert[] = [];
+  const insert = vi.fn(async (payload: MockRow) => {
     // last-table tracking is set by `from(table)` below
     supabaseInserts.push({ table: lastTable, payload });
     return { data: null, error: null };
@@ -65,7 +103,7 @@ vi.mock("@/lib/supabase/admin", () => {
     then: (resolve) => resolve(eqResult),
   };
   const eq = eqChain.eq;
-  const update = vi.fn((payload: any) => {
+  const update = vi.fn((payload: MockRow) => {
     // Mirror UPDATE payload into insert.mock.calls + supabaseInserts so
     // legacy assertions still see the automation_runs write surface.
     insert(payload);
@@ -103,7 +141,18 @@ const mockLlm = llmInjectionVerdict as unknown as ReturnType<typeof vi.fn>;
 const mockBudget = budgetCheck as unknown as ReturnType<typeof vi.fn>;
 const mockStrip = stripQuotedHistory as unknown as ReturnType<typeof vi.fn>;
 const mockSend = inngest.send as unknown as ReturnType<typeof vi.fn>;
-const adminMocks = (adminMod as unknown as { __mocks__: any }).__mocks__;
+const adminMocks = (adminMod as unknown as { __mocks__: AdminMocks }).__mocks__;
+
+type WorkerEvent = {
+  event: { data: Record<string, unknown> };
+  step: { run: ReturnType<typeof vi.fn> };
+};
+type WorkerResult = {
+  verdict?: string;
+  halted?: boolean;
+  skipped?: string;
+};
+type WorkerHandler = (e: WorkerEvent) => Promise<WorkerResult>;
 
 function makeStep() {
   return {
@@ -111,9 +160,9 @@ function makeStep() {
   };
 }
 
-function getHandler() {
+function getHandler(): WorkerHandler {
   // stage0SafetyWorker is the object returned by the mocked createFunction.
-  return (stage0SafetyWorker as unknown as { handler: any }).handler;
+  return (stage0SafetyWorker as unknown as { handler: WorkerHandler }).handler;
 }
 
 beforeEach(() => {
@@ -169,34 +218,34 @@ describe("SAFE-02/SAFE-03: happy path — verdict=safe forwards to classifier", 
 
     expect(result.verdict).toBe("safe");
     // forwarded to classifier
-    const sendCalls = mockSend.mock.calls.map((c) => c[0]);
-    const sendNames = sendCalls.map((c: any) => c.name);
+    const sendCalls = mockSend.mock.calls.map((c) => c[0] as SendPayload);
+    const sendNames = sendCalls.map((c) => c.name);
     expect(sendNames).toContain("classifier/screen.requested");
     // automation_runs.insert called with topic null for safe
     expect(adminMocks.insert).toHaveBeenCalled();
-    const insertArgs = adminMocks.insert.mock.calls.map((c: any[]) => c[0]);
+    const insertArgs = adminMocks.insert.mock.calls.map((c: unknown[]) => c[0] as MockRow);
     const safeInsert = insertArgs.find(
-      (row: any) =>
+      (row: MockRow) =>
         row?.result?.stage === "stage_0_safety" ||
         row?.result?.verdict === "safe",
     );
     expect(safeInsert).toBeDefined();
-    expect(safeInsert.topic).toBeNull();
+    expect(safeInsert!.topic).toBeNull();
 
     // Phase 70 — TELE-01 dual-write: pipeline_events row with stage:0 + decision:'safe'.
     const pipelineEventInsert = adminMocks.supabaseInserts.find(
-      (i: any) =>
+      (i: PipelineInsert) =>
         i.table === "pipeline_events" &&
         i.payload?.stage === 0 &&
         i.payload?.decision === "safe",
     );
     expect(pipelineEventInsert).toBeTruthy();
-    expect(pipelineEventInsert.payload.swarm_type).toBe("debtor-email");
-    expect(pipelineEventInsert.payload.email_id).toBe("e-safe");
-    expect(pipelineEventInsert.payload.confidence).toBeNull();
-    expect(pipelineEventInsert.payload.automation_run_id).toBe("ar-1");
-    expect(pipelineEventInsert.payload.triggered_by).toBe("pipeline");
-    expect(pipelineEventInsert.payload.decision_details).toMatchObject({
+    expect(pipelineEventInsert!.payload.swarm_type).toBe("debtor-email");
+    expect(pipelineEventInsert!.payload.email_id).toBe("e-safe");
+    expect(pipelineEventInsert!.payload.confidence).toBeNull();
+    expect(pipelineEventInsert!.payload.automation_run_id).toBe("ar-1");
+    expect(pipelineEventInsert!.payload.triggered_by).toBe("pipeline");
+    expect(pipelineEventInsert!.payload.decision_details!).toMatchObject({
       regex_matched: null,
       safety_overridden: false,
       // Phase 82.2-04 D-02 — emit_source discriminator (main-path).
@@ -238,27 +287,27 @@ describe("SAFE-02: injection_suspected — does NOT forward to classifier", () =
 
     expect(result.verdict).toBe("injection_suspected");
 
-    const insertArgs = adminMocks.insert.mock.calls.map((c: any[]) => c[0]);
+    const insertArgs = adminMocks.insert.mock.calls.map((c: unknown[]) => c[0] as MockRow);
     const flaggedInsert = insertArgs.find(
-      (row: any) => row?.topic === "safety_review",
+      (row: MockRow) => row?.topic === "safety_review",
     );
     expect(flaggedInsert).toBeDefined();
-    expect(flaggedInsert.result.verdict).toBe("injection_suspected");
+    expect(flaggedInsert!.result!.verdict).toBe("injection_suspected");
 
-    const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
+    const sendNames = mockSend.mock.calls.map((c: unknown[]) => (c[0] as SendPayload)?.name);
     expect(sendNames).not.toContain("classifier/screen.requested");
 
     // Phase 70 — TELE-01 dual-write: pipeline_events row with decision='injection_suspected'.
     const pipelineEventInsert = adminMocks.supabaseInserts.find(
-      (i: any) =>
+      (i: PipelineInsert) =>
         i.table === "pipeline_events" &&
         i.payload?.stage === 0 &&
         i.payload?.decision === "injection_suspected",
     );
     expect(pipelineEventInsert).toBeTruthy();
-    expect(pipelineEventInsert.payload.email_id).toBe("e-inj");
-    expect(pipelineEventInsert.payload.cost_cents).toBe(4);
-    expect(pipelineEventInsert.payload.decision_details).toMatchObject({
+    expect(pipelineEventInsert!.payload.email_id).toBe("e-inj");
+    expect(pipelineEventInsert!.payload.cost_cents).toBe(4);
+    expect(pipelineEventInsert!.payload.decision_details!).toMatchObject({
       regex_matched: "ignore_previous",
       matched_span: "ignore previous",
       safety_overridden: false,
@@ -307,7 +356,7 @@ describe("Phase 70 — TELE-01 dual-write idempotency", () => {
     });
 
     const pipelineRows = adminMocks.supabaseInserts.filter(
-      (i: any) => i.table === "pipeline_events" && i.payload?.stage === 0,
+      (i: PipelineInsert) => i.table === "pipeline_events" && i.payload?.stage === 0,
     );
     expect(pipelineRows.length).toBe(1);
   });
@@ -350,8 +399,8 @@ describe("BUDG-01 / Pitfall 1: budget breach emits event, does NOT throw", () =>
     expect(result.halted).toBe(true);
 
     const breachSends = mockSend.mock.calls
-      .map((c: any) => c[0])
-      .filter((p: any) => p?.name === "pipeline/budget_breached");
+      .map((c: unknown[]) => c[0] as SendPayload)
+      .filter((p) => p?.name === "pipeline/budget_breached");
     expect(breachSends.length).toBe(1);
   });
 });
@@ -378,7 +427,7 @@ describe("Pitfall 5: safety_overridden skip", () => {
     expect(mockRegex).not.toHaveBeenCalled();
     expect(mockLlm).not.toHaveBeenCalled();
 
-    const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
+    const sendNames = mockSend.mock.calls.map((c: unknown[]) => (c[0] as SendPayload)?.name);
     expect(sendNames).toContain("classifier/screen.requested");
   });
 });
@@ -420,24 +469,24 @@ describe("Phase 999.4 — Stage 0 worker — timeout coercion (T-B2)", () => {
     expect(result.verdict).toBe("safe");
 
     // automation_runs row carries the timeout reason.
-    const insertArgs = adminMocks.insert.mock.calls.map((c: any[]) => c[0]);
+    const insertArgs = adminMocks.insert.mock.calls.map((c: unknown[]) => c[0] as MockRow);
     const coercedInsert = insertArgs.find(
-      (row: any) => row?.result?.llm_reason?.includes?.("timeout"),
+      (row: MockRow) => (row?.result?.llm_reason as string | undefined)?.includes?.("timeout"),
     );
     expect(coercedInsert).toBeDefined();
-    expect(coercedInsert.result.verdict).toBe("safe");
-    expect(coercedInsert.result.llm_reason).toContain(
+    expect(coercedInsert!.result!.verdict).toBe("safe");
+    expect(coercedInsert!.result!.llm_reason).toContain(
       "timeout: client_deadline_exceeded",
     );
-    expect(coercedInsert.status).toBe("completed");
+    expect(coercedInsert!.status).toBe("completed");
 
     // Forwarded to Stage 1 (classifier/screen.requested).
-    const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
+    const sendNames = mockSend.mock.calls.map((c: unknown[]) => (c[0] as SendPayload)?.name);
     expect(sendNames).toContain("classifier/screen.requested");
     // Did NOT route to safety_review.
     expect(sendNames).not.toContain("safety/review.requested");
     expect(
-      insertArgs.some((row: any) => row?.topic === "safety_review"),
+      insertArgs.some((row: MockRow) => row?.topic === "safety_review"),
     ).toBe(false);
   });
 });
@@ -468,11 +517,11 @@ describe("Phase 999.4 — Stage 0 worker — non-timeout errors rethrown (T-B3)"
       }),
     ).rejects.toThrow(/parse failed/);
 
-    const insertArgs = adminMocks.insert.mock.calls.map((c: any[]) => c[0]);
+    const insertArgs = adminMocks.insert.mock.calls.map((c: unknown[]) => c[0] as MockRow);
     const coercedSafe = insertArgs.find(
-      (row: any) =>
+      (row: MockRow) =>
         row?.result?.verdict === "safe" &&
-        row?.result?.llm_reason?.includes?.("timeout"),
+        (row?.result?.llm_reason as string | undefined)?.includes?.("timeout"),
     );
     expect(coercedSafe).toBeUndefined();
   });
@@ -498,7 +547,7 @@ describe("Phase 999.4 — Stage 0 worker — safety_overridden short-circuit unc
 
     expect(result.skipped).toBe("safety_overridden");
     expect(mockLlm).not.toHaveBeenCalled();
-    const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
+    const sendNames = mockSend.mock.calls.map((c: unknown[]) => (c[0] as SendPayload)?.name);
     expect(sendNames).toContain("classifier/screen.requested");
   });
 });
@@ -598,11 +647,11 @@ describe("Phase 999.7 INTEG-02 — forward-to-classifier carries ORIGINAL body, 
 
     // Forward step sent ORIGINAL body to Stage 1.
     const forwardCall = mockSend.mock.calls
-      .map((c: any) => c[0])
-      .find((p: any) => p?.name === "classifier/screen.requested");
+      .map((c: unknown[]) => c[0] as SendPayload)
+      .find((p) => p?.name === "classifier/screen.requested");
     expect(forwardCall).toBeDefined();
-    expect(forwardCall.data.body_text).toBe(originalBody);
-    expect(forwardCall.data.body_text).not.toBe(strippedBody);
+    expect(forwardCall!.data!.body_text).toBe(originalBody);
+    expect(forwardCall!.data!.body_text).not.toBe(strippedBody);
   });
 });
 
@@ -657,20 +706,20 @@ describe("Phase 999.7 INTEG-03 — 12k-token regression fixture does not breach 
     expect(result.verdict).toBe("safe");
 
     // No budget breach event emitted.
-    const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
+    const sendNames = mockSend.mock.calls.map((c: unknown[]) => (c[0] as SendPayload)?.name);
     expect(sendNames).not.toContain("pipeline/budget_breached");
 
     // automation_runs row has status='completed'.
-    const insertArgs = adminMocks.insert.mock.calls.map((c: any[]) => c[0]);
+    const insertArgs = adminMocks.insert.mock.calls.map((c: unknown[]) => c[0] as MockRow);
     const stage0Insert = insertArgs.find(
-      (row: any) => row?.result?.stage === "stage_0_safety",
+      (row: MockRow) => row?.result?.stage === "stage_0_safety",
     );
     expect(stage0Insert).toBeDefined();
-    expect(stage0Insert.status).toBe("completed");
+    expect(stage0Insert!.status).toBe("completed");
 
     // Strip actually shrunk the body (synthetic fixture has ~17800 char delta).
-    expect(stage0Insert.result.strip_changed).toBe(true);
-    expect(stage0Insert.result.strip_delta_chars).toBeLessThan(-8000);
+    expect(stage0Insert!.result!.strip_changed).toBe(true);
+    expect(stage0Insert!.result!.strip_delta_chars).toBeLessThan(-8000);
   });
 });
 
@@ -723,7 +772,7 @@ describe("D-06 synthetic injection (Phase 82.2)", () => {
 
     // Test 1+2+3: pipeline_events row carries the full expected shape.
     const pipelineEventInserts = adminMocks.supabaseInserts.filter(
-      (i: any) => i.table === "pipeline_events" && i.payload?.stage === 0,
+      (i: PipelineInsert) => i.table === "pipeline_events" && i.payload?.stage === 0,
     );
     // Single-emit invariant (Plan 04): exactly one pipeline_events row.
     expect(pipelineEventInserts.length).toBe(1);
@@ -743,17 +792,17 @@ describe("D-06 synthetic injection (Phase 82.2)", () => {
     });
 
     // Test 4: NO classifier/screen.requested send — injection halts forwarding.
-    const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
+    const sendNames = mockSend.mock.calls.map((c: unknown[]) => (c[0] as SendPayload)?.name);
     expect(sendNames).not.toContain("classifier/screen.requested");
 
     // Test 5: automation_runs row written with status='predicted', topic='safety_review'.
-    const insertArgs = adminMocks.insert.mock.calls.map((c: any[]) => c[0]);
+    const insertArgs = adminMocks.insert.mock.calls.map((c: unknown[]) => c[0] as MockRow);
     const flaggedRun = insertArgs.find(
-      (row: any) => row?.topic === "safety_review",
+      (row: MockRow) => row?.topic === "safety_review",
     );
     expect(flaggedRun).toBeDefined();
-    expect(flaggedRun.status).toBe("predicted");
-    expect(flaggedRun.result.verdict).toBe("injection_suspected");
+    expect(flaggedRun!.status).toBe("predicted");
+    expect(flaggedRun!.result!.verdict).toBe("injection_suspected");
   });
 });
 
@@ -795,32 +844,32 @@ describe("Phase 999.7 INTEG-05 — strip telemetry lands in result AND pipeline_
 
     // automation_runs telemetry.
     const automationRunInsert = adminMocks.supabaseInserts.find(
-      (i: any) => i.table === "automation_runs",
+      (i: PipelineInsert) => i.table === "automation_runs",
     );
     expect(automationRunInsert).toBeTruthy();
-    expect(automationRunInsert.payload.result.strip_changed).toBe(true);
-    expect(automationRunInsert.payload.result.strip_delta_chars).toBe(-42);
-    expect("strip_fallback_reason" in automationRunInsert.payload.result).toBe(
+    expect(automationRunInsert!.payload.result!.strip_changed).toBe(true);
+    expect(automationRunInsert!.payload.result!.strip_delta_chars).toBe(-42);
+    expect("strip_fallback_reason" in automationRunInsert!.payload.result!).toBe(
       true,
     );
-    expect(automationRunInsert.payload.result.strip_fallback_reason).toBeNull();
+    expect(automationRunInsert!.payload.result!.strip_fallback_reason).toBeNull();
 
     // pipeline_events dual-write telemetry.
     const pipelineEventInsert = adminMocks.supabaseInserts.find(
-      (i: any) => i.table === "pipeline_events" && i.payload?.stage === 0,
+      (i: PipelineInsert) => i.table === "pipeline_events" && i.payload?.stage === 0,
     );
     expect(pipelineEventInsert).toBeTruthy();
-    expect(pipelineEventInsert.payload.decision_details.strip_changed).toBe(
+    expect(pipelineEventInsert!.payload.decision_details!.strip_changed).toBe(
       true,
     );
-    expect(pipelineEventInsert.payload.decision_details.strip_delta_chars).toBe(
+    expect(pipelineEventInsert!.payload.decision_details!.strip_delta_chars).toBe(
       -42,
     );
     expect(
-      "strip_fallback_reason" in pipelineEventInsert.payload.decision_details,
+      "strip_fallback_reason" in pipelineEventInsert!.payload.decision_details!,
     ).toBe(true);
     expect(
-      pipelineEventInsert.payload.decision_details.strip_fallback_reason,
+      pipelineEventInsert!.payload.decision_details!.strip_fallback_reason,
     ).toBeNull();
   });
 });
@@ -854,21 +903,21 @@ describe("single-emit refactor (Phase 82.2 D-01/D-02)", () => {
 
     // Single pipeline_events row with stage=0.
     const pipelineRows = adminMocks.supabaseInserts.filter(
-      (i: any) => i.table === "pipeline_events" && i.payload?.stage === 0,
+      (i: PipelineInsert) => i.table === "pipeline_events" && i.payload?.stage === 0,
     );
     expect(pipelineRows.length).toBe(1);
 
     const row = pipelineRows[0].payload;
     expect(row.decision).toBe("safe");
-    expect(row.decision_details.emit_source).toBe("operator-override");
-    expect(row.decision_details.safety_overridden).toBe(true);
+    expect(row.decision_details!.emit_source).toBe("operator-override");
+    expect(row.decision_details!.safety_overridden).toBe(true);
     expect(row.email_id).toBe("e-override-emit");
     expect(row.swarm_type).toBe("debtor-email");
     expect(row.triggered_by).toBe("pipeline");
     expect(row.automation_run_id).toBe("ar-override-emit");
 
     // Downstream emit fires — classifier/screen.requested.
-    const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
+    const sendNames = mockSend.mock.calls.map((c: unknown[]) => (c[0] as SendPayload)?.name);
     expect(sendNames).toContain("classifier/screen.requested");
   });
 
@@ -906,19 +955,19 @@ describe("single-emit refactor (Phase 82.2 D-01/D-02)", () => {
     });
 
     const pipelineRows = adminMocks.supabaseInserts.filter(
-      (i: any) => i.table === "pipeline_events" && i.payload?.stage === 0,
+      (i: PipelineInsert) => i.table === "pipeline_events" && i.payload?.stage === 0,
     );
     expect(pipelineRows.length).toBe(1);
 
     const row = pipelineRows[0].payload;
     expect(row.decision).toBe("over_budget");
-    expect(row.decision_details.emit_source).toBe("budget-breach");
-    expect(row.decision_details.reason).toBe("cost_cents 18 > 15");
+    expect(row.decision_details!.emit_source).toBe("budget-breach");
+    expect(row.decision_details!.reason).toBe("cost_cents 18 > 15");
     expect(row.email_id).toBe("e-budget-emit");
     expect(row.swarm_type).toBe("debtor-email");
     expect(row.triggered_by).toBe("pipeline");
 
-    const sendNames = mockSend.mock.calls.map((c: any) => c[0]?.name);
+    const sendNames = mockSend.mock.calls.map((c: unknown[]) => (c[0] as SendPayload)?.name);
     expect(sendNames).toContain("pipeline/budget_breached");
     expect(sendNames).not.toContain("classifier/screen.requested");
   });
@@ -954,10 +1003,10 @@ describe("single-emit refactor (Phase 82.2 D-01/D-02)", () => {
     });
 
     const pipelineRows = adminMocks.supabaseInserts.filter(
-      (i: any) => i.table === "pipeline_events" && i.payload?.stage === 0,
+      (i: PipelineInsert) => i.table === "pipeline_events" && i.payload?.stage === 0,
     );
     expect(pipelineRows.length).toBe(1);
-    expect(pipelineRows[0].payload.decision_details.emit_source).toBe(
+    expect(pipelineRows[0]!.payload.decision_details!.emit_source).toBe(
       "main-path",
     );
   });
@@ -993,12 +1042,12 @@ describe("single-emit refactor (Phase 82.2 D-01/D-02)", () => {
     });
 
     const pipelineRows = adminMocks.supabaseInserts.filter(
-      (i: any) => i.table === "pipeline_events" && i.payload?.stage === 0,
+      (i: PipelineInsert) => i.table === "pipeline_events" && i.payload?.stage === 0,
     );
     expect(pipelineRows.length).toBe(1);
-    expect(pipelineRows[0].payload.decision_details.emit_source).toBe(
+    expect(pipelineRows[0]!.payload.decision_details!.emit_source).toBe(
       "main-path",
     );
-    expect(pipelineRows[0].payload.decision).toBe("injection_suspected");
+    expect(pipelineRows[0]!.payload.decision).toBe("injection_suspected");
   });
 });

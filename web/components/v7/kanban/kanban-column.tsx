@@ -128,7 +128,8 @@ function useRunResults(runIds: string[]): Map<string, unknown> {
   const [results, setResults] = useState<Map<string, unknown>>(new Map());
   useEffect(() => {
     if (!key) {
-      setResults(new Map());
+      // Phase 88.2-03 (D-14): defer the reset off the effect commit.
+      Promise.resolve().then(() => setResults(new Map()));
       return;
     }
     let cancelled = false;

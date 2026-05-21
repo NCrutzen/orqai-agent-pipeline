@@ -90,7 +90,18 @@ Return ONLY valid JSON, no markdown:
 }
 </output_format>`;
 
-async function classify(email: Email): Promise<any | null> {
+// Phase 88.2-03 (D-10): LLM JSON output, narrow to the schema fields the
+// caller actually reads. Properties match the JSON schema in <output_format>.
+type CopyClassification = {
+  is_request_to_send_documents?: boolean;
+  doc_type?: string | null;
+  document_reference?: string | null;
+  other_doc_hint?: string | null;
+  confidence?: "high" | "medium" | "low";
+  language?: "nl" | "fr" | "en" | "de" | "other";
+  reasoning?: string;
+};
+async function classify(email: Email): Promise<CopyClassification | null> {
   const userMessage = [
     `Mailbox: ${email.mailbox}`,
     `From: ${email.sender_email}`,
@@ -116,8 +127,9 @@ async function classify(email: Email): Promise<any | null> {
       content = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
     }
     return JSON.parse(typeof content === "string" ? content : JSON.stringify(content));
-  } catch (err: any) {
-    console.error(`  [${email.id}] ${err.message || err}`);
+  } catch (err: unknown) {
+    const e = err as Error;
+    console.error(`  [${email.id}] ${e.message || err}`);
     return null;
   }
 }

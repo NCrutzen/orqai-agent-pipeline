@@ -82,7 +82,7 @@ describe("DashboardMetricsSchema", () => {
     const result = DashboardMetricsSchema.safeParse(withExtra);
     expect(result.success).toBe(true);
     if (result.success)
-      expect((result.data as any).futureField).toBe("should pass through");
+      expect((result.data as unknown as { futureField: string }).futureField).toBe("should pass through");
   });
 });
 

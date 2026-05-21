@@ -55,14 +55,48 @@ function makeAdmin() {
     automationRunsUpdates.push(row);
     return { eq: updateEqFn };
   });
+  // Phase 88.2-04: verdict-worker now reads email_pipeline.emails via
+  // .schema("email_pipeline").from("emails").select(...).eq(...).maybeSingle()
+  // for cleanup-descriptor and dispatch paths. A minimal read chain that
+  // resolves to { data: null, error: null } is enough — the cleanup path
+  // exits early when the email row is null, and the dispatch path treats a
+  // missing id as a no-op (the test doesn't assert on the side-effect of
+  // the lookup, only on inngest.send + automation_runs writes).
+  const makeReadChain = () => {
+    const chain: Record<string, unknown> = {};
+    chain.select = vi.fn(() => chain);
+    chain.eq = vi.fn(() => chain);
+    chain.or = vi.fn(() => chain);
+    chain.limit = vi.fn(() => chain);
+    chain.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
+    chain.single = vi.fn(async () => ({ data: null, error: null }));
+    // `.limit()` terminates as a thenable returning { data: [], error: null }
+    // — used by the dedup check on automation_runs.
+    (chain as { then?: unknown }).then = (
+      onF: (r: { data: unknown[]; error: unknown }) => unknown,
+    ) => Promise.resolve(onF({ data: [], error: null }));
+    return chain;
+  };
+  const schemaProxy = (_schema: string) => ({
+    from: vi.fn((_t: string) => makeReadChain()),
+  });
   return {
+    schema: vi.fn(schemaProxy),
     from: vi.fn((table: string) => {
       if (table === "automation_runs") {
-        return { insert: insertFn, update: updateFn };
+        // Phase 88.2-04: verdict-worker now also reads automation_runs to
+        // de-dupe pending dispatches (.select("id").eq().eq().limit().maybeSingle()).
+        // Return empty/null so the dispatch path always treats it as new.
+        return {
+          insert: insertFn,
+          update: updateFn,
+          select: vi.fn(() => makeReadChain()),
+        };
       }
       return {
         insert: vi.fn(async () => ({ data: null, error: null })),
         update: vi.fn(() => ({ eq: vi.fn(async () => ({})) })),
+        select: vi.fn(() => makeReadChain()),
       };
     }),
   };

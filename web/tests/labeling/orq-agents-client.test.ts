@@ -62,9 +62,19 @@ describe("invokeOrqAgent (registry-driven)", () => {
     vi.doMock("@/lib/supabase/admin", () => ({
       createAdminClient: () => buildMockAdmin(),
     }));
+    // Phase 88.2-04: Orq response envelope is now { output: [{ parts: [{ text }]}] }
+    // where text is JSON-stringified. See lib/automations/orq-agents/client.ts:210.
     const fetchSpy = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ verdict: "yes", reason: "found it" }),
+      json: async () => ({
+        output: [
+          {
+            parts: [
+              { text: JSON.stringify({ verdict: "yes", reason: "found it" }) },
+            ],
+          },
+        ],
+      }),
     });
     vi.stubGlobal("fetch", fetchSpy);
 
@@ -75,22 +85,41 @@ describe("invokeOrqAgent (registry-driven)", () => {
     expect(out.raw).toEqual({ verdict: "yes", reason: "found it" });
     expect(out.agent.orqai_id).toBe("01TESTSLUG");
 
+    // Phase 88.2-04: agents-path migrated to /v2/agents/{agent_key}/responses
+    // (keyed by agent_key, NOT the orqai_id slug). Body shape is now
+    // { message: { role, parts: [{kind, text}] }, configuration: { blocking } }.
+    // Per-call `inputs` was removed — the JSON inputs are stringified into the
+    // user message text. See lib/automations/orq-agents/client.ts:167-180.
     const url = fetchSpy.mock.calls[0][0];
-    expect(url).toBe("https://api.orq.ai/v2/agents/01TESTSLUG/invoke");
+    expect(url).toBe("https://api.orq.ai/v2/agents/test-agent/responses");
 
     const init = fetchSpy.mock.calls[0][1];
     expect(init.headers.authorization).toBe("Bearer test-key");
     const body = JSON.parse(init.body as string);
-    expect(body.inputs).toEqual({ foo: "bar" });
+    expect(body.message.role).toBe("user");
+    expect(body.message.parts[0].text).toContain("foo");
+    expect(body.configuration.blocking).toBe(true);
   });
 
-  it("builds response_format with strict json_schema from registry output_schema", async () => {
+  // Phase 88.2-04: per-call response_format was removed when client migrated
+  // to the /v2/agents/{agent_key}/responses path — schema enforcement now
+  // lives server-side on the Orq agent. Test intent no longer maps to
+  // production. See .planning/todos/pending/2026-05-21-test-fixture-orq-response-format-server-side.md
+  it.skip("builds response_format with strict json_schema from registry output_schema (see .planning/todos/pending/2026-05-21-test-fixture-orq-response-format-server-side.md)", async () => {
     vi.doMock("@/lib/supabase/admin", () => ({
       createAdminClient: () => buildMockAdmin(),
     }));
     const fetchSpy = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ verdict: "yes", reason: "n/a" }),
+      json: async () => ({
+        output: [
+          {
+            parts: [
+              { text: JSON.stringify({ verdict: "yes", reason: "n/a" }) },
+            ],
+          },
+        ],
+      }),
     });
     vi.stubGlobal("fetch", fetchSpy);
 
@@ -110,7 +139,11 @@ describe("invokeOrqAgent (registry-driven)", () => {
     ]);
   });
 
-  it("unwraps Orq's optional { output: ... } envelope", async () => {
+  it("unwraps Orq's output[].parts[].text JSON envelope and parses to .raw", async () => {
+    // Phase 88.2-04: replaces the legacy "{ output: {...} } envelope" shape.
+    // Orq /responses now returns output as an array of role/parts, where
+    // parts[0].text holds the JSON-stringified agent payload (optionally
+    // fenced as ```json ... ```; the client strips fences before JSON.parse).
     vi.doMock("@/lib/supabase/admin", () => ({
       createAdminClient: () => buildMockAdmin(),
     }));
@@ -119,8 +152,21 @@ describe("invokeOrqAgent (registry-driven)", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
-          output: { verdict: "yes", reason: "wrapped" },
-          metadata: { tokens: 100 },
+          output: [
+            {
+              role: "assistant",
+              parts: [
+                {
+                  kind: "text",
+                  text:
+                    "```json\n" +
+                    JSON.stringify({ verdict: "yes", reason: "wrapped" }) +
+                    "\n```",
+                },
+              ],
+            },
+          ],
+          usage: { input_tokens: 50, output_tokens: 50, total_tokens: 100 },
         }),
       }),
     );

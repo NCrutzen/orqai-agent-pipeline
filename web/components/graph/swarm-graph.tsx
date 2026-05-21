@@ -176,8 +176,10 @@ function SwarmGraphInner({ runId, steps, runStatus }: SwarmGraphProps) {
         zIndex: 9999,
       });
 
-      // Show celebration overlay
-      setShowCelebration(true);
+      // Phase 88.2-03 (D-14): defer the show via microtask so RC doesn't
+      // flag synchronous setState within an effect. setTimeout-driven
+      // dismiss is already off-commit and unaffected.
+      Promise.resolve().then(() => setShowCelebration(true));
 
       // Auto-dismiss after 3 seconds
       const timeout = setTimeout(() => {

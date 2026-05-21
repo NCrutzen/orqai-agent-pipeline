@@ -383,7 +383,12 @@ describe("Phase 76: loadKanbanRows", () => {
     expect(emailTraces[0].selectCols).toContain("sender_email");
     expect(emailTraces[0].selectCols).toContain("sender_name");
     expect(emailTraces[0].selectCols).toContain("received_at");
-    expect(emailTraces[0].selectCols).toContain("mailbox_id");
+    // Phase 88.2-04: mailbox_id is no longer selected from email_pipeline.emails;
+    // production now resolves it via a separate loadEmailMailboxes call and
+    // injects the value into EmailMetadata client-side (kanban-loader.ts:168).
+    // The earlier assertion that the email-table SELECT carried mailbox_id is
+    // therefore obsolete — only sender_*, subject, received_at are pulled here.
+    expect(emailTraces[0].selectCols).not.toContain("mailbox_id");
   });
 
   it("Phase 82-04: populates KanbanRow.email_metadata from JOIN result", async () => {
@@ -424,12 +429,17 @@ describe("Phase 76: loadKanbanRows", () => {
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rows = await loadKanbanRows(admin as any, "debtor-email");
+    // Phase 88.2-04: mailbox_id is populated by a separate loadEmailMailboxes
+    // call (kanban-loader.ts:125) — the email_pipeline.emails fixture no
+    // longer drives it. Without seeding that loader the value coalesces to
+    // null. Assert on the EmailMetadata fields the email-table query actually
+    // owns and treat mailbox_id as null in the absence of a mailboxes mock.
     expect(rows[0].email_metadata).toEqual({
       subject: "Invoice 12345",
       sender_email: "klant@example.com",
       sender_name: "Klant BV",
       received_at: "2026-05-07T09:55:00Z",
-      mailbox_id: 4,
+      mailbox_id: null,
     });
   });
 

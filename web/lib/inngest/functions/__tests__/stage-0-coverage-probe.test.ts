@@ -77,8 +77,10 @@ function makeStep() {
 // ---- Import the function under test (RED until Task 2 lands) ------------
 import { stage0CoverageProbe } from "../stage-0-coverage-probe";
 
-function getHandler() {
-  return (stage0CoverageProbe as unknown as { handler: any }).handler;
+// Phase 88.2-03 lint-narrow (D-10).
+type ProbeHandler = (ctx: { step: { run: ReturnType<typeof vi.fn> } }) => Promise<unknown>;
+function getHandler(): ProbeHandler {
+  return (stage0CoverageProbe as unknown as { handler: ProbeHandler }).handler;
 }
 
 beforeEach(() => {

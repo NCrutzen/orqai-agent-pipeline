@@ -265,7 +265,7 @@ export function StageStep({ stage, onMarkDirty, onCancelDirty, onSubmitDirty }: 
                 className="text-[12px] leading-[1.3]"
                 style={{ color: "var(--v7-muted)", opacity: 0.7 }}
               >
-                Stage didn't run — override to set
+                Stage didn&apos;t run — override to set
               </span>
               <button
                 type="button"

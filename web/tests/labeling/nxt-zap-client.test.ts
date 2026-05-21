@@ -61,7 +61,7 @@ type ChangeHandler = (payload: { new: unknown }) => void;
 function buildMockAdmin(opts: {
   initialRow?: { id: string; status: string; result: unknown; error: string | null } | null;
 }) {
-  let captured: { handler: ChangeHandler | null; subscribeCb: SubscribeCb | null } = {
+  const captured: { handler: ChangeHandler | null; subscribeCb: SubscribeCb | null } = {
     handler: null,
     subscribeCb: null,
   };

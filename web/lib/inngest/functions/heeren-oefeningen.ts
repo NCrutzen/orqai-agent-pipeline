@@ -267,8 +267,12 @@ export const createMonthlyInvoiceDrafts = inngest.createFunction(
     { event: "automation/heeren-oefeningen.create-invoices" },
   ],
   async ({ event, step, logger }) => {
-    const triggeredBy = String((event as any)?.data?.triggeredBy ?? "cron");
-    const rawEnv = (event as any)?.data?.environment;
+    // Phase 88.2-03 lint-narrow (D-11 fallback — D-10 inline interface for
+    // event.data; this trigger has no registered EventSchema).
+    // TODO(phase-88.2-followup): register "automation/heeren-oefeningen.create-invoices" schema in lib/inngest/client.ts
+    const eventData = (event as { data?: { triggeredBy?: string; environment?: string } })?.data;
+    const triggeredBy = String(eventData?.triggeredBy ?? "cron");
+    const rawEnv = eventData?.environment;
     const nxtEnv: NxtEnvironment = rawEnv === "acceptance" ? "acceptance" : "production";
 
     // Step 1: haal staging records op (processed, nog niet gefactureerd, laatste 2 maanden)

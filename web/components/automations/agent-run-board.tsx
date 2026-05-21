@@ -105,6 +105,10 @@ function AgentRunBoardInner({
   const prefix = useMemo(() => commonPrefix(automations), [automations]);
   const { runs, status, loading } = useAutomationRuns();
   const [selected, setSelected] = useState<AutomationRun | null>(null);
+  // Phase 88.2-03 (D-14): RC flagged Date.now() inside useMemo as impure.
+  // Lift to state with a lazy initializer — board is rebuilt on prop/runs
+  // change, not on wall-clock tick, which matches prior behaviour.
+  const [now] = useState(() => Date.now());
 
   const { grouped, archive, counts } = useMemo(() => {
     const grouped: Record<AgentRunStage, AutomationRun[]> = {
@@ -115,7 +119,6 @@ function AgentRunBoardInner({
       skipped: [],
     };
 
-    const now = Date.now();
     const DAY = 24 * 60 * 60 * 1000;
 
     for (const run of runs) {
@@ -147,7 +150,7 @@ function AgentRunBoardInner({
     };
 
     return { grouped, archive, counts };
-  }, [runs]);
+  }, [runs, now]);
 
   const stats = (
     <div className="flex items-center gap-2">

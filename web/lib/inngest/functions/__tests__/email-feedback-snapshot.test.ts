@@ -106,16 +106,28 @@ function makeStep() {
 // ---- Import the function under test (RED until Task 2 lands) -----------
 import { emailFeedbackSnapshot } from "../email-feedback-snapshot";
 
-function getHandler() {
-  return (emailFeedbackSnapshot as unknown as { handler: any }).handler;
+// Phase 88.2-03 lint-narrow (D-10): handler/config/trigger have shape that's
+// only consumed in this test; inline minimal types instead of `any`.
+type SnapshotResult = {
+  run_id?: string;
+  snapshot_date?: string;
+  row_count?: number;
+  storage_path?: string;
+};
+type SnapshotHandler = (ctx: { step: { run: ReturnType<typeof vi.fn> } }) => Promise<SnapshotResult>;
+type SnapshotConfig = { id?: string; retries?: number };
+type SnapshotTrigger = { cron?: string };
+
+function getHandler(): SnapshotHandler {
+  return (emailFeedbackSnapshot as unknown as { handler: SnapshotHandler }).handler;
 }
 
-function getConfig() {
-  return (emailFeedbackSnapshot as unknown as { __config: any }).__config;
+function getConfig(): SnapshotConfig {
+  return (emailFeedbackSnapshot as unknown as { __config: SnapshotConfig }).__config;
 }
 
-function getTrigger() {
-  return (emailFeedbackSnapshot as unknown as { __trigger: any }).__trigger;
+function getTrigger(): SnapshotTrigger {
+  return (emailFeedbackSnapshot as unknown as { __trigger: SnapshotTrigger }).__trigger;
 }
 
 beforeEach(() => {

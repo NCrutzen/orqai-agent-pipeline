@@ -30,7 +30,7 @@ export async function validateZapierData(
     return {
       status: "failed",
       warnings: [`Schema validation failed: ${parsed.error.message}`],
-      metrics: rawMetrics as any,
+      metrics: rawMetrics as z.infer<typeof ZapierMetricsSchema>,
     };
   }
 

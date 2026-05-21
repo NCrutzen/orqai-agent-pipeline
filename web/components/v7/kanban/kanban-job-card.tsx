@@ -182,9 +182,14 @@ export function KanbanJobCard({
         //   - A JSON blob with { timeline, latest_error, entity_id } from
         //     the entity-grouped bridge → extract the latest_error (if any)
         //     and the number of runs for a compact summary.
+        // Phase 88.2-03 (D-14): RC flagged constructing JSX inside the
+        // try-block. Compute the rendered string outside try/catch first,
+        // then return the JSX after — no JSX inside the try body.
         const raw = job.description;
         if (!raw) return null;
         const trimmed = raw.trimStart();
+        let summary: string | null = null;
+        let usePlain = true;
         if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
           try {
             const parsed = JSON.parse(raw) as {
@@ -194,20 +199,23 @@ export function KanbanJobCard({
             const steps = Array.isArray(parsed.timeline)
               ? parsed.timeline.length
               : 0;
-            const summary =
+            summary =
               parsed.latest_error ??
               (steps > 0
                 ? `${steps} log ${steps === 1 ? "entry" : "entries"}`
                 : null);
-            if (!summary) return null;
-            return (
-              <p className="mt-2 line-clamp-2 text-[13px] leading-[1.4] text-[var(--v7-muted)] m-0">
-                {summary}
-              </p>
-            );
+            usePlain = false;
           } catch {
             // Fall through to plain render below.
           }
+        }
+        if (!usePlain) {
+          if (!summary) return null;
+          return (
+            <p className="mt-2 line-clamp-2 text-[13px] leading-[1.4] text-[var(--v7-muted)] m-0">
+              {summary}
+            </p>
+          );
         }
         return (
           <p className="mt-2 line-clamp-2 text-[13px] leading-[1.4] text-[var(--v7-muted)] m-0">

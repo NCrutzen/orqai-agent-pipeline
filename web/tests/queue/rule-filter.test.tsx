@@ -32,19 +32,22 @@ function buildRecorder(): {
   return { admin, filterCalls };
 }
 
-describe("D-15: ?rule=X filter applies via JSONB path on automation_runs.result", () => {
-  it("appends .eq('result->predicted->>rule', ruleKey) to the list query", async () => {
+describe("D-15: ?rule=X filter applies via JSONB path on automation_runs.decision_details", () => {
+  // Phase 88.2-04: production path is decision_details->>regex_rule_id (see
+  // web/app/(dashboard)/automations/[swarm]/stage-1/page.tsx:637), not the
+  // historic result->predicted->>rule. Fixture refreshed to match.
+  it("appends .eq('decision_details->>regex_rule_id', ruleKey) to the list query", async () => {
     const { loadPageData } = await import(
       "@/app/(dashboard)/automations/[swarm]/stage-1/page"
     );
     const { admin, filterCalls } = buildRecorder();
     await loadPageData({ rule: "subject_paid_marker" }, admin as never, "debtor-email");
 
-    const onAr = filterCalls.filter((c) => c.table === "automation_runs");
-    expect(onAr).toContainEqual(
+    const onPe = filterCalls.filter((c) => c.table === "pipeline_events");
+    expect(onPe).toContainEqual(
       expect.objectContaining({
         method: "eq",
-        args: ["result->predicted->>rule", "subject_paid_marker"],
+        args: ["decision_details->>regex_rule_id", "subject_paid_marker"],
       }),
     );
   });
@@ -56,12 +59,12 @@ describe("D-15: ?rule=X filter applies via JSONB path on automation_runs.result"
     const { admin, filterCalls } = buildRecorder();
     await loadPageData({}, admin as never, "debtor-email");
 
-    const onAr = filterCalls.filter((c) => c.table === "automation_runs");
-    const ruleEq = onAr.find(
+    const onPe = filterCalls.filter((c) => c.table === "pipeline_events");
+    const ruleEq = onPe.find(
       (c) =>
         c.method === "eq" &&
         Array.isArray(c.args) &&
-        c.args[0] === "result->predicted->>rule",
+        c.args[0] === "decision_details->>regex_rule_id",
     );
     expect(ruleEq).toBeUndefined();
   });

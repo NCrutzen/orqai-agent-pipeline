@@ -36,6 +36,14 @@ function makeReadChain(schema: string | null, table: string) {
       filter.val = val;
       return chain;
     },
+    // Phase 88.2-04: handler now uses .or() for the source_id/internet_message_id
+    // dual-column lookup on email_pipeline.emails. We record the filter expr
+    // verbatim for assertion surfaces and return the chain.
+    or: (expr: string) => {
+      filter.col = "__or";
+      filter.val = expr;
+      return chain;
+    },
     maybeSingle: async () => {
       ops.push({
         schema,
@@ -99,6 +107,22 @@ vi.mock("@/lib/automations/debtor-email/coordinator/detect-emotion", () => ({
   detectEmotion: (...args: unknown[]) => detectEmotionMock(...args),
 }));
 
+// Phase 88.2-04: handler now loads a brand register (Phase 69 / CANO-01).
+// We mock the loader at the module boundary so tests don't need to seed
+// `swarms`/`swarm_intents` rows in the admin mock.
+const loadBrandRegisterMock = vi.fn(async (_admin: unknown, _swarm: string, entity: string) => ({
+  code: entity,
+  display_name: entity === "sicli-sud" ? "Sicli Sud" : "Smeba",
+  register_language: entity === "sicli-sud" ? "fr" : "nl",
+  register_dialect: null,
+  signoff_phrase: "",
+  formal_address: false,
+}));
+vi.mock("@/lib/swarms/brand-register", () => ({
+  loadBrandRegister: (...args: unknown[]) =>
+    loadBrandRegisterMock(...(args as [unknown, string, string])),
+}));
+
 vi.mock("@/lib/inngest/client", () => ({
   inngest: {
     createFunction: (
@@ -142,7 +166,10 @@ function baseEvent(overrides: Partial<EventData> = {}): EventData {
     automation_run_id: "run-1",
     swarm_type: "debtor-email",
     category_key: "invoice_copy_request",
-    message_id: "<msg-1@smeba.nl>",
+    // Phase 88.2-04: handler now validates message_id against
+    // /^[A-Za-z0-9_\-/=+.]+$/ (Outlook immutable-id format, not RFC 5322
+    // angle-bracketed addr-spec). See classifier-invoice-copy-handler.ts:115.
+    message_id: "AAMkAGI2TG93AAA=",
     source_mailbox: "debiteuren@smeba.nl",
     ...overrides,
   };
@@ -168,7 +195,9 @@ const BODY_AGENT_OK = {
   body_html:
     '<p>Beste Jan,</p><p>Hartelijk dank voor uw bericht. Hierbij treft u in de bijlage een kopie aan van factuur 33052208.</p><p>Heeft u vragen? Dan hoor ik het graag.<br>Team Debiteuren Smeba</p><hr style="border:none;border-top:1px solid #ccc;margin:20px 0 8px"><div style="font-family:monospace;font-size:11px;color:#888">🤖 auto-generated · intent: copy_document_request · confidence: high · ref: 33052208 · body_version: 2026-04-23.v1 · email_id: e-1</div>',
   detected_tone: "neutral" as const,
-  body_version: "2026-04-23.v1" as const,
+  // Phase 88.2-04: BODY_VERSION bumped from "2026-04-23.v1" to "2026-05-04.v2"
+  // (see lib/automations/debtor-email/coordinator/types.ts:79).
+  body_version: "2026-05-04.v2" as const,
 };
 
 beforeEach(() => {
@@ -237,7 +266,7 @@ describe("classifier-invoice-copy-handler", () => {
     });
     const draftBody = JSON.parse(fetchSpy.mock.calls[1][1].body as string);
     expect(draftBody.mode).toBe("reply");
-    expect(draftBody.messageId).toBe("<msg-1@smeba.nl>");
+    expect(draftBody.messageId).toBe("AAMkAGI2TG93AAA=");
     expect(draftBody.bodyHtml).toContain("factuur 33052208");
     expect(draftBody.env).toBe("production"); // dry_run=false → production
 
@@ -248,8 +277,9 @@ describe("classifier-invoice-copy-handler", () => {
     );
     const inputs = invokeOrqAgentMock.mock.calls[0][1] as Record<string, unknown>;
     expect(inputs.email_id).toBe("e-1");
-    expect(inputs.email_entity).toBe("smeba");
-    expect(inputs.email_language).toBe("nl");
+    // Phase 88.2-04: email_entity/email_language → entity_brand/language.
+    expect(inputs.entity_brand).toBe("smeba");
+    expect(inputs.language).toBe("nl");
     expect(inputs.intent_result_document_reference).toBe("33052208");
     expect(inputs.intent_result_intent).toBe("copy_document_request");
     expect(inputs.emotion_trigger_match).toBe(false);
@@ -381,9 +411,11 @@ describe("classifier-invoice-copy-handler", () => {
     });
     vi.stubGlobal("fetch", fetchSpy);
 
+    // Phase 88.2-04: error format expanded to include status / request_id /
+    // details fields. We only assert on the route name + reason now.
     await expect(
       invokeHandler(baseEvent({ automation_run_id: "run-4" })),
-    ).rejects.toThrow(/fetch-document failed: timeout/);
+    ).rejects.toThrow(/fetch-document failed: reason=timeout/);
 
     expect(invokeOrqAgentMock).not.toHaveBeenCalled();
     // No email_labels insert, no run-status update beyond what step.run already did.
@@ -459,8 +491,13 @@ describe("classifier-invoice-copy-handler", () => {
       }),
     );
 
+    // Phase 88.2-04: entity/language are now under top-level `entity_brand` +
+    // `language` and the nested `brand_register` envelope (Phase 69).
     const inputs = invokeOrqAgentMock.mock.calls[0][1] as Record<string, unknown>;
-    expect(inputs.email_entity).toBe("sicli-sud");
-    expect(inputs.email_language).toBe("fr");
+    expect(inputs.entity_brand).toBe("sicli-sud");
+    expect(inputs.language).toBe("fr");
+    const brandReg = inputs.brand_register as Record<string, unknown>;
+    expect(brandReg.code).toBe("sicli-sud");
+    expect(brandReg.register_language).toBe("fr");
   });
 });

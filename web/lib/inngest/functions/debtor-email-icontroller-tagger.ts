@@ -74,7 +74,7 @@ function parseMsgIdFromUrl(url: string): number | null {
 // Billtrust; the live-mode gate in classifier-label-resolver
 // (dry_run=false) already implies production traffic. Mirrors the
 // hard-coded "production" arg in debtor-email-icontroller-cleanup-worker.
-const ENV: "production" = "production";
+const ENV = "production" as const;
 
 export const debtorEmailIcontrollerTagger = inngest.createFunction(
   {

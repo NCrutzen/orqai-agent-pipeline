@@ -90,7 +90,7 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 
 ## Phases
 
-### v8.1 Validation + Visibility (Phases 83-89, 88, 88.1) — ACTIVE
+### v8.1 Validation + Visibility (Phases 83-89, 88, 88.1, 88.2) — ACTIVE
 
 **Milestone goal:** Observe → understand → THEN automate. Fix the input + calibration + visibility layers so that Stage 3 intent distribution reflects reality, not artifacts of upstream parsing bugs or impoverished prompt context.
 
@@ -131,7 +131,30 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
   - [x] 88-03-PLAN.md — Wave 1: D-02 verdict-pending RPC + chip semantics rewire + NeedsActionChip + ?needs_action URL deletion
   - [x] 88-04-PLAN.md — Wave 2: D-03 Stage 4 chip-strip swap (4 outcome-state chips) + conditional width-regression fix per Wave 0 Q3
 - [ ] **Phase 88.1: Stage-named Inngest functions + Stage 2 telemetry alignment** — rename `classifier-label-resolver` → `stage-2-customer-resolver`, `debtor-email-icontroller-tagger` → `stage-2-icontroller-label-applier`, `debtor-email-icontroller-cleanup-worker` → `stage-1-icontroller-noise-cleanup`. Lock tagger as Stage 2. Higher blast radius — own deploy window. Could slip to V9 if v8.1 calendar tightens.
-- [ ] `/gsd-audit-milestone v8.1` — formal closure after Phases 87 + 88 (+ 88.1 if not slipped) pass.
+- [ ] **Phase 88.2: Tier-2 CI backlog cleanup** (INSERTED) — clear the multi-developer Tier-2 backlog: land the `tier-2-ci-pr-checks-workflow` (see `.planning/todos/pending/2026-05-20-tier-2-ci-pr-checks-workflow.md`) so the workspace gate has a CI counterpart, and burn down any related Tier-2 todos blocking Tier-3 branch protection. Closes the gap between the active CLAUDE.md workspace gate and enforced PR checks.
+- [ ] `/gsd-audit-milestone v8.1` — formal closure after Phases 87 + 88 (+ 88.1, 88.2 if not slipped) pass.
+
+---
+
+### Phase 88.2: Tier-2 CI backlog cleanup
+
+**Goal:** Make the now-live `pr-checks.yml` gates pass green end-to-end on a clean PR against `main` — burn down 194 ESLint errors to 0 and resolve 47 failing Vitest tests across 14 files (or `.skip()` with tracked todos), so every subsequent PR is mechanically gated by working checks instead of red checks the team learns to ignore.
+
+**Scope:** ESLint config tuning (ignore `lib/automations/**`, fix `argsIgnorePattern`); targeted lint fixes in `lib/inngest/`, `app/(dashboard)/`, `debtor-email-analyzer/src/`, `components/v7/`, `components/automations/`, `tests/`, `lib/zapier/`, `lib/dashboard/`, `components/graph/`, `app/api/`; React Compiler errors fixed at source; Vitest mock for `next/headers#cookies`; Supabase admin mock chain extension; fixture refresh OR `.skip()`+todo; one doc note that Tier-2 CI gate is live and green; phase-PR cycle proving green checks.
+
+**Out of scope:** Refactoring `lib/automations/` away from `any`, rewriting failing tests as new tests, testing-framework migration, Tier-3 governance (CODEOWNERS, signed commits), Playwright e2e in CI, warning cleanup beyond what falls out of `argsIgnorePattern`.
+
+**Acceptance:** all 5 `pr-checks /*` checks green on the phase PR + one follow-up PR; cold-cache run ≤ 8 min, warm-cache ≤ 5 min; lint/test/build/typecheck/codegen all exit 0 on head of phase branch.
+
+**Spec:** `.planning/phases/88.2-tier-2-ci-backlog-cleanup/88.2-SPEC.md` (rev2 — narrow scope to greening the live gates).
+**Independent of 83-87, 88.1.**
+
+**Plans:** 5 plans
+- [ ] 88.2-01-PLAN.md — ESLint config tune (globalIgnores lib/automations + argsIgnorePattern); foundation wave retires ~108 errors + 163 warnings
+- [ ] 88.2-02-PLAN.md — Test infra: global next/headers mock in web/test-setup.ts + new web/test-utils/supabase-mock.ts Proxy mock; retires ~38 test failures
+- [ ] 88.2-03-PLAN.md — Lint burn-down (any-narrow in lib/inngest/ + debtor-email-analyzer/src/ + long-tail; require→import; 10 React Compiler errors at source per D-14)
+- [ ] 88.2-04-PLAN.md — Fixture drift fix-or-skip per D-07/D-08/D-09 (≤ 10 skips total; each with .planning/todos/pending/ todo)
+- [ ] 88.2-05-PLAN.md — Verify + PR cycle + CI timing (R-3/R-4/R-5; cold ≤ 8 min, warm ≤ 5 min on follow-up doc-only PR)
 
 ---
 

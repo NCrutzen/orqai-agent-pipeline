@@ -102,8 +102,8 @@ async function categorizeEmail(email: EmailRow): Promise<AnalysisResult | null> 
     }
 
     return JSON.parse(typeof content === "string" ? content : JSON.stringify(content));
-  } catch (err: any) {
-    console.error(`  LLM error for ${email.id}: ${err.message}`);
+  } catch (err: unknown) {
+    console.error(`  LLM error for ${email.id}: ${(err as Error).message}`);
     return null;
   }
 }

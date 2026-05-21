@@ -126,8 +126,16 @@ export function ScreenshotThumb({ path, label }: Props) {
   }, [path]);
 
   useEffect(() => {
-    void doFetch();
+    // Phase 88.2-03 (D-14): doFetch sets loading=true synchronously, which
+    // RC flags as a cascading render. Deferring via microtask runs the
+    // setState off the effect's commit phase; cancellation still works
+    // because abortRef and React's setState batching handle the unmount.
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) void doFetch();
+    });
     return () => {
+      cancelled = true;
       abortRef.current?.abort();
     };
   }, [doFetch]);

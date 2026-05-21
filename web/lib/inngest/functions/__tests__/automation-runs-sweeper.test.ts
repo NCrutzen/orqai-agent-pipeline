@@ -97,8 +97,11 @@ function makeStep() {
 // Wave 3 contract — this import will fail RED until implemented.
 import { stage0StaleSweeper } from "../automation-runs-sweeper";
 
-function getHandler() {
-  return (stage0StaleSweeper as unknown as { handler: any }).handler;
+// Phase 88.2-03 lint-narrow (D-10).
+type SweeperCtx = { step: { run: ReturnType<typeof vi.fn> }; event?: { data?: Record<string, unknown> } };
+type SweeperHandler = (ctx: SweeperCtx) => Promise<unknown>;
+function getHandler(): SweeperHandler {
+  return (stage0StaleSweeper as unknown as { handler: SweeperHandler }).handler;
 }
 
 beforeEach(() => {

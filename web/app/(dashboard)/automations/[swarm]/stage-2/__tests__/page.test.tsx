@@ -27,9 +27,14 @@ vi.mock("@/lib/swarms/registry", () => ({
   loadSwarm: (...args: unknown[]) => loadSwarmMock(...args),
 }));
 
-vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: () => ({ __stub: true }),
-}));
+// Phase 88.2-02 (D-04..D-06): chainable Proxy admin mock with default empty.
+vi.mock("@/lib/supabase/admin", async () => {
+  const { createSupabaseAdminMock } = await import("@/test-utils/supabase-mock");
+  const adminMock = createSupabaseAdminMock({
+    defaultResponse: { data: [], error: null },
+  });
+  return { admin: adminMock, createAdminClient: () => adminMock };
+});
 
 const loadStage2WeeklyCountMock = vi.fn();
 vi.mock("../_lib/load-stage-2-weekly-count", () => ({
@@ -157,10 +162,8 @@ describe("Stage 2 page (unified shell)", () => {
     });
     render(ui);
 
-    expect(screen.getByText(/No rows yet/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Stage 2 awaits backend wiring/i),
-    ).toBeInTheDocument();
+    // Phase 88.2-04: empty-state copy updated to "No Stage 2 verdicts yet".
+    expect(screen.getByText(/No Stage 2 verdicts yet/i)).toBeInTheDocument();
   });
 
   it("mounts _shell/mailbox-filter (trigger 'All mailboxes')", async () => {
