@@ -80,8 +80,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   const admin = createAdminClient();
   const isoNow = new Date().toISOString();
 
-  // Registry gate: check swarms.enabled. If the registry row is disabled or
-  // missing, refuse rather than silently dispatching.
+  // Registry gate 1 — swarm row exists + enabled.
   const swarmRes = await admin
     .schema("public")
     .from("swarms")
@@ -107,6 +106,36 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       reason: `swarms.enabled=false for ${SWARM_TYPE}`,
     });
   }
+
+  // Registry gate 2 — per-mailbox enablement + entity resolution.
+  // Mirrors debtor.labeling_settings. Adding a new info@ mailbox is one
+  // INSERT into public.info_routing_mailbox_settings; no code/deploy.
+  const mailboxRes = await admin
+    .schema("public")
+    .from("info_routing_mailbox_settings")
+    .select("source_mailbox, entity, ingest_enabled")
+    .eq("source_mailbox", sourceMailbox)
+    .maybeSingle();
+  if (!mailboxRes.data) {
+    return NextResponse.json(
+      {
+        action: "failed",
+        messageId,
+        source_mailbox: sourceMailbox,
+        error: `unknown_mailbox: ${sourceMailbox} not in public.info_routing_mailbox_settings`,
+      },
+      { status: 400 },
+    );
+  }
+  if (!mailboxRes.data.ingest_enabled) {
+    return NextResponse.json({
+      action: "skipped_disabled",
+      messageId,
+      source_mailbox: sourceMailbox,
+      reason: `ingest_enabled=false for ${sourceMailbox}`,
+    });
+  }
+  const resolvedEntity = mailboxRes.data.entity;
 
   // Fetch the email. Graph body endpoint omits subject/from, so we hit
   // meta + body in parallel.
@@ -143,7 +172,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       status: is404 ? "completed" : "failed",
       swarm_type: SWARM_TYPE,
       topic: null,
-      entity: "smeba",
+      entity: resolvedEntity,
       mailbox_id: null,
       result: {
         stage: "zapier_ingest_fetch",
@@ -244,7 +273,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
         status: "completed",
         swarm_type: SWARM_TYPE,
         topic: null,
-        entity: "smeba",
+        entity: resolvedEntity,
         mailbox_id: null,
         result: {
           stage: "phase83_conversation_context_fetch",
@@ -269,13 +298,13 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       status: "pending",
       swarm_type: SWARM_TYPE,
       topic: null,
-      entity: "smeba",
+      entity: resolvedEntity,
       mailbox_id: null,
       result: {
         stage: "stage_0_safety_pending",
         message_id: messageId,
         source_mailbox: sourceMailbox,
-        entity: "smeba",
+        entity: resolvedEntity,
         subject: msg.subject,
         from: msg.from,
       },
@@ -312,7 +341,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
         source_mailbox: sourceMailbox,
         email_id: resolvedEmailId,
         swarm_type: SWARM_TYPE,
-        entity: "smeba",
+        entity: resolvedEntity,
         subject: msg.subject,
         sender_email: msg.from,
         body_text: msg.bodyUniqueText,
