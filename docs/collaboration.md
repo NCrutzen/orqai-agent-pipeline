@@ -2,6 +2,8 @@
 
 > Added 2026-05-20 as the repo moves from solo to multi-developer.
 > Lightweight by design. We tighten only when something actually breaks.
+>
+> **Tier-2 CI gate is live and green** (Phase 88.2, 2026-05-21) — `.github/workflows/pr-checks.yml` runs lint / typecheck / test / build / codegen-drift on every PR against `main`. Cold-cache ≤ 8 min, warm-cache ≤ 5 min. Bypassing the gate via admin override defeats the framing in this document.
 
 ## First time in this repo? Read this section.
 
