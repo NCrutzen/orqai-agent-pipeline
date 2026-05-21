@@ -107,7 +107,16 @@ export const rankedIntentEntrySchema = z.object({
   confidence: z.enum(CONFIDENCE),
   document_reference: z.string().max(64).nullable(),
   sub_type: z.enum(SUB_TYPE).nullable(),
-  reasoning: z.string().max(200),
+  // 2026-05-21: widened 200→300 as immediate mitigation for ~12% Stage 3
+  // validation failures on debtor-email. Root cause was prompt-schema drift —
+  // the deployed Orq agent prompt was never tightened to 200 when Phase 65 V2
+  // shipped (Plan 65-02 line 212 specified the change but the Studio edit
+  // either never landed or Haiku ignored the constraint). See
+  // .planning/debug/stage-3-intent-reasoning-too-big.md. The proper fix is
+  // prompt-side (tighten via Studio + refresh the in-tree agent spec). This
+  // cap stays at 300 as a defensive ceiling — total budget remains bounded
+  // (5×300=1500 vs the OQ6 1000-char design budget).
+  reasoning: z.string().max(300),
 });
 
 export const intentAgentOutputSchemaV2 = z.object({
