@@ -10,13 +10,14 @@ This block exists because past sessions drifted by reasoning from `web/lib/innge
 
 ## Canonical Architecture Docs
 
-- **Agentic Pipeline (cross-swarm canonical)** → `docs/agentic-pipeline/README.md` — the v8.0 5-stage funnel architecture (Stage 0 safety → Stage 1 regex+LLM noise filter → Stage 2 entity → Stage 3 coordinator → Stage 4 handler), Stage 2→3 context-shape contract, 4-axis override model, graduated-automation hooks. Read this BEFORE designing any new agentic pipeline or extending an existing swarm.
+- **Agentic Pipeline (cross-swarm canonical)** → `docs/agentic-pipeline/README.md` — the v8.0 5-stage funnel architecture (Stage 0 safety → Stage 1 regex+LLM noise filter → Stage 2 entity → Stage 3 coordinator → Stage 4 handler), Stage 2→3 context-shape contract, 4-axis override model, graduated-automation hooks, **Swarm Shapes (Handler / Router / Hybrid)**. Read this BEFORE designing any new agentic pipeline or extending an existing swarm.
   - **Stage 1 specifics** → `docs/agentic-pipeline/stage-1-regex.md` — two-pass noise filter (regex Pass 1, LLM `stage-1-category-classifier` Pass 2 on `unknown`); closed list = noise keys + `unknown` only.
   - **Stage 3 specifics** → `docs/agentic-pipeline/stage-3-coordinator.md` — ranked-intent classifier; uses `swarm_intents` for handler dispatch. Hard separation: a row exists in **exactly one** of `swarm_noise_categories` (Stage 1) or `swarm_intents` (Stage 3) — never both.
 - **Debtor Email Pipeline (swarm-specific implementation)** → `docs/debtor-email-pipeline-architecture.md` — implementation map for the debtor-email swarm specifically: Outlook ingest, classifier, swarm_noise_categories registry, per-category handlers (label-resolver, invoice-copy), Bulk Review vs Kanban surfaces. Read this before editing any file in `web/lib/automations/debtor-email/` or `web/app/api/automations/debtor*/`.
 
 ## Auto-loaded Skills
 - **Sketch findings voor agent-workforce** (design decisions, CSS patterns, visual direction voor Smeba Draft Review frontend) → `Skill("sketch-findings-agent-workforce")`
+- **Spike findings voor agent-workforce** (Phase 88 info@smeba.nl info-routing swarm prep — registry-driven Stage 1 noise rules, cross-swarm rule transferability, router workload sizing, hard prereqs on v8.1 phases 78/84/85/86) → `Skill("spike-findings-agent-workforce")`
 
 ## Stack — Niet-onderhandelbaar
 
@@ -97,6 +98,26 @@ Core systemen in `systems` tabel. Belangrijkste:
 ## Agent Swarms
 
 Gebruik `/orq-agent` skill. Verrijk met MR-context: welke systemen, API beschikbaar, Zapier/Browserless patronen.
+
+## Collaboration (multi-developer)
+
+Repo moved from solo to multi-developer 2026-05-20. **Read `docs/collaboration.md` before starting a phase that touches `.planning/` state, registry tables, or generated TS.** TL;DR: one workspace per active phase via `/gsd-new-workspace`; registry changes go through migrations + `npm run codegen`; high-risk surfaces gated via `CODEOWNERS`.
+
+### Workspace gate — ENFORCE actively
+
+**Before running any of `/gsd-plan-phase`, `/gsd-execute-phase`, `/gsd-discuss-phase`, `/gsd-quick`, `/gsd-autonomous`, or `/gsd-spec-phase` while on the `main` branch, you MUST:**
+
+1. Check the current branch with `git branch --show-current`.
+2. If the branch is `main` (or any branch not created by `/gsd-new-workspace`), STOP and prompt the user with this exact message:
+
+   > "Phase work shouldn't run on `main` — that's our multi-developer collision rule (see `docs/collaboration.md`). I can run `/gsd-new-workspace <name>` first to spin up an isolated worktree, then start the phase inside it. Want me to do that? (You can override and continue on `main` for a quick one-off, but `.planning/STATE.md` will become single-writer until you push.)"
+
+3. Wait for the user to confirm before proceeding. If they want a workspace, suggest a name based on the phase number (e.g. `phase-78-codegen` for Phase 78).
+4. If they explicitly override, proceed but flag the override in your end-of-turn summary so it shows up in any session report.
+
+**Why this rule exists:** `.planning/STATE.md` and `.planning/MILESTONES.md` are single-writer files. Two devs editing them on `main` produces semantic merge conflicts git auto-resolves into garbage. The workspace primitive isolates per-phase mutations so PR merges stay coherent. This gate is the only protection until Tier 3 branch protection lands — see the open todo `2026-05-20-tier-2-ci-pr-checks-workflow.md`.
+
+**Exception:** documentation-only changes, code review without phase context, infra fixes, answering questions, running smokes — these do NOT need a workspace. The gate is about *starting a GSD phase*, not about all work.
 
 ## Workflow (GSD)
 

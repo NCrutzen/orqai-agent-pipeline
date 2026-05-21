@@ -80,6 +80,105 @@ Today the per-mailbox columns `debtor.labeling_settings.brand_id` (2-letter NXT 
 
 UK/IE expansion is in the Phase 999.1 backlog — brand names TBD; new brands onboard via registry insert. Do NOT use placeholder names.
 
+## Swarm Shapes
+
+> Added 2026-05-20 once a second swarm (`info-routing`, Phase 88) made the variance explicit.
+
+Not every swarm runs every stage. Three shapes use the **same** 5-stage funnel with different stages nulled out — no new stages, no forks. Pick the shape that matches what the swarm does; don't copy debtor-email's shape by default.
+
+### Handler swarm — full funnel
+
+**Canonical example:** debtor-email.
+
+All five stages active. Stage 2 resolves a customer entity; Stage 4 actuates side effects (drafts replies, fetches documents, updates records). The rest of this RFC describes this shape in detail.
+
+- **Use when:** every inbound is customer-bound and the swarm produces direct side effects.
+- **Registry config:** `swarms.stage2_entity_resolver` set; `swarm_intents` rows with non-null `handler_event`.
+
+### Router swarm — no Stage 2, no Stage 4
+
+**Canonical example:** info-routing for `info@smeba.nl` (Phase 88; see [`../../.claude/skills/spike-findings-agent-workforce/references/info-routing-swarm-phase-88.md`](../../.claude/skills/spike-findings-agent-workforce/references/info-routing-swarm-phase-88.md) for the spike-derived blueprint).
+
+Stage 1 filters noise, Stage 3 ranks intents (typically "which department should handle this"), Stage 4 is **terminal-by-operator** — the row surfaces in Bulk Review and a human forwards. No Stage 2 because the inbox is not customer-bound; no Stage 4 handler because the routing decision IS the deliverable.
+
+- **Use when:** the inbox is a triage point, not a workflow endpoint. Volume too low or vocabulary too unstable to justify Stage 4 handlers.
+- **Registry config:** `swarms.stage2_entity_resolver = NULL`; `swarm_intents` rows with `handler_event = NULL`.
+- **Cross-swarm dispatch already works at Stage 1:** `swarm_noise_categories.action = 'swarm_dispatch'` with `swarm_dispatch='<target-swarm>/<event>'` hands a row off deterministically. No code change required.
+
+### Hybrid swarm — selective Stages 2 and 4
+
+**Canonical example:** none yet. Forward-referenced because the user model demands it (Q2-Q3 2026): a single inbox handles both in-scope work AND traffic that belongs to other swarms.
+
+Mixed: some intents resolve entities and run handlers (handler-shaped), others terminate as forwards or dispatch to another swarm (router-shaped). Stage 2 fires **conditionally per intent**; Stage 4 handlers come in three kinds:
+
+- **actuator** — does work (draft reply, update record). Today's only kind.
+- **forwarder** — sends the message to an external mailbox / human queue.
+- **dispatcher** — emits a cross-swarm event that re-enters the target swarm's pipeline.
+
+#### Cross-Swarm Dispatch Contract
+
+Locked 2026-05-20. Hybrid swarms (and Stage 1 `swarm_dispatch` from a router swarm) emit the same event shape; the target swarm consumes it through a partial Stage 0 re-run.
+
+**Event payload — reference, never copy:**
+
+```ts
+event: '<target_swarm>/dispatch.requested'
+data: {
+  source_swarm: string,                  // e.g. 'info-routing'
+  source_event_id: string,               // FK to pipeline_events.id (source swarm's terminal row)
+  email_id: string,                      // FK to email_pipeline.emails (shared corpus)
+  dispatched_at: string,                 // ISO timestamp
+  dispatched_by: 'stage-1' | 'stage-4-dispatcher',
+  dispatch_reason: string,               // noise_category_key OR intent_key on source swarm
+}
+```
+
+The email already lives in `email_pipeline.emails`. Cross-swarm dispatch means "now run swarm B's pipeline against email X." Never serialise message body or attachments into the event.
+
+**Stage 0 in target swarm — partial re-run:**
+
+- **Skip:** injection-check, spam-check (already passed in source swarm; re-running wastes tokens and risks inconsistent verdicts).
+- **Re-run:** per-run cost ceiling (target swarm may have different `BUDG-01` thresholds), entity-brand scope check (target may not handle this brand).
+- Implementation: Stage 0 reads `dispatched_from` flag on the inbound event and skips subchecks listed as source-passed in `pipeline_events.stage0_subchecks` of the source row.
+
+**`pipeline_events` lineage — single chain, FK back:**
+
+- Source swarm's terminal row: `decision='dispatched_to:<target_swarm>'`, `terminal=true`.
+- Target swarm's Stage 0 row carries a new column `dispatched_from_event_id` → FK to the source row.
+- Lineage query is a recursive CTE on `dispatched_from_event_id`.
+
+**Bounce-back on target rejection:**
+
+If the target swarm cannot complete (e.g. Stage 2 finds no customer, or Stage 3 emits `unknown` after exhausting its vocabulary), the row surfaces in the **target** swarm's Bulk Review with a `bounce_back_to_source` action available to the operator. Target swarm has the right context to triage; bouncing back is an explicit operator decision, not automatic.
+
+**Loop guard:**
+
+Dispatch chains are capped at recursive depth ≤ 2 via `dispatched_from_event_id`. Beyond depth 2, Stage 0 force-terminates the row to operator review in the swarm where the cap tripped. Prevents A→B→A pathologies.
+
+**Cross-swarm override learning — deferred to V9.0:**
+
+When an operator overrides a target-swarm decision with "this was misrouted from <source_swarm>", the source swarm's Stage 1 / Stage 4 dispatcher decision should receive a negative learning signal (Axis 1 or Axis 4 scoped to the *source* swarm, not the target). This is a `pipeline_events` writer concern and a Learning Inbox UX concern — both belong in V9.0 (Promotion Recommender + Learning Inbox). Until V9.0 ships, target-swarm overrides do not propagate back to source-swarm learning; that's a known gap, not a contract ambiguity.
+
+### Per-stage nullability
+
+| Stage | Always runs? | Skip condition |
+|---|---|---|
+| 0 — Safety | Yes | Never. Every inbound runs Stage 0 (forward-ref Phase 64). |
+| 1 — Regex | Yes | Never. Stage 1 is the deterministic entry point. |
+| 2 — Entity | No | `swarms.stage2_entity_resolver IS NULL` (whole-swarm skip) OR per-intent flag (hybrid, forward-ref). |
+| 3 — Coordinator | Yes when Stage 1 emits `unknown` | A categorical Stage 1 hit terminates the row without ever reaching Stage 3. |
+| 4 — Handler | No | `swarm_intents.handler_event IS NULL` → operator-terminal in Bulk Review. |
+
+### What this means for designing a new swarm
+
+1. Ask: is the inbox **customer-bound** (every email maps to one account)?
+   - Yes → Stage 2 required → likely Handler shape.
+   - No → Stage 2 nulled → likely Router shape.
+2. Ask: does Stage 3's intent vocabulary point to **side effects we control** or to **other humans / other swarms**?
+   - Control side effects → Stage 4 handlers (actuator kind).
+   - Hand off → Stage 4 nulled (Router) OR Stage 4 forwarder/dispatcher (Hybrid).
+3. Register via inserts into `swarms`, `swarm_noise_categories`, `swarm_intents`. No new Stage 1/2/3 code paths — if you find yourself adding per-swarm branches in the classifier or coordinator workers, that's a cross-swarm architecture bug, fix it upstream.
+
 ## Index
 
 **Stages:**

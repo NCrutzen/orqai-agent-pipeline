@@ -1,0 +1,24 @@
+# CODEOWNERS
+#
+# Lightweight gating: only the high-risk surfaces below require review.
+# Everything else is unowned — any teammate may merge.
+#
+# As teammates onboard, add their GitHub handles next to @nickcrutzen.
+# See: https://docs.github.com/en/repositories/managing-your-repositories-settings-and-features/customizing-your-repository/about-code-owners
+# See also: docs/collaboration.md for the rationale per surface.
+
+# --- Architecture canon — RFC docs are locked; changes need architect review.
+/docs/agentic-pipeline/         @nickcrutzen
+/docs/collaboration.md          @nickcrutzen
+/CODEOWNERS                     @nickcrutzen
+/CLAUDE.md                      @nickcrutzen
+
+# --- Generated TS — never hand-edit. CODEOWNERS surfaces drift at PR time.
+/web/lib/swarms/*.generated.ts                                  @nickcrutzen
+/web/lib/automations/debtor-email/coordinator/*.generated.ts    @nickcrutzen
+
+# --- Registry migrations — schema changes to source-of-truth tables.
+/supabase/migrations/*_swarm*.sql            @nickcrutzen
+/supabase/migrations/*_entity_brand*.sql     @nickcrutzen
+/supabase/migrations/*_zapier_tools*.sql     @nickcrutzen
+/supabase/migrations/*_orq_agents*.sql       @nickcrutzen
