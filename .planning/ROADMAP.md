@@ -108,26 +108,26 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 ```
 
 - [x] **Phase 83: Body ingestion** — full thread capture on forwards and replies. SHIPPED 2026-05-19. 1344 priors backfilled; V1/V2 green within noise-floor; V3/V4 PARTIAL pending live traffic.
-- [ ] **Phase 84: Stage 1 noise rules for AP-automation FYI traffic** — 8 noise categories locked 2026-05-20 (Coupa Betaald/Goedgekeurd, ISS PtP auto-reply, M365 quarantine, FrieslandCampina rejects, RSK phishing notices, FarmPlus supplier bank-change, own-domain outbound loopback — Coupa PO dropped per calibration). New `swarms.tenant_domains` column + codegen. Wilson-CI shadow gate before promotion. Cross-swarm by default (debtor-email + sales-email). **Can run in parallel with 83.**
+- [x] **Phase 84: Stage 1 noise rules for AP-automation FYI traffic** — 7 noise categories live in `classify.ts` (Coupa Betaald/Goedgekeurd, ISS PtP auto-reply, M365 quarantine, FrieslandCampina rejects, RSK phishing notices, FarmPlus supplier bank-change, own-domain outbound loopback — Coupa PO dropped per calibration). `swarms.tenant_domains` column + codegen shipped. VERIFICATION **9/11 PASS, KEEP-OPEN-PENDING-SHADOW** — 2 PENDING-OPERATOR items are the 7-day shadow window (Day-0 pre-flight + D-05 gate evaluation per PROMOTION-RUNBOOK.md). Code-side complete 2026-05-20.
   **Plans:** 4 plans
   Plans:
-  - [ ] 84-01-PLAN.md — Wave 0: RED tests (classify + worker loopback) + hard-separation static check + CORPUS-SAMPLES.md (>=10 hand-confirmed positives per category, per-swarm)
-  - [ ] 84-02-PLAN.md — Wave 1: 3 migrations (tenant_domains column + 16 swarm_noise_categories rows + 8 classifier_rules candidates) + gen-tenant-domains.ts codegen + retire debtor-email-coordinator.ts:50 stub + BLOCKING supabase db push
-  - [ ] 84-03-PLAN.md — Wave 2: 7 classify.ts matchers (specificity-ordered) + own_outbound_invoice_loopback in classifier-screen-worker.ts (D-03 direction guard) + direction passthrough from stage-0-safety-worker
-  - [ ] 84-04-PLAN.md — Wave 3: PROMOTION-RUNBOOK.md + operator-driven 7-day shadow + D-05 gate evaluation + per-category promotion / R-04 rollback
-- [x] **Phase 85: Stage 3 prompt v3** — intent definitions + per-intent few-shot + open-set output schema (`intent_proposal` + `proposal_reason` fields; closed-list `intent` enum unchanged). `intent_version='2026-05-19.v3'`. **Depends on 83.** (plans 01-03 shipped; plan 04 V2-retirement explicitly deferred — see phase `deferred-items.md`)
-  - **Plans:** 4 plans
-  - [x] 85-01-PLAN.md — Wave 0: pull few-shot corpus (RESEARCH §1 SQL) + 12-email regression baseline (§6) + monthly volume (§4); write RED Vitest suite for intentAgentOutputSchemaV3 + discriminated union
-  - [x] 85-02-PLAN.md — Wave 1: add V3 Zod schema + INTENT_VERSION_V3 + discriminated union in types.ts; single-switch tolerant parser in invoke-intent.ts; cache-key flip + decision_details additive emit in debtor-email-coordinator.ts (Phase 80 collapsed file)
-  - [x] 85-03-PLAN.md — Wave 2: author prompt v3 + V3 json_schema (anyOf-nullable); Orq deploy ritual (list_models → Studio JSON Schema bump → update_agent PATCH with full model.parameters → get_agent verify); 3 smokes (WKA-novel positive, clean copy_doc null, 12-email regression ≤1/12)
-  - [ ] 85-04-PLAN.md — Wave 3: V2 retirement (deferred — tracked separately; not on v8.1 critical path)
-- [ ] **Phase 86: Open-set intent discovery** — persists `intent_proposal` in `coordinator_runs.ranked_intents` JSONB; `intent_proposals_v1` view; new Bulk Review "Intent proposals" tab with weekly Levenshtein clusters. Read-only — no promotion button (V9.0 owns Learning Inbox). Cross-swarm by default. **Depends on 85.** **STATUS 2026-05-21:** Plan 01 shipped (DB substrate: `intent_proposals_v1` view + clusters table + `intent-proposals/types.ts`). Plans 02-04 NOT done — no `normalize.ts`/`cluster.ts`/`intent-proposals-refresh.ts` worker, no `[swarm]/intent-proposals/` UI tab, no operator runbook.
-  - **Plans:** 4 plans
-  - [x] 86-01-PLAN.md — Wave 1: migrations (`intent_proposals_v1`, `intent_proposal_clusters`, views) + `intent-proposals/types.ts`
-  - [ ] 86-02-PLAN.md — Wave 2: `normalize.ts` + `cluster.ts` + `intent-proposals-refresh.ts` Inngest worker
-  - [ ] 86-03-PLAN.md — Wave 3: `(dashboard)/automations/[swarm]/intent-proposals/` page + `discovery-tab-strip.tsx`
-  - [ ] 86-04-PLAN.md — Wave 4: operator runbook + 14-day verification log
-- [ ] **Phase 87: Retro-classification + intent-volume baseline** — re-runs V3 Stage 3 agent against 30-90 days of corpus (read from Supabase, idempotent); `stage_3_retro_runs` + `intent_volume_baselines` tables; V8.2/V9.0/V11.0 read this. **Depends on 83+84+85+86 all live.** **STATUS 2026-05-21:** Not started. Only `87-CONTEXT.md` exists; no plans, no migrations, no code. Blocked on 86 completion.
+  - [x] 84-01-PLAN.md — Wave 0: RED tests + hard-separation static check + CORPUS-SAMPLES
+  - [x] 84-02-PLAN.md — Wave 1: 3 migrations (tenant_domains column + 16 swarm_noise_categories rows + 8 classifier_rules candidates) + gen-tenant-domains.ts codegen + stub retirement
+  - [x] 84-03-PLAN.md — Wave 2: 7 classify.ts matchers + own_outbound_invoice_loopback + direction passthrough
+  - [x] 84-04-PLAN.md — Wave 3: PROMOTION-RUNBOOK.md + CORPUS-SAMPLES Day-7 columns (operator-driven shadow window still pending)
+- [x] **Phase 85: Stage 3 prompt v3** — intent definitions + per-intent few-shot + open-set output schema (`intent_proposal` + `proposal_reason` additive fields; closed-list `intent` enum unchanged). `intent_version='2026-05-19.v3'` live in Orq Studio. V3 schema + tolerant V2|V3 parser + cache-key flip in code. **12-email regression GREEN — 1/12 changed (V3 improvement, not regression).** VERIFICATION **6/7 + 1/1 = passed_with_open_operator_items** (token-observation + V2-retirement TODO outstanding per Plan 04 wall-clock dependencies). Deployed 2026-05-20.
+  **Plans:** 4 plans
+  - [x] 85-01-PLAN.md — Wave 0: corpus + regression baseline + monthly volume + RED Vitest suite
+  - [x] 85-02-PLAN.md — Wave 1: V3 Zod schema + tolerant parser + cache-key flip + telemetry emit
+  - [x] 85-03-PLAN.md — Wave 2: V3 prompt + V3 json_schema + Orq PATCH ritual + 3 smokes GREEN
+  - [~] 85-04-PLAN.md — Wave 3: operator regression rerun GREEN; 3-day token observation + V2-retirement TODO outstanding (autonomous:false — wall-clock dependencies)
+- [x] **Phase 86: Open-set intent discovery** — `intent_proposal` persisted via `intent_proposals_v1` view + `intent_proposal_clusters` nightly Levenshtein refresh + `intent_proposal_views` telemetry. New Bulk Review "Intent proposals" tab (`web/app/(dashboard)/automations/[swarm]/intent-proposals/page.tsx`) with DiscoveryTabStrip peer component + RTL coverage. Read-only — no promotion button (V9.0 owns Learning Inbox). Cross-swarm by default. VERIFICATION **7/7 PASS, KEEP-OPEN-PENDING-WINDOW** (4 human_verification items are operator UAT — Day-0 pre-flight per 86-DAY-0-CHECKPOINT.md + first 04:00 Amsterdam cron tick + intent_proposal_views row stamping). Code-side complete 2026-05-20.
+  **Plans:** 4 plans
+  - [x] 86-01-PLAN.md — Wave 0: data layer (view + clusters table + views telemetry + types + shape-lock tests)
+  - [x] 86-02-PLAN.md — Wave 1: Levenshtein cluster algorithm + nightly cron + RED→GREEN tests
+  - [x] 86-03-PLAN.md — Wave 2: Intent Proposals RSC page + server actions + client shell + DiscoveryTabStrip + RTL coverage
+  - [x] 86-04-PLAN.md — Wave 3: operator runbook + verification log + Day-0 checkpoint (operator-driven shadow window still pending)
+- [ ] **Phase 87: Retro-classification + intent-volume baseline** — re-runs V3 Stage 3 agent against 30-90 days of corpus (read from Supabase, idempotent); `stage_3_retro_runs` + `intent_volume_baselines` tables; V8.2/V9.0/V11.0 read this. **Depends on 83+84+85+86 all live.** PLANNED: 5 plans + RESEARCH + VALIDATION on disk; **execution blocked on 7-day live window of Phase 86 cluster data** per R-04 ("Open-set surface still empty at 7 days post-85 deploy — extend live window before running Phase 87"). Trigger Phase 87 execution ≥7 days after this milestone PR merges + Vercel deploy confirms.
 - [x] **Phase 88: Review-surface cleanup** — three operator-confusion items on the unified `_shell/`: (D-01) override + note flow consolidation on Stages 0/2/3; (D-02) Stage 1 "Needs review" chip semantics rename + verdict-based "Pending my review" chip; (D-03) Stage 4 layout parity with Stage 1/2/3 chip-strip pattern + detail-pane width regression fix. Pure frontend. **Independent of 83-87.** (completed 2026-05-20)
   **Plans:** 4 plans
   Plans:

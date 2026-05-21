@@ -38,12 +38,17 @@ import { stage0SafetyWorker } from "@/lib/inngest/functions/stage-0-safety-worke
 import { stage0Backfill } from "@/lib/inngest/functions/stage-0-backfill";
 import { stage0CoverageProbe } from "@/lib/inngest/functions/stage-0-coverage-probe";
 import { emailFeedbackSnapshot } from "@/lib/inngest/functions/email-feedback-snapshot";
+import {
+  intentProposalsRefreshCron,
+  intentProposalsRefreshEvent,
+} from "@/lib/inngest/functions/intent-proposals-refresh";
 import { stage0StaleSweeper } from "@/lib/inngest/functions/automation-runs-sweeper";
 import { budgetBreachHandler } from "@/lib/inngest/functions/budget-breach-handler";
 import { coordinatorOrchestrator } from "@/lib/inngest/functions/coordinator-orchestrator";
 import { coordinatorSynthesis } from "@/lib/inngest/functions/coordinator-synthesis";
 import { stage3Dispatcher } from "@/lib/inngest/functions/stage-3-dispatcher";
 import { debtorEmailOverrideHandler } from "@/lib/inngest/functions/debtor-email-override-handler";
+import { debtorEmailStage3RetroClassify } from "@/lib/inngest/functions/debtor-email-stage-3-retro-classify";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -78,11 +83,14 @@ export const { GET, POST, PUT } = serve({
     stage0Backfill,
     stage0CoverageProbe,
     emailFeedbackSnapshot,
+    intentProposalsRefreshCron,
+    intentProposalsRefreshEvent,
     stage0StaleSweeper,
     budgetBreachHandler,
     coordinatorOrchestrator,
     coordinatorSynthesis,
     stage3Dispatcher,
     debtorEmailOverrideHandler,
+    debtorEmailStage3RetroClassify,
   ],
 });

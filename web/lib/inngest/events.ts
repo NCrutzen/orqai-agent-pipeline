@@ -619,4 +619,28 @@ export type Events = {
       swarm_type: string;
     };
   };
+  // Phase 86 Plan 02 — manual refresh trigger for the intent-proposals cron.
+  // Fired by the Plan 03 Bulk Review "Intent proposals" tab refresh button.
+  // Debounced 5min server-side (see intent-proposals-refresh.ts).
+  "intent-proposals.refresh": {
+    data: {
+      // Empty payload — refresh is over the canonical 30d window. Operator
+      // identity is recorded via intent_proposal_views, not here.
+      operator_id?: string;
+    };
+  };
+  // Phase 87 Plan 04 — one-shot retro-classification trigger. Triggered by
+  // the operator CLI `web/scripts/run-retro-classify.ts`. Side-Channel
+  // Isolation: handler writes ONLY to stage_3_retro_runs +
+  // intent_volume_baselines; never to agent_runs / coordinator_runs /
+  // pipeline_events; never emits `<swarm>/predicted`.
+  "debtor-email/retro-classify.requested": {
+    data: {
+      swarm_type: "debtor-email";
+      since: string;
+      until: string;
+      sample_limit?: number;
+      run_id?: string;
+    };
+  };
 };

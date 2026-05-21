@@ -44,10 +44,23 @@ export type InvokeIntentOptions = {
   modelOverride?: string;
 };
 
+/**
+ * Phase 87 Plan 03 — token-usage telemetry surfaced from Orq /responses.
+ * Optional field: present whenever Orq returns a usage block (current API),
+ * undefined when omitted (defensive — older API paths / future schema drift).
+ * Plan 04's retro loop reads `total_tokens` to accumulate cost per run_id.
+ */
+export type InvokeIntentUsage = {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+};
+
 export type InvokeIntentResult = {
   // Phase 85 D-07 — discriminated union; narrow via `output.intent_version`.
   output: IntentAgentOutputV2 | IntentAgentOutputV3;
   raw: string;
+  usage?: InvokeIntentUsage;
 };
 
 // Re-export v1 type alias for callers that still need it (Plan 65-05 backfill
@@ -166,6 +179,13 @@ export async function invokeIntentAgent(
       role?: string;
       parts?: Array<{ kind?: string; text?: string }>;
     }>;
+    // Phase 87 Plan 03 — Orq /responses usage block (verified at
+    // orq-agents/client.ts:198-208). Optional: defensive against schema drift.
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      total_tokens?: number;
+    };
   };
 
   const raw = json.output?.[0]?.parts?.[0]?.text ?? "";
@@ -208,7 +228,19 @@ export async function invokeIntentAgent(
     throw e;
   }
 
-  return { output: validated.data, raw };
+  // Phase 87 Plan 03 — forward Orq usage when present. `undefined` keeps the
+  // contract additive: callers that don't care still destructure { output, raw }.
+  const u = json.usage;
+  const usage: InvokeIntentUsage | undefined =
+    u && typeof u.total_tokens === "number"
+      ? {
+          input_tokens: u.input_tokens ?? 0,
+          output_tokens: u.output_tokens ?? 0,
+          total_tokens: u.total_tokens,
+        }
+      : undefined;
+
+  return { output: validated.data, raw, usage };
 }
 
 // Silence unused-import lint for the retained v1 schema (kept for Plan 65-05).
