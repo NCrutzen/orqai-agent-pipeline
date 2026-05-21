@@ -17,15 +17,17 @@ export const maxDuration = 30;
 //   - no mailbox_id (no iController company mapping)
 //   - automation = 'info-routing-review' / swarm_type = 'info-routing'
 //
-// Auth uses ZAPIER_INGEST_SECRET (the same env Nick already has set for
-// debtor-email). Reusing the secret avoids a Vercel env-var churn on day 1;
-// rotate per-route later if needed.
+// Auth uses ZAPIER_INGEST_SECRET in the request body (`auth` field). Matches
+// the sales-email-ingest convention (CLAUDE.md: Zapier's Catch Hook field
+// picker can't reliably surface custom headers — body field is the team
+// standard). Reuses the same env var so no Vercel rotation needed.
 
 const LEGACY_DEFAULT_MAILBOX = "info@smeba.nl";
 const SWARM_TYPE = "info-routing";
 const AUTOMATION = "info-routing-review";
 
 interface IngestBody {
+  auth?: string;
   messageId?: string;
   source_mailbox?: string;
 }
@@ -55,15 +57,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       { status: 500 },
     );
   }
-  if (req.headers.get("x-zapier-secret") !== secret) {
-    return NextResponse.json({ action: "failed", error: "unauthorized" }, { status: 401 });
-  }
-
   let body: IngestBody;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ action: "failed", error: "invalid json" }, { status: 400 });
+  }
+  if (body.auth !== secret) {
+    return NextResponse.json({ action: "failed", error: "unauthorized" }, { status: 401 });
   }
   const messageId = body.messageId?.trim();
   if (!messageId) {
