@@ -49,6 +49,7 @@ import { coordinatorSynthesis } from "@/lib/inngest/functions/coordinator-synthe
 import { stage3Dispatcher } from "@/lib/inngest/functions/stage-3-dispatcher";
 import { debtorEmailOverrideHandler } from "@/lib/inngest/functions/debtor-email-override-handler";
 import { debtorEmailStage3RetroClassify } from "@/lib/inngest/functions/debtor-email-stage-3-retro-classify";
+import { phase87ReadinessNotify } from "@/lib/inngest/functions/phase-87-readiness-notify";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -92,5 +93,6 @@ export const { GET, POST, PUT } = serve({
     stage3Dispatcher,
     debtorEmailOverrideHandler,
     debtorEmailStage3RetroClassify,
+    phase87ReadinessNotify,
   ],
 });

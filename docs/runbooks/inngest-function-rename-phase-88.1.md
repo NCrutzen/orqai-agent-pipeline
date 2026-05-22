@@ -1,8 +1,9 @@
 # Inngest Function Rename — Phase 88.1
 
-**Cutover:** _to be filled in at merge time — record the merge timestamp + Vercel deploy id_
-**PR:** _to be filled in_
-**Operator:** _to be filled in_
+**Cutover:** 2026-05-22 03:43:13 UTC (squash-merge of PR #52) — Vercel production deploy completed 2026-05-22 03:44:03 UTC
+**PR:** [#52](https://github.com/Moyne-Roberts/agent-workforce/pull/52) — squash commit `35879683719a1bc134ac597d3a4896a62457c818`
+**Vercel deploy:** https://vercel.com/moyne-roberts/agent-workforce/6ZtBuUhGBFHuj8be4U7mopv7BDcQ
+**Operator:** Nick (cutover executed during quiet window — 0 in-flight runs verified pre-merge)
 
 This runbook documents the rename of four Inngest functions and their three coupled event names. The rename is a pure refactor with no behavior change. Inngest treats function-id changes as **new functions**; historical runs under the old ids remain queryable in the Inngest dashboard under those old ids forever, but they are orphaned from the new functions. Use the mapping table below when looking up historical runs.
 
@@ -59,12 +60,98 @@ If any of the above fails, abort and pick a different window.
 1. Merge the PR. Squash strategy preserves a single commit on `main`.
 2. Vercel auto-deploys; takes ~3 min.
 3. Inngest re-syncs the function registry on the next request to `/api/inngest`. The new function ids will appear within ~60 seconds of the deploy completing.
+4. **🚨 RUN THE REGISTRY UPDATES IMMEDIATELY POST-DEPLOY** — see next section. Skipping this step silently drops every "unknown" debtor email through the floor until you notice.
+
+---
+
+## Registry updates (T-0 + 30s) — MANDATORY
+
+Stage 1 reads `swarm_noise_categories.swarm_dispatch` to know which event to fire. The Stage 2 customer-resolver dispatches side-effects from `swarms.side_effects`. Both reference legacy event names by string and must be updated atomically with the function rename. Without this step, Stage 1 → Stage 2 routing breaks silently.
+
+**Lesson learned 2026-05-22:** the original Phase 88.1 cutover skipped this step. Between deploy at 03:44 UTC and the fix at ~04:50 UTC, one production email (Factuurportal rejection to debiteuren@smeba-fire.be) reached Stage 1 = "unknown" and then sat in limbo — Stage 1 fired the legacy event name; no listener existed under the new function id. automation_run row reads `status='completed'` but no `pipeline_events stage=2` was written.
+
+Run these as part of cutover:
+
+```sql
+-- 1. Stage 1 → Stage 2 dispatch (unknown bucket)
+UPDATE swarm_noise_categories
+SET swarm_dispatch = 'debtor-email/stage-2.customer-resolve.requested'
+WHERE swarm_type = 'debtor-email'
+  AND category_key = 'unknown'
+  AND swarm_dispatch = 'debtor-email/label-resolve.requested';
+
+-- 2. Stage 2 → tagger side-effect dispatch
+UPDATE swarms
+SET side_effects = (
+  SELECT jsonb_agg(
+    CASE
+      WHEN elem->>'event' = 'debtor-email/icontroller-tag.requested'
+        THEN jsonb_set(elem, '{event}', '"debtor-email/stage-2.icontroller-label.requested"')
+      ELSE elem
+    END
+  )
+  FROM jsonb_array_elements(side_effects) AS elem
+)
+WHERE swarm_type = 'debtor-email'
+  AND side_effects::text LIKE '%debtor-email/icontroller-tag.requested%';
+
+-- 3. Verification sweep — all three rows MUST return zero
+SELECT 'swarm_noise_categories', COUNT(*) FROM swarm_noise_categories
+WHERE swarm_dispatch IN ('debtor-email/label-resolve.requested','debtor-email/icontroller-tag.requested','icontroller/cleanup.shard.requested')
+UNION ALL
+SELECT 'swarm_intents.handler_event', COUNT(*) FROM swarm_intents
+WHERE handler_event IN ('debtor-email/label-resolve.requested','debtor-email/icontroller-tag.requested','icontroller/cleanup.shard.requested')
+UNION ALL
+SELECT 'swarms.side_effects', COUNT(*) FROM swarms
+WHERE side_effects::text ~ 'debtor-email/label-resolve|debtor-email/icontroller-tag|icontroller/cleanup\.shard';
+```
+
+If any row returns non-zero, the cutover is incomplete.
+
+**Recovering stuck emails between deploy and registry fix:**
+Any email with Stage 0 + Stage 1 emitted but no Stage 2 emit during the broken window is recoverable. From the Inngest dashboard → Functions → `stage-2-customer-resolver` → Send Event:
+
+```json
+{
+  "name": "debtor-email/stage-2.customer-resolve.requested",
+  "data": {
+    "automation_run_id": "<reuse the existing automation_runs.id for that email>",
+    "swarm_type": "debtor-email",
+    "category_key": "unknown",
+    "message_id": "<email_pipeline.emails.internet_message_id or similar>",
+    "source_mailbox": "<email_pipeline.emails.mailbox>"
+  }
+}
+```
+
+Find stuck emails:
+```sql
+WITH stage_emits AS (
+  SELECT email_id, array_agg(stage ORDER BY stage) AS stages
+  FROM pipeline_events
+  WHERE swarm_type = 'debtor-email'
+    AND created_at BETWEEN '<deploy_timestamp>'::timestamptz AND '<registry_fix_timestamp>'::timestamptz
+  GROUP BY email_id
+)
+SELECT email_id, stages
+FROM stage_emits
+WHERE stages = ARRAY[0,1]::smallint[];  -- got past Stage 1 but not Stage 2
+```
 
 ---
 
 ## Post-merge smoke (T+5 min)
 
 Send one synthetic event per new event name. Use a payload that the function will validate-then-reject early so no real production side effects fire (e.g. a non-existent automation_run_id).
+
+**Easiest path — Inngest dashboard "Send Event"** (no local prod key needed):
+
+1. Open https://app.inngest.com/env/production/functions
+2. Find each new function id (`stage-2-customer-resolver`, `stage-2-icontroller-label-applier`, `stage-1-icontroller-noise-cleanup`)
+3. Click "Send Event" on each function — paste the corresponding payload from the JSON blocks below
+4. Confirm a run appears in the function's run history within ~5 seconds
+
+**Alternative — TypeScript script** (requires the production `INNGEST_EVENT_KEY` available locally — pull from Vercel env if needed):
 
 ```ts
 // from web/ root, in a Node REPL or one-off script

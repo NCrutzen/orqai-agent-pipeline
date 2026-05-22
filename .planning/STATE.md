@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v8.1
 milestone_name: Validation + Visibility
-status: executing
+status: completed
 stopped_at: Phase 88.2 context gathered
-last_updated: "2026-05-21T13:04:55.238Z"
-last_activity: 2026-05-21 -- Phase 87 execution started
+last_updated: "2026-05-22T06:10:00.000Z"
+last_activity: 2026-05-22 -- Phase 88.1 shipped (PR #52, registry hotfix), Phase 88.2 close-out cherry-picked
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
-  percent: 80
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -26,10 +26,10 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: 87 (retro-classification-and-intent-volume-baseline) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 87
-Last activity: 2026-05-21 -- Phase 87 execution started
+Phase: 88.1 — COMPLETE (shipped 2026-05-22); Phase 87 — code complete, execution gated on Phase 86 R-04 7-day observation window (~2026-05-27 earliest)
+Plan: all v8.1 phases code-complete; only Phase 87 Plan 04 Task 4 (50-email smoke) + Plan 05 (full 5k run + hand-grade + report) pending operator action
+Status: v8.1 code-complete across 83 / 84 / 85 / 86 / 87 (code) / 88 / 88.1 / 88.2. Awaiting Phase 87 observation-window expiry, then `/gsd-audit-milestone v8.1`.
+Last activity: 2026-05-22 -- Phase 88.1 shipped + registry hotfix + Phase 88.2 close-out cherry-picked from workspace branch
 
 ## Performance Metrics
 

@@ -135,8 +135,15 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
   - [x] 88-02-PLAN.md — Wave 1: D-01 wire Stage 2 + Stage 3 override widgets (fused note+override + cancel-override) into _shell/detail-pane
   - [x] 88-03-PLAN.md — Wave 1: D-02 verdict-pending RPC + chip semantics rewire + NeedsActionChip + ?needs_action URL deletion
   - [x] 88-04-PLAN.md — Wave 2: D-03 Stage 4 chip-strip swap (4 outcome-state chips) + conditional width-regression fix per Wave 0 Q3
-- [ ] **Phase 88.1: Stage-named Inngest functions + Stage 2 telemetry alignment** (7 plans) — rename `classifier-label-resolver` → `stage-2-customer-resolver`, `debtor-email-icontroller-tagger` → `stage-2-icontroller-label-applier`, `debtor-email-icontroller-cleanup-worker` → `stage-1-icontroller-noise-cleanup`. Lock tagger as Stage 2. Higher blast radius — own deploy window. Could slip to V9 if v8.1 calendar tightens. **STATUS 2026-05-21:** Not started. No `88.1-*/` phase directory; old Inngest function names still in place across `web/lib/inngest/functions/` + tests + `events.ts` + `web/lib/automations/debtor-email/label-email-in-icontroller.ts`.
-- [ ] **Phase 88.2: Tier-2 CI backlog cleanup** (INSERTED) — clear the multi-developer Tier-2 backlog: land the `tier-2-ci-pr-checks-workflow` (see `.planning/todos/pending/2026-05-20-tier-2-ci-pr-checks-workflow.md`) so the workspace gate has a CI counterpart, and burn down any related Tier-2 todos blocking Tier-3 branch protection. Closes the gap between the active CLAUDE.md workspace gate and enforced PR checks.
+- [x] **Phase 88.1: Stage-named Inngest functions + Stage 2 telemetry alignment** — SHIPPED 2026-05-22. PR #52 squash-merged at 03:43Z; Vercel deploy 03:44:03Z. 4 function ids + 3 event names renamed. Registry data UPDATE oversight detected + fixed at 04:50Z; one stranded email recovered. Real-traffic verified end-to-end via Factuurportal email at 05:58Z (stage=2 emit + stage=3 emit). See `88.1-VERIFICATION.md`.
+- [x] **Phase 88.2: Tier-2 CI backlog cleanup** (INSERTED) — clear the multi-developer Tier-2 backlog: workspace gate gets a CI counterpart via `.github/workflows/pr-checks.yml` (shipped PR #34), then phase 88.2 burned down 194 lint errors → 0 + 47 test failures → 0 + 5 disciplined skips with todos. Cold-cache 2m14s, warm-cache 2m19s (vs 8m / 5m budgets). PR #45 + #47 close R-4/R-5 evidence loop. (completed 2026-05-21)
+  **Plans:** 5 plans across 4 waves
+  Plans:
+  - [x] 88.2-01-PLAN.md — Wave 0: ESLint config tune (`globalIgnores(["lib/automations/**"])` + `argsIgnorePattern: "^_"`) → 194 → 86 errors
+  - [x] 88.2-02-PLAN.md — Wave 1: test-infra primitives (`web/test-setup.ts` `vi.mock("next/headers")` + `web/test-utils/supabase-mock.ts` Proxy admin mock)
+  - [x] 88.2-03-PLAN.md — Wave 1: residual lint burn-down (`lib/inngest/`, `debtor-email-analyzer/`, long-tail) + 12 React Compiler errors fixed at source
+  - [x] 88.2-04-PLAN.md — Wave 2: fixture/assertion-drift triage (24 fixed, 5 skipped ≤10 cap with todos) → tests 47 → 0 failures
+  - [x] 88.2-05-PLAN.md — Wave 3: local verify + phase PR (#45, cold cache 2m14s) + follow-up doc PR (#47, warm cache 2m19s)
 - [ ] `/gsd-audit-milestone v8.1` — formal closure after Phases 87 + 88 (+ 88.1, 88.2 if not slipped) pass.
 
 ---
@@ -175,13 +182,13 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 
 **Plans:** 7 plans
 Plans:
-- [ ] 88.1-01-PLAN.md — Wave 1: audit artefact (grep inventory + telemetry verdict + dispatcher cron note)
-- [ ] 88.1-02-PLAN.md — Wave 2: RED grep-guard Vitest test for the 7 legacy strings
-- [ ] 88.1-03-PLAN.md — Wave 3: rename classifier-label-resolver → stage-2-customer-resolver (file + test + event + events.ts)
-- [ ] 88.1-04-PLAN.md — Wave 3: rename debtor-email-icontroller-tagger → stage-2-icontroller-label-applier (file + test + event + events.ts)
-- [ ] 88.1-05-PLAN.md — Wave 3: rename cleanup-worker + cleanup-dispatcher → stage-1-icontroller-noise-cleanup{,-dispatcher} (D-03)
-- [ ] 88.1-06-PLAN.md — Wave 4: rewire route.ts + producer call-sites + UI/scripts + swarm_noise_categories.swarm_dispatch UPDATE; grep guard GREEN
-- [ ] 88.1-07-PLAN.md — Wave 5: operator cutover + smoke + 1h telemetry check + runbook (autonomous:false)
+- [x] 88.1-01-PLAN.md — Wave 1: audit artefact (88.1-AUDIT.md committed)
+- [x] 88.1-02-PLAN.md — Wave 2: RED grep-guard Vitest test for the 7 legacy strings + Phase 65 destructure check
+- [x] 88.1-03-PLAN.md — Wave 3: rename classifier-label-resolver → stage-2-customer-resolver
+- [x] 88.1-04-PLAN.md — Wave 3: rename debtor-email-icontroller-tagger → stage-2-icontroller-label-applier
+- [x] 88.1-05-PLAN.md — Wave 3: rename cleanup-worker + cleanup-dispatcher → stage-1-icontroller-noise-cleanup{,-dispatcher}
+- [x] 88.1-06-PLAN.md — Wave 4: rewire route.ts + producer call-sites + UI/scripts; grep guard GREEN. **Registry data UPDATEs missed during execution — applied as hotfix in Wave 5; lesson captured in runbook + memory**
+- [x] 88.1-07-PLAN.md — Wave 5: operator cutover + smoke + telemetry verified on real production traffic; runbook + memory updated with registry-UPDATE lesson
 
 ---
 
