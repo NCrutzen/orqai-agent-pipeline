@@ -205,8 +205,9 @@ export type Events = {
     };
   };
 
-  // iController cleanup fan-out (dispatcher → shard worker)
-  "icontroller/cleanup.shard.requested": {
+  // Stage 1 iController noise-cleanup fan-out (dispatcher → shard worker).
+  // Renamed in Phase 88.1 — see runbook for legacy event name.
+  "debtor-email/stage-1.icontroller-cleanup.requested": {
     data: {
       workerIndex: number;
       rows: Array<{
@@ -239,10 +240,11 @@ export type Events = {
     };
   };
 
-  // Debtor email swarm — label-resolver (Phase 56-02 wave 3, swarm_dispatch
-  // target for category_key='unknown'). Routed by classifier-verdict-worker
-  // when an email falls through the regex classifier into the unknown bucket.
-  "debtor-email/label-resolve.requested": {
+  // Debtor email swarm — Stage 2 customer-resolver (formerly label-resolver,
+  // renamed in Phase 88.1). Swarm-dispatch target for category_key='unknown';
+  // routed by classifier-verdict-worker when the regex classifier falls
+  // through into the unknown bucket.
+  "debtor-email/stage-2.customer-resolve.requested": {
     data: {
       automation_run_id: string;
       swarm_type: string;
@@ -462,7 +464,8 @@ export type Events = {
   // a second email lookup. icontroller_message_url is the MAILBOX-LIST URL
   // (Option A from RESEARCH § URL Construction); the per-message msg_id is
   // unknown at dispatch time.
-  "debtor-email/icontroller-tag.requested": {
+  // Renamed in Phase 88.1 — see runbook for legacy event name.
+  "debtor-email/stage-2.icontroller-label.requested": {
     data: {
       email_label_id: string;
       email_id: string;

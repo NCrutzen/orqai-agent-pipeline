@@ -20,9 +20,9 @@ import {
 } from "@/lib/inngest/functions/heeren-oefeningen";
 import { refreshBriefings } from "@/lib/inngest/functions/briefing-refresh";
 import { syncDebtorEmailBridgeCron } from "@/lib/inngest/functions/debtor-email-bridge";
-import { cleanupIControllerDispatch } from "@/lib/inngest/functions/debtor-email-icontroller-cleanup-dispatcher";
-import { cleanupIControllerShardWorker } from "@/lib/inngest/functions/debtor-email-icontroller-cleanup-worker";
-import { debtorEmailIcontrollerTagger } from "@/lib/inngest/functions/debtor-email-icontroller-tagger";
+import { stage1IcontrollerNoiseCleanupDispatcher } from "@/lib/inngest/functions/stage-1-icontroller-noise-cleanup-dispatcher";
+import { stage1IcontrollerNoiseCleanup } from "@/lib/inngest/functions/stage-1-icontroller-noise-cleanup";
+import { stage2IcontrollerLabelApplier } from "@/lib/inngest/functions/stage-2-icontroller-label-applier";
 import { browserlessKeepalive } from "@/lib/inngest/functions/browserless-keepalive";
 import { debtorEmailCoordinator } from "@/lib/inngest/functions/debtor-email-coordinator";
 import { classifierBackfill } from "@/lib/inngest/functions/classifier-backfill";
@@ -32,7 +32,7 @@ import { classifierSpotcheckSampler } from "@/lib/inngest/functions/classifier-s
 import { classifierPromotionCron } from "@/lib/inngest/functions/classifier-promotion-cron";
 import { classifierScreenWorker } from "@/lib/inngest/functions/classifier-screen-worker";
 import { classifierVerdictWorker } from "@/lib/inngest/functions/classifier-verdict-worker";
-import { classifierLabelResolver } from "@/lib/inngest/functions/classifier-label-resolver";
+import { stage2CustomerResolver } from "@/lib/inngest/functions/stage-2-customer-resolver";
 import { classifierInvoiceCopyHandler } from "@/lib/inngest/functions/classifier-invoice-copy-handler";
 import { stage0SafetyWorker } from "@/lib/inngest/functions/stage-0-safety-worker";
 import { stage0Backfill } from "@/lib/inngest/functions/stage-0-backfill";
@@ -65,9 +65,9 @@ export const { GET, POST, PUT } = serve({
     createMonthlyInvoiceDrafts,
     refreshBriefings,
     syncDebtorEmailBridgeCron,
-    cleanupIControllerDispatch,
-    cleanupIControllerShardWorker,
-    debtorEmailIcontrollerTagger,
+    stage1IcontrollerNoiseCleanupDispatcher,
+    stage1IcontrollerNoiseCleanup,
+    stage2IcontrollerLabelApplier,
     browserlessKeepalive,
     debtorEmailCoordinator,
     classifierBackfill,
@@ -77,7 +77,7 @@ export const { GET, POST, PUT } = serve({
     classifierPromotionCron,
     classifierScreenWorker,
     classifierVerdictWorker,
-    classifierLabelResolver,
+    stage2CustomerResolver,
     classifierInvoiceCopyHandler,
     stage0SafetyWorker,
     stage0Backfill,

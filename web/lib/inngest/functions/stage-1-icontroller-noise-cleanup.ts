@@ -12,12 +12,13 @@ import {
 } from "@/lib/automations/debtor-email/mailboxes";
 
 /**
- * iController-cleanup SHARD WORKER. Triggered by
- * `icontroller/cleanup.shard.requested` events emitted by the dispatcher.
- * Each event carries a workerIndex (for session-key sharding) and a
- * list of rows to process. This function runs as its own Vercel
- * invocation — so 3 shards fan out to 3 parallel serverless executions
- * with independent Browserless sessions.
+ * Stage 1 iController noise-cleanup shard worker (renamed Phase 88.1 —
+ * see runbook for legacy id + event name). Triggered by
+ * `debtor-email/stage-1.icontroller-cleanup.requested` events emitted by
+ * the matching dispatcher. Each event carries a workerIndex (for
+ * session-key sharding) and a list of rows to process. This function
+ * runs as its own Vercel invocation — so 3 shards fan out to 3 parallel
+ * serverless executions with independent Browserless sessions.
  *
  * Concurrency key on `workerIndex` prevents two overlapping ticks from
  * both grabbing the same shard (which would mutate the same session-key
@@ -45,9 +46,9 @@ type Outcome = {
   error?: string;
 };
 
-export const cleanupIControllerShardWorker = inngest.createFunction(
+export const stage1IcontrollerNoiseCleanup = inngest.createFunction(
   {
-    id: "automations/debtor-email-icontroller-shard-worker",
+    id: "stage-1-icontroller-noise-cleanup",
     // retries: 0 — Browserless connect failures cascade badly with
     // retries. A failed w0 that retries holds its concurrency slot for
     // 2× the timeout (~10m), and that blocks the NEXT tick's w0 event
@@ -63,7 +64,7 @@ export const cleanupIControllerShardWorker = inngest.createFunction(
     // idempotency — flip-to-pending + id-based update makes duplicate
     // processing harmless.
   },
-  { event: "icontroller/cleanup.shard.requested" },
+  { event: "debtor-email/stage-1.icontroller-cleanup.requested" },
   async ({ event, step }) => {
     const admin = createAdminClient();
     const { workerIndex, rows } = event.data as {

@@ -1,4 +1,4 @@
-// Phase 67 Plan 05 — concrete tests for debtorEmailIcontrollerTagger.
+// Phase 67 Plan 05 — concrete tests for stage2IcontrollerLabelApplier.
 // Mocks findMessageRow + labelEmailInIcontroller + session helpers + admin
 // chains; invokes the handler directly via the mocked inngest.createFunction
 // capture pattern (mirrors debtor-email-coordinator.test.ts).
@@ -55,7 +55,7 @@ vi.mock("@/lib/inngest/client", () => ({
   },
 }));
 
-import { debtorEmailIcontrollerTagger } from "../debtor-email-icontroller-tagger";
+import { stage2IcontrollerLabelApplier } from "../stage-2-icontroller-label-applier";
 
 type TaggerHandler = (ctx: {
   event: { data: Record<string, unknown> };
@@ -63,7 +63,7 @@ type TaggerHandler = (ctx: {
 }) => Promise<unknown>;
 
 const handler = (
-  debtorEmailIcontrollerTagger as unknown as { handler: TaggerHandler }
+  stage2IcontrollerLabelApplier as unknown as { handler: TaggerHandler }
 ).handler;
 
 const makeStep = () => ({
@@ -95,7 +95,7 @@ beforeEach(() => {
   openSessionMock.mockResolvedValue(stubSession);
 });
 
-describe("debtorEmailIcontrollerTagger", () => {
+describe("stage2IcontrollerLabelApplier", () => {
   it("UPDATEs 'tagged' + icontroller_msg_id on label success", async () => {
     findMock.mockResolvedValueOnce({
       found: true,

@@ -577,7 +577,7 @@ export const classifierScreenWorker = inngest.createFunction(
         // path through Step 3 and Step 4 either returns or falls into the
         // missing-label failure. Emit the verdict here with the same
         // payload as Step 5; verdict-worker picks it up and routes to
-        // `debtor-email/label-resolve.requested`. See debug session
+        // `debtor-email/stage-2.customer-resolve.requested`. See debug session
         // .planning/debug/stage-2-customer-mapping-stuck.md.
         //
         // History: Phase 82.2-06 (acd7634) moved Stage 1 dispatch into

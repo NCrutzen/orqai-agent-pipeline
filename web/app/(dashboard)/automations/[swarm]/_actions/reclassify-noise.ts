@@ -75,8 +75,9 @@ export async function reclassifyAsNoise(args: {
   const valid = categories.some((c) => c.category_key === args.noiseKey);
   if (!valid) return { ok: false, error: "unknown noise key" };
 
-  const send = inngest.send as unknown as SendFn;
-  await send({
+  // CLAUDE.md Phase 65: never destructure inngest.send (loses `this`-binding).
+  // Call inline with the cast applied to the call expression itself.
+  await (inngest.send as unknown as SendFn)({
     name: "debtor-email/override.submitted",
     data: {
       axis: "stage_1_category",

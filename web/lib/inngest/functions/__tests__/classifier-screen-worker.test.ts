@@ -761,7 +761,7 @@ describe("Phase 82.2 D-A — category dispatch (moved from ingest)", () => {
     // 82.2-06 regression fix (2026-05-19): `unknown` skips the bulk-review
     // branch AND the auto-action branch and emits the verdict directly so
     // the verdict-worker dispatches `swarm_noise_categories.unknown.action=
-    // 'swarm_dispatch'` → `debtor-email/label-resolve.requested` (Stage 2).
+    // 'swarm_dispatch'` → `debtor-email/stage-2.customer-resolve.requested` (Stage 2).
     // Previously this test asserted a bulk-review `predicted` row, which
     // codified the bug (Phase 82.2-06 swallowed unknowns into bulk-review).
     classifyMock.mockReturnValue({

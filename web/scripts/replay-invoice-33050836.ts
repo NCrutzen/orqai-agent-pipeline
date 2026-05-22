@@ -99,7 +99,7 @@ async function main() {
     }
 
     await (inngest.send as unknown as SendFn)({
-      name: "debtor-email/label-resolve.requested",
+      name: "debtor-email/stage-2.customer-resolve.requested",
       data: {
         automation_run_id: t.automation_run_id,
         swarm_type: "debtor-email",

@@ -1,12 +1,14 @@
-// Phase 67 (D-01, D-03, D-06, D-10, R-01) — iController DOM tagging side-effect.
+// Phase 67 (D-01, D-03, D-06, D-10, R-01) — Stage 2 iController DOM
+// label-applier (renamed Phase 88.1 — see runbook for legacy names).
 //
-// Subscribes to debtor-email/icontroller-tag.requested (emitted by
-// classifier-label-resolver after a matched-customer + live-mode + configured
-// INSERT into email_labels). Owns the search-and-click navigation: lands on
-// the mailbox-LIST URL, locates the row via findMessageRow (sender + subject
-// + received_at match), clicks into the detail page, parses
-// icontroller_msg_id from page.url(), then drives labelEmailInIcontroller
-// (Plan 03, refactored in Plan 05 to accept an existing Page).
+// Subscribes to debtor-email/stage-2.icontroller-label.requested (emitted
+// by stage-2-customer-resolver after a matched-customer + live-mode +
+// configured INSERT into email_labels). Owns the search-and-click
+// navigation: lands on the mailbox-LIST URL, locates the row via
+// findMessageRow (sender + subject + received_at match), clicks into the
+// detail page, parses icontroller_msg_id from page.url(), then drives
+// labelEmailInIcontroller (Plan 03, refactored in Plan 05 to accept an
+// existing Page).
 //
 // Failure handling (D-06): catches every error inline; UPDATEs the row with
 // status='failed' + error text; returns ok:true. Inngest run STAYS GREEN.
@@ -76,9 +78,9 @@ function parseMsgIdFromUrl(url: string): number | null {
 // hard-coded "production" arg in debtor-email-icontroller-cleanup-worker.
 const ENV = "production" as const;
 
-export const debtorEmailIcontrollerTagger = inngest.createFunction(
+export const stage2IcontrollerLabelApplier = inngest.createFunction(
   {
-    id: "automations/debtor-email-icontroller-tagger",
+    id: "stage-2-icontroller-label-applier",
     // D-03: retries=1. Browserless flakiness is real; stuck-on-page run
     // amplifies cost. 1-row blast radius ⇒ 1 retry safe.
     retries: 1,
@@ -86,7 +88,7 @@ export const debtorEmailIcontrollerTagger = inngest.createFunction(
     // on iController for any single inbox while allowing cross-mailbox parallelism.
     concurrency: [{ key: "event.data.source_mailbox", limit: 2 }],
   },
-  { event: "debtor-email/icontroller-tag.requested" },
+  { event: "debtor-email/stage-2.icontroller-label.requested" },
   async ({ event, step }) => {
     const admin = createAdminClient();
     const {

@@ -70,7 +70,10 @@ export async function replayKanbanRow(args: {
   if (!chosenRow) return { ok: false, error: "unknown intent" };
 
   const sameIntent = args.chosenIntent === args.originalIntent;
-  const send = inngest.send as unknown as SendFn;
+  // CLAUDE.md Phase 65: never destructure inngest.send (loses `this`-binding).
+  // Cast applied to the call expression itself; preserves binding at each call site.
+  const send: SendFn = (event) =>
+    (inngest.send as unknown as SendFn)(event);
 
   if (sameIntent) {
     // D-01 same-intent: bypass override handler; fire handler_event directly.

@@ -39,7 +39,7 @@ const baseSwarm = (sideEffects: unknown[]): SwarmRow => ({
 
 const icontrollerTagDescriptor = {
   kind: "inngest_event",
-  event: "debtor-email/icontroller-tag.requested",
+  event: "debtor-email/stage-2.icontroller-label.requested",
   trigger: "stage2_match_live",
   gate: {
     dry_run: false,

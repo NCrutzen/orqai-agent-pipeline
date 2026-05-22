@@ -4,14 +4,14 @@ milestone: v8.1
 milestone_name: Validation + Visibility
 status: executing
 stopped_at: Phase 88.2 context gathered
-last_updated: "2026-05-21T09:01:14.627Z"
-last_activity: 2026-05-21 -- Phase 88.2 execution started
+last_updated: "2026-05-21T13:04:55.238Z"
+last_activity: 2026-05-21 -- Phase 87 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 5
-  completed_plans: 0
-  percent: 0
+  completed_plans: 4
+  percent: 80
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 88.2 — tier-2-ci-backlog-cleanup
+**Current focus:** Phase 87 — retro-classification-and-intent-volume-baseline
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 88.2 (tier-2-ci-backlog-cleanup) — EXECUTING
+Phase: 87 (retro-classification-and-intent-volume-baseline) — EXECUTING
 Plan: 1 of 5
-Status: Executing Phase 88.2
-Last activity: 2026-05-21 -- Phase 88.2 execution started
+Status: Executing Phase 87
+Last activity: 2026-05-21 -- Phase 87 execution started
 
 ## Performance Metrics
 

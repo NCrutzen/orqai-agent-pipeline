@@ -37,7 +37,7 @@ vi.mock("@/lib/automations/debtor-email/resolve-debtor", () => ({
 // gate matches the prior literal AND-chain.
 const ICONTROLLER_TAG_DESCRIPTOR = {
   kind: "inngest_event" as const,
-  event: "debtor-email/icontroller-tag.requested",
+  event: "debtor-email/stage-2.icontroller-label.requested",
   trigger: "stage2_match_live" as const,
   gate: {
     dry_run: false,
@@ -208,7 +208,7 @@ const stepStub = {
 function buildEvent() {
   return {
     id: "evt-test",
-    name: "debtor-email/label-resolve.requested",
+    name: "debtor-email/stage-2.customer-resolve.requested",
     data: {
       automation_run_id: "ar-uuid-1",
       message_id: "msg-graph-1",
@@ -220,7 +220,7 @@ function buildEvent() {
 }
 
 // ---- Tests ---------------------------------------------------------------
-describe("classifier-label-resolver — Phase 66 D-03 emit", () => {
+describe("stage-2-customer-resolver — Phase 66 D-03 emit", () => {
   let handler: (ctx: unknown) => Promise<unknown>;
 
   beforeEach(async () => {
@@ -230,8 +230,8 @@ describe("classifier-label-resolver — Phase 66 D-03 emit", () => {
     inngestSend.mockReset();
     inngestSend.mockResolvedValue({ ids: ["evt"] });
     vi.resetModules();
-    const mod = await import("../classifier-label-resolver");
-    handler = (mod.classifierLabelResolver as unknown as {
+    const mod = await import("../stage-2-customer-resolver");
+    handler = (mod.stage2CustomerResolver as unknown as {
       handler: typeof handler;
     }).handler;
   });
@@ -301,9 +301,9 @@ describe("Phase 67 — second emit (icontroller-tag)", () => {
     inngestSend.mockReset();
     inngestSend.mockResolvedValue({ ids: ["evt"] });
     vi.resetModules();
-    const mod = await import("../classifier-label-resolver");
+    const mod = await import("../stage-2-customer-resolver");
     return {
-      handler: (mod.classifierLabelResolver as unknown as {
+      handler: (mod.stage2CustomerResolver as unknown as {
         handler: typeof handler;
       }).handler,
       captures: (adminMock as unknown as { __captures: ReturnType<typeof makeAdminMock>["__captures"] }).__captures,
@@ -328,7 +328,7 @@ describe("Phase 67 — second emit (icontroller-tag)", () => {
     const tagCalls = inngestSend.mock.calls.filter(
       (c) =>
         (c[0] as { name: string }).name ===
-        "debtor-email/icontroller-tag.requested",
+        "debtor-email/stage-2.icontroller-label.requested",
     );
     expect(tagCalls.length).toBe(0);
 
@@ -378,7 +378,7 @@ describe("Phase 67 — second emit (icontroller-tag)", () => {
     const tagCalls = inngestSend.mock.calls.filter(
       (c) =>
         (c[0] as { name: string }).name ===
-        "debtor-email/icontroller-tag.requested",
+        "debtor-email/stage-2.icontroller-label.requested",
     );
     expect(tagCalls.length).toBe(1);
     const tagData = (tagCalls[0]![0] as { data: Record<string, unknown> }).data;
@@ -422,7 +422,7 @@ describe("Phase 67 — second emit (icontroller-tag)", () => {
     const tagCalls = inngestSend.mock.calls.filter(
       (c) =>
         (c[0] as { name: string }).name ===
-        "debtor-email/icontroller-tag.requested",
+        "debtor-email/stage-2.icontroller-label.requested",
     );
     expect(tagCalls.length).toBe(0);
 
@@ -465,7 +465,7 @@ describe("Phase 67 — second emit (icontroller-tag)", () => {
     const tagCalls = inngestSend.mock.calls.filter(
       (c) =>
         (c[0] as { name: string }).name ===
-        "debtor-email/icontroller-tag.requested",
+        "debtor-email/stage-2.icontroller-label.requested",
     );
     expect(tagCalls.length).toBe(0);
   });
@@ -489,8 +489,8 @@ describe("Phase 68 — registry-driven Stage-2 dispatch", () => {
     inngestSend.mockReset();
     inngestSend.mockResolvedValue({ ids: ["evt"] });
     vi.resetModules();
-    const mod = await import("../classifier-label-resolver");
-    handler = (mod.classifierLabelResolver as unknown as {
+    const mod = await import("../stage-2-customer-resolver");
+    handler = (mod.stage2CustomerResolver as unknown as {
       handler: typeof handler;
     }).handler;
   });
@@ -522,7 +522,7 @@ describe("Phase 68 — registry-driven Stage-2 dispatch", () => {
     const tagCalls = inngestSend.mock.calls.filter(
       (c) =>
         (c[0] as { name: string }).name ===
-        "debtor-email/icontroller-tag.requested",
+        "debtor-email/stage-2.icontroller-label.requested",
     );
     expect(tagCalls.length).toBe(1);
   });
@@ -545,7 +545,7 @@ describe("Phase 68 — registry-driven Stage-2 dispatch", () => {
     const tagCalls = inngestSend.mock.calls.filter(
       (c) =>
         (c[0] as { name: string }).name ===
-        "debtor-email/icontroller-tag.requested",
+        "debtor-email/stage-2.icontroller-label.requested",
     );
     expect(tagCalls.length).toBe(0);
   });
@@ -567,9 +567,9 @@ describe("Stage 2 decision_details — Phase 82.9", () => {
     inngestSend.mockReset();
     inngestSend.mockResolvedValue({ ids: ["evt"] });
     vi.resetModules();
-    const mod = await import("../classifier-label-resolver");
+    const mod = await import("../stage-2-customer-resolver");
     return {
-      handler: (mod.classifierLabelResolver as unknown as {
+      handler: (mod.stage2CustomerResolver as unknown as {
         handler: typeof handler;
       }).handler,
       captures: (adminMock as unknown as {
@@ -784,9 +784,9 @@ describe("Phase 70 — TELE-01 Stage 2 dual-write", () => {
     inngestSend.mockReset();
     inngestSend.mockResolvedValue({ ids: ["evt"] });
     vi.resetModules();
-    const mod = await import("../classifier-label-resolver");
+    const mod = await import("../stage-2-customer-resolver");
     return {
-      handler: (mod.classifierLabelResolver as unknown as {
+      handler: (mod.stage2CustomerResolver as unknown as {
         handler: typeof handler;
       }).handler,
       captures: (adminMock as unknown as {

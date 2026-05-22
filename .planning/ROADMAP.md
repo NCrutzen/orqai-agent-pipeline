@@ -135,9 +135,53 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
   - [x] 88-02-PLAN.md — Wave 1: D-01 wire Stage 2 + Stage 3 override widgets (fused note+override + cancel-override) into _shell/detail-pane
   - [x] 88-03-PLAN.md — Wave 1: D-02 verdict-pending RPC + chip semantics rewire + NeedsActionChip + ?needs_action URL deletion
   - [x] 88-04-PLAN.md — Wave 2: D-03 Stage 4 chip-strip swap (4 outcome-state chips) + conditional width-regression fix per Wave 0 Q3
-- [ ] **Phase 88.1: Stage-named Inngest functions + Stage 2 telemetry alignment** — rename `classifier-label-resolver` → `stage-2-customer-resolver`, `debtor-email-icontroller-tagger` → `stage-2-icontroller-label-applier`, `debtor-email-icontroller-cleanup-worker` → `stage-1-icontroller-noise-cleanup`. Lock tagger as Stage 2. Higher blast radius — own deploy window. Could slip to V9 if v8.1 calendar tightens. **STATUS 2026-05-21:** Not started. No `88.1-*/` phase directory; old Inngest function names still in place across `web/lib/inngest/functions/` + tests + `events.ts` + `web/lib/automations/debtor-email/label-email-in-icontroller.ts`.
+- [ ] **Phase 88.1: Stage-named Inngest functions + Stage 2 telemetry alignment** (7 plans) — rename `classifier-label-resolver` → `stage-2-customer-resolver`, `debtor-email-icontroller-tagger` → `stage-2-icontroller-label-applier`, `debtor-email-icontroller-cleanup-worker` → `stage-1-icontroller-noise-cleanup`. Lock tagger as Stage 2. Higher blast radius — own deploy window. Could slip to V9 if v8.1 calendar tightens. **STATUS 2026-05-21:** Not started. No `88.1-*/` phase directory; old Inngest function names still in place across `web/lib/inngest/functions/` + tests + `events.ts` + `web/lib/automations/debtor-email/label-email-in-icontroller.ts`.
 - [ ] **Phase 88.2: Tier-2 CI backlog cleanup** (INSERTED) — clear the multi-developer Tier-2 backlog: land the `tier-2-ci-pr-checks-workflow` (see `.planning/todos/pending/2026-05-20-tier-2-ci-pr-checks-workflow.md`) so the workspace gate has a CI counterpart, and burn down any related Tier-2 todos blocking Tier-3 branch protection. Closes the gap between the active CLAUDE.md workspace gate and enforced PR checks.
 - [ ] `/gsd-audit-milestone v8.1` — formal closure after Phases 87 + 88 (+ 88.1, 88.2 if not slipped) pass.
+
+---
+
+### Phase 88.1: Stage-named Inngest functions + Stage 2 telemetry alignment
+
+**Goal:** Rename three Inngest functions to match the canonical 5-stage pipeline vocabulary, so on-call operators and future contributors can read function names and immediately know which stage they belong to. Phase 80+ collapsed multiple legacy workers into the unified coordinator, but the survivors still carry pre-stage-funnel names (`classifier-*`, `debtor-email-icontroller-*`) that obscure their role. This rename + telemetry alignment is the final naming cleanup before V8.2 handler work begins.
+
+**Scope:**
+- Rename `classifier-label-resolver` → `stage-2-customer-resolver` (Stage 2 entity resolution).
+- Rename `debtor-email-icontroller-tagger` → `stage-2-icontroller-label-applier` (Stage 2 follow-up action, locked as Stage 2).
+- Rename `debtor-email-icontroller-cleanup-worker` → `stage-1-icontroller-noise-cleanup` (Stage 1 noise-side cleanup).
+- Update all function-id strings, event-name string references, file paths, import paths, test file paths, and any operator dashboards / runbooks that reference the old names.
+- Align Stage 2 telemetry: ensure `pipeline_events.stage = 2` is emitted for the renamed Stage 2 functions (if not already), and that `swarm_type='debtor-email'` is set consistently. No new columns.
+
+**Out of scope:**
+- Refactoring function bodies / changing behavior — pure rename + telemetry alignment.
+- Renaming live tables (`agent_runs`, `coordinator_runs`, `pipeline_events`) — those are Phase 80+ canonical.
+- Adding new stages or merging stages.
+- Migrating away from the `classifier_*` prefix in tables (`classifier_rules`, `classifier_rule_evaluations` etc.) — table renames are V9 scope.
+- Touching cron schedules or `concurrency` configs.
+
+**Acceptance:**
+- All three functions registered on `/api/inngest` under the new ids and respond to events fired under the new names.
+- No reference to the three old function ids remains in `web/lib/inngest/functions/`, `web/lib/inngest/events.ts`, `web/app/api/inngest/route.ts`, `web/lib/automations/debtor-email/`, or any test file (grep clean).
+- `pipeline_events.stage` distribution shows Stage 2 events from the two renamed Stage 2 functions in production after deploy.
+- `npm run test`, `npm run typecheck`, `npm run build`, `npm run lint` all green.
+- Vercel production deploy succeeds and the Inngest dashboard shows the three new function ids registered.
+
+**Blast-radius mitigation:**
+- This is the LAST phase before V8.2 — own deploy window, not bundled with Phase 87 closure.
+- Event-name migration uses dual-emit-then-cutover OR single atomic deploy (decide in discuss-phase).
+- Inngest historical runs under old function ids are preserved (Inngest treats function-id changes as new functions; old runs stay queryable under old id).
+
+**Independent of 83–87.** Can ship in parallel with Phase 87's smoke window or after.
+
+**Plans:** 7 plans
+Plans:
+- [ ] 88.1-01-PLAN.md — Wave 1: audit artefact (grep inventory + telemetry verdict + dispatcher cron note)
+- [ ] 88.1-02-PLAN.md — Wave 2: RED grep-guard Vitest test for the 7 legacy strings
+- [ ] 88.1-03-PLAN.md — Wave 3: rename classifier-label-resolver → stage-2-customer-resolver (file + test + event + events.ts)
+- [ ] 88.1-04-PLAN.md — Wave 3: rename debtor-email-icontroller-tagger → stage-2-icontroller-label-applier (file + test + event + events.ts)
+- [ ] 88.1-05-PLAN.md — Wave 3: rename cleanup-worker + cleanup-dispatcher → stage-1-icontroller-noise-cleanup{,-dispatcher} (D-03)
+- [ ] 88.1-06-PLAN.md — Wave 4: rewire route.ts + producer call-sites + UI/scripts + swarm_noise_categories.swarm_dispatch UPDATE; grep guard GREEN
+- [ ] 88.1-07-PLAN.md — Wave 5: operator cutover + smoke + 1h telemetry check + runbook (autonomous:false)
 
 ---
 

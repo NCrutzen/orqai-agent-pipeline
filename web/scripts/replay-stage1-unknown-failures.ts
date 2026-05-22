@@ -117,7 +117,7 @@ async function main() {
       }
 
       await inngest.send({
-        name: "debtor-email/label-resolve.requested",
+        name: "debtor-email/stage-2.customer-resolve.requested",
         data: {
           automation_run_id: run.id,
           swarm_type: swarmType,

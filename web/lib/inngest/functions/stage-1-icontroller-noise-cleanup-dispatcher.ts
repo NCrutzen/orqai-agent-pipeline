@@ -2,9 +2,10 @@ import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * iController-cleanup DISPATCHER. Fires on cron, fetches up to
+ * Stage 1 iController noise-cleanup DISPATCHER (renamed Phase 88.1 —
+ * see runbook for legacy id + event name). Fires on cron, fetches up to
  * PARALLELISM × BATCH_SIZE_PER_WORKER pending rows, warms up the parallel
- * session-keys, and emits one `icontroller/cleanup.shard.requested`
+ * session-keys, and emits one `debtor-email/stage-1.icontroller-cleanup.requested`
  * event per shard. Each event becomes its own Inngest run → its own
  * Vercel invocation with a full 300s budget → its own Browserless
  * session. That way one shard crashing doesn't block the others.
@@ -38,9 +39,9 @@ interface PendingRow {
   result: PendingResult;
 }
 
-export const cleanupIControllerDispatch = inngest.createFunction(
+export const stage1IcontrollerNoiseCleanupDispatcher = inngest.createFunction(
   {
-    id: "automations/debtor-email-icontroller-dispatch",
+    id: "stage-1-icontroller-noise-cleanup-dispatcher",
     retries: 1,
     concurrency: { limit: 1 },
   },
@@ -97,7 +98,7 @@ export const cleanupIControllerDispatch = inngest.createFunction(
 
     const events = shards
       .map((rows, workerIndex) => ({
-        name: "icontroller/cleanup.shard.requested" as const,
+        name: "debtor-email/stage-1.icontroller-cleanup.requested" as const,
         data: { workerIndex, rows },
       }))
       .filter((e) => e.data.rows.length > 0);

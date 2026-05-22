@@ -1,10 +1,14 @@
-// Phase 56-02 wave 3: classifier-label-resolver Inngest worker.
+// Stage 2 customer-resolver Inngest worker.
 //
-// Listens on `debtor-email/label-resolve.requested` (emitted by
+// Listens on `debtor-email/stage-2.customer-resolve.requested` (emitted by
 // classifier-verdict-worker when category_key='unknown' approves).
 // Runs the 4-layer resolveDebtor pipeline and writes an audit row in
 // debtor.email_labels. NO outlook / iController side-effects today —
-// matched-customer iController DOM step is Phase 56.8.
+// matched-customer iController DOM step is the Stage 2 follow-up
+// (stage-2-icontroller-label-applier).
+//
+// Renamed in Phase 88.1 — old function id + event name in runbook. Pure
+// rename, no behavior change.
 //
 // retries: 0 — same rationale as the verdict-worker. NXT-Zap timeouts
 // are surfaced as automation_runs.status='failed' so the kanban queue
@@ -33,9 +37,9 @@ import { evaluateSideEffects } from "@/lib/swarms/side-effects";
 // safety: NEVER destructure inngest.send.
 type SendFn = (p: { name: string; data: Record<string, unknown> }) => Promise<unknown>;
 
-export const classifierLabelResolver = inngest.createFunction(
-  { id: "classifier/label-resolver", retries: 0 },
-  { event: "debtor-email/label-resolve.requested" },
+export const stage2CustomerResolver = inngest.createFunction(
+  { id: "stage-2-customer-resolver", retries: 0 },
+  { event: "debtor-email/stage-2.customer-resolve.requested" },
   async ({ event, step }) => {
     const {
       automation_run_id,
