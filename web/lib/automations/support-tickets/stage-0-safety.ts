@@ -97,7 +97,7 @@ export async function runStage0Safety(input: Stage0Input): Promise<Stage0Result>
     return {
       verdict: "rejected_hmac",
       http_status: 401,
-      duration_ms: performance.now() - start,
+      duration_ms: Math.round(performance.now() - start),
       decision_details: {
         submitter_id: input.body?.submitter_id ?? null,
         reason: "missing_or_invalid_hmac",
@@ -116,7 +116,7 @@ export async function runStage0Safety(input: Stage0Input): Promise<Stage0Result>
     return {
       verdict: "rejected_body_size",
       http_status: 413,
-      duration_ms: performance.now() - start,
+      duration_ms: Math.round(performance.now() - start),
       decision_details: {
         submitter_id: input.body.submitter_id,
         video_size_bytes: input.body.video_size_bytes,
@@ -135,7 +135,7 @@ export async function runStage0Safety(input: Stage0Input): Promise<Stage0Result>
     return {
       verdict: "rejected_rate_limit",
       http_status: 429,
-      duration_ms: performance.now() - start,
+      duration_ms: Math.round(performance.now() - start),
       retry_after_seconds: rl.retry_after_seconds,
       decision_details: {
         submitter_id: input.body.submitter_id,
@@ -155,7 +155,7 @@ export async function runStage0Safety(input: Stage0Input): Promise<Stage0Result>
   return {
     verdict: "safe",
     http_status: 200,
-    duration_ms: performance.now() - start,
+    duration_ms: Math.round(performance.now() - start),
     decision_details: {
       submitter_id: input.body.submitter_id,
       video_size_bytes: input.body.video_size_bytes ?? null,

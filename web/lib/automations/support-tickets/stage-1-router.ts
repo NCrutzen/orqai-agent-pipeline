@@ -39,6 +39,6 @@ export function runStage1Router(input: {
   return {
     decision: `route_${t}`,
     branch_target: t,
-    duration_ms: performance.now() - start,
+    duration_ms: Math.round(performance.now() - start),
   };
 }
