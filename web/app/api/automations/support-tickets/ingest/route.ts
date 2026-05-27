@@ -47,6 +47,7 @@ async function logRejectionEvent(
   decision: string,
   decision_details: Record<string, unknown>,
   duration_ms: number,
+  external_task_id: string | null,
 ): Promise<void> {
   try {
     await supabase.from("pipeline_events").insert({
@@ -56,7 +57,10 @@ async function logRejectionEvent(
       decision_details,
       duration_ms,
       triggered_by: TRIGGERED_BY,
-      email_id: null,
+      // Carry the external_task_id when available so rejections can be
+      // correlated with the upstream tracker entity. May be null for
+      // pre-validation rejections (e.g. bad JSON) where we can't extract it.
+      email_id: external_task_id,
     });
   } catch (err) {
     console.error(
@@ -131,6 +135,7 @@ export async function POST(
       stage0.verdict,
       stage0.decision_details,
       stage0.duration_ms,
+      body.external_task_id,
     );
 
     const reasonMap: Record<string, string> = {
@@ -166,6 +171,7 @@ export async function POST(
       attempt: 1,
       submitter_id: body.submitter_id,
       user_chosen_type: body.user_chosen_type,
+      external_task_id: body.external_task_id,
       video_storage_url: body.video_storage_url ?? null,
       device_fingerprint: body.device_fingerprint ?? null,
       submitted_at: body.submitted_at ?? new Date().toISOString(),
@@ -199,7 +205,11 @@ export async function POST(
         duration_ms: stage0.duration_ms,
         triggered_by: TRIGGERED_BY,
         automation_run_id: support_ticket_id,
-        email_id: null,
+        // For support-tickets, email_id carries external_task_id — the
+        // stable cross-stage entity handle (counterpart of email_id for
+        // email swarms). Generic name on the canonical pipeline_events
+        // table, polymorphic semantic per swarm.
+        email_id: body.external_task_id,
       },
       {
         swarm_type: "support-tickets",
@@ -209,11 +219,12 @@ export async function POST(
           submitter_id: body.submitter_id,
           user_chosen_type: body.user_chosen_type,
           support_ticket_id,
+          external_task_id: body.external_task_id,
         },
         duration_ms: stage1.duration_ms,
         triggered_by: TRIGGERED_BY,
         automation_run_id: support_ticket_id,
-        email_id: null,
+        email_id: body.external_task_id,
       },
     ]);
   } catch (err) {
