@@ -23,6 +23,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { inngest } from "@/lib/inngest/client";
 import {
   ingestBodySchema,
   type IngestResponse,
@@ -274,9 +275,31 @@ export async function POST(
     );
   }
 
-  // (7) Phase 2: emit `support-tickets/stage-2.requested` event with
-  //     { support_ticket_id } here once the Stage 2 worker exists. NOT in
-  //     Phase 1 — firing now would produce orphaned events.
+  // (7) Phase 2 Plan 02-02 — emit `support-tickets/stage-2.requested` event
+  //     to trigger the Stage 2 enrichment Inngest function. Wrapped in
+  //     try/catch and treated as NON-FATAL: the user-visible support_tickets
+  //     row + Stage 0/1 telemetry already exist; a Stage 2 dispatch failure
+  //     should not 500 the ingest call (which would prompt client retry →
+  //     duplicate ticket). T-02-06 mitigation.
+  //
+  //     CLAUDE.md binding-safety: never destructure inngest.send — Phase 65
+  //     commit dae6276 caught this in live smoke only. Inline-call style.
+  try {
+    await inngest.send({
+      name: "support-tickets/stage-2.requested",
+      data: {
+        support_ticket_id,
+        submission_id,
+        external_task_id: body.external_task_id,
+        attempt: 1,
+      },
+    });
+  } catch (err) {
+    console.error(
+      "[support-tickets/ingest] inngest.send stage-2.requested failed (non-fatal):",
+      String(err),
+    );
+  }
 
   return NextResponse.json({
     action: "stage_0_dispatched",
