@@ -31,7 +31,7 @@ Strict schema — any unknown top-level field is rejected with HTTP 400
 (T-01-10 mitigation: prevents privilege injection of server-managed fields
 like `submission_id`, `attempt`, `final_intent`).
 
-### `external_task_id` — cross-stage entity handle
+### `external_task_id` — upstream tracker identifier
 
 Every submission MUST arrive with `external_task_id`: a stable identifier
 created upstream (Zapier, direct API, or a future automation) BEFORE the
@@ -39,11 +39,12 @@ request hits this endpoint. It is:
 
 - **Persisted** on `public.support_tickets.external_task_id` (generic column
   name introduced in migration `20260526b` — see that migration for the
-  rename history and architectural rationale).
-- **Mirrored** into `public.pipeline_events.email_id` for every Stage row
-  with `swarm_type='support-tickets'`. This makes `pipeline_events.email_id`
-  the uniform cross-stage handle regardless of swarm: email swarms put an
-  email id there, support-tickets puts the upstream tracker task id.
+  rename history and architectural rationale). This is the **canonical
+  location for joins** between support_tickets and the upstream tracker.
+- **Recorded** in `public.pipeline_events.decision_details->>'external_task_id'`
+  for every Stage row with `swarm_type='support-tickets'`. This gives a
+  per-event audit trail of which upstream task each stage decision relates
+  to (queryable via `decision_details->>'external_task_id'`).
 - **Polymorphic per tracker.** Current implementation uses ClickUp task
   ids. A future tracker swap (Linear, Jira, etc.) updates only the upstream
   system and the value passed in this field — no schema rename, no
@@ -52,6 +53,26 @@ request hits this endpoint. It is:
 Future tracker integrations should follow the `public.zapier_tools`
 registry pattern (one row per tool, secret name in `auth_secret_env`)
 rather than per-tracker env vars.
+
+### Cross-stage entity handle on `pipeline_events.email_id`
+
+The `public.pipeline_events.email_id` column is **UUID-typed** across all
+swarms and carries the "stable cross-stage entity handle" semantic — the
+internal handle the swarm uses to correlate its own stage rows. The column
+name is polymorphic per swarm by design:
+
+- **Email swarms** (debtor-email, etc.) — `email_id` is the UUID of the
+  `email_pipeline.emails` row (their internal email handle).
+- **support-tickets** — `email_id` is the `submission_id` UUID we generate
+  at ingest (also used as `support_ticket_id` and `automation_run_id`).
+  This is the swarm's stable internal handle, mirroring how email swarms
+  use the email UUID.
+
+The text-typed `external_task_id` (e.g. ClickUp ids like `"CU-..."`)
+deliberately does NOT go on `email_id` — Postgres would reject the insert
+with a UUID parse error (`22P02`). External tracker ids live on
+`support_tickets.external_task_id` (canonical join location) and in
+`pipeline_events.decision_details->>'external_task_id'` (per-event audit).
 
 ## Approach
 

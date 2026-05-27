@@ -24,14 +24,17 @@ export const USER_CHOSEN_TYPES = [
 export type UserChosenType = (typeof USER_CHOSEN_TYPES)[number];
 
 /**
- * Stable cross-stage entity handle from the upstream task tracker (e.g.
- * ClickUp). Counterpart of `email_id` for email swarms — every Stage write
- * on `public.pipeline_events` for `swarm_type='support-tickets'` carries
- * this value in the `email_id` column. Polymorphic per tracker (current
- * implementation uses ClickUp task ids; future trackers can swap in by
- * updating only the upstream system + the value passed here — no schema
- * rename needed thanks to the generic column name set in migration
- * 20260526b).
+ * Upstream task tracker identifier (e.g. ClickUp task id like "CU-...").
+ * Stored on `support_tickets.external_task_id` (canonical join location)
+ * and in `pipeline_events.decision_details.external_task_id` (per-event
+ * audit trail). Polymorphic per tracker — current implementation uses
+ * ClickUp task ids; future trackers (Linear, Jira, etc.) can swap in by
+ * updating only the upstream system and the value passed here.
+ *
+ * NOTE: this is NOT what flows into `pipeline_events.email_id`. That
+ * column is UUID-typed across all swarms; for support-tickets it carries
+ * the server-generated `submission_id` UUID (the swarm's internal stable
+ * cross-stage handle, mirroring how email swarms use the email UUID).
  */
 export type ExternalTaskId = string;
 
@@ -44,12 +47,13 @@ export type ExternalTaskId = string;
  * MUST NOT supply them. `attempt` is server-managed across clarification
  * re-entries (Phase 4 concern).
  *
- * `external_task_id` is REQUIRED: it is the stable cross-stage entity handle
- * created upstream (Zapier / direct API / future automation) BEFORE the
- * submission hits this endpoint. It is persisted on `support_tickets.external_task_id`
- * AND populated into `pipeline_events.email_id` for every Stage row, so that
- * the canonical pipeline table has a single uniform cross-stage handle
- * regardless of swarm.
+ * `external_task_id` is REQUIRED: the upstream tracker task id created
+ * upstream (Zapier / direct API / future automation) BEFORE the submission
+ * hits this endpoint. It is persisted on `support_tickets.external_task_id`
+ * (canonical join location) and recorded in
+ * `pipeline_events.decision_details.external_task_id` for every Stage row
+ * (per-event audit trail). It does NOT flow into `pipeline_events.email_id`
+ * — that column is UUID-typed and carries the server-generated `submission_id`.
  */
 export const ingestBodySchema = z
   .object({
