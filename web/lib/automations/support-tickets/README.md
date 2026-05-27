@@ -37,9 +37,9 @@ Every submission MUST arrive with `external_task_id`: a stable identifier
 created upstream (Zapier, direct API, or a future automation) BEFORE the
 request hits this endpoint. It is:
 
-- **Persisted** on `public.support_tickets.external_task_id` (column renamed
-  from `clickup_task_id` in migration `20260526b` — see that migration for
-  the architectural rationale).
+- **Persisted** on `public.support_tickets.external_task_id` (generic column
+  name introduced in migration `20260526b` — see that migration for the
+  rename history and architectural rationale).
 - **Mirrored** into `public.pipeline_events.email_id` for every Stage row
   with `swarm_type='support-tickets'`. This makes `pipeline_events.email_id`
   the uniform cross-stage handle regardless of swarm: email swarms put an
