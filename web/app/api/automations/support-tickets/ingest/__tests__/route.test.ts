@@ -20,6 +20,13 @@ const fixture = {
   rateLimitCount: 0,
   supportTicketInsertId: "st-uuid-1",
   forceInsertError: false as boolean,
+  // Force pipeline_events bulk-insert to resolve with { data: null, error: {...} }
+  // — mirrors supabase-js v2 behavior on UUID parse / RLS / constraint failure.
+  pipelineEventsInsertError: null as null | {
+    message: string;
+    code: string;
+    details: string;
+  },
 };
 
 vi.mock("@/lib/supabase/admin", () => {
@@ -52,11 +59,19 @@ vi.mock("@/lib/supabase/admin", () => {
         then: undefined,
       };
       // For .insert([array]) — bulk pipeline_events — caller awaits the
-      // builder directly without `.select().single()`.
+      // builder directly without `.select().single()`. Resolve with the
+      // configured pipelineEventsInsertError (default null) so tests can
+      // simulate a silent DB-error path (UUID parse, RLS rejection, etc.).
       const thenable: Record<string, unknown> = {
         ...result,
         then: (onFulfilled: (v: unknown) => unknown) =>
-          onFulfilled({ data: null, error: null }),
+          onFulfilled({
+            data: null,
+            error:
+              table === "pipeline_events"
+                ? fixture.pipelineEventsInsertError
+                : null,
+          }),
       };
       return thenable as unknown;
     });
@@ -96,6 +111,7 @@ beforeEach(() => {
   fixture.rateLimitCount = 0;
   fixture.supportTicketInsertId = "st-uuid-1";
   fixture.forceInsertError = false;
+  fixture.pipelineEventsInsertError = null;
   process.env.SUPPORT_INGEST_SECRET = SECRET;
   delete process.env.SUPPORT_MAX_VIDEO_BYTES;
   delete process.env.SUPPORT_RATE_LIMIT_PER_HOUR;
@@ -233,7 +249,7 @@ describe("POST /api/automations/support-tickets/ingest", () => {
     expect(body.reason).toBe("rate_limit");
   });
 
-  it("HAPPY PATH — writes 1 support_tickets row + 2 pipeline_events rows, external_task_id flows to both", async () => {
+  it("HAPPY PATH — writes 1 support_tickets row + 2 pipeline_events rows; email_id=submission_id (UUID), external_task_id in decision_details", async () => {
     const EXTERNAL_TASK_ID = "CU-HAPPY-001";
     const res = await POST(
       makeReq({
@@ -272,15 +288,66 @@ describe("POST /api/automations/support-tickets/ingest", () => {
 
     const stage0 = events.find((e) => e.stage === 0)!;
     const stage1 = events.find((e) => e.stage === 1)!;
+
+    // email_id is UUID-typed; for support-tickets it carries the
+    // submission_id / support_ticket_id (the UUID we generate at ingest),
+    // NOT the text-typed external_task_id (which would fail a UUID parse).
     expect(stage0.swarm_type).toBe("support-tickets");
     expect(stage0.decision).toBe("safe");
-    // email_id on support-tickets carries external_task_id (cross-stage handle).
-    expect(stage0.email_id).toBe(EXTERNAL_TASK_ID);
+    expect(stage0.email_id).toBe("st-uuid-1");
     expect(typeof stage0.duration_ms).toBe("number");
+    // external_task_id lives in decision_details for per-event audit trail.
+    const stage0Details = stage0.decision_details as Record<string, unknown>;
+    expect(stage0Details.external_task_id).toBe(EXTERNAL_TASK_ID);
+
     expect(stage1.swarm_type).toBe("support-tickets");
     expect(stage1.decision).toBe("route_bug");
-    expect(stage1.email_id).toBe(EXTERNAL_TASK_ID);
+    expect(stage1.email_id).toBe("st-uuid-1");
     expect(typeof stage1.duration_ms).toBe("number");
     expect(stage1.automation_run_id).toBe("st-uuid-1");
+    const stage1Details = stage1.decision_details as Record<string, unknown>;
+    expect(stage1Details.external_task_id).toBe(EXTERNAL_TASK_ID);
+  });
+
+  it("SILENT INSERT FAILURE — pipeline_events DB error is logged but route still returns 200", async () => {
+    // Simulate the original production bug: supabase-js returns
+    // { data: null, error: {...} } on UUID parse failure (or any DB error).
+    // The route MUST NOT swallow this silently — it must log via
+    // console.error AND continue to return 200 (telemetry is non-fatal once
+    // the user-visible support_tickets row is persisted).
+    fixture.pipelineEventsInsertError = {
+      message: "invalid input syntax for type uuid",
+      code: "22P02",
+      details: 'Token "CU-HAPPY-001" is invalid.',
+    };
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const res = await POST(
+        makeReq({
+          body: {
+            submitter_id: "smoke-silent-fail",
+            user_chosen_type: "bug",
+            external_task_id: "CU-SILENT-FAIL-001",
+          },
+          secret: SECRET,
+        }),
+      );
+      // Route still returns 200 — support_tickets row exists; telemetry is best-effort.
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.action).toBe("stage_0_dispatched");
+      expect(body.automation_run_id).toBe("st-uuid-1");
+
+      // The .error path MUST have been observed and logged.
+      const loggedFailure = errorSpy.mock.calls.some((args) =>
+        args.some(
+          (a) =>
+            typeof a === "string" && a.includes("pipeline_events insert failed"),
+        ),
+      );
+      expect(loggedFailure).toBe(true);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });
