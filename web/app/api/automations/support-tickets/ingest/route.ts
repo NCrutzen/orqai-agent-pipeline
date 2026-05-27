@@ -231,7 +231,7 @@ export async function POST(
         duration_ms: stage0.duration_ms,
         triggered_by: TRIGGERED_BY,
         automation_run_id: support_ticket_id,
-        email_id: support_ticket_id,
+        email_id: submission_id,
       },
       {
         swarm_type: "support-tickets",
@@ -246,7 +246,7 @@ export async function POST(
         duration_ms: stage1.duration_ms,
         triggered_by: TRIGGERED_BY,
         automation_run_id: support_ticket_id,
-        email_id: support_ticket_id,
+        email_id: submission_id,
       },
     ]);
     // supabase-js v2 does NOT throw on DB errors — it returns { data, error }.
