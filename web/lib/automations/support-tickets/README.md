@@ -13,6 +13,46 @@ Auth: `x-support-ingest-secret` header — must match
 `SUPPORT_INGEST_SECRET` env var, constant-time compared via
 `node:crypto.timingSafeEqual`.
 
+### Payload contract
+
+```jsonc
+{
+  "submitter_id":      "string (required, min 1)",   // user identity from upstream
+  "user_chosen_type":  "bug | feature-request | info-request | other | question",
+  "external_task_id":  "string (required, min 1)",   // upstream tracker task id — see below
+  "video_storage_url": "https://… (optional)",       // Supabase Storage URL
+  "video_size_bytes":  123456,                       // optional, integer ≥ 0
+  "device_fingerprint":"fp-abc (optional)",
+  "submitted_at":      "ISO-8601 datetime (optional)"
+}
+```
+
+Strict schema — any unknown top-level field is rejected with HTTP 400
+(T-01-10 mitigation: prevents privilege injection of server-managed fields
+like `submission_id`, `attempt`, `final_intent`).
+
+### `external_task_id` — cross-stage entity handle
+
+Every submission MUST arrive with `external_task_id`: a stable identifier
+created upstream (Zapier, direct API, or a future automation) BEFORE the
+request hits this endpoint. It is:
+
+- **Persisted** on `public.support_tickets.external_task_id` (column renamed
+  from `clickup_task_id` in migration `20260526b` — see that migration for
+  the architectural rationale).
+- **Mirrored** into `public.pipeline_events.email_id` for every Stage row
+  with `swarm_type='support-tickets'`. This makes `pipeline_events.email_id`
+  the uniform cross-stage handle regardless of swarm: email swarms put an
+  email id there, support-tickets puts the upstream tracker task id.
+- **Polymorphic per tracker.** Current implementation uses ClickUp task
+  ids. A future tracker swap (Linear, Jira, etc.) updates only the upstream
+  system and the value passed in this field — no schema rename, no
+  application code change beyond the upstream surface.
+
+Future tracker integrations should follow the `public.zapier_tools`
+registry pattern (one row per tool, secret name in `auth_secret_env`)
+rather than per-tracker env vars.
+
 ## Approach
 
 5-stage funnel per `docs/agentic-pipeline/README.md`. Phase 1 ships only:
