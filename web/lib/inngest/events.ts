@@ -632,6 +632,20 @@ export type Events = {
       operator_id?: string;
     };
   };
+  // Phase 2 support-tickets Stage 2 enrichment — emitted by the support-tickets
+  // ingest route AFTER the Stage 0/1 pipeline_events rows are written. Consumed
+  // by stage2SupportTicketsEnrichment (Plan 02-02 baseline, extended by Plans
+  // 02-03..02-05). The locked event-name contract (renames are a breaking
+  // change across Phase 2 plans).
+  "support-tickets/stage-2.requested": {
+    data: {
+      support_ticket_id: string; // UUID — public.support_tickets.id (PK)
+      submission_id: string; // UUID — support_tickets.submission_id (= pipeline_events.email_id handle)
+      external_task_id: string; // text — upstream tracker id (ClickUp etc.)
+      attempt: number; // support_tickets.attempt (1 on first submission)
+    };
+  };
+
   // Phase 87 Plan 04 — one-shot retro-classification trigger. Triggered by
   // the operator CLI `web/scripts/run-retro-classify.ts`. Side-Channel
   // Isolation: handler writes ONLY to stage_3_retro_runs +
