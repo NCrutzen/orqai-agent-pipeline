@@ -27,15 +27,42 @@ describe("ingestBodySchema", () => {
     const parsed = ingestBodySchema.safeParse({
       submitter_id: "u1",
       user_chosen_type: "bug",
+      external_task_id: "CU-TEST-001",
     });
     expect(parsed.success).toBe(true);
   });
 
   it("rejects body missing submitter_id", () => {
-    const parsed = ingestBodySchema.safeParse({ user_chosen_type: "bug" });
+    const parsed = ingestBodySchema.safeParse({
+      user_chosen_type: "bug",
+      external_task_id: "CU-TEST-001",
+    });
     expect(parsed.success).toBe(false);
     if (!parsed.success) {
       expect(parsed.error.issues[0].path).toEqual(["submitter_id"]);
+    }
+  });
+
+  it("rejects body missing external_task_id (required cross-stage entity handle)", () => {
+    const parsed = ingestBodySchema.safeParse({
+      submitter_id: "u1",
+      user_chosen_type: "bug",
+    });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues[0].path).toEqual(["external_task_id"]);
+    }
+  });
+
+  it("rejects empty external_task_id", () => {
+    const parsed = ingestBodySchema.safeParse({
+      submitter_id: "u1",
+      user_chosen_type: "bug",
+      external_task_id: "",
+    });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues[0].path).toEqual(["external_task_id"]);
     }
   });
 
@@ -43,6 +70,7 @@ describe("ingestBodySchema", () => {
     const parsed = ingestBodySchema.safeParse({
       submitter_id: "u1",
       user_chosen_type: "nonsense",
+      external_task_id: "CU-TEST-001",
     });
     expect(parsed.success).toBe(false);
     if (!parsed.success) {
@@ -54,6 +82,7 @@ describe("ingestBodySchema", () => {
     const parsed = ingestBodySchema.safeParse({
       submitter_id: "u1",
       user_chosen_type: "bug",
+      external_task_id: "CU-TEST-001",
       submission_id: "00000000-0000-0000-0000-000000000000",
     });
     expect(parsed.success).toBe(false);
@@ -63,6 +92,7 @@ describe("ingestBodySchema", () => {
     const parsed = ingestBodySchema.safeParse({
       submitter_id: "u1",
       user_chosen_type: "bug",
+      external_task_id: "CU-TEST-001",
       video_storage_url: "https://supabase.example/storage/v1/object/x.mp4",
       video_size_bytes: 12345,
       device_fingerprint: "fp-abc",

@@ -106,7 +106,13 @@ beforeEach(() => {
 describe("POST /api/automations/support-tickets/ingest", () => {
   it("rejects missing HMAC header with 401 and writes no support_tickets row", async () => {
     const res = await POST(
-      makeReq({ body: { submitter_id: "u1", user_chosen_type: "bug" } }),
+      makeReq({
+        body: {
+          submitter_id: "u1",
+          user_chosen_type: "bug",
+          external_task_id: "CU-NOHMAC-001",
+        },
+      }),
     );
     expect(res.status).toBe(401);
     const body = await res.json();
@@ -119,7 +125,11 @@ describe("POST /api/automations/support-tickets/ingest", () => {
   it("rejects wrong HMAC with 401", async () => {
     const res = await POST(
       makeReq({
-        body: { submitter_id: "u1", user_chosen_type: "bug" },
+        body: {
+          submitter_id: "u1",
+          user_chosen_type: "bug",
+          external_task_id: "CU-WRONGHMAC-001",
+        },
         secret: "WRONG",
       }),
     );
@@ -137,7 +147,11 @@ describe("POST /api/automations/support-tickets/ingest", () => {
   it("rejects user_chosen_type='nonsense' with 400 mentioning user_chosen_type", async () => {
     const res = await POST(
       makeReq({
-        body: { submitter_id: "u1", user_chosen_type: "nonsense" },
+        body: {
+          submitter_id: "u1",
+          user_chosen_type: "nonsense",
+          external_task_id: "CU-BADENUM-001",
+        },
         secret: SECRET,
       }),
     );
@@ -147,12 +161,33 @@ describe("POST /api/automations/support-tickets/ingest", () => {
     expect(body.error).toMatch(/user_chosen_type/);
   });
 
+  it("rejects missing external_task_id with 400 (Zod rejects before any DB write)", async () => {
+    const res = await POST(
+      makeReq({
+        body: { submitter_id: "u1", user_chosen_type: "bug" },
+        secret: SECRET,
+      }),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.action).toBe("failed");
+    expect(body.error).toMatch(/external_task_id/);
+    // No DB writes whatsoever — Zod gate fires before Stage 0.
+    expect(
+      supabaseOps.filter((o) => o.table === "support_tickets").length,
+    ).toBe(0);
+    expect(
+      supabaseOps.filter((o) => o.table === "pipeline_events").length,
+    ).toBe(0);
+  });
+
   it("rejects unknown top-level fields (e.g. submission_id) with 400", async () => {
     const res = await POST(
       makeReq({
         body: {
           submitter_id: "u1",
           user_chosen_type: "bug",
+          external_task_id: "CU-UNKNOWN-001",
           submission_id: "00000000-0000-0000-0000-000000000000",
         },
         secret: SECRET,
@@ -167,6 +202,7 @@ describe("POST /api/automations/support-tickets/ingest", () => {
         body: {
           submitter_id: "u1",
           user_chosen_type: "bug",
+          external_task_id: "CU-OVERSIZE-001",
           video_size_bytes: 999_999_999,
         },
         secret: SECRET,
@@ -182,7 +218,11 @@ describe("POST /api/automations/support-tickets/ingest", () => {
     fixture.rateLimitCount = 99; // well over default limit 10
     const res = await POST(
       makeReq({
-        body: { submitter_id: "u1", user_chosen_type: "bug" },
+        body: {
+          submitter_id: "u1",
+          user_chosen_type: "bug",
+          external_task_id: "CU-RATELIMIT-001",
+        },
         secret: SECRET,
       }),
     );
@@ -193,10 +233,15 @@ describe("POST /api/automations/support-tickets/ingest", () => {
     expect(body.reason).toBe("rate_limit");
   });
 
-  it("HAPPY PATH — writes 1 support_tickets row + 2 pipeline_events rows", async () => {
+  it("HAPPY PATH — writes 1 support_tickets row + 2 pipeline_events rows, external_task_id flows to both", async () => {
+    const EXTERNAL_TASK_ID = "CU-HAPPY-001";
     const res = await POST(
       makeReq({
-        body: { submitter_id: "smoke-happy", user_chosen_type: "bug" },
+        body: {
+          submitter_id: "smoke-happy",
+          user_chosen_type: "bug",
+          external_task_id: EXTERNAL_TASK_ID,
+        },
         secret: SECRET,
       }),
     );
@@ -214,6 +259,8 @@ describe("POST /api/automations/support-tickets/ingest", () => {
     expect(ticket.user_chosen_type).toBe("bug");
     expect(ticket.attempt).toBe(1);
     expect(ticket.submitter_id).toBe("smoke-happy");
+    // external_task_id MUST be persisted on the support_tickets row.
+    expect(ticket.external_task_id).toBe(EXTERNAL_TASK_ID);
 
     const eventInserts = supabaseOps.filter(
       (o) => o.op === "insert" && o.table === "pipeline_events",
@@ -227,11 +274,12 @@ describe("POST /api/automations/support-tickets/ingest", () => {
     const stage1 = events.find((e) => e.stage === 1)!;
     expect(stage0.swarm_type).toBe("support-tickets");
     expect(stage0.decision).toBe("safe");
-    expect(stage0.email_id).toBeNull();
+    // email_id on support-tickets carries external_task_id (cross-stage handle).
+    expect(stage0.email_id).toBe(EXTERNAL_TASK_ID);
     expect(typeof stage0.duration_ms).toBe("number");
     expect(stage1.swarm_type).toBe("support-tickets");
     expect(stage1.decision).toBe("route_bug");
-    expect(stage1.email_id).toBeNull();
+    expect(stage1.email_id).toBe(EXTERNAL_TASK_ID);
     expect(typeof stage1.duration_ms).toBe("number");
     expect(stage1.automation_run_id).toBe("st-uuid-1");
   });

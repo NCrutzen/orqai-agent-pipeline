@@ -34,7 +34,7 @@ describe("runStage0Safety", () => {
   it("rejects missing HMAC header with verdict='rejected_hmac' http_status=401", async () => {
     const r = await runStage0Safety({
       headers: makeHeaders(),
-      body: { submitter_id: "u1", user_chosen_type: "bug" },
+      body: { submitter_id: "u1", user_chosen_type: "bug", external_task_id: "CU-TEST-001" },
       supabase: fakeSupabase,
       env: { SUPPORT_INGEST_SECRET: VALID_SECRET },
     });
@@ -51,7 +51,7 @@ describe("runStage0Safety", () => {
     const wrong = "b".repeat(VALID_SECRET.length);
     const r = await runStage0Safety({
       headers: makeHeaders(wrong),
-      body: { submitter_id: "u1", user_chosen_type: "bug" },
+      body: { submitter_id: "u1", user_chosen_type: "bug", external_task_id: "CU-TEST-001" },
       supabase: fakeSupabase,
       env: { SUPPORT_INGEST_SECRET: VALID_SECRET },
     });
@@ -73,7 +73,7 @@ describe("runStage0Safety", () => {
   it("rejects HMAC of different length (length-mismatch normalized to rejection)", async () => {
     const r = await runStage0Safety({
       headers: makeHeaders("short"),
-      body: { submitter_id: "u1", user_chosen_type: "bug" },
+      body: { submitter_id: "u1", user_chosen_type: "bug", external_task_id: "CU-TEST-001" },
       supabase: fakeSupabase,
       env: { SUPPORT_INGEST_SECRET: VALID_SECRET },
     });
@@ -87,6 +87,7 @@ describe("runStage0Safety", () => {
       body: {
         submitter_id: "u1",
         user_chosen_type: "bug",
+        external_task_id: "CU-TEST-001",
         video_size_bytes: 999_999_999,
       },
       supabase: fakeSupabase,
@@ -105,7 +106,7 @@ describe("runStage0Safety", () => {
     });
     const r = await runStage0Safety({
       headers: makeHeaders(VALID_SECRET),
-      body: { submitter_id: "u1", user_chosen_type: "bug" },
+      body: { submitter_id: "u1", user_chosen_type: "bug", external_task_id: "CU-TEST-001" },
       supabase: fakeSupabase,
       env: { SUPPORT_INGEST_SECRET: VALID_SECRET },
     });
@@ -117,7 +118,7 @@ describe("runStage0Safety", () => {
   it("returns verdict='safe' http_status=200 with duration_ms when all gates pass", async () => {
     const r = await runStage0Safety({
       headers: makeHeaders(VALID_SECRET),
-      body: { submitter_id: "u1", user_chosen_type: "bug" },
+      body: { submitter_id: "u1", user_chosen_type: "bug", external_task_id: "CU-TEST-001" },
       supabase: fakeSupabase,
       env: { SUPPORT_INGEST_SECRET: VALID_SECRET },
     });
