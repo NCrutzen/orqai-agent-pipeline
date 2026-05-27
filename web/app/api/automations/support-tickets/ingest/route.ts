@@ -50,18 +50,32 @@ async function logRejectionEvent(
   external_task_id: string | null,
 ): Promise<void> {
   try {
-    await supabase.from("pipeline_events").insert({
+    const piResult = await supabase.from("pipeline_events").insert({
       swarm_type: "support-tickets",
       stage: 0,
       decision,
-      decision_details,
-      duration_ms,
-      triggered_by: TRIGGERED_BY,
-      // Carry the external_task_id when available so rejections can be
+      // Carry the external_task_id in decision_details so rejections can be
       // correlated with the upstream tracker entity. May be null for
       // pre-validation rejections (e.g. bad JSON) where we can't extract it.
-      email_id: external_task_id,
+      // NOTE: cannot go on `email_id` — that column is UUID-typed and
+      // external_task_id is a non-UUID text value (e.g. "CU-...").
+      decision_details: { ...decision_details, external_task_id },
+      duration_ms,
+      triggered_by: TRIGGERED_BY,
+      // email_id is UUID-typed; no submission_id exists at rejection time
+      // (the support_tickets row is never created), so leave it null.
+      email_id: null,
     });
+    if (piResult.error) {
+      console.error(
+        "[support-tickets/ingest] rejection pipeline_events insert failed (non-fatal):",
+        piResult.error.message,
+        "code:",
+        piResult.error.code,
+        "details:",
+        piResult.error.details,
+      );
+    }
   } catch (err) {
     console.error(
       "[support-tickets/ingest] failed to log rejection event:",
@@ -195,21 +209,29 @@ export async function POST(
   // (6) Persist Stage 0 + Stage 1 pipeline_events rows in a single .insert([...])
   //     call — Supabase atomically commits the array, which is the closest we
   //     get to transaction semantics from the REST layer.
+  //
+  //     `pipeline_events.email_id` is UUID-typed across all swarms — it's the
+  //     "stable cross-stage entity handle" semantic, NOT specifically an email.
+  //     For email swarms that handle is the email UUID. For support-tickets it
+  //     is `submission_id` (the UUID we generated at ingest, also used as the
+  //     support_ticket_id / automation_run_id). The text-typed upstream
+  //     tracker id (ClickUp etc.) lives on `support_tickets.external_task_id`
+  //     for joins, and is included here in `decision_details.external_task_id`
+  //     for per-event audit-trail queries.
   try {
-    await supabase.from("pipeline_events").insert([
+    const piResult = await supabase.from("pipeline_events").insert([
       {
         swarm_type: "support-tickets",
         stage: 0,
         decision: "safe",
-        decision_details: stage0.decision_details,
+        decision_details: {
+          ...stage0.decision_details,
+          external_task_id: body.external_task_id,
+        },
         duration_ms: stage0.duration_ms,
         triggered_by: TRIGGERED_BY,
         automation_run_id: support_ticket_id,
-        // For support-tickets, email_id carries external_task_id — the
-        // stable cross-stage entity handle (counterpart of email_id for
-        // email swarms). Generic name on the canonical pipeline_events
-        // table, polymorphic semantic per swarm.
-        email_id: body.external_task_id,
+        email_id: support_ticket_id,
       },
       {
         swarm_type: "support-tickets",
@@ -224,16 +246,30 @@ export async function POST(
         duration_ms: stage1.duration_ms,
         triggered_by: TRIGGERED_BY,
         automation_run_id: support_ticket_id,
-        email_id: body.external_task_id,
+        email_id: support_ticket_id,
       },
     ]);
+    // supabase-js v2 does NOT throw on DB errors — it returns { data, error }.
+    // Inspect `.error` explicitly so silent UUID parse / RLS / constraint
+    // failures don't get swallowed (was: HTTP 200 + zero pipeline_events rows).
+    if (piResult.error) {
+      console.error(
+        "[support-tickets/ingest] pipeline_events insert failed (non-fatal):",
+        piResult.error.message,
+        "code:",
+        piResult.error.code,
+        "details:",
+        piResult.error.details,
+      );
+    }
   } catch (err) {
     // Telemetry-write failure is non-fatal — the user-visible support_tickets
     // row already exists. We log and return 200 so the submitter retry path
     // doesn't duplicate the ticket. The pipeline_events backfill is a Phase
-    // 2+ concern.
+    // 2+ concern. The outer try/catch handles network/runtime exceptions
+    // (supabase-js can still throw on transport-layer failures).
     console.error(
-      "[support-tickets/ingest] pipeline_events insert failed (non-fatal):",
+      "[support-tickets/ingest] pipeline_events insert threw (non-fatal):",
       String(err),
     );
   }
