@@ -28,10 +28,26 @@
 
 import { z } from "zod";
 
+import { USER_CHOSEN_TYPES } from "./types";
+
 export const CONTEXT_VERSION = "2026-05-26.v1" as const;
 
-/** Phase 2 Plan 02-04 fills with concrete fields (ticket_id, similarity hints, etc.). */
-export const priorTicketSummarySchema = z.object({}).passthrough();
+/**
+ * Plan 02-04 Task 2 tightening (replaces the Plan 02-02 passthrough stub).
+ * Mirrors the column shape of `public.support_tickets` rows surfaced through
+ * `loadUserContext`. `transcript_excerpt` is the first 300 chars of the
+ * source transcript (or null when transcript itself is null).
+ */
+export const priorTicketSummarySchema = z.object({
+  id: z.string().uuid(),
+  submission_id: z.string().uuid(),
+  user_chosen_type: z.enum(USER_CHOSEN_TYPES),
+  proposed_system: z.string().nullable(),
+  final_intent: z.string().nullable(),
+  clickup_status: z.string().nullable(),
+  submitted_at: z.string().datetime(),
+  transcript_excerpt: z.string().nullable(),
+});
 export type PriorTicketSummary = z.infer<typeof priorTicketSummarySchema>;
 
 /** Phase 2 Plan 02-05 fills with concrete fields (ticket_id, similarity score, snippet, etc.). */
