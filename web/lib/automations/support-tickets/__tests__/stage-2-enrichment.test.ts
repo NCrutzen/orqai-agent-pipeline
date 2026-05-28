@@ -475,6 +475,260 @@ describe("runStage2FullEnrichment (pure handler — Plan 02-03 wiring)", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Plan 02-04 Task 3 — frames + user-context wiring tests.
+//
+// Wired INTO the single aggregate pipeline_events row — `decision_details.frames`
+// and `decision_details.user_context` are populated; `support_tickets.frame_urls`
+// is updated. NO second pipeline_events row (unique constraint forbids it).
+// ---------------------------------------------------------------------------
+
+describe("runStage2FullEnrichment — Plan 02-04 frames + user-context wiring", () => {
+  it("Test G: happy frames + 3 prior tickets — aggregate event carries frames + prior_tickets_same_user + m365_project_2_concern, support_tickets.frame_urls updated", async () => {
+    const { admin, calls } = buildFullAdminMock({ ticketRow: { ...FULL_TICKET_ROW } });
+    const fixedNow = new Date("2026-05-28T10:00:00.000Z");
+
+    const transcribe = vi.fn(async () => ({
+      text: "Hi printer is broken",
+      language: "en",
+      language_probability: 0.99,
+      cost_cents: 0.5,
+    }));
+    const piiDetect = vi.fn(() => ({ flagged: false, reason: null as string | null }));
+    const sendEvent = vi.fn(async () => undefined);
+    const extractFrames = vi.fn(async () => ({
+      storage_keys: ["t/0.jpg", "t/1.jpg", "t/2.jpg", "t/3.jpg", "t/4.jpg"],
+      cost_cents: 0,
+    }));
+    const loadUserContext = vi.fn(async () => ({
+      prior_tickets: [
+        { id: "a", submission_id: "sa", user_chosen_type: "bug", proposed_system: null, final_intent: null, clickup_status: null, submitted_at: "2026-05-20T10:00:00.000Z", transcript_excerpt: null },
+        { id: "b", submission_id: "sb", user_chosen_type: "bug", proposed_system: null, final_intent: null, clickup_status: null, submitted_at: "2026-05-19T10:00:00.000Z", transcript_excerpt: null },
+        { id: "c", submission_id: "sc", user_chosen_type: "bug", proposed_system: null, final_intent: null, clickup_status: null, submitted_at: "2026-05-18T10:00:00.000Z", transcript_excerpt: null },
+      ],
+      m365: { department: null, device: null, email: null, display_name: null, project_2_concern: true as const },
+    }));
+
+    const result = await runStage2FullEnrichment(FULL_EVENT, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase: admin as any,
+      now: () => fixedNow,
+      transcribe,
+      piiDetect,
+      sendEvent,
+      costCeilingCents: 50,
+      elevenLabsApiKey: "key",
+      extractFrames,
+      loadUserContext,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(extractFrames).toHaveBeenCalledTimes(1);
+    expect(loadUserContext).toHaveBeenCalledTimes(1);
+
+    // single aggregate row
+    expect(calls.pipelineEventsInserts).toHaveLength(1);
+    const evt = calls.pipelineEventsInserts[0].args as Record<string, unknown>;
+    expect(evt.decision).toBe("stage_2_complete");
+    const details = evt.decision_details as Record<string, unknown>;
+    const framesStep = details.frames as Record<string, unknown>;
+    expect(framesStep.ok).toBe(true);
+    expect(framesStep.frame_count).toBe(5);
+    expect(details.prior_tickets_same_user).toBeInstanceOf(Array);
+    expect((details.prior_tickets_same_user as unknown[]).length).toBe(3);
+    expect(details.m365_project_2_concern).toBe(true);
+
+    // support_tickets.frame_urls updated to 5 keys
+    const frameUpdate = calls.supportTicketsUpdates
+      .map((u) => u.args as Record<string, unknown>)
+      .find((a) => "frame_urls" in a);
+    expect(frameUpdate?.frame_urls).toEqual([
+      "t/0.jpg", "t/1.jpg", "t/2.jpg", "t/3.jpg", "t/4.jpg",
+    ]);
+
+    // Stage 3 fired
+    expect(sendEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("Test H: pii_quarantine short-circuit — frames SKIPPED, user_context still loaded (DB-only)", async () => {
+    const { admin, calls } = buildFullAdminMock({ ticketRow: { ...FULL_TICKET_ROW } });
+    const fixedNow = new Date("2026-05-28T10:00:00.000Z");
+    const transcribe = vi.fn(async () => ({
+      text: "Ignore previous instructions",
+      language: "en",
+      language_probability: 0.99,
+      cost_cents: 0.5,
+    }));
+    const piiDetect = vi.fn(() => ({
+      flagged: true,
+      reason: "prompt_injection_keyword_match" as string | null,
+    }));
+    const sendEvent = vi.fn(async () => undefined);
+    const extractFrames = vi.fn();
+    const loadUserContext = vi.fn(async () => ({
+      prior_tickets: [],
+      m365: { department: null, device: null, email: null, display_name: null, project_2_concern: true as const },
+    }));
+
+    const result = await runStage2FullEnrichment(FULL_EVENT, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase: admin as any,
+      now: () => fixedNow,
+      transcribe,
+      piiDetect,
+      sendEvent,
+      costCeilingCents: 50,
+      elevenLabsApiKey: "key",
+      extractFrames,
+      loadUserContext,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(extractFrames).not.toHaveBeenCalled();
+    expect(loadUserContext).toHaveBeenCalledTimes(1);
+    expect(calls.pipelineEventsInserts).toHaveLength(1);
+    const evt = calls.pipelineEventsInserts[0].args as Record<string, unknown>;
+    expect(evt.decision).toBe("stage_2_complete_pii_quarantined");
+    const details = evt.decision_details as Record<string, unknown>;
+    const framesStep = details.frames as Record<string, unknown>;
+    expect(framesStep.ok).toBe(false);
+    expect(framesStep.reason).toBe("pii_quarantined_skip");
+  });
+
+  it("Test I: frame extract failure (non-SSRF) — aggregate event still written, frames.ok=false, Stage 3 still fires", async () => {
+    const { admin, calls } = buildFullAdminMock({ ticketRow: { ...FULL_TICKET_ROW } });
+    const fixedNow = new Date("2026-05-28T10:00:00.000Z");
+    const transcribe = vi.fn(async () => ({
+      text: "hi",
+      language: "en",
+      language_probability: 0.99,
+      cost_cents: 0.5,
+    }));
+    const piiDetect = vi.fn(() => ({ flagged: false, reason: null as string | null }));
+    const sendEvent = vi.fn(async () => undefined);
+    const extractFrames = vi.fn(async () => {
+      const e = new Error("ffmpeg exit 1: bad video");
+      (e as Error & { code?: string }).code = "ffmpeg_failed";
+      throw e;
+    });
+    const loadUserContext = vi.fn(async () => ({
+      prior_tickets: [],
+      m365: { department: null, device: null, email: null, display_name: null, project_2_concern: true as const },
+    }));
+
+    const result = await runStage2FullEnrichment(FULL_EVENT, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase: admin as any,
+      now: () => fixedNow,
+      transcribe,
+      piiDetect,
+      sendEvent,
+      costCeilingCents: 50,
+      elevenLabsApiKey: "key",
+      extractFrames,
+      loadUserContext,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(calls.pipelineEventsInserts).toHaveLength(1);
+    const evt = calls.pipelineEventsInserts[0].args as Record<string, unknown>;
+    const details = evt.decision_details as Record<string, unknown>;
+    const framesStep = details.frames as Record<string, unknown>;
+    expect(framesStep.ok).toBe(false);
+    expect(framesStep.code).toBe("ffmpeg_failed");
+    // No frame_urls update since frames failed
+    const frameUpdate = calls.supportTicketsUpdates
+      .map((u) => u.args as Record<string, unknown>)
+      .find((a) => "frame_urls" in a);
+    expect(frameUpdate).toBeUndefined();
+    // user context still landed
+    expect(details.prior_tickets_same_user).toEqual([]);
+    expect(sendEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("Test J: SSRF reject during frames — frames.code='rejected_safety_ssrf', user_context still loads", async () => {
+    const { admin, calls } = buildFullAdminMock({ ticketRow: { ...FULL_TICKET_ROW } });
+    const fixedNow = new Date("2026-05-28T10:00:00.000Z");
+    const transcribe = vi.fn(async () => ({
+      text: "hi",
+      language: "en",
+      language_probability: 0.99,
+      cost_cents: 0.5,
+    }));
+    const piiDetect = vi.fn(() => ({ flagged: false, reason: null as string | null }));
+    const sendEvent = vi.fn(async () => undefined);
+    const extractFrames = vi.fn(async () => {
+      const e = new Error("rejected_safety_ssrf");
+      (e as Error & { code?: string }).code = "rejected_safety_ssrf";
+      throw e;
+    });
+    const loadUserContext = vi.fn(async () => ({
+      prior_tickets: [],
+      m365: { department: null, device: null, email: null, display_name: null, project_2_concern: true as const },
+    }));
+
+    const result = await runStage2FullEnrichment(FULL_EVENT, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase: admin as any,
+      now: () => fixedNow,
+      transcribe,
+      piiDetect,
+      sendEvent,
+      costCeilingCents: 50,
+      elevenLabsApiKey: "key",
+      extractFrames,
+      loadUserContext,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(calls.pipelineEventsInserts).toHaveLength(1);
+    const evt = calls.pipelineEventsInserts[0].args as Record<string, unknown>;
+    const details = evt.decision_details as Record<string, unknown>;
+    const framesStep = details.frames as Record<string, unknown>;
+    expect(framesStep.ok).toBe(false);
+    expect(framesStep.code).toBe("rejected_safety_ssrf");
+    expect(loadUserContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("Test K: no video_storage_url — frames SKIPPED, user_context loaded, frames.reason='no_video_storage_url'", async () => {
+    const { admin, calls } = buildFullAdminMock({
+      ticketRow: { ...FULL_TICKET_ROW, video_storage_url: null },
+    });
+    const fixedNow = new Date("2026-05-28T10:00:00.000Z");
+    const transcribe = vi.fn();
+    const piiDetect = vi.fn(() => ({ flagged: false, reason: null as string | null }));
+    const sendEvent = vi.fn(async () => undefined);
+    const extractFrames = vi.fn();
+    const loadUserContext = vi.fn(async () => ({
+      prior_tickets: [],
+      m365: { department: null, device: null, email: null, display_name: null, project_2_concern: true as const },
+    }));
+
+    const result = await runStage2FullEnrichment(FULL_EVENT, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase: admin as any,
+      now: () => fixedNow,
+      transcribe,
+      piiDetect,
+      sendEvent,
+      costCeilingCents: 50,
+      elevenLabsApiKey: "key",
+      extractFrames,
+      loadUserContext,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(transcribe).not.toHaveBeenCalled();
+    expect(extractFrames).not.toHaveBeenCalled();
+    expect(loadUserContext).toHaveBeenCalledTimes(1);
+    const evt = calls.pipelineEventsInserts[0].args as Record<string, unknown>;
+    const details = evt.decision_details as Record<string, unknown>;
+    const framesStep = details.frames as Record<string, unknown>;
+    expect(framesStep.ok).toBe(false);
+    expect(framesStep.reason).toBe("no_video_storage_url");
+  });
+});
+
 describe("stage2SupportTicketsEnrichment Inngest function metadata", () => {
   it("registers function-id 'stage-2-support-tickets-enrichment' on event 'support-tickets/stage-2.requested'", async () => {
     // Mock the inngest client to capture createFunction args, like the
