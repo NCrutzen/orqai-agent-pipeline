@@ -19,7 +19,6 @@
 
 import { z } from "zod";
 
-const ORQ_ROUTER_URL = "https://api.orq.ai/v2/router/chat/completions";
 const MODEL_ID = "anthropic/claude-sonnet-4-5-20250929" as const;
 const TIMEOUT_MS = 45_000;
 const FRAME_SIGNED_URL_TTL_S = 600;
@@ -190,42 +189,30 @@ export async function detectSoftwareSystem(
     metadata: { user_id: "support-tickets-stage-2" },
   };
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-  let res: Response;
-  try {
-    res = await fetch(ORQ_ROUTER_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-  } catch (cause) {
-    clearTimeout(timeout);
-    throw new DetectSystemError("orq_request_failed", { cause });
-  }
-  clearTimeout(timeout);
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new DetectSystemError("orq_http_error", {
-      http_status: res.status,
-      message: `Orq router error ${res.status}: ${errText.slice(0, 200)}`,
-    });
-  }
-
+  // Use @orq-ai/node SDK for chat completions (raw HTTP to /v2/router/chat/completions
+  // returns 404 — SDK uses different URL routing internally).
   let json: {
     choices?: Array<{ message?: { content?: string } }>;
     usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
   try {
-    json = await res.json();
+    const { Orq } = await import("@orq-ai/node");
+    const orq = new Orq({ apiKey });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const router = (orq as any).router;
+    const completionFn =
+      router?.chatCompletions?.create ??
+      router?.chat?.completions?.create ??
+      router?.completions?.create;
+    if (typeof completionFn !== "function") {
+      throw new DetectSystemError("orq_sdk_router_method_missing", {
+        message: "Could not locate router chat completions method on Orq SDK",
+      });
+    }
+    json = await completionFn.call(router?.chatCompletions ?? router?.chat?.completions ?? router?.completions, body);
   } catch (cause) {
-    throw new DetectSystemError("response_json_parse_failed", { cause });
+    if (cause instanceof DetectSystemError) throw cause;
+    throw new DetectSystemError("orq_request_failed", { cause });
   }
 
   const rawContent = json.choices?.[0]?.message?.content ?? "";

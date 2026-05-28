@@ -1,8 +1,11 @@
-// Plan 02-05 Task 2 — embedAndSearchSimilar via Orq.ai /v2/embeddings + support.match_tickets RPC.
+// Plan 02-05 Task 2 — embedAndSearchSimilar via Orq.ai SDK + support.match_tickets RPC.
 //
-// CLAUDE.md compliance: NO direct OpenAI SDK — embeddings flow through Orq's
-// Router (`openai/text-embedding-3-small`, 1536 dims). The RPC was created in
-// Plan 02-01's migration (B-3 consolidation); we DO NOT ship migrations here.
+// CLAUDE.md compliance: NO direct OpenAI SDK — embeddings flow through the
+// `@orq-ai/node` SDK's Router (`openai/text-embedding-3-small`, 1536 dims).
+// Pattern mirrors `app/api/automations/smeba/search-kb/route.ts`.
+//
+// The RPC was created in Plan 02-01's migration (B-3 consolidation); we DO NOT
+// ship migrations here.
 //
 // "Empty path is happy path" — when `support.ticket_embeddings` has no rows
 // (dev state), the RPC returns `[]` and this function returns `{ similar: [] }`
@@ -19,7 +22,6 @@ import {
   type SimilarTicket,
 } from "./pipeline-stage-context";
 
-const ORQ_EMBEDDINGS_URL = "https://api.orq.ai/v2/embeddings";
 const EMBED_MODEL = "openai/text-embedding-3-small" as const;
 const EXPECTED_DIM = 1536;
 const DEFAULT_TOP_K = 5;
@@ -81,64 +83,50 @@ export async function embedAndSearchSimilar(
   }
   const topK = clampTopK(args.topK);
 
-  // ---- (1) Generate embedding via Orq Router ----
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-  let res: Response;
+  // ---- (1) Generate embedding via @orq-ai/node SDK ----
+  // (Mirrors smeba/search-kb/route.ts pattern. Lazy dynamic import keeps unit
+  // tests fast — the SDK ships its own fetch + auth + retry plumbing.)
+  let embedding: number[];
+  let tokens = 0;
   try {
-    res = await fetch(ORQ_EMBEDDINGS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ model: EMBED_MODEL, input: args.text }),
-      signal: controller.signal,
+    const { Orq } = await import("@orq-ai/node");
+    const orq = new Orq({ apiKey });
+    const res = await orq.router.embeddings.create({
+      model: EMBED_MODEL,
+      input: args.text.slice(0, 8000),
     });
+    const emb = (res as { data?: Array<{ embedding?: number[] | string }> }).data?.[0]?.embedding;
+    if (typeof emb === "string") {
+      throw new EmbedSearchError("orq_embedding_unexpected_base64");
+    }
+    if (!Array.isArray(emb)) {
+      throw new EmbedSearchError("embedding_missing_in_response");
+    }
+    embedding = emb;
+    const usage = (res as { usage?: { prompt_tokens?: number } }).usage;
+    tokens = usage?.prompt_tokens ?? 0;
   } catch (cause) {
-    clearTimeout(timeout);
+    if (cause instanceof EmbedSearchError) throw cause;
     throw new EmbedSearchError("orq_embedding_request_failed", { cause });
   }
-  clearTimeout(timeout);
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new EmbedSearchError("orq_embedding_http_error", {
-      http_status: res.status,
-      message: `Orq /v2/embeddings ${res.status}: ${errText.slice(0, 200)}`,
-    });
-  }
-
-  let json: {
-    data?: Array<{ embedding?: number[] }>;
-    usage?: { prompt_tokens?: number };
-  };
-  try {
-    json = await res.json();
-  } catch (cause) {
-    throw new EmbedSearchError("orq_embedding_parse_failed", { cause });
-  }
-
-  const embedding = json.data?.[0]?.embedding;
-  if (!Array.isArray(embedding)) {
-    throw new EmbedSearchError("embedding_missing_in_response");
-  }
   if (embedding.length !== EXPECTED_DIM) {
     throw new EmbedSearchError("embedding_dim_mismatch", {
       message: `expected ${EXPECTED_DIM}-dim, got ${embedding.length}`,
     });
   }
 
-  const tokens = json.usage?.prompt_tokens ?? 0;
   const computed = tokens * EMBED_USD_PER_TOKEN * USD_TO_CENTS;
   const cost_cents =
     computed > 0 ? quantizeCost(computed) : FALLBACK_COST_CENTS;
 
   // ---- (2) Call support.match_tickets RPC ----
+  // pgvector requires the literal string format "[x,y,z,...]" — passing a JS
+  // array via PostgREST will be JSON-encoded and rejected by the column type.
+  const embeddingLiteral = `[${embedding.join(",")}]`;
   const rpcRes = await args.supabase
     .schema("support")
-    .rpc("match_tickets", { query_embedding: embedding, top_k: topK });
+    .rpc("match_tickets", { query_embedding: embeddingLiteral, top_k: topK });
 
   if (rpcRes.error) {
     const msg = (rpcRes.error as { message?: string }).message ?? "unknown";
