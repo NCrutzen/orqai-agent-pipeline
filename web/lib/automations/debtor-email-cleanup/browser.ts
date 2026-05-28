@@ -323,6 +323,11 @@ async function verifyMessageGone(
   email: EmailIdentifiers,
   deletedMessageId: string,
 ): Promise<boolean> {
+  if (typeof email.from !== "string" || !email.from) {
+    throw new Error(
+      "verifyMessageGone: missing email.from on queue payload (producer schema drift)",
+    );
+  }
   // Re-trigger the sender-scoped search so the DataTables result set is
   // narrowed to one sender — keeps the DOM small and avoids paginating
   // 1200+ rows just to confirm a single delete.
@@ -633,7 +638,16 @@ export async function deleteEmailOnPage(
     await page
       .waitForSelector("#messages-list", { timeout: 6000 })
       .catch(() => null);
-    const gone = await verifyMessageGone(page, email, deletedMessageId);
+    let gone = await verifyMessageGone(page, email, deletedMessageId);
+    if (!gone) {
+      // Single retry after 2 s — handles transient XHR cache lag on iController's side.
+      await page.waitForTimeout(2000);
+      await page.goto(listUrl, { waitUntil: "domcontentloaded" });
+      await page
+        .waitForSelector("#messages-list", { timeout: 6000 })
+        .catch(() => null);
+      gone = await verifyMessageGone(page, email, deletedMessageId);
+    }
     if (!gone) {
       return {
         success: false,
