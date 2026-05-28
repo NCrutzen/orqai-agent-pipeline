@@ -65,15 +65,32 @@ export interface NormalizedLocale {
 }
 
 /**
- * Normalize a Scribe-returned ISO-639-1 language code to a `submitter_locale`
- * enum value `{nl|en|fr}`. Anything else falls back to `'en'` per I18N-05.
+ * Normalize a Scribe-returned language code to a `submitter_locale` enum
+ * value `{nl|en|fr}`. Scribe returns ISO 639-3 (`eng`, `nld`, `fra`) for
+ * some clips and ISO 639-1 (`en`, `nl`, `fr`) for others; we accept both.
+ * Anything else falls back to `'en'` per I18N-05.
  */
+const ISO_639_3_TO_1: Record<string, "nl" | "en" | "fr"> = {
+  eng: "en",
+  nld: "nl",
+  dut: "nl", // older code for Dutch (Bibliographic vs Terminological)
+  fra: "fr",
+  fre: "fr", // older code for French
+};
+
 export function normalizeSubmitterLocale(language: string): NormalizedLocale {
   const original = language ?? "";
   const lower = original.toString().toLowerCase().trim();
   if (ALLOWED_LOCALES.has(lower)) {
     return {
       locale: lower as "nl" | "en" | "fr",
+      fallback_used: false,
+      original,
+    };
+  }
+  if (lower in ISO_639_3_TO_1) {
+    return {
+      locale: ISO_639_3_TO_1[lower],
       fallback_used: false,
       original,
     };
@@ -213,14 +230,28 @@ export async function transcribeViaScribe(
     });
   }
 
-  if (!raw || typeof raw.text !== "string" || typeof raw.language_code !== "string") {
+  // The ElevenLabs SDK normalizes field names to camelCase (`languageCode`,
+  // `languageProbability`, `audioDurationSecs`) — the raw HTTP API uses
+  // snake_case but the SDK transform layer renames them. Accept either to
+  // be defensive across SDK versions.
+  const language = (raw.languageCode ?? raw.language_code) as string | undefined;
+  const language_probability =
+    (raw.languageProbability ?? raw.language_probability) as number | undefined;
+  const audio_duration_secs =
+    (raw.audioDurationSecs ?? raw.audio_duration_secs) as number | undefined;
+
+  if (!raw || typeof raw.text !== "string" || typeof language !== "string") {
     throw new TranscribeError("transcribe_invalid_response", {
       message: `Scribe returned unexpected shape: ${JSON.stringify(raw)}`,
     });
   }
 
   // (5) Cost calc. Floor to 0.0001¢ resolution (numeric(10,4) precision).
-  const durSec = Math.max(1, Math.round(args.durationSeconds ?? 1));
+  // Prefer SDK-reported audio duration over caller-supplied (more accurate).
+  const durSec = Math.max(
+    1,
+    Math.round(audio_duration_secs ?? args.durationSeconds ?? 1),
+  );
   const usd = durSec * SCRIBE_USD_PER_SECOND;
   const cents = usd * USD_TO_CENTS;
   // Round to 4 decimal places to fit numeric(10,4).
@@ -228,8 +259,8 @@ export async function transcribeViaScribe(
 
   return {
     text: raw.text,
-    language: raw.language_code,
-    language_probability: typeof raw.language_probability === "number" ? raw.language_probability : null,
+    language,
+    language_probability: typeof language_probability === "number" ? language_probability : null,
     cost_cents,
   };
 }
