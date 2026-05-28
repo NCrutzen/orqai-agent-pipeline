@@ -10,10 +10,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const ORIG_KEY = process.env.ELEVENLABS_API_KEY;
 const ORIG_ALLOWED = process.env.SUPPORT_VIDEO_ALLOWED_HOSTS;
 
+const ORIG_FETCH = globalThis.fetch;
+
 beforeEach(() => {
   process.env.ELEVENLABS_API_KEY = "test-elevenlabs-key";
   delete process.env.SUPPORT_VIDEO_ALLOWED_HOSTS;
   vi.resetModules();
+  // Mock global fetch so transcribe.ts's fetch(videoUrl) call doesn't try to
+  // resolve abc.supabase.co (DNS would fail in unit tests). The SDK convert
+  // is mocked separately via vi.doMock per test, so the Blob payload we
+  // return here is never actually inspected.
+  globalThis.fetch = vi.fn(async () => ({
+    ok: true,
+    status: 200,
+    blob: async () => new Blob(["fake-audio"], { type: "audio/mpeg" }),
+  })) as unknown as typeof fetch;
 });
 afterEach(() => {
   if (ORIG_KEY === undefined) delete process.env.ELEVENLABS_API_KEY;
@@ -21,6 +32,7 @@ afterEach(() => {
   if (ORIG_ALLOWED === undefined) delete process.env.SUPPORT_VIDEO_ALLOWED_HOSTS;
   else process.env.SUPPORT_VIDEO_ALLOWED_HOSTS = ORIG_ALLOWED;
   vi.doUnmock("@elevenlabs/elevenlabs-js");
+  globalThis.fetch = ORIG_FETCH;
 });
 
 function mockScribe(result: {

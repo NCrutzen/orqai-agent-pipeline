@@ -177,14 +177,32 @@ export async function transcribeViaScribe(
   // (3) Load SDK lazily.
   const client = await loadScribeClient(apiKey);
 
-  // (4) Scribe call. We pass the signed URL as `file` — Scribe's API accepts
-  // either a Blob or a remote URL string. The 45s AbortController timeout is
-  // an Inngest-level concern (CLAUDE.md timeout discipline); we surface
-  // sub-call timeouts via the SDK's internal handling and re-wrap any error.
+  // (4) Scribe call. The SDK's `file` parameter expects a File/Blob/Buffer,
+  // NOT a remote URL string (the SDK probes `'path' in fileArg` which throws
+  // TypeError on string primitives — bug found in 2026-05-28 smoke). We must
+  // fetch the audio first, then pass the resulting Blob. The 45s
+  // AbortController timeout is an Inngest-level concern (CLAUDE.md timeout
+  // discipline); we surface sub-call timeouts via the SDK's internal handling
+  // and re-wrap any error.
+  let audioBlob: Blob;
+  try {
+    const fetchResp = await fetch(args.videoUrl);
+    if (!fetchResp.ok) {
+      throw new Error(`fetch ${args.videoUrl} → HTTP ${fetchResp.status}`);
+    }
+    audioBlob = await fetchResp.blob();
+  } catch (cause) {
+    const msg = cause instanceof Error ? cause.message : String(cause);
+    throw new TranscribeError("transcribe_fetch_failed", {
+      cause,
+      message: `Failed to fetch audio from video_storage_url: ${msg}`,
+    });
+  }
+
   let raw: ScribeConvertResult;
   try {
     raw = await client.speechToText.convert({
-      file: args.videoUrl,
+      file: audioBlob,
       modelId: "scribe_v1",
     });
   } catch (cause) {
