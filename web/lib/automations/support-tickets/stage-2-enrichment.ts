@@ -53,6 +53,16 @@ import {
   type TranscribeResult,
 } from "./transcribe";
 import { detectPiiOrInjection, type PiiDetectResult } from "./pii-detect";
+import {
+  extractFrames as defaultExtractFrames,
+  type ExtractFramesArgs,
+  type ExtractFramesResult,
+} from "./extract-frames";
+import {
+  loadUserContext as defaultLoadUserContext,
+  type LoadUserContextArgs,
+  type LoadUserContextResult,
+} from "./user-context";
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -203,6 +213,10 @@ export interface Stage2FullDeps {
   sendEvent: (payload: { name: string; data: Record<string, unknown> }) => Promise<unknown>;
   costCeilingCents: number;
   elevenLabsApiKey: string | undefined;
+  /** Plan 02-04 Task 3 — frame extraction injection point. */
+  extractFrames?: (args: ExtractFramesArgs) => Promise<ExtractFramesResult>;
+  /** Plan 02-04 Task 3 — user-context injection point. */
+  loadUserContext?: (args: LoadUserContextArgs) => Promise<LoadUserContextResult>;
 }
 
 type StageTicketFull = {
@@ -210,6 +224,7 @@ type StageTicketFull = {
   submission_id: string;
   external_task_id: string;
   attempt: number;
+  submitter_id: string;
   video_storage_url: string | null;
   stage2_cost_cents: number | null;
 };
@@ -267,7 +282,7 @@ export async function runStage2FullEnrichment(
   const ticketRes = await supabase
     .from("support_tickets")
     .select(
-      "id, submission_id, external_task_id, attempt, video_storage_url, stage2_cost_cents",
+      "id, submission_id, external_task_id, attempt, submitter_id, video_storage_url, stage2_cost_cents",
     )
     .eq("id", event.support_ticket_id)
     .maybeSingle();
@@ -376,6 +391,73 @@ export async function runStage2FullEnrichment(
     stepResults.pii_check = { flagged: pii.flagged, reason: pii.reason ?? null };
   } else {
     stepResults.pii_check = { skipped: "no_transcript" };
+  }
+
+  // ---- (4b) Plan 02-04 — frames + user-context ----
+  // Sub-step outcomes fold into the SAME aggregate pipeline_events row
+  // (UNIQUE constraint pipeline_events_one_per_stage_email forbids per-step
+  // rows). frames + user-context are independent sub-steps; we keep them
+  // sequential here for testability of skip/branch semantics.
+  const extractFramesFn = deps.extractFrames ?? defaultExtractFrames;
+  const loadUserContextFn = deps.loadUserContext ?? defaultLoadUserContext;
+
+  // (4b.i) Frames — skipped on pii_quarantine (privacy) OR no video URL.
+  // SSRF reject from extractFrames is captured into the aggregate, not
+  // promoted to a separate row (Plan 02-03 locked-contract decision).
+  let frameStorageKeys: string[] = [];
+  if (piiFlagged) {
+    stepResults.frames = { ok: false, reason: "pii_quarantined_skip" };
+  } else if (ticket.video_storage_url == null) {
+    stepResults.frames = { ok: false, reason: "no_video_storage_url" };
+  } else {
+    try {
+      const fr = await extractFramesFn({
+        videoUrl: ticket.video_storage_url,
+        supabase: supabase as unknown as ExtractFramesArgs["supabase"],
+        ticketId: ticket.id,
+      });
+      frameStorageKeys = fr.storage_keys;
+      stepResults.frames = {
+        ok: true,
+        frame_count: fr.storage_keys.length,
+        cost_cents: fr.cost_cents,
+      };
+      runningCostCents = runningCostCents + (fr.cost_cents ?? 0);
+      if (frameStorageKeys.length > 0) {
+        const updFrames = await supabase
+          .from("support_tickets")
+          .update({ frame_urls: frameStorageKeys })
+          .eq("id", ticket.id);
+        if ((updFrames as { error?: unknown } | null)?.error) {
+          const err = (updFrames as { error?: { message?: string } }).error;
+          throw new Error(
+            `support_tickets update (frame_urls) failed: ${err?.message ?? "unknown"}`,
+          );
+        }
+      }
+    } catch (cause) {
+      const code = (cause as { code?: string }).code ?? "frames_failed";
+      const message = cause instanceof Error ? cause.message : String(cause);
+      stepResults.frames = { ok: false, code, message };
+    }
+  }
+
+  // (4b.ii) User context — DB-only; runs even on pii_quarantine OR frame
+  // failure (the prior-ticket history is not sensitive to the current
+  // submission's content).
+  try {
+    const uc = await loadUserContextFn({
+      submitterId: ticket.submitter_id,
+      supabase: supabase as unknown as LoadUserContextArgs["supabase"],
+    });
+    stepResults.prior_tickets_same_user = uc.prior_tickets;
+    stepResults.m365_project_2_concern = uc.m365.project_2_concern === true;
+    stepResults.m365 = uc.m365;
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    stepResults.prior_tickets_same_user = [];
+    stepResults.m365_project_2_concern = true;
+    stepResults.user_context_error = { message };
   }
 
   // ---- (5) Cost-ceiling check (post-transcribe) ----
