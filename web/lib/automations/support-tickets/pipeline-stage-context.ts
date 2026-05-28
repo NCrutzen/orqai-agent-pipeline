@@ -50,8 +50,20 @@ export const priorTicketSummarySchema = z.object({
 });
 export type PriorTicketSummary = z.infer<typeof priorTicketSummarySchema>;
 
-/** Phase 2 Plan 02-05 fills with concrete fields (ticket_id, similarity score, snippet, etc.). */
-export const similarTicketSchema = z.object({}).passthrough();
+/**
+ * Plan 02-05 Task 2 tightening — concrete shape of a row returned by
+ * `support.match_tickets(query_embedding, top_k)` (RPC shipped in Plan 02-01).
+ * Replaces the Plan 02-02 passthrough stub.
+ */
+export const similarTicketSchema = z.object({
+  ticket_id: z.string().uuid(),
+  source_key: z.string(),
+  summary_text: z.string(),
+  resolution_text: z.string().nullable(),
+  final_intent: z.string().nullable(),
+  final_system: z.string().nullable(),
+  cosine_distance: z.number(),
+});
 export type SimilarTicket = z.infer<typeof similarTicketSchema>;
 
 /** Phase 4 re-entry fills with concrete clarification-round shape. Empty in v1. */
