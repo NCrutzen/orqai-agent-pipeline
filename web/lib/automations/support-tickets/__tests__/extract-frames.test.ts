@@ -32,31 +32,30 @@ let spawnStdout = ""; // for ffprobe duration output
 // frame extraction calls. Index increments per spawn call.
 const spawnScript: Array<{ exitCode?: number; stderr?: string; stdout?: string }> = [];
 
-vi.mock("node:child_process", () => {
-  return {
-    spawn: (command: string, args: ReadonlyArray<string>) => {
-      const callIdx = spawnCalls.length;
-      spawnCalls.push({ command, args: [...args] });
-      const ee = new EventEmitter() as EventEmitter & {
-        stdout: EventEmitter;
-        stderr: EventEmitter;
-      };
-      ee.stdout = new EventEmitter();
-      ee.stderr = new EventEmitter();
-      const scripted = spawnScript[callIdx];
-      const code = scripted?.exitCode ?? spawnExitCode;
-      const stderr = scripted?.stderr ?? spawnStderr;
-      const stdout = scripted?.stdout ?? spawnStdout;
-      // emit asynchronously (microtask) so caller can attach listeners
-      queueMicrotask(() => {
-        if (stdout.length > 0) ee.stdout.emit("data", Buffer.from(stdout));
-        if (stderr.length > 0) ee.stderr.emit("data", Buffer.from(stderr));
-        ee.emit("close", code);
-      });
-      return ee;
-    },
+const spawn = (command: string, args: ReadonlyArray<string>) => {
+  const callIdx = spawnCalls.length;
+  spawnCalls.push({ command, args: [...args] });
+  const ee = new EventEmitter() as EventEmitter & {
+    stdout: EventEmitter;
+    stderr: EventEmitter;
   };
-});
+  ee.stdout = new EventEmitter();
+  ee.stderr = new EventEmitter();
+  const scripted = spawnScript[callIdx];
+  const code = scripted?.exitCode ?? spawnExitCode;
+  const stderr = scripted?.stderr ?? spawnStderr;
+  const stdout = scripted?.stdout ?? spawnStdout;
+  queueMicrotask(() => {
+    if (stdout.length > 0) ee.stdout.emit("data", Buffer.from(stdout));
+    if (stderr.length > 0) ee.stderr.emit("data", Buffer.from(stderr));
+    ee.emit("close", code);
+  });
+  return ee;
+};
+vi.mock("node:child_process", () => ({
+  default: { spawn },
+  spawn,
+}));
 
 // fs/promises — readFile returns a fake JPEG buffer, unlink no-ops.
 vi.mock("node:fs/promises", () => ({
@@ -71,16 +70,17 @@ vi.mock("node:fs/promises", () => ({
 // streaming download path.
 vi.mock("node:fs", async () => {
   const { Writable } = await import("node:stream");
+  const createWriteStream = () => {
+    const w = new Writable({
+      write(_chunk: unknown, _enc: BufferEncoding, cb: (err?: Error | null) => void) {
+        cb(null);
+      },
+    });
+    return w;
+  };
   return {
-    default: {},
-    createWriteStream: () => {
-      const w = new Writable({
-        write(_chunk: unknown, _enc: BufferEncoding, cb: (err?: Error | null) => void) {
-          cb(null);
-        },
-      });
-      return w;
-    },
+    default: { createWriteStream },
+    createWriteStream,
   };
 });
 
