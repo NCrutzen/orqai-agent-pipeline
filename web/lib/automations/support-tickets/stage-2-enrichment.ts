@@ -250,16 +250,20 @@ async function writeStage2Event(
 }
 
 /**
- * Pure full-enrichment handler. The Inngest wrapper calls this from
- * step.run boundaries (one per major sub-step) for replay safety.
+ * Pure full-enrichment handler. Aggregates all Stage 2 sub-steps (SSRF gate,
+ * transcribe, PII detect, cost ceiling, baseline context) into ONE
+ * pipeline_events row at the end. The canonical pipeline_events table has a
+ * UNIQUE (email_id, swarm_type, stage) constraint (migration 20260513a) so we
+ * cannot emit per-step rows — sub-step outcomes live in decision_details.jsonb.
  */
 export async function runStage2FullEnrichment(
   event: Stage2RequestedEvent,
   deps: Stage2FullDeps,
 ): Promise<Stage2FullResult> {
   const { supabase, now, transcribe, piiDetect, sendEvent, costCeilingCents } = deps;
+  const startedAt = now();
 
-  // ---- (1) Load ticket (includes video_storage_url + current cost rollup) ----
+  // ---- (1) Load ticket ----
   const ticketRes = await supabase
     .from("support_tickets")
     .select(
@@ -277,58 +281,51 @@ export async function runStage2FullEnrichment(
     return { ok: false, reason: "ticket_not_found" };
   }
 
-  // ---- (2) SSRF gate on video_storage_url ----
-  // If no video_storage_url: we don't transcribe (text-only ticket).
-  // The plan currently presumes video is set by Phase 1 ingest; if not, we
-  // skip directly to baseline emit + Stage 3 trigger. SSRF gate only fires
-  // when a non-null URL is present.
-  if (ticket.video_storage_url != null) {
-    if (!validateVideoUrlHost(ticket.video_storage_url)) {
-      const startedAt = now();
-      const finishedAt = now();
-      await writeStage2Event(supabase, {
-        decision: "rejected_safety_ssrf",
-        decision_details: {
-          external_task_id: ticket.external_task_id,
-          attempt: ticket.attempt,
-          reason: "video_storage_url failed allow-list",
-        },
-        duration_ms: Math.round(finishedAt.getTime() - startedAt.getTime()),
-        automation_run_id: ticket.id,
-        email_id: ticket.submission_id,
-      });
-      // Mark quarantine so downstream plans short-circuit.
-      const updRes = await supabase
-        .from("support_tickets")
-        .update({ quarantine_state: "rejected_safety_ssrf" })
-        .eq("id", ticket.id);
-      if ((updRes as { error?: unknown } | null)?.error) {
-        const err = (updRes as { error?: { message?: string } }).error;
-        throw new Error(
-          `support_tickets update quarantine_state failed: ${err?.message ?? "unknown"}`,
-        );
-      }
-      return { ok: false, reason: "rejected_safety_ssrf" };
-    }
-  }
-
-  // ---- (3) Transcribe (only when we have a video URL) ----
-  let transcribeResult: TranscribeResult | null = null;
-  let submitterLocale: "nl" | "en" | "fr" = "en";
+  // Aggregator for the single Stage 2 event we'll write at the end.
+  const stepResults: Record<string, unknown> = {
+    external_task_id: ticket.external_task_id,
+    attempt: ticket.attempt,
+  };
   let runningCostCents = ticket.stage2_cost_cents ?? 0;
 
+  // ---- (2) SSRF gate ----
+  if (ticket.video_storage_url != null && !validateVideoUrlHost(ticket.video_storage_url)) {
+    const updRes = await supabase
+      .from("support_tickets")
+      .update({ quarantine_state: "rejected_safety_ssrf" })
+      .eq("id", ticket.id);
+    if ((updRes as { error?: unknown } | null)?.error) {
+      const err = (updRes as { error?: { message?: string } }).error;
+      throw new Error(
+        `support_tickets update quarantine_state failed: ${err?.message ?? "unknown"}`,
+      );
+    }
+    await writeStage2Event(supabase, {
+      decision: "rejected_safety_ssrf",
+      decision_details: {
+        ...stepResults,
+        reason: "video_storage_url failed allow-list",
+      },
+      duration_ms: Math.round(now().getTime() - startedAt.getTime()),
+      automation_run_id: ticket.id,
+      email_id: ticket.submission_id,
+    });
+    return { ok: false, reason: "rejected_safety_ssrf" };
+  }
+
+  // ---- (3) Transcribe ----
+  let transcribeResult: TranscribeResult | null = null;
+  let submitterLocale: "nl" | "en" | "fr" = "en";
+
   if (ticket.video_storage_url != null) {
-    const tStart = now();
     transcribeResult = await transcribe({
       videoUrl: ticket.video_storage_url,
       env: { ELEVENLABS_API_KEY: deps.elevenLabsApiKey },
     });
-    const tEnd = now();
     const locale = normalizeSubmitterLocale(transcribeResult.language);
     submitterLocale = locale.locale;
     runningCostCents = runningCostCents + transcribeResult.cost_cents;
 
-    // UPDATE support_tickets with transcript, locale, cost rollup.
     const updRes = await supabase
       .from("support_tickets")
       .update({
@@ -344,29 +341,22 @@ export async function runStage2FullEnrichment(
       );
     }
 
-    await writeStage2Event(supabase, {
-      decision: "transcribe_ok",
-      decision_details: {
-        external_task_id: ticket.external_task_id,
-        attempt: ticket.attempt,
-        submitter_locale: submitterLocale,
-        submitter_locale_original: locale.original,
-        submitter_locale_fallback_used: locale.fallback_used,
-        language_probability: transcribeResult.language_probability,
-      },
-      duration_ms: Math.round(tEnd.getTime() - tStart.getTime()),
+    stepResults.transcribe = {
+      ok: true,
+      submitter_locale: submitterLocale,
+      submitter_locale_original: locale.original,
+      submitter_locale_fallback_used: locale.fallback_used,
+      language_probability: transcribeResult.language_probability,
       cost_cents: transcribeResult.cost_cents,
-      automation_run_id: ticket.id,
-      email_id: ticket.submission_id,
-    });
+    };
+  } else {
+    stepResults.transcribe = { ok: false, reason: "no_video_storage_url" };
   }
 
-  // ---- (4) PII / prompt-injection detection on transcript ----
+  // ---- (4) PII / prompt-injection ----
   let piiFlagged = false;
   if (transcribeResult != null) {
-    const pStart = now();
     const pii = piiDetect(transcribeResult.text);
-    const pEnd = now();
     piiFlagged = pii.flagged;
     if (pii.flagged) {
       const updRes = await supabase
@@ -382,48 +372,14 @@ export async function runStage2FullEnrichment(
           `support_tickets update (pii_quarantine) failed: ${err?.message ?? "unknown"}`,
         );
       }
-      await writeStage2Event(supabase, {
-        decision: "pii_check_quarantined",
-        decision_details: {
-          external_task_id: ticket.external_task_id,
-          attempt: ticket.attempt,
-          reason: pii.reason,
-        },
-        duration_ms: Math.round(pEnd.getTime() - pStart.getTime()),
-        automation_run_id: ticket.id,
-        email_id: ticket.submission_id,
-      });
-    } else {
-      await writeStage2Event(supabase, {
-        decision: "pii_check_safe",
-        decision_details: {
-          external_task_id: ticket.external_task_id,
-          attempt: ticket.attempt,
-        },
-        duration_ms: Math.round(pEnd.getTime() - pStart.getTime()),
-        automation_run_id: ticket.id,
-        email_id: ticket.submission_id,
-      });
     }
+    stepResults.pii_check = { flagged: pii.flagged, reason: pii.reason ?? null };
+  } else {
+    stepResults.pii_check = { skipped: "no_transcript" };
   }
 
   // ---- (5) Cost-ceiling check (post-transcribe) ----
   if (runningCostCents > costCeilingCents) {
-    const cStart = now();
-    const cEnd = now();
-    await writeStage2Event(supabase, {
-      decision: "cost_ceiling_exceeded",
-      decision_details: {
-        external_task_id: ticket.external_task_id,
-        attempt: ticket.attempt,
-        stage2_cost_cents: runningCostCents,
-        ceiling_cents: costCeilingCents,
-        when: "post_transcribe",
-      },
-      duration_ms: Math.round(cEnd.getTime() - cStart.getTime()),
-      automation_run_id: ticket.id,
-      email_id: ticket.submission_id,
-    });
     const updRes = await supabase
       .from("support_tickets")
       .update({ proposed_system_status: "cost_ceiling_exceeded" })
@@ -434,18 +390,54 @@ export async function runStage2FullEnrichment(
         `support_tickets update (cost_ceiling_exceeded) failed: ${err?.message ?? "unknown"}`,
       );
     }
+    await writeStage2Event(supabase, {
+      decision: "cost_ceiling_exceeded",
+      decision_details: {
+        ...stepResults,
+        stage2_cost_cents: runningCostCents,
+        ceiling_cents: costCeilingCents,
+        when: "post_transcribe",
+      },
+      duration_ms: Math.round(now().getTime() - startedAt.getTime()),
+      cost_cents: runningCostCents,
+      automation_run_id: ticket.id,
+      email_id: ticket.submission_id,
+    });
     return { ok: false, reason: "cost_ceiling_exceeded_post_transcribe" };
   }
 
-  // ---- (6) Baseline emit (existing PipelineStageContext + Stage 3 trigger) ----
-  const baseline = await runStage2BaselineEnrichment(event, { supabase, now });
-  if (!baseline.ok) {
-    return baseline;
+  // ---- (6) Baseline PipelineStageContext (v1 empty) ----
+  const context = emptyPipelineStageContext();
+
+  // ---- (7) Mark stage2_completed_at ----
+  const completedAt = now();
+  const updRes = await supabase
+    .from("support_tickets")
+    .update({ stage2_completed_at: completedAt.toISOString() })
+    .eq("id", ticket.id);
+  if ((updRes as { error?: unknown } | null)?.error) {
+    const err = (updRes as { error?: { message?: string } }).error;
+    throw new Error(
+      `support_tickets update stage2_completed_at failed: ${err?.message ?? "unknown"}`,
+    );
   }
 
-  // Fire Stage 3 trigger. Plans 02-04/02-05 may add gating on
-  // pii_quarantine / proposed_system_status; for this plan we always fire
-  // unless cost-ceiling aborted (handled above).
+  // ---- (8) Single Stage 2 pipeline_events row ----
+  const finalDecision = piiFlagged ? "stage_2_complete_pii_quarantined" : "stage_2_complete";
+  await writeStage2Event(supabase, {
+    decision: finalDecision,
+    decision_details: {
+      ...context,
+      ...stepResults,
+      stage2_cost_cents: runningCostCents,
+    },
+    duration_ms: Math.round(completedAt.getTime() - startedAt.getTime()),
+    cost_cents: runningCostCents,
+    automation_run_id: ticket.id,
+    email_id: ticket.submission_id,
+  });
+
+  // ---- (9) Stage 3 trigger ----
   await sendEvent({
     name: "support-tickets/stage-3.requested",
     data: {
@@ -458,8 +450,8 @@ export async function runStage2FullEnrichment(
 
   return {
     ok: true,
-    context: baseline.context,
-    pipeline_event_decision: "stage_2_baseline",
+    context,
+    pipeline_event_decision: finalDecision,
     transcript: transcribeResult?.text ?? "",
     submitter_locale: submitterLocale,
     stage2_cost_cents: runningCostCents,

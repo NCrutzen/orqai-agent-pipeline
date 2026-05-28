@@ -294,13 +294,18 @@ describe("runStage2FullEnrichment (pure handler — Plan 02-03 wiring)", () => {
     expect(result.ok).toBe(true);
     expect(transcribe).toHaveBeenCalledTimes(1);
     expect(piiDetect).toHaveBeenCalledTimes(1);
-    // 3 pipeline_events rows: transcribe_ok + pii_check_safe + stage_2_baseline
-    const decisions = calls.pipelineEventsInserts.map(
-      (c) => (c.args as Record<string, unknown>).decision,
-    );
-    expect(decisions).toContain("transcribe_ok");
-    expect(decisions).toContain("pii_check_safe");
-    expect(decisions).toContain("stage_2_baseline");
+    // ONE aggregate pipeline_events row at stage=2 (UNIQUE constraint
+    // pipeline_events_one_per_stage_email prevents per-step rows). Sub-step
+    // outcomes live in decision_details.
+    expect(calls.pipelineEventsInserts).toHaveLength(1);
+    const evt = calls.pipelineEventsInserts[0].args as Record<string, unknown>;
+    expect(evt.decision).toBe("stage_2_complete");
+    const details = evt.decision_details as Record<string, unknown>;
+    const transcribeStep = details.transcribe as Record<string, unknown>;
+    expect(transcribeStep.ok).toBe(true);
+    expect(transcribeStep.submitter_locale).toBe("en");
+    const piiStep = details.pii_check as Record<string, unknown>;
+    expect(piiStep.flagged).toBe(false);
     // support_tickets updates: transcript+locale+cost, stage2_completed_at
     const updateArgs = calls.supportTicketsUpdates.map(
       (u) => u.args as Record<string, unknown>,
@@ -385,13 +390,16 @@ describe("runStage2FullEnrichment (pure handler — Plan 02-03 wiring)", () => {
       elevenLabsApiKey: "key",
     });
 
-    // CONTINUES — baseline emit + stage 3 trigger still happen
+    // CONTINUES — single aggregate event written, stage 3 trigger still fires.
+    // PII flag is encoded in the aggregate event's `decision`.
     expect(result.ok).toBe(true);
-    const decisions = calls.pipelineEventsInserts.map(
-      (c) => (c.args as Record<string, unknown>).decision,
-    );
-    expect(decisions).toContain("pii_check_quarantined");
-    expect(decisions).toContain("stage_2_baseline");
+    expect(calls.pipelineEventsInserts).toHaveLength(1);
+    const evt = calls.pipelineEventsInserts[0].args as Record<string, unknown>;
+    expect(evt.decision).toBe("stage_2_complete_pii_quarantined");
+    const details = evt.decision_details as Record<string, unknown>;
+    const piiStep = details.pii_check as Record<string, unknown>;
+    expect(piiStep.flagged).toBe(true);
+    expect(piiStep.reason).toBe("prompt_injection_keyword_match");
     // ticket flagged
     const quarantineUpdate = calls.supportTicketsUpdates
       .map((u) => u.args as Record<string, unknown>)
@@ -427,12 +435,14 @@ describe("runStage2FullEnrichment (pure handler — Plan 02-03 wiring)", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe("cost_ceiling_exceeded_post_transcribe");
-    const decisions = calls.pipelineEventsInserts.map(
-      (c) => (c.args as Record<string, unknown>).decision,
-    );
-    expect(decisions).toContain("transcribe_ok");
-    expect(decisions).toContain("cost_ceiling_exceeded");
-    expect(decisions).not.toContain("stage_2_baseline");
+    // ONE aggregate event with decision='cost_ceiling_exceeded' (no baseline,
+    // no per-step rows — unique constraint forbids it).
+    expect(calls.pipelineEventsInserts).toHaveLength(1);
+    const evt = calls.pipelineEventsInserts[0].args as Record<string, unknown>;
+    expect(evt.decision).toBe("cost_ceiling_exceeded");
+    const details = evt.decision_details as Record<string, unknown>;
+    const transcribeStep = details.transcribe as Record<string, unknown>;
+    expect(transcribeStep.ok).toBe(true);
     // proposed_system_status set
     const cclUpdate = calls.supportTicketsUpdates
       .map((u) => u.args as Record<string, unknown>)
