@@ -63,6 +63,16 @@ import {
   type LoadUserContextArgs,
   type LoadUserContextResult,
 } from "./user-context";
+import {
+  detectSoftwareSystem as defaultDetectSoftwareSystem,
+  type DetectSystemArgs,
+  type DetectSystemResult,
+} from "./detect-system";
+import {
+  embedAndSearchSimilar as defaultEmbedAndSearchSimilar,
+  type EmbedAndSearchArgs,
+  type EmbedAndSearchResult,
+} from "./embed-and-search";
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -88,7 +98,9 @@ export type Stage2FullResult =
   | {
       ok: true;
       context: PipelineStageContext;
-      pipeline_event_decision: "stage_2_complete" | "stage_2_complete_pii_quarantined";
+      pipeline_event_decision:
+        | "stage_2_enrichment"
+        | "stage_2_enrichment_pii_quarantined";
       transcript: string;
       submitter_locale: "nl" | "en" | "fr";
       stage2_cost_cents: number;
@@ -217,6 +229,12 @@ export interface Stage2FullDeps {
   extractFrames?: (args: ExtractFramesArgs) => Promise<ExtractFramesResult>;
   /** Plan 02-04 Task 3 — user-context injection point. */
   loadUserContext?: (args: LoadUserContextArgs) => Promise<LoadUserContextResult>;
+  /** Plan 02-05 Task 3 — software-system detection injection point. */
+  detectSystem?: (args: DetectSystemArgs) => Promise<DetectSystemResult>;
+  /** Plan 02-05 Task 3 — embed + similar-ticket search injection point. */
+  embedAndSearch?: (args: EmbedAndSearchArgs) => Promise<EmbedAndSearchResult>;
+  /** Optional Orq.ai API key — required for real detect+embed calls. */
+  orqApiKey?: string;
 }
 
 type StageTicketFull = {
@@ -227,6 +245,9 @@ type StageTicketFull = {
   submitter_id: string;
   video_storage_url: string | null;
   stage2_cost_cents: number | null;
+  /** Plan 02-05 — pre-existing quarantine flags short-circuit detect+embed+Stage 3. */
+  pii_quarantine?: boolean | null;
+  quarantine_state?: string | null;
 };
 
 /**
@@ -282,7 +303,7 @@ export async function runStage2FullEnrichment(
   const ticketRes = await supabase
     .from("support_tickets")
     .select(
-      "id, submission_id, external_task_id, attempt, submitter_id, video_storage_url, stage2_cost_cents",
+      "id, submission_id, external_task_id, attempt, submitter_id, video_storage_url, stage2_cost_cents, pii_quarantine, quarantine_state",
     )
     .eq("id", event.support_ticket_id)
     .maybeSingle();
@@ -488,47 +509,239 @@ export async function runStage2FullEnrichment(
     return { ok: false, reason: "cost_ceiling_exceeded_post_transcribe" };
   }
 
-  // ---- (6) Baseline PipelineStageContext (v1 empty) ----
-  const context = emptyPipelineStageContext();
+  // ---- (5b) Plan 02-05 — detect-system + embed-search wiring ----
+  //
+  // Quarantine gate (Test Q): if PII was flagged THIS run OR the ticket
+  // already carried a quarantine flag, skip detect+embed AND suppress
+  // the Stage 3 trigger. The single aggregate row still lands.
+  const alreadyQuarantined =
+    ticket.pii_quarantine === true ||
+    (ticket.quarantine_state != null && ticket.quarantine_state !== "");
+  const quarantined = piiFlagged || alreadyQuarantined;
 
-  // ---- (7) Mark stage2_completed_at ----
+  // When detect/embed callers are NOT injected AND no Orq API key is
+  // available, fall back to no-op stubs. This keeps test paths that don't
+  // exercise the new wiring green; production wires both via env (the
+  // Inngest wrapper threads `process.env.ORQ_API_KEY`).
+  const orqKeyPresent = typeof deps.orqApiKey === "string" && deps.orqApiKey.length > 0;
+  const detectSystemFn =
+    deps.detectSystem ??
+    (orqKeyPresent
+      ? defaultDetectSoftwareSystem
+      : async () =>
+          ({
+            system_key: null,
+            status: "unknown" as const,
+            cost_cents: 0,
+            reasoning: "no_orq_api_key",
+          }) satisfies DetectSystemResult);
+  const embedAndSearchFn =
+    deps.embedAndSearch ??
+    (orqKeyPresent
+      ? defaultEmbedAndSearchSimilar
+      : async () =>
+          ({ similar: [], cost_cents: 0 }) satisfies EmbedAndSearchResult);
+  const orqEnv = { ORQ_API_KEY: deps.orqApiKey };
+
+  let detected: DetectSystemResult | null = null;
+  let embedResult: EmbedAndSearchResult | null = null;
+
+  if (!quarantined) {
+    // (5b.i) Load software-system registry. Empty in dev → detectSystem
+    // returns `unknown` with cost 0 by contract (Plan 02-05 Test 1).
+    const regRes = await supabase
+      .from("support_software_systems")
+      .select("system_key, display_name")
+      .eq("enabled", true);
+    if ((regRes as { error?: unknown } | null)?.error) {
+      const err = (regRes as { error?: { message?: string } }).error;
+      throw new Error(
+        `support_software_systems load failed: ${err?.message ?? "unknown"}`,
+      );
+    }
+    const registryRows =
+      ((regRes as { data?: Array<{ system_key: string; display_name: string }> })
+        .data ?? []) as Array<{ system_key: string; display_name: string }>;
+
+    // (5b.ii) detect-system
+    detected = await detectSystemFn({
+      transcript: transcribeResult?.text ?? "",
+      frameUrls: frameStorageKeys,
+      registryRows,
+      supabase: supabase as unknown as DetectSystemArgs["supabase"],
+      env: orqEnv,
+    });
+    runningCostCents = runningCostCents + (detected.cost_cents ?? 0);
+    stepResults.system_detect = {
+      system_key: detected.system_key,
+      status: detected.status,
+      cost_cents: detected.cost_cents,
+      reasoning: detected.reasoning,
+    };
+
+    // (5b.iii) cost-check-post-detect (Test O)
+    if (runningCostCents > costCeilingCents) {
+      const updRes = await supabase
+        .from("support_tickets")
+        .update({
+          proposed_system_status: "cost_ceiling_exceeded",
+          stage2_cost_cents: runningCostCents,
+          stage2_completed_at: now().toISOString(),
+        })
+        .eq("id", ticket.id);
+      if ((updRes as { error?: unknown } | null)?.error) {
+        const err = (updRes as { error?: { message?: string } }).error;
+        throw new Error(
+          `support_tickets update (cost_ceiling_exceeded_post_detect) failed: ${err?.message ?? "unknown"}`,
+        );
+      }
+      await writeStage2Event(supabase, {
+        decision: "stage_2_enrichment_partial_cost_exceeded",
+        decision_details: {
+          ...stepResults,
+          stage2_cost_cents: runningCostCents,
+          ceiling_cents: costCeilingCents,
+          when: "post_detect",
+        },
+        duration_ms: Math.round(now().getTime() - startedAt.getTime()),
+        cost_cents: runningCostCents,
+        automation_run_id: ticket.id,
+        email_id: ticket.submission_id,
+      });
+      return { ok: false, reason: "cost_ceiling_exceeded" };
+    }
+
+    // (5b.iv) embed-search
+    const embedInput = transcribeResult?.text ?? "";
+    embedResult = await embedAndSearchFn({
+      text: embedInput,
+      supabase: supabase as unknown as EmbedAndSearchArgs["supabase"],
+      env: orqEnv,
+      topK: 5,
+    });
+    runningCostCents = runningCostCents + (embedResult.cost_cents ?? 0);
+    stepResults.embed_search = {
+      similar_count: embedResult.similar.length,
+      cost_cents: embedResult.cost_cents,
+    };
+
+    // (5b.v) cost-check-post-embed (plan-checker B-4, Test P)
+    if (runningCostCents > costCeilingCents) {
+      const updRes = await supabase
+        .from("support_tickets")
+        .update({
+          proposed_system_status: "cost_ceiling_exceeded",
+          stage2_cost_cents: runningCostCents,
+          stage2_completed_at: now().toISOString(),
+        })
+        .eq("id", ticket.id);
+      if ((updRes as { error?: unknown } | null)?.error) {
+        const err = (updRes as { error?: { message?: string } }).error;
+        throw new Error(
+          `support_tickets update (cost_ceiling_exceeded_post_embed) failed: ${err?.message ?? "unknown"}`,
+        );
+      }
+      await writeStage2Event(supabase, {
+        decision: "cost_ceiling_exceeded",
+        decision_details: {
+          ...stepResults,
+          stage2_cost_cents: runningCostCents,
+          ceiling_cents: costCeilingCents,
+          when: "post_embed",
+        },
+        duration_ms: Math.round(now().getTime() - startedAt.getTime()),
+        cost_cents: runningCostCents,
+        automation_run_id: ticket.id,
+        email_id: ticket.submission_id,
+      });
+      return { ok: false, reason: "cost_ceiling_exceeded_post_embed" };
+    }
+  } else {
+    stepResults.system_detect = { skipped: "quarantined" };
+    stepResults.embed_search = { skipped: "quarantined" };
+  }
+
+  // ---- (6) Build PipelineStageContext v1 with populated arrays ----
+  const baseContext = emptyPipelineStageContext();
+  const priorTickets = (stepResults.prior_tickets_same_user as unknown) as
+    | PipelineStageContext["prior_tickets_same_user"]
+    | undefined;
+  const context: PipelineStageContext = {
+    ...baseContext,
+    prior_tickets_same_user: priorTickets ?? [],
+    similar_tickets: embedResult?.similar ?? [],
+  };
+
+  // ---- (7) Final UPDATE on support_tickets (skipped on quarantine for detect/embed fields) ----
   const completedAt = now();
+  const finalTicketUpdate: Record<string, unknown> = {
+    stage2_completed_at: completedAt.toISOString(),
+    stage2_cost_cents: runningCostCents,
+  };
+  if (!quarantined && detected != null) {
+    finalTicketUpdate.proposed_system = detected.system_key;
+    finalTicketUpdate.proposed_system_status = detected.status;
+  }
   const updRes = await supabase
     .from("support_tickets")
-    .update({ stage2_completed_at: completedAt.toISOString() })
+    .update(finalTicketUpdate)
     .eq("id", ticket.id);
   if ((updRes as { error?: unknown } | null)?.error) {
     const err = (updRes as { error?: { message?: string } }).error;
     throw new Error(
-      `support_tickets update stage2_completed_at failed: ${err?.message ?? "unknown"}`,
+      `support_tickets final UPDATE failed: ${err?.message ?? "unknown"}`,
     );
   }
 
   // ---- (8) Single Stage 2 pipeline_events row ----
-  const finalDecision = piiFlagged ? "stage_2_complete_pii_quarantined" : "stage_2_complete";
+  const finalDecision = quarantined
+    ? "stage_2_enrichment_pii_quarantined"
+    : "stage_2_enrichment";
+
+  const decision_details: Record<string, unknown> = {
+    ...context,
+    ...stepResults,
+    stage2_cost_cents: runningCostCents,
+  };
+  if (!quarantined && detected != null) {
+    decision_details.proposed_system = detected.system_key;
+    decision_details.proposed_system_status = detected.status;
+  }
+  if (!quarantined && embedResult != null && embedResult.similar.length === 0) {
+    decision_details.similar_tickets_empty = true;
+  }
+
   await writeStage2Event(supabase, {
     decision: finalDecision,
-    decision_details: {
-      ...context,
-      ...stepResults,
-      stage2_cost_cents: runningCostCents,
-    },
+    decision_details,
     duration_ms: Math.round(completedAt.getTime() - startedAt.getTime()),
     cost_cents: runningCostCents,
     automation_run_id: ticket.id,
     email_id: ticket.submission_id,
   });
 
-  // ---- (9) Stage 3 trigger ----
-  await sendEvent({
-    name: "support-tickets/stage-3.requested",
-    data: {
-      support_ticket_id: ticket.id,
-      submission_id: ticket.submission_id,
-      external_task_id: ticket.external_task_id,
-      attempt: ticket.attempt,
-    },
-  });
+  // ---- (9) Stage 3 trigger — gated on non-quarantined only (Test Q) ----
+  let stage3Dispatched = false;
+  if (!quarantined) {
+    try {
+      await sendEvent({
+        name: "support-tickets/stage-3.coordinator.requested",
+        data: {
+          support_ticket_id: ticket.id,
+          submission_id: ticket.submission_id,
+        },
+      });
+      stage3Dispatched = true;
+    } catch (cause) {
+      // Non-fatal: aggregate row is already durably written. Telemetry-only.
+      const message = cause instanceof Error ? cause.message : String(cause);
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[stage-2-enrichment] Stage 3 trigger emit failed (non-fatal): ${message}`,
+      );
+    }
+  }
+  void stage3Dispatched; // available for future telemetry
 
   return {
     ok: true,
@@ -572,6 +785,7 @@ export const stage2SupportTicketsEnrichment = inngest.createFunction(
           process.env.SUPPORT_STAGE2_COST_CEILING_CENTS ?? DEFAULT_COST_CEILING_CENTS,
         ),
         elevenLabsApiKey: process.env.ELEVENLABS_API_KEY,
+        orqApiKey: process.env.ORQ_API_KEY,
       }),
     );
   },

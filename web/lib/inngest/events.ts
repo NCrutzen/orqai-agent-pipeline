@@ -646,6 +646,17 @@ export type Events = {
     };
   };
 
+  // Phase 2 Plan 02-05 — Stage 2 → Stage 3 handoff. Emitted by
+  // stage2SupportTicketsEnrichment as the FINAL step.run() after the
+  // canonical stage=2 pipeline_events row is durably written (T-02-29
+  // mitigation). Phase 3 owns the listener.
+  "support-tickets/stage-3.coordinator.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+    };
+  };
+
   // Phase 87 Plan 04 — one-shot retro-classification trigger. Triggered by
   // the operator CLI `web/scripts/run-retro-classify.ts`. Side-Channel
   // Isolation: handler writes ONLY to stage_3_retro_runs +
