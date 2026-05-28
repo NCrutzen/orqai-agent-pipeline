@@ -52,7 +52,7 @@ function embeddingFetchResponse(dim: number, usage = { prompt_tokens: 50 }) {
 
 function rowFixture(i: number, overrides: Record<string, unknown> = {}) {
   return {
-    ticket_id: `aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa${i}`,
+    ticket_id: `aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa${i}`,
     source_key: `src-${i}`,
     summary_text: `summary ${i}`,
     resolution_text: `resolution ${i}`,
