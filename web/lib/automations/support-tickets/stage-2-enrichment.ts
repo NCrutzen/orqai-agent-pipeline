@@ -78,7 +78,7 @@ export type Stage2FullResult =
   | {
       ok: true;
       context: PipelineStageContext;
-      pipeline_event_decision: "stage_2_baseline";
+      pipeline_event_decision: "stage_2_complete" | "stage_2_complete_pii_quarantined";
       transcript: string;
       submitter_locale: "nl" | "en" | "fr";
       stage2_cost_cents: number;

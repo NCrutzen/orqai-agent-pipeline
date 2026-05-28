@@ -106,8 +106,14 @@ export function normalizeSubmitterLocale(language: string): NormalizedLocale {
 
 interface ScribeConvertResult {
   text: string;
-  language_code: string;
+  // SDK transforms field names to camelCase; raw HTTP API uses snake_case.
+  // Accept both to be defensive across SDK versions.
+  language_code?: string;
+  languageCode?: string;
   language_probability?: number;
+  languageProbability?: number;
+  audio_duration_secs?: number;
+  audioDurationSecs?: number;
 }
 
 interface ScribeClientShape {
