@@ -157,6 +157,7 @@ export const SAMPLE_CONVERSATION_CONTEXT: FixtureConversationContext[] = [
  */
 export type MockAdminCalls = {
   fromCalls: string[];
+  schemaCalls: string[];
   eqCalls: Array<{ table: string; col: string; val: unknown }>;
   inserts: Record<string, unknown[]>;
 };
@@ -173,6 +174,7 @@ export type MockAdminTables = {
 export function buildMockAdmin(tables: MockAdminTables) {
   const calls: MockAdminCalls = {
     fromCalls: [],
+    schemaCalls: [],
     eqCalls: [],
     inserts: {},
   };
@@ -270,5 +272,14 @@ export function buildMockAdmin(tables: MockAdminTables) {
     return builderFor(tableArg, dataset);
   });
 
-  return { from, _calls: calls };
+  // `.schema("email_pipeline").from(...)` is the live call shape for the
+  // email_pipeline tables — mirror it so reconstructInput's schema scoping is
+  // exercised by the unit tests (the prod bug it guards against was a missing
+  // .schema() call, invisible to a from()-only mock).
+  const schema = vi.fn().mockImplementation((schemaName: string) => {
+    calls.schemaCalls.push(schemaName);
+    return { from };
+  });
+
+  return { from, schema, _calls: calls };
 }
