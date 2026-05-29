@@ -38,6 +38,12 @@ export type StageValue = (typeof Stage)[keyof typeof Stage];
  *    map via `numericConfidence()` below.
  *  - `override` and `eval_type` stay NULL in Phase 70 — Phase 71 will
  *    populate them on operator-override emits (CONTEXT D-10/D-11/D-12).
+ *  - Phase 3 Plan 01 Task 0a (2026-05-24): `eval_type` literal-union widened
+ *    to include the axis-specific values from
+ *    docs/agentic-pipeline/override-model.md — `category-correction` (Axis 1),
+ *    `entity-correction` (Axis 2), `intent-correction` (Axis 3),
+ *    `handler-quality` (Axis 4). `regression` and `capability` retained for
+ *    pipeline emits that classify a forward-run outcome (Phase 4 dependency).
  *  - `case_id` is forward-compat for `docs/agentic-pipeline/case-layer.md`
  *    and stays NULL until that ships.
  */
@@ -49,7 +55,14 @@ export interface PipelineEventInput {
   decision: string;
   confidence?: number | null;
   override?: OverrideJson | null;
-  eval_type?: "capability" | "regression" | null;
+  eval_type?:
+    | "capability"
+    | "regression"
+    | "category-correction"
+    | "entity-correction"
+    | "intent-correction"
+    | "handler-quality"
+    | null;
   decision_details?: Record<string, unknown> | null;
   cost_cents?: number | null;
   duration_ms?: number | null;

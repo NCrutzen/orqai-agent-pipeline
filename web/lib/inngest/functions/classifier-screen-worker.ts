@@ -235,6 +235,10 @@ export const classifierScreenWorker = inngest.createFunction(
     let llmError: string | null = null;
     let llmCategoryKey: string | null = null;
     let agentRunId: string | null = null;
+    // Phase 04.1 — P4.1-D-04. Threaded through step.run("llm-call") return
+    // (NOT closure capture). Null on pure-regex path; renderer (Plan 06)
+    // surfaces the purple Pass-2 evidence variant when non-null.
+    let llmModelKey: string | null = null;
 
     // ───── Phase 84 D-03 own_outbound_invoice_loopback (R-02 direction guard) ─
     // Worker-side because classify.ts signature lacks 'from' historically and
@@ -356,6 +360,12 @@ export const classifierScreenWorker = inngest.createFunction(
               reasoning: parsed.reasoning,
               finalKey,
               error: null as string | null,
+              // Phase 04.1 — P4.1-D-04. Plumbed through step.run return (NOT
+              // closure capture) so replay is deterministic (Phase 65 learning
+              // dd2583a). cost_cents intentionally NOT threaded — Orq
+              // /responses returns 0 today (client.ts:232-234); cost rendering
+              // deferred (R3).
+              model_key: result.agent.agent_key,
             };
           } catch (err) {
             // D-11: coerce to ('unknown', 'low'); persist error_message
@@ -397,6 +407,9 @@ export const classifierScreenWorker = inngest.createFunction(
               reasoning: null,
               finalKey: "unknown",
               error: msg,
+              // Phase 04.1 — P4.1-D-04. Literal sentinel on failure path: we
+              // KNOW which agent was attempted even when invokeOrqAgent threw.
+              model_key: "stage-1-category-classifier",
             };
           }
         });
@@ -408,6 +421,8 @@ export const classifierScreenWorker = inngest.createFunction(
         llmError = llmResult.error;
         llmCategoryKey = llmResult.category_key;
         finalCategoryKey = llmResult.finalKey;
+        // Phase 04.1 — P4.1-D-04. Read from step.run return (replay-safe).
+        llmModelKey = llmResult.model_key ?? null;
       }
     }
 
@@ -435,6 +450,12 @@ export const classifierScreenWorker = inngest.createFunction(
           // 05) — both code paths derive predictor from the same
           // llm_invoked flag, never from regex.matchedRule.
           predictor: llmInvoked ? "llm_2nd_pass" : "regex",
+          // Phase 04.1 — P4.1-D-04. Null when pure regex (llm_invoked ===
+          // false). Renderer (Plan 06) shows purple Pass-2 variant when this
+          // is non-null. Read from outer `llmModelKey` which was set from the
+          // step.run("llm-call") return value (NOT closure-captured from
+          // `result.agent.agent_key`).
+          model_key: llmInvoked ? llmModelKey : null,
         },
         agent_run_id: agentRunId,
         automation_run_id: automation_run_id ?? null,

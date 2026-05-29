@@ -1,0 +1,59 @@
+{
+  "ts": "2026-05-25T06:46:25.337Z",
+  "smoke_user_email": "phase4-smoke-1779691575784@phase4.local",
+  "findings": [
+    {
+      "level": "ok",
+      "msg": "signed in and landed on http://localhost:3000/automations/debtor-email/patterns"
+    },
+    {
+      "level": "ok",
+      "msg": "mode-bar shows Queue · History · Patterns"
+    },
+    {
+      "level": "ok",
+      "msg": "regex_rule signature rendered: \"Betalingsherinnering vervaldatum in subject (from klant-acme.nl)\""
+    },
+    {
+      "level": "ok",
+      "msg": "sender_mapping signature rendered: \"Always route emails from klant-acme.nl to Customer CUST-77001\""
+    },
+    {
+      "level": "warn",
+      "msg": "aggregate \"2 suggestions\" string not found in HTML — may be styled differently"
+    },
+    {
+      "level": "ok",
+      "msg": "status pill label \"needs review\" present"
+    },
+    {
+      "level": "ok",
+      "msg": "Apply / Refine / Dismiss triad present"
+    },
+    {
+      "level": "ok",
+      "msg": "detail page renders the filter-rule signature"
+    },
+    {
+      "level": "ok",
+      "msg": "reversibility footer copy present"
+    },
+    {
+      "level": "ok",
+      "msg": "Dismiss submit disabled at <8 chars"
+    },
+    {
+      "level": "ok",
+      "msg": "Dismiss submit enabled at ≥8 chars"
+    },
+    {
+      "level": "ok",
+      "msg": "Known sender refine form exposes customer account number input"
+    }
+  ],
+  "counts": {
+    "ok": 11,
+    "warn": 1,
+    "fail": 0
+  }
+}

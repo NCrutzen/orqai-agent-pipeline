@@ -1,0 +1,285 @@
+/* Phase 3 Plan 03 Task 1 / Plan 10 Task 1 — RankedIntentEditor styles.
+ *
+ * Sketch 005 lock (005-stage-3-ranked-intent-reorder/index.html lines 107-238):
+ * a 5-col ranked-list grid (drag-handle / rank / intent-name / confidence /
+ * move-buttons), position-1 lime "dispatch winner" → amber "your pick" on
+ * dirty, stacked filled ▲▼ move buttons (30x22), a 4px confidence bar, and a
+ * Reset-order button shown only when dirty.
+ *
+ * Token discipline (anti-drift #1): no raw hex except the documented lime/amber
+ * button-foreground exceptions (#0a1a04, #1a1206) reproduced verbatim from the
+ * sketch tag styles. Position-1 background tints reuse --v7-*-soft tokens with
+ * an rgba fallback matching the sketch.
+ *
+ * Animation timings (anti-drift #2): 0.6s reorder pulse + 0.12s/0.15s
+ * transitions only.
+ *
+ * Drag-handle (anti-drift #8): ⠿ glyph is visual-only — aria-hidden, no
+ * pointer-events, no HTML5 DnD attributes.
+ */
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--v7-border);
+  border-radius: var(--v7-radius, 6px);
+  background: var(--v7-bg-2);
+  overflow: hidden;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 18px 24px 1fr 90px 36px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--v7-bg);
+  border-bottom: 1px solid var(--v7-border);
+  transition: background 0.15s;
+  position: relative;
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row:hover {
+  background: var(--v7-bg-hover, var(--v7-bg-2));
+}
+
+/* Reorder pulse animation — anti-drift #2 (only 0.6s allowed). */
+.rowMoved {
+  animation: moved-pulse 0.6s ease-out;
+}
+
+@keyframes moved-pulse {
+  0% {
+    background: var(--v7-amber-soft, rgba(255, 181, 71, 0.2));
+  }
+  100% {
+    background: var(--v7-bg);
+  }
+}
+
+.dragHandle {
+  /* Visual-only per anti-drift #8 — no pointer-events, no DnD. */
+  color: var(--v7-text-dim, var(--v7-text-muted));
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+  pointer-events: none;
+}
+
+.rank {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--v7-text-dim, var(--v7-text-muted));
+  text-align: center;
+  background: var(--v7-bg-2);
+  border-radius: 4px;
+  padding: 2px 0;
+  font-weight: 600;
+}
+
+.intentBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.intentLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--v7-text);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.handlerKey {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--v7-text-dim, var(--v7-text-muted));
+}
+
+.confidence {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.confidencePct {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--v7-text-muted);
+  text-align: right;
+}
+
+.confidenceTrack {
+  height: 4px;
+  background: var(--v7-bg-2);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.confidenceFill {
+  height: 100%;
+  background: var(--v7-blue, var(--blue));
+  border-radius: 2px;
+}
+
+.moveButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.moveBtn {
+  width: 30px;
+  height: 22px;
+  background: var(--v7-bg-2);
+  border: 1px solid var(--v7-border-strong, var(--v7-border));
+  color: var(--v7-text);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s;
+  padding: 0;
+}
+
+.moveBtn:hover {
+  background: var(--v7-brand-primary, var(--brand-primary));
+  color: #000;
+  border-color: var(--v7-brand-primary, var(--brand-primary));
+  transform: scale(1.05);
+}
+
+.moveBtn:active {
+  transform: scale(0.96);
+}
+
+.moveBtn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--v7-text-dim, var(--v7-text-muted));
+  border-color: var(--v7-border);
+}
+
+.moveBtn:disabled:hover {
+  transform: none;
+  background: transparent;
+}
+
+/* Position-1 — the dispatch winner (lime). */
+.topRowDispatch {
+  background: var(--v7-lime-soft, rgba(143, 200, 103, 0.06));
+  box-shadow: inset 3px 0 0 0 var(--v7-lime, var(--lime));
+}
+
+.topRowDispatch .rank {
+  background: var(--v7-lime, var(--lime));
+  color: #0a1a04;
+}
+
+.topRowDispatch .intentLabel {
+  color: var(--v7-lime, var(--lime));
+  font-weight: 600;
+}
+
+.topRowDispatch .confidenceFill {
+  background: var(--v7-lime, var(--lime));
+}
+
+/* Dirty state — operator reordered → position-1 flips amber (your pick). */
+.topRowYourPick {
+  background: var(--v7-amber-soft, rgba(255, 181, 71, 0.08));
+  box-shadow: inset 3px 0 0 0 var(--v7-amber, var(--amber));
+}
+
+.topRowYourPick .rank {
+  background: var(--v7-amber, var(--amber));
+  color: #1a1206;
+}
+
+.topRowYourPick .intentLabel {
+  color: var(--v7-amber, var(--amber));
+}
+
+.topRowYourPick .confidenceFill {
+  background: var(--v7-amber, var(--amber));
+}
+
+/* Dispatch-winner / your-pick tag (sketch .winner-tag). */
+.pill {
+  display: inline-block;
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+.pillDispatch {
+  background: var(--v7-lime, var(--lime));
+  color: #0a1a04;
+}
+
+.pillYourPick {
+  background: var(--v7-amber, var(--amber));
+  color: #1a1206;
+}
+
+.pillUnknown {
+  background: transparent;
+  border: 1px solid var(--v7-amber, var(--amber));
+  color: var(--v7-amber, var(--amber));
+}
+
+/* Editor foot — caption + Reset-order (shown only when dirty). */
+.editorFoot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--v7-text-dim, var(--v7-text-muted));
+  padding: 0 2px;
+}
+
+.editorFoot code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.editorReset {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--v7-amber, var(--amber));
+  cursor: pointer;
+  margin-left: auto;
+  background: var(--v7-amber-soft, rgba(255, 181, 71, 0.08));
+  border: 1px solid var(--v7-amber, var(--amber));
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+
+.editorReset:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

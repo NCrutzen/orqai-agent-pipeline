@@ -48,6 +48,7 @@ import { coordinatorOrchestrator } from "@/lib/inngest/functions/coordinator-orc
 import { coordinatorSynthesis } from "@/lib/inngest/functions/coordinator-synthesis";
 import { stage3Dispatcher } from "@/lib/inngest/functions/stage-3-dispatcher";
 import { debtorEmailOverrideHandler } from "@/lib/inngest/functions/debtor-email-override-handler";
+import { patternsRecommenderCron } from "@/lib/inngest/functions/promotion-recommender-cron";
 import { debtorEmailStage3RetroClassify } from "@/lib/inngest/functions/debtor-email-stage-3-retro-classify";
 import { phase87ReadinessNotify } from "@/lib/inngest/functions/phase-87-readiness-notify";
 
@@ -92,6 +93,7 @@ export const { GET, POST, PUT } = serve({
     coordinatorSynthesis,
     stage3Dispatcher,
     debtorEmailOverrideHandler,
+    patternsRecommenderCron,
     debtorEmailStage3RetroClassify,
     phase87ReadinessNotify,
   ],

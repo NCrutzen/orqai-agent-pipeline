@@ -1207,3 +1207,158 @@ describe("Phase 84 D-03 — own_outbound_invoice_loopback (worker-level rule, Pi
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 04.1 Plan 03 — P4.1-D-04: model_key plumbed into pipeline_events
+// decision_details. Replay-safe: model_key MUST be threaded through
+// step.run("llm-call") return value, NEVER captured via outer-scope closure
+// (Phase 65 learning dd2583a). Pure-regex rows emit model_key: null.
+// ---------------------------------------------------------------------------
+
+describe("Phase 04.1 — model_key", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    agentRunsInserts.length = 0;
+    automationRunsInserts.length = 0;
+    labelingSettingsRow = null;
+    adminMock = makeAdminMock();
+    loadSwarmMock.mockReset();
+    loadSwarmNoiseCategoriesMock.mockReset();
+    emitPipelineEventMock.mockReset();
+    emitPipelineEventMock.mockResolvedValue(undefined);
+    invokeOrqAgentMock.mockReset();
+    classifyMock.mockReset();
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    readWhitelistMock.mockReset();
+    readWhitelistMock.mockResolvedValue(new Set<string>());
+    categorizeEmailMock.mockReset();
+    categorizeEmailMock.mockResolvedValue({ success: true, error: null });
+    archiveEmailMock.mockReset();
+    archiveEmailMock.mockResolvedValue({ success: true, error: null });
+    getMessageMetaMock.mockReset();
+    getMessageMetaMock.mockResolvedValue({
+      subject: "",
+      from: "",
+      fromName: "",
+      receivedAt: "",
+      categories: [] as string[],
+    });
+    emitAutomationRunStaleMock.mockReset();
+    emitAutomationRunStaleMock.mockResolvedValue(undefined);
+    vi.resetModules();
+    const mod = await import("../classifier-screen-worker");
+    handler = (
+      mod.classifierScreenWorker as unknown as { handler: typeof handler }
+    ).handler;
+  });
+
+  it("Pass-2 success: decision_details.model_key === agent.agent_key from invokeOrqAgent return", async () => {
+    loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
+    invokeOrqAgentMock.mockResolvedValue({
+      raw: { category_key: "auto_reply", confidence: "high", reasoning: null },
+      agent: { agent_key: "stage-1-category-classifier" },
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      billing: { total_cost: 0 },
+      cost_cents: 0,
+    });
+
+    const cache: StepCache = new Map();
+    await handler({
+      event: baseEvent({ swarm_type: "sales-email", entity: null }),
+      step: makeStepStub(cache),
+    });
+
+    expect(emitPipelineEventMock).toHaveBeenCalledTimes(1);
+    const [, payload] = emitPipelineEventMock.mock.calls[0] as [
+      unknown,
+      { decision_details: Record<string, unknown> },
+    ];
+    expect(payload.decision_details.model_key).toBe(
+      "stage-1-category-classifier",
+    );
+  });
+
+  it("Pure regex (llm_invoked === false): decision_details.model_key === null", async () => {
+    loadSwarmMock.mockResolvedValue(DEBTOR_SWARM_ROW);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(DEBTOR_CATEGORIES);
+    classifyMock.mockReturnValue({
+      category: "payment_admittance",
+      confidence: 0.95,
+      matchedRule: "subject_paid_marker",
+    });
+
+    const cache: StepCache = new Map();
+    await handler({ event: baseEvent(), step: makeStepStub(cache) });
+
+    expect(emitPipelineEventMock).toHaveBeenCalledTimes(1);
+    const [, payload] = emitPipelineEventMock.mock.calls[0] as [
+      unknown,
+      { decision_details: Record<string, unknown> },
+    ];
+    expect(payload.decision_details.llm_invoked).toBe(false);
+    expect(payload.decision_details.model_key).toBeNull();
+  });
+
+  it("Pass-2 failure (Orq throws): decision_details.model_key === 'stage-1-category-classifier' (literal sentinel)", async () => {
+    loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
+    invokeOrqAgentMock.mockRejectedValue(new Error("Orq parse error"));
+
+    const cache: StepCache = new Map();
+    await handler({
+      event: baseEvent({ swarm_type: "sales-email", entity: null }),
+      step: makeStepStub(cache),
+    });
+
+    expect(emitPipelineEventMock).toHaveBeenCalledTimes(1);
+    const [, payload] = emitPipelineEventMock.mock.calls[0] as [
+      unknown,
+      { decision_details: Record<string, unknown> },
+    ];
+    // Failure path: we KNOW which agent was attempted — literal sentinel.
+    expect(payload.decision_details.model_key).toBe(
+      "stage-1-category-classifier",
+    );
+    expect(payload.decision_details.llm_invoked).toBe(true);
+  });
+
+  it("Replay smoke: model_key threaded through step.run return (not closure-captured)", async () => {
+    // The model_key value visible in decision_details MUST originate from
+    // the step.run("llm-call") return value. We assert this by using a
+    // step.run wrapper that intercepts the "llm-call" body return and
+    // verifies model_key is on the returned object BEFORE the emit step
+    // composes decision_details.
+    loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
+    invokeOrqAgentMock.mockResolvedValue({
+      raw: { category_key: "auto_reply", confidence: "high", reasoning: null },
+      agent: { agent_key: "stage-1-category-classifier" },
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      billing: { total_cost: 0 },
+      cost_cents: 0,
+    });
+
+    let llmCallReturn: Record<string, unknown> | null = null;
+    const stepStub = {
+      run: async (name: string, fn: () => Promise<unknown>) => {
+        const v = await fn();
+        if (name === "llm-call") {
+          llmCallReturn = v as Record<string, unknown>;
+        }
+        return v;
+      },
+    };
+
+    await handler({
+      event: baseEvent({ swarm_type: "sales-email", entity: null }),
+      step: stepStub,
+    });
+
+    expect(llmCallReturn).not.toBeNull();
+    expect(llmCallReturn!.model_key).toBe("stage-1-category-classifier");
+  });
+});

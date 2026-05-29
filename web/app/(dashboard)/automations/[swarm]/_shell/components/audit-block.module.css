@@ -1,0 +1,70 @@
+/* Phase 3 Plan 11 Task 1 — shared AuditBlock styles (canonical-patterns.md §9).
+ *
+ * Token discipline (anti-drift #1): no raw hex; all colors via V7 tokens.
+ * Animation timings: 0.12s / 0.15s / 0.6s only (anti-drift #2) — none here.
+ *
+ * The container's brand-orange 3px left-border + tinted background flip to red
+ * in the danger/escalate tone via the [data-tone="danger"] selector. The
+ * dynamic minHeight (prop-driven: 110 default / 160 Stage 1 / 90 short) is the
+ * one inline value the component sets — everything cosmetic lives here.
+ */
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-left: 3px solid var(--v7-brand-primary, var(--brand-primary));
+  background: rgba(255, 106, 52, 0.04);
+  border-radius: var(--v7-radius, 8px);
+  padding: var(--space-2);
+}
+
+.block[data-tone="danger"] {
+  border-left-color: var(--v7-red, var(--red));
+  background: rgba(255, 80, 80, 0.04);
+}
+
+.question {
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--v7-text);
+}
+
+.requiredMarker {
+  margin-left: 4px;
+  color: var(--v7-amber, var(--amber));
+}
+
+.block[data-tone="danger"] .requiredMarker {
+  color: var(--v7-red, var(--red));
+}
+
+.optionalTag {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--v7-text-muted);
+}
+
+.sub {
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 400;
+  color: var(--v7-text-muted);
+  margin: 0;
+}
+
+/* Plan 03-15 (r3-3): textarea uses a normal 1px border on all four sides.
+ * The tone-aware orange/red left-border lives on the CONTAINER (.block) only —
+ * the previous double-orange (container 3px + textarea 3px) was the drift. */
+.textarea {
+  border: 1px solid var(--v7-border);
+  border-radius: 4px;
+  padding: var(--space-2);
+  font-family: var(--v7-font-sans);
+  font-size: 13px;
+  background: var(--v7-bg);
+  color: var(--v7-text);
+  resize: vertical;
+}

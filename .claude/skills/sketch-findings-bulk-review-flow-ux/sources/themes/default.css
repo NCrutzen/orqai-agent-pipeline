@@ -1,0 +1,141 @@
+/* MR Automations — V7 design system (production-aligned)
+ * Mirrors web/app/globals.css [data-theme="dark"] V7 namespace
+ * Use this theme when sketches need to feel like the live OS
+ */
+
+:root {
+  /* Backgrounds (dark default — sketches are dark-only for now) */
+  --bg: #0c1117;
+  --bg-2: #101722;
+  --bg-panel: #151d29;
+  --bg-panel-soft: rgba(19,26,36,0.82);
+  --bg-hover: #1a2332;
+  --bg-selected: rgba(105,168,255,0.10);
+
+  /* Lines */
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+
+  /* Text */
+  --text: #edf3fb;
+  --text-muted: #9fadc4;
+  --text-dim: #6b7688;
+  --text-inverse: #091018;
+
+  /* Brand (chrome / primary action only) */
+  --brand-primary: #ff6a34;
+  --brand-primary-soft: rgba(255,106,52,0.16);
+  --brand-secondary: #69a8ff;
+  --brand-secondary-soft: rgba(105,168,255,0.16);
+
+  /* Accents (semantic / categorical) */
+  --teal: #3ac7c9;       --teal-soft: rgba(58,199,201,0.13);
+  --blue: #69a8ff;       --blue-soft: rgba(105,168,255,0.13);
+  --lime: #8ad05e;       --lime-soft: rgba(138,208,94,0.13);
+  --amber: #ffb547;      --amber-soft: rgba(255,181,71,0.13);
+  --pink: #ff78cf;       --pink-soft: rgba(255,120,207,0.13);
+  --red: #ff6b7a;        --red-soft: rgba(255,107,122,0.14);
+
+  /* Semantic aliases */
+  --success: var(--lime);     --success-soft: var(--lime-soft);
+  --danger: var(--red);       --danger-soft: var(--red-soft);
+  --warn: var(--amber);       --warn-soft: var(--amber-soft);
+  --info: var(--blue);        --info-soft: var(--blue-soft);
+
+  /* Override accent — distinct from brand to avoid noise */
+  --override: var(--amber);
+  --override-soft: var(--amber-soft);
+  --override-strong: #ffb547;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Satoshi", "Inter", system-ui, sans-serif;
+  --font-display: "Cabinet Grotesk", "Satoshi", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+
+  /* Spacing (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+
+  /* Shape (V7 prefers larger radii) */
+  --radius-pill: 999px;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+}
+
+h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.02em; font-weight: 600; }
+
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, textarea, select { font-family: inherit; color: inherit; }
+
+.mono { font-family: var(--font-mono); }
+.muted { color: var(--text-muted); }
+.dim { color: var(--text-dim); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+.sketch-toolbar {
+  position: fixed;
+  bottom: var(--space-4);
+  right: var(--space-4);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  display: flex; gap: var(--space-2); align-items: center;
+  font-size: var(--fs-xs); color: var(--text-muted);
+  z-index: 1000;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+}
+.sketch-toolbar .badge {
+  padding: 2px 8px;
+  background: var(--brand-primary-soft);
+  color: var(--brand-primary);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.variant-tabs {
+  display: flex; gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-2); border-bottom: 1px solid var(--border);
+}
+.variant-tabs button {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-sm); color: var(--text-muted);
+  border-radius: var(--radius-sm); transition: all 0.15s;
+}
+.variant-tabs button:hover { background: var(--bg-hover); color: var(--text); }
+.variant-tabs button.active { background: var(--bg-panel); color: var(--text); }
+.variant-tabs button.winner::before { content: "★ "; color: var(--brand-primary); }

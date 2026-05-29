@@ -11,7 +11,7 @@
     "test": "vitest run",
     "audit:orq-agents": "tsx scripts/audit-orq-agents.ts",
     "check:supabase": "tsx scripts/check-supabase-advisors.ts",
-    "codegen": "tsx scripts/gen-entity-types.ts && tsx scripts/gen-tenant-domains.ts",
+    "codegen": "tsx scripts/gen-entity-types.ts && tsx scripts/gen-tenant-domains.ts && tsx scripts/gen-intent-types.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

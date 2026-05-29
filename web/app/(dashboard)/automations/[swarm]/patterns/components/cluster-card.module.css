@@ -1,0 +1,169 @@
+/* Phase 4 Plan 02 Task 2 — cluster-card layout + hover tooltip.
+   V7 tokens only; no raw hex. */
+
+.card {
+  display: grid;
+  grid-template-columns: auto 1fr 110px 120px 140px;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--v7-panel);
+  border: 1px solid var(--v7-line);
+  border-radius: var(--v7-radius-card);
+  transition: border-color 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--v7-brand-patterns);
+}
+
+.kindBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--v7-radius-pill);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--v7-inverse);
+  white-space: nowrap;
+}
+
+.signatureCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.signatureLine {
+  font-size: 14px;
+  color: var(--v7-text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.signatureSub {
+  font-size: 12px;
+  color: var(--v7-muted);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.volumeCell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: help;
+}
+
+.volumeBig {
+  font-family: var(--v7-font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--v7-text);
+  line-height: 1;
+}
+
+.volumeSmall {
+  font-size: 11px;
+  color: var(--v7-faint);
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+
+.volumeTooltip {
+  position: absolute;
+  bottom: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 5;
+  display: none;
+  padding: var(--space-2) var(--space-3);
+  background: var(--v7-panel-2);
+  border: 1px solid var(--v7-line);
+  border-radius: var(--v7-radius-sm);
+  font-family: var(--v7-font-mono);
+  font-size: 11px;
+  color: var(--v7-muted);
+  white-space: nowrap;
+  box-shadow: var(--v7-glass-shadow);
+}
+
+.volumeCell:hover .volumeTooltip,
+.volumeCell:focus-within .volumeTooltip {
+  display: block;
+}
+
+.savingsCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.savingsBig {
+  font-family: var(--v7-font-mono);
+  font-size: 14px;
+  color: var(--v7-lime);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.savingsBigNull {
+  font-family: var(--v7-font-mono);
+  font-size: 14px;
+  color: var(--v7-muted);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.savingsSmall {
+  font-size: 11px;
+  color: var(--v7-faint);
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+
+.actionCell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--v7-radius-pill);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.reviewCta {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  background: var(--v7-brand-patterns-soft);
+  color: var(--v7-brand-patterns);
+  border: 1px solid var(--v7-brand-patterns);
+  border-radius: var(--v7-radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.reviewCta:hover {
+  background: var(--v7-brand-patterns);
+  color: var(--v7-inverse);
+}

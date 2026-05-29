@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 001 — Live vs Replay Mode Chrome</title>
+<link rel="stylesheet" href="../themes/default.css" />
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; }
+
+  /* === Variant tab bar (sketch-level, not in-app) === */
+  .variant-bar {
+    background: #000; color: var(--text-dim);
+    padding: 8px 16px; display: flex; gap: 4px; align-items: center;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono); font-size: 11px;
+  }
+  .variant-bar .label { color: var(--text-dim); margin-right: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .variant-tab {
+    padding: 4px 12px; cursor: pointer; border-radius: 4px;
+    color: var(--text-muted); border: 1px solid transparent;
+    font-family: var(--font-mono); font-size: 11px;
+  }
+  .variant-tab:hover { background: var(--bg-hover); color: var(--text); }
+  .variant-tab.active { background: var(--brand-primary); color: #000; font-weight: 600; }
+  .variant-tab.winner::after { content: " ★"; }
+
+  .variant-pane { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+  .variant-pane.active { display: flex; }
+
+  /* ============================================================ */
+  /* VARIANT A — Mode-keyed shell (URL-routed, color-coded)        */
+  /* ============================================================ */
+  .vA-modebar {
+    height: 56px; display: flex; align-items: stretch;
+    border-bottom: 1px solid var(--border);
+  }
+  .vA-mode-half {
+    flex: 1; display: flex; align-items: center; gap: 12px;
+    padding: 0 24px; cursor: pointer; position: relative;
+    transition: all 0.12s;
+  }
+  .vA-mode-half .mode-glyph {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .vA-mode-half .mode-meta { display: flex; flex-direction: column; line-height: 1.2; }
+  .vA-mode-half .mode-name {
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .vA-mode-half .mode-count {
+    font-family: var(--font-mono); font-size: 18px; font-weight: 600;
+    color: var(--text-muted);
+  }
+  .vA-mode-half .mode-subtext {
+    font-size: 11px; color: var(--text-dim);
+  }
+  .vA-mode-half[data-mode="queue"].active {
+    background: linear-gradient(180deg, rgba(255,106,52,0.18), rgba(255,106,52,0.04));
+    box-shadow: inset 0 -3px 0 0 var(--brand-primary);
+  }
+  .vA-mode-half[data-mode="queue"].active .mode-glyph {
+    background: var(--brand-primary); color: #000;
+  }
+  .vA-mode-half[data-mode="queue"].active .mode-name {
+    color: var(--brand-primary); font-weight: 600;
+  }
+  .vA-mode-half[data-mode="queue"].active .mode-count { color: var(--text); }
+  .vA-mode-half[data-mode="history"].active {
+    background: linear-gradient(180deg, rgba(105,168,255,0.18), rgba(105,168,255,0.04));
+    box-shadow: inset 0 -3px 0 0 var(--brand-secondary);
+  }
+  .vA-mode-half[data-mode="history"].active .mode-glyph {
+    background: var(--brand-secondary); color: #000;
+  }
+  .vA-mode-half[data-mode="history"].active .mode-name {
+    color: var(--brand-secondary); font-weight: 600;
+  }
+  .vA-mode-half[data-mode="history"].active .mode-count { color: var(--text); }
+  .vA-mode-half:not(.active) { opacity: 0.5; }
+  .vA-mode-half:not(.active):hover { opacity: 0.85; }
+  .vA-mode-half .url-hint {
+    position: absolute; right: 24px; top: 6px;
+    font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
+  }
+
+  /* Header band — full bleed, mode-colored */
+  .vA-header {
+    padding: 16px 24px; display: flex; align-items: center; gap: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .vA-pane[data-active-mode="queue"] .vA-header {
+    background: linear-gradient(90deg, rgba(255,106,52,0.08), transparent);
+    border-left: 3px solid var(--brand-primary);
+  }
+  .vA-pane[data-active-mode="history"] .vA-header {
+    background: linear-gradient(90deg, rgba(105,168,255,0.08), transparent);
+    border-left: 3px solid var(--brand-secondary);
+  }
+  .vA-header h1 {
+    font-size: var(--fs-lg); font-weight: 600; margin: 0;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .vA-header .pill {
+    font-family: var(--font-mono); font-size: 11px;
+    padding: 3px 10px; border-radius: var(--radius-pill);
+    letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600;
+  }
+  .vA-pane[data-active-mode="queue"] .vA-header .pill {
+    background: var(--brand-primary); color: #000;
+  }
+  .vA-pane[data-active-mode="history"] .vA-header .pill {
+    background: var(--brand-secondary); color: #000;
+  }
+  .vA-header .summary { color: var(--text-muted); font-size: var(--fs-sm); }
+  .vA-header .grow { flex: 1; }
+  .vA-header .filters {
+    display: flex; gap: 8px; font-size: var(--fs-sm); color: var(--text-muted);
+  }
+  .vA-header .filters input, .vA-header .filters select {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    color: var(--text); padding: 4px 10px; border-radius: 4px; font-size: var(--fs-sm);
+  }
+
+  /* ============================================================ */
+  /* VARIANT B — Single shell, persistent mode chrome              */
+  /* ============================================================ */
+  .vB-stripe {
+    height: 4px; flex: 0 0 4px;
+    background: var(--brand-primary); transition: background 0.2s;
+  }
+  .vB-pane[data-active-mode="history"] .vB-stripe { background: var(--brand-secondary); }
+  .vB-toolbar {
+    background: var(--bg-2); border-bottom: 1px solid var(--border);
+    padding: 12px 20px; display: flex; align-items: center; gap: 16px;
+  }
+  .vB-toolbar h1 { font-size: var(--fs-md); font-weight: 600; margin: 0; }
+  .vB-toolbar h1 .swarm { color: var(--text-dim); font-weight: 400; margin-left: 8px; }
+  .vB-mode-toggle {
+    display: inline-flex; background: var(--bg-panel);
+    border: 1px solid var(--border); border-radius: var(--radius-pill);
+    padding: 3px; gap: 2px;
+  }
+  .vB-mode-toggle button {
+    background: transparent; color: var(--text-muted);
+    border: none; padding: 5px 14px; border-radius: var(--radius-pill);
+    font-size: var(--fs-sm); cursor: pointer; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .vB-mode-toggle button .count {
+    font-family: var(--font-mono); font-size: 10px;
+    background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: var(--radius-pill);
+  }
+  .vB-mode-toggle button[data-mode="queue"].active {
+    background: var(--brand-primary); color: #000;
+  }
+  .vB-mode-toggle button[data-mode="history"].active {
+    background: var(--brand-secondary); color: #000;
+  }
+  .vB-mode-toggle button.active .count { background: rgba(0,0,0,0.18); }
+  .vB-toolbar .grow { flex: 1; }
+  .vB-toolbar .badge {
+    font-family: var(--font-mono); font-size: 10px;
+    padding: 3px 10px; border-radius: var(--radius-pill);
+    letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600;
+  }
+  .vB-pane[data-active-mode="queue"] .vB-toolbar .badge {
+    background: rgba(255,106,52,0.15); color: var(--brand-primary);
+    border: 1px solid rgba(255,106,52,0.3);
+  }
+  .vB-pane[data-active-mode="history"] .vB-toolbar .badge {
+    background: rgba(105,168,255,0.15); color: var(--brand-secondary);
+    border: 1px solid rgba(105,168,255,0.3);
+  }
+
+  /* ============================================================ */
+  /* VARIANT C — Mode-as-tab inside stage-keyed shell              */
+  /* ============================================================ */
+  .vC-shell-bar {
+    background: var(--bg-2); border-bottom: 1px solid var(--border);
+    padding: 0 20px; display: flex; align-items: stretch; gap: 0;
+    height: 44px;
+  }
+  .vC-shell-bar h1 {
+    font-size: var(--fs-md); font-weight: 600; margin: 0;
+    display: flex; align-items: center; gap: 8px;
+    padding-right: 24px; border-right: 1px solid var(--border);
+  }
+  .vC-shell-bar h1 .swarm { color: var(--text-dim); font-weight: 400; }
+  .vC-shell-tabs {
+    display: flex; align-items: stretch; gap: 0;
+    padding-left: 12px;
+  }
+  .vC-stage-tab {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 16px; cursor: pointer; color: var(--text-muted);
+    border-bottom: 2px solid transparent; font-size: var(--fs-sm);
+  }
+  .vC-stage-tab.active {
+    color: var(--text); border-bottom-color: var(--brand-secondary);
+  }
+  .vC-stage-tab .badge {
+    font-family: var(--font-mono); font-size: 10px;
+    background: var(--bg-panel); border: 1px solid var(--border);
+    padding: 1px 7px; border-radius: var(--radius-pill);
+    color: var(--text-dim);
+  }
+  .vC-substage-bar {
+    background: var(--bg); padding: 8px 20px;
+    display: flex; align-items: center; gap: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .vC-substab {
+    padding: 5px 14px; border-radius: var(--radius-pill);
+    border: 1px solid var(--border); background: var(--bg-panel);
+    font-size: var(--fs-sm); color: var(--text-muted); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .vC-substab.active {
+    background: var(--brand-secondary-soft);
+    border-color: var(--brand-secondary);
+    color: var(--brand-secondary); font-weight: 500;
+  }
+  .vC-substab .count {
+    font-family: var(--font-mono); font-size: 10px;
+    background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: var(--radius-pill);
+  }
+  .vC-substab.active .count { background: rgba(105,168,255,0.18); }
+
+  /* ============================================================ */
+  /* SHARED: row strip preview                                     */
+  /* ============================================================ */
+  .preview { flex: 1; padding: 16px 24px; overflow: auto; background: var(--bg); }
+  .preview .col-head {
+    display: grid; grid-template-columns: 200px 1fr 540px 100px;
+    gap: 12px; padding: 6px 16px;
+    color: var(--text-dim); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .preview .col-head .stages-head {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+  }
+  .preview .row {
+    display: grid; grid-template-columns: 200px 1fr 540px 100px;
+    gap: 12px; align-items: center;
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 16px; margin-bottom: 8px;
+    transition: all 0.12s; cursor: pointer;
+  }
+  .preview .row:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .preview .row .recipient {
+    font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted);
+  }
+  .preview .row .subject {
+    font-size: var(--fs-sm); color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .preview .row .subject .from { color: var(--text-dim); margin-right: 8px; }
+  .preview .row .stages {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+  }
+  .preview .stage-cell.idle {
+    background: transparent; border-style: dashed;
+    color: var(--text-dim);
+  }
+  .preview .stage-cell.idle .outcome { color: var(--text-dim); font-weight: 400; }
+  .preview .stage-cell.blocked {
+    background: rgba(255,181,71,0.08);
+    border-color: var(--amber);
+    box-shadow: 0 0 0 1px rgba(255,181,71,0.25);
+  }
+  .preview .stage-cell.blocked .outcome { font-weight: 600; }
+  .preview .stage-cell {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 6px 8px;
+    font-size: 11px;
+    color: var(--text); text-align: left;
+    position: relative; line-height: 1.25;
+    display: flex; flex-direction: column; gap: 2px;
+    min-height: 36px; justify-content: center;
+  }
+  .preview .stage-cell .outcome {
+    font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .preview .stage-cell .hint {
+    font-size: 9.5px; color: var(--text-dim);
+    text-transform: none; letter-spacing: 0;
+  }
+  .preview .stage-cell.safe { border-color: rgba(143,200,103,0.3); }
+  .preview .stage-cell.safe .outcome { color: var(--lime); }
+  .preview .stage-cell.match { border-color: rgba(105,168,255,0.3); }
+  .preview .stage-cell.match .outcome { color: var(--blue); }
+  .preview .stage-cell.warn { border-color: rgba(255,181,71,0.3); }
+  .preview .stage-cell.warn .outcome { color: var(--amber); }
+  .preview .stage-cell.override::after {
+    content: ""; position: absolute; top: 5px; right: 5px;
+    width: 5px; height: 5px; border-radius: 50%; background: var(--amber);
+  }
+  .preview .actions {
+    display: flex; gap: 4px; justify-content: flex-end;
+  }
+  .preview .actions button {
+    background: var(--bg-2); color: var(--text-muted); border: 1px solid var(--border);
+    padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: var(--fs-xs);
+  }
+  .preview .actions button.primary {
+    background: var(--brand-primary); border-color: var(--brand-primary); color: #000; font-weight: 600;
+  }
+  .preview .actions button.history-only {
+    background: var(--bg-panel); color: var(--text-muted);
+  }
+
+  /* History rows = muted (already-handled) */
+  .vA-pane[data-active-mode="history"] .preview .row,
+  .vB-pane[data-active-mode="history"] .preview .row,
+  .vC-pane[data-active-substage="history"] .preview .row {
+    background: var(--bg);
+    border-style: dashed;
+  }
+  .vA-pane[data-active-mode="history"] .preview .row .subject,
+  .vB-pane[data-active-mode="history"] .preview .row .subject,
+  .vC-pane[data-active-substage="history"] .preview .row .subject {
+    color: var(--text-muted);
+  }
+
+  /* === Annotation footer === */
+  .annotation {
+    background: var(--bg-2); border-top: 1px solid var(--border);
+    padding: 10px 20px; font-size: var(--fs-xs); color: var(--text-muted);
+    display: flex; gap: 16px; align-items: center;
+  }
+  .annotation .key {
+    font-family: var(--font-mono); color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- Variant switcher (sketch-level)                                -->
+<!-- ============================================================ -->
+<div class="variant-bar">
+  <span class="label">SKETCH 001 — LIVE vs REPLAY MODE CHROME</span>
+  <span class="variant-tab active winner" data-variant="A">Variant A — Mode-keyed shell</span>
+  <span class="variant-tab" data-variant="B">Variant B — Single shell + stripe</span>
+  <span class="variant-tab" data-variant="C">Variant C — Mode-as-tab (anti-pattern)</span>
+  <span style="flex:1"></span>
+  <span class="label">Toggle mode within variant ↓</span>
+</div>
+
+<!-- ============================================================ -->
+<!-- VARIANT A                                                      -->
+<!-- ============================================================ -->
+<div class="variant-pane vA-pane active" data-variant="A" data-active-mode="queue">
+  <div class="vA-modebar">
+    <div class="vA-mode-half active" data-mode="queue" onclick="setMode('A','queue')">
+      <div class="mode-glyph">▶</div>
+      <div class="mode-meta">
+        <span class="mode-name">Queue · Live</span>
+        <span class="mode-count">47 <span style="font-size:11px;color:var(--text-dim);font-weight:400">blocked, waiting for you</span></span>
+      </div>
+      <span class="url-hint">/automations/debtor-email/queue</span>
+    </div>
+    <div class="vA-mode-half" data-mode="history" onclick="setMode('A','history')">
+      <div class="mode-glyph">◷</div>
+      <div class="mode-meta">
+        <span class="mode-name">History · Review</span>
+        <span class="mode-count">312 <span style="font-size:11px;color:var(--text-dim);font-weight:400">handled this week</span></span>
+      </div>
+      <span class="url-hint">/automations/debtor-email/history</span>
+    </div>
+  </div>
+
+  <div class="vA-header">
+    <h1>
+      <span class="pill" data-pill-queue>QUEUE</span>
+      <span class="pill" data-pill-history style="display:none">HISTORY</span>
+      <span data-h-queue>47 emails blocked, waiting for your verdict</span>
+      <span data-h-history style="display:none">312 emails handled · 2026-W19 · click any row to inspect & correct</span>
+    </h1>
+    <span class="grow"></span>
+    <div class="filters">
+      <span data-f-queue>swarm: debtor-email</span>
+      <span data-f-history style="display:none">range:</span>
+      <input type="text" value="2026-W19" data-f-history style="display:none;width:90px" />
+    </div>
+  </div>
+
+  <div class="preview" data-preview="A"></div>
+
+  <div class="annotation">
+    <span class="key">A — MODE-KEYED SHELL:</span>
+    Switching modes = different URL. Mode chosen via the top split bar (only one half is active at a time, inactive is dimmed).
+    <strong>Catastrophic mode confusion impossible:</strong> every visual cue (top bar, color, header pill, header copy, row dashedness, primary action color) flips together.
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- VARIANT B                                                      -->
+<!-- ============================================================ -->
+<div class="variant-pane vB-pane" data-variant="B" data-active-mode="queue">
+  <div class="vB-stripe"></div>
+  <div class="vB-toolbar">
+    <h1>Bulk Review <span class="swarm">· debtor-email</span></h1>
+    <div class="vB-mode-toggle">
+      <button class="active" data-mode="queue" onclick="setMode('B','queue')">
+        ▶ Queue <span class="count">47</span>
+      </button>
+      <button data-mode="history" onclick="setMode('B','history')">
+        ◷ History <span class="count">312</span>
+      </button>
+    </div>
+    <span class="grow"></span>
+    <span class="badge" data-b-badge-queue>LIVE — writes flow to recommender</span>
+    <span class="badge" data-b-badge-history style="display:none">HISTORY — corrections feed recommender retro</span>
+  </div>
+
+  <div class="preview" data-preview="B"></div>
+
+  <div class="annotation">
+    <span class="key">B — SINGLE SHELL + STRIPE:</span>
+    One URL, mode toggled in toolbar. 4px full-bleed stripe at top edge changes color (orange ↔ slate-blue). Mode badge in toolbar says what writes mean.
+    Subtler than A — mode is always one glance away but the surface itself doesn't shout.
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- VARIANT C                                                      -->
+<!-- ============================================================ -->
+<div class="variant-pane vC-pane" data-variant="C" data-active-substage="queue">
+  <div class="vC-shell-bar">
+    <h1>debtor-email <span class="swarm">· stage 3 · coordinator</span></h1>
+    <div class="vC-shell-tabs">
+      <div class="vC-stage-tab"><span>Stage 0</span><span class="badge">safe</span></div>
+      <div class="vC-stage-tab"><span>Stage 1</span><span class="badge">8</span></div>
+      <div class="vC-stage-tab"><span>Stage 2</span><span class="badge">2</span></div>
+      <div class="vC-stage-tab active"><span>Stage 3</span><span class="badge">37</span></div>
+      <div class="vC-stage-tab"><span>Stage 4</span><span class="badge">12</span></div>
+    </div>
+  </div>
+
+  <div class="vC-substage-bar">
+    <span style="color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;margin-right:8px">View:</span>
+    <span class="vC-substab active" data-substage="queue" onclick="setMode('C','queue')">▶ Queue <span class="count">37</span></span>
+    <span class="vC-substab" data-substage="history" onclick="setMode('C','history')">◷ History <span class="count">312</span></span>
+    <span style="flex:1"></span>
+    <span style="color:var(--text-dim);font-size:11px">recipient:</span>
+    <span class="vC-substab" style="background:transparent">all</span>
+  </div>
+
+  <div class="preview" data-preview="C"></div>
+
+  <div class="annotation" style="background:rgba(255,80,80,0.06);border-color:rgba(255,80,80,0.2)">
+    <span class="key" style="color:var(--red,#ff5050)">C — ANTI-PATTERN:</span>
+    Mode as a sibling filter-tab inside the stage shell. Looks clean and consistent with sketch 005's tab pattern — but the tabs read as "filter by status" not "different consequence semantics."
+    The operator's muscle memory says "tabs are dataset filters" → wrong-mode action becomes a real risk. <strong>Built to make the failure mode visible side-by-side with A.</strong>
+  </div>
+</div>
+
+<script>
+  // Sample rows — each queue row is BLOCKED at a different stage,
+  // so the strip narrates the operator's task at a glance.
+  // Cell shape: { outcome, hint, cls } — cls can combine status (safe/match/warn)
+  // with state markers (blocked, idle, override).
+  const rows = [
+    {
+      // Blocked at Stage 3 — coordinator low confidence
+      recipient: 'facturen@moyne-roberts.nl',
+      from: 'noreply@klant-portaal.nl',
+      subject: 'Factuurkopie aanvragen voor referentie INV-2026-04812',
+      stages: [
+        { outcome: 'Safe',                 hint: '',                      cls: 'safe' },
+        { outcome: 'Customer message',     hint: 'AI cleared from noise', cls: 'match' },
+        { outcome: 'Klant Portaal',        hint: 'matched by sender',     cls: 'match' },
+        { outcome: 'Maybe invoice req.',   hint: 'low confidence — pick', cls: 'warn blocked override' },
+        { outcome: 'waiting',              hint: '',                      cls: 'idle' },
+      ],
+    },
+    {
+      // Blocked at Stage 2 — entity tiebreak
+      recipient: 'facturen@moyne-roberts.nl',
+      from: 'a.de.wit@vandenberg-bv.nl',
+      subject: 'Kunt u INV-2026-04790 nogmaals doorsturen?',
+      stages: [
+        { outcome: 'Safe',                 hint: '',                       cls: 'safe' },
+        { outcome: 'Customer message',     hint: 'rule: customer-domain',  cls: 'match' },
+        { outcome: 'Two candidates',       hint: 'Van den Berg vs Berg-L', cls: 'warn blocked override' },
+        { outcome: 'waiting',              hint: '',                       cls: 'idle' },
+        { outcome: 'waiting',              hint: '',                       cls: 'idle' },
+      ],
+    },
+    {
+      // Blocked at Stage 4 — handler missing
+      recipient: 'info@smeba.nl',
+      from: 'jansen@cogent-logistics.com',
+      subject: 'Vraag over openstaande factuur — graag terugbellen',
+      stages: [
+        { outcome: 'Safe',                 hint: '',                       cls: 'safe' },
+        { outcome: 'Customer message',     hint: 'AI rescued from unknown', cls: 'match' },
+        { outcome: 'Cogent Logistics',     hint: 'matched by sender',      cls: 'match' },
+        { outcome: 'Invoice question',     hint: 'high confidence',        cls: 'match' },
+        { outcome: 'No handler',           hint: 'manual follow-up',       cls: 'warn blocked' },
+      ],
+    },
+  ];
+
+  function renderPreview(target, mode) {
+    const headerHTML = `
+      <div class="col-head">
+        <span>Recipient</span>
+        <span>Subject</span>
+        <span class="stages-head">
+          <span>Safety</span>
+          <span>Noise</span>
+          <span>Customer</span>
+          <span>Topic</span>
+          <span>Action</span>
+        </span>
+        <span style="text-align:right">${mode === 'queue' ? 'Open' : 'Inspect'}</span>
+      </div>
+    `;
+    const rowsHTML = rows.map(r => `
+      <div class="row">
+        <span class="recipient">${r.recipient}</span>
+        <span class="subject"><span class="from">${r.from}</span>${r.subject}</span>
+        <span class="stages">${r.stages.map(s => `
+          <span class="stage-cell ${s.cls}">
+            <span class="outcome">${s.outcome}</span>
+            ${s.hint ? `<span class="hint">${s.hint}</span>` : ''}
+          </span>`).join('')}</span>
+        <span class="actions">
+          ${mode === 'queue'
+            ? `<button class="primary">Open ⏎</button>`
+            : `<button class="history-only">Inspect</button>`}
+        </span>
+      </div>
+    `).join('');
+    target.innerHTML = headerHTML + rowsHTML;
+  }
+
+  function setMode(variant, mode) {
+    const pane = document.querySelector(`.variant-pane[data-variant="${variant}"]`);
+    if (variant === 'C') {
+      pane.dataset.activeSubstage = mode;
+      pane.querySelectorAll('.vC-substab[data-substage]').forEach(el => {
+        el.classList.toggle('active', el.dataset.substage === mode);
+      });
+    } else {
+      pane.dataset.activeMode = mode;
+      pane.querySelectorAll('[data-mode]').forEach(el => {
+        if (el.classList.contains('vA-mode-half') || el.tagName === 'BUTTON') {
+          el.classList.toggle('active', el.dataset.mode === mode);
+        }
+      });
+    }
+    // Variant A: swap header content
+    if (variant === 'A') {
+      pane.querySelector('[data-pill-queue]').style.display = mode === 'queue' ? '' : 'none';
+      pane.querySelector('[data-pill-history]').style.display = mode === 'history' ? '' : 'none';
+      pane.querySelector('[data-h-queue]').style.display = mode === 'queue' ? '' : 'none';
+      pane.querySelector('[data-h-history]').style.display = mode === 'history' ? '' : 'none';
+      pane.querySelectorAll('[data-f-queue]').forEach(el => el.style.display = mode === 'queue' ? '' : 'none');
+      pane.querySelectorAll('[data-f-history]').forEach(el => el.style.display = mode === 'history' ? '' : 'none');
+    }
+    // Variant B: swap badge
+    if (variant === 'B') {
+      pane.querySelector('[data-b-badge-queue]').style.display = mode === 'queue' ? '' : 'none';
+      pane.querySelector('[data-b-badge-history]').style.display = mode === 'history' ? '' : 'none';
+    }
+    const preview = pane.querySelector(`.preview[data-preview="${variant}"]`);
+    renderPreview(preview, mode);
+  }
+
+  // Variant tab switching
+  document.querySelectorAll('.variant-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.variant-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.variant-pane').forEach(p => p.classList.remove('active'));
+      document.querySelector(`.variant-pane[data-variant="${tab.dataset.variant}"]`).classList.add('active');
+    });
+  });
+
+  // Initial render
+  ['A', 'B'].forEach(v => renderPreview(document.querySelector(`.preview[data-preview="${v}"]`), 'queue'));
+  renderPreview(document.querySelector('.preview[data-preview="C"]'), 'queue');
+</script>
+</body>
+</html>

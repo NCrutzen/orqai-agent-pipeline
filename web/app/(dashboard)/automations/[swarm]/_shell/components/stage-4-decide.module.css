@@ -1,0 +1,68 @@
+/* Phase 3 Plan 11 Task 2 — Stage 4 (Action) Decide column styles.
+ *
+ * Token discipline (anti-drift #1): no raw hex; all colors via V7 tokens. The
+ * three lime/amber button-foreground hex values live in globals.css, never
+ * here. Animation timings: 0.12s / 0.15s / 0.6s only (anti-drift #2) — none
+ * used in this module.
+ *
+ * Shared canon shape (canonical-patterns.md §8/§9): a Decide section label, the
+ * handler-output verdict control (Stage4Widget), the shared AuditBlock, and a
+ * footer submit using the verdict color triad — green Confirm when the
+ * operator agrees with the system, amber Override when the verdict changes.
+ */
+
+.decide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionLabel {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--v7-text);
+}
+
+.footer {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.submitBtn {
+  border: 0;
+  border-radius: var(--v7-radius-pill);
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Verdict color triad (§8): confirm = green/lime, override = amber. */
+.submitBtn[data-mode="confirm"] {
+  background: var(--v7-action-confirm-bg);
+  color: var(--v7-action-confirm-fg);
+}
+
+.submitBtn[data-mode="override"] {
+  background: var(--v7-action-override-bg);
+  color: var(--v7-action-override-fg);
+}
+
+.submitBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.error {
+  font-size: 12px;
+  color: var(--v7-red, var(--red));
+  margin: 0;
+}
+
+.placeholder {
+  font-size: 13px;
+  color: var(--v7-text-muted);
+  margin: 0;
+}

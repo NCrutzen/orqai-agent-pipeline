@@ -30,6 +30,15 @@ interface KanbanJobCardProps {
    * a DragOverlay.
    */
   onCardActivate?: (jobId: string) => void;
+  /**
+   * Phase 3 Plan 01 Task 0c — swarm_type for the "Open review" link target.
+   * SwarmJob carries swarm_id (FK) but not swarm_type — the kanban board
+   * mounts per-swarm so the parent already knows which swarm_type is
+   * active. Defaults to `"debtor-email"` for backward compatibility with
+   * the only call site live today; cross-swarm callers (Plan 02 / 03
+   * follow-ups) pass it explicitly.
+   */
+  swarmType?: string;
 }
 
 interface DerivedTag {
@@ -102,6 +111,7 @@ export function KanbanJobCard({
   job,
   isDragOverlay,
   onCardActivate,
+  swarmType = "debtor-email",
 }: KanbanJobCardProps) {
   const sortable = useSortable({
     id: job.id,
@@ -233,7 +243,8 @@ export function KanbanJobCard({
           )}
           {job.stage === "review" && !isDragOverlay && (
             <Link
-              href="/automations/debtor-email/review"
+              data-testid="kanban-job-card-open-review-link"
+              href={`/automations/${swarmType}/review`}
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
               className="ml-auto inline-flex items-center gap-1 rounded-[var(--v7-radius-pill)] border border-[var(--v7-teal)] bg-[var(--v7-teal-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--v7-teal)] transition-colors hover:bg-[var(--v7-teal)] hover:text-[var(--v7-inverse)]"

@@ -860,3 +860,148 @@ describe("Phase 70 — TELE-01 Stage 2 dual-write", () => {
     expect((pipelineEventInsert!.payload as { confidence?: number }).confidence).toBe(0.9);
   });
 });
+
+// Phase 04.1 — Plan 02 (P4.1-D-01 / P4.1-D-02). Side-channel resolver-step
+// trace + winner is forward-emitted into decision_details for every NEW
+// Stage 2 write. Historic rows lack the fields and render the empty state
+// via the hydrator's null gate (Plan 04).
+describe("Phase 04.1 — steps trace", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  async function loadHandler(): Promise<{
+    handler: typeof handler;
+    captures: ReturnType<typeof makeAdminMock>["__captures"];
+  }> {
+    vi.clearAllMocks();
+    adminMock = makeAdminMock();
+    resolveDebtorMock.mockReset();
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../stage-2-customer-resolver");
+    return {
+      handler: (mod.stage2CustomerResolver as unknown as {
+        handler: typeof handler;
+      }).handler,
+      captures: (adminMock as unknown as {
+        __captures: ReturnType<typeof makeAdminMock>["__captures"];
+      }).__captures,
+    };
+  }
+
+  function findStage2PipelineEvent(
+    captures: ReturnType<typeof makeAdminMock>["__captures"],
+  ) {
+    return captures.supabaseInserts.find(
+      (i) =>
+        i.table === "pipeline_events" &&
+        (i.payload as { stage?: number }).stage === 2,
+    );
+  }
+
+  it("thread_inheritance → decision_details.steps has length 4 and winner === 1", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "thread_inheritance",
+      customer_account_id: "cust-99",
+      customer_name: "Klant Holding",
+      confidence: "high",
+      inputs: {
+        kind: "thread_inheritance",
+        prior_email_label_id: "label-prev",
+        conversation_id: "conv-1",
+      },
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const pe = findStage2PipelineEvent(captures);
+    expect(pe).toBeTruthy();
+    const dd = (pe!.payload as { decision_details: Record<string, unknown> })
+      .decision_details;
+    expect(Array.isArray(dd.steps)).toBe(true);
+    expect((dd.steps as unknown[]).length).toBe(4);
+    expect(dd.winner).toBe(1);
+  });
+
+  it("sender_match → winner === 2 and steps[1].status === 'matched'", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "sender_match",
+      customer_account_id: "cust-123",
+      customer_name: "Klant BV",
+      confidence: "high",
+      candidates_considered: 1,
+      inputs: {
+        kind: "sender_match",
+        sender_email: "klant@example.com",
+        candidates: [
+          {
+            id: "cust-123",
+            name: "Klant BV",
+            contact_person: "Jan",
+            recent_invoices: [],
+          },
+        ],
+      },
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const pe = findStage2PipelineEvent(captures);
+    const dd = (pe!.payload as { decision_details: Record<string, unknown> })
+      .decision_details;
+    expect(dd.winner).toBe(2);
+    const steps = dd.steps as Array<{ idx: number; status: string }>;
+    const step2 = steps.find((s) => s.idx === 2);
+    expect(step2?.status).toBe("matched");
+  });
+
+  it("llm_tiebreaker → winner === 4 and steps[3].status === 'picked'", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockResolvedValueOnce({
+      method: "llm_tiebreaker",
+      customer_account_id: "cust-A",
+      customer_name: "Klant A",
+      confidence: "medium",
+      candidates_considered: 2,
+      reason: "explicit",
+      inputs: {
+        kind: "llm_tiebreaker",
+        sender_email: "klant@example.com",
+        matched_identifiers: ["INV-2222"],
+        candidates: [
+          { id: "cust-A", name: "Klant A", contact_person: null, recent_invoices: [] },
+          { id: "cust-B", name: "Klant B", contact_person: null, recent_invoices: [] },
+        ],
+        llm_reason: "explicit",
+        picked_account_id: "cust-A",
+      },
+    });
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const pe = findStage2PipelineEvent(captures);
+    const dd = (pe!.payload as { decision_details: Record<string, unknown> })
+      .decision_details;
+    expect(dd.winner).toBe(4);
+    const steps = dd.steps as Array<{ idx: number; status: string }>;
+    const step4 = steps.find((s) => s.idx === 4);
+    expect(step4?.status).toBe("picked");
+  });
+
+  it("resolverError path → decision_details.steps still populated from unresolved fallback (winner null)", async () => {
+    const { handler: h, captures } = await loadHandler();
+    resolveDebtorMock.mockRejectedValueOnce(new Error("nxt timeout"));
+
+    await h({ event: buildEvent(), step: stepStub });
+
+    const pe = findStage2PipelineEvent(captures);
+    const dd = (pe!.payload as { decision_details: Record<string, unknown> })
+      .decision_details;
+    expect(Array.isArray(dd.steps)).toBe(true);
+    expect((dd.steps as unknown[]).length).toBe(4);
+    expect(dd.winner).toBeNull();
+    expect(dd.failure_reason).toBe("nxt timeout");
+  });
+});

@@ -1,0 +1,152 @@
+/* Phase 3 Plan 03-07 (gap-closure) — Stage 0 (Safety) Decide column styles.
+ *
+ * Pixel-faithful translation of sketch 002 Variant C
+ * (002-stage-0-safety-detail-convergence/index.html lines ~256-287, 844-876,
+ * 1015-1036).
+ *
+ * Token discipline (anti-drift #1): no raw hex. The three lime/amber
+ * button-foreground hex values (#0a1a04 / #1a1206 / #1a0606) live in
+ * globals.css as --v7-action-*-fg tokens and are consumed via var() — they are
+ * NOT inlined here. Animation timings (anti-drift #2): 0.12s / 0.15s / 0.6s
+ * only; this module uses 0.12s for the label hover transition.
+ *
+ * Shared canon (canonical-patterns.md §8/§9): a Decide section label, the
+ * 2-state verdict radio (Stage0Widget idiom), the shared AuditBlock, and a
+ * footer submit using the verdict color triad — green Confirm when the
+ * operator agrees with the system (injection), amber Override when flipped to
+ * Safe.
+ */
+
+.decide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionLabel {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--v7-text);
+}
+
+/* === Stage0 verdict widget (sketch 002 .stage0-widget, lines ~256-290) === */
+.stage0Widget {
+  background: var(--v7-panel);
+  border: 1px solid var(--v7-border);
+  border-radius: var(--v7-radius, 8px);
+  padding: 12px 14px;
+}
+
+.widgetHead {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--v7-text-muted);
+  margin-bottom: 8px;
+}
+
+.verdictFieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Radio rows. Selected rows tint via .confirmState / .overrideState (sketch
+ * lines 274-279) — green for confirm, amber for override. */
+.verdictLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--v7-text);
+  transition: background 0.12s;
+}
+
+.verdictLabel:hover {
+  background: var(--v7-bg-hover, var(--v7-panel));
+}
+
+.verdictLabel input[type="radio"] {
+  accent-color: var(--v7-brand-primary);
+}
+
+.verdictFieldset:disabled .verdictLabel {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Selected-label tints (sketch lines 274-279). Confirm = lime tint, Override =
+ * amber tint. Tint backgrounds derive from the brand confirm/override bg
+ * tokens at low alpha via color-mix so no raw rgba/hex is introduced. */
+.confirmState {
+  background: color-mix(in srgb, var(--v7-action-confirm-bg) 10%, transparent);
+  color: var(--v7-action-confirm-bg);
+}
+
+.overrideState {
+  background: color-mix(in srgb, var(--v7-action-override-bg) 12%, transparent);
+  color: var(--v7-action-override-bg);
+}
+
+.help {
+  font-size: 11px;
+  color: var(--v7-text-muted);
+  margin-top: 6px;
+  padding-left: 8px;
+}
+
+/* === Footer submit (sketch .submit-btn, lines ~280-287, 876) === */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.submitBtn {
+  border: 1px solid transparent;
+  border-radius: var(--v7-radius-pill);
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Verdict color triad (§8): confirm = green/lime, override = amber. The
+ * foreground hex (#0a1a04 / #1a1206) is carried by the *-fg tokens. */
+.submitBtn[data-mode="confirm"] {
+  background: var(--v7-action-confirm-bg);
+  border-color: var(--v7-action-confirm-bg);
+  color: var(--v7-action-confirm-fg);
+}
+
+.submitBtn[data-mode="override"] {
+  background: var(--v7-action-override-bg);
+  border-color: var(--v7-action-override-bg);
+  color: var(--v7-action-override-fg);
+}
+
+.submitBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.error {
+  font-size: 12px;
+  color: var(--v7-red, var(--red));
+  margin: 0;
+}
+
+.placeholder {
+  font-size: 13px;
+  color: var(--v7-text-muted);
+  margin: 0;
+}

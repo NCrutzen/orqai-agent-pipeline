@@ -622,6 +622,16 @@ export type Events = {
       swarm_type: string;
     };
   };
+
+  // Phase 4 Plan 01 — patterns recommender manual-trigger event
+  // (cron is daily 02:00 Amsterdam; this event lets operators / dev rerun
+  // the same handler on demand without waiting for the cron tick).
+  "patterns.cron.run": {
+    data: {
+      swarm_type?: string;
+      dry_run?: boolean;
+    };
+  };
   // Phase 86 Plan 02 — manual refresh trigger for the intent-proposals cron.
   // Fired by the Plan 03 Bulk Review "Intent proposals" tab refresh button.
   // Debounced 5min server-side (see intent-proposals-refresh.ts).

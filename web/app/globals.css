@@ -150,6 +150,17 @@
   --v7-brand-surface-soft: #e9eff8;
   --v7-brand-primary-soft: rgba(220,76,25,0.12);
   --v7-brand-secondary-soft: rgba(74,144,226,0.12);
+  /* Phase 2 Plan 02-06 — Patterns mode chrome (sketch 001 lock; UI-SPEC §9
+     new-token gap closed). Purple #b886ff sourced from v7.css. */
+  --v7-brand-patterns: #b886ff;
+  --v7-brand-patterns-soft: rgba(184,134,255,0.14);
+  /* Phase 4 Plan 02 Task 1 — UI-SPEC §13 alias tokens. The §5 + §13 contract
+     refers to the Patterns purple as --patterns and adds --patterns-faint for
+     low-emphasis chrome accents. Aliases keep the v7- namespace authoritative
+     while honoring the spec vocabulary. */
+  --patterns: var(--v7-brand-patterns);
+  --patterns-soft: var(--v7-brand-patterns-soft);
+  --patterns-faint: rgba(184,134,255,0.06);
   /* Soft accent backgrounds */
   --v7-teal-soft: rgba(1,105,111,0.12);
   --v7-blue-soft: rgba(12,106,167,0.12);
@@ -180,7 +191,63 @@
   --space-7: 32px;
   /* Aliases for semantically-named tokens used by stage shell + Phase 76 surfaces */
   --v7-text-muted: var(--v7-muted);
+  --v7-fg-muted: var(--v7-muted);
   --v7-border: var(--v7-line);
+  --v7-font-mono: var(--font-mono);
+  /* Phase 2 Plan 02-02 — action triad tokens. Canonical-patterns §8
+     locks the green/amber/red verdict button color contract. The Confirm
+     button uses --lime as bg and a dark text-on-lime fg (mirrors the
+     `background: var(--lime); color: #0a1a04` recipe in canonical §8). */
+  --v7-action-confirm-bg: var(--v7-lime);
+  --v7-action-confirm-fg: #0a1a04;
+  --v7-action-override-bg: var(--v7-amber);
+  --v7-action-override-fg: #1a1206;
+  --v7-action-escalate-bg: var(--v7-red);
+  --v7-action-escalate-fg: #1a0606;
+  /* Bulk Review row-strip state vocabulary (sketch 001 / canonical §3 / Phase 2 Plan 02-01).
+     Six locked states for the 5-cell colored outcome strip. Mirror values from
+     v7.css; consumers (row-strip.tsx) reference these via var(--…) — never raw hex. */
+  --v7-state-safe-bg: rgba(77,141,28,0.12);
+  --v7-state-safe-fg: var(--v7-lime);
+  --v7-state-match-bg: rgba(74,144,226,0.12);
+  --v7-state-match-fg: var(--v7-brand-secondary);
+  --v7-state-warn-bg: rgba(182,106,17,0.13);
+  --v7-state-warn-fg: var(--v7-amber);
+  --v7-state-llm-rescue-bg: rgba(184,134,255,0.14);
+  --v7-state-llm-rescue-fg: #7b4ad6;
+  --v7-state-idle-bg: var(--v7-panel-2);
+  --v7-state-idle-fg: var(--v7-muted);
+  --v7-state-blocked-bg: rgba(181,69,78,0.13);
+  --v7-state-blocked-fg: var(--v7-red);
+  /* Bulk Review Phase 2 Plan 02-05 — per-entity-brand badge tokens (Stage 2
+     resolved-customer brand badge). Registry source-of-truth = swarms.entity_brand
+     (Phase 69 ENTITY_BRANDS literal-union: berki, fire-control, sicli-noord,
+     sicli-sud, smeba, smeba-fire). Extra fallback / deferred-brand tokens
+     (lifebee, nbf, iccafe) exist so the renderer survives historic data without
+     crashing — they are NOT in ENTITY_BRANDS today (project_brand_scope memo). */
+  --v7-brand-smeba: #4a90e2;
+  --v7-brand-smeba-soft: rgba(74,144,226,0.12);
+  --v7-brand-smeba-fire: #b5454e;
+  --v7-brand-smeba-fire-soft: rgba(181,69,78,0.13);
+  --v7-brand-fire-control: #b66a11;
+  --v7-brand-fire-control-soft: rgba(182,106,17,0.13);
+  --v7-brand-berki: #01696f;
+  --v7-brand-berki-soft: rgba(1,105,111,0.12);
+  --v7-brand-sicli-noord: #4d8d1c;
+  --v7-brand-sicli-noord-soft: rgba(77,141,28,0.12);
+  --v7-brand-sicli-sud: #b93e8a;
+  --v7-brand-sicli-sud-soft: rgba(185,62,138,0.13);
+  --v7-brand-lifebee: #7b4ad6;
+  --v7-brand-lifebee-soft: rgba(123,74,214,0.13);
+  --v7-brand-nbf: #0c6aa7;
+  --v7-brand-nbf-soft: rgba(12,106,167,0.12);
+  --v7-brand-iccafe: #b66a11;
+  --v7-brand-iccafe-soft: rgba(182,106,17,0.13);
+  --v7-brand-fallback: var(--v7-muted);
+  --v7-brand-fallback-soft: var(--v7-panel-2);
+  /* Bulk Review Phase 2 Plan 02-05 — confidence-bar track (Stage 3 ranked list). */
+  --v7-bar-track: rgba(0,0,0,0.06);
+  --v7-bg-row: var(--v7-bg);
 }
 
 [data-theme="dark"] {
@@ -209,6 +276,9 @@
   --v7-brand-surface-soft: #0f2a43;
   --v7-brand-primary-soft: rgba(220,76,25,0.18);
   --v7-brand-secondary-soft: rgba(105,168,255,0.16);
+  /* Phase 2 Plan 02-06 — Patterns mode chrome (dark-mode tuned). */
+  --v7-brand-patterns: #c9a4ff;
+  --v7-brand-patterns-soft: rgba(184,134,255,0.18);
   /* Soft accent backgrounds */
   --v7-teal-soft: rgba(58,199,201,0.13);
   --v7-blue-soft: rgba(105,168,255,0.13);
@@ -221,6 +291,44 @@
   --v7-glass-shadow: 0 10px 30px rgba(0,0,0,0.22);
   --v7-glass-shadow-heavy: 0 30px 100px rgba(0,0,0,0.42);
   /* Radius — same as light, inherited from :root */
+  /* Bulk Review row-strip state vocabulary (sketch 001 / canonical §3 / Plan 02-01).
+     Dark-mode tuned mirrors of the light-mode tokens above. */
+  --v7-state-safe-bg: rgba(138,208,94,0.18);
+  --v7-state-safe-fg: var(--v7-lime);
+  --v7-state-match-bg: rgba(105,168,255,0.16);
+  --v7-state-match-fg: var(--v7-brand-secondary);
+  --v7-state-warn-bg: rgba(255,181,71,0.16);
+  --v7-state-warn-fg: var(--v7-amber);
+  --v7-state-llm-rescue-bg: rgba(184,134,255,0.18);
+  --v7-state-llm-rescue-fg: #c9a4ff;
+  --v7-state-idle-bg: var(--v7-panel-2);
+  --v7-state-idle-fg: var(--v7-muted);
+  --v7-state-blocked-bg: rgba(255,107,122,0.16);
+  --v7-state-blocked-fg: var(--v7-red);
+  /* Bulk Review Phase 2 Plan 02-05 — per-entity-brand badge tokens (dark). */
+  --v7-brand-smeba: #69a8ff;
+  --v7-brand-smeba-soft: rgba(105,168,255,0.16);
+  --v7-brand-smeba-fire: #ff6b7a;
+  --v7-brand-smeba-fire-soft: rgba(255,107,122,0.16);
+  --v7-brand-fire-control: #ffb547;
+  --v7-brand-fire-control-soft: rgba(255,181,71,0.16);
+  --v7-brand-berki: #3ac7c9;
+  --v7-brand-berki-soft: rgba(58,199,201,0.13);
+  --v7-brand-sicli-noord: #8ad05e;
+  --v7-brand-sicli-noord-soft: rgba(138,208,94,0.18);
+  --v7-brand-sicli-sud: #ff78cf;
+  --v7-brand-sicli-sud-soft: rgba(255,120,207,0.13);
+  --v7-brand-lifebee: #c9a4ff;
+  --v7-brand-lifebee-soft: rgba(184,134,255,0.18);
+  --v7-brand-nbf: #69a8ff;
+  --v7-brand-nbf-soft: rgba(105,168,255,0.13);
+  --v7-brand-iccafe: #ffb547;
+  --v7-brand-iccafe-soft: rgba(255,181,71,0.13);
+  --v7-brand-fallback: var(--v7-muted);
+  --v7-brand-fallback-soft: var(--v7-panel-2);
+  /* Stage 3 confidence-bar track + row bg (dark). */
+  --v7-bar-track: rgba(255,255,255,0.08);
+  --v7-bg-row: var(--v7-bg);
 }
 
 @layer base {
