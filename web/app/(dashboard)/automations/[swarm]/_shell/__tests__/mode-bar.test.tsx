@@ -133,34 +133,11 @@ describe("ModeBar (Phase 2 Plan 02-06)", () => {
     expect(stripped).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
-  it("T7: UI-SPEC §8 reconciled to ?bulk_review_focus shape (OQ-1)", () => {
-    // vitest runs with cwd at the repo root (web/). Walk up to find the
-    // workspace root that contains .planning/workstreams/bulk-review-flow-ux.
-    let dir = process.cwd();
-    let uiSpecPath: string | null = null;
-    for (let i = 0; i < 6; i++) {
-      const candidate = resolve(
-        dir,
-        ".planning/workstreams/bulk-review-flow-ux/.planning/UI-SPEC.md",
-      );
-      try {
-        readFileSync(candidate, "utf8");
-        uiSpecPath = candidate;
-        break;
-      } catch {
-        dir = resolve(dir, "..");
-      }
-    }
-    if (!uiSpecPath) {
-      throw new Error("UI-SPEC.md not found walking up from cwd");
-    }
-    const source = readFileSync(uiSpecPath, "utf8");
-    // New canonical shape present.
-    expect(source).toMatch(/bulk_review_focus=/);
-    expect(source).toMatch(/kanban_focus=/);
-    // Old shape removed (literal `/queue?email_label_id=` must be gone).
-    expect(source).not.toMatch(/\/queue\?email_label_id=/);
-    // OQ-1 reconciliation note present.
-    expect(source).toMatch(/OQ-1 reconciliation/);
-  });
+  // T7 (UI-SPEC §8 ↔ ?bulk_review_focus reconciliation) was REMOVED. It read
+  // .planning/workstreams/bulk-review-flow-ux/.planning/UI-SPEC.md by walking up
+  // from cwd — a planning artifact deliberately excluded from the code-only PR
+  // and from main, so it threw "UI-SPEC.md not found" on every CI run there. A
+  // runtime unit test must not depend on filtered-out planning docs. The
+  // UI-SPEC ↔ shipped-URL-shape reconciliation was a Phase 2 planning-time guard
+  // and belongs in plan verification, not this suite.
 });
