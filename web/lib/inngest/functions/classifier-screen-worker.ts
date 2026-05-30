@@ -265,7 +265,19 @@ export const classifierScreenWorker = inngest.createFunction(
       // forwards would arrive via a separate sync stream that MUST explicitly
       // populate direction='outbound' on the event.
       const effectiveDirection = directionFromEvent ?? "inbound";
+      // Phase 87 follow-up: the rule keys on the *forwarder's* domain, so a
+      // colleague forwarding a customer dunning/rejection into debiteuren@ from
+      // an own-domain mailbox gets archived as noise — ~40% of live loopback
+      // archives carried real actions (payment_dispute/credit_request). Gate
+      // the rule on the registry `enabled` flag so it can be switched off
+      // without a deploy until a true-system-loopback matcher lands.
+      const loopbackEnabled = categories.some(
+        (c) =>
+          c.category_key === "own_outbound_invoice_loopback" &&
+          c.enabled !== false,
+      );
       if (
+        loopbackEnabled &&
         effectiveDirection === "inbound" &&
         fromDomain.length > 0 &&
         tenantDomains.includes(fromDomain)

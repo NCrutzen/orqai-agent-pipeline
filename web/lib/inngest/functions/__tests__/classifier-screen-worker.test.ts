@@ -249,6 +249,18 @@ const DEBTOR_CATEGORIES = [
     enabled: true,
   },
   {
+    // Phase 84 D-03 loopback rule is now registry-gated (Phase 87 follow-up):
+    // the worker only fires it when this row is present + enabled.
+    swarm_type: "debtor-email",
+    category_key: "own_outbound_invoice_loopback",
+    display_label: "Own Outbound Invoice Loopback",
+    outlook_label: "System Notification",
+    action: "categorize_archive",
+    swarm_dispatch: null,
+    display_order: 45,
+    enabled: true,
+  },
+  {
     swarm_type: "debtor-email",
     category_key: "unknown",
     display_label: "Unknown",
@@ -1129,6 +1141,31 @@ describe("Phase 84 D-03 — own_outbound_invoice_loopback (worker-level rule, Pi
     expect(inngestSend).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "classifier/verdict.recorded",
+        data: expect.objectContaining({
+          predicted_category: "own_outbound_invoice_loopback",
+        }),
+      }),
+    );
+  });
+
+  it("negative (Phase 87 registry gate): category disabled/absent MUST NOT trigger loopback", async () => {
+    // Phase 87 follow-up: the rule mis-archived ~40% actionable own-domain
+    // forwards. It is now gated on the registry row being present + enabled.
+    // loadSwarmNoiseCategories filters enabled=true, so a disabled row is
+    // simply absent from the list — the rule must skip and let the email fall
+    // through to the LLM 2nd-pass / Stage 3 instead of archiving as noise.
+    loadSwarmMock.mockResolvedValue(FIRE_CONTROL_SWARM_ROW);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(
+      DEBTOR_CATEGORIES.filter(
+        (c) => c.category_key !== "own_outbound_invoice_loopback",
+      ),
+    );
+
+    const cache: StepCache = new Map();
+    await handler({ event: loopbackEvent(), step: makeStepStub(cache) });
+
+    expect(inngestSend).not.toHaveBeenCalledWith(
+      expect.objectContaining({
         data: expect.objectContaining({
           predicted_category: "own_outbound_invoice_loopback",
         }),
