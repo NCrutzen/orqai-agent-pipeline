@@ -275,7 +275,7 @@ export async function invokeCoordinatorAgent(
 
   const body = {
     model: MODEL_ID,
-    fallbacks: FALLBACK_MODEL_IDS,
+    fallbacks: FALLBACK_MODEL_IDS.map((model) => ({ model })),
     instructions: INSTRUCTIONS,
     input: [
       {
