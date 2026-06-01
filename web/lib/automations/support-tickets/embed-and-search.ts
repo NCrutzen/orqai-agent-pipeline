@@ -120,13 +120,15 @@ export async function embedAndSearchSimilar(
   const cost_cents =
     computed > 0 ? quantizeCost(computed) : FALLBACK_COST_CENTS;
 
-  // ---- (2) Call support.match_tickets RPC ----
+  // ---- (2) Call public.match_support_tickets RPC ----
+  // Public wrapper around support.match_tickets — PostgREST only exposes
+  // `public` schema by default, so the wrapper avoids any Dashboard config.
   // pgvector requires the literal string format "[x,y,z,...]" — passing a JS
   // array via PostgREST will be JSON-encoded and rejected by the column type.
   const embeddingLiteral = `[${embedding.join(",")}]`;
-  const rpcRes = await args.supabase
-    .schema("support")
-    .rpc("match_tickets", { query_embedding: embeddingLiteral, top_k: topK });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rpcRes = await (args.supabase as any)
+    .rpc("match_support_tickets", { query_embedding: embeddingLiteral, top_k: topK });
 
   if (rpcRes.error) {
     const msg = (rpcRes.error as { message?: string }).message ?? "unknown";
