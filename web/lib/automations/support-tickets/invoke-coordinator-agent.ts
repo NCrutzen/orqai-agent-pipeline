@@ -347,9 +347,22 @@ export async function invokeCoordinatorAgent(
     throw new CoordinatorAgentError("empty_response");
   }
 
+  // Strip markdown code fences. Despite response_format=json_schema strict, some
+  // models still wrap JSON output in ```json ... ``` fences (Sonnet 4.5
+  // observed during 2026-06-01 live smoke). Tolerate both fenced and bare JSON.
+  const stripFences = (s: string): string => {
+    const trimmed = s.trim();
+    if (trimmed.startsWith("```")) {
+      // Match opening fence (with optional `json` tag) and closing fence.
+      const m = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
+      if (m) return m[1].trim();
+    }
+    return trimmed;
+  };
+
   let parsed: unknown;
   try {
-    parsed = JSON.parse(rawContent);
+    parsed = JSON.parse(stripFences(rawContent));
   } catch (cause) {
     throw new CoordinatorAgentError("schema_validation_failed", {
       cause,
