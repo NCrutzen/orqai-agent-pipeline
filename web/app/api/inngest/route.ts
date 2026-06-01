@@ -51,6 +51,7 @@ import { debtorEmailOverrideHandler } from "@/lib/inngest/functions/debtor-email
 import { debtorEmailStage3RetroClassify } from "@/lib/inngest/functions/debtor-email-stage-3-retro-classify";
 import { phase87ReadinessNotify } from "@/lib/inngest/functions/phase-87-readiness-notify";
 import { stage2SupportTicketsEnrichment } from "@/lib/automations/support-tickets/stage-2-enrichment";
+import { stage3SupportTicketsCoordinator } from "@/lib/automations/support-tickets/stage-3-coordinator";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -96,5 +97,6 @@ export const { GET, POST, PUT } = serve({
     debtorEmailStage3RetroClassify,
     phase87ReadinessNotify,
     stage2SupportTicketsEnrichment,
+    stage3SupportTicketsCoordinator,
   ],
 });

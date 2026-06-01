@@ -657,6 +657,25 @@ export type Events = {
     };
   };
 
+  // Phase 3 Plan 03-03 — Stage 3 → Stage 4 handoff. Emitted by
+  // stage3SupportTicketsCoordinator on the happy-path decisions
+  // (`stage_3_coordinator`, `stage_3_coordinator_invariant_violated`,
+  // `stage_3_coordinator_hallucinated_intent`). NOT fired on quarantine /
+  // cost-ceiling / failed paths. Phase 4 owns the listener.
+  "support-tickets/stage-4.handler.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+      chosen_intent:
+        | "clarification-needed"
+        | "duplicate"
+        | "info-answer"
+        | "clickup-escalate"
+        | "vendor-draft";
+      completeness_verdict: "complete" | "incomplete";
+    };
+  };
+
   // Phase 87 Plan 04 — one-shot retro-classification trigger. Triggered by
   // the operator CLI `web/scripts/run-retro-classify.ts`. Side-Channel
   // Isolation: handler writes ONLY to stage_3_retro_runs +
