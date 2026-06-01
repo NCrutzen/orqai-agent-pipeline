@@ -1,5 +1,27 @@
 # Milestones
 
+## v8.1 Validation + Visibility (Shipped: 2026-06-01)
+
+**Phases:** 8 in-scope (83 body-ingestion · 84 Stage-1 noise rules · 85 Stage-3 prompt v3 · 86 open-set discovery · 87 retro baseline · 88 review-surface cleanup · 88.1 Inngest stage-naming · 88.2 Tier-2 CI cleanup).
+**Audit:** `passed` (was tech_debt; all 4 operator-UAT items dispositioned 2026-06-01). **Archive:** `milestones/v8.1-ROADMAP.md` · `milestones/v8.1-MILESTONE-AUDIT.md`.
+
+**Definition of done — achieved.** "Observe → understand → THEN automate": fixed the input/calibration/visibility layers so Stage 3 intent distribution reflects reality, not upstream parsing artifacts.
+
+**Headline accomplishments:**
+
+1. **Body ingestion fix** (83) — `body_full_text` / `body_unique_text` full-thread capture on forwards/replies + 30-day backfill; the source the Stage 1/2/3 readers depend on.
+2. **Stage 1 noise rules for AP-automation FYI traffic** (84) — 8 noise categories × 2 swarms registered as `classifier_rules` candidates + `swarms.tenant_domains` column + codegen; Wilson-CI shadow→promote gate. (`own_outbound_invoice_loopback` disabled 2026-05-30 after Phase 87 found it mis-classified ~40% of actionable internal forwards — needs a true-system-loopback matcher before re-enable.)
+3. **Stage 3 prompt v3 + open-set schema** (85) — V3 ranked-intent classifier with an `intent_proposal` open-set escape hatch + tolerant parser; operator-signed 2026-06-01 (regression GO, cost ~€2–7/mo, V2 retirement scheduled 2026-06-03).
+4. **Open-set intent discovery surface** (86) — `intent_proposals_v1` + daily cluster cron (`intent_proposal_clusters`) + Bulk Review cluster tab; cron live (164 clusters).
+5. **Retro classification baseline** (87) — replayed 105 emails through V3 with zero side-channel leakage; the baseline *refuted* SC-1 usefully (the catch-all is driven by upstream Stage-1 noise, not Stage-3 context) → directly scoped v8.2.
+6. **Review-surface cleanup** (88, 88.1, 88.2) — 4-axis Bulk Review override + chip semantics (live UAT fixed F-01/02/03 + prod migration); stage-named Inngest functions + Stage-2 telemetry alignment; Tier-2 CI gate green (194→0 lint, 47→0 tests, `pr-checks` proven on two real PRs).
+
+**Operator UAT closure (2026-06-01):** 85 signed off · 88 UAT performed + fixed · 86 accepted on live cron evidence · 84 D-05 promotion gate evaluated against live data → **0/16 rules eligible** (telemetry N=0; loopback disabled) → all deferred per PROMOTION-RUNBOOK §7. **Cross-cutting:** the graduated-automation Wilson-CI gate has empty telemetry (verdicts never accumulated) — the same gate v8.2's "auto-flip only after dry-run ≥99%" depends on, so v8.2 must ensure operator verdicts accumulate.
+
+**Known deferred items (acknowledged at close; full audit in `milestones/v8.1-MILESTONE-AUDIT.md`):** 24 open artifacts catalogued in STATE.md `## Deferred Items` — mostly project-wide parking-lot (3 debug sessions, 11 quick-tasks, 5+ pending todos incl. granular-dry-run-gating → v8.2, 2 dormant seeds). The 15 held/extended Phase-84 noise rules + the loopback true-system matcher revisit in v8.2.
+
+---
+
 ## v8.0 Agentic Platform (Shipped: 2026-05-20)
 
 **Phases:** 31 in-scope phases closed (63-89 core + 56.7, 80.1, 81.1, 82.1-82.9, 089, 999.7, 999.8)
@@ -38,6 +60,91 @@
 See `milestones/v8.0-MILESTONE-AUDIT.md` for full audit detail.
 
 ---
+
+---
+
+## v8.2 Stage 2 Resolution Recall (Defined: 2026-05-30)
+
+**Status:** Defined — design validated, not yet started. **Sequenced BEFORE V9.0** (V9.0's feedback-synthesis thesis is undermined while ~65% of Stage 2 lands unresolved; fixing recall first gives V9.0 a cleaner signal). Definition is non-destructive of the open v8.1 milestone.
+**Phases:** P0–P5 below (real phase numbers assigned at `/gsd-plan-phase` after v8.1 closes).
+**Validated by:** spike series 005–010b — see `.planning/spikes/010-comprehensive-backtest/DESIGN-GUIDE.md` (§0 authoritative), `GENERIC-RESOLUTION-DESIGN.md`, `FINDINGS.md`. 11-agent live backtest against the consolidated `nxt` DB; auto-resolve validated 10/10 (0 false positives) on fresh emails.
+
+**Goal:** Lift Stage 2 customer-resolution recall (today ~35% resolved / ~65% unresolved) by building a **generic, cross-swarm entity-resolution substrate** — debtor-email is the first consumer; sales-email (V10.0 SugarCRM) plugs in by configuration as the generality proof. Output ranked suggestions to Bulk Review, with a narrow high-precision auto-resolve set; never silently inject a wrong customer.
+
+**Architecture (the substrate):** SQL Resolver + Engine + Source Adapters, registry-configured per swarm. **Revised 2026-05-30 → SQL-native (no Supabase copy of NXT data; operator governance decision); see DESIGN-GUIDE §0.2.**
+
+- **Resolver (SQL, not Supabase)** — **materialized brand-scoped indexed tables in `zapier.dbo`** (the default, built future-proof) populated from `nxt.dbo.*` by a `MERGE` proc and refreshed by a **scheduled Zap (Schedule trigger → SQL action calls the proc)**, `modified_on` watermark, every 2–4h (a Zap rather than a SQL Agent job — needs only `zapier.dbo` DDL + the whitelisted Zapier connection, no server role); a view/proc `zapier.dbo.resolve_candidates` over them returns the whole candidate set in ONE fast indexed call, one row per (identifier → party). Generalizes the CFO's unfinished `pa_entity_lookup` view + the columns the backtest proved missing (scope/brand, prev_customer, quote, email-domain, `is_unique_in_scope`, precedence). Called per email via the EXISTING `nxt-zap-client`; live-`nxt` cross-DB fallback for the long tail. **No copy of NXT data in Supabase** — everything stays inside the SQL estate, single-system, governance-clean.
+- **Engine** — the validated precedence/blocklists/scoping as shared swarm-agnostic code, per-swarm `resolution_config`. `environment_id='BX'` is a MANDATORY hard filter; `brand_id` is a TIEBREAKER (cross-brand forwarding is bidirectional). Canonical stored key = `customer.id` composite (e.g. `BX594313`).
+- **Source Adapters** — NXT adapter = the `zapier.dbo` resolver over `nxt`, called via the existing `nxt-zap-client`; SugarCRM adapter (V10.0) exposes the same projection shape from Sugar.
+
+**Validation amendments (2026-06-01 — pre-build adversarial re-validation; authoritative, see `.planning/spikes/010-comprehensive-backtest/VALIDATION-FINDINGS-v8.2.md` + DESIGN-GUIDE §0.10):**
+
+- **Write path CONFIRMED; seed is direct-SQL.** Zapier action can `MERGE` into `zapier.dbo`. The one-time projection seed runs **directly in SQL** (operator session; `nxt.dbo` read confirmed) — only the recurring delta-refresh + per-email reads use Zapier. No full-seed-through-Zapier gate.
+- **RESL-05 collapses to a backfill.** The forward write-path already stamps `conversation_id` (`stage-2-customer-resolver.ts:182`); 377/383 labels are backfillable. Drop the "verify write-path stamps it" sub-task; keep a forward-rate check across all write paths.
+- **RESL-08 (AUTO) needs an extraction gate + brand-safe gate + dry-run.** Lookup-layer precision is 17/17, but the *extraction* regexes are unguarded: add word-boundary id matching, run invoice-before-id, real `Ons klantnummer` exclusion, and **AUTO only on a single resolving candidate** (16/253 unresolved carry ≥2 subject IDs). Invoice: source = `nxt.dbo.invoice.exact_invoice_id` (env 91.7% / brand-scoped 99.84% / 0.16% flag-for-review); AUTO iff `(number, mailbox-brand)→1` AND prefix-family matches; cross-brand forward fails closed → SUGGEST by prefix-family. Ship behind a build-time full-population dry-run (Wilson-CI ≥99%) — n=16 ≠ ≥99% proof.
+- **RESL-09 (domain):** union `customer.email` + `contact_person.email` (1.86×; marginal lever over today ≈ +18% via `customer.email`) — confirm the live `nxt.contact_lookup` SQL first. Platform-score = discovery aid only; curated List 3 stays authoritative. Prefer `status='active'`; mark postcode/VAT/KvK narrowing-only; drop `phone`.
+- **RESL-14 (inheritance) → precedence fix + precision measurement (regraded NEEDS-MORE-VALIDATION).** The live resolver runs inheritance as Layer-1 AUTO-`high`, outranking the self-auth IDs and contradicting DESIGN-GUIDE §3 step-7. Pin precedence (self-auth/invoice **outrank** inheritance; demote inheritance to SUGGEST-high + cross-domain guard), measure inherited-sibling correctness, sequence after P1.
+- **RESL-15 (noise) → narrow + carve-out.** werkbon-NOREPLY only; **remove the gov-AML/registration blanket** (minfin/fedasil/economie.fgov are real customers that auto-resolve via self-auth ID). Add a hard actionable-token carve-out: never noise-reclass if an email carries an invoice/Klantnummer/aanmaning/werkbon token.
+- **New P0 config-drift items:** migrate all 6 `labeling_settings.nxt_database` off `nxt_benelux_prod`; reconcile `facturations@sicli-sud.be` vs the `debiteuren@sicli-sud.be` settings key (+ wire SS/SN to `zapier-debtor-ingest`); wire Berki `brand_id` BB+IN (currently BB only). Body extraction = per-source `COALESCE(body_full_text, body_text)`.
+- **Generality is not a P0 deliverable.** Self-auth tier is debtor-specific (SugarCRM has no such stamps); build the debtor resolver behind a config seam and ship a "self-auth tier degrades to no-op" acceptance test as the only P0 generality claim.
+- **Sizing:** 17% auto is a *floor* (self-auth IDs sit on ~47% of unresolved, none extracted today); the safe-auto % is a hypothesis until the dry-run measures it — plan on 17%.
+
+**Requirements (RESL-xx):**
+
+*P0 — Substrate + bugfixes*
+
+- [ ] **RESL-01** Generic resolver projection in SQL — `zapier.dbo.resolve_candidates` (view/proc) over `nxt.dbo.*`, source-pluggable shape; registered as one `zapier_tools` row. **No Supabase copy of NXT data.**
+- [ ] **RESL-02** NXT source adapter = **materialized indexed tables in `zapier.dbo`** (populated from `nxt`, env='BX', via a `MERGE` proc) + **scheduled-Zap 2–4h watermark refresh** (Schedule → SQL action; not a SQL Agent job) + the `pa_entity_lookup`-style `resolve_candidates` resolver over them; live-`nxt` cross-DB fallback for the long tail. Confirm the Zapier SQL action supports writes (`MERGE`), not just SELECT.
+- [ ] **RESL-03** Stage 2 **dynamic dispatch** — `stage-2-customer-resolver.ts` reads `swarms.stage2_entity_resolver` + `resolution_config` (remove hardcoded `resolveDebtor`; the column has zero consumers today).
+- [ ] **RESL-04** Blocklists + `resolution_config` as registry data (own-entity identifiers, freemail/ISP, platform/intermediary via platform-score; refreshable).
+- [ ] **RESL-05** Lever-1 fix — backfill `debtor.email_labels.conversation_id` (prior backfill hit `emails` not `labels` → thread_inheritance fires 0×) + label write-path stamps it.
+- [ ] **RESL-06** Brand/region scoping wired: `environment_id='BX'` hard filter everywhere; Berki mailbox scopes `brand_id IN ('BB','IN')` (7th brand `IN` = Inprevo, post-acquisition load of 1,756 customers, no own mailbox — dunning confirmed via `debiteuren@berki.nl`).
+
+*P1 — Deterministic AUTO resolver (≥99% precision)*
+
+- [ ] **RESL-07** Self-auth ID resolution — aanmaning subject `{id} - {name}`, body `Klantnummer: {id}`, werkbon `op locatie {site}` → `customer.id` (validated 47/47).
+- [ ] **RESL-08** Number back-search — `exact_invoice_id` (env-scoped + brand tiebreaker), PO/order/job/quote, `previous_customer_id` fallback (73% have one) — via the Index, existence-checked (kills ~25% date false positives).
+
+*P2 — Candidate generator*
+
+- [ ] **RESL-09** Domain match over `customer.email` ∪ `contact_person.email` (2× addresses), blocklist + platform-score gated, env-scoped → candidate set.
+- [ ] **RESL-10** Postcode narrowing over `customer.postcode` ∪ `site.postcode` ∩ candidates; strip own-brand + sender-HQ postcodes (extract ALL, not first).
+- [ ] **RESL-11** Parent-id FM roll-up for multi-customer domains (cbre→59, vbtgroep→81).
+
+*P3 — Suggestions + tiebreaker (HITL)*
+
+- [ ] **RESL-12** On-behalf-of principal extraction ("namens / op verzoek van / uw klant X") for intermediary mail → name candidates; intermediary-domain guard.
+- [ ] **RESL-13** LLM tiebreaker over the candidate set → ranked SUGGESTIONS in Bulk Review; operator choice captured (feeds V9.0).
+
+*P4 — Thread inheritance*
+
+- [ ] **RESL-14** Whole-thread inheritance via `conversation_id` (post RESL-05) + `conversation_context`; cross-domain guard (inherit across domains only when differing sender is own-brand-internal).
+
+*P5 — Noise reclassification*
+
+- [ ] **RESL-15** Reclassify automated noreply (werkbon-noreply ×21/mo) + government AML/registration notices to Stage 1 `swarm_noise_categories` — remove from the Stage-2 denominator.
+
+**Sizing (live-measured):** ~17% safe auto-resolve (validated ~100% precision) · ~56% ranked suggestions (HITL) · ~27% genuinely hard · ~10% Stage-1 noise.
+
+**Success criteria:**
+
+- Auto-resolve **precision ≥ 99%** (cardinal constraint — a confident WRONG customer is the failure to avoid).
+- Stage 2 unresolved rate **65% → ~35%** within N weeks of P1–P3 shipping.
+- Operator-accepted-suggestion rate (top-1 / top-3) tracked on the suggestion bucket.
+- Median time-to-resolve per row reduced (before/after).
+- Zero own-customer / intermediary mis-resolutions in production sampling.
+
+**Depends on / sequencing:** runs after v8.1 closes, before V9.0. Consumes the consolidated `nxt` DB (BX). First consumer = debtor-email; V10.0 sales-email reuses the Engine via a SugarCRM adapter (no engine rebuild).
+
+**Evidence boundary:** Engine + Index validated on **NXT/debtor only**. Cross-backend generality (SugarCRM) is a designed seam, validated when the V10.0 adapter lands — no cross-swarm proof claimed.
+
+**Operator open questions (gate P0; captured as risks, don't block definition):**
+
+1. ~~Does `IN`-brand (Berki sister) dunning flow via `debiteuren@berki.nl`?~~ — **RESOLVED 2026-05-30 (operator): YES → Berki mailbox scopes `brand_id IN ('BB','IN')`.** `IN` = Inprevo, a post-acquisition load: all 1,756 BX/IN customers created 2026-05-01..28 (0 before May 1), confirming the fresh takeover. Dunning runs through `debiteuren@berki.nl`. (Recall impact is small short-term — invoices too new to dun yet — but grows as they age, so the scope must be set before then.)
+2. ~~Production-safe path to read `nxt` for the sync~~ — **RESOLVED 2026-05-30:** no sync; the resolver lives in `zapier.dbo` and reads `nxt` cross-DB via the production Zapier SQL action. DDL in `zapier` + same-instance cross-DB to `nxt` confirmed (live-probed: 74,432 BX customers; multi-statement parametrized T-SQL runs through the action). Canonical store = SQL Server `nxt`.
+3. ~~Acceptable sync latency (2–4h)~~ — **moot (no sync).** Residual: per-email resolver latency over the Zapier hop (async; existing client waits ≤20s) — accept, or add the `zapier.dbo` materialized index.
+
+**Risks:** confident wrong-customer via BE invoice collision (mitigated: env hard-filter + brand tiebreaker + flag-for-review at 0.16% residual); intermediary-domain false positives (platform blocklist + on-behalf-of); own-footer self-match (own-identifier strip); `nxt` is un-indexable views (mitigated by the synced Index).
 
 ---
 

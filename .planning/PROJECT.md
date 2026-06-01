@@ -110,6 +110,8 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 
 ### Defined (not yet active)
 
+**v8.2 Stage 2 Resolution Recall** — generic, cross-swarm entity-resolution substrate (Index + Engine + Source Adapters), registry-configured per swarm. Lifts Stage 2 recall (~65% unresolved → ~35%): ~17% high-precision auto-resolve + ~56% ranked suggestions (HITL). Debtor-email first consumer; sales-email (V10.0) reuses the Engine via a SugarCRM adapter. **Sequenced BEFORE V9.0** (clean resolution signal de-risks V9.0's feedback synthesis). Validated via spike 005–010b (`.planning/spikes/010-comprehensive-backtest/DESIGN-GUIDE.md`). See MILESTONES.md for the full RESL-xx requirements + P0–P5 phases.
+
 **V9.0 Promotion Recommender + Learning Inbox** — single-operator prose-feedback synthesis. Stage 2 sparse corrections (Stream A) + Stage 3 row-by-row intent review (Stream B). T2 draft-proposer tier: LLM clusters feedback, drafts concrete system changes, operator one-click approves. New intents typed by operator apply immediately. Wilson-CI noise-rule promotion (existing) coexists, not absorbed.
 
 **V10.0 Sales-email canonical pipeline** — `verkoop@smeba.nl` runs the same 5-stage funnel as debtor-email end-to-end. New sales-email-specific Stage 2 Sugar-account resolver; sales-email Stage 3 intent agent; Phase 78 actually executed. V10.0 is the second customer of V9.0's feedback infrastructure — also introduces multi-operator handling.
@@ -123,7 +125,9 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 - CLI skill management -- lives in orqai-agent-pipeline repo
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: v8.1 Validation + Visibility (active)
+## Current Milestone: v8.2 Stage 2 Resolution Recall (next — defined + pre-build-validated, not started)
+
+**v8.1 "Validation + Visibility" SHIPPED 2026-06-01** — 8 phases (83–88.2); audit `passed`; all 4 operator-UAT items dispositioned (85 signed · 88 fixed · 86 accepted on live cron · 84 D-05 promotion gate evaluated → 0/16 eligible, telemetry N=0). Delivered body ingestion, Stage-1 noise rules (shadow), Stage-3 prompt v3 + open-set discovery surface, and the retro baseline that *refuted SC-1 usefully* (catch-all is upstream Stage-1 noise, not Stage-3) → directly scoped v8.2. Archive: `milestones/v8.1-ROADMAP.md`. **v8.2 next:** lift Stage-2 customer-resolution recall (~65% unresolved) via a SQL-native resolver in `zapier.dbo` over `nxt`; pre-build validation complete (`spikes/010-comprehensive-backtest/VALIDATION-FINDINGS-v8.2.md` — write-path confirmed, go/no-go P0–P5, auto-flip gated on a full-population dry-run).
 
 **v8.0 closed 2026-05-20** — 31 in-scope phases, 49/49 in-scope requirements satisfied, 7/7 cross-phase flows verified. Operator UAT PASS via Phase 999.8 + 82.9 sign-off. Debtor-person onboarded 2026-05-18 with Bulk Review + audit panels + feedback capture live. Sales-email Stage 0+1 producing live traces. Archive: `milestones/v8.0-ROADMAP.md`.
 
@@ -182,4 +186,4 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 **Abandoned decisions (V3/V4/V5/V6):** node graph swarm builder, AI-vision screenshot annotation, Playwright auto-generation as pipeline stage, cross-swarm intelligence layer. Retained in `MILESTONES.md` history for traceability.
 
 ---
-*Last updated: 2026-05-20 — after v8.0 milestone closure (31 phases, 49/49 in-scope requirements, audit PASSED)*
+*Last updated: 2026-06-01 — after v8.1 "Validation + Visibility" milestone closure (8 phases, audit `passed`, operator UATs dispositioned)*

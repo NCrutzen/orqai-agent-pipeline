@@ -1,8 +1,9 @@
 ---
 phase: 85-stage-3-prompt-v3-intent-definitions-and-open-set-schema
 verified: 2026-05-21
-status: passed_with_open_operator_items
-score: 6/7
+status: passed
+operator_uat_closed: 2026-06-01
+score: 6/7 — operator sign-off 2026-06-01 (85-OPERATOR-SIGNOFF.md: Task 1 regression GO 1/12, Task 2 cost PASS ~€2-7/mo, Task 3 V2-retirement scheduled 2026-06-03)
 overrides_applied: 0
 human_verification:
   - test: "Operator re-runs the 12-email regression smoke against the live V3 agent and records the verdict"

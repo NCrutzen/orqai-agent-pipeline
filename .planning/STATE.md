@@ -4,17 +4,33 @@ milestone: v8.1
 milestone_name: Validation + Visibility
 status: completed
 stopped_at: Phase 88.2 context gathered
-last_updated: "2026-05-22T06:10:00.000Z"
-last_activity: 2026-05-22 -- Phase 88.1 shipped (PR #52, registry hotfix), Phase 88.2 close-out cherry-picked
+last_updated: "2026-06-01T07:29:41.563Z"
+last_activity: 2026-06-01
 progress:
-  total_phases: 1
+  total_phases: 2
   completed_phases: 1
-  total_plans: 5
+  total_plans: 12
   completed_plans: 5
-  percent: 100
+  percent: 42
 ---
 
 # Project State
+
+## Deferred Items
+
+Acknowledged and deferred at **v8.1 milestone close (2026-06-01)** — 24 open artifacts surfaced by the pre-close audit, mostly project-wide parking-lot (none block the shipped v8.1 flows):
+
+| Category | Item(s) | Status |
+|----------|---------|--------|
+| debug | injection-suspected-and-s3-drop · pipeline-side-effects-frozen | root_cause_found |
+| debug | wka-intra-company-forward-leak | verified (closed) |
+| verification | Phase 999.4 (backlog phase, not v8.1) | human_needed |
+| quick_task | 11 items (orq-agent + housekeeping, Mar–May) | missing |
+| todo | 5+ pending — incl. `granular-dry-run-gating` (→ v8.2), override+note flow, Stage-1 chip semantics | pending |
+| seed | SEED-001 info-routing (→999.9) · SEED-002 per-workstream state | dormant |
+| context_q | Phase 88 CONTEXT (3 questions — resolved via UAT) | resolved |
+
+These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-check-todos`. Full audit: `milestones/v8.1-MILESTONE-AUDIT.md`.
 
 ## Project Reference
 
@@ -26,10 +42,10 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: 88.1 — COMPLETE (shipped 2026-05-22); Phase 87 — code complete, execution gated on Phase 86 R-04 7-day observation window (~2026-05-27 earliest)
-Plan: all v8.1 phases code-complete; only Phase 87 Plan 04 Task 4 (50-email smoke) + Plan 05 (full 5k run + hand-grade + report) pending operator action
-Status: v8.1 code-complete across 83 / 84 / 85 / 86 / 87 (code) / 88 / 88.1 / 88.2. Awaiting Phase 87 observation-window expiry, then `/gsd-audit-milestone v8.1`.
-Last activity: 2026-05-22 -- Phase 88.1 shipped + registry hotfix + Phase 88.2 close-out cherry-picked from workspace branch
+Phase: 87 — baseline EXECUTED 2026-05-30 (smoke a8844444 41 emails + full run dd88887c 105 emails, 0 failures, ~$3-5; 101 proposal clusters). `87-BASELINE-REPORT.md` drafted — pending operator hand-grading of Section 3 (20-row sample). SC-3 PASS (101 clusters), SC-4 PASS (suggested 100% precision), SC-1 refuted-but-usefully (Stage 3 prompt sound; next lever is upstream Stage 1 noise filtering), SC-2 refuted-expected.
+Plan: Plan 04 Task 4 (smoke) + Plan 05 (full run) DONE. Remaining: operator hand-grades Section 3 → finalize report → `/gsd-audit-milestone v8.1`.
+Status: v8.1 code-complete (83-88.2). **INCIDENT (found 2026-05-30):** Phase 84 `own_outbound_invoice_loopback` rule false-archived 40% (27/67) of forwarded customer mail with real actions; code-mitigated via #58 (reconstructInput schema-scope) + #59 (disable+registry-gate the rule, migration `20260530_disable_own_outbound_loopback.sql`). **OPEN:** 27-email recovery re-dispatch through Stage 3 (operator-approved live run; list in `87-LOOPBACK-RECOVERY.md`).
+Last activity: 2026-06-01
 
 ## Performance Metrics
 

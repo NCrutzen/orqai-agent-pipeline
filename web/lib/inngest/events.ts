@@ -94,6 +94,16 @@ export type Events = {
     };
   };
 
+  // briefing-refresh converted from a 30-min cron to event-only trigger
+  // (the cron was re-invoking swarm-briefing-agent and erroring on a localhost
+  // dial). Send this event to force a manual refresh; no payload required.
+  // Re-enable scheduled refresh = restore the cron line in briefing-refresh.ts.
+  "analytics/briefing-refresh.run": {
+    data: {
+      triggeredBy?: string;
+    };
+  };
+
   "analytics/orqai-collect.completed": {
     data: {
       snapshotId: string;

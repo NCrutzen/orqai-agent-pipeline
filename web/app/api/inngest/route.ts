@@ -51,6 +51,8 @@ import { debtorEmailOverrideHandler } from "@/lib/inngest/functions/debtor-email
 import { patternsRecommenderCron } from "@/lib/inngest/functions/promotion-recommender-cron";
 import { debtorEmailStage3RetroClassify } from "@/lib/inngest/functions/debtor-email-stage-3-retro-classify";
 import { phase87ReadinessNotify } from "@/lib/inngest/functions/phase-87-readiness-notify";
+import { pipelineHealthMonitor } from "@/lib/inngest/functions/pipeline-health-monitor";
+import { pipelineHealthWeeklyDigest } from "@/lib/inngest/functions/pipeline-health-weekly-digest";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -96,5 +98,7 @@ export const { GET, POST, PUT } = serve({
     patternsRecommenderCron,
     debtorEmailStage3RetroClassify,
     phase87ReadinessNotify,
+    pipelineHealthMonitor,
+    pipelineHealthWeeklyDigest,
   ],
 });

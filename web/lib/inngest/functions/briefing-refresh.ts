@@ -42,7 +42,9 @@ export const refreshBriefings = inngest.createFunction(
       });
     },
   },
-  { cron: "*/30 * * * *" }, // Every 30 minutes
+  // Schedule disabled — was { cron: "*/30 * * * *" } (every 30 min). Now manual-only:
+  // trigger via the "analytics/briefing-refresh.run" event. Re-enable = restore the cron line.
+  { event: "analytics/briefing-refresh.run" },
   async ({ step }) => {
     const swarms = await step.run("list-swarms-with-agents", async () => {
       const admin = createAdminClient();

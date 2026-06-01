@@ -193,6 +193,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     });
   }
 
+  // conversationId is derived once here and persisted on the emails INSERT
+  // below — zapier-* ingests previously left conversation_id null 100% of the
+  // time, silently disabling Stage 2 thread_inheritance.
+  const conversationId =
+    typeof msg.rawJson?.conversationId === "string"
+      ? (msg.rawJson.conversationId as string)
+      : "";
+
   // Resolve canonical email_pipeline.emails.id BEFORE Stage 0 dispatch.
   let resolvedEmailId: string | null = null;
   {
@@ -218,6 +226,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
           body_unique_text: msg.bodyUniqueText,
           body_html: msg.bodyHtml,
           raw_json: msg.rawJson,
+          conversation_id: conversationId || null,
           sender_email: msg.from,
           sender_name: msg.fromName,
           received_at: msg.receivedAt,
@@ -240,10 +249,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   }
 
   // Soft-fetch prior 2 messages in the thread (same as debtor-email path).
-  const conversationId =
-    typeof msg.rawJson?.conversationId === "string"
-      ? (msg.rawJson.conversationId as string)
-      : "";
+  // conversationId is hoisted above (now also persisted on the emails row).
   if (resolvedEmailId && conversationId) {
     try {
       const priors = await fetchConversationMessages(

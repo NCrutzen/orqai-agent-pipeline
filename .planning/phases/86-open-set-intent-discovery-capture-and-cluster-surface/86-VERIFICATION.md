@@ -1,8 +1,9 @@
 ---
 phase: 86-open-set-intent-discovery-capture-and-cluster-surface
 verified: 2026-05-20T18:10:00Z
-status: human_needed
-score: 7/7
+status: passed
+operator_uat_closed: 2026-06-01
+score: 7/7 — accepted on live cron evidence 2026-06-01 (intent_proposal_clusters=164, 63 refreshed/48h, intent_proposals_v1=24); 4-week observation-log + page-UAT deferred (intent_proposal_views=0, non-blocking per operator decision)
 overrides_applied: 0
 human_verification:
   - test: "Navigeer naar /automations/debtor-email/intent-proposals in productie"

@@ -1,8 +1,9 @@
 ---
 phase: 84-stage-1-noise-rules-for-ap-automation-fyi-traffic
 verified: 2026-05-20T14:50:00Z
-status: human_needed
-score: 9/11 must-haves verified (2 PENDING-OPERATOR — shadow window not yet started)
+status: passed
+operator_uat_closed: 2026-06-01
+score: 9/11 must-haves verified — D-05 promotion gate EVALUATED 2026-06-01 against live data (classifier_rule_telemetry N=0 for all 16 rules; corpus-path candidate own_outbound_invoice_loopback DISABLED). 0/16 eligible → all rules stay candidate, deferred per PROMOTION-RUNBOOK §7 valid-closure (rules registered, 0 promoted, deferrals dispositioned to v8.2 when verdict telemetry accumulates)
 overrides_applied: 0
 human_verification:
   - test: "7-day shadow window — stap 1: Day-0 preflight uitvoeren"
