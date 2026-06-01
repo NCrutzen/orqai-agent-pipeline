@@ -1,17 +1,51 @@
 // Plan 02-05 Task 1 — detectSoftwareSystem tests.
 //
 // Orq.ai LLM (Sonnet 4.5) over transcript + frame URLs + registry list.
-// json_schema strict mode with anyOf-for-nullable on `system_key`.
-// Hallucination guard: a `system_key` not in the registry forces `'unknown'`.
+// Production code calls `orq.router.chatCompletions.create(body)` via the
+// `@orq-ai/node` SDK (post mega-smoke refactor — was raw fetch to
+// /v2/router/chat/completions). Tests use a hoisted `vi.mock` of
+// `@orq-ai/node` with a mutable handler so each test can swap the behavior;
+// this avoids the `vi.doMock`/dynamic-import race that surfaces when the
+// support-tickets suite runs alongside other test files in parallel.
 //
-// Strategy: stub global fetch + supabase.storage.from(...).createSignedUrl.
-// No real network I/O.
+// Reference pattern: ./transcribe.test.ts mocks `@elevenlabs/elevenlabs-js`
+// (which uses vi.doMock + resetModules — works there because that test file
+// imports the production module via `await import(...)` inside each test).
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  detectSoftwareSystem,
-  DetectSystemError,
-} from "../detect-system";
+
+// Hoisted mutable handler for the Orq SDK mock. Each test swaps
+// `orqHandler.create` to control what the SDK returns / throws.
+const orqHandler = vi.hoisted(() => ({
+  create: vi.fn(async (..._args: unknown[]) => ({
+    choices: [{ message: { content: "{}" } }],
+    usage: { prompt_tokens: 0, completion_tokens: 0 },
+  })),
+}));
+
+vi.mock("@orq-ai/node", () => ({
+  Orq: class {
+    router = { chatCompletions: { create: orqHandler.create } };
+  },
+}));
+
+const ORIG_KEY = process.env.ORQ_API_KEY;
+const ENV = { ORQ_API_KEY: "test-key" };
+
+const REGISTRY = [
+  { system_key: "nxt", display_name: "NXT" },
+  { system_key: "icontroller", display_name: "iController" },
+];
+
+beforeEach(() => {
+  process.env.ORQ_API_KEY = "test-key";
+  orqHandler.create.mockReset();
+});
+
+afterEach(() => {
+  if (ORIG_KEY === undefined) delete process.env.ORQ_API_KEY;
+  else process.env.ORQ_API_KEY = ORIG_KEY;
+});
 
 type SignedUrlResult = { data: { signedUrl: string } | null; error: unknown };
 
@@ -28,55 +62,27 @@ function buildSupabaseMock(opts: { signedUrl?: string } = {}) {
   return { storage };
 }
 
-const ENV = { ORQ_API_KEY: "test-key" };
-
-const REGISTRY = [
-  { system_key: "nxt", display_name: "NXT" },
-  { system_key: "icontroller", display_name: "iController" },
-];
-
-function orqOkResponse(body: {
-  system_key: string | null;
-  confidence?: "high" | "medium" | "low";
-  reasoning?: string;
-  usage?: { prompt_tokens?: number; completion_tokens?: number };
+function setOrqChat(result: {
+  content: string;
+  tokens?: { p?: number; c?: number };
+  reject?: Error;
 }) {
-  return {
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    async json() {
-      return {
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                system_key: body.system_key,
-                confidence: body.confidence ?? "high",
-                reasoning: body.reasoning ?? "matched on transcript keywords",
-              }),
-            },
-          },
-        ],
-        usage: body.usage ?? { prompt_tokens: 1000, completion_tokens: 50 },
-      };
-    },
-    async text() {
-      return "";
-    },
-  } as unknown as Response;
+  orqHandler.create.mockImplementation(async (..._args: unknown[]) => {
+    if (result.reject) throw result.reject;
+    return {
+      choices: [{ message: { content: result.content } }],
+      usage: {
+        prompt_tokens: result.tokens?.p ?? 1000,
+        completion_tokens: result.tokens?.c ?? 50,
+      },
+    };
+  });
 }
 
 describe("detectSoftwareSystem — Plan 02-05 Task 1", () => {
-  beforeEach(() => {
-    vi.stubGlobal("fetch", vi.fn());
-  });
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("Test 1: empty registry → returns null/unknown WITHOUT calling fetch", async () => {
+  it("Test 1: empty registry → returns null/unknown WITHOUT calling Orq", async () => {
     const { storage } = buildSupabaseMock();
+    const { detectSoftwareSystem } = await import("../detect-system");
     const result = await detectSoftwareSystem({
       transcript: "Het werkt niet meer",
       frameUrls: [],
@@ -91,14 +97,19 @@ describe("detectSoftwareSystem — Plan 02-05 Task 1", () => {
       cost_cents: 0,
       reasoning: "registry_empty",
     });
-    expect((global.fetch as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect(orqHandler.create).not.toHaveBeenCalled();
   });
 
   it("Test 2: clear NXT match → status='detected', cost_cents > 0", async () => {
+    setOrqChat({
+      content: JSON.stringify({
+        system_key: "nxt",
+        confidence: "high",
+        reasoning: "user mentions NXT",
+      }),
+    });
     const { storage } = buildSupabaseMock();
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      orqOkResponse({ system_key: "nxt", confidence: "high", reasoning: "user mentions NXT" }),
-    );
+    const { detectSoftwareSystem } = await import("../detect-system");
     const result = await detectSoftwareSystem({
       transcript: "Ik kan in NXT geen factuur aanmaken",
       frameUrls: ["t/0.jpg"],
@@ -112,9 +123,17 @@ describe("detectSoftwareSystem — Plan 02-05 Task 1", () => {
     expect(result.cost_cents).toBeGreaterThan(0);
     expect(result.reasoning).toContain("NXT");
 
-    // Verify json_schema strict body shape
-    const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-    const reqBody = JSON.parse(call[1].body);
+    expect(orqHandler.create).toHaveBeenCalledTimes(1);
+    const reqBody = orqHandler.create.mock.calls[0][0] as {
+      model: string;
+      response_format: {
+        type: string;
+        json_schema: {
+          strict: boolean;
+          schema: { properties: Record<string, { anyOf?: unknown[] }> };
+        };
+      };
+    };
     expect(reqBody.model).toMatch(/claude-sonnet-4-5/);
     expect(reqBody.response_format.type).toBe("json_schema");
     expect(reqBody.response_format.json_schema.strict).toBe(true);
@@ -126,10 +145,15 @@ describe("detectSoftwareSystem — Plan 02-05 Task 1", () => {
   });
 
   it("Test 3: LLM returns null → status='unknown'", async () => {
+    setOrqChat({
+      content: JSON.stringify({
+        system_key: null,
+        confidence: "low",
+        reasoning: "unclear from transcript",
+      }),
+    });
     const { storage } = buildSupabaseMock();
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      orqOkResponse({ system_key: null, confidence: "low", reasoning: "unclear from transcript" }),
-    );
+    const { detectSoftwareSystem } = await import("../detect-system");
     const result = await detectSoftwareSystem({
       transcript: "Iets is stuk",
       frameUrls: [],
@@ -144,10 +168,15 @@ describe("detectSoftwareSystem — Plan 02-05 Task 1", () => {
   });
 
   it("Test 4: LLM hallucinates key not in registry → forced to 'unknown' with marker reasoning", async () => {
+    setOrqChat({
+      content: JSON.stringify({
+        system_key: "ghost-system",
+        confidence: "high",
+        reasoning: "fabricated",
+      }),
+    });
     const { storage } = buildSupabaseMock();
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      orqOkResponse({ system_key: "ghost-system", confidence: "high", reasoning: "fabricated" }),
-    );
+    const { detectSoftwareSystem } = await import("../detect-system");
     const result = await detectSoftwareSystem({
       transcript: "X is broken",
       frameUrls: [],
@@ -161,9 +190,10 @@ describe("detectSoftwareSystem — Plan 02-05 Task 1", () => {
     expect(result.reasoning).toBe("llm_hallucinated_system_key:ghost-system");
   });
 
-  it("Test 5: fetch rejects → throws DetectSystemError", async () => {
+  it("Test 5: SDK rejects → throws DetectSystemError", async () => {
+    setOrqChat({ content: "", reject: new Error("network down") });
     const { storage } = buildSupabaseMock();
-    (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("network down"));
+    const { detectSoftwareSystem, DetectSystemError } = await import("../detect-system");
     await expect(
       detectSoftwareSystem({
         transcript: "X",
@@ -177,21 +207,9 @@ describe("detectSoftwareSystem — Plan 02-05 Task 1", () => {
   });
 
   it("Test 6: malformed JSON → throws DetectSystemError('response_schema_invalid')", async () => {
+    setOrqChat({ content: "not json at all {{" });
     const { storage } = buildSupabaseMock();
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      async json() {
-        return {
-          choices: [{ message: { content: "not json at all {{" } }],
-          usage: { prompt_tokens: 10, completion_tokens: 5 },
-        };
-      },
-      async text() {
-        return "";
-      },
-    } as unknown as Response);
+    const { detectSoftwareSystem } = await import("../detect-system");
     await expect(
       detectSoftwareSystem({
         transcript: "X",
