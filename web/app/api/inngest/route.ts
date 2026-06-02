@@ -53,6 +53,7 @@ import { phase87ReadinessNotify } from "@/lib/inngest/functions/phase-87-readine
 import { stage2SupportTicketsEnrichment } from "@/lib/automations/support-tickets/stage-2-enrichment";
 import { stage3SupportTicketsCoordinator } from "@/lib/automations/support-tickets/stage-3-coordinator";
 import { stage4SupportTicketsDispatcher } from "@/lib/automations/support-tickets/stage-4-dispatcher";
+import { stage4SupportTicketsClarificationHandler } from "@/lib/automations/support-tickets/clarification-handler";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -100,5 +101,6 @@ export const { GET, POST, PUT } = serve({
     stage2SupportTicketsEnrichment,
     stage3SupportTicketsCoordinator,
     stage4SupportTicketsDispatcher,
+    stage4SupportTicketsClarificationHandler,
   ],
 });

@@ -373,8 +373,8 @@ describe("runClarificationHandler", () => {
 
 describe("stage4SupportTicketsClarificationHandler", () => {
   it("has locked function-id 'stage-4-support-tickets-clarification-handler'", () => {
-    expect((stage4SupportTicketsClarificationHandler as unknown as { id: string }).id).toBe(
-      "stage-4-support-tickets-clarification-handler",
-    );
+    // In Inngest v3+, createFunction returns an object where id is a method.
+    const fn = stage4SupportTicketsClarificationHandler as unknown as { id: () => string };
+    expect(fn.id()).toBe("stage-4-support-tickets-clarification-handler");
   });
 });
