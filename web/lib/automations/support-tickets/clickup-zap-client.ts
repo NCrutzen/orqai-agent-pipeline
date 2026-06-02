@@ -161,6 +161,28 @@ export interface ClickupCreateTaskInput {
  * @param input - Task creation input
  * @param intent - Caller's intent string; checked against allowed_for_intents
  */
+/**
+ * Pre-flight config probe — loads the tool row and throws ClickupZapNotConfiguredError
+ * if the Zap is not ready (placeholder target_url or missing auth secret env var).
+ *
+ * Called by clickup-escalate-handler BEFORE the Orq AI summary call to avoid wasting
+ * tokens when the Zap is not yet configured (T-04-05-08 + plan spec step 4).
+ *
+ * Does NOT perform any HTTP POST — purely a config validity check.
+ */
+export async function probeClickupZapConfig(): Promise<void> {
+  const tool = await loadTool(TOOL_ID);
+
+  if (tool.target_url.startsWith("TODO_")) {
+    throw new ClickupZapNotConfiguredError("placeholder_target_url", TOOL_ID);
+  }
+
+  const secret = process.env[tool.auth_secret_env];
+  if (!secret) {
+    throw new ClickupZapNotConfiguredError("missing_auth_secret", TOOL_ID);
+  }
+}
+
 export async function callClickupCreateTask(
   input: ClickupCreateTaskInput,
   intent: string,

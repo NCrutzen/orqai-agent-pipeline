@@ -178,6 +178,7 @@ describe("runClickupEscalateHandler", () => {
     const deps: ClickupEscalateHandlerDeps = {
       supabase: supabase as unknown as ClickupEscalateHandlerDeps["supabase"],
       callClickupCreateTask,
+      probeZapConfig: vi.fn().mockResolvedValue(undefined),
       sendEvent,
       now,
       systemRegistry: [SOFTWARE_SYSTEM_NO_VENDOR],
@@ -218,6 +219,7 @@ describe("runClickupEscalateHandler", () => {
     const deps: ClickupEscalateHandlerDeps = {
       supabase: supabase as unknown as ClickupEscalateHandlerDeps["supabase"],
       callClickupCreateTask,
+      probeZapConfig: vi.fn().mockResolvedValue(undefined),
       sendEvent,
       now,
       systemRegistry: [SOFTWARE_SYSTEM_WITH_VENDOR],
@@ -252,7 +254,8 @@ describe("runClickupEscalateHandler", () => {
     const supabase = makeSupabaseMock({});
     const { ClickupZapNotConfiguredError } = await import("../clickup-zap-client");
 
-    const callClickupCreateTask = vi.fn().mockRejectedValue(
+    const callClickupCreateTask = vi.fn();
+    const probeZapConfig = vi.fn().mockRejectedValue(
       new ClickupZapNotConfiguredError("placeholder_target_url", "clickup-create-task"),
     );
 
@@ -263,6 +266,7 @@ describe("runClickupEscalateHandler", () => {
     const deps: ClickupEscalateHandlerDeps = {
       supabase: supabase as unknown as ClickupEscalateHandlerDeps["supabase"],
       callClickupCreateTask,
+      probeZapConfig,
       sendEvent,
       now,
       systemRegistry: [SOFTWARE_SYSTEM_NO_VENDOR],
@@ -275,6 +279,8 @@ describe("runClickupEscalateHandler", () => {
     expect(result.decision).toBe("stage_4_clickup_escalate_zap_not_configured");
     // Orq was NOT called (pre-check happens before Orq)
     expect(invokeOrqSummary).not.toHaveBeenCalled();
+    // callClickupCreateTask was NOT called (only the probe was)
+    expect(callClickupCreateTask).not.toHaveBeenCalled();
     // No vendor-draft event
     expect(sendEvent).not.toHaveBeenCalledWith(
       expect.objectContaining({ name: "support-tickets/vendor-draft.requested" }),
@@ -301,6 +307,7 @@ describe("runClickupEscalateHandler", () => {
     const deps: ClickupEscalateHandlerDeps = {
       supabase: supabase as unknown as ClickupEscalateHandlerDeps["supabase"],
       callClickupCreateTask,
+      probeZapConfig: vi.fn().mockResolvedValue(undefined),
       sendEvent,
       now,
       systemRegistry: [SOFTWARE_SYSTEM_WITH_VENDOR],
@@ -336,6 +343,7 @@ describe("runClickupEscalateHandler", () => {
     const deps: ClickupEscalateHandlerDeps = {
       supabase: supabase as unknown as ClickupEscalateHandlerDeps["supabase"],
       callClickupCreateTask,
+      probeZapConfig: vi.fn().mockResolvedValue(undefined),
       sendEvent,
       now,
       systemRegistry: [SOFTWARE_SYSTEM_NO_VENDOR],
@@ -371,6 +379,7 @@ describe("runClickupEscalateHandler", () => {
     const deps: ClickupEscalateHandlerDeps = {
       supabase: supabase as unknown as ClickupEscalateHandlerDeps["supabase"],
       callClickupCreateTask,
+      probeZapConfig: vi.fn().mockResolvedValue(undefined),
       sendEvent,
       now,
       systemRegistry: [SOFTWARE_SYSTEM_NO_VENDOR],
@@ -397,6 +406,7 @@ describe("runClickupEscalateHandler", () => {
     const deps: ClickupEscalateHandlerDeps = {
       supabase: supabase as unknown as ClickupEscalateHandlerDeps["supabase"],
       callClickupCreateTask,
+      probeZapConfig: vi.fn().mockResolvedValue(undefined),
       sendEvent,
       now,
       systemRegistry: [SOFTWARE_SYSTEM_NO_VENDOR],
@@ -439,6 +449,7 @@ describe("runClickupEscalateHandler", () => {
     const deps: ClickupEscalateHandlerDeps = {
       supabase: supabase as unknown as ClickupEscalateHandlerDeps["supabase"],
       callClickupCreateTask,
+      probeZapConfig: vi.fn().mockResolvedValue(undefined),
       sendEvent: vi.fn().mockResolvedValue(undefined),
       now: vi.fn().mockReturnValue(new Date()),
       systemRegistry: [SOFTWARE_SYSTEM_NO_VENDOR],
