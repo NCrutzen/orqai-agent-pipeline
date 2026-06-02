@@ -16,6 +16,17 @@ progress:
 
 # Project State
 
+## Roadmap Re-sequencing (2026-06-02, operator)
+
+Future milestones re-slotted + split into **two parallel tracks** (full detail in `PROJECT.md`, `ROADMAP.md`, `MILESTONES.md` V9.0/V10.0 notes):
+
+- **V9.0 ↔ V10.0 swapped.** **V9.0 = Sales-email canonical pipeline, Outlook-driven** (was V10.0). **V10.0 = Promotion Recommender + Learning Inbox + reply-tracing** (self-learning; was V9.0).
+- **SugarCRM deprecated.** Sales-email moves from the SugarCRM "Emails" trigger to Outlook ingest (same path as debtor). `sales-email-analyzer/` + `fetch-sugarcrm-emails.ts` retired. Sales **Stage 2 reuses the v8.2 NXT resolver by per-swarm config** — no Sugar adapter.
+- **Two parallel tracks:** debtor (v8.2 Stage-2 recall, gated on debiteuren-afdeling validation) ∥ sales (V9.0, independent, fast on Outlook). Both converge into V10.0 self-learning.
+- **Reply-tracing (new in V10.0):** outbound Outlook replies linked to the inbound `pipeline_event` via `conversation_id` = no-form ground-truth feedback signal.
+- **Why:** debiteuren-afdeling is slow to validate; don't block sales on it. Sales no longer depends on the self-learning milestone.
+- Memory updated: `project_sales_email_source_sugarcrm.md` (Sugar→Outlook).
+
 ## Deferred Items
 
 Acknowledged and deferred at **v8.1 milestone close (2026-06-01)** — 24 open artifacts surfaced by the pre-close audit, mostly project-wide parking-lot (none block the shipped v8.1 flows):

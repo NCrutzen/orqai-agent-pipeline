@@ -44,7 +44,7 @@
 11. **Body ingestion fix** (Phase 83) — `body_full_text` + `body_unique_text` columns + conversation_context (2 priors per inbound); 30-day backfill (1344 priors); Stage 1+3 readers wired.
 12. **Sales-email Stage 0+1 live** — partial cross-swarm proof; full V10.0 milestone defined to ship the canonical Stage 2/3 path.
 
-**Reframes locked 2026-05-12:** Phase 72 (Promotion Recommender) → V9.0 full milestone (prose-feedback synthesis); Phase 73 (sales-email validation) → V10.0 full milestone (Phase 78 never executed); Phase 77 (Stage 2/3 e2e verification) → superseded by Phase 82.3.
+**Reframes locked 2026-05-12** (slots re-sequenced 2026-06-02 — see V9.0/V10.0 below)**:** Phase 72 (Promotion Recommender) → full milestone, **now V10.0** (prose-feedback synthesis + reply-tracing); Phase 73 (sales-email validation) → full milestone, **now V9.0, Outlook-driven** (Phase 78 never executed); Phase 77 (Stage 2/3 e2e verification) → superseded by Phase 82.3.
 
 **Operator UAT (Phase 999.8 + 82.9):** Stage 1 chip strip + URL round-trip + garbage-drop + `?sub=pending` guard verified live 2026-05-20. Therese regression smoke PASS (email 067428ad → predictor=llm_2nd_pass, no side-effect). Phase 82.9 prod migration applied + Zap published live with descendant-walking contact CTE.
 
@@ -65,17 +65,17 @@ See `milestones/v8.0-MILESTONE-AUDIT.md` for full audit detail.
 
 ## v8.2 Stage 2 Resolution Recall (Defined: 2026-05-30)
 
-**Status:** Defined — design validated, not yet started. **Sequenced BEFORE V9.0** (V9.0's feedback-synthesis thesis is undermined while ~65% of Stage 2 lands unresolved; fixing recall first gives V9.0 a cleaner signal). Definition is non-destructive of the open v8.1 milestone.
+**Status:** Defined — design validated, not yet started. **Debtor track; runs PARALLEL with V9.0 sales** (re-sequenced 2026-06-02 — was "before V9.0"). **Sequenced BEFORE the self-learning milestone (V10.0)** — its feedback-synthesis thesis is undermined while ~65% of Stage 2 lands unresolved; fixing recall first gives V10.0 a cleaner signal. Definition is non-destructive of the open v8.1 milestone.
 **Phases:** P0–P5 below (real phase numbers assigned at `/gsd-plan-phase` after v8.1 closes).
 **Validated by:** spike series 005–010b — see `.planning/spikes/010-comprehensive-backtest/DESIGN-GUIDE.md` (§0 authoritative), `GENERIC-RESOLUTION-DESIGN.md`, `FINDINGS.md`. 11-agent live backtest against the consolidated `nxt` DB; auto-resolve validated 10/10 (0 false positives) on fresh emails.
 
-**Goal:** Lift Stage 2 customer-resolution recall (today ~35% resolved / ~65% unresolved) by building a **generic, cross-swarm entity-resolution substrate** — debtor-email is the first consumer; sales-email (V10.0 SugarCRM) plugs in by configuration as the generality proof. Output ranked suggestions to Bulk Review, with a narrow high-precision auto-resolve set; never silently inject a wrong customer.
+**Goal:** Lift Stage 2 customer-resolution recall (today ~35% resolved / ~65% unresolved) by building a **generic, cross-swarm entity-resolution substrate** — debtor-email is the first consumer; sales-email (**now V9.0, Outlook-driven** — SugarCRM deprecated 2026-06-02) plugs into the *same* NXT resolver by per-swarm configuration as the generality proof. Output ranked suggestions to Bulk Review, with a narrow high-precision auto-resolve set; never silently inject a wrong customer.
 
 **Architecture (the substrate):** SQL Resolver + Engine + Source Adapters, registry-configured per swarm. **Revised 2026-05-30 → SQL-native (no Supabase copy of NXT data; operator governance decision); see DESIGN-GUIDE §0.2.**
 
 - **Resolver (SQL, not Supabase)** — **materialized brand-scoped indexed tables in `zapier.dbo`** (the default, built future-proof) populated from `nxt.dbo.*` by a `MERGE` proc and refreshed by a **scheduled Zap (Schedule trigger → SQL action calls the proc)**, `modified_on` watermark, every 2–4h (a Zap rather than a SQL Agent job — needs only `zapier.dbo` DDL + the whitelisted Zapier connection, no server role); a view/proc `zapier.dbo.resolve_candidates` over them returns the whole candidate set in ONE fast indexed call, one row per (identifier → party). Generalizes the CFO's unfinished `pa_entity_lookup` view + the columns the backtest proved missing (scope/brand, prev_customer, quote, email-domain, `is_unique_in_scope`, precedence). Called per email via the EXISTING `nxt-zap-client`; live-`nxt` cross-DB fallback for the long tail. **No copy of NXT data in Supabase** — everything stays inside the SQL estate, single-system, governance-clean.
 - **Engine** — the validated precedence/blocklists/scoping as shared swarm-agnostic code, per-swarm `resolution_config`. `environment_id='BX'` is a MANDATORY hard filter; `brand_id` is a TIEBREAKER (cross-brand forwarding is bidirectional). Canonical stored key = `customer.id` composite (e.g. `BX594313`).
-- **Source Adapters** — NXT adapter = the `zapier.dbo` resolver over `nxt`, called via the existing `nxt-zap-client`; SugarCRM adapter (V10.0) exposes the same projection shape from Sugar.
+- **Source Adapters** — NXT adapter = the `zapier.dbo` resolver over `nxt`, called via the existing `nxt-zap-client`. (SugarCRM deprecated 2026-06-02 — the adapter seam stays for any future non-NXT backend, but the next consumer, sales-email V9.0, reuses the **NXT** adapter by config, so no second adapter is built in this milestone.)
 
 **Validation amendments (2026-06-01 — pre-build adversarial re-validation; authoritative, see `.planning/spikes/010-comprehensive-backtest/VALIDATION-FINDINGS-v8.2.md` + DESIGN-GUIDE §0.10):**
 
@@ -86,7 +86,7 @@ See `milestones/v8.0-MILESTONE-AUDIT.md` for full audit detail.
 - **RESL-14 (inheritance) → precedence fix + precision measurement (regraded NEEDS-MORE-VALIDATION).** The live resolver runs inheritance as Layer-1 AUTO-`high`, outranking the self-auth IDs and contradicting DESIGN-GUIDE §3 step-7. Pin precedence (self-auth/invoice **outrank** inheritance; demote inheritance to SUGGEST-high + cross-domain guard), measure inherited-sibling correctness, sequence after P1.
 - **RESL-15 (noise) → narrow + carve-out.** werkbon-NOREPLY only; **remove the gov-AML/registration blanket** (minfin/fedasil/economie.fgov are real customers that auto-resolve via self-auth ID). Add a hard actionable-token carve-out: never noise-reclass if an email carries an invoice/Klantnummer/aanmaning/werkbon token.
 - **New P0 config-drift items:** migrate all 6 `labeling_settings.nxt_database` off `nxt_benelux_prod`; reconcile `facturations@sicli-sud.be` vs the `debiteuren@sicli-sud.be` settings key (+ wire SS/SN to `zapier-debtor-ingest`); wire Berki `brand_id` BB+IN (currently BB only). Body extraction = per-source `COALESCE(body_full_text, body_text)`.
-- **Generality is not a P0 deliverable.** Self-auth tier is debtor-specific (SugarCRM has no such stamps); build the debtor resolver behind a config seam and ship a "self-auth tier degrades to no-op" acceptance test as the only P0 generality claim.
+- **Generality is not a P0 deliverable.** Self-auth tier is debtor-specific (sales mail carries no such stamps); build the debtor resolver behind a config seam and ship a "self-auth tier degrades to no-op" acceptance test as the only P0 generality claim. (The seam is exercised for real when sales-email V9.0 reuses the Engine by config.)
 - **Sizing:** 17% auto is a *floor* (self-auth IDs sit on ~47% of unresolved, none extracted today); the safe-auto % is a hypothesis until the dry-run measures it — plan on 17%.
 
 **Requirements (RESL-xx):**
@@ -134,9 +134,9 @@ See `milestones/v8.0-MILESTONE-AUDIT.md` for full audit detail.
 - Median time-to-resolve per row reduced (before/after).
 - Zero own-customer / intermediary mis-resolutions in production sampling.
 
-**Depends on / sequencing:** runs after v8.1 closes, before V9.0. Consumes the consolidated `nxt` DB (BX). First consumer = debtor-email; V10.0 sales-email reuses the Engine via a SugarCRM adapter (no engine rebuild).
+**Depends on / sequencing:** runs after v8.1 closes; **runs in parallel with V9.0 sales** (re-sequenced 2026-06-02 — v8.2 is the debtor track, gated on operator validation; V9.0 sales is the independent track). Consumes the consolidated `nxt` DB (BX). First consumer = debtor-email; sales-email (V9.0) reuses the NXT Engine by per-swarm config — **no SugarCRM adapter, no engine rebuild**.
 
-**Evidence boundary:** Engine + Index validated on **NXT/debtor only**. Cross-backend generality (SugarCRM) is a designed seam, validated when the V10.0 adapter lands — no cross-swarm proof claimed.
+**Evidence boundary:** Engine + Index validated on **NXT/debtor only**. Cross-*swarm* generality is proven when sales-email (V9.0) reuses the Engine by config; cross-*backend* generality (a non-NXT source) stays a designed adapter seam, unproven and unbuilt (SugarCRM deprecated 2026-06-02) until such a backend is ever needed.
 
 **Operator open questions (gate P0; captured as risks, don't block definition):**
 
@@ -151,58 +151,66 @@ See `milestones/v8.0-MILESTONE-AUDIT.md` for full audit detail.
 ## V11.0 Intent-Prioritised Handlers (Defined: 2026-05-12)
 
 **Phases:** TBD (numbered after V10.0 phases are finalized)
-**Status:** Defined — depends on V10.0 producing intent-volume signal across two swarms
+**Status:** Defined — depends on intent-volume signal across two live swarms (V9.0 sales + debtor) + V10.0 operator-promoted intent definitions
 
 **Goal:** Convert Stage 3 intent volume into Stage 4 handler coverage in priority order. Today the Kanban human-lane (Phase 76) is the catch-all for intents without handlers — operators do them by hand. V11.0 builds the dashboard that ranks uncovered intents by frequency, plus a scaffolding template that turns "the top-3 uncovered intents" into 3 new handler phases per milestone cycle.
 
 **Target capabilities:**
 
 - Intent-coverage dashboard reading `swarm_intents` (handler-mapped) ∪ `pipeline_events` (Stage 3 verdicts) — surfaces the gap and ranks by 30-day frequency × business-value weight
-- Handler-scaffolding template (`/gsd-add-phase` integration) — given a chosen intent, drafts a Stage 4 handler phase with CONTEXT.md pre-filled (intent definition from V9.0 + sample emails + suggested side-effects)
+- Handler-scaffolding template (`/gsd-add-phase` integration) — given a chosen intent, drafts a Stage 4 handler phase with CONTEXT.md pre-filled (intent definition from V10.0 + sample emails + suggested side-effects)
 - Dispatch via `swarm_intents.handler_event` registry — new handlers register via INSERT, no code edits to `stage-3-dispatcher.ts`
 - Per-intent volume telemetry in the existing `pipeline_events_email_summary_v2` view, exposed via the dashboard
 
-**Architecture:** Reads from V9.0 (intent definitions from operator prose) and V10.0 (intent-frequency telemetry across both swarms). Does NOT introduce new auto-execution — handlers still ship via standard phases, but the *prioritisation* is data-driven instead of opinion-driven.
+**Architecture:** Reads from V10.0 (intent definitions from operator prose) and the two live swarms (V9.0 sales + debtor — intent-frequency telemetry across both). Does NOT introduce new auto-execution — handlers still ship via standard phases, but the *prioritisation* is data-driven instead of opinion-driven.
 
-**Success criteria:** N most-frequent uncovered intents have shipped handlers within Y weeks of being identified. Concrete numbers TBD when V10.0 produces baseline volume data.
+**Success criteria:** N most-frequent uncovered intents have shipped handlers within Y weeks of being identified. Concrete numbers TBD when the two swarms produce baseline volume data.
 
-**Depends on:** V10.0 (multi-swarm intent volume signal; sales-email-specific Stage 3 intents shipping)
+**Depends on:** V9.0 (sales-email Stage 3 intents shipping → second swarm's intent volume) + V10.0 (operator-promoted intent definitions + synthesis)
 
 ---
 
-## V10.0 Sales-Email Canonical Pipeline (Defined: 2026-05-12)
+## V9.0 Sales-Email Canonical Pipeline — Outlook-driven (Re-sequenced 2026-06-02; was V10.0)
 
-**Phases:** TBD (Phase 78 directory exists but is empty — needs proper plan)
-**Status:** Defined — depends on V9.0 Stream B (intent capture) being operator-usable
+**Re-sequencing note (2026-06-02, operator).** Swapped with the former V9.0 (now V10.0). Sales-email ships *before* the self-learning milestone because the debiteuren-afdeling is slow to validate Stage-2 customer-matching: the debtor track (v8.2) is gated on that human validation, so the sales track is moved up to run in **parallel** rather than wait. **SugarCRM is being deprecated** → sales-email is now **Outlook-driven** (the same ingest path as debtor-email), not Sugar-triggered. That removes V9.0's old dependency on the self-learning milestone, and owning the Outlook mailbox is what later unlocks reply-tracing (consumed in V10.0).
 
-**Goal:** `verkoop@smeba.nl` runs the same canonical 5-stage funnel as debtor-email, end-to-end, with full Bulk Review trace. Today Phase 74 stops sales-email at `manual_review` for noise categories; Phase 78 was never executed; the `sales-email-analyzer/` module is the legacy direct-Orq.ai path. V10.0 is the actual "second swarm validation" that v8.0 promised.
+**Phases:** TBD (Phase 78 directory exists but is empty — needs proper plan). Numbered at `/gsd-plan-phase`.
+**Status:** Defined — runs in **parallel** with v8.2 (debtor track). No longer depends on the self-learning milestone.
+
+**Goal:** `verkoop@smeba.nl` runs the same canonical 5-stage funnel as debtor-email, end-to-end, with full Bulk Review trace — **driven from Outlook, not SugarCRM**. Today Phase 74 stops sales-email at `manual_review` for noise categories; Phase 78 was never executed; `sales-email-analyzer/` (the legacy direct-Orq.ai + SugarCRM-trigger path, incl. `fetch-sugarcrm-emails.ts`) is **retired**. V9.0 is the actual "second swarm validation" that v8.0 promised.
 
 **Target capabilities:**
 
-- New sales-email Stage 2 entity resolver — Sugar-account lookup (SugarCRM SDK or Zapier bridge), NOT a copy of debtor-email's NXT resolver. Customer-less emails fall through to Stage 3.
-- Sales-email-specific Stage 3 intent agent — separate from `debtor-intent-agent`; intents derived from V9.0 Stream B prose feedback by the sales-email operator
-- Phase 78 properly planned and executed (currently `.gitkeep` only) — includes the Sugar archive resolve route (Phase 75 in ROADMAP) + flipping noise categories from `manual_review` back to `categorize_archive`
-- Multi-operator handling — V9.0 added single-operator scaffolding; V10.0 forces `operator_id` columns, scope filtering in the Learning Inbox, and vocabulary-reconciliation in the synthesis layer (different operators describe the same intent differently)
-- Stage 0 telemetry coverage for sales-email already at 91% (no Phase 82.2 follow-up needed)
+- **Outlook ingest** — sales-email ingests via the same Outlook→Zapier→`email_pipeline` path as debtor-email, replacing the SugarCRM "Emails"-module trigger. One ingest substrate for every swarm; also makes reply-tracing possible (V10.0 consumes it).
+- **Stage 2 = reuse the v8.2 NXT resolver substrate** (operator decision 2026-06-02) — sales-email plugs into the *same* `zapier.dbo` resolver + Engine built in v8.2, configured per-swarm via `swarms.stage2_entity_resolver` + `resolution_config` (the RESL-03 dynamic-dispatch seam). Existing NXT customers resolve; customer-less prospects fall through to Stage 3. **No SugarCRM adapter, no Sugar account lookup, no copy.** This is the generality proof v8.2's substrate was designed for — config, not an engine rebuild. The debtor-only self-auth tier degrades to a no-op for sales (the designed acceptance test).
+- **Sales-email-specific Stage 3 intent agent** — separate from `debtor-intent-agent`; sales intents (quote-request, order-status, product-question, …) seeded from the live Stage-0/1 sales corpus already accruing + the open-set discovery surface (Phase 86).
+- **Phase 78 properly planned and executed** (currently `.gitkeep` only) — flips sales noise categories from `manual_review` back to `categorize_archive` once Stage 1 is calibrated; wires the sales swarm's Stage 2/3/4.
+- Stage 0 telemetry coverage for sales-email already at 91% (no Phase 82.2 follow-up needed).
 
-**Architecture:** Sales-email is the second customer of V9.0's feedback infrastructure. Both swarms write to the same `pipeline_events`, the same `agent_runs`, the same `promotion_candidates` (V9.0 table). The sales-email operator and the debtor-person produce parallel feedback streams that the V9.0 synthesis layer aggregates into proposed system changes.
+**Architecture:** Sales-email is a registry-INSERT swarm on the canonical funnel. Ingest = Outlook (shared with debtor). Stage 2 = the v8.2 NXT resolver behind the per-swarm config seam. Stage 3 = sales intent agent. Writes to the same `pipeline_events` / `agent_runs`. Per-swarm feedback forms (from Phase 82.4) capture the sales operator's input as a *second* feedback stream; multi-operator vocabulary-reconciliation happens in V10.0's synthesis layer, not here.
 
 **Success criteria:**
 
-- X% of inbound sales emails reach a Stage 3 verdict without `manual_review` (target TBD — current baseline ≈ 0% via the canonical path)
-- Sales-email operator gives Stream B feedback for ≥ 80% of Stage 3 rows within first 14 days
-- At least one V9.0-proposed system change is approved using cross-swarm feedback (i.e., the synthesis layer sees both operators' input)
+- X% of inbound sales emails reach a Stage 3 verdict without `manual_review` (target TBD — current baseline ≈ 0% via the canonical path).
+- Sales-email Stage 2 reuses the v8.2 Engine with **zero engine code changes** — config-only onboarding (the generality claim made concrete).
+- Sales operator gives per-row feedback for ≥ 80% of Stage 3 rows within first 14 days (the second stream V10.0 reads).
 
-**Depends on:** V9.0 (Stream B operator surface live; promotion_candidates table; synthesis layer ≥ T2)
+**Depends on:** v8.2 resolver substrate for the Stage-2 reuse seam (RESL-01/02/03). Stage 0/1 are already live, so V9.0 can start Outlook ingest + Stage 3 immediately and wire Stage 2 as the v8.2 seam lands — the two tracks interleave rather than block. **No dependency on the self-learning milestone.**
+
+**Evidence boundary:** Sales-email Stage 2 reuse is the *first* cross-swarm exercise of the v8.2 Engine — generality is proven when this lands, not before.
 
 ---
 
-## V9.0 Promotion Recommender + Learning Inbox (Defined: 2026-05-12)
+## V10.0 Promotion Recommender + Learning Inbox + Reply-Tracing (Re-sequenced 2026-06-02; was V9.0)
 
-**Phases:** TBD — Phase 72 from v8.0 reframed; old phase definition (telemetry-only "promotion candidates") deprecated
-**Status:** Defined — depends on v8.0 closure (Phase 82.2 + Phase 82.4)
+**Re-sequencing note (2026-06-02, operator).** This milestone was re-slotted from V9.0 → V10.0 and swapped with sales-email (now V9.0). Rationale: the debiteuren-afdeling is slow to validate, so there isn't enough clean operator feedback to make synthesis worthwhile yet — meanwhile sales-email can ship fast on Outlook. By landing *after* both the debtor track (v8.2) and sales (V9.0), the synthesis layer reads **two** feedback streams plus the new **reply-tracing** signal, and starts from cleaner Stage-2 resolution. **Internal references to "V9.0" in the text below predate the swap and mean *this* milestone** unless they explicitly say "V9.0 sales".
 
-**Scope cut 2026-05-12:** Capture infrastructure (`email_feedback` table, Stage 2/3 prose form, history view) moved into v8.0 as **Phase 82.4** so the debtor-person has a place to put feedback from day 1 of their onboarding (2026-05-18). V9.0 is now **pure synthesis on top of pre-existing captured data** — smaller scope, cleaner thesis.
+**Phases:** TBD — Phase 72 from v8.0 reframed; old phase definition (telemetry-only "promotion candidates") deprecated.
+**Status:** Defined — depends on v8.0 closure (82.2 + 82.4) **and now on V9.0 sales** (second feedback stream + Outlook reply-tracing infra) and v8.2 (cleaner Stage-2 signal). Both upstream tracks converge here.
+
+**Scope cut 2026-05-12:** Capture infrastructure (`email_feedback` table, Stage 2/3 prose form, history view) moved into v8.0 as **Phase 82.4** so the debtor-person has a place to put feedback from day 1 of their onboarding (2026-05-18). This milestone is now **pure synthesis on top of pre-existing captured data** — smaller scope, cleaner thesis.
+
+**New for V10.0 — reply-tracing as a no-form feedback signal (added 2026-06-02).** Now that both swarms own their Outlook mailbox (debtor already; sales via V9.0), outbound *replies* to inbound pipeline emails can be traced — link the sent reply to the inbound email's `pipeline_event` via `conversation_id`. The operator's actual reply text/action is ground-truth for what the correct handling was, captured **without the operator filling any form** (the reply *is* the feedback). This stream feeds the synthesis layer alongside the structured/prose `email_feedback`, and is the concrete "antwoorden gebruiken om het systeem zelflerend te maken" loop. Multi-operator handling (distinct sales vs debtor operators; `operator_id` scoping; vocabulary-reconciliation across operators who describe the same intent differently) folds in here, since both streams now exist.
 
 **Goal:** Turn captured operator prose feedback into proposed system changes via LLM synthesis (T2 draft-proposer tier). Read `email_feedback` (populated by 82.4), cluster by pattern, draft concrete changes, surface in a Learning Inbox tab on Bulk Review, apply on one-click for data-shaped changes.
 
@@ -237,7 +245,7 @@ See `milestones/v8.0-MILESTONE-AUDIT.md` for full audit detail.
 - Operator time per Stage 3 row ≤ 15 seconds median (structured confirm path)
 - Clusterer eval accuracy ≥ X% on held-out set before T2 goes live (X TBD)
 
-**Depends on:** v8.0 closure (82.2 telemetry + 82.3 audit surface + 82.4 capture); debtor-person operator availability from 2026-05-18
+**Depends on:** v8.0 closure (82.2 telemetry + 82.3 audit surface + 82.4 capture); debtor-person operator availability from 2026-05-18; **V9.0 sales live** (second feedback stream + reply-tracing) and **v8.2** (Stage-2 resolution recall, so corrections aren't dominated by un-resolved rows).
 
 **Risk register:**
 
