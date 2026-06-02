@@ -336,13 +336,13 @@ describe("runStage4Dispatcher — Plan 04-02 vertical slice", () => {
 
   it("Test 8 — function-id lock: exported Inngest function has locked id and event filter", () => {
     // Static check — the exported constant must carry the locked id.
-    // Access the raw config stored by inngest.createFunction.
-    // The Inngest function object exposes `id` on its config.
+    // In Inngest v3+, createFunction returns an object where `id` is a method
+    // (not a plain string property) — call fn.id() to get the string id.
     // We access it via type-cast to avoid depending on internal Inngest types.
     const fn = stage4SupportTicketsDispatcher as unknown as {
-      id: string;
+      id: () => string;
     };
-    expect(fn.id).toBe("stage-4-support-tickets-dispatcher");
+    expect(fn.id()).toBe("stage-4-support-tickets-dispatcher");
   });
 
   it("Test 9 — sendEvent failure propagates so Inngest retries the step", async () => {

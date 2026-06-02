@@ -676,6 +676,78 @@ export type Events = {
     };
   };
 
+  // Phase 4 Plan 04-02 — per-handler events. Produced by the Stage 4
+  // dispatcher (stage-4-dispatcher.ts) after registry-driven fanout.
+  // Each event carries the same Stage4HandlerPayload — the handler owns
+  // the stage=4 pipeline_events row. UNIQUE constraint on (email_id,
+  // swarm_type, stage) means dispatcher and handler paths are mutually
+  // exclusive: dispatcher only writes when NOT fanning out.
+  "support-tickets/clarification-needed.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+      chosen_intent:
+        | "clarification-needed"
+        | "duplicate"
+        | "info-answer"
+        | "clickup-escalate"
+        | "vendor-draft";
+      completeness_verdict: "complete" | "incomplete";
+    };
+  };
+  "support-tickets/duplicate.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+      chosen_intent:
+        | "clarification-needed"
+        | "duplicate"
+        | "info-answer"
+        | "clickup-escalate"
+        | "vendor-draft";
+      completeness_verdict: "complete" | "incomplete";
+    };
+  };
+  "support-tickets/info-answer.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+      chosen_intent:
+        | "clarification-needed"
+        | "duplicate"
+        | "info-answer"
+        | "clickup-escalate"
+        | "vendor-draft";
+      completeness_verdict: "complete" | "incomplete";
+    };
+  };
+  "support-tickets/clickup-escalate.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+      chosen_intent:
+        | "clarification-needed"
+        | "duplicate"
+        | "info-answer"
+        | "clickup-escalate"
+        | "vendor-draft";
+      completeness_verdict: "complete" | "incomplete";
+    };
+  };
+  "support-tickets/vendor-draft.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+      chosen_intent:
+        | "clarification-needed"
+        | "duplicate"
+        | "info-answer"
+        | "clickup-escalate"
+        | "vendor-draft";
+      completeness_verdict: "complete" | "incomplete";
+    };
+  };
+
   // Phase 87 Plan 04 — one-shot retro-classification trigger. Triggered by
   // the operator CLI `web/scripts/run-retro-classify.ts`. Side-Channel
   // Isolation: handler writes ONLY to stage_3_retro_runs +
