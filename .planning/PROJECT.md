@@ -99,14 +99,13 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 
 ### Active
 
-**v8.1 Validation + Visibility** — observe → understand → THEN automate. Fix input + calibration + visibility gaps before V8.2 handler work. Anchor goal: Stage 3 intent distribution reflects reality, not parsing artifacts.
+**Two parallel tracks** (re-sequenced 2026-06-02 — see `docs/collaboration.md` for the per-workspace single-writer model):
 
-- Phase 84 — Stage 1 noise rules for AP-automation FYI traffic (Coupa/ISS/M365 quarantine/own-domain loopback)
-- Phase 85 — Stage 3 prompt v3 (intent definitions + few-shot + open-set schema with `intent_proposal`)
-- Phase 86 — Open-set intent discovery (proposal capture + Bulk Review cluster tab)
-- Phase 87 — Retro-classification + intent-volume baseline (`stage_3_retro_runs`, `intent_volume_baselines`)
-- Phase 88 — Review-surface cleanup (override+note flow, Stage 1 chip semantics, Stage 4 layout parity)
-- Phase 88.1 — Stage-named Inngest functions + Stage 2 telemetry alignment (rename label-resolver/tagger/cleanup)
+**V9.0 Sales-email canonical pipeline — Outlook-driven** _(THIS workspace `workspace/sales-agent-swarm`; phases 110+)_ — `verkoop@smeba.nl` runs the full 5-stage funnel end-to-end, driven from Outlook (SugarCRM deprecated). Registry-INSERT swarm; Stage 2 reuses the v8.2 NXT resolver by config; sales-specific Stage 3 intent agent; per-swarm feedback as a second operator stream. Requirements: `INGEST-*`, `SWARM-*`, `STAGE1-*`, `STAGE2-*`, `STAGE3-*`, `FEEDBACK-*` (see `REQUIREMENTS.md`). Charter: `MILESTONES.md` V9.0.
+
+**v8.2 Stage 2 Resolution Recall** _(parallel debtor track, separate workspace; phases 90–95)_ — SQL-native NXT resolver substrate (`RESL-01…15`); gated on debiteuren-afdeling validation. V9.0's Stage 2 reuse depends on its `RESL-01/02/03` seam (cross-track — interleave, don't block). Charter: `MILESTONES.md` v8.2.
+
+**v8.1 "Validation + Visibility" SHIPPED 2026-06-01** — body ingestion, Stage-1 noise rules (shadow), Stage-3 prompt v3 + open-set discovery surface, retro baseline. Archive: `milestones/v8.1-ROADMAP.md`.
 
 ### Defined (not yet active)
 
@@ -128,6 +127,8 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
 ## Current Milestone: v8.2 Stage 2 Resolution Recall (debtor track) ∥ V9.0 Sales-email Outlook (sales track) — two parallel tracks, re-sequenced 2026-06-02
+
+**V9.0 Sales-email is now ACTIVE in this workspace** (`workspace/sales-agent-swarm`) — formalized into `REQUIREMENTS.md` + a phase roadmap on **2026-06-02**. Phase numbering starts at **110** (banded above v8.2's 90–95) to avoid cross-workspace collision. The **v8.2 debtor track runs in parallel in its own workspace**. `.planning/STATE.md` / `ROADMAP.md` are single-writer per workspace and reconciled at PR merge (see `docs/collaboration.md`; the per-workstream STATE restructure is tracked as `SEED-002` — its parallel-workspace trigger is now met).
 
 **v8.1 "Validation + Visibility" SHIPPED 2026-06-01** — 8 phases (83–88.2); audit `passed`; all 4 operator-UAT items dispositioned (85 signed · 88 fixed · 86 accepted on live cron · 84 D-05 promotion gate evaluated → 0/16 eligible, telemetry N=0). Delivered body ingestion, Stage-1 noise rules (shadow), Stage-3 prompt v3 + open-set discovery surface, and the retro baseline that *refuted SC-1 usefully* (catch-all is upstream Stage-1 noise, not Stage-3) → directly scoped v8.2. Archive: `milestones/v8.1-ROADMAP.md`. **v8.2 next:** lift Stage-2 customer-resolution recall (~65% unresolved) via a SQL-native resolver in `zapier.dbo` over `nxt`; pre-build validation complete (`spikes/010-comprehensive-backtest/VALIDATION-FINDINGS-v8.2.md` — write-path confirmed, go/no-go P0–P5, auto-flip gated on a full-population dry-run).
 
@@ -187,5 +188,22 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 
 **Abandoned decisions (V3/V4/V5/V6):** node graph swarm builder, AI-vision screenshot annotation, Playwright auto-generation as pipeline stage, cross-swarm intelligence layer. Retained in `MILESTONES.md` history for traceability.
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-06-01 — after v8.1 "Validation + Visibility" milestone closure (8 phases, audit `passed`, operator UATs dispositioned)*
+*Last updated: 2026-06-02 — V9.0 Sales-email (Outlook) milestone started in `workspace/sales-agent-swarm` (parallel with v8.2 debtor track). Prior: 2026-06-01 v8.1 "Validation + Visibility" closure.*

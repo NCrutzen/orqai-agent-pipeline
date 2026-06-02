@@ -1,17 +1,19 @@
 ---
 gsd_state_version: 1.0
-milestone: v8.1
-milestone_name: Validation + Visibility
-status: completed
-stopped_at: Phase 88.2 context gathered
-last_updated: "2026-06-01T07:29:41.563Z"
-last_activity: 2026-06-01
+milestone: V9.0
+milestone_name: Sales-Email Canonical Pipeline (Outlook-driven)
+status: defining_requirements
+stopped_at: V9.0 milestone started — defining requirements
+last_updated: "2026-06-02"
+last_activity: 2026-06-02
+workspace: workspace/sales-agent-swarm
+parallel_track: "v8.2 Stage 2 Resolution Recall (debtor) runs in a separate workspace; STATE.md single-writer per workspace — reconcile at PR merge (SEED-002)"
 progress:
-  total_phases: 2
-  completed_phases: 1
-  total_plans: 12
-  completed_plans: 5
-  percent: 42
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -53,10 +55,12 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: 87 — baseline EXECUTED 2026-05-30 (smoke a8844444 41 emails + full run dd88887c 105 emails, 0 failures, ~$3-5; 101 proposal clusters). `87-BASELINE-REPORT.md` drafted — pending operator hand-grading of Section 3 (20-row sample). SC-3 PASS (101 clusters), SC-4 PASS (suggested 100% precision), SC-1 refuted-but-usefully (Stage 3 prompt sound; next lever is upstream Stage 1 noise filtering), SC-2 refuted-expected.
-Plan: Plan 04 Task 4 (smoke) + Plan 05 (full run) DONE. Remaining: operator hand-grades Section 3 → finalize report → `/gsd-audit-milestone v8.1`.
-Status: v8.1 code-complete (83-88.2). **INCIDENT (found 2026-05-30):** Phase 84 `own_outbound_invoice_loopback` rule false-archived 40% (27/67) of forwarded customer mail with real actions; code-mitigated via #58 (reconstructInput schema-scope) + #59 (disable+registry-gate the rule, migration `20260530_disable_own_outbound_loopback.sql`). **OPEN:** 27-email recovery re-dispatch through Stage 3 (operator-approved live run; list in `87-LOOPBACK-RECOVERY.md`).
-Last activity: 2026-06-01
+Phase: Not started (defining requirements) — V9.0 Sales-Email (Outlook), phases 110+
+Plan: —
+Status: Defining requirements — milestone V9.0 started 2026-06-02 in `workspace/sales-agent-swarm`. Research skipped (architecture locked: proven debtor funnel + v8.2 resolver reuse + sales Stage 3). v8.2 debtor track runs in parallel in its own workspace.
+Last activity: 2026-06-02 — V9.0 milestone started
+
+**Carry-forward from v8.1 (closed 2026-06-01):** the loopback false-archive incident (Phase 84 `own_outbound_invoice_loopback`) was code-mitigated (#58/#59, migration `20260530_disable_own_outbound_loopback.sql`); the 27-email Stage-3 recovery re-dispatch (list in `87-LOOPBACK-RECOVERY.md`) is operator follow-up, tracked outside this milestone.
 
 ## Performance Metrics
 
