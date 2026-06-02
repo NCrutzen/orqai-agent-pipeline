@@ -30,6 +30,7 @@ import {
   type CoordinatorOutput,
 } from "./coordinator-types";
 import type { PipelineStageContext } from "./pipeline-stage-context";
+import { stripFences } from "./orq-util";
 
 const ORQ_ENDPOINT = "https://api.orq.ai/v3/router/responses" as const;
 const MODEL_ID = "anthropic/claude-sonnet-4-5-20250929" as const;
@@ -347,18 +348,9 @@ export async function invokeCoordinatorAgent(
     throw new CoordinatorAgentError("empty_response");
   }
 
-  // Strip markdown code fences. Despite response_format=json_schema strict, some
-  // models still wrap JSON output in ```json ... ``` fences (Sonnet 4.5
-  // observed during 2026-06-01 live smoke). Tolerate both fenced and bare JSON.
-  const stripFences = (s: string): string => {
-    const trimmed = s.trim();
-    if (trimmed.startsWith("```")) {
-      // Match opening fence (with optional `json` tag) and closing fence.
-      const m = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
-      if (m) return m[1].trim();
-    }
-    return trimmed;
-  };
+  // stripFences imported from ./orq-util — shared across all support-tickets
+  // handlers that consume Orq JSON output (Sonnet 4.5 wraps in ```json fences
+  // even with response_format=json_schema strict).
 
   let parsed: unknown;
   try {
