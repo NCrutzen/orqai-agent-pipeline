@@ -57,6 +57,7 @@ import { stage4SupportTicketsClarificationHandler } from "@/lib/automations/supp
 import { stage4SupportTicketsDuplicateHandler } from "@/lib/automations/support-tickets/duplicate-handler";
 import { stage4SupportTicketsInfoAnswerHandler } from "@/lib/automations/support-tickets/info-answer-handler";
 import { stage4SupportTicketsClickupEscalateHandler } from "@/lib/automations/support-tickets/clickup-escalate-handler";
+import { stage4SupportTicketsVendorDraftHandler } from "@/lib/automations/support-tickets/vendor-draft-handler";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -108,5 +109,6 @@ export const { GET, POST, PUT } = serve({
     stage4SupportTicketsDuplicateHandler,
     stage4SupportTicketsInfoAnswerHandler,
     stage4SupportTicketsClickupEscalateHandler,
+    stage4SupportTicketsVendorDraftHandler,
   ],
 });
