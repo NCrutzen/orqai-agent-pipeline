@@ -357,8 +357,8 @@ describe("runDuplicateHandler", () => {
 
 describe("stage4SupportTicketsDuplicateHandler", () => {
   it("has locked function-id 'stage-4-support-tickets-duplicate-handler'", () => {
-    expect(
-      (stage4SupportTicketsDuplicateHandler as unknown as { id: string }).id,
-    ).toBe("stage-4-support-tickets-duplicate-handler");
+    // In Inngest v3+, createFunction returns an object where id is a method.
+    const fn = stage4SupportTicketsDuplicateHandler as unknown as { id: () => string };
+    expect(fn.id()).toBe("stage-4-support-tickets-duplicate-handler");
   });
 });

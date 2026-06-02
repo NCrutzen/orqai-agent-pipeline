@@ -54,6 +54,7 @@ import { stage2SupportTicketsEnrichment } from "@/lib/automations/support-ticket
 import { stage3SupportTicketsCoordinator } from "@/lib/automations/support-tickets/stage-3-coordinator";
 import { stage4SupportTicketsDispatcher } from "@/lib/automations/support-tickets/stage-4-dispatcher";
 import { stage4SupportTicketsClarificationHandler } from "@/lib/automations/support-tickets/clarification-handler";
+import { stage4SupportTicketsDuplicateHandler } from "@/lib/automations/support-tickets/duplicate-handler";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -102,5 +103,6 @@ export const { GET, POST, PUT } = serve({
     stage3SupportTicketsCoordinator,
     stage4SupportTicketsDispatcher,
     stage4SupportTicketsClarificationHandler,
+    stage4SupportTicketsDuplicateHandler,
   ],
 });
