@@ -1,0 +1,112 @@
+# Requirements: V9.0 Sales-Email Canonical Pipeline — Outlook-driven
+
+**Defined:** 2026-06-02
+**Core Value:** Every recurring email-driven process at Moyne Roberts gets a swarm on the canonical 5-stage funnel; new swarms onboard via registry config, not code. V9.0 takes `verkoop@smeba.nl` end-to-end and is the first cross-swarm reuse of the v8.2 NXT resolver — the generality proof.
+**Workspace:** `workspace/sales-agent-swarm` (parallel with the v8.2 debtor track in its own workspace). Phase numbering: **110+** (banded above v8.2's 90–95).
+**Charter:** `MILESTONES.md` → V9.0.
+
+## Verified Baseline (already live — do NOT re-build; verified 2026-06-02 against production)
+
+Scope was corrected against live DB + code state before definition (the original charter was stale):
+
+- ✅ **Outlook ingest is the production path** — `web/app/api/automations/sales-email/ingest/route.ts` (`SALES_SOURCE="outlook"`), **827 emails in 30d** (~33/day), Sugar→Outlook cutover completed **2026-05-06** (SugarCRM source has 2 stragglers since). The "move sales to Outlook" premise is already done.
+- ✅ **`swarms` row exists** (`swarm_type='sales-email'`, Phase 74) — but is a Stage-0/1 shell: `stage2_entity_resolver`, `stage3_coordinator_agent_key`, `canonical_context_shape`, `resolution_config` are null; `entity_brand` empty; `side_effects` empty.
+- ✅ **Stage 0 + Stage 1 LLM classifier live**, swarm-agnostic (`stage1_regex_module=null` → LLM-only). 13 noise categories: 8 AP-automation FYI rules auto-archive (`categorize_archive`); the 5 core sales categories (auto-reply, OOO×2, payment_admittance, unknown) are still `manual_review`.
+- ✅ **Feedback forms are swarm-generic** (`email_feedback`, Phase 82.4) — usable by sales as-is.
+- ❌ **Greenfield:** `swarm_intents` for sales = 0; `orq_agents` for sales = 0; Stage 2 resolver config absent; no Outlook-archive side-effect wired; Bulk Review surface not yet usable for the operator.
+
+## v1 Requirements
+
+Requirements for V9.0. Each maps to a roadmap phase (110+).
+
+### Stage 1 — Noise Expansion + Calibration
+
+- [ ] **STAGE1-01**: Operator-justified calibration of the 5 core sales noise categories on the live corpus — safe categories (auto-reply, OOO temporary/permanent) flip `manual_review` → `categorize_archive` behind the shadow→promote gate; `payment_admittance` + `unknown` stay in review with rationale. Delivered as a migration with audit trail.
+- [ ] **STAGE1-02**: New sales-specific Stage 1 noise rules are discovered from the multi-week corpus (827+ emails) and added as `swarm_noise_categories` rows (data-driven, audit trail). The 8 inherited AP-noise rules are re-validated for sales fit — in particular `own_outbound_invoice_loopback` (disabled on debtor for 40% mis-archive) is gated/disabled unless it holds on the sales corpus.
+
+### Outlook Cleanup + Backfill (production writes — gated)
+
+- [ ] **CLEANUP-01**: A Stage 1 Outlook-archive side-effect is wired for sales `categorize_archive` categories — `swarms.side_effects` entry + a cleanup worker that archives matching mail in `verkoop@smeba.nl` via Graph (the action sales currently lacks; debtor uses iController delete, sales uses Outlook archive).
+- [ ] **CLEANUP-02**: The noise rules are backfilled over the already-ingested corpus and matching emails are retroactively archived in Outlook — **auto-archive for high-confidence / AP-noise categories**, ambiguous matches routed to Bulk Review for operator approval. Idempotent (safe re-run); `own_outbound_invoice_loopback` excluded from auto per the debtor incident.
+
+### Bulk Review Surface
+
+- [ ] **REVIEW-01**: The sales-email Bulk Review surface works end-to-end like debtor-email — sidebar navigation entry + the registry-driven stage-keyed shell rendering rows, detail pane, queue tree, per-stage tabs (0/1/2/3), and feedback forms — so the operator can actually follow and act on sales emails. Verify the generic shell renders for sales and wire/build any gaps.
+
+### Swarm Registry Enrichment (Stage-0/1 shell → full funnel)
+
+- [ ] **SWARM-01**: The existing `sales-email` `swarms` row is enriched to a full-funnel config — `entity_brand=smeba`, `canonical_context_shape`, `stage2_entity_resolver`, `resolution_config`, `stage3_coordinator_agent_key` — delivered as a migration with `npm run codegen` committed atomically (no hardcoded enums, no hand-edited `*.generated.ts`).
+- [ ] **SWARM-02**: All sales-specific behavior is expressed as registry data — zero `if swarm==='sales-email'` branches in shared workers (`classify`/classifier/coordinator/dispatcher). Any branch needed in a shared worker is treated as an architecture bug fixed in this milestone.
+
+### Stage 2 — Resolver Reuse (cross-track dependency: v8.2 RESL-01/02/03)
+
+- [ ] **STAGE2-01**: Sales-email Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config (`stage2_entity_resolver` + `resolution_config`, the RESL-03 dynamic-dispatch seam) — **zero Engine code changes** (the cross-swarm generality proof). Sequenced to land as the v8.2 seam lands; interleaves with, does not block, the rest of V9.0.
+- [ ] **STAGE2-02**: The debtor-only self-auth resolution tier degrades to a no-op for sales (designed acceptance test); customer-less prospects fall through to Stage 3 without blocking.
+
+### Stage 3 — Sales Intent Agent (greenfield)
+
+- [ ] **STAGE3-01**: A sales-specific Stage 3 intent agent (new Orq `sales-intent-agent`, registered in `orq_agents`) is built; `swarm_intents` rows seeded; `swarms.stage3_coordinator_agent_key` set. Dispatch runs through the existing registry-driven Stage 3 dispatcher — no code edits to the shared dispatcher.
+- [ ] **STAGE3-02**: Sales intent vocabulary is seeded from the 827-email live corpus + the Phase 86 open-set discovery surface (emerges from data + operator promotion, never hand-curated by Claude or engineer — honors the locked 2026-05-19 principle).
+- [ ] **STAGE3-03**: After the Stage 1 flip, every sales email leaving Stage 1 reaches a Stage 3 verdict; intents with no Stage 4 handler land in the Kanban human-lane (Phase 76) with a clear reason — zero silent dead-letters.
+
+### SugarCRM Decommission (dead code only — live path already off Sugar)
+
+- [ ] **SUGAR-01**: The dead SugarCRM code surface is removed — `web/lib/automations/sales-email-analyzer/` (incl. `fetch-sugarcrm-emails.ts`), `web/app/api/automations/smeba/sugarcrm-search`, `…/write-analysis`, and the stale `zapier_tools` Sugar note — after confirming no live path depends on it.
+
+### Cutover Verification (lightweight)
+
+- [ ] **VERIFY-01**: The live Zapier trigger for sales is confirmed Outlook-based (not a residual SugarCRM poll), ingest health (~33/day) is monitored for `verkoop@smeba.nl` in the pipeline-health monitor, and any stuck/legacy `source='sugarcrm'` rows are dispositioned.
+
+## v2 / Deferred Requirements
+
+Tracked, not in V9.0 scope.
+
+### Self-learning (→ V10.0)
+
+- **Multi-operator vocabulary reconciliation** — sales vs debtor operators describing the same intent differently (`operator_id` scoping + reconciliation).
+- **Reply-tracing** — outbound Outlook replies linked to the inbound `pipeline_event` via `conversation_id` as a no-form ground-truth signal (V9.0 owning the Outlook mailbox is what unlocks this later).
+- **Immediate-apply new intents** — 82.4-captured new-intent labels flowing into the Stage 3 intent list automatically.
+
+### Handlers (→ V11.0)
+
+- **Sales Stage 4 handlers** — turning the top-N uncovered sales intents (quote-request, order-status, …) into first-class Stage 4 handlers in priority order.
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| SugarCRM source adapter / Sugar Stage-2 account lookup | SugarCRM deprecated 2026-06-02; sales Stage 2 reuses the NXT resolver by config |
+| A second (non-NXT) resolution Engine | V9.0 proves cross-*swarm* reuse of the v8.2 Engine; cross-*backend* generality stays an unbuilt designed seam |
+| Self-learning synthesis / Promotion Recommender | V10.0 milestone |
+| Sales Stage 4 handlers | V11.0 milestone (intent-prioritised handlers) |
+| Building the v8.2 resolver Engine/Index itself | Owned by the parallel v8.2 debtor workspace (RESL-01/02); V9.0 only consumes the RESL-03 seam |
+
+## Traceability
+
+Which phases cover which requirements. Populated by the roadmapper.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| STAGE1-01 | TBD | Pending |
+| STAGE1-02 | TBD | Pending |
+| CLEANUP-01 | TBD | Pending |
+| CLEANUP-02 | TBD | Pending |
+| REVIEW-01 | TBD | Pending |
+| SWARM-01 | TBD | Pending |
+| SWARM-02 | TBD | Pending |
+| STAGE2-01 | TBD | Pending |
+| STAGE2-02 | TBD | Pending |
+| STAGE3-01 | TBD | Pending |
+| STAGE3-02 | TBD | Pending |
+| STAGE3-03 | TBD | Pending |
+| SUGAR-01 | TBD | Pending |
+| VERIFY-01 | TBD | Pending |
+
+**Coverage:**
+- v1 requirements: 14 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 14 ⚠️ (resolved by roadmapper)
+
+---
+*Requirements defined: 2026-06-02 — V9.0 Sales-Email (Outlook), scoped against verified production state.*
+*Last updated: 2026-06-02 after initial definition.*
