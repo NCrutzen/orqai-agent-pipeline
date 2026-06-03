@@ -87,26 +87,26 @@ Which phases cover which requirements. Populated by the roadmapper.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STAGE1-01 | TBD | Pending |
-| STAGE1-02 | TBD | Pending |
-| CLEANUP-01 | TBD | Pending |
-| CLEANUP-02 | TBD | Pending |
-| REVIEW-01 | TBD | Pending |
-| SWARM-01 | TBD | Pending |
-| SWARM-02 | TBD | Pending |
-| STAGE2-01 | TBD | Pending |
-| STAGE2-02 | TBD | Pending |
-| STAGE3-01 | TBD | Pending |
-| STAGE3-02 | TBD | Pending |
-| STAGE3-03 | TBD | Pending |
-| SUGAR-01 | TBD | Pending |
-| VERIFY-01 | TBD | Pending |
+| REVIEW-01 | Phase 110 | Pending |
+| SWARM-01 | Phase 110 | Pending |
+| SWARM-02 | Phase 110 | Pending |
+| VERIFY-01 | Phase 110 | Pending |
+| STAGE1-01 | Phase 111 | Pending |
+| STAGE1-02 | Phase 111 | Pending |
+| CLEANUP-01 | Phase 112 | Pending |
+| CLEANUP-02 | Phase 112 | Pending |
+| STAGE3-01 | Phase 113 | Pending |
+| STAGE3-02 | Phase 113 | Pending |
+| STAGE3-03 | Phase 113 | Pending |
+| STAGE2-01 | Phase 114 | Pending |
+| STAGE2-02 | Phase 114 | Pending |
+| SUGAR-01 | Phase 115 | Pending |
 
 **Coverage:**
 - v1 requirements: 14 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 14 ⚠️ (resolved by roadmapper)
+- Mapped to phases: 14 (Phases 110–115)
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-02 — V9.0 Sales-Email (Outlook), scoped against verified production state.*
-*Last updated: 2026-06-02 after initial definition.*
+*Last updated: 2026-06-02 — traceability populated by roadmapper (14/14 mapped to Phases 110–115).*

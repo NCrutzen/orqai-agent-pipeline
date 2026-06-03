@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline (Outlook-driven)
-status: defining_requirements
-stopped_at: V9.0 milestone started — defining requirements
+status: roadmap_complete
+stopped_at: V9.0 roadmap complete (Phases 110–115) — Phase 110 ready to plan
 last_updated: "2026-06-02"
 last_activity: 2026-06-02
 workspace: workspace/sales-agent-swarm
 parallel_track: "v8.2 Stage 2 Resolution Recall (debtor) runs in a separate workspace; STATE.md single-writer per workspace — reconcile at PR merge (SEED-002)"
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -50,15 +50,15 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 87 — retro-classification-and-intent-volume-baseline
+**Current focus:** Phase 110 — Visibility Foundation (Bulk Review + swarm-row enrichment + ingest verify) — first V9.0 phase, ready to plan
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: Not started (defining requirements) — V9.0 Sales-Email (Outlook), phases 110+
+Phase: Phase 110 — not started (ready to plan) — V9.0 Sales-Email (Outlook), Phases 110–115
 Plan: —
-Status: Defining requirements — milestone V9.0 started 2026-06-02 in `workspace/sales-agent-swarm`. Research skipped (architecture locked: proven debtor funnel + v8.2 resolver reuse + sales Stage 3). v8.2 debtor track runs in parallel in its own workspace.
-Last activity: 2026-06-02 — V9.0 milestone started
+Status: Roadmap complete (6 phases, 14/14 requirements mapped, 0 unmapped). Next: `/gsd-plan-phase 110`. Milestone V9.0 active 2026-06-02 in `workspace/sales-agent-swarm`. Research skipped (architecture locked: proven debtor funnel + v8.2 resolver reuse + sales Stage 3). v8.2 debtor track runs in parallel in its own workspace; V9.0's Phase 114 (Stage 2) interleaves with the v8.2 RESL-01/02/03 seam — does not block.
+Last activity: 2026-06-02 — V9.0 roadmap created (Phases 110–115)
 
 **Carry-forward from v8.1 (closed 2026-06-01):** the loopback false-archive incident (Phase 84 `own_outbound_invoice_loopback`) was code-mitigated (#58/#59, migration `20260530_disable_own_outbound_loopback.sql`); the 27-email Stage-3 recovery re-dispatch (list in `87-LOOPBACK-RECOVERY.md`) is operator follow-up, tracked outside this milestone.
 
@@ -148,6 +148,16 @@ Last activity: 2026-06-02 — V9.0 milestone started
 | Phase 48 P01 | 3min | 2 tasks | 9 files |
 
 ### Roadmap Evolution
+
+**V9.0 Sales-Email (Outlook) roadmap created 2026-06-02 — Phases 110–115 (coarse granularity, 14/14 reqs mapped, 0 unmapped). Runs parallel with v8.2 debtor (phases 90–95, separate workspace).**
+
+- Phase 110 added: Visibility Foundation — sales-email Bulk Review usable (REVIEW-01) + enrich the Stage-0/1 `swarms` shell to full-funnel config via migration+codegen (SWARM-01) + assert zero per-swarm branches in shared workers (SWARM-02 architecture gate) + confirm Outlook ingest health & disposition legacy `source='sugarcrm'` rows (VERIFY-01). Observe before auto-acting. First V9.0 phase; depends on nothing (baseline Outlook ingest + Stage 0/1 live).
+- Phase 111 added: Stage 1 Noise Expansion + Calibration — flip safe core categories (auto-reply, OOO×2) manual_review→categorize_archive behind the shadow→promote gate, keep payment_admittance+unknown in review (STAGE1-01); mine the 827+ corpus for new sales noise rules + re-validate the 8 inherited AP rules incl. gating own_outbound_invoice_loopback (STAGE1-02). Depends on 110.
+- Phase 112 added: Outlook Cleanup + Backfill (gated production writes) — wire the Stage 1 Outlook-archive side-effect sales lacks (CLEANUP-01) + idempotent backfill over the ingested corpus: auto-archive high-confidence/AP-noise, ambiguous→Bulk Review approval, loopback EXCLUDED from auto (CLEANUP-02). Depends on 111 (rules settled) + 110 (approval surface).
+- Phase 113 added: Stage 3 Sales Intent Agent (greenfield) — new Orq `sales-intent-agent` in orq_agents + seed swarm_intents + set stage3_coordinator_agent_key, dispatch via existing shared dispatcher (STAGE3-01); intent vocabulary emerges from corpus + Phase 86 open-set discovery, never hand-curated (STAGE3-02); every post-Stage-1 email reaches a Stage 3 verdict, handler-less intents → Phase 76 Kanban human-lane, zero silent dead-letters (STAGE3-03). Depends on 110 + 111.
+- Phase 114 added: Stage 2 Resolver Reuse — cross-swarm generality proof. Sales Stage 2 reuses the v8.2 NXT resolver via per-swarm config (stage2_entity_resolver + resolution_config, the RESL-03 seam) with ZERO Engine code changes (STAGE2-01); debtor-only self-auth tier degrades to no-op + customer-less prospects fall through to Stage 3 (STAGE2-02). **External/cross-track dep: v8.2 RESL-01/02/03 — sequenced to land AS the seam lands; interleaves, does not block the rest of V9.0.** Depends on 110.
+- Phase 115 added: SugarCRM Dead-Code Decommission — remove sales-email-analyzer/ (incl. fetch-sugarcrm-emails.ts), /api/automations/smeba/sugarcrm-search + …/write-analysis, stale zapier_tools Sugar note, after confirming no live path depends on it (SUGAR-01). Independent cleanup — last or parallel.
+- V9.0 dependency graph: 110 ──> {111 ──> 112, 113, 114(∥v8.2 RESL seam)}; 115 independent. Stage 4 handlers OUT (V11.0). Numbering starts at 110 to band above v8.2's 90–95 (separate workspace) and avoid cross-workspace collision.
 
 - Phase 60 added: Debtor email — close the whitelist-gate loop (data-driven AUTO_ACTION_RULES with Wilson-CI auto-promotion cron + queue-driven Bulk Review UI reading automation_runs status=predicted directly)
 - Phase 61 added: Restore lost bulk-review UX (60-05 regression fix) — horizontal overflow, email-body expander, per-row notes, rule-hint dropdown / per-item override on top of the new tree-driven shell
