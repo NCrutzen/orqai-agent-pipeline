@@ -259,7 +259,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 110. Visibility Foundation | 0/TBD | Not started | - |
+| 110. Visibility Foundation | 0/4 | Not started | - |
 | 111. Stage 1 Noise Expansion + Calibration | 0/TBD | Not started | - |
 | 112. Outlook Cleanup + Backfill | 0/TBD | Not started | - |
 | 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
@@ -280,7 +280,12 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
   2. The `sales-email` `swarms` row carries a full-funnel config — `entity_brand=smeba`, `canonical_context_shape`, `stage2_entity_resolver`, `resolution_config`, `stage3_coordinator_agent_key` — shipped as one migration with `npm run codegen` committed atomically and no hand-edited `*.generated.ts` (SWARM-01).
   3. No shared worker (`classify` / classifier / coordinator / dispatcher) contains an `if swarm==='sales-email'` branch — any variance needed is expressed as registry data, asserted by a static check or grep gate (SWARM-02).
   4. Sales ingest is confirmed Outlook-based (not a residual SugarCRM poll), `verkoop@smeba.nl` ~33/day throughput is visible in the pipeline-health monitor, and any stuck/legacy `source='sugarcrm'` rows are dispositioned (VERIFY-01).
-**Plans**: TBD
+**Plans**: 4 plans (3 waves; hard debtor-regression gates isolate the two live-path crossings)
+Plans:
+- [ ] 110-01-PLAN.md — Wave 1: Wave-0 regression net — debtor coordinator parity tests + SWARM-02 static guard (coordinator+dispatcher) + RED contracts for the email_id anchor & per-stage dry-run gate (SWARM-02, REVIEW-01)
+- [ ] 110-02-PLAN.md — Wave 2: low-risk generalization — email_id hydrator anchor + per-swarm codegen maps + un-404 route (also un-404s info-routing) + sidebar entry (REVIEW-01, SWARM-01 codegen half, SWARM-02 surface half)
+- [ ] 110-03-PLAN.md — Wave 2: HIGHEST-RISK — coordinator SWARM_TYPE→payload + wildcard `*/coordinator.requested`; debtor Stage-3 behavior provably unchanged (SWARM-02, D-09)
+- [ ] 110-04-PLAN.md — Wave 3: swarms full-funnel enrichment + per-stage dry_run_config + per-mailbox health migrations + worker gate refactor + [BLOCKING] schema push/codegen/advisor + VERIFY-01 (SWARM-01, VERIFY-01)
 **UI hint**: yes
 
 ### Phase 111: Stage 1 Noise Expansion + Calibration
