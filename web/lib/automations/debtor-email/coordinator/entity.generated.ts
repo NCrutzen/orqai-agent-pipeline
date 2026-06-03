@@ -7,7 +7,7 @@
 export const ENTITY_BRANDS_BY_SWARM = {
   "debtor-email": ["berki", "fire-control", "sicli-noord", "sicli-sud", "smeba", "smeba-fire"],
   "info-routing": ["berki", "fire-control", "sicli-noord", "sicli-sud", "smeba", "smeba-fire"],
-  "sales-email": [],
+  "sales-email": ["smeba"],
   "support-tickets": ["moyne-roberts"],
 } as const;
 
