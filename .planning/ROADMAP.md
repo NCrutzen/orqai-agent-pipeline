@@ -274,7 +274,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 |-------|----------------|--------|-----------|
 | 110. Visibility Foundation | 4/4 | Complete   | 2026-06-03 |
 | 111. Stage 1 Noise Expansion + Calibration | 5/5 | Complete   | 2026-06-03 |
-| 112. Outlook Cleanup + Backfill | 0/TBD | Not started | - |
+| 112. Outlook Cleanup + Backfill | 2/3 | In Progress|  |
 | 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
 | 114. Stage 2 Resolver Reuse | 0/TBD | Not started | - |
 | 115. SugarCRM Dead-Code Decommission | 0/TBD | Not started | - |
@@ -348,8 +348,9 @@ Plans:
   3. The backfill is idempotent — re-running it produces no duplicate archives and no double side-effects (CLEANUP-02).
 
 **Plans**: 3 plans
-- [ ] 112-01-PLAN.md — Backfill sweeper + disposition + Graph-id selection + RED tests (report mode; inert)
-- [ ] 112-02-PLAN.md — Go-live flip migration (written, not applied) + verdict-worker gate test
+
+- [x] 112-01-PLAN.md — Backfill sweeper + disposition + Graph-id selection + RED tests (report mode; inert)
+- [x] 112-02-PLAN.md — Go-live flip migration (written, not applied) + verdict-worker gate test
 - [ ] 112-03-PLAN.md — Report dry-run → canary → [BLOCKING] human-gated flip apply + live verify
 
 ### Phase 113: Stage 3 Sales Intent Agent (greenfield)
@@ -442,7 +443,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 5/5 plans complete
+**Plans:** 2/3 plans executed
 
 Plans:
 
