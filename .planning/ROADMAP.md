@@ -263,7 +263,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 115 (SugarCRM dead-code decommission)  [independent — last or parallel]
 ```
 
-- [ ] **Phase 110: Visibility Foundation — Bulk Review + swarm-row enrichment + ingest verify** — operator can see and follow sales emails before anything auto-acts; the Stage-0/1 shell `swarms` row is enriched to a full-funnel config via migration + codegen; the architecture gate (no per-swarm branches) is asserted; Outlook ingest health is verified/monitored.
+- [x] **Phase 110: Visibility Foundation — Bulk Review + swarm-row enrichment + ingest verify** — operator can see and follow sales emails before anything auto-acts; the Stage-0/1 shell `swarms` row is enriched to a full-funnel config via migration + codegen; the architecture gate (no per-swarm branches) is asserted; Outlook ingest health is verified/monitored. (completed 2026-06-03)
 - [ ] **Phase 111: Stage 1 Noise Expansion + Calibration** — mine the 827+ corpus for new sales-specific noise rules and calibrate/flip the safe core categories behind the shadow→promote gate, all as audit-trailed registry data.
 - [ ] **Phase 112: Outlook Cleanup + Backfill (gated production writes)** — wire the Stage 1 Outlook-archive side-effect for sales and backfill it over the ingested corpus, auto-archiving high-confidence/AP-noise and routing ambiguous matches to operator approval, idempotently.
 - [ ] **Phase 113: Stage 3 Sales Intent Agent (greenfield)** — build a sales-specific Orq intent agent + seed `swarm_intents` from the live corpus so every sales email leaving Stage 1 reaches a Stage 3 verdict, with handler-less intents landing in the Kanban human-lane.
@@ -272,7 +272,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 110. Visibility Foundation | 3/4 | In Progress|  |
+| 110. Visibility Foundation | 4/4 | Complete   | 2026-06-03 |
 | 111. Stage 1 Noise Expansion + Calibration | 0/TBD | Not started | - |
 | 112. Outlook Cleanup + Backfill | 0/TBD | Not started | - |
 | 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
@@ -309,7 +309,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 110-04-PLAN.md — Wave 3: swarms full-funnel enrichment + per-stage dry_run_config + per-mailbox health migrations + worker gate refactor + [BLOCKING] schema push/codegen/advisor + VERIFY-01 (SWARM-01, VERIFY-01)
+- [~] 110-04-PLAN.md — Wave 3: swarms full-funnel enrichment + per-stage dry_run_config + per-mailbox health migrations + worker gate refactor + [BLOCKING] schema push/codegen/advisor + VERIFY-01 (SWARM-01, VERIFY-01) — **BLOCKED**: Tasks 1–3 done & merged (migrations written, dry-run gate refactor GREEN, verify tests committed); Tasks 4–5 (remote schema push + codegen regen + RLS advisor + production-write governance) blocked on expired `SUPABASE_ACCESS_TOKEN` / no MCP access to project `mvqjhlxfvtqqubqgdvhz`. Resume protocol in 110-04-SUMMARY.md.
 
 **UI hint**: yes
 
@@ -431,7 +431,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 

@@ -244,6 +244,7 @@ Last activity: 2026-06-03 -- Phase 110 execution started
 
 - Azure AD tenant setup has organizational dependencies (IT admin access)
 - Supabase Management API token expired -- Phase 50 migration apply blocked (seed update also needs this or Studio access)
+- **Phase 110 / Plan 110-04 BLOCKED (2026-06-03)**: 3 migrations written + committed but NOT pushed to remote (`SUPABASE_ACCESS_TOKEN` 401-expired; orchestrator Supabase MCP is bound to org `oxgcrcrxhmkzlyezyflb`, which does NOT contain project `mvqjhlxfvtqqubqgdvhz`). To resume: (a) put a fresh `sbp_*` token in `web/.env.local` as `SUPABASE_ACCESS_TOKEN`, OR (b) apply the 3 files in `supabase/migrations/20260603*.sql` via Studio SQL editor in order; then `cd web && npm run codegen && git diff --exit-code` (expect `"sales-email": ["smeba"]`), `npm run check:supabase` (RLS advisor green), live-verify debtor `dry_run_config.stage_1_cleanup=false`, and complete Task 5 production-write governance confirmation. Full protocol: 110-04-SUMMARY.md.
 - Supabase Realtime plan limits need verification (carry forward from Phase 49)
 
 ### Outstanding Verification (Deferred)
