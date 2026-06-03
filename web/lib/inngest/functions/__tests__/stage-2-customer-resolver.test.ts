@@ -173,9 +173,39 @@ function makeAdminMock(overrides?: {
     }),
   });
 
+  // Phase 110 Plan 04 — the resolver now reads the per-stage gate via
+  // loadSwarm(admin, swarm_type) → admin.from("swarms").select("*").eq(...)
+  // .eq(...).maybeSingle(). The resolver folds dry_run_config.stage_3_labeling
+  // together with settingsRow.dry_run (blocks if EITHER blocks). These tests
+  // use settingsRow.dry_run as their single live/dry control, so mirror it onto
+  // stage_3_labeling: a test running LIVE (dry_run=false) gets stage_3_labeling=
+  // false (live); a dry test gets true (gated). This keeps the single-control
+  // model while still exercising the folded gate read.
+  const stageLabelingBlocked = (settingsRow?.dry_run ?? true) !== false;
+  function swarmsBuilder() {
+    const b: Record<string, unknown> = {};
+    b.select = vi.fn(() => b);
+    b.eq = vi.fn(() => b);
+    b.maybeSingle = vi.fn(async () => ({
+      data: {
+        swarm_type: "debtor-email",
+        enabled: true,
+        dry_run_config: {
+          stage_1_archive: false,
+          stage_1_cleanup: false,
+          stage_3_labeling: stageLabelingBlocked,
+          stage_4_handlers: { "invoice-copy": stageLabelingBlocked },
+        },
+      },
+      error: null,
+    }));
+    return b;
+  }
+
   const fromImpl = (table: string) => {
     if (table === "automation_runs") return automationRunsBuilder();
     if (table === "pipeline_events") return { insert: pipelineEventsInsert };
+    if (table === "swarms") return swarmsBuilder();
     return { update: vi.fn(() => ({ eq: vi.fn(async () => ({})) })) };
   };
 

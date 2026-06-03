@@ -104,6 +104,14 @@ export const stage2IcontrollerLabelApplier = inngest.createFunction(
       received_at,
     } = event.data;
 
+    // Phase 110 Plan 04 (D-10 / D-11) — the stage_3_labeling gate is enforced
+    // UPSTREAM at the dispatch decision in stage-2-customer-resolver.ts: that
+    // worker folds swarms.dry_run_config.stage_3_labeling into its `dryRun` and
+    // only emits the icontroller-label side-effect in live mode
+    // (evaluateSideEffects gate `dry_run: false`). So this tagger is only ever
+    // reached when labeling is LIVE for the swarm — a second gate here would be
+    // redundant and would change this unit's contract (it owns the tag mechanics,
+    // not the gate). The gate lives in exactly one place (the dispatcher).
     let icontrollerMsgId: number | null = null;
     const session = await openIControllerSession(ENV);
     const { page } = session;

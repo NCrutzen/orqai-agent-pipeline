@@ -41,6 +41,8 @@ import { loadBrandRegister } from "@/lib/swarms/brand-register";
 import { bodyAgentOutputToHandlerOutput } from "@/lib/automations/debtor-email/handlers/output-adapter";
 import { notifyCoordinatorComplete } from "@/lib/automations/debtor-email/coordinator/coordinator-complete";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
+import { loadSwarm } from "@/lib/swarms/registry";
+import { isHandlerBlocked } from "@/lib/pipeline-gating/dry-run-gate";
 
 const BODY_AGENT_KEY = "debtor-copy-document-body-agent";
 
@@ -261,7 +263,18 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
       );
     }
 
-    const dryRun = settingsRow?.dry_run ?? true;
+    // Phase 110 Plan 04 (D-10 / D-11) — per-stage gate. The invoice-copy draft
+    // is a Stage 4 handler side effect governed by
+    // swarms.dry_run_config.stage_4_handlers["invoice-copy"]. Fold the registry
+    // gate together with the legacy per-mailbox settingsRow flag: blocks if
+    // EITHER blocks. Debtor's seed sets the invoice-copy flag true (gated),
+    // matching labeling_settings.dry_run=true today, so the effective dry_run
+    // value is UNCHANGED.
+    const swarmGate = await step.run("load-swarm-gate", async () =>
+      loadSwarm(admin, swarm_type ?? "debtor-email"),
+    );
+    const handlerBlocked = isHandlerBlocked(swarmGate, "invoice-copy");
+    const dryRun = (settingsRow?.dry_run ?? true) || handlerBlocked;
     const entity = (settingsRow?.entity ?? null) as Entity | null;
 
     if (!entity) {
