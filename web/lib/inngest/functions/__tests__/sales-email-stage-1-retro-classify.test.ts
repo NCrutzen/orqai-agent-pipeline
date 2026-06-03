@@ -223,6 +223,60 @@ describe("Phase 111 sales-email-stage-1-retro-classify", () => {
     expect(byId.get("33333333-3333-3333-3333-333333333333")?.is_noise).toBe(true);
   });
 
+  it("WR-04: a malformed LLM verdict coerces to unknown/low instead of aborting the run", async () => {
+    selectCandidatesMock.mockResolvedValue([
+      candidate("11111111-1111-1111-1111-111111111111", "inbound"),
+      candidate("22222222-2222-2222-2222-222222222222", "inbound"),
+      candidate("33333333-3333-3333-3333-333333333333", "inbound"),
+    ]);
+    // Middle email returns a shape that fails Stage1OutputSchema.parse
+    // (confidence not in the enum). It must NOT throw — coerce to unknown/low.
+    invokeOrqAgentMock
+      .mockResolvedValueOnce(llmVerdict("auto_reply"))
+      .mockResolvedValueOnce({
+        raw: { category_key: "auto_reply", confidence: "BOGUS", reasoning: null },
+        agent: { agent_key: "stage-1-category-classifier" },
+        usage: { total_tokens: 5 },
+      })
+      .mockResolvedValueOnce(llmVerdict("unknown"));
+
+    const result = (await getHandler()({
+      event: BASE_EVENT,
+      step: makeStep(),
+    })) as { processed: number };
+
+    // All 3 candidates produced a row — the bad one did not abort the batch.
+    expect(result.processed).toBe(3);
+    const retroUpserts = state.upserts.filter(
+      (u) => u.table === "stage_1_retro_runs",
+    );
+    expect(retroUpserts).toHaveLength(3);
+    const bad = retroUpserts
+      .map((u) => u.row as { email_id: string; predicted_category_key: string; confidence: string })
+      .find((r) => r.email_id === "22222222-2222-2222-2222-222222222222");
+    expect(bad?.predicted_category_key).toBe("unknown");
+    expect(bad?.confidence).toBe("low");
+  });
+
+  it("WR-04: a thrown invokeOrqAgent error coerces to unknown/low (no run abort)", async () => {
+    selectCandidatesMock.mockResolvedValue([
+      candidate("11111111-1111-1111-1111-111111111111", "inbound"),
+    ]);
+    invokeOrqAgentMock.mockRejectedValueOnce(new Error("orq 500"));
+
+    const result = (await getHandler()({
+      event: BASE_EVENT,
+      step: makeStep(),
+    })) as { processed: number };
+
+    expect(result.processed).toBe(1);
+    const row = state.upserts.find(
+      (u) => u.table === "stage_1_retro_runs",
+    )?.row as { predicted_category_key: string; confidence: string };
+    expect(row.predicted_category_key).toBe("unknown");
+    expect(row.confidence).toBe("low");
+  });
+
   it("side-channel isolation — source references only stage_1_retro_runs among write targets", () => {
     const src = readFileSync(
       join(__dirname, "../sales-email-stage-1-retro-classify.ts"),

@@ -96,14 +96,47 @@ export const salesEmailStage1RetroClassify = inngest.createFunction(
     let total_tokens = 0;
     for (const c of candidates) {
       const tokens: number = await step.run(`classify-${c.email_id}`, async () => {
-        const result = await invokeOrqAgent("stage-1-category-classifier", {
-          subject: c.subject ?? "",
-          body_text: c.body ?? "",
-          categories: categoriesInput,
-        });
-        const parsed = Stage1OutputSchema.parse(result.raw);
+        // Phase 111 WR-04: per-email error isolation. A single malformed LLM
+        // verdict (invokeOrqAgent throw, or Stage1OutputSchema.parse failure)
+        // must NOT abort a 40k-candidate run and burn tokens on retries.
+        // Mirror the live screen-worker D-11 coercion: record an 'unknown'
+        // sentinel row carrying the error and continue. Only a DB write
+        // failure throws (genuinely retryable / fatal).
+        let predicted_category_key: string;
+        let confidence: "low" | "medium" | "high";
+        let model_key: string | null;
+        let total: number;
 
-        const predicted_category_key = parsed.category_key;
+        try {
+          const result = await invokeOrqAgent("stage-1-category-classifier", {
+            subject: c.subject ?? "",
+            body_text: c.body ?? "",
+            categories: categoriesInput,
+          });
+          const parsed = Stage1OutputSchema.parse(result.raw);
+          predicted_category_key = parsed.category_key;
+          confidence = parsed.confidence;
+          model_key = result.agent?.agent_key ?? null;
+          total = result.usage?.total_tokens ?? 0;
+        } catch (err) {
+          // D-11-style coercion: 'unknown' / 'low' sentinel, error recorded.
+          // NOTE: stage_1_retro_runs has no error column (no migration in this
+          // phase per WR-03 constraint), so the failure is captured by the
+          // 'unknown'/'low' sentinel row + a console error for the Inngest run
+          // log. The sentinel keeps the candidate counted (processed total
+          // stays accurate) without aborting the batch.
+          const classify_error =
+            err instanceof Error ? err.message : String(err);
+          console.error(
+            `[sales-email-stage-1-retro-classify] classify failed for email ${c.email_id} (run ${run_id}); coercing to unknown/low:`,
+            classify_error,
+          );
+          predicted_category_key = "unknown";
+          confidence = "low";
+          model_key = "stage-1-category-classifier";
+          total = 0;
+        }
+
         const is_noise = predicted_category_key !== "unknown";
         // would_archive: the predicted noise category's LIVE action is
         // categorize_archive (so the live pipeline would have archived it).
@@ -115,8 +148,6 @@ export const salesEmailStage1RetroClassify = inngest.createFunction(
         const false_archive_suspect =
           would_archive && c.normalized_direction === "inbound";
 
-        const total = result.usage?.total_tokens ?? 0;
-
         const { error: insErr } = (await admin
           .from("stage_1_retro_runs")
           .upsert(
@@ -127,11 +158,11 @@ export const salesEmailStage1RetroClassify = inngest.createFunction(
               source: c.source,
               normalized_direction: c.normalized_direction,
               predicted_category_key,
-              confidence: parsed.confidence,
+              confidence,
               is_noise,
               would_archive,
               false_archive_suspect,
-              model_key: result.agent?.agent_key ?? null,
+              model_key,
               token_usage_total: total,
             },
             { onConflict: "run_id,email_id", ignoreDuplicates: true },
