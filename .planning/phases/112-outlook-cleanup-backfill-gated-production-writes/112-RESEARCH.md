@@ -335,7 +335,7 @@ COMMIT;
 | A4 | A recent `stage_1_retro_runs` disposition exists and is reusable, OR re-classification cost (~850+ rows) is acceptable | Alternatives / Open Questions | Re-classifying the full historic corpus (34k sugar) would be expensive — but D-07 scopes the backfill to live-Outlook-present rows only, bounding it. |
 | A5 | The Bulk Review Stage-1 surface renders `automation_runs status='predicted'` rows inserted by a non-ingest producer (the backfill) | Pattern 3 / Finding 7 | If the surface filters by `triggered_by` or producer, backfill-queued rows won't appear. **Mitigate: match the producer fields the live ingest uses; verify in plan Wave 0.** |
 
-## Open Questions
+## Open Questions (RESOLVED — all are D-01 Claude's-Discretion items settled by the plans: report-mode built in 112-01, canary size 10–25 in 112-03, Graph already-archived probed live at the 112-03 idempotency re-run)
 
 1. **Canary size N + cut (Claude's discretion, D-01).**
    - What we know: the live going-forward stream is ~33 emails/day; high-confidence noise is a fraction.
