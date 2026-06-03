@@ -20,8 +20,27 @@ findings:
   warning: 6
   info: 5
   total: 11
-status: issues_found
+status: resolved
 ---
+
+## Resolution (2026-06-03, --fix)
+
+All 6 WARNINGs applied via gsd-code-fixer (5 Info findings left as-is per default scope):
+
+| Finding | Fix | Commit |
+|---|---|---|
+| WR-01 | gate Stage-4 `auto_archived_noise` telemetry on `archiveLive` (no phantom row when dry-run-blocked) | `def93a88` |
+| WR-02 | `rule_key`/`entity` made optional on `classifier/verdict.recorded` to match emitters | `2c1ecd86` |
+| WR-03 | deterministic `archive_reference_keys` snapshot for `would_archive` (code-only, no migration) | `e63d2df7` |
+| WR-04 | per-email try/catch → `unknown` sentinel; one bad LLM verdict no longer aborts the run | `c4b69066` |
+| WR-05 | per-corpus truncation detection + dedup by `email_id` | `ad2e8517` |
+| WR-06 | fail-loud single-tenant Smeba guard on the sugarcrm corpus | `ad2e8517` |
+
+**Regression caught during fix verification (also fixed):** the full suite (not just `lib/`) surfaced `tests/swarm-registry/verdict-worker-dispatch.test.ts` failing — a **phase-111 regression** the 111-01 executor and the Wave-1 (`lib/`-scoped) gate both missed: the worker now imports `loadSwarm` but that test only mocked `loadSwarmNoiseCategories`. Fixed by adding `loadSwarm`+`isStageBlocked` mocks (`fix(111)` commit).
+
+**Pre-existing failure flagged, NOT phase 111:** `tests/labeling/classifier-invoice-copy-handler.test.ts` fails on an incomplete `@/lib/swarms/brand-register` mock (`loadAllBrandRegisters`). Git history confirms phase 111 never touched `registry.ts`/`brand-register.ts`/that test; the import traces to Phase 69-03 (`a031dcdc`). Out of scope for Phase 111 — recommend a separate one-line mock fix.
+
+Post-fix: 2049 tests pass, typecheck clean; only the pre-existing invoice-copy failure remains.
 
 # Phase 111: Code Review Report
 
