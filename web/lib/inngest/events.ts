@@ -205,13 +205,18 @@ export type Events = {
       automation_run_id: string;
       agent_run_id: string;
       swarm_type: string;
-      rule_key: string;
+      // Phase 111 WR-02: rule_key/entity are OPTIONAL — the
+      // classifier-screen-worker emit sites (emit-verdict-unknown /
+      // emit-verdict) send neither. The consumer (classifier-verdict-worker)
+      // never reads them. Marking optional makes the type match the wire
+      // shape instead of silently lying about a required-field contract.
+      rule_key?: string;
       decision: "approve" | "reject";
       message_id: string;
       source_mailbox: string;
-      entity: string;
+      entity?: string | null;
       predicted_category: string;
-      override_category?: string;
+      override_category?: string | null;
     };
   };
 
