@@ -425,6 +425,11 @@ describe("classifier-screen-worker — Phase 74 Plan 04 RED tests", () => {
   it("REQ-3 / sales-email no-regex → LLM-only path", async () => {
     loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
     loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
+    // Phase 111 Finding-2 gate: a high-confidence LLM verdict now clears to a
+    // recorded verdict ONLY when its `llm:{cat}:{conf}` rule is promoted (Step 5,
+    // swarm-agnostic). Seed the promoted rule so this test exercises the LLM-only
+    // ROUTING path it was written for (Phase 74), not the new promotion gate.
+    readWhitelistMock.mockResolvedValue(new Set(["llm:auto_reply:high"]));
     invokeOrqAgentMock.mockResolvedValue({
       raw: { category_key: "auto_reply", confidence: "high", reasoning: null },
       agent: { agent_key: "stage-1-category-classifier" },
