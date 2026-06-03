@@ -682,6 +682,13 @@ export type Events = {
       until: string;
       sample_limit?: number;
       run_id?: string;
+      // Phase 111 WR-03: FIXED reference disposition for the would_archive
+      // calibration signal. When provided, would_archive is computed against
+      // this explicit set of category keys (deterministic regardless of the
+      // live swarm_noise_categories.action flip apply order). When omitted,
+      // the harness falls back to the LIVE action map and stamps that choice
+      // in the run output so the evidence is still interpretable.
+      archive_reference_keys?: string[];
     };
   };
 };

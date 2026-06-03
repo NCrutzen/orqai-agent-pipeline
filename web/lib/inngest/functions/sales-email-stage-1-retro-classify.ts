@@ -76,6 +76,30 @@ export const salesEmailStage1RetroClassify = inngest.createFunction(
     const actionByKey = new Map(
       enabledCategories.map((c) => [c.category_key, c.action]),
     );
+
+    // Phase 111 WR-03: deterministic would_archive reference.
+    // would_archive feeds the D-09 false-archive calibration signal that the
+    // calibration FLIP (auto_reply/ooo_* → categorize_archive) is supposed to
+    // INFORM. Reading it from the LIVE action map makes the evidence depend on
+    // whether this harness ran before or after the flip migration — the signal
+    // can silently invert across apply order, breaking reproducibility.
+    //
+    // Fix (no migration): if the caller passes an explicit archive_reference_keys
+    // set, would_archive is computed against that FIXED disposition regardless
+    // of the live action map. Otherwise we fall back to the live map but record
+    // which snapshot semantics were in effect in the run output (below), so the
+    // baseline stays interpretable even without an explicit reference.
+    const referenceKeys = event.data.archive_reference_keys;
+    const archiveReferenceSet =
+      referenceKeys && referenceKeys.length > 0
+        ? new Set(referenceKeys)
+        : null;
+    const archiveSnapshot: "fixed_reference" | "live_action_map" =
+      archiveReferenceSet ? "fixed_reference" : "live_action_map";
+    const wouldArchive = (predicted_category_key: string): boolean =>
+      archiveReferenceSet
+        ? archiveReferenceSet.has(predicted_category_key)
+        : actionByKey.get(predicted_category_key) === "categorize_archive";
     const categoriesInput = enabledCategories.map((c) => ({
       category_key: c.category_key,
       display_label: c.display_label,
@@ -138,10 +162,10 @@ export const salesEmailStage1RetroClassify = inngest.createFunction(
         }
 
         const is_noise = predicted_category_key !== "unknown";
-        // would_archive: the predicted noise category's LIVE action is
-        // categorize_archive (so the live pipeline would have archived it).
-        const would_archive =
-          actionByKey.get(predicted_category_key) === "categorize_archive";
+        // would_archive: computed against the deterministic reference resolved
+        // above (fixed archive_reference_keys when provided, else the live
+        // action map). Phase 111 WR-03.
+        const would_archive = wouldArchive(predicted_category_key);
         // false_archive_suspect: a normalized-INBOUND mail (a real lead-shaped
         // incoming message) that a would-archive noise verdict would have
         // archived — the D-09 loopback false-archive signal.
@@ -183,6 +207,13 @@ export const salesEmailStage1RetroClassify = inngest.createFunction(
       processed: candidates.length,
       total_tokens,
       baseline,
+      // Phase 111 WR-03: record which would_archive semantics produced this
+      // baseline so the D-09 loopback enable/disable recommendation is
+      // reproducible and interpretable regardless of the flip apply order.
+      archive_snapshot: archiveSnapshot,
+      archive_reference_keys: archiveReferenceSet
+        ? [...archiveReferenceSet].sort()
+        : null,
     };
   },
 );

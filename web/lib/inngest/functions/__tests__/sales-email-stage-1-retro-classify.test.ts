@@ -223,6 +223,65 @@ describe("Phase 111 sales-email-stage-1-retro-classify", () => {
     expect(byId.get("33333333-3333-3333-3333-333333333333")?.is_noise).toBe(true);
   });
 
+  it("WR-03: would_archive uses the FIXED archive_reference_keys, not the live action map", async () => {
+    // Live map: only auto_reply/ooo_* are categorize_archive (payment_admittance
+    // is manual_review). Pass a reference that DROPS auto_reply and ADDS
+    // payment_admittance — would_archive must follow the reference, proving it
+    // is decoupled from the live action map (deterministic across the flip).
+    selectCandidatesMock.mockResolvedValue([
+      candidate("11111111-1111-1111-1111-111111111111", "inbound"), // auto_reply
+      candidate("22222222-2222-2222-2222-222222222222", "inbound"), // payment_admittance
+    ]);
+    invokeOrqAgentMock
+      .mockResolvedValueOnce(llmVerdict("auto_reply"))
+      .mockResolvedValueOnce(llmVerdict("payment_admittance"));
+
+    const result = (await getHandler()({
+      event: {
+        data: {
+          ...BASE_EVENT.data,
+          archive_reference_keys: ["payment_admittance"],
+        },
+      },
+      step: makeStep(),
+    })) as { archive_snapshot: string; archive_reference_keys: string[] };
+
+    expect(result.archive_snapshot).toBe("fixed_reference");
+    expect(result.archive_reference_keys).toEqual(["payment_admittance"]);
+
+    const byId = new Map(
+      state.upserts
+        .filter((u) => u.table === "stage_1_retro_runs")
+        .map((u) => {
+          const r = u.row as { email_id: string; would_archive: boolean };
+          return [r.email_id, r.would_archive];
+        }),
+    );
+    // auto_reply is categorize_archive LIVE but NOT in the reference → false.
+    expect(byId.get("11111111-1111-1111-1111-111111111111")).toBe(false);
+    // payment_admittance is manual_review LIVE but IS in the reference → true.
+    expect(byId.get("22222222-2222-2222-2222-222222222222")).toBe(true);
+  });
+
+  it("WR-03: without a reference, falls back to live action map and stamps live_action_map", async () => {
+    selectCandidatesMock.mockResolvedValue([
+      candidate("11111111-1111-1111-1111-111111111111", "inbound"),
+    ]);
+    invokeOrqAgentMock.mockResolvedValueOnce(llmVerdict("auto_reply"));
+
+    const result = (await getHandler()({
+      event: BASE_EVENT,
+      step: makeStep(),
+    })) as { archive_snapshot: string; archive_reference_keys: string[] | null };
+
+    expect(result.archive_snapshot).toBe("live_action_map");
+    expect(result.archive_reference_keys).toBeNull();
+    const row = state.upserts.find((u) => u.table === "stage_1_retro_runs")
+      ?.row as { would_archive: boolean };
+    // auto_reply IS categorize_archive in the live NOISE_CATEGORIES map.
+    expect(row.would_archive).toBe(true);
+  });
+
   it("WR-04: a malformed LLM verdict coerces to unknown/low instead of aborting the run", async () => {
     selectCandidatesMock.mockResolvedValue([
       candidate("11111111-1111-1111-1111-111111111111", "inbound"),
