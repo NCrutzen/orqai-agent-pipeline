@@ -109,8 +109,12 @@ vi.mock("@/lib/inngest/client", () => ({
 }));
 
 // ---- Outlook mock (the gated side effects) -------------------------------
-const categorizeEmailMock = vi.fn(async () => ({ success: true, error: null }));
-const archiveEmailMock = vi.fn(async () => ({ success: true, error: null }));
+const categorizeEmailMock = vi.fn(
+  async (..._args: unknown[]) => ({ success: true, error: null }),
+);
+const archiveEmailMock = vi.fn(
+  async (..._args: unknown[]) => ({ success: true, error: null }),
+);
 vi.mock("@/lib/outlook", () => ({
   categorizeEmail: (...args: unknown[]) => categorizeEmailMock(...args),
   archiveEmail: (...args: unknown[]) => archiveEmailMock(...args),

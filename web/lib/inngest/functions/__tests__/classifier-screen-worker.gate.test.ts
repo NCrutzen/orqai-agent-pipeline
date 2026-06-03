@@ -341,6 +341,11 @@ describe("Phase 999.8 D-01 / D-10 — classifier-screen-worker confidence gate",
   });
 
   it("LLM high confidence → emits classifier/verdict.recorded, NOT requires_review", async () => {
+    // Phase 111 Finding 2: this test isolates the CONFIDENCE gate, so seed the
+    // promoted whitelist to satisfy the (now generalized) Wilson promotion
+    // gate — otherwise the verdict would route to requires_review on the
+    // promotion check rather than the confidence check under test here.
+    gateWhitelistSet = new Set<string>(["llm:payment_admittance:high"]);
     invokeOrqAgentMock.mockResolvedValue({
       raw: {
         category_key: "payment_admittance",
