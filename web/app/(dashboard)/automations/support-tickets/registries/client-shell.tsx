@@ -87,8 +87,8 @@ export function RegistriesClientShell({ intents, systems }: Props) {
             Intents (read-only)
           </h2>
           <span style={{ fontSize: "12px", color: "var(--v7-text-muted)" }}>
-            {intents.length} row{intents.length !== 1 ? "s" : ""} —
-            swarm_type='support-tickets'
+            {intents.length} row{intents.length !== 1 ? "s" : ""} —{" "}
+            {"swarm_type='support-tickets'"}
           </span>
         </header>
 
@@ -99,7 +99,7 @@ export function RegistriesClientShell({ intents, systems }: Props) {
               color: "var(--v7-text-muted)",
             }}
           >
-            No intents found for swarm_type='support-tickets'.
+            No intents found for {"swarm_type='support-tickets'"}.
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
