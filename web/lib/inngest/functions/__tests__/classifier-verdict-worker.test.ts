@@ -23,9 +23,13 @@ vi.mock("@/lib/automations/runs/emit", () => ({
 }));
 
 // ---- Outlook helpers (no real Graph calls) -------------------------------
+// Phase 112 Plan 02: named handles so the sales-live tests below can assert
+// the inline categorize/archive call counts (0 when the gate is BLOCKED).
+const categorizeEmailMock = vi.fn(async () => ({ success: true }));
+const archiveEmailMock = vi.fn(async () => ({ success: true }));
 vi.mock("@/lib/outlook", () => ({
-  categorizeEmail: vi.fn(async () => ({ success: true })),
-  archiveEmail: vi.fn(async () => ({ success: true })),
+  categorizeEmail: (...args: unknown[]) => categorizeEmailMock(...args),
+  archiveEmail: (...args: unknown[]) => archiveEmailMock(...args),
 }));
 
 // ---- Registry mocks ------------------------------------------------------
@@ -181,6 +185,10 @@ describe("classifier-verdict-worker — Phase 68 SWRM-04 registry dispatch", () 
     // Default: archive stage is LIVE (not blocked) — preserves pre-111
     // behavior for the registry-dispatch tests below.
     isStageBlockedMock.mockReturnValue(false);
+    categorizeEmailMock.mockReset();
+    categorizeEmailMock.mockResolvedValue({ success: true });
+    archiveEmailMock.mockReset();
+    archiveEmailMock.mockResolvedValue({ success: true });
     inngestSend.mockReset();
     inngestSend.mockResolvedValue({ ids: ["evt"] });
     vi.resetModules();
@@ -319,6 +327,91 @@ describe("classifier-verdict-worker — Phase 68 SWRM-04 registry dispatch", () 
 
     // No phantom archive telemetry row when nothing was actually archived.
     expect(emitPipelineEventMock).not.toHaveBeenCalled();
+  });
+
+  // Phase 112 Plan 02 (CLEANUP-01 / D-03) — sales-email inline live-archive gate.
+  // VERIFY-ONLY: classifier-verdict-worker.ts is NOT edited. These tests prove
+  // the already-correct inline path fires the Outlook archive (and the Stage-4
+  // telemetry) ONLY when stage_1_archive is LIVE for sales — i.e. the go-live
+  // flip migration (20260603x_sales_stage1_archive_golive.sql) is the SOLE
+  // activation trigger, no code change. 111 regression lesson: loadSwarm +
+  // isStageBlocked MUST be mocked or sales stays inert and the test false-passes.
+
+  it("D-03: sales inline archive FIRES (categorize+archive+Stage-4) when gate OPEN", async () => {
+    adminMock = adminWithEmailId("email-uuid-sales-live");
+    loadSwarmMock.mockResolvedValue({
+      swarm_type: "sales-email",
+      dry_run_config: { stage_1_archive: false },
+    });
+    loadCategoriesMock.mockResolvedValueOnce(categorizeArchiveCategories());
+    evaluateSideEffectsMock.mockResolvedValueOnce([]);
+    isStageBlockedMock.mockReturnValue(false); // LIVE — flip applied
+
+    await handler({
+      event: baseEvent({ swarm_type: "sales-email", predicted_category: "auto_reply" }),
+      step: stepStub,
+    });
+
+    expect(categorizeEmailMock).toHaveBeenCalledTimes(1);
+    expect(archiveEmailMock).toHaveBeenCalledTimes(1);
+    expect(emitPipelineEventMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        stage: 4,
+        decision: "auto_archived_noise",
+        email_id: "email-uuid-sales-live",
+      }),
+    );
+  });
+
+  it("D-03/WR-01: sales inline archive is INERT when gate BLOCKED (0 archive + 0 Stage-4)", async () => {
+    adminMock = adminWithEmailId("email-uuid-sales-blocked");
+    loadSwarmMock.mockResolvedValue({
+      swarm_type: "sales-email",
+      dry_run_config: { stage_1_archive: true },
+    });
+    loadCategoriesMock.mockResolvedValueOnce(categorizeArchiveCategories());
+    evaluateSideEffectsMock.mockResolvedValueOnce([]);
+    isStageBlockedMock.mockReturnValue(true); // BLOCKED — flip not applied
+
+    await handler({
+      event: baseEvent({ swarm_type: "sales-email", predicted_category: "auto_reply" }),
+      step: stepStub,
+    });
+
+    // No live Outlook write and no phantom Stage-4 telemetry (WR-01).
+    expect(categorizeEmailMock).not.toHaveBeenCalled();
+    expect(archiveEmailMock).not.toHaveBeenCalled();
+    expect(emitPipelineEventMock).not.toHaveBeenCalled();
+  });
+
+  it("D-08: Stage-4 emit unique-violation (23505) is swallowed (idempotent no-op)", async () => {
+    adminMock = adminWithEmailId("email-uuid-sales-dup");
+    loadSwarmMock.mockResolvedValue({
+      swarm_type: "sales-email",
+      dry_run_config: { stage_1_archive: false },
+    });
+    loadCategoriesMock.mockResolvedValueOnce(categorizeArchiveCategories());
+    evaluateSideEffectsMock.mockResolvedValueOnce([]);
+    isStageBlockedMock.mockReturnValue(false); // LIVE
+    // Re-run on an already-archived email → unique index violation on the
+    // pipeline_events Stage-4 ledger row. Must be swallowed, not thrown.
+    emitPipelineEventMock.mockRejectedValueOnce(
+      Object.assign(new Error("duplicate key value violates unique constraint \"pipeline_events_one_per_stage_email\""), {
+        code: "23505",
+      }),
+    );
+
+    await expect(
+      handler({
+        event: baseEvent({ swarm_type: "sales-email", predicted_category: "auto_reply" }),
+        step: stepStub,
+      }),
+    ).resolves.toMatchObject({ ok: true });
+
+    // The archive still fired; the duplicate ledger write was a no-op.
+    expect(archiveEmailMock).toHaveBeenCalledTimes(1);
+    expect(emitPipelineEventMock).toHaveBeenCalledTimes(1);
   });
 
   it("dispatches inngest_event descriptors via inngest.send", async () => {
