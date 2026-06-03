@@ -121,10 +121,16 @@ export const classifierVerdictWorker = inngest.createFunction(
           // Convention (dry-run-gate): isStageBlocked TRUE = BLOCKED (dry-run),
           // FALSE = LIVE, MISSING = blocked (fail-closed). Sales is all-blocked
           // → stays inert until Phase 112 wires go-live. Swarm-agnostic.
-          if (
-            category.outlook_label &&
-            !isStageBlocked(swarmRow, "stage_1_archive")
-          ) {
+          // Phase 111 WR-01: capture the archive-live condition ONCE so the
+          // Stage-4 "auto_archived_noise" telemetry emit below is gated on the
+          // exact same predicate as the inline Outlook archive. Without this,
+          // a dry-run-BLOCKED sales verdict (no live archive) still wrote a
+          // pipeline_events row asserting the email left the inbox — a phantom
+          // archive signal that pollutes the handled-overview surface.
+          const archiveLive =
+            !!category.outlook_label &&
+            !isStageBlocked(swarmRow, "stage_1_archive");
+          if (archiveLive) {
             await step.run("categorize", async () => {
               const r = await categorizeEmail(
                 source_mailbox,
@@ -260,6 +266,12 @@ export const classifierVerdictWorker = inngest.createFunction(
           // (UNIQUE on email_id + swarm_type + stage WHERE email_id IS NOT NULL).
           // Stage 4 success row is informational only — hard-separation preserved
           // (no intent fields, no dispatch; Stage 1 noise registry untouched).
+          //
+          // Phase 111 WR-01: gate the emit on `archiveLive`. The Stage-4
+          // "auto_archived_noise" row asserts the email left the inbox; only
+          // write it when the inline archive actually fired. Dry-run-blocked
+          // (sales) verdicts skip it so no phantom archive telemetry lands.
+          if (archiveLive) {
           await step.run("emit-stage-4-handled", async () => {
             // Resolve email_pipeline.emails.id from Outlook message_id. We can't
             // reuse `emailRow` above — it's only loaded when stage1Dispatches
@@ -315,6 +327,7 @@ export const classifierVerdictWorker = inngest.createFunction(
               throw err;
             }
           });
+          }
           break;
         }
         case "swarm_dispatch": {

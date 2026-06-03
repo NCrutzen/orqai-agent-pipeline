@@ -46,6 +46,18 @@ vi.mock("@/lib/swarms/side-effects", () => ({
   evaluateSideEffects: (...args: unknown[]) => evaluateSideEffectsMock(...args),
 }));
 
+// Phase 111 WR-01: spy on the Stage-4 telemetry emit so we can assert it is
+// SKIPPED when the inline archive is dry-run-blocked (archiveLive === false).
+const emitPipelineEventMock = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/pipeline-events/emit", () => ({
+  emitPipelineEvent: (...args: unknown[]) => emitPipelineEventMock(...args),
+}));
+
+const isStageBlockedMock = vi.fn();
+vi.mock("@/lib/pipeline-gating/dry-run-gate", () => ({
+  isStageBlocked: (...args: unknown[]) => isStageBlockedMock(...args),
+}));
+
 // ---- Supabase admin mock -------------------------------------------------
 type Insert = Record<string, unknown>;
 type Update = Record<string, unknown>;
@@ -163,6 +175,12 @@ describe("classifier-verdict-worker — Phase 68 SWRM-04 registry dispatch", () 
       dry_run_config: { stage_1_archive: false },
     });
     evaluateSideEffectsMock.mockReset();
+    emitPipelineEventMock.mockReset();
+    emitPipelineEventMock.mockResolvedValue(undefined);
+    isStageBlockedMock.mockReset();
+    // Default: archive stage is LIVE (not blocked) — preserves pre-111
+    // behavior for the registry-dispatch tests below.
+    isStageBlockedMock.mockReturnValue(false);
     inngestSend.mockReset();
     inngestSend.mockResolvedValue({ ids: ["evt"] });
     vi.resetModules();
@@ -224,6 +242,83 @@ describe("classifier-verdict-worker — Phase 68 SWRM-04 registry dispatch", () 
       (r) => r.automation === "debtor-email-cleanup",
     );
     expect(cleanupRow).toBeUndefined();
+  });
+
+  // Phase 111 WR-01 ------------------------------------------------------
+  // The Stage-4 "auto_archived_noise" telemetry emit must be gated on the
+  // SAME archive-live predicate as the inline Outlook archive. A dry-run-
+  // blocked verdict (sales) must NOT write a phantom archive row.
+  function adminWithEmailId(emailId: string) {
+    const base = makeAdmin();
+    const origSchema = base.schema;
+    // Override the email_pipeline read chain so the Stage-4 id-lookup
+    // resolves a real id (the default makeAdmin returns null → emit skips
+    // even when live, which wouldn't isolate the gate).
+    base.schema = vi.fn((schema: string) => {
+      if (schema === "email_pipeline") {
+        const chain: Record<string, unknown> = {};
+        chain.select = vi.fn(() => chain);
+        chain.eq = vi.fn(() => chain);
+        chain.or = vi.fn(() => chain);
+        chain.limit = vi.fn(() => chain);
+        chain.maybeSingle = vi.fn(async () => ({
+          data: { id: emailId, sender_email: null, subject: null, received_at: null },
+          error: null,
+        }));
+        return { from: vi.fn(() => chain) };
+      }
+      return (origSchema as (s: string) => unknown)(schema);
+    }) as typeof base.schema;
+    return base;
+  }
+
+  const categorizeArchiveCategories = () => [
+    {
+      swarm_type: "sales-email",
+      category_key: "auto_reply",
+      display_label: "Auto-Reply",
+      outlook_label: "Auto-Reply",
+      action: "categorize_archive",
+      swarm_dispatch: null,
+      display_order: 10,
+      enabled: true,
+    },
+  ];
+
+  it("WR-01: emits Stage-4 auto_archived_noise when archive is LIVE", async () => {
+    adminMock = adminWithEmailId("email-uuid-live");
+    loadCategoriesMock.mockResolvedValueOnce(categorizeArchiveCategories());
+    evaluateSideEffectsMock.mockResolvedValueOnce([]);
+    isStageBlockedMock.mockReturnValue(false); // LIVE
+
+    await handler({
+      event: baseEvent({ swarm_type: "sales-email", predicted_category: "auto_reply" }),
+      step: stepStub,
+    });
+
+    expect(emitPipelineEventMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        stage: 4,
+        decision: "auto_archived_noise",
+        email_id: "email-uuid-live",
+      }),
+    );
+  });
+
+  it("WR-01: does NOT emit Stage-4 telemetry when archive is dry-run BLOCKED", async () => {
+    adminMock = adminWithEmailId("email-uuid-blocked");
+    loadCategoriesMock.mockResolvedValueOnce(categorizeArchiveCategories());
+    evaluateSideEffectsMock.mockResolvedValueOnce([]);
+    isStageBlockedMock.mockReturnValue(true); // BLOCKED (sales dry-run)
+
+    await handler({
+      event: baseEvent({ swarm_type: "sales-email", predicted_category: "auto_reply" }),
+      step: stepStub,
+    });
+
+    // No phantom archive telemetry row when nothing was actually archived.
+    expect(emitPipelineEventMock).not.toHaveBeenCalled();
   });
 
   it("dispatches inngest_event descriptors via inngest.send", async () => {
