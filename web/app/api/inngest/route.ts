@@ -50,6 +50,7 @@ import { stage3Dispatcher } from "@/lib/inngest/functions/stage-3-dispatcher";
 import { debtorEmailOverrideHandler } from "@/lib/inngest/functions/debtor-email-override-handler";
 import { patternsRecommenderCron } from "@/lib/inngest/functions/promotion-recommender-cron";
 import { debtorEmailStage3RetroClassify } from "@/lib/inngest/functions/debtor-email-stage-3-retro-classify";
+import { salesEmailStage1RetroClassify } from "@/lib/inngest/functions/sales-email-stage-1-retro-classify";
 import { phase87ReadinessNotify } from "@/lib/inngest/functions/phase-87-readiness-notify";
 import { pipelineHealthMonitor } from "@/lib/inngest/functions/pipeline-health-monitor";
 import { pipelineHealthWeeklyDigest } from "@/lib/inngest/functions/pipeline-health-weekly-digest";
@@ -97,6 +98,7 @@ export const { GET, POST, PUT } = serve({
     debtorEmailOverrideHandler,
     patternsRecommenderCron,
     debtorEmailStage3RetroClassify,
+    salesEmailStage1RetroClassify,
     phase87ReadinessNotify,
     pipelineHealthMonitor,
     pipelineHealthWeeklyDigest,
