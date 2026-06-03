@@ -40,6 +40,9 @@ const worse = (a: Status, b: Status): Status => (RANK[a] >= RANK[b] ? a : b);
 interface SwarmSnapshot {
   swarm_type: string;
   mode: "live";
+  // Phase 110 Plan 04 (D-12) — per-mailbox dimension. null = swarm aggregate;
+  // an address = a per-mailbox breakdown row written alongside the aggregate.
+  source_mailbox: string | null;
   queue_depth: number;
   failures_6h: number;
   throughput_6h: number;
@@ -123,11 +126,16 @@ export const pipelineHealthMonitor = inngest.createFunction(
                 );
 
           // previous snapshot (rolling-window reference)
+          // Phase 110 Plan 04 (D-12) — scope the rolling-window reference to the
+          // swarm AGGREGATE row (source_mailbox IS NULL). Without this filter the
+          // new per-mailbox rows would race into the .limit(1) read and corrupt
+          // the went-silent / transition-into-error comparison.
           const { data: prevData } = await admin
             .from("pipeline_health_snapshots")
             .select("status, throughput_6h")
             .eq("swarm_type", swarm)
             .eq("mode", "live")
+            .is("source_mailbox", null)
             .order("checked_at", { ascending: false })
             .limit(1);
           const prev = (prevData?.[0] as PrevRow | undefined) ?? null;
@@ -186,6 +194,7 @@ export const pipelineHealthMonitor = inngest.createFunction(
           const snap: SwarmSnapshot = {
             swarm_type: swarm,
             mode: "live",
+            source_mailbox: null, // swarm aggregate
             queue_depth: qd,
             failures_6h: fl,
             throughput_6h: tp,
@@ -194,6 +203,56 @@ export const pipelineHealthMonitor = inngest.createFunction(
             notes: notes.join("; "),
           };
           snaps.push(snap);
+
+          // Phase 110 Plan 04 (D-12) — per-mailbox breakdown. Sales
+          // automation_runs.mailbox_id is null, so the uniform key is the text
+          // source_mailbox read from automation_runs.result JSONB. We tally
+          // completed/failed per source_mailbox over the window and write one
+          // extra snapshot row per mailbox (source_mailbox populated) alongside
+          // the aggregate above. Sales is single-mailbox (verkoop@smeba.nl)
+          // today so its per-mailbox row mirrors the aggregate; the dimension is
+          // forward-looking for multi-mailbox swarms. Status is left 'ok' on the
+          // breakdown rows — alerting stays driven by the aggregate to avoid
+          // duplicate alert emails.
+          const { data: mailboxRows } = await admin
+            .from("automation_runs")
+            .select("status, result")
+            .eq("swarm_type", swarm)
+            .in("status", ["completed", "failed"])
+            .gte("created_at", sinceIso);
+
+          const perMailbox = new Map<
+            string,
+            { completed: number; failed: number }
+          >();
+          for (const r of ((mailboxRows as
+            | Array<{ status: string; result: unknown }>
+            | null) ?? [])) {
+            const result = (r.result ?? {}) as { source_mailbox?: unknown };
+            const mb =
+              typeof result.source_mailbox === "string" &&
+              result.source_mailbox.length > 0
+                ? result.source_mailbox
+                : null;
+            if (mb == null) continue;
+            const agg = perMailbox.get(mb) ?? { completed: 0, failed: 0 };
+            if (r.status === "completed") agg.completed += 1;
+            else agg.failed += 1;
+            perMailbox.set(mb, agg);
+          }
+          for (const [mb, agg] of perMailbox) {
+            snaps.push({
+              swarm_type: swarm,
+              mode: "live",
+              source_mailbox: mb,
+              queue_depth: 0, // queue depth is a swarm-level metric; aggregate row owns it
+              failures_6h: agg.failed,
+              throughput_6h: agg.completed,
+              heartbeat_age_minutes: null,
+              status: "ok",
+              notes: `per-mailbox: ${agg.completed} completed, ${agg.failed} failed (${WINDOW_HOURS}h)`,
+            });
+          }
 
           // Immediate alert ONLY on transition into error.
           if (status === "error" && prev?.status !== "error") {
@@ -214,6 +273,7 @@ export const pipelineHealthMonitor = inngest.createFunction(
             snaps.map((s) => ({
               swarm_type: s.swarm_type,
               mode: s.mode,
+              source_mailbox: s.source_mailbox,
               queue_depth: s.queue_depth,
               failures_6h: s.failures_6h,
               throughput_6h: s.throughput_6h,

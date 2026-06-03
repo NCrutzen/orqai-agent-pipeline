@@ -34,6 +34,8 @@ import {
   isKnownMailbox,
 } from "@/lib/automations/debtor-email/mailboxes";
 import { evaluateSideEffects } from "@/lib/swarms/side-effects";
+import { loadSwarm } from "@/lib/swarms/registry";
+import { isStageBlocked } from "@/lib/pipeline-gating/dry-run-gate";
 
 // Inngest's typed `inngest.send` would reject a runtime-built event name
 // here as well; we know the name statically but use the cast pattern from
@@ -97,7 +99,19 @@ export const stage2CustomerResolver = inngest.createFunction(
       return { ok: false, reason: "email_not_found" };
     }
 
-    const dryRun = settingsRow?.dry_run ?? true;
+    // Phase 110 Plan 04 (D-10 / D-11) — per-stage gate. The labeling write is a
+    // Stage 2/3 side effect governed by swarms.dry_run_config.stage_3_labeling.
+    // We fold the registry gate together with the legacy per-mailbox
+    // settingsRow flag: the effective gate blocks if EITHER blocks. For debtor
+    // both are true today (labeling_settings.dry_run=true uniformly per OQ-1 and
+    // the seed sets stage_3_labeling=true), so the effective value is UNCHANGED.
+    // Keeping the settingsRow read preserves the per-mailbox layer for any future
+    // divergence; the registry gate makes the swarm the source of truth.
+    const swarmGate = await step.run("load-swarm-gate", async () =>
+      loadSwarm(admin, swarm_type ?? "debtor-email"),
+    );
+    const labelingBlocked = isStageBlocked(swarmGate, "stage_3_labeling");
+    const dryRun = (settingsRow?.dry_run ?? true) || labelingBlocked;
     const nxtDatabase: string | null = settingsRow?.nxt_database ?? null;
     const brandId: string | null = settingsRow?.brand_id ?? null;
 

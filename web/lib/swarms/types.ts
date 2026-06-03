@@ -68,6 +68,16 @@ export interface SwarmRow {
   // Source of truth: public.swarms.tenant_domains (jsonb NOT NULL DEFAULT '[]').
   // Codegen mirror: web/lib/automations/debtor-email/coordinator/tenant-domains.generated.ts.
   tenant_domains: string[];
+  // Phase 110 Plan 04 (D-10 / D-11) — per-stage dry-run governance map.
+  // Source of truth: public.swarms.dry_run_config (jsonb NOT NULL DEFAULT '{}').
+  // Read exclusively via web/lib/pipeline-gating/dry-run-gate. A flag value
+  // TRUE = blocked (dry-run), FALSE = live, MISSING = blocked (fail-closed).
+  // Optional in TS so pre-Phase-110 fixtures and rows pulled before the ALTER
+  // remain assignable (same precedent as requires_orchestration?). The gate
+  // helper treats null/undefined identically (fail-closed → blocked).
+  dry_run_config?:
+    | import("../pipeline-gating/dry-run-gate").DryRunConfig
+    | null;
 }
 
 // Phase 68 — one row in public.swarm_intents. Composite PK (swarm_type, intent_key).
