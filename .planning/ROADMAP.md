@@ -272,7 +272,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 110. Visibility Foundation | 1/4 | In Progress|  |
+| 110. Visibility Foundation | 3/4 | In Progress|  |
 | 111. Stage 1 Noise Expansion + Calibration | 0/TBD | Not started | - |
 | 112. Outlook Cleanup + Backfill | 0/TBD | Not started | - |
 | 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
@@ -304,8 +304,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 110-02-PLAN.md — Wave 2: low-risk generalization — email_id hydrator anchor + per-swarm codegen maps + un-404 route (also un-404s info-routing) + sidebar entry (REVIEW-01, SWARM-01 codegen half, SWARM-02 surface half)
-- [ ] 110-03-PLAN.md — Wave 2: HIGHEST-RISK — coordinator SWARM_TYPE→payload + wildcard `*/coordinator.requested`; debtor Stage-3 behavior provably unchanged (SWARM-02, D-09)
+- [x] 110-02-PLAN.md — Wave 2: low-risk generalization — email_id hydrator anchor + per-swarm codegen maps + un-404 route (also un-404s info-routing) + sidebar entry (REVIEW-01, SWARM-01 codegen half, SWARM-02 surface half)
+- [x] 110-03-PLAN.md — Wave 2: HIGHEST-RISK — coordinator SWARM_TYPE→payload + wildcard `*/coordinator.requested`; debtor Stage-3 behavior provably unchanged (SWARM-02, D-09)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -431,7 +431,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 1/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 
