@@ -2,7 +2,7 @@
 phase: 110-visibility-foundation-bulk-review-swarm-row-enrichment-inges
 plan: 04
 subsystem: agentic-pipeline / swarm-registry / pipeline-gating
-status: BLOCKED — Task 4 remote schema push gated on expired Supabase Management API token
+status: Tasks 1-4 COMPLETE (migrations applied to remote 2026-06-03 via MCP after OAuth re-link); Task 5 human governance checkpoint awaiting operator approval
 tags: [SWARM-01, VERIFY-01, D-10, D-11, D-12, dry-run-gate, per-mailbox-health, sugar-disposition]
 requires:
   - 110-01 (dry-run-gate-preservation RED contract)
@@ -88,7 +88,32 @@ Per-stage dry-run governance gate wired across the four debtor side-effect worke
 ### D-13 conflict (on record for operator disposition)
 CONTEXT **D-13's premise — "Sugar never connected, count==0" — is FACTUALLY WRONG**. The live count is **34,725** historical sales-email-analyzer rows on `verkoop@smeba.nl`. This is a source-conflict **flagged for operator disposition**, NOT touched this phase (no delete/mark/migrate — D-13 forbids machinery). Dead-code/data cleanup is out of Phase 110 scope; **Phase 115 (SugarCRM dead-code decommission) owns it.**
 
-## BLOCKER — Task 4 [BLOCKING] remote schema push (authentication gate)
+## RESOLUTION — Task 4 applied (2026-06-03, post-block)
+
+The blocker below was cleared by **re-authenticating the Supabase MCP OAuth grant to the Agent-Workforce org** (`oavpdqisdpzxqttgdgpt`) — the previous grant was bound to org `oxgcrcrxhmkzlyezyflb`, which has no access to `mvqjhlxfvtqqubqgdvhz`. After re-link, the three migrations were applied in order via MCP `apply_migration` (all returned `{"success":true}`):
+1. `20260603_sales_swarm_full_funnel_enrichment` ✓
+2. `20260603b_swarms_dry_run_config` ✓
+3. `20260603c_pipeline_health_per_mailbox` ✓
+
+**Live verification (2026-06-03 post-apply):**
+| Check | Result |
+|-------|--------|
+| sales `entity_brand` | `['smeba']` ✓ |
+| sales `stage3_coordinator_agent_key` | `'sales-intent-agent'` ✓ |
+| sales `dry_run_config` | all side-effects `true` (blocked), `stage_4_handlers={}` ✓ |
+| sales `swarm_intents` / `side_effects` | `0` / `[]` → Stage 2/3 inert ✓ |
+| **debtor `dry_run_config.stage_1_cleanup`** | **`false` (LIVE preserved)** ✓ |
+| `entity.generated.ts` | `"sales-email": ["smeba"]` — regenerated + committed `c774f989` ✓ |
+| `npm run check:supabase` | 0 ERROR / 6 WARN / 23 INFO — **green** ✓ |
+| MCP security advisor | 0 ERROR (swarms + pipeline_health_snapshots inherit existing policies) ✓ |
+| `email_pipeline.emails source='sugarcrm'` | **34,725** (D-13 conflict confirmed; untouched → Phase 115) |
+| `verkoop@smeba.nl` Outlook | 848 (~33/day, up from 832 on push-day) |
+
+**Outstanding (time-based, not a blocker):** the per-mailbox `pipeline_health_snapshots` row for `verkoop@smeba.nl` (`source_mailbox` populated) appears only after the next `pipeline-health-monitor` cron tick — column + composite index are live and 0 per-mailbox rows exist yet. Task 5 (human governance checkpoint) is awaiting the operator's "approved".
+
+---
+
+## BLOCKER (HISTORICAL — cleared, see RESOLUTION above) — Task 4 [BLOCKING] remote schema push (authentication gate)
 
 The three migrations are written and committed but **NOT applied to the remote project**. Every available apply path is blocked:
 
