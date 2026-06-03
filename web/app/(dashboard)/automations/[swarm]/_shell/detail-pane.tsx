@@ -33,7 +33,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Check, MailOpen, SkipForward, Undo2, X } from "lucide-react";
+import { Check, SkipForward, Undo2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { SwarmNoiseCategoryRow, SwarmIntentRow } from "@/lib/swarms/types";
@@ -65,6 +65,7 @@ import { Stage1Widget } from "./components/stage-1-widget";
 import { Stage2OverrideWidget } from "./components/stage-2-widget";
 import { Stage3OverrideWidget } from "./components/stage-3-widget";
 import { Stage0Widget } from "./components/stage-0-widget";
+import { EmailBodyBlock } from "./components/email-body-block";
 import type { PredictedRow } from "../stage-1/page";
 import { approvePrediction } from "../stage-1/actions";
 import { useSelection } from "./selection-context";
@@ -276,7 +277,9 @@ function DetailPaneInner({
   const { markPendingRemovalAndAdvance } = useSelection();
 
   const [stage0Value, setStage0Value] = useState<boolean | null>(null);
-  const [bodyOpen, setBodyOpen] = useState(false);
+  // Phase 04.1 Plan 05 — bodyOpen state moved into EmailBodyBlock; the "e"
+  // keyboard shortcut is now handled inside that component's window-event
+  // listener.
 
   // Phase 82.5 Plan 05 (R6) — future-pill expansion state. Reset to false on
   // row change so each selection starts with trailing skipped stages collapsed.
@@ -307,12 +310,9 @@ function DetailPaneInner({
     }
   }, [row.id, bodyText, bodyHtml]);
 
-  // Wire toggle-body window event so keyboard shortcut "e" flips body open.
-  useEffect(() => {
-    const onToggle = () => setBodyOpen((p) => !p);
-    window.addEventListener(KEYBOARD_EVENTS.toggleBody, onToggle);
-    return () => window.removeEventListener(KEYBOARD_EVENTS.toggleBody, onToggle);
-  }, []);
+  // Phase 04.1 Plan 05 — "e" keyboard shortcut "toggle body" listener moved
+  // into EmailBodyBlock. KEYBOARD_EVENTS.toggleBody is still dispatched from
+  // keyboard-shortcuts.tsx; the new component listens on the same event name.
 
   // Wire action-footer dispatch via window events. Plan 06 layers real
   // server-action calls; Wave 1 just wires the event channel.
@@ -680,38 +680,20 @@ function DetailPaneInner({
         <div data-testid="icontroller-banner-slot">{iControllerBanner}</div>
       ) : null}
 
-      <section
-        style={{ padding: "var(--space-4)" }}
-        data-testid="email-body-section"
-      >
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setBodyOpen((p) => !p)}
-          data-testid="toggle-body-button"
-        >
-          <MailOpen className="h-4 w-4 mr-1" aria-hidden="true" />
-          {bodyOpen ? "Hide email" : "Show full email"}
-        </Button>
-        {bodyOpen && (
-          <div
-            data-testid="email-body-content"
-            style={{
-              marginTop: "var(--space-3)",
-              padding: "var(--space-3)",
-              background: "var(--v7-panel-2)",
-              borderRadius: "var(--v7-radius-sm)",
-              fontSize: 13,
-              whiteSpace: "pre-wrap",
-              maxHeight: 320,
-              overflowY: "auto",
-            }}
-          >
-            {bodyText ?? "(no body available)"}
-          </div>
-        )}
-      </section>
+      {/* Phase 04.1 Plan 05 — body block + toolbar + ThreadModal extracted
+          into EmailBodyBlock. Rendered ONCE per row at the detail-pane level
+          (P4.1-D-09 REVISED 2026-05-27). Stage Read columns do NOT import it;
+          inline-expand-row.tsx UNTOUCHED. The conversation_id /
+          message_count fields are not yet on Row (Phase 82 _lib/types.ts) —
+          pass null until a future plan extends Row. */}
+      <EmailBodyBlock
+        email_id={row.id}
+        conversation_id={null}
+        message_count={null}
+        swarm_type={swarmType}
+        body_text={bodyText}
+        active_stage_border_token={`var(--v7-stage-${activeStage}-accent)`}
+      />
 
       <section
         style={{ padding: "var(--space-4)" }}

@@ -2,7 +2,9 @@
 phase: 88
 title: UAT findings — review-surface-cleanup
 date: 2026-05-20
-status: open
+status: resolved
+operator_uat_closed: 2026-06-01
+resolution: "All UAT findings (F-01/F-02/F-03) fixed + migration 20260521_phase88_classifier_queue_verdict_pending applied to prod + smoke-validated 2026-05-20. Closed 2026-06-01."
 ---
 
 # Phase 88 UAT findings — 2026-05-20

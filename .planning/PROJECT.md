@@ -8,7 +8,7 @@ The original "browser-UI agent-swarm builder" thesis (V3.0–V6.0) was paused 20
 
 ## Core Value
 
-Every recurring email-driven process at Moyne Roberts gets a swarm. New swarms onboard via registry INSERTs (Phase 68) without code changes. Operators give per-email feedback that the system distils into new rules and intents (V9.0). Top-volume intents become handlers in priority order (V11.0).
+Every recurring email-driven process at Moyne Roberts gets a swarm. New swarms onboard via registry INSERTs (Phase 68) without code changes. Operators give per-email feedback that the system distils into new rules and intents (V10.0 self-learning; re-sequenced 2026-06-02). Top-volume intents become handlers in priority order (V11.0).
 
 The product is no longer "a colleague creates a swarm via a browser UI." The product is "a swarm exists for every business process that needs one, and it self-improves from operator feedback."
 
@@ -87,15 +87,15 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 - [x] Cross-swarm handler-agent canonicalisation (Phase 69)
 - [x] Single canonical `pipeline_events` table (Phase 70) — *coverage gap, see Phase 82.2*
 - [x] Stage 1 LLM Category Classifier — swarm-agnostic (Phase 74)
-- [x] **Sales-email Stage 0/1 canary**: 181 emails ingested (30d), 91% Stage 0 reach, Stage 1 LLM classifying — corpus accruing for V10.0 rule design. (Was Half B of original v8.0 charter; satisfied incidentally by Phase 74 rollout.)
+- [x] **Sales-email Stage 0/1 canary**: 181 emails ingested (30d), 91% Stage 0 reach, Stage 1 LLM classifying — corpus accruing for V9.0 rule + intent design (re-sequenced 2026-06-02). (Was Half B of original v8.0 charter; satisfied incidentally by Phase 74 rollout.)
 - [x] **Phase 82.2** — Stage 0 telemetry coverage fix (debtor mailboxes ≥99%)
 - [x] **Phase 82.3** — Per-stage audit surface (click-through popup with verdict + evidence + screenshots)
 - [x] **Phase 82.4** — Feedback capture infrastructure (`email_feedback` table + Stage 2/3 forms + history view)
 - [x] **Phase 82.9** — Stage 2 audit-panel evidence expansion (resolver inputs + LLM tiebreaker reasoning)
 - [x] **Phase 83** — Body ingestion fix (1344 priors backfilled; Stage 1+3 read full thread)
 - [x] **Phase 089** — Stage 1 LLM 2nd-pass auto-action promotion track (839 rows backfilled)
-- [→] Promotion recommender + Learning Inbox **synthesis layer** — **moved to V9.0** (T2 draft-proposer on top of 82.4 capture)
-- [→] Sales-email full operator onboarding — **moved to V10.0** (Stage 2 Sugar resolver, Stage 3 sales intent agent, multi-operator handling)
+- [→] Promotion recommender + Learning Inbox **synthesis layer** — **moved to V10.0** (re-sequenced 2026-06-02; T2 draft-proposer on top of 82.4 capture + reply-tracing)
+- [→] Sales-email full operator onboarding — **moved to V9.0, Outlook-driven** (re-sequenced 2026-06-02; SugarCRM deprecated — Stage 2 reuses the v8.2 NXT resolver by config, Stage 3 sales intent agent, multi-operator handling)
 
 ### Active
 
@@ -110,11 +110,15 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 
 ### Defined (not yet active)
 
-**V9.0 Promotion Recommender + Learning Inbox** — single-operator prose-feedback synthesis. Stage 2 sparse corrections (Stream A) + Stage 3 row-by-row intent review (Stream B). T2 draft-proposer tier: LLM clusters feedback, drafts concrete system changes, operator one-click approves. New intents typed by operator apply immediately. Wilson-CI noise-rule promotion (existing) coexists, not absorbed.
+**Roadmap re-sequenced 2026-06-02 (operator):** the debtor track (v8.2) and sales track (V9.0) now run in **parallel** instead of serially. Sales-email and the self-learning milestone swapped slots (V9.0 ↔ V10.0) because the debiteuren-afdeling is slow to validate Stage-2 matching, and **SugarCRM is being deprecated** — sales moves to Outlook and can ship fast without waiting on debtor validation or the self-learning layer. See MILESTONES.md V9.0/V10.0 re-sequencing notes.
 
-**V10.0 Sales-email canonical pipeline** — `verkoop@smeba.nl` runs the same 5-stage funnel as debtor-email end-to-end. New sales-email-specific Stage 2 Sugar-account resolver; sales-email Stage 3 intent agent; Phase 78 actually executed. V10.0 is the second customer of V9.0's feedback infrastructure — also introduces multi-operator handling.
+**v8.2 Stage 2 Resolution Recall** _(debtor track — runs parallel with V9.0)_ — generic, cross-swarm entity-resolution substrate (Index + Engine + Source Adapters), registry-configured per swarm. Lifts Stage 2 recall (~65% unresolved → ~35%): ~17% high-precision auto-resolve + ~56% ranked suggestions (HITL). Debtor-email first consumer; **sales-email (now V9.0) reuses the same NXT Engine by per-swarm config** — no SugarCRM adapter. Gated on operator (debiteuren-afdeling) validation of the matching. Validated via spike 005–010b (`.planning/spikes/010-comprehensive-backtest/DESIGN-GUIDE.md`). See MILESTONES.md for the full RESL-xx requirements + P0–P5 phases.
 
-**V11.0 Intent-prioritised handlers** — top-N most-frequent uncovered Stage 3 intents become first-class Stage 4 handlers per milestone. Reads V10.0's intent-volume signal. Coverage dashboard + handler-scaffolding template + dispatch via `swarm_intents`.
+**V9.0 Sales-email canonical pipeline — Outlook-driven** _(was V10.0; re-sequenced 2026-06-02)_ — `verkoop@smeba.nl` runs the same 5-stage funnel as debtor-email end-to-end, **driven from Outlook** (SugarCRM deprecated; `sales-email-analyzer/` retired). **Stage 2 reuses the v8.2 NXT resolver by config** (no Sugar lookup); sales-email-specific Stage 3 intent agent; Phase 78 actually executed. Runs in parallel with v8.2; no longer depends on the self-learning milestone. Multi-operator capture scaffolded here (reconciled in V10.0).
+
+**V10.0 Promotion Recommender + Learning Inbox + reply-tracing** _(was V9.0; re-sequenced 2026-06-02)_ — prose-feedback synthesis across **two** operator streams (debtor + V9.0 sales). Stage 2 sparse corrections (Stream A) + Stage 3 row-by-row intent review (Stream B) + **reply-tracing** (outbound Outlook replies linked to the inbound `pipeline_event` = no-form ground-truth signal). T2 draft-proposer tier: LLM clusters feedback, drafts concrete system changes, operator one-click approves. New intents apply immediately. Multi-operator vocabulary-reconciliation folds in here. Wilson-CI noise-rule promotion (existing) coexists, not absorbed. Depends on V9.0 sales live + v8.2.
+
+**V11.0 Intent-prioritised handlers** — top-N most-frequent uncovered Stage 3 intents become first-class Stage 4 handlers per milestone. Reads the two swarms' intent-volume signal (V9.0 sales + debtor) + V10.0's promoted intent definitions. Coverage dashboard + handler-scaffolding template + dispatch via `swarm_intents`.
 
 ### Out of Scope
 
@@ -123,7 +127,9 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 - CLI skill management -- lives in orqai-agent-pipeline repo
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: v8.1 Validation + Visibility (active)
+## Current Milestone: v8.2 Stage 2 Resolution Recall (debtor track) ∥ V9.0 Sales-email Outlook (sales track) — two parallel tracks, re-sequenced 2026-06-02
+
+**v8.1 "Validation + Visibility" SHIPPED 2026-06-01** — 8 phases (83–88.2); audit `passed`; all 4 operator-UAT items dispositioned (85 signed · 88 fixed · 86 accepted on live cron · 84 D-05 promotion gate evaluated → 0/16 eligible, telemetry N=0). Delivered body ingestion, Stage-1 noise rules (shadow), Stage-3 prompt v3 + open-set discovery surface, and the retro baseline that *refuted SC-1 usefully* (catch-all is upstream Stage-1 noise, not Stage-3) → directly scoped v8.2. Archive: `milestones/v8.1-ROADMAP.md`. **v8.2 next:** lift Stage-2 customer-resolution recall (~65% unresolved) via a SQL-native resolver in `zapier.dbo` over `nxt`; pre-build validation complete (`spikes/010-comprehensive-backtest/VALIDATION-FINDINGS-v8.2.md` — write-path confirmed, go/no-go P0–P5, auto-flip gated on a full-population dry-run).
 
 **v8.0 closed 2026-05-20** — 31 in-scope phases, 49/49 in-scope requirements satisfied, 7/7 cross-phase flows verified. Operator UAT PASS via Phase 999.8 + 82.9 sign-off. Debtor-person onboarded 2026-05-18 with Bulk Review + audit panels + feedback capture live. Sales-email Stage 0+1 producing live traces. Archive: `milestones/v8.0-ROADMAP.md`.
 
@@ -141,9 +147,9 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 ## Context
 
 - **Platform:** Orq.ai — agent orchestration (model routing, prompt versioning, evals); LLM calls via the Orq.ai Router, not direct provider SDKs
-- **Stack:** Next.js on Vercel · Supabase (Postgres + Realtime + auth) · Inngest (durable functions) · Zapier (NXT SQL bridge + Sugar trigger) · Browserless.io (no-API systems) · ElevenLabs (voice) · Twilio (telephony). Full guidance in `CLAUDE.md`.
-- **Mailboxes in scope:** debtor-email on 5 mailboxes (debiteuren@smeba.nl, debiteuren@berki.nl, debiteuren@smeba-fire.be, administratie@fire-control.nl, sicli) ; sales-email starting at verkoop@smeba.nl
-- **Operator model:** single debtor-person from week of 2026-05-18 (V9.0 scope); sales-email operator added in V10.0 (forces multi-operator handling)
+- **Stack:** Next.js on Vercel · Supabase (Postgres + Realtime + auth) · Inngest (durable functions) · Zapier (NXT SQL bridge + Outlook ingest; **SugarCRM trigger deprecated 2026-06-02**) · Browserless.io (no-API systems) · ElevenLabs (voice) · Twilio (telephony). Full guidance in `CLAUDE.md`.
+- **Mailboxes in scope:** debtor-email on 5 mailboxes (debiteuren@smeba.nl, debiteuren@berki.nl, debiteuren@smeba-fire.be, administratie@fire-control.nl, sicli) ; sales-email at verkoop@smeba.nl (Outlook-driven from V9.0; SugarCRM deprecated)
+- **Operator model:** single debtor-person from week of 2026-05-18; sales-email operator added in V9.0 (Outlook). Multi-operator reconciliation lands in V10.0 self-learning. (Re-sequenced 2026-06-02.)
 - **Users:** 5–15 Moyne Roberts employees, mostly non-technical. The product is the *automations themselves*, not a swarm-builder UI.
 
 ## Constraints
@@ -176,10 +182,10 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 | Registry-driven swarm config | `swarms` + `swarm_intents` + `swarm_noise_categories` tables replace hardcoded enums; cross-swarm handler reuse | ✓ Good — Phase 68/69 |
 | `pipeline_events` as single per-stage source of truth | Replaces parallel tables for stage decision history; backs Bulk Review and the upcoming Learning Inbox | ✓ Good — Phase 70 (coverage fix in 82.2) |
 | Stage 2 enriching, not blocking | Customer-less emails still reach Stage 3; Stage 2 adds context when available | ✓ Good |
-| 4-axis Bulk Review overrides | Each stage gets independent override signal; feeds V9.0 synthesis | ✓ Good — Phase 71 |
+| 4-axis Bulk Review overrides | Each stage gets independent override signal; feeds V10.0 self-learning synthesis (re-sequenced 2026-06-02) | ✓ Good — Phase 71 |
 | Pivot away from browser-UI swarm-builder (2026-03-25) | Building automations directly delivers value faster than building the meta-tool to build them | ✓ Good — validated by debtor-email production wins |
 
 **Abandoned decisions (V3/V4/V5/V6):** node graph swarm builder, AI-vision screenshot annotation, Playwright auto-generation as pipeline stage, cross-swarm intelligence layer. Retained in `MILESTONES.md` history for traceability.
 
 ---
-*Last updated: 2026-05-20 — after v8.0 milestone closure (31 phases, 49/49 in-scope requirements, audit PASSED)*
+*Last updated: 2026-06-01 — after v8.1 "Validation + Visibility" milestone closure (8 phases, audit `passed`, operator UATs dispositioned)*

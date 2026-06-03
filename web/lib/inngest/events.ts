@@ -94,6 +94,16 @@ export type Events = {
     };
   };
 
+  // briefing-refresh converted from a 30-min cron to event-only trigger
+  // (the cron was re-invoking swarm-briefing-agent and erroring on a localhost
+  // dial). Send this event to force a manual refresh; no payload required.
+  // Re-enable scheduled refresh = restore the cron line in briefing-refresh.ts.
+  "analytics/briefing-refresh.run": {
+    data: {
+      triggeredBy?: string;
+    };
+  };
+
   "analytics/orqai-collect.completed": {
     data: {
       snapshotId: string;
@@ -620,6 +630,16 @@ export type Events = {
       ranked: Array<unknown>;
       budget_run_id?: string;
       swarm_type: string;
+    };
+  };
+
+  // Phase 4 Plan 01 — patterns recommender manual-trigger event
+  // (cron is daily 02:00 Amsterdam; this event lets operators / dev rerun
+  // the same handler on demand without waiting for the cron tick).
+  "patterns.cron.run": {
+    data: {
+      swarm_type?: string;
+      dry_run?: boolean;
     };
   };
   // Phase 86 Plan 02 — manual refresh trigger for the intent-proposals cron.

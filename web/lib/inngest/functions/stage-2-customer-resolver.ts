@@ -24,6 +24,10 @@ import {
   resolveDebtor,
   type ResolveResult,
 } from "@/lib/automations/debtor-email/resolve-debtor";
+import {
+  buildResolverTrace,
+  type ResolverTrace,
+} from "@/lib/automations/debtor-email/resolver-trace";
 import { buildIcontrollerMessageUrl } from "@/lib/automations/icontroller/url";
 import {
   ICONTROLLER_MAILBOXES,
@@ -135,10 +139,13 @@ export const stage2CustomerResolver = inngest.createFunction(
           };
         }
       }
-      return { result, resolverError };
+      // Phase 04.1 — P4.1-D-01 / P4.1-D-02: assemble side-channel trace from
+      // result discriminated union. Pure function, deterministic, replay-safe.
+      const trace: ResolverTrace = buildResolverTrace(result);
+      return { result, resolverError, trace };
     });
 
-    const { result, resolverError } = resolverResult;
+    const { result, resolverError, trace } = resolverResult;
 
     // Insert audit row in debtor.email_labels.
     const labelStatus = dryRun
@@ -224,6 +231,11 @@ export const stage2CustomerResolver = inngest.createFunction(
               customer_name: result.customer_name,
               method: result.method,
               candidates_considered: result.candidates_considered ?? null,
+              // Phase 04.1 — P4.1-D-01 + P4.1-D-02. Forward-only emit; historic
+              // rows lack these fields and render the empty state via
+              // hydrator's null gate.
+              steps: trace.steps,
+              winner: trace.winner,
             }
           : {
               method: result.method,
@@ -232,6 +244,11 @@ export const stage2CustomerResolver = inngest.createFunction(
               candidates_considered: result.candidates_considered ?? null,
               // Phase 82.9 — discriminated evidence payload (D-01).
               inputs: result.inputs,
+              // Phase 04.1 — P4.1-D-01 + P4.1-D-02. Forward-only emit; historic
+              // rows lack these fields and render the empty state via
+              // hydrator's null gate.
+              steps: trace.steps,
+              winner: trace.winner,
             },
         automation_run_id: automation_run_id ?? null,
         triggered_by: "pipeline",

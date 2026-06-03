@@ -11,6 +11,13 @@
  * radius / panel tokens / muted text colour. Clicking a row writes
  * ?sub=pending&rule=<rule_key> so the right-pane detail can fetch samples
  * and render the promote/reject actions.
+ *
+ * NOTE (Phase 4 Plan 04 audit, 2026-05-25): coexists with the cross-stage
+ * Patterns mode at /automations/[swarm]/patterns. Different data sources
+ * (Phase 71 here reads `classifier_rules.status='candidate'` for Stage 1 only;
+ * Phase 4 reads `promotion_candidates` for all 4 stages). Importers kept as
+ * of audit: stage-1/page.tsx (line 61) + __tests__/page-shell.test.tsx.
+ * Do NOT delete without first unwiring both call sites.
  */
 
 import Link from "next/link";

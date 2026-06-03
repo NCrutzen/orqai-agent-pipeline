@@ -142,6 +142,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
 
   const subject = meta.subject?.trim() || "(no subject)";
 
+  // conversationId is derived once here and persisted on the emails INSERT
+  // below — previously left null at insert, which disabled Stage 2
+  // thread_inheritance for any conversation-bearing source.
+  const conversationId =
+    typeof msg.rawJson?.conversationId === "string"
+      ? (msg.rawJson.conversationId as string)
+      : "";
+
   // 2) Upsert email_pipeline.emails on (source, source_id) for idempotency.
   let emailId: string | null = null;
   {
@@ -174,6 +182,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
           // D-02 always write (Phase 83):
           body_html: msg.bodyHtml || null,
           raw_json: msg.rawJson,
+          conversation_id: conversationId || null,
           sender_email: meta.from || null,
           sender_name: meta.fromName || null,
           received_at: meta.receivedAt || isoNow,
@@ -215,10 +224,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   // to email_pipeline.conversation_context. Idempotent via PK (email_id, position).
   // Soft-failure: ingest never fails because the thread fetch hiccupped — the
   // error is captured as an automation_runs row for observability (T-83-13).
-  const conversationId =
-    typeof msg.rawJson?.conversationId === "string"
-      ? (msg.rawJson.conversationId as string)
-      : "";
+  // conversationId is hoisted above (now also persisted on the emails row).
   if (emailId && conversationId) {
     try {
       const priors = await fetchConversationMessages(

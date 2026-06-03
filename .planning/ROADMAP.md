@@ -2,7 +2,7 @@
 
 ## Overview
 
-Browser-based interface for creating, deploying, testing, and iterating AI agent swarms on Orq.ai. v8.0 established the canonical 5-stage funnel architecture (Stage 0 safety → Stage 1 regex+LLM noise → Stage 2 entity → Stage 3 coordinator → Stage 4 handler) across debtor-email and sales-email swarms, with operator-facing Bulk Review, per-stage audit surfaces, and feedback capture wired into Supabase. v8.1 closes input/calibration/visibility gaps so Stage 3 intent distribution reflects reality. V9.0+ shifts from architecture to learning (Promotion Recommender, multi-swarm validation, intent-prioritised handlers).
+Browser-based interface for creating, deploying, testing, and iterating AI agent swarms on Orq.ai. v8.0 established the canonical 5-stage funnel architecture (Stage 0 safety → Stage 1 regex+LLM noise → Stage 2 entity → Stage 3 coordinator → Stage 4 handler) across debtor-email and sales-email swarms, with operator-facing Bulk Review, per-stage audit surfaces, and feedback capture wired into Supabase. v8.1 closes input/calibration/visibility gaps so Stage 3 intent distribution reflects reality. From here the roadmap runs **two parallel tracks** (re-sequenced 2026-06-02): the debtor track (v8.2 Stage-2 resolution recall, gated on operator validation) and the sales track (V9.0 sales-email live on Outlook, SugarCRM deprecated) — both converging into V10.0 self-learning (Promotion Recommender + reply-tracing), then V11.0 intent-prioritised handlers.
 
 ## Milestones
 
@@ -15,9 +15,10 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 | **V6.0** | Executive Dashboard & UI Revamp | **Partially Complete** |
 | **V7.0** | Agent OS — cinematic swarm operating view | **Shipped 2026-04-30** |
 | **v8.0** | Agentic Platform — canonical 5-stage funnel + debtor-email + sales-email Stage 0-1 | **Shipped 2026-05-20** |
-| **v8.1** | Validation + Visibility — body ingestion, Stage 1 noise rules, Stage 3 prompt v3, open-set discovery | **Active** |
-| **V9.0** | Promotion Recommender + Learning Inbox | **Defined** |
-| **V10.0** | Sales-email canonical pipeline (second-swarm validation) | **Defined** |
+| **v8.1** | Validation + Visibility — body ingestion, Stage 1 noise rules, Stage 3 prompt v3, open-set discovery | **Shipped 2026-06-01** |
+| **v8.2** | Stage 2 Resolution Recall — debtor track (SQL-native NXT resolver) · _parallel with V9.0_ | **Defined / next** |
+| **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) · _parallel with v8.2_ | **Defined** _(was V10.0)_ |
+| **V10.0** | Promotion Recommender + Learning Inbox + reply-tracing (self-learning) | **Defined** _(was V9.0)_ |
 | **V11.0** | Intent-prioritised handlers | **Defined** |
 
 ---
@@ -74,11 +75,11 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 - **Telemetry consolidation** (Phase 70) — `pipeline_events` canonical table; Stage 0 coverage backfilled to ≥99% per debtor mailbox (Phase 82.2).
 - **Bulk Review 4-axis redesign** (Phase 71) — per-stage independent override controls; unified stage shell (Phases 82-82.8) with row+detail+chip-strip+mailbox-filter UX.
 - **Per-stage audit surface** (Phase 82.3) — verdict + reasoning + key evidence + screenshots in per-stage popup. Stage 2 evidence expansion (Phase 82.9) shipped 2026-05-20.
-- **Feedback capture infrastructure** (Phase 82.4) — `email_feedback` table, `StageFeedbackPanel`, confirm/override + prose-notes; data substrate V9.0 reads from.
+- **Feedback capture infrastructure** (Phase 82.4) — `email_feedback` table, `StageFeedbackPanel`, confirm/override + prose-notes; data substrate the self-learning milestone (V10.0; re-sequenced 2026-06-02) reads from.
 - **Stage 3 → Kanban human-lane wiring** (Phase 76) — zero silent dead-letters.
 - **Body ingestion fix** (Phase 83) — `body_full_text` + `body_unique_text` columns, conversation context (2 priors per inbound), 30-day backfill (1344 priors written); Stage 1+3 readers wired.
 - **Stage 1 LLM 2nd-pass auto-action promotion track** (Phase 089) — `llm:{category}:{confidence}` synthetic rule_keys threaded through Wilson-CI promotion; 7/7 plans landed across 4 waves, 839 rows backfilled live.
-- **Reframes locked 2026-05-12:** Phase 72 (Promotion Recommender) → V9.0 full milestone (prose-feedback synthesis); Phase 73 (sales-email validation) → V10.0 full milestone; Phase 77 (Stage 2/3 e2e verification) → superseded by Phase 82.3.
+- **Reframes locked 2026-05-12** (slots re-sequenced 2026-06-02)**:** Phase 72 (Promotion Recommender) → full milestone, **now V10.0**; Phase 73 (sales-email validation) → full milestone, **now V9.0, Outlook-driven**; Phase 77 (Stage 2/3 e2e verification) → superseded by Phase 82.3.
 
 **Operator UAT (Phase 999.8):** Stage 1 chip strip + URL round-trip + garbage-drop + `?sub=pending` guard verified live 2026-05-20. Therese regression smoke PASS.
 
@@ -90,11 +91,11 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 
 ## Phases
 
-### v8.1 Validation + Visibility (Phases 83-89, 88, 88.1, 88.2) — ACTIVE
+### v8.1 Validation + Visibility (Phases 83-89, 88, 88.1, 88.2) — SHIPPED 2026-06-01 · archive: `milestones/v8.1-ROADMAP.md` · audit `passed`
 
 **Milestone goal:** Observe → understand → THEN automate. Fix the input + calibration + visibility layers so that Stage 3 intent distribution reflects reality, not artifacts of upstream parsing bugs or impoverished prompt context.
 
-**Core principle (locked 2026-05-19):** Intent vocabulary emerges from the **LLM's proposals + operator promotion** during dry-run, never from hand-curation. Phase 86 builds the discovery surface; V9.0 builds the promotion side.
+**Core principle (locked 2026-05-19):** Intent vocabulary emerges from the **LLM's proposals + operator promotion** during dry-run, never from hand-curation. Phase 86 builds the discovery surface; the self-learning milestone (V10.0; re-sequenced 2026-06-02) builds the promotion side.
 
 **Dependency graph:**
 ```
@@ -121,13 +122,13 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
   - [x] 85-02-PLAN.md — Wave 1: V3 Zod schema + tolerant parser + cache-key flip + telemetry emit
   - [x] 85-03-PLAN.md — Wave 2: V3 prompt + V3 json_schema + Orq PATCH ritual + 3 smokes GREEN
   - [~] 85-04-PLAN.md — Wave 3: operator regression rerun GREEN; 3-day token observation + V2-retirement TODO outstanding (autonomous:false — wall-clock dependencies)
-- [x] **Phase 86: Open-set intent discovery** — `intent_proposal` persisted via `intent_proposals_v1` view + `intent_proposal_clusters` nightly Levenshtein refresh + `intent_proposal_views` telemetry. New Bulk Review "Intent proposals" tab (`web/app/(dashboard)/automations/[swarm]/intent-proposals/page.tsx`) with DiscoveryTabStrip peer component + RTL coverage. Read-only — no promotion button (V9.0 owns Learning Inbox). Cross-swarm by default. VERIFICATION **7/7 PASS, KEEP-OPEN-PENDING-WINDOW** (4 human_verification items are operator UAT — Day-0 pre-flight per 86-DAY-0-CHECKPOINT.md + first 04:00 Amsterdam cron tick + intent_proposal_views row stamping). Code-side complete 2026-05-20.
+- [x] **Phase 86: Open-set intent discovery** — `intent_proposal` persisted via `intent_proposals_v1` view + `intent_proposal_clusters` nightly Levenshtein refresh + `intent_proposal_views` telemetry. New Bulk Review "Intent proposals" tab (`web/app/(dashboard)/automations/[swarm]/intent-proposals/page.tsx`) with DiscoveryTabStrip peer component + RTL coverage. Read-only — no promotion button (V10.0 owns Learning Inbox; re-sequenced 2026-06-02). Cross-swarm by default. VERIFICATION **7/7 PASS, KEEP-OPEN-PENDING-WINDOW** (4 human_verification items are operator UAT — Day-0 pre-flight per 86-DAY-0-CHECKPOINT.md + first 04:00 Amsterdam cron tick + intent_proposal_views row stamping). Code-side complete 2026-05-20.
   **Plans:** 4 plans
   - [x] 86-01-PLAN.md — Wave 0: data layer (view + clusters table + views telemetry + types + shape-lock tests)
   - [x] 86-02-PLAN.md — Wave 1: Levenshtein cluster algorithm + nightly cron + RED→GREEN tests
   - [x] 86-03-PLAN.md — Wave 2: Intent Proposals RSC page + server actions + client shell + DiscoveryTabStrip + RTL coverage
   - [x] 86-04-PLAN.md — Wave 3: operator runbook + verification log + Day-0 checkpoint (operator-driven shadow window still pending)
-- [ ] **Phase 87: Retro-classification + intent-volume baseline** — re-runs V3 Stage 3 agent against 30-90 days of corpus (read from Supabase, idempotent); `stage_3_retro_runs` + `intent_volume_baselines` tables; V8.2/V9.0/V11.0 read this. **Depends on 83+84+85+86 all live.** PLANNED: 5 plans + RESEARCH + VALIDATION on disk; **execution blocked on 7-day live window of Phase 86 cluster data** per R-04 ("Open-set surface still empty at 7 days post-85 deploy — extend live window before running Phase 87"). Trigger Phase 87 execution ≥7 days after this milestone PR merges + Vercel deploy confirms.
+- [x] **Phase 87: Retro-classification + intent-volume baseline** (DONE 2026-05-30 — baseline run `dd88887c`/105 emails, report hand-graded SC-3/SC-4 PASS, SC-1 refuted-usefully; loopback false-archive incident found + code-mitigated #58/#59; 27-email recovery = operator follow-up runbook) — re-runs V3 Stage 3 agent against 30-90 days of corpus (read from Supabase, idempotent); `stage_3_retro_runs` + `intent_volume_baselines` tables; v8.2/V9.0/V10.0/V11.0 read this. **Depends on 83+84+85+86 all live.** PLANNED: 5 plans + RESEARCH + VALIDATION on disk; **execution blocked on 7-day live window of Phase 86 cluster data** per R-04 ("Open-set surface still empty at 7 days post-85 deploy — extend live window before running Phase 87"). Trigger Phase 87 execution ≥7 days after this milestone PR merges + Vercel deploy confirms.
 - [x] **Phase 88: Review-surface cleanup** — three operator-confusion items on the unified `_shell/`: (D-01) override + note flow consolidation on Stages 0/2/3; (D-02) Stage 1 "Needs review" chip semantics rename + verdict-based "Pending my review" chip; (D-03) Stage 4 layout parity with Stage 1/2/3 chip-strip pattern + detail-pane width regression fix. Pure frontend. **Independent of 83-87.** (completed 2026-05-20)
   **Plans:** 4 plans
   Plans:
@@ -229,17 +230,17 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 ---
 
-### V9.0 Promotion Recommender + Learning Inbox — DEFINED
+### V9.0 Sales-Email Canonical Pipeline — Outlook-driven — DEFINED (re-sequenced 2026-06-02; was V10.0)
 
-T2 synthesis on captured `email_feedback`, Learning Inbox tab on Bulk Review, data-driven resolver steps, immediate-apply new intents, granular dry-run gating. Depends on v8.0 closure (now satisfied). See `.planning/MILESTONES.md` for full charter.
+`verkoop@smeba.nl` runs the same 5-stage funnel end-to-end, **driven from Outlook** (SugarCRM deprecated 2026-06-02 — `sales-email-analyzer/` + `fetch-sugarcrm-emails.ts` retired). **Stage 2 reuses the v8.2 NXT resolver** by per-swarm config (`swarms.stage2_entity_resolver` + `resolution_config`) — no Sugar adapter, no engine rebuild; customer-less prospects fall through to Stage 3. Sales-specific Stage 3 intent agent, Phase 78 properly planned and executed. **Runs in parallel with the v8.2 debtor track** and no longer depends on the self-learning milestone. See `.planning/MILESTONES.md` for full charter.
 
-### V10.0 Sales-Email Canonical Pipeline — DEFINED
+### V10.0 Promotion Recommender + Learning Inbox + Reply-Tracing — DEFINED (re-sequenced 2026-06-02; was V9.0)
 
-`verkoop@smeba.nl` runs the same 5-stage funnel end-to-end. New sales-email Stage 2 entity resolver (Sugar lookup), sales-email-specific Stage 3 intent agent, Phase 78 properly planned and executed, multi-operator scaffolding (`operator_id`, scoped filtering, vocabulary reconciliation). Depends on V9.0.
+T2 synthesis on captured `email_feedback`, Learning Inbox tab on Bulk Review, data-driven resolver steps, immediate-apply new intents, granular dry-run gating — **plus reply-tracing**: outbound Outlook replies linked to the inbound `pipeline_event` via `conversation_id` become a no-form ground-truth feedback signal. Reads **two** feedback streams (debtor + V9.0 sales) and folds in multi-operator handling (`operator_id` scoping, vocabulary reconciliation). Depends on v8.0 closure (satisfied), V9.0 sales live, and v8.2 (cleaner Stage-2 signal). See `.planning/MILESTONES.md` for full charter.
 
 ### V11.0 Intent-Prioritised Handlers — DEFINED
 
-Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler-scaffolding template; dispatch via `swarm_intents.handler_event` registry. Depends on V10.0 multi-swarm signal.
+Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler-scaffolding template; dispatch via `swarm_intents.handler_event` registry. Depends on V9.0 (sales second-swarm intent volume) + V10.0 (operator-promoted intent definitions).
 
 ---
 
@@ -520,3 +521,22 @@ Earliest practical start = V8.2 cycle, after `/gsd-audit-milestone v8.1` confirm
 
 Plans:
 - [ ] TBD (run /gsd-discuss-phase 999.9 once v8.1 phases 78/84/85/86 are confirmed live)
+
+### Phase 999.10: Bulk Review queue — per-stage dry-run indicator + condensed action-pill row (BACKLOG)
+
+**Goal:** Two operator-facing queue-overview enhancements to the Bulk Review row strip (captured 2026-06-01; operator owns Bulk Review UX — design decisions are the operator's, this is capture-only).
+
+1. **Per-stage dry-run/live indicator** on the 5 stage pills (Safety / Noise / Customer / Topic / Action) in each queue row, with a hover tooltip explaining what "dry-run" means for that stage (the pipeline computes the verdict but does not apply it — no Outlook/iController side-effect yet). So the operator sees at a glance which stages are still shadow vs live.
+2. **Condensed row:** move the row-level action pill ("Check this one" / "Review the AI's calls"), today rendered below the subject in the middle column, onto the **same line as the stage pills** (right column) for a denser, single-line-per-email overview.
+
+**Design nuance to resolve at planning:** today `dry_run` is per-**mailbox** (`debtor.labeling_settings.dry_run`), not per-stage — a true per-stage indicator should read the per-stage promotion/live state (the graduated-automation direction), not just the mailbox flag.
+
+**Why it matters:** directly supports the v8.2 "auto-flip only after the full-population dry-run clears ≥99% (Wilson-CI)" gate — the operator needs to SEE which stages have been flipped live per that gate. Relates to v8.2 Stage 2 Resolution Recall.
+
+**Components:** `web/app/(dashboard)/automations/[swarm]/_shell/chip-strip.tsx` (stage pills) + `web/app/(dashboard)/automations/[swarm]/_shell/components/row-strip.tsx` (action pill placement + dry_run).
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)

@@ -1,0 +1,517 @@
+/* Phase 3 Plan 09 (gap-closure) — Stage 2 Decide column styles.
+ *
+ * Full sketch-004 Decide class structure (004-stage-2-resolver-attribution),
+ * translated verbatim (pixel values) to CSS-module class names. Sketch theme
+ * vars mapped to the V7 token system:
+ *   --lime → --v7-lime · --amber → --v7-amber · --blue → --v7-blue
+ *   --brand-primary → --v7-brand-primary · --red → --v7-red
+ *   --text → --v7-text · --text-muted → --v7-text-muted · --text-dim → --v7-faint
+ *   --border → --v7-border · --border-strong → --v7-faint
+ *   --bg → --v7-bg · --bg-2 → --v7-bg-2 · --bg-panel → --v7-panel
+ *   --bg-hover → --v7-panel-2 · --radius → --v7-radius-sm
+ *   sketch LLM-purple → --v7-brand-patterns (Phase 2 Plan 02-06 token)
+ *
+ * Token discipline (anti-drift #1): NO raw hex — all colors via tokens. The
+ * lime/amber glyph foregrounds use the existing --v7-action-*-fg tokens
+ * (the 3 documented button-fg exceptions) and the switch knob uses
+ * --v7-action-confirm-fg-on (dark-on-brand). Animation timings limited to the
+ * allowed set: 0.12s / 0.15s / 0.6s only (anti-drift #2).
+ */
+
+/* The system's pick card — what the operator confirms by default */
+.pickCard {
+  background: var(--v7-panel);
+  border: 1px solid var(--v7-border);
+  border-radius: var(--v7-radius-sm);
+  padding: 14px 16px;
+}
+
+.pickLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--v7-faint);
+  margin-bottom: 6px;
+}
+
+.pickName {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--v7-text);
+  line-height: 1.3;
+  margin-bottom: 2px;
+}
+
+.pickMeta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--v7-faint);
+  margin-bottom: 8px;
+}
+
+.pickSource {
+  font-size: 12px;
+  color: var(--v7-text-muted);
+  padding-top: 8px;
+  border-top: 1px dashed var(--v7-border);
+}
+
+.sourcePill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--v7-radius-pill);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.sourcePillMatch {
+  background: var(--v7-state-match-bg);
+  color: var(--v7-blue);
+  border: 1px solid var(--v7-state-match-bg);
+}
+
+.sourcePillLlm {
+  background: var(--v7-state-llm-rescue-bg);
+  color: var(--v7-brand-patterns);
+  border: 1px solid var(--v7-state-llm-rescue-bg);
+}
+
+/* Promotion-lineage line (rendered only when sender_map_lineage is non-null) */
+.pickLineage {
+  color: var(--v7-text-muted);
+}
+
+/* Big action buttons in the decide column */
+.bigAction {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--v7-panel);
+  border: 1px solid var(--v7-border);
+  border-radius: var(--v7-radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: all 0.12s;
+}
+
+.bigAction:hover {
+  background: var(--v7-panel-2);
+  border-color: var(--v7-faint);
+}
+
+.bigAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.bigActionPrimary {
+  background: var(--v7-state-safe-bg);
+  border-color: var(--v7-lime);
+}
+
+.bigActionPrimary:hover {
+  background: var(--v7-state-safe-bg);
+}
+
+.bigActionAlt {
+  background: var(--v7-amber-soft);
+  border-color: var(--v7-amber);
+}
+
+.bigActionAlt:hover {
+  background: var(--v7-amber-soft);
+}
+
+.glyph {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bigActionPrimary .glyph {
+  background: var(--v7-lime);
+  color: var(--v7-action-confirm-fg);
+}
+
+.bigActionAlt .glyph {
+  background: var(--v7-amber);
+  color: var(--v7-action-override-fg);
+}
+
+.bigActionBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.bigActionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--v7-text);
+  line-height: 1.3;
+}
+
+.bigActionSubtitle {
+  font-size: 11px;
+  color: var(--v7-faint);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+}
+
+.keyhint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--v7-brand-primary-soft);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: inherit;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.bigActionSelected {
+  box-shadow:
+    0 0 0 2px var(--v7-brand-primary),
+    0 0 0 4px var(--v7-brand-primary-soft);
+}
+
+/* "or" divider between primary and override */
+.orDivider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--v7-faint);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 2px 0;
+}
+
+.orDivider::before,
+.orDivider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--v7-border);
+}
+
+/* Override disclosure — collapsed by default */
+.overrideDisclosure {
+  background: var(--v7-panel);
+  border: 1px solid var(--v7-border);
+  border-radius: var(--v7-radius-sm);
+  overflow: hidden;
+}
+
+.overrideDisclosure summary {
+  padding: 11px 14px;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--v7-text-muted);
+  transition: background 0.12s;
+}
+
+.overrideDisclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.overrideDisclosure summary::before {
+  content: "▸";
+  font-size: 10px;
+  color: var(--v7-faint);
+  transition: transform 0.15s;
+}
+
+.overrideDisclosure[open] summary {
+  background: var(--v7-bg-2);
+  border-bottom: 1px solid var(--v7-border);
+  color: var(--v7-text);
+}
+
+.overrideDisclosure[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.overrideDisclosure summary:hover {
+  background: var(--v7-panel-2);
+  color: var(--v7-text);
+}
+
+.discBody {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--v7-faint);
+}
+
+.fieldHint {
+  font-size: 11px;
+  color: var(--v7-faint);
+  margin: 4px 0 0 0;
+  line-height: 1.5;
+}
+
+/* Customer override input — number-only (anti-drift #7: no fuzzy name search) */
+.customerInputRow {
+  background: var(--v7-bg);
+  border: 1px solid var(--v7-border);
+  border-radius: 4px;
+}
+
+.customerInputRow input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: var(--v7-text);
+  padding: 11px 14px;
+  font-size: 14px;
+  font-family: var(--font-mono);
+  outline: none;
+  letter-spacing: 0.01em;
+}
+
+.customerInputRow input:focus {
+  border-color: var(--v7-brand-primary);
+}
+
+.customerInputRowHasMatch {
+  border-color: var(--v7-lime);
+  background: var(--v7-state-safe-bg);
+}
+
+.customerInputRowNoMatch {
+  border-color: var(--v7-red);
+  background: var(--v7-state-blocked-bg);
+}
+
+/* Resolved customer feedback line */
+.resolvedFeedback {
+  margin-top: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  border-radius: 4px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.resolvedFeedbackShow {
+  display: flex;
+}
+
+.resolvedFeedbackMatch {
+  background: var(--v7-state-safe-bg);
+  color: var(--v7-lime);
+  border: 1px solid var(--v7-state-safe-bg);
+}
+
+.resolvedFeedbackMiss {
+  background: var(--v7-state-blocked-bg);
+  color: var(--v7-red);
+  border: 1px solid var(--v7-state-blocked-bg);
+}
+
+.check {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--v7-brand-primary-soft);
+}
+
+/* Required-field indicator */
+.reqAsterisk {
+  color: var(--v7-amber);
+  margin-left: 2px;
+  font-weight: 700;
+}
+
+/* === Collapse upper region when override panel is open === */
+.overriding .pickCard,
+.overriding .bigAction,
+.overriding .orDivider {
+  display: none;
+}
+
+/* Re-run switch (34x18 toggle) */
+.switchRow {
+  background: var(--v7-bg);
+  border: 1px solid var(--v7-border);
+  border-radius: var(--v7-radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.switchMeta {
+  flex: 1;
+}
+
+.switchTitle {
+  font-size: 13px;
+  color: var(--v7-text);
+  font-weight: 500;
+}
+
+.switchDesc {
+  font-size: 11px;
+  color: var(--v7-faint);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.switch {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  flex-shrink: 0;
+  background: var(--v7-bg-2);
+  border: 1px solid var(--v7-border);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--v7-faint);
+  transition: all 0.15s;
+}
+
+.switchOn {
+  background: var(--v7-brand-primary);
+  border-color: var(--v7-brand-primary);
+}
+
+.switchOn::after {
+  left: 17px;
+  background: var(--v7-action-confirm-fg);
+}
+
+/* Visually-hidden native checkbox — keeps the switch keyboard-operable and
+ * test-targetable while the .switch element renders the 34x18 toggle. */
+.switchCheckbox {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Footer actions */
+.actionsRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.submitBtn {
+  background: var(--v7-action-override-bg);
+  color: var(--v7-action-override-fg);
+  border: 0;
+  border-radius: var(--v7-radius-pill);
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submitBtn:disabled,
+.submitBtn[disabled] {
+  background: var(--v7-panel);
+  border: 1px solid var(--v7-border);
+  color: var(--v7-faint);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.cancelBtn {
+  background: transparent;
+  color: var(--v7-text-muted);
+  border: 1px solid var(--v7-border);
+  border-radius: var(--v7-radius-pill);
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cancelBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Section wrapper + label */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sectionLabel {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--v7-text);
+}
+
+.placeholder {
+  font-size: 13px;
+  color: var(--v7-text-muted);
+  margin: 0;
+}
+
+.warning {
+  font-size: 12px;
+  color: var(--v7-state-warn-fg);
+  margin: 0;
+}
+
+.error {
+  font-size: 12px;
+  color: var(--v7-red);
+  margin: 0;
+}

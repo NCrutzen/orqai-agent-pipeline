@@ -48,8 +48,11 @@ import { coordinatorOrchestrator } from "@/lib/inngest/functions/coordinator-orc
 import { coordinatorSynthesis } from "@/lib/inngest/functions/coordinator-synthesis";
 import { stage3Dispatcher } from "@/lib/inngest/functions/stage-3-dispatcher";
 import { debtorEmailOverrideHandler } from "@/lib/inngest/functions/debtor-email-override-handler";
+import { patternsRecommenderCron } from "@/lib/inngest/functions/promotion-recommender-cron";
 import { debtorEmailStage3RetroClassify } from "@/lib/inngest/functions/debtor-email-stage-3-retro-classify";
 import { phase87ReadinessNotify } from "@/lib/inngest/functions/phase-87-readiness-notify";
+import { pipelineHealthMonitor } from "@/lib/inngest/functions/pipeline-health-monitor";
+import { pipelineHealthWeeklyDigest } from "@/lib/inngest/functions/pipeline-health-weekly-digest";
 import { stage2SupportTicketsEnrichment } from "@/lib/automations/support-tickets/stage-2-enrichment";
 import { stage3SupportTicketsCoordinator } from "@/lib/automations/support-tickets/stage-3-coordinator";
 import { stage4SupportTicketsDispatcher } from "@/lib/automations/support-tickets/stage-4-dispatcher";
@@ -101,8 +104,11 @@ export const { GET, POST, PUT } = serve({
     coordinatorSynthesis,
     stage3Dispatcher,
     debtorEmailOverrideHandler,
+    patternsRecommenderCron,
     debtorEmailStage3RetroClassify,
     phase87ReadinessNotify,
+    pipelineHealthMonitor,
+    pipelineHealthWeeklyDigest,
     stage2SupportTicketsEnrichment,
     stage3SupportTicketsCoordinator,
     stage4SupportTicketsDispatcher,

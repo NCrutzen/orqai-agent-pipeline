@@ -51,6 +51,13 @@ export const STATUS = [
   "done",
 ] as const;
 
+// The single AI-terminal status — a run is "done" when the pipeline has fully
+// processed it (no further automated work). Exported so downstream partition
+// logic (e.g. the Bulk Review Queue/History split) references ONE source of
+// truth instead of inlining the "done" literal; a rename here is a single-site
+// compile error at every consumer (IN-02).
+export const TERMINAL_STATUS: Status = "done";
+
 export const HUMAN_VERDICT = [
   "approved",
   "edited_minor",

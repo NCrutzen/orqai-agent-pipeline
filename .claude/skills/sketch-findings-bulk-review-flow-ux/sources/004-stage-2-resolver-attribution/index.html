@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 004 — Stage 2 resolver-source attribution</title>
+<link rel="stylesheet" href="../themes/default.css" />
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; }
+
+  /* === Variant bar === */
+  .variant-bar {
+    background: #000; color: var(--text-dim);
+    padding: 8px 16px; display: flex; gap: 4px; align-items: center;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono); font-size: 11px;
+  }
+  .variant-bar .label { color: var(--text-dim); margin-right: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .variant-tab {
+    padding: 4px 12px; cursor: pointer; border-radius: 4px;
+    color: var(--text-muted); border: 1px solid transparent;
+    font-family: var(--font-mono); font-size: 11px;
+  }
+  .variant-tab:hover { background: var(--bg-hover); color: var(--text); }
+  .variant-tab.active { background: var(--brand-primary); color: #000; font-weight: 600; }
+
+  /* === Mode + stage tabs (locked) === */
+  .modebar { height: 56px; display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
+  .mode-half { flex: 1; display: flex; align-items: center; gap: 12px; padding: 0 24px; opacity: 0.5; }
+  .mode-half.active { opacity: 1; }
+  .mode-half .mode-glyph { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .mode-half[data-mode="queue"].active { background: linear-gradient(180deg, rgba(255,106,52,0.18), rgba(255,106,52,0.04)); box-shadow: inset 0 -3px 0 0 var(--brand-primary); }
+  .mode-half[data-mode="queue"].active .mode-glyph { background: var(--brand-primary); color: #000; }
+  .mode-half .mode-meta { display: flex; flex-direction: column; line-height: 1.2; }
+  .mode-half .mode-name { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brand-primary); font-weight: 600; }
+  .mode-half .mode-count { font-family: var(--font-mono); font-size: 18px; font-weight: 600; color: var(--text); }
+
+  .stage-tabs { display: flex; align-items: stretch; height: 40px; background: var(--bg-2); padding: 0 24px; border-bottom: 1px solid var(--border); }
+  .stage-tab { display: flex; align-items: center; gap: 6px; padding: 0 16px; cursor: pointer; color: var(--text-muted); border-bottom: 2px solid transparent; font-size: var(--fs-sm); }
+  .stage-tab.active { color: var(--text); border-bottom-color: var(--brand-primary); font-weight: 500; }
+  .stage-tab .badge { font-family: var(--font-mono); font-size: 10px; background: var(--bg-panel); border: 1px solid var(--border); padding: 1px 7px; border-radius: var(--radius-pill); color: var(--text-dim); }
+  .stage-tab.active .badge { background: rgba(255,106,52,0.15); color: var(--brand-primary); border-color: rgba(255,106,52,0.3); }
+
+  /* === Row list (locked) === */
+  .list { flex: 1; padding: 16px 24px; overflow: auto; background: var(--bg); }
+  .col-head { display: grid; grid-template-columns: 220px 1fr 620px; gap: 16px; padding: 6px 16px; color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .col-head .stages-head { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .row-wrap { margin-bottom: 8px; }
+  .row { display: grid; grid-template-columns: 220px 1fr 620px; gap: 16px; align-items: center; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; cursor: pointer; transition: all 0.12s; }
+  .row:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .row.expanded { border-color: var(--brand-primary); background: var(--bg-selected); border-radius: var(--radius) var(--radius) 0 0; border-bottom-color: transparent; }
+  .row .recipient { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); }
+  .row .subject { font-size: var(--fs-sm); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .subject .from { color: var(--text-dim); margin-right: 8px; }
+  .row .stages { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .stage-cell { background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; font-size: 11px; color: var(--text); line-height: 1.25; display: flex; flex-direction: column; gap: 2px; min-height: 36px; justify-content: center; position: relative; }
+  .stage-cell .outcome { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stage-cell .hint { font-size: 9.5px; color: var(--text-dim); }
+  .stage-cell.safe { border-color: rgba(143,200,103,0.3); }
+  .stage-cell.safe .outcome { color: var(--lime); }
+  .stage-cell.match { border-color: rgba(105,168,255,0.3); }
+  .stage-cell.match .outcome { color: var(--blue); }
+  .stage-cell.warn { border-color: rgba(255,181,71,0.3); }
+  .stage-cell.warn .outcome { color: var(--amber); }
+  .stage-cell.idle { background: transparent; border-style: dashed; }
+  .stage-cell.idle .outcome { color: var(--text-dim); font-weight: 400; }
+  .stage-cell.blocked { background: rgba(255,181,71,0.10); border-color: var(--amber); box-shadow: 0 0 0 1px rgba(255,181,71,0.25); }
+  .stage-cell.blocked .outcome { font-weight: 600; color: var(--amber); }
+
+  /* === Inline expand (locked) === */
+  .inline { border: 1px solid var(--brand-primary); border-top: 1px dashed rgba(255,106,52,0.3); border-radius: 0 0 var(--radius) var(--radius); background: var(--bg-2); overflow: hidden; }
+  .inline-head { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; background: rgba(255,181,71,0.04); }
+  .inline-head .stage-pill { background: rgba(255,181,71,0.15); color: var(--amber); font-family: var(--font-mono); font-size: 10px; padding: 3px 10px; border-radius: var(--radius-pill); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; border: 1px solid rgba(255,181,71,0.3); }
+  .inline-head .grow { flex: 1; }
+  .inline-head .meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+
+  .inline-body { display: grid; grid-template-columns: 1fr 1fr; gap: 0; min-height: 380px; }
+  .col-read { padding: 16px 20px; border-right: 1px solid var(--border); background: var(--bg-2); }
+  .col-decide { padding: 16px 20px; background: var(--bg); display: flex; flex-direction: column; gap: 14px; }
+  .col-label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .col-label::before, .col-label::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+  /* === Section pattern (locked) === */
+  .section { margin-bottom: 18px; }
+  .section-head { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .section-head .verdict-pill { margin-left: auto; padding: 2px 10px; border-radius: var(--radius-pill); font-family: var(--font-mono); font-size: 11px; font-weight: 600; text-transform: lowercase; letter-spacing: 0; }
+  .verdict-pill.match { background: rgba(105,168,255,0.15); color: var(--blue); border: 1px solid rgba(105,168,255,0.3); }
+  .verdict-pill.llm { background: rgba(184,134,255,0.15); color: #b886ff; border: 1px solid rgba(184,134,255,0.3); }
+  .verdict-pill.warn { background: rgba(255,181,71,0.15); color: var(--amber); border: 1px solid rgba(255,181,71,0.3); }
+  .section-body { font-size: 13px; color: var(--text); line-height: 1.55; }
+  .section-body .row-line { margin-bottom: 4px; }
+  .section-body .key { color: var(--text-dim); margin-right: 6px; font-size: 12px; }
+  .section-body code { font-family: var(--font-mono); font-size: 11px; background: rgba(255,255,255,0.04); padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border); }
+
+  /* === Resolver chain (Stage 2 specific) === */
+  .resolver-chain {
+    display: flex; flex-direction: column; gap: 0;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--bg-panel); overflow: hidden;
+  }
+  .resolver-step {
+    display: grid; grid-template-columns: 36px 1fr auto;
+    gap: 10px; align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  .resolver-step:last-child { border-bottom: 0; }
+  .resolver-step .step-marker {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-2); border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 11px; font-family: var(--font-mono);
+    font-weight: 600;
+  }
+  .resolver-step .step-name {
+    font-size: 13px; color: var(--text); font-weight: 500;
+  }
+  .resolver-step .step-sub {
+    font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);
+  }
+  .resolver-step .step-status {
+    font-size: 11px; font-family: var(--font-mono);
+    text-transform: lowercase; letter-spacing: 0;
+  }
+  /* Step states */
+  .resolver-step.matched .step-marker {
+    background: rgba(105,168,255,0.18); border-color: var(--blue); color: var(--blue);
+  }
+  .resolver-step.matched .step-status { color: var(--blue); }
+  .resolver-step.miss { opacity: 0.55; }
+  .resolver-step.miss .step-marker { background: transparent; }
+  .resolver-step.miss .step-status { color: var(--text-dim); }
+  .resolver-step.conflict .step-marker {
+    background: rgba(255,181,71,0.18); border-color: var(--amber); color: var(--amber);
+  }
+  .resolver-step.conflict .step-status { color: var(--amber); }
+  .resolver-step.llm-picked .step-marker {
+    background: rgba(184,134,255,0.18); border-color: #b886ff; color: #b886ff;
+  }
+  .resolver-step.llm-picked .step-status { color: #b886ff; }
+  .resolver-step.not-run { opacity: 0.35; }
+  .resolver-step.not-run .step-marker { background: transparent; border-style: dashed; }
+  .resolver-step.not-run .step-status { color: var(--text-dim); }
+  .resolver-step.winner {
+    background: rgba(255,255,255,0.02);
+  }
+  .resolver-step.winner::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: var(--brand-primary);
+  }
+  .resolver-step .step-detail {
+    grid-column: 2 / 4;
+    background: var(--bg-2); padding: 8px 12px;
+    border-radius: 4px; border: 1px solid var(--border);
+    margin-top: 6px; font-size: 12px; line-height: 1.55;
+    display: none;
+  }
+  .resolver-step.winner .step-detail { display: block; }
+
+  /* Email body block (locked) */
+  .quoted-span { background: rgba(105,168,255,0.04); border-left: 3px solid var(--blue); padding: 12px 14px; border-radius: 0 4px 4px 0; font-size: 14px; line-height: 1.65; color: var(--text); margin-top: 6px; white-space: pre-wrap; }
+  .quoted-span .highlight { background: rgba(255,181,71,0.20); color: var(--amber); padding: 1px 4px; border-radius: 3px; font-weight: 600; }
+
+  .body-toolbar { display: flex; gap: 6px; margin-top: 8px; align-items: center; font-size: 12px; }
+  .body-toolbar button, .body-toolbar select { background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 5px; }
+  .body-toolbar button:hover, .body-toolbar select:hover { background: var(--bg-hover); color: var(--text); border-color: var(--border-strong); }
+  .body-toolbar .grow { flex: 1; }
+  .body-toolbar .lang-hint { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); padding: 2px 6px; border-radius: 3px; border: 1px dashed var(--border); }
+
+  /* === Decide column · NEW · clearer architecture === */
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+
+  /* The system's pick card — what the operator confirms by default */
+  .pick-card {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .pick-card .pick-label {
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-dim); margin-bottom: 6px;
+  }
+  .pick-card .pick-name {
+    font-size: 16px; font-weight: 600; color: var(--text);
+    line-height: 1.3; margin-bottom: 2px;
+  }
+  .pick-card .pick-meta {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .pick-card .pick-source {
+    font-size: 12px; color: var(--text-muted);
+    padding-top: 8px; border-top: 1px dashed var(--border);
+  }
+  .pick-card .pick-source .source-pill {
+    display: inline-block; padding: 1px 8px;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    margin-right: 6px;
+  }
+  .pick-card .pick-source .source-pill.match { background: rgba(105,168,255,0.15); color: var(--blue); border: 1px solid rgba(105,168,255,0.3); }
+  .pick-card .pick-source .source-pill.llm { background: rgba(184,134,255,0.15); color: #b886ff; border: 1px solid rgba(184,134,255,0.3); }
+
+  /* Big action buttons in the decide column */
+  .big-action {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 12px 14px;
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: var(--radius); cursor: pointer; font-family: inherit;
+    text-align: left; transition: all 0.12s;
+  }
+  .big-action:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .big-action.primary {
+    background: rgba(143,200,103,0.10); border-color: var(--lime);
+  }
+  .big-action.primary:hover { background: rgba(143,200,103,0.16); }
+  .big-action.alt {
+    background: rgba(255,181,71,0.08); border-color: var(--amber);
+  }
+  .big-action.alt:hover { background: rgba(255,181,71,0.14); }
+  .big-action .glyph {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 12px; font-weight: 600;
+  }
+  .big-action.primary .glyph { background: var(--lime); color: #0a1a04; }
+  .big-action.alt .glyph { background: var(--amber); color: #1a1206; }
+  .big-action .body { flex: 1; min-width: 0; }
+  .big-action .title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
+  .big-action .subtitle { font-size: 11px; color: var(--text-dim); margin-top: 2px; font-family: var(--font-mono); }
+  .big-action .keyhint {
+    font-family: var(--font-mono); font-size: 10px;
+    background: rgba(0,0,0,0.25); padding: 2px 6px;
+    border-radius: 3px; color: inherit; flex-shrink: 0;
+    opacity: 0.7;
+  }
+  .big-action.selected {
+    box-shadow: 0 0 0 2px var(--brand-primary), 0 0 0 4px rgba(255,106,52,0.18);
+  }
+
+  /* "or" divider between primary and override */
+  .or-divider {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--text-dim); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    margin: 2px 0;
+  }
+  .or-divider::before, .or-divider::after {
+    content: ""; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* Override disclosure — collapsed by default */
+  .override-disclosure {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .override-disclosure summary {
+    padding: 11px 14px; cursor: pointer; list-style: none;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--text-muted);
+    transition: background 0.12s;
+  }
+  .override-disclosure summary::-webkit-details-marker { display: none; }
+  .override-disclosure summary::before {
+    content: "▸"; font-size: 10px; color: var(--text-dim);
+    transition: transform 0.15s;
+  }
+  .override-disclosure[open] summary { background: var(--bg-2); border-bottom: 1px solid var(--border); color: var(--text); }
+  .override-disclosure[open] summary::before { transform: rotate(90deg); }
+  .override-disclosure summary:hover { background: var(--bg-hover); color: var(--text); }
+  .override-disclosure .disc-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* Customer override input — accepts number or name */
+  .customer-input-row {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .customer-input-row input {
+    width: 100%; background: transparent; border: 0;
+    color: var(--text); padding: 11px 14px;
+    font-size: 14px; font-family: var(--font-mono); outline: none;
+    letter-spacing: 0.01em;
+  }
+  .customer-input-row input:focus { border-color: var(--brand-primary); }
+  .customer-input-row.has-match { border-color: var(--lime); background: rgba(143,200,103,0.04); }
+  .customer-input-row.no-match { border-color: var(--red, #ff5050); background: rgba(255,80,80,0.04); }
+
+  /* Resolved customer feedback line */
+  .resolved-feedback {
+    margin-top: 6px; padding: 6px 10px;
+    font-size: 12px; line-height: 1.4;
+    border-radius: 4px;
+    display: none; align-items: center; gap: 8px;
+  }
+  .resolved-feedback.show { display: flex; }
+  .resolved-feedback.match { background: rgba(143,200,103,0.08); color: var(--lime); border: 1px solid rgba(143,200,103,0.25); }
+  .resolved-feedback.miss { background: rgba(255,80,80,0.08); color: var(--red, #ff5050); border: 1px solid rgba(255,80,80,0.25); }
+  .resolved-feedback .check { font-family: var(--font-mono); font-size: 11px; padding: 2px 6px; border-radius: 3px; background: rgba(255,255,255,0.08); }
+
+  /* Required-field indicator */
+  .req-asterisk { color: var(--amber); margin-left: 2px; font-weight: 700; }
+
+  /* === Audit-trail block — promoted prominence === */
+  .audit-block {
+    background: rgba(255,106,52,0.04);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--brand-primary);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .audit-block .audit-q {
+    font-size: 14px; font-weight: 600;
+    color: var(--text); line-height: 1.35;
+    margin-bottom: 4px;
+    display: flex; align-items: baseline; gap: 6px;
+  }
+  .audit-block .audit-sub {
+    font-size: 12px; color: var(--text-dim);
+    margin-bottom: 10px; line-height: 1.45;
+  }
+  .audit-block textarea {
+    min-height: 110px;
+    background: var(--bg);
+    font-size: 13px; line-height: 1.55;
+  }
+
+  /* === Collapse upper region when override panel is open (both A and B) === */
+  .col-decide.overriding .pick-card,
+  .col-decide.overriding .big-action,
+  .col-decide.overriding .or-divider {
+    display: none;
+  }
+
+  /* Submit footer button — disabled state */
+  .submit-btn:disabled, .submit-btn[disabled] {
+    background: var(--bg-panel); border-color: var(--border); color: var(--text-dim);
+    cursor: not-allowed; opacity: 0.7;
+  }
+
+  /* Re-run switch */
+  .switch-row {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 12px;
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .switch-row .meta { flex: 1; }
+  .switch-row .title { font-size: 13px; color: var(--text); font-weight: 500; }
+  .switch-row .desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
+  .switch {
+    position: relative; width: 34px; height: 18px; flex-shrink: 0;
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 9px; cursor: pointer; transition: all 0.15s;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 1px; left: 1px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--text-dim); transition: all 0.15s;
+  }
+  .switch.on { background: var(--brand-primary); border-color: var(--brand-primary); }
+  .switch.on::after { left: 17px; background: #000; }
+
+  /* Eval radio */
+  .eval-radio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .eval-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; cursor: pointer; transition: all 0.12s; }
+  .eval-card.checked { background: rgba(255,106,52,0.08); border-color: var(--brand-primary); }
+  .eval-card .title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .eval-card .sub { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px; }
+  .eval-card input { margin-right: 6px; accent-color: var(--brand-primary); }
+
+  textarea { width: 100%; min-height: 60px; background: var(--bg-panel); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 4px; font-family: inherit; font-size: 13px; resize: vertical; }
+  textarea:focus { outline: 1px solid var(--brand-primary); }
+
+  /* Footer */
+  .inline-foot { padding: 10px 16px; border-top: 1px solid var(--border); background: var(--bg-2); display: flex; align-items: center; gap: 10px; }
+  .inline-foot .keyhint { font-family: var(--font-mono); font-size: 10px; background: var(--bg-panel); padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border); color: var(--text-dim); }
+  .inline-foot .grow { flex: 1; }
+  .inline-foot button { padding: 7px 14px; border-radius: 4px; font-size: 13px; cursor: pointer; font-family: inherit; font-weight: 600; border: 1px solid; }
+  .inline-foot button.skip { background: var(--bg-panel); border-color: var(--border); color: var(--text); font-weight: 400; }
+  .submit-btn[data-mode="confirm"] { background: var(--lime); border-color: var(--lime); color: #0a1a04; }
+  .submit-btn[data-mode="override"] { background: var(--amber); border-color: var(--amber); color: #1a1206; }
+  .submit-btn:hover { filter: brightness(1.08); }
+
+  /* Modal (locked) */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(2px); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); width: min(820px, 92vw); max-height: 86vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
+  .modal-head { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .modal-head h2 { font-size: 14px; font-weight: 600; margin: 0; }
+  .modal-head .meta { color: var(--text-dim); font-size: 12px; font-family: var(--font-mono); }
+  .modal-head .grow { flex: 1; }
+  .modal-head button, .modal-head select { background: var(--bg-panel); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .modal-body { flex: 1; overflow: auto; padding: 18px 20px; }
+  .thread-msg { border-left: 3px solid var(--border); padding: 10px 14px; margin-bottom: 14px; background: var(--bg); }
+  .thread-msg.current { border-left-color: var(--brand-primary); background: rgba(255,106,52,0.05); }
+  .thread-msg .msg-head { display: flex; gap: 12px; align-items: baseline; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-family: var(--font-mono); }
+  .thread-msg .msg-head .from { color: var(--text); font-weight: 600; }
+  .thread-msg .msg-head .timestamp { margin-left: auto; }
+  .thread-msg .msg-subject { font-size: 13px; color: var(--text); margin-bottom: 8px; }
+  .thread-msg .msg-body { font-size: 14px; line-height: 1.65; color: var(--text); white-space: pre-wrap; }
+  .thread-msg.current .msg-body .highlight { background: rgba(255,181,71,0.20); color: var(--amber); padding: 1px 4px; border-radius: 3px; font-weight: 600; }
+  .modal-foot { padding: 12px 20px; border-top: 1px solid var(--border); background: var(--bg-2); display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-dim); }
+
+  .annotation { background: var(--bg-2); border-top: 1px solid var(--border); padding: 10px 20px; font-size: var(--fs-xs); color: var(--text-muted); display: flex; gap: 16px; align-items: center; }
+  .annotation .key { font-family: var(--font-mono); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; }
+
+  .variant-pane { display: none; flex-direction: column; height: 100%; }
+  .variant-pane.active { display: flex; }
+</style>
+</head>
+<body>
+
+<div class="variant-bar">
+  <span class="label">SKETCH 004 — STAGE 2 RESOLVER ATTRIBUTION</span>
+  <span class="variant-tab active" data-variant="A">A — Clean sender-map match</span>
+  <span class="variant-tab" data-variant="B">B — LLM tiebreaker fired</span>
+  <span style="flex:1"></span>
+  <span class="label">4-step resolver chain visible · winner highlighted ↓</span>
+</div>
+
+<!-- ============================================================ -->
+<!-- VARIANT A — Clean sender-map match                             -->
+<!-- ============================================================ -->
+<div class="variant-pane active" data-variant="A">
+  <div class="modebar">
+    <div class="mode-half active" data-mode="queue">
+      <div class="mode-glyph">▶</div>
+      <div class="mode-meta">
+        <span class="mode-name">Queue · Live</span>
+        <span class="mode-count">47 <span style="font-size:11px;color:var(--text-dim);font-weight:400">blocked, waiting for you</span></span>
+      </div>
+    </div>
+    <div class="mode-half" data-mode="history">
+      <div class="mode-glyph">◷</div>
+      <div class="mode-meta" style="opacity:0.7">
+        <span class="mode-name" style="color:var(--text-dim)">History · Review</span>
+        <span class="mode-count" style="color:var(--text-muted)">312</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage-tabs">
+    <div class="stage-tab"><span>Safety</span><span class="badge">3</span></div>
+    <div class="stage-tab"><span>Noise</span><span class="badge">8</span></div>
+    <div class="stage-tab active"><span>Customer</span><span class="badge">2</span></div>
+    <div class="stage-tab"><span>Topic</span><span class="badge">22</span></div>
+    <div class="stage-tab"><span>Action</span><span class="badge">12</span></div>
+  </div>
+
+  <div class="list">
+    <div class="col-head">
+      <span>Recipient</span><span>Subject</span>
+      <span class="stages-head"><span>Safety</span><span>Noise</span><span>Customer</span><span>Topic</span><span>Action</span></span>
+    </div>
+
+    <div class="row-wrap" data-row="A1">
+      <div class="row expanded" onclick="toggleRow('A','A1')">
+        <span class="recipient">facturen@moyne-roberts.nl</span>
+        <span class="subject"><span class="from">a.de.wit@vandenberg-bv.nl</span>Kunt u INV-2026-04790 nogmaals doorsturen?</span>
+        <span class="stages">
+          <span class="stage-cell safe"><span class="outcome">Safe</span></span>
+          <span class="stage-cell match"><span class="outcome">Customer message</span><span class="hint">unknown → S2</span></span>
+          <span class="stage-cell match blocked"><span class="outcome">Van den Berg BV</span><span class="hint">sender-map · review</span></span>
+          <span class="stage-cell idle"><span class="outcome">waiting</span></span>
+          <span class="stage-cell idle"><span class="outcome">waiting</span></span>
+        </span>
+      </div>
+
+      <div class="inline">
+        <div class="inline-head">
+          <span class="stage-pill">Stage 2 · Customer match</span>
+          <span class="grow"></span>
+          <span class="meta">2026-05-21 09:31:18 · 0.00¢ · <code>deterministic only</code></span>
+          <span style="color:var(--text-dim);font-size:11px">▲ collapse</span>
+        </div>
+
+        <div class="inline-body">
+          <!-- LEFT: 4-step resolver chain -->
+          <div class="col-read">
+            <div class="col-label">Read · how the customer was matched</div>
+
+            <div class="section">
+              <div class="section-head">
+                Resolver chain · 4 deterministic-first steps
+                <span class="verdict-pill match">sender-map</span>
+              </div>
+              <div class="resolver-chain">
+                <div class="resolver-step miss">
+                  <div class="step-marker">1</div>
+                  <div>
+                    <div class="step-name">Thread lookup</div>
+                    <div class="step-sub">existing customer_id from prior conversation</div>
+                  </div>
+                  <div class="step-status">no thread match</div>
+                </div>
+
+                <div class="resolver-step matched winner">
+                  <div class="step-marker">2</div>
+                  <div>
+                    <div class="step-name">Sender map</div>
+                    <div class="step-sub">deterministic sender → customer mapping</div>
+                  </div>
+                  <div class="step-status">✓ matched · 100%</div>
+                  <div class="step-detail">
+                    <div style="margin-bottom:4px"><span class="key">From:</span><code>a.de.wit@vandenberg-bv.nl</code></div>
+                    <div style="margin-bottom:4px"><span class="key">Mapped to:</span><code>Van den Berg BV</code> · <code>customer_account_id 0042</code></div>
+                    <div style="margin-bottom:4px"><span class="key">Backend:</span><code>NXT</code> · brand <code>SB</code> · db <code>moyne_smeba</code></div>
+                    <div style="color:var(--text-dim);font-size:11px;margin-top:4px">Promoted from LLM-aided to deterministic in week 18 (Wilson-CI gate cleared at n=47 confirms / 0 overrides).</div>
+                  </div>
+                </div>
+
+                <div class="resolver-step not-run">
+                  <div class="step-marker">3</div>
+                  <div>
+                    <div class="step-name">Identifier extraction</div>
+                    <div class="step-sub">invoice / reference / VAT in body</div>
+                  </div>
+                  <div class="step-status">not run · step 2 won</div>
+                </div>
+
+                <div class="resolver-step not-run">
+                  <div class="step-marker">4</div>
+                  <div>
+                    <div class="step-name">LLM tiebreaker</div>
+                    <div class="step-sub">last resort · only on conflict</div>
+                  </div>
+                  <div class="step-status">not run · no conflict</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-head">Email body</div>
+              <div class="quoted-span">Beste,
+
+Kunt u factuur INV-2026-04790 nogmaals doorsturen? Ik kan deze niet meer vinden in mijn archief.
+
+Alvast bedankt,
+A. de Wit
+Van den Berg BV</div>
+              <div class="body-toolbar">
+                <button onclick="openThreadModal('A1')">↗ View full thread <span style="color:var(--text-dim);font-family:var(--font-mono)">(2 msgs)</span></button>
+                <select title="Translate body — future: French inbox support">
+                  <option>⇄ Original (NL)</option>
+                  <option>⇄ English</option>
+                  <option>⇄ Français</option>
+                </select>
+                <span class="grow"></span>
+                <span class="lang-hint">detected: nl</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Decide -->
+          <div class="col-decide">
+            <div class="col-label">Decide · your verdict</div>
+
+            <!-- The system's pick — what's being confirmed -->
+            <div class="pick-card">
+              <div class="pick-label">The system matched</div>
+              <div class="pick-name">Van den Berg BV</div>
+              <div class="pick-meta">customer_account_id 0042 · NXT</div>
+              <div class="pick-source">
+                <span class="source-pill match">sender-map · 100%</span>
+                Promoted from LLM-aided to deterministic in W18 (47 confirms, 0 overrides).
+              </div>
+            </div>
+
+            <!-- Default action: Confirm (this IS the footer button, shown big for clarity) -->
+            <button class="big-action primary selected" id="A1-confirm-action" onclick="chooseAction('A1','confirm')">
+              <span class="glyph">✓</span>
+              <span class="body">
+                <span class="title">Confirm — system got it right</span>
+                <span class="subtitle">Customer stays Van den Berg BV · sender-map signal +1</span>
+              </span>
+              <span class="keyhint">⏎</span>
+            </button>
+
+            <div class="or-divider">or</div>
+
+            <!-- Override disclosure -->
+            <details class="override-disclosure" id="A1-override-disc">
+              <summary onclick="chooseAction('A1','override-open')">
+                <span>Override — this isn't the right customer</span>
+                <span style="margin-left:auto;color:var(--text-dim);font-size:11px;font-family:var(--font-mono)">amber path</span>
+              </summary>
+              <div class="disc-body">
+                <div class="field-group">
+                  <span class="field-label">Customer account number <span class="req-asterisk">*</span></span>
+                  <div class="customer-input-row" id="A1-input-row">
+                    <input type="text" id="A1-cust-input" inputmode="numeric" pattern="\d*"
+                           placeholder="e.g. 0079"
+                           oninput="A1Resolve(this.value)" />
+                  </div>
+                  <div style="font-size:11px;color:var(--text-dim);margin-top:4px;line-height:1.5">
+                    Look up the customer's account number in NXT first. The number is the <strong>canonical truth</strong> — Stage 3 + 4 will re-run against it.
+                    Digits only · zero-padded to 4 characters.
+                  </div>
+                  <div class="resolved-feedback" id="A1-feedback">
+                    <span class="check" id="A1-feedback-check">✓</span>
+                    <span id="A1-feedback-text">match found</span>
+                  </div>
+                </div>
+
+                <div class="audit-block">
+                  <div class="audit-q">
+                    How did you find this customer?
+                    <span class="req-asterisk">*</span>
+                  </div>
+                  <div class="audit-sub">
+                    Audit trail — describe the NXT lookup or evidence chain so reviewers can verify your override later. Required.
+                  </div>
+                  <textarea id="A1-audit" oninput="A1ValidateSubmit()" placeholder="Example:
+
+Looked up sender domain vandenberg-holding.nl in NXT contacts → found under Van den Berg Holding (parent of Van den Berg BV) → confirmed account 0103 by cross-checking last invoice INV-2026-04612 on the parent account."></textarea>
+                </div>
+
+                <div class="switch-row">
+                  <div class="meta">
+                    <div class="title">Re-run Stage 3 + 4 with corrected customer</div>
+                    <div class="desc">Default ON when overriding — downstream draft regenerates with the new customer. Turn OFF if you only want to record the correction without spending LLM tokens.</div>
+                  </div>
+                  <div class="switch on" id="A1-rerun" onclick="toggleSwitch('A1-rerun')"></div>
+                </div>
+
+                <div style="font-size:11px;color:var(--text-dim);padding:0 4px;line-height:1.4">
+                  ★ Tagged server-side as <code style="font-family:var(--font-mono);font-size:10px">eval_type=regression</code> by default. Engineers retag via the QA admin surface when investigating model regressions.
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="inline-foot">
+          <span class="keyhint">⏎</span>
+          <span style="font-size:11px;color:var(--text-dim)">Submit · <span class="keyhint">Esc</span> collapse · <span class="keyhint">J</span> / <span class="keyhint">K</span> next-prev</span>
+          <span class="grow"></span>
+          <button class="skip">Skip · N</button>
+          <button class="submit-btn" id="A1-submit" data-mode="confirm">Confirm customer ⏎</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row-wrap" data-row="A2">
+      <div class="row" onclick="toggleRow('A','A2')">
+        <span class="recipient">debiteuren@smeba.nl</span>
+        <span class="subject"><span class="from">controller@cogent-logistics.com</span>Vraag over openstaande factuur — graag terugbellen</span>
+        <span class="stages">
+          <span class="stage-cell safe"><span class="outcome">Safe</span></span>
+          <span class="stage-cell match"><span class="outcome">Customer message</span><span class="hint">unknown → S2</span></span>
+          <span class="stage-cell match blocked"><span class="outcome">Cogent Logistics</span><span class="hint">sender-map · review</span></span>
+          <span class="stage-cell idle"><span class="outcome">waiting</span></span>
+          <span class="stage-cell idle"><span class="outcome">waiting</span></span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <span class="key">A — CLEAN SENDER-MAP:</span>
+    Step 1 (thread) miss → Step 2 (sender-map) ✓ matched at 100% → Steps 3-4 not run (no conflict). The winner step shows full match detail (sender, mapped customer, backend, promotion history). Dim/dashed steps below convey "we didn't need to get here." 0¢ cost — pure deterministic path.
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- VARIANT B — LLM tiebreaker fired                               -->
+<!-- ============================================================ -->
+<div class="variant-pane" data-variant="B">
+  <div class="modebar">
+    <div class="mode-half active" data-mode="queue">
+      <div class="mode-glyph">▶</div>
+      <div class="mode-meta">
+        <span class="mode-name">Queue · Live</span>
+        <span class="mode-count">47 <span style="font-size:11px;color:var(--text-dim);font-weight:400">blocked, waiting for you</span></span>
+      </div>
+    </div>
+    <div class="mode-half" data-mode="history">
+      <div class="mode-glyph">◷</div>
+      <div class="mode-meta" style="opacity:0.7">
+        <span class="mode-name" style="color:var(--text-dim)">History · Review</span>
+        <span class="mode-count" style="color:var(--text-muted)">312</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage-tabs">
+    <div class="stage-tab"><span>Safety</span><span class="badge">3</span></div>
+    <div class="stage-tab"><span>Noise</span><span class="badge">8</span></div>
+    <div class="stage-tab active"><span>Customer</span><span class="badge">2</span></div>
+    <div class="stage-tab"><span>Topic</span><span class="badge">22</span></div>
+    <div class="stage-tab"><span>Action</span><span class="badge">12</span></div>
+  </div>
+
+  <div class="list">
+    <div class="col-head">
+      <span>Recipient</span><span>Subject</span>
+      <span class="stages-head"><span>Safety</span><span>Noise</span><span>Customer</span><span>Topic</span><span>Action</span></span>
+    </div>
+
+    <div class="row-wrap" data-row="B1">
+      <div class="row expanded" onclick="toggleRow('B','B1')">
+        <span class="recipient">facturen@moyne-roberts.nl</span>
+        <span class="subject"><span class="from">jansen@partner-co.nl</span>Vraag over openstaand bedrag — verwijst naar INV-2026-04790 en INV-2026-04812</span>
+        <span class="stages">
+          <span class="stage-cell safe"><span class="outcome">Safe</span></span>
+          <span class="stage-cell match"><span class="outcome">Customer message</span><span class="hint">unknown → S2</span></span>
+          <span class="stage-cell warn blocked"><span class="outcome">Two candidates</span><span class="hint">LLM picked · review</span></span>
+          <span class="stage-cell idle"><span class="outcome">waiting</span></span>
+          <span class="stage-cell idle"><span class="outcome">waiting</span></span>
+        </span>
+      </div>
+
+      <div class="inline">
+        <div class="inline-head">
+          <span class="stage-pill">Stage 2 · Customer match · LLM tiebreaker</span>
+          <span class="grow"></span>
+          <span class="meta">2026-05-21 09:34:12 · 0.012¢ · 198 tok · <code>stage-2-tiebreaker</code></span>
+          <span style="color:var(--text-dim);font-size:11px">▲ collapse</span>
+        </div>
+
+        <div class="inline-body">
+          <!-- LEFT: 4-step resolver chain — LLM tiebreaker case -->
+          <div class="col-read">
+            <div class="col-label">Read · how the customer was matched</div>
+
+            <div class="section">
+              <div class="section-head">
+                Resolver chain · 4 deterministic-first steps
+                <span class="verdict-pill llm">LLM tiebreaker</span>
+              </div>
+              <div class="resolver-chain">
+                <div class="resolver-step miss">
+                  <div class="step-marker">1</div>
+                  <div>
+                    <div class="step-name">Thread lookup</div>
+                    <div class="step-sub">existing customer_id from prior conversation</div>
+                  </div>
+                  <div class="step-status">no thread match</div>
+                </div>
+
+                <div class="resolver-step miss">
+                  <div class="step-marker">2</div>
+                  <div>
+                    <div class="step-name">Sender map</div>
+                    <div class="step-sub">deterministic sender → customer mapping</div>
+                  </div>
+                  <div class="step-status">no map for partner-co.nl</div>
+                </div>
+
+                <div class="resolver-step conflict">
+                  <div class="step-marker">3</div>
+                  <div>
+                    <div class="step-name">Identifier extraction</div>
+                    <div class="step-sub">invoice / reference / VAT in body</div>
+                  </div>
+                  <div class="step-status">⚠ 2 candidates · conflict</div>
+                </div>
+
+                <div class="resolver-step llm-picked winner">
+                  <div class="step-marker">4</div>
+                  <div>
+                    <div class="step-name">LLM tiebreaker</div>
+                    <div class="step-sub">last resort · adjudicates Step 3 conflict</div>
+                  </div>
+                  <div class="step-status">● picked · 72% conf</div>
+                  <div class="step-detail">
+                    <div style="margin-bottom:6px"><span class="key">Model:</span><code>stage-2-tiebreaker</code> · <code>haiku-4-5</code></div>
+                    <div style="margin-bottom:6px"><span class="key">Picked:</span><code>Van den Berg BV</code> · <code>0042</code></div>
+                    <div style="margin-bottom:6px"><span class="key">Candidates considered:</span></div>
+                    <div style="margin-left:12px;margin-bottom:6px;font-size:12px;line-height:1.6">
+                      <div>● <strong style="color:var(--blue)">Van den Berg BV</strong> · 0042 — INV-2026-04790 is on this account (recent)</div>
+                      <div>○ <span style="color:var(--text-dim)">Berg-Logistics BV · 0079 — INV-2026-04812 is on this account (also recent)</span></div>
+                    </div>
+                    <div style="margin-bottom:4px"><span class="key">Why:</span></div>
+                    <div style="font-size:12px;color:var(--text-muted);line-height:1.55;margin-left:12px">
+                      Sender's display name "Jansen" appears in our contact records for Van den Berg BV but not for Berg-Logistics BV. Both invoices are mentioned in the body, but the salutation pattern + signature affinity tilt toward the former. Suggesting a reviewer confirms before downstream stages run.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-head">Email body · identifiers highlighted</div>
+              <div class="quoted-span">Geachte heer/mevrouw,
+
+Wij hebben een openstaand bedrag in onze administratie dat verwijst naar <span class="highlight">INV-2026-04790</span> en <span class="highlight">INV-2026-04812</span>. Kunnen we een afspraak maken om dit door te nemen?
+
+Met vriendelijke groet,
+Jansen — Partner Co</div>
+              <div class="body-toolbar">
+                <button onclick="openThreadModal('B1')">↗ View full thread <span style="color:var(--text-dim);font-family:var(--font-mono)">(1 msg)</span></button>
+                <select title="Translate body — future: French inbox support">
+                  <option>⇄ Original (NL)</option>
+                  <option>⇄ English</option>
+                  <option>⇄ Français</option>
+                </select>
+                <span class="grow"></span>
+                <span class="lang-hint">detected: nl</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Decide -->
+          <div class="col-decide">
+            <div class="col-label">Decide · your verdict</div>
+
+            <!-- The system's pick — what's being confirmed -->
+            <div class="pick-card" style="border-color:#b886ff">
+              <div class="pick-label" style="color:#b886ff">⚠ LLM tiebreaker · 72% confident</div>
+              <div class="pick-name">Van den Berg BV</div>
+              <div class="pick-meta">customer_account_id 0042 · NXT</div>
+              <div class="pick-source">
+                <span class="source-pill llm">stage-2-tiebreaker</span>
+                Picked over 1 alternative · verify the call before confirming
+              </div>
+            </div>
+
+            <!-- Two big actions for the 2-candidate case -->
+            <button class="big-action primary selected" id="B1-confirm-action" onclick="chooseBAction('confirm')">
+              <span class="glyph">✓</span>
+              <span class="body">
+                <span class="title">Confirm — LLM got it right</span>
+                <span class="subtitle">Van den Berg BV stays · downstream runs as planned</span>
+              </span>
+              <span class="keyhint">⏎</span>
+            </button>
+
+            <button class="big-action alt" id="B1-flip-action" onclick="chooseBAction('flip')">
+              <span class="glyph">⇄</span>
+              <span class="body">
+                <span class="title">Flip → Berg-Logistics BV</span>
+                <span class="subtitle">customer_account_id 0079 · LLM's runner-up · re-runs Stage 3+4 automatically</span>
+              </span>
+              <span class="keyhint">F</span>
+            </button>
+
+            <div class="or-divider">or</div>
+
+            <details class="override-disclosure" id="B1-override-disc">
+              <summary onclick="chooseBAction('override-open')">
+                <span>Neither — enter a different customer</span>
+                <span style="margin-left:auto;color:var(--text-dim);font-size:11px;font-family:var(--font-mono)">amber path</span>
+              </summary>
+              <div class="disc-body">
+                <div class="field-group">
+                  <span class="field-label">Customer account number <span class="req-asterisk">*</span></span>
+                  <div class="customer-input-row" id="B1-input-row">
+                    <input type="text" id="B1-cust-input" inputmode="numeric" pattern="\d*"
+                           placeholder="e.g. 0203"
+                           oninput="B1Resolve(this.value)" />
+                  </div>
+                  <div style="font-size:11px;color:var(--text-dim);margin-top:4px;line-height:1.5">
+                    Look up the customer's account number in NXT first. The number is the <strong>canonical truth</strong> — Stage 3 + 4 will re-run against it.
+                    Use this when neither LLM candidate (Van den Berg / Berg-Logistics) is correct.
+                  </div>
+                  <div class="resolved-feedback" id="B1-feedback">
+                    <span class="check" id="B1-feedback-check">✓</span>
+                    <span id="B1-feedback-text">match found</span>
+                  </div>
+                </div>
+
+                <div class="audit-block">
+                  <div class="audit-q">
+                    How did you find this customer?
+                    <span class="req-asterisk">*</span>
+                  </div>
+                  <div class="audit-sub">
+                    Audit trail — describe the NXT lookup or evidence chain so reviewers can verify your override later. Required.
+                  </div>
+                  <textarea id="B1-audit" oninput="B1ValidateSubmit()" placeholder="Example:
+
+Searched NXT contacts for partner-co.nl → found Partner Co BV (0203). Both INV-04790 and INV-04812 are on this account — neither Van den Berg nor Berg-Logistics. LLM tiebreaker missed because Jansen is Partner Co's own controller, not Van den Berg's."></textarea>
+                </div>
+
+                <div class="switch-row">
+                  <div class="meta">
+                    <div class="title">Re-run Stage 3 + 4 with corrected customer</div>
+                    <div class="desc">Default ON when overriding — downstream draft regenerates with the new customer.</div>
+                  </div>
+                  <div class="switch on" id="B1-rerun" onclick="toggleSwitch('B1-rerun')"></div>
+                </div>
+
+                <div style="font-size:11px;color:var(--text-dim);padding:0 4px;line-height:1.4">
+                  ★ Tagged server-side as <code style="font-family:var(--font-mono);font-size:10px">eval_type=regression</code> by default. Engineers retag via the QA admin surface when investigating model regressions.
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="inline-foot">
+          <span class="keyhint">⏎</span>
+          <span style="font-size:11px;color:var(--text-dim)">Submit · <span class="keyhint">Esc</span> collapse · <span class="keyhint">J</span> / <span class="keyhint">K</span> next-prev</span>
+          <span class="grow"></span>
+          <button class="skip">Skip · N</button>
+          <button class="submit-btn" id="B1-submit" data-mode="confirm">Confirm LLM pick ⏎</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row-wrap" data-row="B2">
+      <div class="row" onclick="toggleRow('B','B2')">
+        <span class="recipient">debiteuren@smeba.nl</span>
+        <span class="subject"><span class="from">no-name@hosting-provider.de</span>Onbekende afzender met factuur reference INV-2026-04612</span>
+        <span class="stages">
+          <span class="stage-cell safe"><span class="outcome">Safe</span></span>
+          <span class="stage-cell match"><span class="outcome">Customer message</span><span class="hint">unknown → S2</span></span>
+          <span class="stage-cell warn blocked"><span class="outcome">No match</span><span class="hint">all 4 steps missed</span></span>
+          <span class="stage-cell idle"><span class="outcome">waiting</span></span>
+          <span class="stage-cell idle"><span class="outcome">waiting</span></span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <span class="key">B — LLM TIEBREAKER:</span>
+    Steps 1-2 missed → Step 3 (identifier) found 2 conflicting invoices on different customers → Step 4 (LLM) adjudicates. Winner step shows both candidates inline + the LLM's reasoning + confidence. Right column flags the LLM pick at 72% and pre-enables the "Re-run downstream" switch so operator's correction propagates. Cost (0.012¢, 198 tok) visible in header.
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Modal                                                          -->
+<!-- ============================================================ -->
+<div class="modal-backdrop" id="thread-modal" onclick="closeThreadModalOnBackdrop(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <h2 id="modal-title">Full email thread</h2>
+      <span class="meta" id="modal-meta">… messages</span>
+      <span class="grow"></span>
+      <select title="Translate thread">
+        <option>⇄ Original</option>
+        <option>⇄ English</option>
+        <option>⇄ Nederlands</option>
+        <option>⇄ Français</option>
+      </select>
+      <button onclick="closeThreadModal()">Close · Esc</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot">
+      <span>Thread sourced from <code style="font-family:var(--font-mono)">email_pipeline.emails</code> ordered by <code style="font-family:var(--font-mono)">conversation_id, received_at</code>.</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const THREADS = {
+    'A1': {
+      title: "Factuurkopie INV-2026-04790",
+      meta: "2 messages · thread_id 0xb88e-vandenberg-04790",
+      messages: [
+        {
+          from: "facturen@moyne-roberts.nl",
+          fromName: "Crediteuren MR",
+          subject: "Factuur INV-2026-04790",
+          timestamp: "2026-05-12 10:14",
+          body: "Geachte heer de Wit,\n\nHierbij ontvangt u factuur INV-2026-04790. Vergoeding binnen 14 dagen.\n\nMet vriendelijke groet,\nCrediteuren Moyne Roberts"
+        },
+        {
+          from: "a.de.wit@vandenberg-bv.nl",
+          fromName: "A. de Wit",
+          subject: "Re: Factuur INV-2026-04790",
+          timestamp: "2026-05-21 09:31",
+          current: true,
+          body: "Beste,\n\nKunt u factuur $$INV-2026-04790$$ nogmaals doorsturen? Ik kan deze niet meer vinden in mijn archief.\n\nAlvast bedankt,\nA. de Wit\nVan den Berg BV"
+        }
+      ]
+    },
+    'B1': {
+      title: "Openstaand bedrag — Jansen / Partner Co",
+      meta: "1 message · thread_id 0xc11f-partner-co-04790-04812",
+      messages: [
+        {
+          from: "jansen@partner-co.nl",
+          fromName: "Jansen",
+          subject: "Vraag over openstaand bedrag — INV-2026-04790 en INV-2026-04812",
+          timestamp: "2026-05-21 09:34",
+          current: true,
+          body: "Geachte heer/mevrouw,\n\nWij hebben een openstaand bedrag in onze administratie dat verwijst naar $$INV-2026-04790$$ en $$INV-2026-04812$$. Kunnen we een afspraak maken om dit door te nemen?\n\nMet vriendelijke groet,\nJansen — Partner Co"
+        }
+      ]
+    }
+  };
+
+  function openThreadModal(rowId) {
+    const thread = THREADS[rowId]; if (!thread) return;
+    document.getElementById('modal-title').textContent = thread.title;
+    document.getElementById('modal-meta').textContent = thread.meta;
+    document.getElementById('modal-body').innerHTML = thread.messages.map(m => {
+      const isCurrent = m.current;
+      const cls = isCurrent ? 'thread-msg current' : 'thread-msg';
+      const rendered = isCurrent ? m.body.replace(/\$\$(.+?)\$\$/g, '<span class="highlight">$1</span>') : m.body;
+      return `<div class="${cls}"><div class="msg-head"><span class="from">${m.fromName} &lt;${m.from}&gt;</span><span class="timestamp">${m.timestamp}</span></div><div class="msg-subject">${m.subject}${isCurrent ? ' <span style="color:var(--brand-primary);font-family:var(--font-mono);font-size:11px;margin-left:6px">★ under review</span>' : ''}</div><div class="msg-body">${rendered}</div></div>`;
+    }).join('');
+    document.getElementById('thread-modal').classList.add('open');
+  }
+  function closeThreadModal() { document.getElementById('thread-modal').classList.remove('open'); }
+  function closeThreadModalOnBackdrop(e) { if (e.target.id === 'thread-modal') closeThreadModal(); }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('thread-modal').classList.contains('open')) closeThreadModal(); });
+
+  function toggleRow(variant, rowId) {
+    const pane = document.querySelector(`.variant-pane[data-variant="${variant}"]`);
+    pane.querySelectorAll('.row-wrap').forEach(w => {
+      const isTarget = w.dataset.row === rowId;
+      const wasOpen = w.classList.contains('expanded') || (w.querySelector('.row') && w.querySelector('.row').classList.contains('expanded'));
+      w.classList.toggle('expanded', isTarget && !wasOpen);
+      const row = w.querySelector('.row');
+      if (row) row.classList.toggle('expanded', isTarget && !wasOpen);
+    });
+  }
+
+  // Variant A: click Confirm or open Override disclosure
+  function chooseAction(rowId, action) {
+    const submit = document.getElementById(`${rowId}-submit`);
+    const confirmBtn = document.getElementById(`${rowId}-confirm-action`);
+    const disc = document.getElementById(`${rowId}-override-disc`);
+    const colDecide = document.querySelector(`.variant-pane[data-variant="A"] .col-decide`);
+    if (action === 'confirm') {
+      confirmBtn.classList.add('selected');
+      if (disc) disc.removeAttribute('open');
+      if (colDecide) colDecide.classList.remove('overriding');
+      submit.dataset.mode = 'confirm';
+      submit.disabled = false;
+      submit.textContent = "Confirm customer ⏎";
+    } else if (action === 'override-open') {
+      confirmBtn.classList.remove('selected');
+      if (colDecide) colDecide.classList.add('overriding');
+      submit.dataset.mode = 'override';
+      submit.textContent = "Submit override ⏎";
+      A1ValidateSubmit();
+    }
+  }
+
+  // Sync .overriding on Variant A disclosure toggle (Esc / re-click summary)
+  document.addEventListener('DOMContentLoaded', () => {
+    const discA = document.getElementById('A1-override-disc');
+    if (discA) {
+      discA.addEventListener('toggle', () => {
+        const colDecide = document.querySelector('.variant-pane[data-variant="A"] .col-decide');
+        if (!colDecide) return;
+        if (!discA.open) {
+          colDecide.classList.remove('overriding');
+          // Re-select confirm action when closing
+          const confirmBtn = document.getElementById('A1-confirm-action');
+          if (confirmBtn) confirmBtn.classList.add('selected');
+          const submit = document.getElementById('A1-submit');
+          if (submit) { submit.dataset.mode = 'confirm'; submit.disabled = false; submit.textContent = "Confirm customer ⏎"; }
+        } else {
+          colDecide.classList.add('overriding');
+        }
+      });
+    }
+  });
+
+  // ─── Variant A · Customer override input ──────────────────────
+  // Mocked customer registry (real impl hits `coordinator_runs` server action)
+  const A1_REGISTRY = {
+    '0079': 'Berg-Logistics BV',
+    '0103': 'Berg Holding BV',
+    '0117': 'Van den Berg Vastgoed',
+    '0042': 'Van den Berg BV', // the original — would no-op as override
+  };
+  let A1_PICK = null; // {acct, name} of the picked override
+
+  function A1Resolve(raw) {
+    // Numeric-only: strip non-digits, reflect back into the input
+    const digits = raw.replace(/\D+/g, '');
+    if (raw !== digits) {
+      document.getElementById('A1-cust-input').value = digits;
+    }
+    const value = digits;
+    const inputRow = document.getElementById('A1-input-row');
+    const fb = document.getElementById('A1-feedback');
+    const fbText = document.getElementById('A1-feedback-text');
+    const fbCheck = document.getElementById('A1-feedback-check');
+
+    inputRow.classList.remove('has-match', 'no-match');
+    fb.classList.remove('show', 'match', 'miss');
+    A1_PICK = null;
+
+    if (!value) { A1ValidateSubmit(); return; }
+
+    const padded = value.padStart(4, '0');
+    const name = A1_REGISTRY[padded];
+    if (name) {
+      inputRow.classList.add('has-match');
+      fb.classList.add('show', 'match');
+      fbCheck.textContent = '✓';
+      fbText.innerHTML = `<strong>${name}</strong> · acct <code style="font-family:var(--font-mono)">${padded}</code> · NXT db <code style="font-family:var(--font-mono)">moyne_smeba</code>`;
+      A1_PICK = { acct: padded, name };
+    } else {
+      inputRow.classList.add('no-match');
+      fb.classList.add('show', 'miss');
+      fbCheck.textContent = '✗';
+      fbText.innerHTML = `No customer with account number <code style="font-family:var(--font-mono)">${padded}</code> · double-check the number in NXT`;
+    }
+    A1ValidateSubmit();
+  }
+
+  function A1ValidateSubmit() {
+    const submit = document.getElementById('A1-submit');
+    const audit = document.getElementById('A1-audit');
+    const hasPick = !!A1_PICK;
+    const hasAudit = audit && audit.value.trim().length >= 10;
+    if (submit.dataset.mode === 'override') {
+      submit.disabled = !(hasPick && hasAudit);
+      if (!submit.disabled) {
+        submit.textContent = `Submit override → ${A1_PICK.name} ⏎`;
+      } else if (!hasPick) {
+        submit.textContent = "Submit override ⏎ — pick a customer";
+      } else {
+        submit.textContent = "Submit override ⏎ — add audit note";
+      }
+    }
+  }
+
+  // Variant B: confirm, flip to alternative, or open override
+  function chooseBAction(action) {
+    const submit = document.getElementById('B1-submit');
+    const confirmBtn = document.getElementById('B1-confirm-action');
+    const flipBtn = document.getElementById('B1-flip-action');
+    const disc = document.getElementById('B1-override-disc');
+    const colDecide = document.querySelector('.variant-pane[data-variant="B"] .col-decide');
+    const pickCard = document.querySelector('.variant-pane[data-variant="B"] .pick-card');
+
+    confirmBtn.classList.remove('selected');
+    flipBtn.classList.remove('selected');
+
+    if (action === 'confirm') {
+      confirmBtn.classList.add('selected');
+      if (disc) disc.removeAttribute('open');
+      colDecide.classList.remove('overriding');
+      submit.dataset.mode = 'confirm';
+      submit.disabled = false;
+      submit.textContent = "Confirm LLM pick ⏎";
+    } else if (action === 'flip') {
+      flipBtn.classList.add('selected');
+      if (disc) disc.removeAttribute('open');
+      colDecide.classList.remove('overriding');
+      submit.dataset.mode = 'override';
+      submit.disabled = false;
+      submit.textContent = "Flip to Berg-Logistics ⏎";
+      if (pickCard) {
+        pickCard.querySelector('.pick-name').textContent = "Berg-Logistics BV";
+        pickCard.querySelector('.pick-meta').textContent = "customer_account_id 0079 · NXT";
+        pickCard.querySelector('.pick-label').textContent = "Your pick (flipped from LLM)";
+        pickCard.style.borderColor = "var(--amber)";
+        pickCard.querySelector('.pick-label').style.color = "var(--amber)";
+      }
+    } else if (action === 'override-open') {
+      colDecide.classList.add('overriding');
+      submit.dataset.mode = 'override';
+      // Force-enable details (summary click also toggles it)
+      setTimeout(() => { if (disc) disc.setAttribute('open',''); }, 0);
+      submit.textContent = "Submit override ⏎";
+      B1ValidateSubmit();
+    }
+  }
+
+  // When override disclosure is closed (Esc / click summary again), restore the 2-button view
+  document.addEventListener('DOMContentLoaded', () => {
+    const disc = document.getElementById('B1-override-disc');
+    if (disc) {
+      disc.addEventListener('toggle', () => {
+        const colDecide = document.querySelector('.variant-pane[data-variant="B"] .col-decide');
+        if (!disc.open) colDecide.classList.remove('overriding');
+        else colDecide.classList.add('overriding');
+      });
+    }
+  });
+
+  // ─── Variant B · Customer override input ──────────────────────
+  const B1_REGISTRY = {
+    '0203': 'Partner Co BV',
+    '0211': 'Partner Co Logistics',
+    '0042': 'Van den Berg BV',
+    '0079': 'Berg-Logistics BV',
+  };
+  let B1_PICK = null;
+
+  function B1Resolve(raw) {
+    const digits = raw.replace(/\D+/g, '');
+    if (raw !== digits) {
+      document.getElementById('B1-cust-input').value = digits;
+    }
+    const value = digits;
+    const inputRow = document.getElementById('B1-input-row');
+    const fb = document.getElementById('B1-feedback');
+    const fbText = document.getElementById('B1-feedback-text');
+    const fbCheck = document.getElementById('B1-feedback-check');
+
+    inputRow.classList.remove('has-match', 'no-match');
+    fb.classList.remove('show', 'match', 'miss');
+    B1_PICK = null;
+
+    if (!value) { B1ValidateSubmit(); return; }
+
+    const padded = value.padStart(4, '0');
+    const name = B1_REGISTRY[padded];
+    if (name) {
+      inputRow.classList.add('has-match');
+      fb.classList.add('show', 'match');
+      fbCheck.textContent = '✓';
+      fbText.innerHTML = `<strong>${name}</strong> · acct <code style="font-family:var(--font-mono)">${padded}</code> · NXT db <code style="font-family:var(--font-mono)">moyne_smeba</code>`;
+      B1_PICK = { acct: padded, name };
+    } else {
+      inputRow.classList.add('no-match');
+      fb.classList.add('show', 'miss');
+      fbCheck.textContent = '✗';
+      fbText.innerHTML = `No customer with account number <code style="font-family:var(--font-mono)">${padded}</code> · double-check the number in NXT`;
+    }
+    B1ValidateSubmit();
+  }
+
+  function B1ValidateSubmit() {
+    const submit = document.getElementById('B1-submit');
+    const audit = document.getElementById('B1-audit');
+    const hasPick = !!B1_PICK;
+    const hasAudit = audit && audit.value.trim().length >= 10;
+    if (submit.dataset.mode === 'override') {
+      submit.disabled = !(hasPick && hasAudit);
+      if (!submit.disabled) {
+        submit.textContent = `Submit override → ${B1_PICK.name} ⏎`;
+      } else if (!hasPick) {
+        submit.textContent = "Submit override ⏎ — pick a customer";
+      } else {
+        submit.textContent = "Submit override ⏎ — add audit note";
+      }
+    }
+  }
+
+  function toggleSwitch(id) {
+    document.getElementById(id).classList.toggle('on');
+  }
+
+  function selectEval(rowId, value) {
+    document.querySelectorAll(`label.eval-card input[name="${rowId}-eval"]`).forEach(input => {
+      const card = input.closest('.eval-card');
+      const checked = input.value === value;
+      input.checked = checked;
+      card.classList.toggle('checked', checked);
+    });
+  }
+
+  document.querySelectorAll('.variant-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.variant-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.variant-pane').forEach(p => p.classList.remove('active'));
+      document.querySelector(`.variant-pane[data-variant="${tab.dataset.variant}"]`).classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

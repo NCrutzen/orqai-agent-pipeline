@@ -1,0 +1,117 @@
+/* Phase 3 Plan 08 Task 1 — Stage 1 (Noise) Decide column styles.
+ *
+ * Ground truth: sketch 003 (003-stage-1-noise-feedback/index.html), the
+ * .col-decide column — a category dropdown (.select-wrap, lines ~277-297), a
+ * 160px audit-block (lines ~322-339, driven by the shared AuditBlock), an
+ * eval_type=regression server-default note, and a footer .submit-btn whose
+ * data-mode flips green "Confirm rule/rescue" ↔ amber "Submit override"
+ * (lines ~366-372).
+ *
+ * Token discipline (anti-drift #1): no raw hex; all colors via V7 tokens. The
+ * three lime/amber button-foreground hex values live in globals.css, never
+ * here. Animation timings: 0.12s / 0.15s / 0.6s only (anti-drift #2) — none
+ * used in this module.
+ *
+ * Theme token mapping (sketch → V7, per Plan 03-07):
+ *   --brand-primary → --v7-brand-primary · --amber → --v7-action-override-bg
+ *   --lime → --v7-action-confirm-bg · --text* → --v7-text* · --border → --v7-border
+ */
+
+.decide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionLabel {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--v7-text);
+}
+
+/* === Category field group (sketch .field-group + .field-label) === */
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--v7-text-dim);
+}
+
+/* === Category dropdown (sketch .select-wrap, lines ~277-297) ===
+ * The shared Stage1Widget (shadcn Select) renders inside this wrap. When the
+ * operator changes the verdict away from the current category, the wrap gains
+ * .dirty → amber border + amber-tinted background to mirror the submit flip. */
+.selectWrap {
+  position: relative;
+}
+
+.selectWrap.dirty {
+  /* Amber wash on the dropdown trigger so the override intent reads at a
+   * glance — paired with the amber submit button (data-mode="override"). */
+  border-radius: 4px;
+  outline: 1px solid var(--v7-action-override-bg);
+}
+
+.selectHint {
+  font-size: 11px;
+  color: var(--v7-text-dim);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+/* Plan 03-15 (r3-4): the ★ eval_type=regression server-default note was
+ * dropped — operators never see eval_type / QA-admin / internal pipeline
+ * terms (operator-language.md). The .evalNote rules are pruned with it. */
+
+/* === Footer submit (sketch .inline-foot .submit-btn, lines ~366-372) === */
+.footer {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.submitBtn {
+  border: 0;
+  border-radius: var(--v7-radius-pill);
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Verdict color triad (§8): confirm = green/lime, override = amber. */
+.submitBtn[data-mode="confirm"] {
+  background: var(--v7-action-confirm-bg);
+  color: var(--v7-action-confirm-fg);
+}
+
+.submitBtn[data-mode="override"] {
+  background: var(--v7-action-override-bg);
+  color: var(--v7-action-override-fg);
+}
+
+.submitBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.error {
+  font-size: 12px;
+  color: var(--v7-red, var(--red));
+  margin: 0;
+}
+
+.placeholder {
+  font-size: 13px;
+  color: var(--v7-text-muted);
+  margin: 0;
+}

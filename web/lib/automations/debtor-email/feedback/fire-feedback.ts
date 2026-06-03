@@ -20,6 +20,15 @@ export interface FireFeedbackArgs {
   verdict: FeedbackVerdict;
   corrected_value?: string;
   prose_notes?: string;
+  /**
+   * Phase 2 Plan 02-04 (OQ-9) — when present AND stage===1 AND
+   * verdict==='override', the server extends the email_feedback INSERT
+   * with an `agent_runs.human_verdict='edited_minor'` UPDATE for the
+   * referenced agent_runs row. Allows operator-id provenance to flow
+   * through the same auth boundary as the feedback INSERT.
+   * Server-side guards: zod uuid + stage/verdict gating before UPDATE.
+   */
+  agent_run_id?: string;
 }
 
 const FEEDBACK_ENDPOINT = "/api/automations/debtor-email/feedback";

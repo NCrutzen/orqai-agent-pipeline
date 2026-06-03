@@ -1,0 +1,186 @@
+/* Phase 3 Plan 03 / Plan 10 Task 2 — Stage 3 (Topic) Decide column styles.
+ *
+ * Sketch 005 lock (005-stage-3-ranked-intent-reorder/index.html):
+ *   - .col-decide composer layout + section label.
+ *   - .escalate-row (lines 248-274): red-bordered clickable "none of these"
+ *     row with glyph / body / keyhint.
+ *   - .col-decide.escalating (lines 275-289): dims the editor + foot, flips the
+ *     audit-block + escalate-row red.
+ *   - .submit-btn[data-mode confirm/override/escalate] (lines 289-331): the
+ *     verdict color triad — green Confirm ranking / amber Submit reorder /
+ *     red Escalate.
+ *
+ * Token discipline (anti-drift #1): no raw hex except the documented action
+ * button-foreground exceptions (#0a1a04 lime-fg, #1a1206 amber-fg, #1a0606
+ * red-fg) reproduced verbatim from the sketch. Red surface tints reuse the
+ * --v7-red token with rgba fallbacks matching the sketch.
+ *
+ * Animation timings (anti-drift #2): 0.12s escalate-row hover only.
+ */
+
+.decide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionLabel {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--v7-text);
+}
+
+.footer {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* === Submit verdict triad (sketch .submit-btn[data-mode]) === */
+.submitBtn {
+  border: 1px solid transparent;
+  border-radius: var(--v7-radius-pill);
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submitBtn:hover {
+  filter: brightness(1.08);
+}
+
+.submitBtn[data-mode="confirm"] {
+  background: var(--v7-action-confirm-bg, var(--v7-lime));
+  border-color: var(--v7-action-confirm-bg, var(--v7-lime));
+  color: var(--v7-action-confirm-fg, #0a1a04);
+}
+
+.submitBtn[data-mode="override"] {
+  background: var(--v7-action-override-bg, var(--v7-amber));
+  border-color: var(--v7-action-override-bg, var(--v7-amber));
+  color: var(--v7-action-override-fg, #1a1206);
+}
+
+.submitBtn[data-mode="escalate"] {
+  background: var(--v7-red, var(--red));
+  border-color: var(--v7-red, var(--red));
+  color: var(--v7-action-escalate-fg, #1a0606);
+}
+
+.submitBtn:disabled,
+.submitBtn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* === Escalate-to-human row (sketch .escalate-row) === */
+.escalateRow {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--v7-red-soft, rgba(255, 80, 80, 0.03));
+  border: 1px solid var(--v7-red, var(--red));
+  border-left: 3px solid var(--v7-red, var(--red));
+  border-radius: var(--v7-radius, 6px);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.escalateRow:hover {
+  background: var(--v7-red-soft, rgba(255, 80, 80, 0.08));
+}
+
+.escalateGlyph {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--v7-red-soft, rgba(255, 80, 80, 0.18));
+  color: var(--v7-red, var(--red));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.escalateBody {
+  flex: 1;
+}
+
+.escalateTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--v7-text);
+}
+
+.escalateSub {
+  font-size: 11px;
+  color: var(--v7-text-dim, var(--v7-text-muted));
+  margin-top: 2px;
+}
+
+.escalateSub code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.escalateKeyhint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--v7-red-soft, rgba(255, 80, 80, 0.08));
+  border: 1px solid var(--v7-red, var(--red));
+  color: var(--v7-red, var(--red));
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* Active escalate-row (parent in escalating mode) — sketch
+ * .col-decide.escalating .escalate-row. */
+.escalateRowActive {
+  background: var(--v7-red-soft, rgba(255, 80, 80, 0.12));
+  border-color: var(--v7-red, var(--red));
+  box-shadow: 0 0 0 2px var(--v7-red-soft, rgba(255, 80, 80, 0.18));
+}
+
+/* === Escalating-mode collapse (sketch .col-decide.escalating) === */
+.escalating .editor,
+.escalating :global(.ranked-list) {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.escalating .editorFoot {
+  opacity: 0.4;
+}
+
+/* Audit-block turns red while escalating (sketch
+ * .col-decide.escalating .audit-block). The AuditBlock primitive already flips
+ * its left-border to red via tone="danger"; this adds the red tinted bg. */
+.escalating :global([data-testid$="-audit"]),
+.escalating :global([data-tone="danger"]) {
+  background: var(--v7-red-soft, rgba(255, 80, 80, 0.04));
+}
+
+.error {
+  font-size: 12px;
+  color: var(--v7-red, var(--red));
+  margin: 0;
+}
+
+.warning {
+  font-size: 12px;
+  color: var(--v7-state-warn-fg, var(--v7-amber));
+  margin: 0;
+}
+
+.placeholder {
+  font-size: 13px;
+  color: var(--v7-text-muted);
+  margin: 0;
+}

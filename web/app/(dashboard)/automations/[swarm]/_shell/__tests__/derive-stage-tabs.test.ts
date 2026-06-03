@@ -5,9 +5,10 @@
 // the cross-swarm reuse contract — Phase 78 (sales-email) lights up the
 // same shell with zero UI changes.
 //
-// Pipeline architecture lock: Stage 0 + Stage 4 are universal (always
-// present); Stage 1 / Stage 2 / Stage 3 are present iff the swarm has the
-// corresponding registry binding. Stage 1 = noise filter
+// Bulk Review consolidation (REQ-01): Stage 0 and Stage 2 no longer have
+// standalone per-stage routes — they redirect to /review — so they are NOT
+// tabs. Stage 4 is universal (always present); Stage 1 / Stage 3 are present
+// iff the swarm has the corresponding registry binding. Stage 1 = noise filter
 // (swarm_noise_categories), Stage 3 = intent classifier (swarm_intents) —
 // hard separation preserved.
 
@@ -38,7 +39,7 @@ const baseSwarm: SwarmRow = {
 };
 
 describe("deriveStageTabs", () => {
-  it("full registry row → all 5 stages present", () => {
+  it("full registry row → 3 tabs (stages 1, 3, 4); stage 0 + 2 are NOT tabs (redirect to /review)", () => {
     const swarm: SwarmRow = {
       ...baseSwarm,
       stage1_regex_module: "debtor-email/classifier",
@@ -46,29 +47,34 @@ describe("deriveStageTabs", () => {
       stage3_coordinator_agent_key: "debtor-email-coordinator",
     };
     const tabs = deriveStageTabs(swarm);
-    expect(tabs).toHaveLength(5);
+    expect(tabs).toHaveLength(3);
     expect(tabs.every((t) => t.present)).toBe(true);
-    expect(tabs.map((t) => t.stage)).toEqual([0, 1, 2, 3, 4]);
+    expect(tabs.map((t) => t.stage)).toEqual([1, 3, 4]);
+    // Stage 0 and Stage 2 retired to Bulk Review (/review) — never tabs.
+    expect(tabs.find((t) => t.stage === 0)).toBeUndefined();
+    expect(tabs.find((t) => t.stage === 2)).toBeUndefined();
   });
 
-  it("missing stage2_entity_resolver → stage 2 present:false", () => {
+  it("missing stage1_regex_module → stage 1 present:false", () => {
     const swarm: SwarmRow = {
       ...baseSwarm,
-      stage1_regex_module: "debtor-email/classifier",
-      stage2_entity_resolver: null,
+      stage1_regex_module: null,
+      stage2_entity_resolver: "debtor-email/label-resolver",
       stage3_coordinator_agent_key: "debtor-email-coordinator",
     };
     const tabs = deriveStageTabs(swarm);
-    expect(tabs.find((t) => t.stage === 2)?.present).toBe(false);
-    expect(tabs.find((t) => t.stage === 1)?.present).toBe(true);
+    expect(tabs.find((t) => t.stage === 1)?.present).toBe(false);
     expect(tabs.find((t) => t.stage === 3)?.present).toBe(true);
+    expect(tabs.find((t) => t.stage === 4)?.present).toBe(true);
+    // Stage 2 is never a tab regardless of its registry binding.
+    expect(tabs.find((t) => t.stage === 2)).toBeUndefined();
   });
 
-  it("minimal row → only stage 0 + 4 present:true", () => {
+  it("minimal row → only stage 4 present:true (stages 0 + 2 absent)", () => {
     const tabs = deriveStageTabs(baseSwarm);
-    expect(tabs.find((t) => t.stage === 0)?.present).toBe(true);
+    expect(tabs.find((t) => t.stage === 0)).toBeUndefined();
     expect(tabs.find((t) => t.stage === 1)?.present).toBe(false);
-    expect(tabs.find((t) => t.stage === 2)?.present).toBe(false);
+    expect(tabs.find((t) => t.stage === 2)).toBeUndefined();
     expect(tabs.find((t) => t.stage === 3)?.present).toBe(false);
     expect(tabs.find((t) => t.stage === 4)?.present).toBe(true);
   });
@@ -86,7 +92,7 @@ describe("deriveStageTabs", () => {
     // Identical present-mask to a debtor-email row with the same bindings —
     // proves the function ignores swarm_type entirely.
     expect(tabs.find((t) => t.stage === 1)?.present).toBe(true);
-    expect(tabs.find((t) => t.stage === 2)?.present).toBe(false);
+    expect(tabs.find((t) => t.stage === 2)).toBeUndefined();
     expect(tabs.find((t) => t.stage === 3)?.present).toBe(true);
     // Slug + label come from the FIXED table, not from swarm_type.
     expect(tabs.find((t) => t.stage === 3)?.slug).toBe("stage-3");

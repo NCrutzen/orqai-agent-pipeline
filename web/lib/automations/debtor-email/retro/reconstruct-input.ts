@@ -74,11 +74,16 @@ function mailboxToEntity(mailbox: string | null): string {
 }
 
 export async function reconstructInput(
-  admin: Pick<SupabaseClient, "from">,
+  admin: Pick<SupabaseClient, "schema">,
   email_id: string,
   retro_run_id: string,
 ): Promise<InvokeIntentInput> {
+  // `emails` and `conversation_context` live in the `email_pipeline` schema,
+  // not `public` — scope the client like the live readers do (e.g.
+  // stage-2-customer-resolver.ts). Without this the per-email classify step
+  // throws "Could not find the table 'public.emails' in the schema cache".
   const { data: emailData, error: emailErr } = (await admin
+    .schema("email_pipeline")
     .from("emails")
     .select(
       "id, subject, body_text, body_full_text, sender_email, mailbox, received_at",
@@ -92,6 +97,7 @@ export async function reconstructInput(
   }
 
   const { data: ctxData, error: ctxErr } = (await admin
+    .schema("email_pipeline")
     .from("conversation_context")
     .select("email_id, position, sender_email, subject, body_text, received_at")
     .eq("email_id", email_id)

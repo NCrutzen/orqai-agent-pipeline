@@ -198,6 +198,15 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     });
   }
 
+  // conversationId is derived once here. The emails INSERT below MUST persist
+  // it: zapier-* ingests previously left conversation_id null 100% of the time
+  // (the value was only read further down for the Phase 83 thread fetch), which
+  // silently disabled Stage 2 thread_inheritance for every debtor email.
+  const conversationId =
+    typeof msg.rawJson?.conversationId === "string"
+      ? (msg.rawJson.conversationId as string)
+      : "";
+
   // Resolve canonical email_pipeline.emails.id BEFORE Stage 0 dispatch.
   // pipeline_events_email_summary filters WHERE email_id IS NOT NULL; null
   // ids never surface in Bulk Review. Fetcher cron upserts ON CONFLICT
@@ -230,6 +239,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
           // D-02 always write (Phase 83):
           body_html: msg.bodyHtml,
           raw_json: msg.rawJson,
+          conversation_id: conversationId || null,
           sender_email: msg.from,
           sender_name: msg.fromName,
           received_at: msg.receivedAt,
@@ -257,10 +267,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   // to email_pipeline.conversation_context. Idempotent via PK (email_id, position).
   // Soft-failure: ingest never fails because the thread fetch hiccupped — the
   // error is captured as an automation_runs row for observability (T-83-13).
-  const conversationId =
-    typeof msg.rawJson?.conversationId === "string"
-      ? (msg.rawJson.conversationId as string)
-      : "";
+  // conversationId is hoisted above (now also persisted on the emails row).
   if (resolvedEmailId && conversationId) {
     try {
       const priors = await fetchConversationMessages(

@@ -30,6 +30,14 @@ const FeedbackPayload = z.object({
   verdict: z.enum(["confirm", "override", "unclear"]),
   corrected_value: z.string().max(500).optional(),
   prose_notes: z.string().max(4000).optional(),
+  // Phase 2 Plan 02-04 (OQ-9) — optional `agent_run_id` widens the contract so
+  // a Stage 1 rule-feedback OVERRIDE can also flip the corresponding
+  // agent_runs.human_verdict in the same auth boundary. Gated server-side to
+  // (stage===1 AND verdict==='override') below; for any other shape the
+  // field is silently ignored. NOT a pipeline_events write — Phase 2 rule-
+  // feedback is an additive signal, not an axis-1 override (CON-pipeline-
+  // events-write-shape; P2-D-04).
+  agent_run_id: z.string().uuid().optional(),
 });
 
 const FeedbackReadQuery = z.object({
@@ -80,6 +88,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { error: `email_feedback insert failed: ${error.message}` },
       { status: 500 },
     );
+  }
+
+  // Phase 2 Plan 02-04 — OQ-9: extend feedback POST to consistently stamp
+  // operator-id on the agent_runs.human_verdict flip via the same server-
+  // auth boundary. Gated to stage===1 + verdict==='override' + agent_run_id
+  // present. Confirm path does NOT touch human_verdict (rule-feedback is
+  // an additive signal, not an axis-1 override). Best-effort: if the
+  // agent_runs row does not exist or the UPDATE errors, the email_feedback
+  // INSERT has already succeeded — we log + return 200 rather than rolling
+  // back. NEVER writes a pipeline_events row from this path.
+  if (
+    parsed.data.stage === 1 &&
+    parsed.data.verdict === "override" &&
+    parsed.data.agent_run_id
+  ) {
+    const { error: updateError, count } = await admin
+      .from("agent_runs")
+      .update({ human_verdict: "edited_minor" }, { count: "exact" })
+      .eq("id", parsed.data.agent_run_id);
+    if (updateError) {
+      console.warn(
+        `[feedback] agent_runs.human_verdict update failed for run_id=${parsed.data.agent_run_id}: ${updateError.message}`,
+      );
+      // Do not 500 — email_feedback INSERT already succeeded; signal captured.
+    } else if (count === 0) {
+      console.warn(
+        `[feedback] agent_run_id=${parsed.data.agent_run_id} matched 0 rows (likely stale UI state).`,
+      );
+    }
   }
 
   return NextResponse.json({ ok: true, id: data.id });

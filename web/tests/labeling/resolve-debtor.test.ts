@@ -328,6 +328,197 @@ describe("resolveDebtor — Phase 82.9 discriminated inputs", () => {
   });
 });
 
+describe("resolveDebtor — Phase 04.1 — picks alternatives", () => {
+  it("LLM tiebreaker success → result.inputs.picked_account_id === selected_account_id", async () => {
+    priorRowFixture = null;
+    lookupSenderToAccountMock.mockResolvedValueOnce({ matches: [] });
+    lookupIdentifierToAccountMock.mockResolvedValueOnce({
+      matches: [
+        {
+          invoice_id: "i1",
+          invoice_number: "INV-2222",
+          customer_id: "c1",
+          top_level_customer_id: "cust-A",
+          invoice_date: "2026-05-01",
+          status: "paid",
+        },
+        {
+          invoice_id: "i2",
+          invoice_number: "INV-3333",
+          customer_id: "c2",
+          top_level_customer_id: "cust-B",
+          invoice_date: "2026-05-01",
+          status: "paid",
+        },
+      ],
+    });
+    lookupCandidateDetailsMock.mockResolvedValueOnce({
+      matches: [
+        {
+          id: "cust-A",
+          name: "Klant A",
+          status: "active",
+          modified_on: "2026-05-10",
+          contact_person: "Aap",
+          recent_invoices: ["INV-2222"],
+        },
+        {
+          id: "cust-B",
+          name: "Klant B",
+          status: "active",
+          modified_on: "2026-05-10",
+          contact_person: "Beer",
+          recent_invoices: ["INV-3333"],
+        },
+      ],
+    });
+    callTiebreakerMock.mockResolvedValueOnce({
+      selected_account_id: "cust-A",
+      confidence: "medium",
+      reason: "subject mentions Klant A",
+    });
+
+    const result = await resolveDebtor({
+      ...BASE_ARGS,
+      conversation_id: null,
+      from_email: "klant@example.com",
+      body_text: "Factuur INV-2222 of INV-3333?",
+    });
+
+    expect(result.inputs.kind).toBe("llm_tiebreaker");
+    if (result.inputs.kind !== "llm_tiebreaker") throw new Error("narrow");
+    expect(result.inputs.picked_account_id).toBe("cust-A");
+  });
+
+  it("LLM tiebreaker failure (callTiebreaker rejects) → picked_account_id is null", async () => {
+    priorRowFixture = null;
+    lookupSenderToAccountMock.mockResolvedValueOnce({ matches: [] });
+    lookupIdentifierToAccountMock.mockResolvedValueOnce({
+      matches: [
+        {
+          invoice_id: "i1",
+          invoice_number: "INV-2222",
+          customer_id: "c1",
+          top_level_customer_id: "cust-A",
+          invoice_date: "2026-05-01",
+          status: "paid",
+        },
+        {
+          invoice_id: "i2",
+          invoice_number: "INV-3333",
+          customer_id: "c2",
+          top_level_customer_id: "cust-B",
+          invoice_date: "2026-05-01",
+          status: "paid",
+        },
+      ],
+    });
+    lookupCandidateDetailsMock.mockResolvedValueOnce({
+      matches: [
+        {
+          id: "cust-A",
+          name: "Klant A",
+          status: "active",
+          modified_on: "2026-05-10",
+          contact_person: null,
+          recent_invoices: [],
+        },
+        {
+          id: "cust-B",
+          name: "Klant B",
+          status: "active",
+          modified_on: "2026-05-10",
+          contact_person: null,
+          recent_invoices: [],
+        },
+      ],
+    });
+    callTiebreakerMock.mockRejectedValueOnce(new Error("llm timeout"));
+
+    const result = await resolveDebtor({
+      ...BASE_ARGS,
+      conversation_id: null,
+      from_email: "klant@example.com",
+      body_text: "Factuur INV-2222 of INV-3333?",
+    });
+
+    expect(result.inputs.kind).toBe("llm_tiebreaker");
+    if (result.inputs.kind !== "llm_tiebreaker") throw new Error("narrow");
+    expect(result.inputs.picked_account_id).toBeNull();
+  });
+
+  it("candidates length >= 2 and includes picked account id (alternatives derivable)", async () => {
+    priorRowFixture = null;
+    lookupSenderToAccountMock.mockResolvedValueOnce({ matches: [] });
+    lookupIdentifierToAccountMock.mockResolvedValueOnce({
+      matches: [
+        {
+          invoice_id: "i1",
+          invoice_number: "INV-2222",
+          customer_id: "c1",
+          top_level_customer_id: "cust-A",
+          invoice_date: "2026-05-01",
+          status: "paid",
+        },
+        {
+          invoice_id: "i2",
+          invoice_number: "INV-3333",
+          customer_id: "c2",
+          top_level_customer_id: "cust-B",
+          invoice_date: "2026-05-01",
+          status: "paid",
+        },
+      ],
+    });
+    lookupCandidateDetailsMock.mockResolvedValueOnce({
+      matches: [
+        {
+          id: "cust-A",
+          name: "Klant A",
+          status: "active",
+          modified_on: "2026-05-10",
+          contact_person: null,
+          recent_invoices: [],
+        },
+        {
+          id: "cust-B",
+          name: "Klant B",
+          status: "active",
+          modified_on: "2026-05-10",
+          contact_person: null,
+          recent_invoices: [],
+        },
+      ],
+    });
+    callTiebreakerMock.mockResolvedValueOnce({
+      selected_account_id: "cust-B",
+      confidence: "medium",
+      reason: "explicit",
+    });
+
+    const result = await resolveDebtor({
+      ...BASE_ARGS,
+      conversation_id: null,
+      from_email: "klant@example.com",
+      body_text: "Factuur INV-2222 of INV-3333?",
+    });
+
+    expect(result.inputs.kind).toBe("llm_tiebreaker");
+    if (result.inputs.kind !== "llm_tiebreaker") throw new Error("narrow");
+    expect(result.inputs.candidates.length).toBeGreaterThanOrEqual(2);
+    expect(result.inputs.picked_account_id).toBe("cust-B");
+    expect(
+      result.inputs.candidates.some((c) => c.id === "cust-B"),
+    ).toBe(true);
+    // Alternatives derivable via filter:
+    const picked = result.inputs.picked_account_id;
+    const alternatives = result.inputs.candidates.filter(
+      (c) => c.id !== picked,
+    );
+    expect(alternatives.map((c) => c.id)).toEqual(["cust-A"]);
+  });
+});
+
 // Keep the original placeholder TODOs around as documentation hooks for the
 // pre-Phase-82.9 behavior tests (they remain unimplemented per the original
 // scaffold; Phase 82.9 introduces the discriminated-inputs coverage above).

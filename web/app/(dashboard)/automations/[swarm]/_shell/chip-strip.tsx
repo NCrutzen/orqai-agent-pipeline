@@ -21,6 +21,11 @@ export interface ChipStripChip {
   count?: number;
   /** Optional CSS var name (e.g. "--v7-lime") for the per-chip brand dot. */
   brandToken?: string | null;
+  /** Optional resolved CSS color (a `var(--…)` string) for a stage-tinted
+   *  left-border. Sketch 008: active filter chips carry their producing
+   *  stage's tint; the global Mode chip carries amber/orange. Pure
+   *  presentation — no registry coupling. */
+  borderToken?: string | null;
 }
 
 export interface ChipStripProps {
@@ -47,6 +52,7 @@ export function ChipStrip({ chips, active, onChange, ariaLabel }: ChipStripProps
           label={c.label}
           rowCount={c.count}
           brandToken={c.brandToken ?? null}
+          borderToken={c.borderToken ?? null}
           onClick={() => onChange(c.key)}
         />
       ))}
@@ -59,10 +65,11 @@ interface ChipProps {
   label: string;
   rowCount?: number;
   brandToken: string | null;
+  borderToken?: string | null;
   onClick: () => void;
 }
 
-function Chip({ active, label, rowCount, brandToken, onClick }: ChipProps) {
+function Chip({ active, label, rowCount, brandToken, borderToken, onClick }: ChipProps) {
   const display =
     rowCount === undefined
       ? null
@@ -88,6 +95,9 @@ function Chip({ active, label, rowCount, brandToken, onClick }: ChipProps) {
           : "var(--v7-line)",
         color: active ? "var(--v7-brand-secondary)" : "var(--v7-text)",
         outlineColor: "var(--v7-brand-secondary)",
+        ...(borderToken
+          ? { borderLeft: `3px solid ${borderToken}` }
+          : null),
       }}
     >
       {brandToken && (

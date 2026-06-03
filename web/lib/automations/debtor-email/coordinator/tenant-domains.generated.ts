@@ -8,6 +8,7 @@ export const TENANT_DOMAINS_BY_SWARM = {
   "debtor-email": ["fire-control.nl", "moyneroberts.com", "smeba-fire.be", "smeba.nl"],
   "info-routing": ["berki.nl", "fire-control.nl", "moyneroberts.com", "sicli-noord.be", "sicli-sud.be", "smeba-fire.be", "smeba.nl"],
   "sales-email": ["smeba.nl"],
+  "support-tickets": [],
 } as const;
 
 export type TenantDomain =

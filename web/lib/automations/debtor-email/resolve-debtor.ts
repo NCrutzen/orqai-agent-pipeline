@@ -81,6 +81,10 @@ export type Stage2Inputs =
       matched_identifiers: string[];
       candidates: Candidate[];
       llm_reason: string;
+      // Phase 04.1 — P4.1-D-03: account_id picked by the LLM tiebreaker.
+      // Null on tiebreaker-failure paths. Used by buildResolverTrace +
+      // the resolver-chain renderer to mark picked vs alternatives.
+      picked_account_id: string | null;
     }
   | {
       kind: "unresolved";
@@ -343,6 +347,8 @@ async function llmTiebreak(
         matched_identifiers: ctx.matched_identifiers,
         candidates: [],
         llm_reason: "candidate-details fetch failed",
+        // Phase 04.1 — P4.1-D-03: no pick on candidate-details failure path.
+        picked_account_id: null,
       },
     };
   }
@@ -372,6 +378,8 @@ async function llmTiebreak(
         matched_identifiers: ctx.matched_identifiers,
         candidates: richCandidates,
         llm_reason: `llm tiebreaker failed: ${err instanceof Error ? err.message : String(err)}`,
+        // Phase 04.1 — P4.1-D-03: no pick on LLM-failure path.
+        picked_account_id: null,
       },
     };
   }
@@ -390,6 +398,9 @@ async function llmTiebreak(
       matched_identifiers: ctx.matched_identifiers,
       candidates: richCandidates,
       llm_reason: out.reason,
+      // Phase 04.1 — P4.1-D-03: pick id flows through so the renderer can
+      // mark picked vs alternatives (alternatives = candidates.filter id !=).
+      picked_account_id: out.selected_account_id,
     },
   };
 }

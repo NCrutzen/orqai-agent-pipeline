@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sketch 007 — Promotion-recommender handoff (apply / refine / dismiss)</title>
+<link rel="stylesheet" href="../themes/default.css" />
+<style>
+  :root {
+    --patterns: #b886ff;
+    --patterns-soft: rgba(184,134,255,0.15);
+    --patterns-faint: rgba(184,134,255,0.06);
+    --danger: #ff5050;
+  }
+  body { display: flex; flex-direction: column; height: 100vh; margin: 0; }
+
+  /* === Variant bar === */
+  .variant-bar { background: #000; color: var(--text-dim); padding: 8px 16px; display: flex; gap: 4px; align-items: center; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 11px; }
+  .variant-bar .label { color: var(--text-dim); margin-right: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .variant-tab { padding: 4px 12px; cursor: pointer; border-radius: 4px; color: var(--text-muted); border: 1px solid transparent; font-family: var(--font-mono); font-size: 11px; }
+  .variant-tab:hover { background: var(--bg-hover); color: var(--text); }
+  .variant-tab.active { background: var(--brand-primary); color: #000; font-weight: 600; }
+
+  /* === Mode-bar (Patterns active) === */
+  .modebar { height: 56px; display: flex; align-items: stretch; border-bottom: 1px solid var(--border); }
+  .mode-third {
+    flex: 1; display: flex; align-items: center; gap: 12px;
+    padding: 0 24px; opacity: 0.5; cursor: pointer; position: relative;
+  }
+  .mode-third.active { opacity: 1; }
+  .mode-third .mode-glyph { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; background: var(--bg-2); border: 1px solid var(--border); color: var(--text-muted); }
+  .mode-third .mode-meta { display: flex; flex-direction: column; line-height: 1.2; }
+  .mode-third .mode-name { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); font-weight: 600; }
+  .mode-third .mode-count { font-family: var(--font-mono); font-size: 18px; font-weight: 600; color: var(--text-muted); }
+  .mode-third .mode-count .small { font-size: 11px; color: var(--text-dim); font-weight: 400; margin-left: 6px; }
+  .mode-third[data-mode="patterns"].active {
+    background: linear-gradient(180deg, rgba(184,134,255,0.18), rgba(184,134,255,0.04));
+    box-shadow: inset 0 -3px 0 0 var(--patterns);
+  }
+  .mode-third[data-mode="patterns"].active .mode-glyph { background: var(--patterns); color: #000; }
+  .mode-third[data-mode="patterns"].active .mode-name { color: var(--patterns); }
+  .mode-third[data-mode="patterns"].active .mode-count { color: var(--text); }
+
+  /* === Breadcrumb + header === */
+  .breadcrumb {
+    padding: 14px 24px 0;
+    font-size: 12px; color: var(--text-dim);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .breadcrumb a {
+    color: var(--patterns); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .sep { color: var(--text-dim); }
+  .breadcrumb .current { color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
+
+  .detail-header {
+    padding: 8px 24px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-header h1 {
+    font-size: 22px; font-weight: 600; margin: 4px 0 6px;
+    color: var(--text); line-height: 1.3;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .detail-header .meta-row {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; color: var(--text-dim);
+  }
+  .detail-header .kind-badge {
+    font-family: var(--font-mono); font-size: 11px;
+    padding: 3px 10px; border-radius: 3px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .kind-badge.regex { background: rgba(105,168,255,0.15); color: var(--blue); border: 1px solid rgba(105,168,255,0.3); }
+  .kind-badge.sender { background: rgba(143,200,103,0.15); color: var(--lime); border: 1px solid rgba(143,200,103,0.3); }
+  .stage-badge {
+    font-family: var(--font-mono); font-size: 11px;
+    padding: 3px 10px; border-radius: var(--radius-pill);
+    background: var(--bg-panel); border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .status-pill {
+    font-family: var(--font-mono); font-size: 10px;
+    padding: 2px 8px; border-radius: var(--radius-pill);
+    text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+  }
+  .status-pill.new { background: var(--patterns-soft); color: var(--patterns); border: 1px solid rgba(184,134,255,0.3); }
+
+  /* === Body grid === */
+  .body { flex: 1; overflow: auto; padding: 20px 24px; background: var(--bg); }
+  .body-grid {
+    display: grid; grid-template-columns: 1.4fr 1fr;
+    gap: 20px;
+    max-width: 1400px;
+  }
+  .col { display: flex; flex-direction: column; gap: 16px; }
+
+  /* === Proposed-change card === */
+  .change-card {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-left: 3px solid var(--patterns);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+  }
+  .change-card .label {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--patterns); margin-bottom: 8px;
+  }
+  .change-card h2 {
+    font-size: 16px; font-weight: 600; margin: 0 0 4px;
+    color: var(--text); line-height: 1.4;
+  }
+  .change-card .summary-line {
+    font-size: 13px; color: var(--text-muted); line-height: 1.55;
+    margin-top: 4px;
+  }
+
+  .before-after {
+    margin-top: 16px;
+    display: grid; grid-template-columns: 1fr 32px 1fr;
+    gap: 0; align-items: stretch;
+    border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .before-after .col-flow {
+    padding: 14px 16px;
+    background: var(--bg-2);
+  }
+  .before-after .col-flow.before { border-right: 0; }
+  .before-after .col-flow.after { background: rgba(143,200,103,0.04); }
+  .before-after .arrow-col {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-2);
+    color: var(--text-dim); font-size: 18px;
+  }
+  .before-after .head-line {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .before-after .before .head-line { color: var(--text-dim); }
+  .before-after .after .head-line { color: var(--lime); }
+  .flow-step {
+    font-size: 12px; color: var(--text); line-height: 1.5;
+    padding: 4px 0;
+  }
+  .flow-step .step-meta {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-dim); margin-left: 6px;
+  }
+  .flow-step.cost {
+    margin-top: 6px; padding-top: 6px;
+    border-top: 1px dashed var(--border);
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text-muted);
+  }
+  .flow-step.cost .num { color: var(--text); font-weight: 600; }
+  .after .flow-step.cost .num { color: var(--lime); }
+  .after .flow-step.cost .save {
+    color: var(--lime); margin-left: 8px;
+    font-family: inherit; font-weight: 600;
+  }
+
+  /* === Evidence section === */
+  .evidence-card {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 18px;
+  }
+  .evidence-card .head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 12px;
+  }
+  .evidence-card .head h3 {
+    font-size: 14px; font-weight: 600; margin: 0;
+    color: var(--text);
+  }
+  .evidence-card .head .count {
+    color: var(--text-dim); font-family: var(--font-mono); font-size: 11px;
+  }
+  .evidence-card .head .show-all {
+    margin-left: auto; font-size: 11px;
+    color: var(--patterns); cursor: pointer;
+    text-decoration: none;
+  }
+  .evidence-row {
+    display: grid; grid-template-columns: 170px 1fr 90px;
+    gap: 12px; align-items: center;
+    padding: 9px 12px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .evidence-row:last-child { margin-bottom: 0; }
+  .evidence-row .from {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text-muted); overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .evidence-row .subj {
+    font-size: 12px; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .evidence-row .when {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--text-dim); text-align: right;
+  }
+  .evidence-row .verdict {
+    display: inline-block; padding: 1px 6px; border-radius: 3px;
+    font-family: var(--font-mono); font-size: 10px;
+    background: rgba(143,200,103,0.15); color: var(--lime);
+    border: 1px solid rgba(143,200,103,0.3);
+    margin-right: 6px;
+  }
+  .evidence-row .verdict.warn {
+    background: rgba(255,181,71,0.15); color: var(--amber);
+    border-color: rgba(255,181,71,0.3);
+  }
+
+  /* === Impact stats === */
+  .impact-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    margin-top: 14px;
+  }
+  .impact-stat {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 10px 12px;
+  }
+  .impact-stat .big {
+    font-family: var(--font-mono); font-size: 18px; font-weight: 700;
+    color: var(--text);
+  }
+  .impact-stat .label {
+    font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .impact-stat.savings .big { color: var(--lime); }
+
+  /* === Action card === */
+  .action-card {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+  }
+  .action-card .label {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-dim); margin-bottom: 12px;
+  }
+  .action-card .summary {
+    font-size: 13px; color: var(--text-muted); line-height: 1.55;
+    margin-bottom: 14px;
+  }
+  .big-action {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 12px 14px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius); cursor: pointer; font-family: inherit;
+    text-align: left; transition: all 0.12s; margin-bottom: 8px;
+  }
+  .big-action:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .big-action.apply {
+    background: rgba(143,200,103,0.10); border-color: var(--lime);
+  }
+  .big-action.apply:hover { background: rgba(143,200,103,0.16); }
+  .big-action.refine {
+    background: rgba(255,181,71,0.06); border-color: rgba(255,181,71,0.4);
+  }
+  .big-action.refine:hover { background: rgba(255,181,71,0.12); }
+  .big-action.dismiss {
+    background: rgba(255,80,80,0.04); border-color: rgba(255,80,80,0.25);
+  }
+  .big-action.dismiss:hover { background: rgba(255,80,80,0.10); }
+  .big-action .glyph {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 12px; font-weight: 700;
+  }
+  .big-action.apply .glyph { background: var(--lime); color: #0a1a04; }
+  .big-action.refine .glyph { background: var(--amber); color: #1a1206; }
+  .big-action.dismiss .glyph { background: var(--danger); color: #1a0606; }
+  .big-action .body { flex: 1; min-width: 0; }
+  .big-action .title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.3; }
+  .big-action .subtitle { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .big-action.selected {
+    box-shadow: 0 0 0 2px var(--patterns), 0 0 0 4px rgba(184,134,255,0.18);
+  }
+
+  /* Reveal panel after picking an action */
+  .reveal {
+    display: none; margin-top: 12px;
+    padding: 14px 16px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .reveal.show { display: block; }
+  .reveal h4 {
+    font-size: 13px; font-weight: 600; margin: 0 0 6px;
+    color: var(--text);
+  }
+  .reveal p {
+    font-size: 12px; color: var(--text-muted); line-height: 1.55;
+    margin: 0 0 10px;
+  }
+  .reveal.apply { border-left: 3px solid var(--lime); }
+  .reveal.refine { border-left: 3px solid var(--amber); }
+  .reveal.dismiss { border-left: 3px solid var(--danger); }
+
+  textarea {
+    width: 100%; min-height: 90px;
+    background: var(--bg-2); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 10px;
+    border-radius: 4px; font-family: inherit; font-size: 13px;
+    resize: vertical; line-height: 1.5;
+  }
+  textarea:focus { outline: 1px solid var(--patterns); }
+
+  .refine-input {
+    width: 100%; background: var(--bg-2); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 10px;
+    border-radius: 4px; font-family: var(--font-mono); font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  .req-asterisk { color: var(--danger); margin-left: 2px; font-weight: 700; }
+
+  /* Footer */
+  .detail-foot {
+    border-top: 1px solid var(--border);
+    background: var(--bg-2); padding: 12px 24px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .detail-foot .keyhint { font-family: var(--font-mono); font-size: 10px; background: var(--bg-panel); padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border); color: var(--text-dim); }
+  .detail-foot .undo-note {
+    font-size: 11px; color: var(--text-dim);
+  }
+  .detail-foot .grow { flex: 1; }
+  .detail-foot button {
+    padding: 9px 18px; border-radius: 4px; font-size: 13px;
+    cursor: pointer; font-family: inherit; font-weight: 600;
+    border: 1px solid;
+  }
+  .detail-foot button.secondary {
+    background: var(--bg-panel); border-color: var(--border); color: var(--text); font-weight: 400;
+  }
+  .submit-btn[data-mode="apply"] { background: var(--lime); border-color: var(--lime); color: #0a1a04; }
+  .submit-btn[data-mode="refine"] { background: var(--amber); border-color: var(--amber); color: #1a1206; }
+  .submit-btn[data-mode="dismiss"] { background: var(--danger); border-color: var(--danger); color: #1a0606; }
+  .submit-btn:hover { filter: brightness(1.08); }
+  .submit-btn:disabled { background: var(--bg-panel); border-color: var(--border); color: var(--text-dim); cursor: not-allowed; opacity: 0.7; }
+
+  .annotation { background: var(--bg-2); border-top: 1px solid var(--border); padding: 10px 24px; font-size: var(--fs-xs); color: var(--text-muted); display: flex; gap: 16px; align-items: center; }
+  .annotation .key { font-family: var(--font-mono); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; }
+
+  .variant-pane { display: none; flex-direction: column; height: 100%; }
+  .variant-pane.active { display: flex; }
+</style>
+</head>
+<body>
+
+<div class="variant-bar">
+  <span class="label">SKETCH 007 — PROMOTION-RECOMMENDER HANDOFF</span>
+  <span class="variant-tab active" data-variant="A">A — Filter rule (Stage 1)</span>
+  <span class="variant-tab" data-variant="B">B — Known sender (Stage 2)</span>
+  <span style="flex:1"></span>
+  <span class="label">Apply · Refine · Dismiss</span>
+</div>
+
+<!-- ============================================================ -->
+<!-- VARIANT A — Filter rule (Stage 1 OoO subject pattern)          -->
+<!-- ============================================================ -->
+<div class="variant-pane active" data-variant="A">
+  <div class="modebar">
+    <div class="mode-third" data-mode="queue"><div class="mode-glyph">▶</div><div class="mode-meta"><span class="mode-name">Queue · Live</span><span class="mode-count">47<span class="small">blocked</span></span></div></div>
+    <div class="mode-third" data-mode="history"><div class="mode-glyph">◷</div><div class="mode-meta"><span class="mode-name">History · Review</span><span class="mode-count">312<span class="small">handled · 7d</span></span></div></div>
+    <div class="mode-third active" data-mode="patterns"><div class="mode-glyph">☆</div><div class="mode-meta"><span class="mode-name">Patterns · Learn</span><span class="mode-count">18<span class="small">candidates · 30d</span></span></div></div>
+  </div>
+
+  <div class="breadcrumb">
+    <a href="#"><span>← Patterns</span></a>
+    <span class="sep">/</span>
+    <span>Stage 1 · Noise filter</span>
+    <span class="sep">/</span>
+    <span class="current">pc_a91f3b · created 2026-05-18</span>
+  </div>
+
+  <div class="detail-header">
+    <h1>
+      <span class="kind-badge regex">Filter rule</span>
+      Out-of-office replies with a return date in the subject
+    </h1>
+    <div class="meta-row">
+      <span class="stage-badge">Stage 1 · Noise</span>
+      <span class="status-pill new">needs review</span>
+      <span style="color:var(--text-dim)">·</span>
+      <span>Seen <strong style="color:var(--text)">23 times this month</strong></span>
+      <span style="color:var(--text-dim)">·</span>
+      <span>est. saves <strong style="color:var(--lime)">€18 / month</strong></span>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="body-grid">
+      <div class="col">
+        <!-- Proposed change -->
+        <div class="change-card">
+          <div class="label">What would change</div>
+          <h2>Add an auto-archive rule for OoO replies that quote a return date in the subject</h2>
+          <div class="summary-line">
+            When an inbound subject matches the pattern "Re: [anything] afwezig tot DD/MM", the email will be auto-archived as a noise reply without calling the AI. Today the AI catches these on the second pass — slow and costs tokens.
+          </div>
+
+          <div class="before-after">
+            <div class="col-flow before">
+              <div class="head-line">Today</div>
+              <div class="flow-step">1. Inbound email arrives</div>
+              <div class="flow-step">2. Stage 1 regex tries — no match</div>
+              <div class="flow-step">3. Stage 1 AI (2nd pass) runs <span class="step-meta">~€0.018</span></div>
+              <div class="flow-step">4. AI decides: out-of-office <span class="step-meta">~0.6s</span></div>
+              <div class="flow-step">5. Email is auto-archived</div>
+              <div class="flow-step cost">avg cost / email · <span class="num">€0.022</span></div>
+            </div>
+            <div class="arrow-col">→</div>
+            <div class="col-flow after">
+              <div class="head-line">After applying</div>
+              <div class="flow-step">1. Inbound email arrives</div>
+              <div class="flow-step">2. New filter rule matches the subject <span class="step-meta">~5ms</span></div>
+              <div class="flow-step">3. Email is auto-archived</div>
+              <div class="flow-step">— no AI call needed —</div>
+              <div class="flow-step">&nbsp;</div>
+              <div class="flow-step cost">avg cost / email · <span class="num">€0.000</span> <span class="save">saves ~€0.022</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Evidence -->
+        <div class="evidence-card">
+          <div class="head">
+            <h3>Recent emails this rule would have caught</h3>
+            <span class="count">showing 5 of 23 · last 30 days</span>
+            <a href="#" class="show-all">View all 23 →</a>
+          </div>
+
+          <div class="evidence-row">
+            <span class="from">m.jansen@maasstad-bv.nl</span>
+            <span class="subj"><span class="verdict">would auto-archive</span>Re: factuur INV-04790 — afwezig tot 03/06</span>
+            <span class="when">2 days ago</span>
+          </div>
+          <div class="evidence-row">
+            <span class="from">l.vermeer@brouwer-co.nl</span>
+            <span class="subj"><span class="verdict">would auto-archive</span>Re: openstaand bedrag — afwezig tot 28/05</span>
+            <span class="when">3 days ago</span>
+          </div>
+          <div class="evidence-row">
+            <span class="from">k.bos@logistiek-nl.com</span>
+            <span class="subj"><span class="verdict">would auto-archive</span>Re: Re: factuurkopie — afwezig tot 14/06</span>
+            <span class="when">5 days ago</span>
+          </div>
+          <div class="evidence-row">
+            <span class="from">a.smit@partner-bedrijf.nl</span>
+            <span class="subj"><span class="verdict">would auto-archive</span>Re: betalingsplan — afwezig tot 09/06</span>
+            <span class="when">8 days ago</span>
+          </div>
+          <div class="evidence-row">
+            <span class="from">e.dekker@nieuw-klant.com</span>
+            <span class="subj"><span class="verdict">would auto-archive</span>Re: vraag over factuur 04612 — afwezig tot 31/05</span>
+            <span class="when">11 days ago</span>
+          </div>
+
+          <div class="impact-grid">
+            <div class="impact-stat">
+              <div class="big">23</div>
+              <div class="label">emails affected · 30d</div>
+            </div>
+            <div class="impact-stat">
+              <div class="big">100%</div>
+              <div class="label">your team confirmed these</div>
+            </div>
+            <div class="impact-stat savings">
+              <div class="big">€18</div>
+              <div class="label">est. saved / month</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: action card -->
+      <div class="col">
+        <div class="action-card">
+          <div class="label">Decide</div>
+          <p class="summary">Pick one. Applying takes effect immediately — the rule starts catching new emails right away. An engineer can reverse it later if it misbehaves.</p>
+
+          <button class="big-action apply selected" id="A-apply-btn" onclick="chooseAction('A','apply')">
+            <span class="glyph">✓</span>
+            <span class="body">
+              <span class="title">Apply this suggestion</span>
+              <span class="subtitle">Adds the filter rule · takes effect immediately</span>
+            </span>
+          </button>
+
+          <button class="big-action refine" id="A-refine-btn" onclick="chooseAction('A','refine')">
+            <span class="glyph">✎</span>
+            <span class="body">
+              <span class="title">Refine before applying</span>
+              <span class="subtitle">Tweak the pattern — e.g. narrow it to specific senders or subject keywords</span>
+            </span>
+          </button>
+
+          <button class="big-action dismiss" id="A-dismiss-btn" onclick="chooseAction('A','dismiss')">
+            <span class="glyph">✗</span>
+            <span class="body">
+              <span class="title">Dismiss with a reason</span>
+              <span class="subtitle">Use when this suggestion is wrong or premature</span>
+            </span>
+          </button>
+
+          <!-- Reveal panels per action -->
+          <div class="reveal apply" id="A-reveal-apply">
+            <h4>You're about to apply this filter rule</h4>
+            <p>From now on, emails with subjects matching "Re: [...] afwezig tot DD/MM" will be auto-archived. Estimated to catch ~23 emails/month, saving ~€18/month in AI costs.</p>
+            <textarea placeholder="Notes (optional) — anything reviewers should know later if this needs to be rolled back."></textarea>
+          </div>
+
+          <div class="reveal refine" id="A-reveal-refine">
+            <h4>Refine the pattern before applying</h4>
+            <p>Narrow the rule so it only catches a specific subset. Example: require an invoice reference, or limit to specific sender domains.</p>
+            <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">Pattern to match (subject line)</div>
+            <input class="refine-input" type="text" value="Re: .+ afwezig tot \d{2}/\d{2}" />
+            <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;margin-top:8px">Limit to senders (optional, leave blank for all)</div>
+            <input class="refine-input" type="text" placeholder="e.g. @vandenberg-bv.nl, @maasstad-bv.nl" />
+            <textarea placeholder="Notes — why you refined the pattern this way."></textarea>
+          </div>
+
+          <div class="reveal dismiss" id="A-reveal-dismiss">
+            <h4>Why are you dismissing this suggestion? <span class="req-asterisk">*</span></h4>
+            <p>Required. Your reasoning helps the system propose better suggestions next time. Example: "Too broad — some 'afwezig tot' replies are from customers we want to follow up with."</p>
+            <textarea id="A-dismiss-reason" oninput="validateDismiss('A')" placeholder="Why doesn't this work? Be specific — e.g. 'There's a legitimate use case for these subjects that we'd miss'…"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-foot">
+    <span class="keyhint">⏎</span>
+    <span class="undo-note">Submit your decision · all actions are logged · an engineer can reverse Apply if it misbehaves.</span>
+    <span class="grow"></span>
+    <button class="secondary">Skip · keep open · N</button>
+    <button class="submit-btn" id="A-submit" data-mode="apply">Apply rule ⏎</button>
+  </div>
+
+  <div class="annotation">
+    <span class="key">A — FILTER RULE:</span>
+    Stage 1 candidate. Proposed change card spells out the before/after operationally (5-step flow each side · cost per email · saves €0.022/email). Evidence rows show 5 of 23 real emails the rule would catch. Three actions: Apply (default green, ⏎) · Refine (amber, reveals pattern editor) · Dismiss (red, requires reason).
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- VARIANT B — Known sender (Stage 2 partner-co.nl → Partner Co)  -->
+<!-- ============================================================ -->
+<div class="variant-pane" data-variant="B">
+  <div class="modebar">
+    <div class="mode-third" data-mode="queue"><div class="mode-glyph">▶</div><div class="mode-meta"><span class="mode-name">Queue · Live</span><span class="mode-count">47<span class="small">blocked</span></span></div></div>
+    <div class="mode-third" data-mode="history"><div class="mode-glyph">◷</div><div class="mode-meta"><span class="mode-name">History · Review</span><span class="mode-count">312<span class="small">handled · 7d</span></span></div></div>
+    <div class="mode-third active" data-mode="patterns"><div class="mode-glyph">☆</div><div class="mode-meta"><span class="mode-name">Patterns · Learn</span><span class="mode-count">18<span class="small">candidates · 30d</span></span></div></div>
+  </div>
+
+  <div class="breadcrumb">
+    <a href="#"><span>← Patterns</span></a>
+    <span class="sep">/</span>
+    <span>Stage 2 · Customer match</span>
+    <span class="sep">/</span>
+    <span class="current">pc_c2d8e1 · created 2026-05-19</span>
+  </div>
+
+  <div class="detail-header">
+    <h1>
+      <span class="kind-badge sender">Known sender</span>
+      Link <code style="font-family:var(--font-mono);font-size:18px;color:var(--lime)">@partner-co.nl</code> → Partner Co BV (#0203)
+    </h1>
+    <div class="meta-row">
+      <span class="stage-badge">Stage 2 · Customer</span>
+      <span class="status-pill new">needs review</span>
+      <span style="color:var(--text-dim)">·</span>
+      <span>AI guessed this <strong style="color:var(--text)">7 times in 2 weeks</strong> · reviewers confirmed 6/7</span>
+      <span style="color:var(--text-dim)">·</span>
+      <span>est. saves <strong style="color:var(--lime)">€14 / month</strong></span>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="body-grid">
+      <div class="col">
+        <div class="change-card">
+          <div class="label">What would change</div>
+          <h2>Add a sender-link: every email from <code style="font-family:var(--font-mono);color:var(--text)">@partner-co.nl</code> goes straight to Partner Co BV (#0203)</h2>
+          <div class="summary-line">
+            Today the AI has to figure out which customer this sender belongs to — sometimes correctly, sometimes guessing between two similar names. After applying, emails from this domain skip the AI guess and go directly to the right customer record.
+          </div>
+
+          <div class="before-after">
+            <div class="col-flow before">
+              <div class="head-line">Today</div>
+              <div class="flow-step">1. Email arrives from <code style="font-family:var(--font-mono);font-size:10.5px">jansen@partner-co.nl</code></div>
+              <div class="flow-step">2. Sender map lookup — no entry, miss</div>
+              <div class="flow-step">3. Identifier extraction — finds INV-04790 + INV-04812 on different customers</div>
+              <div class="flow-step">4. AI tiebreaker picks one <span class="step-meta">~€0.012</span></div>
+              <div class="flow-step">5. Reviewer corrects to Partner Co BV</div>
+              <div class="flow-step cost">avg cost / email · <span class="num">€0.012</span></div>
+            </div>
+            <div class="arrow-col">→</div>
+            <div class="col-flow after">
+              <div class="head-line">After applying</div>
+              <div class="flow-step">1. Email arrives from <code style="font-family:var(--font-mono);font-size:10.5px">jansen@partner-co.nl</code></div>
+              <div class="flow-step">2. Sender map: <code style="font-family:var(--font-mono);font-size:10.5px">@partner-co.nl</code> → Partner Co BV · <code style="font-family:var(--font-mono);font-size:10.5px">5ms</code></div>
+              <div class="flow-step">3. Customer locked in · skips identifier + AI</div>
+              <div class="flow-step">— no AI call needed —</div>
+              <div class="flow-step">&nbsp;</div>
+              <div class="flow-step cost">avg cost / email · <span class="num">€0.000</span> <span class="save">saves ~€0.012</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="evidence-card">
+          <div class="head">
+            <h3>Emails from this sender (last 14 days)</h3>
+            <span class="count">showing all 7</span>
+          </div>
+
+          <div class="evidence-row">
+            <span class="from">jansen@partner-co.nl</span>
+            <span class="subj"><span class="verdict">→ Partner Co</span>Vraag over openstaand bedrag INV-04790</span>
+            <span class="when">today</span>
+          </div>
+          <div class="evidence-row">
+            <span class="from">jansen@partner-co.nl</span>
+            <span class="subj"><span class="verdict">→ Partner Co</span>Re: Factuur INV-04812 — kunt u specificatie sturen?</span>
+            <span class="when">2 days ago</span>
+          </div>
+          <div class="evidence-row">
+            <span class="from">m.vries@partner-co.nl</span>
+            <span class="subj"><span class="verdict">→ Partner Co</span>Vraag over betalingsregeling</span>
+            <span class="when">4 days ago</span>
+          </div>
+          <div class="evidence-row">
+            <span class="from">jansen@partner-co.nl</span>
+            <span class="subj"><span class="verdict">→ Partner Co</span>Factuur 04790 — bedrag klopt niet?</span>
+            <span class="when">6 days ago</span>
+          </div>
+          <div class="evidence-row">
+            <span class="from">finance@partner-co.nl</span>
+            <span class="subj"><span class="verdict warn">→ AI picked wrong</span>Re: openstaand bedrag — corrected by reviewer to Partner Co</span>
+            <span class="when">8 days ago</span>
+          </div>
+
+          <div class="impact-grid">
+            <div class="impact-stat">
+              <div class="big">7</div>
+              <div class="label">emails · 14 days</div>
+            </div>
+            <div class="impact-stat">
+              <div class="big">6 of 7</div>
+              <div class="label">reviewer confirms</div>
+            </div>
+            <div class="impact-stat savings">
+              <div class="big">€14</div>
+              <div class="label">est. saved / month</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="action-card">
+          <div class="label">Decide</div>
+          <p class="summary">Pick one. Applying takes effect immediately — future emails from <code style="font-family:var(--font-mono);font-size:11px">@partner-co.nl</code> route straight to Partner Co BV without an AI guess. Reversible by an engineer.</p>
+
+          <button class="big-action apply selected" id="B-apply-btn" onclick="chooseAction('B','apply')">
+            <span class="glyph">✓</span>
+            <span class="body">
+              <span class="title">Apply this sender link</span>
+              <span class="subtitle">Adds the sender→customer link · takes effect immediately</span>
+            </span>
+          </button>
+
+          <button class="big-action refine" id="B-refine-btn" onclick="chooseAction('B','refine')">
+            <span class="glyph">✎</span>
+            <span class="body">
+              <span class="title">Refine before applying</span>
+              <span class="subtitle">Tweak the link — e.g. limit to specific addresses or pick a different customer</span>
+            </span>
+          </button>
+
+          <button class="big-action dismiss" id="B-dismiss-btn" onclick="chooseAction('B','dismiss')">
+            <span class="glyph">✗</span>
+            <span class="body">
+              <span class="title">Dismiss with a reason</span>
+              <span class="subtitle">Use when this customer link is wrong or too broad</span>
+            </span>
+          </button>
+
+          <div class="reveal apply" id="B-reveal-apply">
+            <h4>You're about to apply this sender link</h4>
+            <p>From now on, all emails from <code style="font-family:var(--font-mono);font-size:11px">@partner-co.nl</code> will be linked to Partner Co BV (#0203) immediately. Estimated to skip ~7 AI guesses/2 weeks, saving ~€14/month.</p>
+            <textarea placeholder="Notes (optional) — anything reviewers should know if this needs to be rolled back."></textarea>
+          </div>
+
+          <div class="reveal refine" id="B-reveal-refine">
+            <h4>Refine the sender link before applying</h4>
+            <p>Narrow the link to specific addresses, or point it at a different customer.</p>
+            <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">Sender pattern</div>
+            <input class="refine-input" type="text" value="@partner-co.nl" />
+            <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;margin-top:8px">Customer account number</div>
+            <input class="refine-input" type="text" value="0203" style="font-size:14px" />
+            <div style="font-size:11px;color:var(--lime);margin-bottom:8px;margin-top:-4px">✓ Partner Co BV · NXT db moyne_smeba</div>
+            <textarea placeholder="Notes — why you refined this way."></textarea>
+          </div>
+
+          <div class="reveal dismiss" id="B-reveal-dismiss">
+            <h4>Why are you dismissing this suggestion? <span class="req-asterisk">*</span></h4>
+            <p>Required. Example: "Too broad — finance@partner-co.nl is actually a different subsidiary; need a per-address link, not domain-wide."</p>
+            <textarea id="B-dismiss-reason" oninput="validateDismiss('B')" placeholder="Why doesn't this work? Be specific."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-foot">
+    <span class="keyhint">⏎</span>
+    <span class="undo-note">Submit your decision · all actions are logged · an engineer can reverse Apply if it misbehaves.</span>
+    <span class="grow"></span>
+    <button class="secondary">Skip · keep open · N</button>
+    <button class="submit-btn" id="B-submit" data-mode="apply">Apply sender link ⏎</button>
+  </div>
+
+  <div class="annotation">
+    <span class="key">B — KNOWN SENDER:</span>
+    Stage 2 candidate. Same surface shape as A — proposed change card with before/after, evidence card with the sender's actual recent emails, action card with Apply/Refine/Dismiss. Note row 5 of the evidence flagged "AI picked wrong" — that's the 1-of-7 case the reviewer corrected, captured as part of the suggestion's evidence. Refine reveals the sender pattern + customer account number with live validation (✓ Partner Co BV · NXT db).
+  </div>
+</div>
+
+<script>
+  function chooseAction(variant, action) {
+    const submit = document.getElementById(`${variant}-submit`);
+    const applyBtn = document.getElementById(`${variant}-apply-btn`);
+    const refineBtn = document.getElementById(`${variant}-refine-btn`);
+    const dismissBtn = document.getElementById(`${variant}-dismiss-btn`);
+    const revealApply = document.getElementById(`${variant}-reveal-apply`);
+    const revealRefine = document.getElementById(`${variant}-reveal-refine`);
+    const revealDismiss = document.getElementById(`${variant}-reveal-dismiss`);
+
+    [applyBtn, refineBtn, dismissBtn].forEach(b => b.classList.remove('selected'));
+    [revealApply, revealRefine, revealDismiss].forEach(r => r.classList.remove('show'));
+
+    const labels = {
+      'A': { apply: 'Apply rule ⏎', refine: 'Apply refined rule ⏎', dismiss: 'Dismiss suggestion ⏎' },
+      'B': { apply: 'Apply sender link ⏎', refine: 'Apply refined link ⏎', dismiss: 'Dismiss suggestion ⏎' }
+    };
+
+    if (action === 'apply') {
+      applyBtn.classList.add('selected');
+      revealApply.classList.add('show');
+      submit.dataset.mode = 'apply';
+      submit.disabled = false;
+      submit.textContent = labels[variant].apply;
+    } else if (action === 'refine') {
+      refineBtn.classList.add('selected');
+      revealRefine.classList.add('show');
+      submit.dataset.mode = 'refine';
+      submit.disabled = false;
+      submit.textContent = labels[variant].refine;
+    } else if (action === 'dismiss') {
+      dismissBtn.classList.add('selected');
+      revealDismiss.classList.add('show');
+      submit.dataset.mode = 'dismiss';
+      submit.textContent = labels[variant].dismiss;
+      validateDismiss(variant);
+    }
+  }
+
+  function validateDismiss(variant) {
+    const ta = document.getElementById(`${variant}-dismiss-reason`);
+    const submit = document.getElementById(`${variant}-submit`);
+    if (submit.dataset.mode !== 'dismiss') return;
+    submit.disabled = !ta || ta.value.trim().length < 8;
+    if (submit.disabled) {
+      submit.textContent = "Dismiss ⏎ — add a reason";
+    } else {
+      submit.textContent = "Dismiss suggestion ⏎";
+    }
+  }
+
+  document.querySelectorAll('.variant-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.variant-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.variant-pane').forEach(p => p.classList.remove('active'));
+      document.querySelector(`.variant-pane[data-variant="${tab.dataset.variant}"]`).classList.add('active');
+    });
+  });
+
+  // Initial state — apply reveal visible
+  chooseAction('A', 'apply');
+  chooseAction('B', 'apply');
+</script>
+</body>
+</html>
