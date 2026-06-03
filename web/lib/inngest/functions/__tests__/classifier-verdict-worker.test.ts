@@ -25,8 +25,8 @@ vi.mock("@/lib/automations/runs/emit", () => ({
 // ---- Outlook helpers (no real Graph calls) -------------------------------
 // Phase 112 Plan 02: named handles so the sales-live tests below can assert
 // the inline categorize/archive call counts (0 when the gate is BLOCKED).
-const categorizeEmailMock = vi.fn(async () => ({ success: true }));
-const archiveEmailMock = vi.fn(async () => ({ success: true }));
+const categorizeEmailMock = vi.fn(async (..._args: unknown[]) => ({ success: true }));
+const archiveEmailMock = vi.fn(async (..._args: unknown[]) => ({ success: true }));
 vi.mock("@/lib/outlook", () => ({
   categorizeEmail: (...args: unknown[]) => categorizeEmailMock(...args),
   archiveEmail: (...args: unknown[]) => archiveEmailMock(...args),
