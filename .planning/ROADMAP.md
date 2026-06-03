@@ -264,7 +264,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 ```
 
 - [x] **Phase 110: Visibility Foundation — Bulk Review + swarm-row enrichment + ingest verify** — operator can see and follow sales emails before anything auto-acts; the Stage-0/1 shell `swarms` row is enriched to a full-funnel config via migration + codegen; the architecture gate (no per-swarm branches) is asserted; Outlook ingest health is verified/monitored. (completed 2026-06-03)
-- [ ] **Phase 111: Stage 1 Noise Expansion + Calibration** — mine the 827+ corpus for new sales-specific noise rules and calibrate/flip the safe core categories behind the shadow→promote gate, all as audit-trailed registry data.
+- [x] **Phase 111: Stage 1 Noise Expansion + Calibration** — mine the 827+ corpus for new sales-specific noise rules and calibrate/flip the safe core categories behind the shadow→promote gate, all as audit-trailed registry data. (completed 2026-06-03)
 - [ ] **Phase 112: Outlook Cleanup + Backfill (gated production writes)** — wire the Stage 1 Outlook-archive side-effect for sales and backfill it over the ingested corpus, auto-archiving high-confidence/AP-noise and routing ambiguous matches to operator approval, idempotently.
 - [ ] **Phase 113: Stage 3 Sales Intent Agent (greenfield)** — build a sales-specific Orq intent agent + seed `swarm_intents` from the live corpus so every sales email leaving Stage 1 reaches a Stage 3 verdict, with handler-less intents landing in the Kanban human-lane.
 - [ ] **Phase 114: Stage 2 Resolver Reuse — cross-swarm generality proof** — sales Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config with zero Engine code changes; the debtor-only self-auth tier degrades to a no-op for sales.
@@ -273,7 +273,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 110. Visibility Foundation | 4/4 | Complete   | 2026-06-03 |
-| 111. Stage 1 Noise Expansion + Calibration | 4/5 | In Progress|  |
+| 111. Stage 1 Noise Expansion + Calibration | 5/5 | Complete   | 2026-06-03 |
 | 112. Outlook Cleanup + Backfill | 0/TBD | Not started | - |
 | 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
 | 114. Stage 2 Resolver Reuse | 0/TBD | Not started | - |
@@ -333,7 +333,7 @@ Plans:
 - [x] 111-03-PLAN.md — Stage-1 retro-run harness (new table + selector + aggregator) over both corpora, idempotent + side-channel isolated [Wave 1]
 - [x] 111-02-PLAN.md — Audited calibration-flip migration: 3 safe categories → categorize_archive (inert behind 01's gate) [Wave 2]
 - [x] 111-04-PLAN.md — Cluster-mining discovery + loopback test-first (D-09) + RFC doc correction (Finding 3) [Wave 2]
-- [ ] 111-05-PLAN.md — [BLOCKING] Apply both migrations via Supabase MCP + live verify (no codegen drift, RLS 0 ERROR) [Wave 3]
+- [x] 111-05-PLAN.md — [BLOCKING] Apply both migrations via Supabase MCP + live verify (no codegen drift, RLS 0 ERROR) [Wave 3]
 
 ### Phase 112: Outlook Cleanup + Backfill (gated production writes)
 
@@ -439,7 +439,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 
