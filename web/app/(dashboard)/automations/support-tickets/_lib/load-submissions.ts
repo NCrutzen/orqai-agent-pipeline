@@ -121,5 +121,5 @@ export async function loadSubmissions(
 
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as SubmissionRow[];
+  return (data ?? []) as unknown as SubmissionRow[];
 }
