@@ -30,8 +30,15 @@ vi.mock("@/lib/outlook", () => ({
 
 // ---- Registry mocks ------------------------------------------------------
 const loadCategoriesMock = vi.fn();
+// Phase 111 Finding 1: verdict-worker now loads the full swarm row to read
+// dry_run_config for the stage_1_archive gate. These tests assert the
+// registry side-effect dispatch (independent of the inline Outlook gate), so
+// loadSwarm returns a LIVE stage_1_archive — preserving the pre-111 behavior
+// where the inline categorize/archive fire.
+const loadSwarmMock = vi.fn();
 vi.mock("@/lib/swarms/registry", () => ({
   loadSwarmNoiseCategories: (...args: unknown[]) => loadCategoriesMock(...args),
+  loadSwarm: (...args: unknown[]) => loadSwarmMock(...args),
 }));
 
 const evaluateSideEffectsMock = vi.fn();
@@ -150,6 +157,11 @@ describe("classifier-verdict-worker — Phase 68 SWRM-04 registry dispatch", () 
     automationRunsUpdates.length = 0;
     adminMock = makeAdmin();
     loadCategoriesMock.mockReset();
+    loadSwarmMock.mockReset();
+    loadSwarmMock.mockResolvedValue({
+      swarm_type: "debtor-email",
+      dry_run_config: { stage_1_archive: false },
+    });
     evaluateSideEffectsMock.mockReset();
     inngestSend.mockReset();
     inngestSend.mockResolvedValue({ ids: ["evt"] });

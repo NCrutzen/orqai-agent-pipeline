@@ -20,9 +20,10 @@ import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { categorizeEmail, archiveEmail } from "@/lib/outlook";
-import { loadSwarmNoiseCategories } from "@/lib/swarms/registry";
+import { loadSwarm, loadSwarmNoiseCategories } from "@/lib/swarms/registry";
 import { evaluateSideEffects } from "@/lib/swarms/side-effects";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
+import { isStageBlocked } from "@/lib/pipeline-gating/dry-run-gate";
 
 export const classifierVerdictWorker = inngest.createFunction(
   { id: "classifier/verdict-worker", retries: 2 },
@@ -72,6 +73,16 @@ export const classifierVerdictWorker = inngest.createFunction(
     const categories = await step.run("load-categories", () =>
       loadSwarmNoiseCategories(admin, swarm_type),
     );
+    // Phase 111 Finding 1: load the full swarm row so the inline Outlook
+    // categorize+archive below can be gated behind the per-stage dry-run
+    // flag (swarms.dry_run_config.stage_1_archive). Phase 110-04 wired this
+    // gate into the four side-effect workers but NOT this inline path —
+    // sales auto_reply/ooo_* all carry outlook_label, so without this gate
+    // flipping action='categorize_archive' would fire LIVE Outlook calls.
+    // Registry-driven (no swarm_type literal) per SWARM-02 / Anti-Pattern A3.
+    const swarmRow = await step.run("load-swarm-row", () =>
+      loadSwarm(admin, swarm_type),
+    );
     const category = categories.find((c) => c.category_key === finalCategoryKey);
 
     if (!category) {
@@ -104,7 +115,16 @@ export const classifierVerdictWorker = inngest.createFunction(
         case "categorize_archive": {
           // D-11: outlook_label nullable. When null, skip BOTH categorize and
           // archive (graceful for non-Outlook-sourced swarms).
-          if (category.outlook_label) {
+          //
+          // Phase 111 Finding 1: ALSO require the stage_1_archive flag to be
+          // LIVE (not blocked) before firing the inline Outlook calls.
+          // Convention (dry-run-gate): isStageBlocked TRUE = BLOCKED (dry-run),
+          // FALSE = LIVE, MISSING = blocked (fail-closed). Sales is all-blocked
+          // → stays inert until Phase 112 wires go-live. Swarm-agnostic.
+          if (
+            category.outlook_label &&
+            !isStageBlocked(swarmRow, "stage_1_archive")
+          ) {
             await step.run("categorize", async () => {
               const r = await categorizeEmail(
                 source_mailbox,
