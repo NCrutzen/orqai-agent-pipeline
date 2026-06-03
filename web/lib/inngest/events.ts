@@ -666,4 +666,17 @@ export type Events = {
       run_id?: string;
     };
   };
+  // Phase 111 Plan 03 (D-01) — one-shot Stage-1 noise retro-classification
+  // trigger for the sales-email swarm. Side-Channel Isolation: handler writes
+  // ONLY to stage_1_retro_runs; never to automation_runs / agent_runs /
+  // pipeline_events; emits no downstream events.
+  "sales-email/stage-1-retro-classify.requested": {
+    data: {
+      swarm_type: "sales-email";
+      since: string;
+      until: string;
+      sample_limit?: number;
+      run_id?: string;
+    };
+  };
 };
