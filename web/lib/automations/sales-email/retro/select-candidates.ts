@@ -94,8 +94,12 @@ export async function selectCandidates(
   args: SelectCandidatesArgs,
 ): Promise<RetroCandidate[]> {
   const cap = args.cap ?? STAGE_1_RETRO_HARD_CAP;
-  // +1 sentinel split across the two reads is awkward; instead read each
-  // corpus up to cap+1 and enforce the cap on the merged total.
+  // Phase 111 WR-05: read each corpus up to cap+1 (the +1 is a truncation
+  // sentinel). If a single corpus comes back with exactly readCap rows we
+  // CANNOT distinguish "exactly readCap rows exist" from "more existed and
+  // the DB truncated us" — so we fail loud PER CORPUS at length === readCap.
+  // Only after both corpora pass the per-corpus truncation check do we
+  // cap-check the merged total and dedup by email_id.
   const readCap = cap + 1;
 
   // Corpus A — live Outlook, pinned to the sales mailbox.
@@ -123,13 +127,62 @@ export async function selectCandidates(
     .limit(readCap)) as { data: EmailRow[] | null; error: unknown };
   if (sugarErr) throw sugarErr as Error;
 
-  const merged = [...(outlookData ?? []), ...(sugarData ?? [])];
+  const outlookRows = outlookData ?? [];
+  const sugarRows = sugarData ?? [];
 
-  if (merged.length > cap) {
+  // Phase 111 WR-05: per-corpus truncation detection. A corpus returning
+  // exactly readCap rows is indistinguishable from a truncated read, so we
+  // fail loud and name WHICH corpus truncated — the operator must narrow the
+  // window or raise the cap rather than silently classify a partial sample.
+  if (outlookRows.length >= readCap) {
     throw new Error(
-      `Phase 111 D-01 Stage-1 retro cap exceeded: ${merged.length} rows for ${args.swarm_type} in [${args.since}, ${args.until}) (outlook=${(outlookData ?? []).length}, sugarcrm=${(sugarData ?? []).length}). Narrow the window or raise cap explicitly.`,
+      `Phase 111 D-01 Stage-1 retro: OUTLOOK corpus truncated at readCap=${readCap} for ${args.swarm_type} in [${args.since}, ${args.until}). Narrow the window or raise cap explicitly.`,
+    );
+  }
+  if (sugarRows.length >= readCap) {
+    throw new Error(
+      `Phase 111 D-01 Stage-1 retro: SUGARCRM corpus truncated at readCap=${readCap} for ${args.swarm_type} in [${args.since}, ${args.until}). Narrow the window or raise cap explicitly.`,
     );
   }
 
-  return merged.map(toCandidate);
+  // Phase 111 WR-06: SugarCRM single-tenant invariant. email_pipeline.emails
+  // is a shared multi-swarm table; corpus B is read on source='sugarcrm'
+  // ALONE (no mailbox/entity filter, per Pitfall 5 — mailbox holds bean
+  // labels). Today source='sugarcrm' is provably Smeba-only (the only
+  // SugarCRM importer is the Smeba historic backfill). Encode that invariant
+  // explicitly: any non-'sugarcrm' source leaking into this result set means
+  // the query contract was violated — fail loud rather than biasing the sales
+  // baseline / cluster-miner discovery surface with foreign-tenant mail.
+  // If a second SugarCRM tenant is ever onboarded, replace this guard with a
+  // real brand/entity scope on the corpus B query.
+  for (const r of sugarRows) {
+    if (r.source !== "sugarcrm") {
+      throw new Error(
+        `Phase 111 D-01 Stage-1 retro: SUGARCRM corpus invariant violated — row ${r.id} has source='${r.source}' (expected 'sugarcrm', assumed single-tenant Smeba). Add an explicit tenant scope before widening this corpus.`,
+      );
+    }
+  }
+
+  const merged = [...outlookRows, ...sugarRows];
+
+  if (merged.length > cap) {
+    throw new Error(
+      `Phase 111 D-01 Stage-1 retro cap exceeded: ${merged.length} rows for ${args.swarm_type} in [${args.since}, ${args.until}) (outlook=${outlookRows.length}, sugarcrm=${sugarRows.length}). Narrow the window or raise cap explicitly.`,
+    );
+  }
+
+  // Phase 111 WR-05: dedup by email_id. The same physical email can exist in
+  // both corpora (e.g. a SugarCRM-imported copy of an Outlook mail); without
+  // dedup it is classified twice and double-counts in the baseline. Also
+  // prevents the downstream per-email `classify-${email_id}` Inngest step IDs
+  // from colliding (WR-04). First occurrence wins (outlook before sugarcrm).
+  const seen = new Set<string>();
+  const deduped: EmailRow[] = [];
+  for (const r of merged) {
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    deduped.push(r);
+  }
+
+  return deduped.map(toCandidate);
 }

@@ -191,7 +191,10 @@ describe("Phase 111 sales-email selectCandidates", () => {
     }
   });
 
-  it("throws fail-loud over the hard cap", async () => {
+  it("throws fail-loud when a single corpus truncates at readCap (WR-05)", async () => {
+    // readCap = cap+1 = STAGE_1_RETRO_HARD_CAP+1 sugarcrm rows. A single
+    // corpus returning >= readCap is indistinguishable from a truncated read,
+    // so we fail loud naming the corpus (per WR-05) rather than the merged cap.
     const many: EmailRow[] = Array.from(
       { length: STAGE_1_RETRO_HARD_CAP + 1 },
       (_, i) => ({
@@ -205,7 +208,44 @@ describe("Phase 111 sales-email selectCandidates", () => {
         admin as unknown as Parameters<typeof selectCandidates>[0],
         ARGS,
       ),
+    ).rejects.toThrow(/SUGARCRM corpus truncated/i);
+  });
+
+  it("throws cap-exceeded on the merged total when neither corpus truncates (WR-05)", async () => {
+    // cap = 6 → readCap = 7. Each corpus returns 4 rows (< readCap, so no
+    // per-corpus truncation throw), but merged = 8 > cap → merged cap-exceeded.
+    const mk = (base: EmailRow, n: number): EmailRow[] =>
+      Array.from({ length: n }, (_, i) => ({
+        ...base,
+        id: `${base.source}-${String(i).padStart(4, "0")}-0000-0000-000000000000`,
+      }));
+    const admin = buildMockAdmin([
+      ...mk(OUTLOOK_INCOMING, 4),
+      ...mk(SUGAR_INBOUND, 4),
+    ]);
+    await expect(
+      selectCandidates(
+        admin as unknown as Parameters<typeof selectCandidates>[0],
+        { ...ARGS, cap: 6 },
+      ),
     ).rejects.toThrow(/cap exceeded/i);
+  });
+
+  it("dedups by email_id across the two corpora (WR-05)", async () => {
+    // Same email_id present as both an outlook and a sugarcrm row — must
+    // appear exactly once in the result (first occurrence = outlook wins).
+    const DUP_ID = "99999999-9999-9999-9999-999999999999";
+    const dupOutlook: EmailRow = { ...OUTLOOK_INCOMING, id: DUP_ID };
+    const dupSugar: EmailRow = { ...SUGAR_INBOUND, id: DUP_ID };
+    const admin = buildMockAdmin([dupOutlook, dupSugar, SUGAR_OUTBOUND]);
+    const out = await selectCandidates(
+      admin as unknown as Parameters<typeof selectCandidates>[0],
+      ARGS,
+    );
+    const ids = out.map((r) => r.email_id);
+    expect(ids.filter((id) => id === DUP_ID)).toHaveLength(1);
+    // Outlook occurrence wins (source='outlook').
+    expect(out.find((r) => r.email_id === DUP_ID)?.source).toBe("outlook");
   });
 
   it("is pure — selecting twice yields identical results (no Date.now/random)", async () => {
