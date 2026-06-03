@@ -289,7 +289,7 @@ where swarm_type = 'sales-email'
 | A3 | Generalizing the promotion gate into Step 5 / verdict-worker is the intended fix (vs. registering a sales regex module to route it through the debtor block). | CRITICAL FINDING 2 | If the team prefers a different generalization shape, the plan's central task changes. Needs confirmation in discuss/plan. |
 | A4 | The sugarcrm corpus is acceptable calibration data for the *Outlook* sales swarm despite never having flowed through the live Stage-1 worker. | D-01 (CONTEXT-locked) | Locked by user; noted as ASSUMED only because the historic mail's noise distribution may differ from live Outlook traffic, skewing hit-rate estimates. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Where to put the generalized promotion gate — Step 5 of the screen-worker, or the verdict-worker?** (RESOLVED in approach, needs ratification.)
    - What we know: the gate must be swarm-agnostic and consult `readWhitelist(swarm_type)` for `llm:{cat}:{conf}` promotion status before auto-archiving an LLM-derived `categorize_archive` verdict.
