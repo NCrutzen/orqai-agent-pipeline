@@ -1,8 +1,8 @@
 ---
 phase: 112
 slug: outlook-cleanup-backfill-gated-production-writes
-status: draft
-nyquist_compliant: false
+status: planned
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-06-03
 ---
@@ -40,10 +40,13 @@ created: 2026-06-03
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|--------|
-| 112-0X | — | 1 | CLEANUP-02 | — | backfill re-run produces ZERO duplicate archives (pipeline_events ledger no-op) | unit | `cd web && npx vitest run lib/inngest/functions/__tests__/sales-email-stage-1-backfill.test.ts` | ⬜ pending |
-| 112-0X | — | 1 | CLEANUP-02 | — | auto-set excludes loopback + payment_admittance + unknown; loopback skipped entirely | unit | `cd web && npx vitest run lib/automations/sales-email/__tests__/backfill-disposition.test.ts` | ⬜ pending |
-| 112-0X | — | 1 | CLEANUP-02 | — | archive call resolves Graph id (source_id), not internet_message_id (Pitfall 4) | unit | (same backfill suite) | ⬜ pending |
-| 112-0X | — | 1 | CLEANUP-02 | — | mode='report' dry-run writes NO live archive + NO ledger row | unit | (same backfill suite) | ⬜ pending |
+| 112-01-T1 | 01 | 1 | CLEANUP-02 | T-112-01/02/04 | auto-set registry-derived excludes loopback + payment_admittance + unknown; loopback → 'skip'; Graph-id source_id resolution | unit | `cd web && npx vitest run lib/automations/sales-email/backfill/__tests__/disposition.test.ts` | ⬜ pending |
+| 112-01-T2 | 01 | 1 | CLEANUP-02 | T-112-03/04/05 | backfill re-run ZERO duplicate archives (ledger no-op + already-archived); report mode writes nothing; archive uses source_id; replay-safe runId | unit | `cd web && npx vitest run lib/inngest/functions/__tests__/sales-email-stage-1-backfill.test.ts` | ⬜ pending |
+| 112-02-T1 | 02 | 1 | CLEANUP-01 | T-112-08/10 | flip sets exactly stage_1_archive=false for sales via jsonb_set; no sibling clobber; sales-scoped; APPLY NOTE present | unit (SQL-assert) | `cd web && npx vitest run lib/swarms/__tests__/sales-stage1-archive-golive.test.ts` | ⬜ pending |
+| 112-02-T2 | 02 | 1 | CLEANUP-01 | T-112-11 | inline archive fires Outlook archive + Stage-4 telemetry iff stage_1_archive=false (blocked → 0 archive, 0 emit) | unit (extend) | `cd web && npx vitest run lib/inngest/functions/__tests__/classifier-verdict-worker.test.ts` | ⬜ pending |
+| 112-03-T1 | 03 | 2 | CLEANUP-02 | T-112-07/12 | report-mode dry-run produces counts and writes nothing live | human-check | (report-mode run; zero new stage=4 / automation_runs) | ⬜ pending |
+| 112-03-T2 | 03 | 2 | CLEANUP-01/02 | T-112-12/13 | canary archives only intended noise; idempotent live re-run (0 new, 0 errors) | manual (canary) | operator inspects verkoop@smeba.nl Archive | ⬜ pending |
+| 112-03-T3 | 03 | 2 | CLEANUP-01 | T-112-14/15/16 | flip applied via MCP only after approval; sales stage_1_archive=false; siblings + debtor intact; check:supabase 0 ERROR | manual ([BLOCKING] apply) | live swarms query + `npm run check:supabase` | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

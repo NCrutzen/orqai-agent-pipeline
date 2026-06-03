@@ -347,7 +347,10 @@ Plans:
   2. The noise rules are backfilled over the ingested corpus: high-confidence / AP-noise categories auto-archive, ambiguous matches route to Bulk Review for operator approval, and `own_outbound_invoice_loopback` is EXCLUDED from auto per the debtor incident (CLEANUP-02).
   3. The backfill is idempotent — re-running it produces no duplicate archives and no double side-effects (CLEANUP-02).
 
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 112-01-PLAN.md — Backfill sweeper + disposition + Graph-id selection + RED tests (report mode; inert)
+- [ ] 112-02-PLAN.md — Go-live flip migration (written, not applied) + verdict-worker gate test
+- [ ] 112-03-PLAN.md — Report dry-run → canary → [BLOCKING] human-gated flip apply + live verify
 
 ### Phase 113: Stage 3 Sales Intent Agent (greenfield)
 
