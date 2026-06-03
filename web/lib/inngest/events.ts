@@ -691,4 +691,20 @@ export type Events = {
       archive_reference_keys?: string[];
     };
   };
+  // Phase 112 Plan 01 (CLEANUP-02) — one-shot Stage-1 noise BACKFILL sweeper
+  // for the sales-email swarm. Ships INERT: mode defaults to 'report' (zero
+  // Graph writes, zero pipeline_events/automation_runs inserts). 'canary' caps
+  // auto-archives at `limit`; 'full' sweeps all. Auto-set is registry-derived
+  // (action='categorize_archive' minus loopback); ambiguous → Bulk Review;
+  // loopback skipped entirely (D-05/D-06). Idempotent on re-run (D-08).
+  "sales-email/stage-1.backfill": {
+    data: {
+      mode?: "report" | "canary" | "full";
+      // Auto-archive cap for mode='canary'.
+      limit?: number;
+      // Optional corpus window override (defaults to a 365-day lookback).
+      since?: string;
+      until?: string;
+    };
+  };
 };

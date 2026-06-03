@@ -31,9 +31,10 @@ vi.mock("@/lib/inngest/client", () => ({
 }));
 
 // ---- Graph helper mocks --------------------------------------------------
-const archiveEmail = vi.fn(async () => ({ success: true }) as { success: boolean; error?: string });
-const categorizeEmail = vi.fn(async () => ({ success: true }) as { success: boolean; error?: string });
-const getMessageMeta = vi.fn();
+type GraphResult = { success: boolean; error?: string };
+const archiveEmail = vi.fn(async (_m: string, _id: string): Promise<GraphResult> => ({ success: true }));
+const categorizeEmail = vi.fn(async (_m: string, _id: string, _label: string): Promise<GraphResult> => ({ success: true }));
+const getMessageMeta = vi.fn(async (_m: string, _id: string): Promise<unknown> => null);
 vi.mock("@/lib/outlook/client", () => ({
   archiveEmail: (m: string, id: string) => archiveEmail(m, id),
   categorizeEmail: (m: string, id: string, label: string) => categorizeEmail(m, id, label),
@@ -47,9 +48,9 @@ vi.mock("@/lib/swarms/registry", () => ({
 }));
 
 // ---- emit mock -----------------------------------------------------------
-const emitPipelineEvent = vi.fn(async () => undefined);
+const emitPipelineEvent = vi.fn(async (_admin: unknown, _payload: Record<string, unknown>): Promise<void> => undefined);
 vi.mock("@/lib/pipeline-events/emit", () => ({
-  emitPipelineEvent: (admin: unknown, payload: unknown) => emitPipelineEvent(admin, payload),
+  emitPipelineEvent: (admin: unknown, payload: Record<string, unknown>) => emitPipelineEvent(admin, payload),
 }));
 
 // ---- Candidate selection mock --------------------------------------------
@@ -84,12 +85,21 @@ vi.mock("@/lib/automations/sales-email/backfill/select-backfill-candidates", asy
 });
 
 // The worker reads a per-email verdict to know predicted_category/confidence.
-// We mock the verdict resolver so the test injects the disposition directly.
-const resolveVerdicts = vi.fn(async (rows: BackfillCandidate[]) =>
-  new Map(rows.map((r) => [r.email_id, { predicted_category_key: r.predicted_category_key, confidence: r.confidence }])),
-);
+// We mock the verdict resolver so the test injects the disposition directly,
+// keyed off the candidate fixtures (verdict carried on each candidate row).
+const resolveVerdicts = vi.fn(async (_admin: unknown, emailIds: string[]) => {
+  const byId = new Map(candidatesReturn.rows.map((r) => [r.email_id, r]));
+  return new Map(
+    emailIds
+      .filter((id) => byId.has(id))
+      .map((id) => {
+        const r = byId.get(id)!;
+        return [id, { predicted_category_key: r.predicted_category_key, confidence: r.confidence }];
+      }),
+  );
+});
 vi.mock("@/lib/automations/sales-email/backfill/resolve-verdicts", () => ({
-  resolveVerdicts: (rows: BackfillCandidate[]) => resolveVerdicts(rows),
+  resolveVerdicts: (admin: unknown, emailIds: string[]) => resolveVerdicts(admin, emailIds),
 }));
 
 // ---- Supabase admin mock -------------------------------------------------
