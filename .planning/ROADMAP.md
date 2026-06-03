@@ -273,7 +273,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 110. Visibility Foundation | 4/4 | Complete   | 2026-06-03 |
-| 111. Stage 1 Noise Expansion + Calibration | 2/5 | In Progress|  |
+| 111. Stage 1 Noise Expansion + Calibration | 4/5 | In Progress|  |
 | 112. Outlook Cleanup + Backfill | 0/TBD | Not started | - |
 | 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
 | 114. Stage 2 Resolver Reuse | 0/TBD | Not started | - |
@@ -331,8 +331,8 @@ Plans:
 
 - [x] 111-01-PLAN.md — Close the two CRITICAL gating gaps (verdict-worker isStageBlocked + swarm-agnostic Wilson promotion gate in Step 5) + debtor regression net [Wave 1]
 - [x] 111-03-PLAN.md — Stage-1 retro-run harness (new table + selector + aggregator) over both corpora, idempotent + side-channel isolated [Wave 1]
-- [ ] 111-02-PLAN.md — Audited calibration-flip migration: 3 safe categories → categorize_archive (inert behind 01's gate) [Wave 2]
-- [ ] 111-04-PLAN.md — Cluster-mining discovery + loopback test-first (D-09) + RFC doc correction (Finding 3) [Wave 2]
+- [x] 111-02-PLAN.md — Audited calibration-flip migration: 3 safe categories → categorize_archive (inert behind 01's gate) [Wave 2]
+- [x] 111-04-PLAN.md — Cluster-mining discovery + loopback test-first (D-09) + RFC doc correction (Finding 3) [Wave 2]
 - [ ] 111-05-PLAN.md — [BLOCKING] Apply both migrations via Supabase MCP + live verify (no codegen drift, RLS 0 ERROR) [Wave 3]
 
 ### Phase 112: Outlook Cleanup + Backfill (gated production writes)
@@ -439,7 +439,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 2/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 
