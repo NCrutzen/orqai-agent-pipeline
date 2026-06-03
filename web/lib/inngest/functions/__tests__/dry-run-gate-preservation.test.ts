@@ -26,7 +26,7 @@
 // RED until 110-04 lands D-10/D-11 gate.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -76,5 +76,192 @@ describe("dry-run gate preservation — current effective debtor gating (D-11)",
     // RED today: module absent → null. Plan 04 must export a resolver whose
     // debtor default for stage_1_cleanup is false (live) and sales is true.
     expect(gateModule).not.toBeNull();
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Phase 111 Plan 01 — Test A: verdict-worker inline Outlook archive is gated
+// behind isStageBlocked(swarmRow, 'stage_1_archive').
+//
+// CRITICAL FINDING 1: classifier-verdict-worker.ts fires categorizeEmail() +
+// archiveEmail() directly + unconditionally on action='categorize_archive'
+// when outlook_label is set. The per-stage dry-run gate (Phase 110-04) was
+// never wired here. These behavioral tests pin the gate:
+//   - dry_run_config.stage_1_archive = true  (BLOCKED) → NOT called
+//   - dry_run_config.stage_1_archive = false (LIVE)    → called
+//   - dry_run_config missing                 (fail-closed) → NOT called
+//
+// RED until Task 2 imports isStageBlocked + loads the swarm row + gates the
+// inline calls. Swarm-agnostic — driven by registry dry_run_config, no
+// swarm_type literal.
+// ───────────────────────────────────────────────────────────────────────────
+
+// ---- Inngest mock --------------------------------------------------------
+const vwInngestSend = vi.fn().mockResolvedValue({ ids: ["evt"] });
+vi.mock("@/lib/inngest/client", () => ({
+  inngest: {
+    send: vwInngestSend,
+    createFunction: vi.fn((cfg, _trigger, handler) => ({
+      __config: cfg,
+      handler,
+    })),
+  },
+}));
+
+// ---- Outlook mock (the gated side effects) -------------------------------
+const categorizeEmailMock = vi.fn(async () => ({ success: true, error: null }));
+const archiveEmailMock = vi.fn(async () => ({ success: true, error: null }));
+vi.mock("@/lib/outlook", () => ({
+  categorizeEmail: (...args: unknown[]) => categorizeEmailMock(...args),
+  archiveEmail: (...args: unknown[]) => archiveEmailMock(...args),
+}));
+
+// ---- emit helper mock ----------------------------------------------------
+vi.mock("@/lib/automations/runs/emit", () => ({
+  emitAutomationRunStale: vi.fn().mockResolvedValue(undefined),
+}));
+
+// ---- pipeline-events emit mock -------------------------------------------
+vi.mock("@/lib/pipeline-events/emit", () => ({
+  emitPipelineEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
+// ---- side-effects mock (sales side_effects=[] → no dispatch) -------------
+const evaluateSideEffectsMock = vi.fn().mockResolvedValue([]);
+vi.mock("@/lib/swarms/side-effects", () => ({
+  evaluateSideEffects: (...args: unknown[]) => evaluateSideEffectsMock(...args),
+}));
+
+// ---- Registry mock — loadSwarmNoiseCategories + loadSwarm ----------------
+const loadCategoriesMock = vi.fn();
+const loadSwarmMock = vi.fn();
+vi.mock("@/lib/swarms/registry", () => ({
+  loadSwarmNoiseCategories: (...args: unknown[]) => loadCategoriesMock(...args),
+  loadSwarm: (...args: unknown[]) => loadSwarmMock(...args),
+}));
+
+// ---- Supabase admin mock -------------------------------------------------
+function makeVwAdmin() {
+  const makeReadChain = () => {
+    const chain: Record<string, unknown> = {};
+    chain.select = vi.fn(() => chain);
+    chain.eq = vi.fn(() => chain);
+    chain.or = vi.fn(() => chain);
+    chain.limit = vi.fn(() => chain);
+    chain.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
+    chain.single = vi.fn(async () => ({ data: null, error: null }));
+    (chain as { then?: unknown }).then = (
+      onF: (r: { data: unknown[]; error: unknown }) => unknown,
+    ) => Promise.resolve(onF({ data: [], error: null }));
+    return chain;
+  };
+  return {
+    schema: vi.fn(() => ({ from: vi.fn(() => makeReadChain()) })),
+    from: vi.fn(() => ({
+      insert: vi.fn(async () => ({ data: null, error: null })),
+      update: vi.fn(() => ({ eq: vi.fn(async () => ({ data: null, error: null })) })),
+      select: vi.fn(() => makeReadChain()),
+    })),
+  };
+}
+let vwAdminMock = makeVwAdmin();
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: vi.fn(() => vwAdminMock),
+}));
+
+// ---- Step stub (executes inline; caches by name) -------------------------
+function makeVwStep() {
+  const cache = new Map<string, unknown>();
+  return {
+    run: async (name: string, fn: () => Promise<unknown>) => {
+      if (cache.has(name)) return cache.get(name);
+      const v = await fn();
+      cache.set(name, v);
+      return v;
+    },
+  };
+}
+
+const SALES_CATEGORY = {
+  swarm_type: "sales-email",
+  category_key: "auto_reply",
+  display_label: "Auto-Reply",
+  outlook_label: "Auto-Reply",
+  action: "categorize_archive",
+  swarm_dispatch: null,
+  display_order: 10,
+  enabled: true,
+};
+
+const vwEvent = () => ({
+  id: "evt-vw-gate-1",
+  name: "classifier/verdict.recorded",
+  data: {
+    automation_run_id: "ar-vw-gate-1",
+    swarm_type: "sales-email",
+    decision: "approve",
+    message_id: "msg-vw-gate-1",
+    source_mailbox: "verkoop@smeba.nl",
+    predicted_category: "auto_reply",
+    override_category: null,
+  },
+});
+
+describe("Phase 111 Test A — verdict-worker inline Outlook archive dry-run gate (Finding 1)", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vwAdminMock = makeVwAdmin();
+    loadCategoriesMock.mockReset();
+    loadSwarmMock.mockReset();
+    evaluateSideEffectsMock.mockReset();
+    evaluateSideEffectsMock.mockResolvedValue([]);
+    categorizeEmailMock.mockClear();
+    archiveEmailMock.mockClear();
+    vwInngestSend.mockReset();
+    vwInngestSend.mockResolvedValue({ ids: ["evt"] });
+    loadCategoriesMock.mockResolvedValue([SALES_CATEGORY]);
+    vi.resetModules();
+    const mod = await import("../classifier-verdict-worker");
+    handler = (
+      mod.classifierVerdictWorker as unknown as { handler: typeof handler }
+    ).handler;
+  });
+
+  it("stage_1_archive BLOCKED (true) → categorize/archive NOT called", async () => {
+    loadSwarmMock.mockResolvedValue({
+      swarm_type: "sales-email",
+      dry_run_config: { stage_1_archive: true },
+    });
+
+    await handler({ event: vwEvent(), step: makeVwStep() });
+
+    expect(categorizeEmailMock).not.toHaveBeenCalled();
+    expect(archiveEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("stage_1_archive LIVE (false) → categorize/archive ARE called", async () => {
+    loadSwarmMock.mockResolvedValue({
+      swarm_type: "sales-email",
+      dry_run_config: { stage_1_archive: false },
+    });
+
+    await handler({ event: vwEvent(), step: makeVwStep() });
+
+    expect(categorizeEmailMock).toHaveBeenCalledTimes(1);
+    expect(archiveEmailMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("dry_run_config MISSING → fail-closed → categorize/archive NOT called", async () => {
+    loadSwarmMock.mockResolvedValue({
+      swarm_type: "sales-email",
+      dry_run_config: null,
+    });
+
+    await handler({ event: vwEvent(), step: makeVwStep() });
+
+    expect(categorizeEmailMock).not.toHaveBeenCalled();
+    expect(archiveEmailMock).not.toHaveBeenCalled();
   });
 });
