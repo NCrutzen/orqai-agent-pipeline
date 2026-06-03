@@ -325,7 +325,14 @@ Plans:
   2. New sales-specific Stage 1 noise rules discovered from the multi-week corpus are added as `swarm_noise_categories` rows with an audit trail, data-driven rather than hand-curated (STAGE1-02).
   3. The 8 inherited AP-noise rules are re-validated for sales fit; in particular `own_outbound_invoice_loopback` is gated/disabled for sales unless it holds on the sales corpus (it mis-archived ~40% on debtor and is disabled there) (STAGE1-02).
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 111-01-PLAN.md — Close the two CRITICAL gating gaps (verdict-worker isStageBlocked + swarm-agnostic Wilson promotion gate in Step 5) + debtor regression net [Wave 1]
+- [ ] 111-03-PLAN.md — Stage-1 retro-run harness (new table + selector + aggregator) over both corpora, idempotent + side-channel isolated [Wave 1]
+- [ ] 111-02-PLAN.md — Audited calibration-flip migration: 3 safe categories → categorize_archive (inert behind 01's gate) [Wave 2]
+- [ ] 111-04-PLAN.md — Cluster-mining discovery + loopback test-first (D-09) + RFC doc correction (Finding 3) [Wave 2]
+- [ ] 111-05-PLAN.md — [BLOCKING] Apply both migrations via Supabase MCP + live verify (no codegen drift, RLS 0 ERROR) [Wave 3]
 
 ### Phase 112: Outlook Cleanup + Backfill (gated production writes)
 
