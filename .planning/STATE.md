@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
-stopped_at: Phase 111 context gathered
-last_updated: "2026-06-03T10:31:23.595Z"
-last_activity: 2026-06-03 -- Phase 111 execution started
+stopped_at: Phase 111 complete — verification passed (17/17 must-haves)
+last_updated: "2026-06-03T13:15:00.000Z"
+last_activity: 2026-06-03 -- Phase 111 executed + verified (Stage 1 noise calibration)
 progress:
   total_phases: 8
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 21
-  completed_plans: 9
-  percent: 25
+  completed_plans: 14
+  percent: 38
 ---
 
 # Project State
@@ -53,10 +53,12 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: 111 (stage-1-noise-expansion-calibration) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 111
-Last activity: 2026-06-03 -- Phase 111 execution started
+Phase: 111 (stage-1-noise-expansion-calibration) — COMPLETE (verification passed)
+Plan: 5 of 5
+Status: Phase 111 complete; next is Phase 112 (Outlook Cleanup + Backfill — gated production writes)
+Last activity: 2026-06-03 -- Phase 111 executed + verified
+
+**Phase 111 outcome:** Stage 1 noise calibration for sales-email. Both migrations applied live (3 safe keys → categorize_archive, INERT behind the Plan-01 verdict-worker gate until Phase 112; stage_1_retro_runs table). The two CRITICAL architecture gaps closed swarm-agnostically (verdict-worker dry-run gate + Wilson promotion gate generalized — 0 per-swarm branches). Stage-1 retro harness + operator-gated cluster-mining discovery shipped (no auto-INSERT). own_outbound_invoice_loopback left test-first (data-driven). Live: check:supabase 0 ERROR, codegen no-drift, 313 tests green.
 
 **Carry-forward from v8.1 (closed 2026-06-01):** the loopback false-archive incident (Phase 84 `own_outbound_invoice_loopback`) was code-mitigated (#58/#59, migration `20260530_disable_own_outbound_loopback.sql`); the 27-email Stage-3 recovery re-dispatch (list in `87-LOOPBACK-RECOVERY.md`) is operator follow-up, tracked outside this milestone.
 
