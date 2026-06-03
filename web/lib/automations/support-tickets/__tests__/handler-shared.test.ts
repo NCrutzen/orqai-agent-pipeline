@@ -245,11 +245,15 @@ describe("writeNotification", () => {
   it("inserts support_notifications row with correct shape", async () => {
     const admin = buildAdminMock({ ticketRow: TICKET_ROW_BASE });
     const result = await writeNotification(admin, {
+      support_ticket_id: "ticket-1",
       submission_id: SUBMISSION_ID,
       kind: "clarification_request",
       payload: { questions: ["Q1"], locale: "nl" },
     });
     const inserted = admin._calls.notificationInserts[0].args;
+    // support_ticket_id is NOT NULL in the schema — regression guard for B1
+    // (writeNotification previously omitted it; every live insert failed).
+    expect(inserted.support_ticket_id).toBe("ticket-1");
     expect(inserted.submission_id).toBe(SUBMISSION_ID);
     expect(inserted.kind).toBe("clarification_request");
     expect((inserted.payload as Record<string, unknown>).questions).toEqual(["Q1"]);
@@ -263,6 +267,7 @@ describe("writeNotification", () => {
     });
     await expect(
       writeNotification(admin, {
+        support_ticket_id: "ticket-1",
         submission_id: SUBMISSION_ID,
         kind: "clarification_request",
         payload: {},

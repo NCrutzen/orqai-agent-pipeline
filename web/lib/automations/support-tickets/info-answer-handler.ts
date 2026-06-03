@@ -532,6 +532,7 @@ export async function runInfoAnswerHandler(
   let notificationId: string | undefined;
   try {
     const notif = await writeNotification(supabase, {
+      support_ticket_id: ticket.id,
       submission_id: ticket.submission_id,
       kind: "info_answer",
       payload: {

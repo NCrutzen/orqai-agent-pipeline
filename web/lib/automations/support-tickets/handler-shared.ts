@@ -76,6 +76,9 @@ export interface WriteStage4EventArgs {
 }
 
 export interface WriteNotificationArgs {
+  // support_notifications.support_ticket_id is NOT NULL (Phase 1 migration).
+  // Must be the support_tickets PK (ticket.id), NOT submission_id.
+  support_ticket_id: string;
   submission_id: string;
   kind: string;
   payload: Record<string, unknown>;
@@ -260,6 +263,7 @@ export async function writeNotification(
   const res = await supabase
     .from("support_notifications")
     .insert({
+      support_ticket_id: args.support_ticket_id,
       submission_id: args.submission_id,
       kind: args.kind,
       payload: args.payload,

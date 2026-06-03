@@ -576,6 +576,7 @@ export async function runVendorDraftHandler(
   let notificationId: string | undefined;
   try {
     const notif = await writeNotification(supabase, {
+      support_ticket_id: ticket.id,
       submission_id: ticket.submission_id,
       kind: "vendor_draft",
       payload: {

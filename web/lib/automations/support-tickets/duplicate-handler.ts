@@ -209,6 +209,7 @@ export async function runDuplicateHandler(
   // No Zapier call here (see module comment — Path A design decision).
   let notificationId: string | undefined;
   const notif = await writeNotification(supabase, {
+    support_ticket_id: ticket.id,
     submission_id: ticket.submission_id,
     kind: "duplicate_link",
     payload: {
