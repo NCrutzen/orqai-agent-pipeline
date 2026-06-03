@@ -748,6 +748,28 @@ export type Events = {
     };
   };
 
+  // Phase 5 Plan 05-02 (OUTBOUND-01) — inbound ClickUp webhook status change.
+  // Emitted by the clickup-webhook route AFTER body-secret validation and
+  // payload normalization. Consumed by the Plan 05-03 Inngest function which
+  // owns the replay-safe support_tickets DB writes (step.run). The route is
+  // purely validate-and-fan-out; it does NOT write to support_tickets directly.
+  //
+  // Payload contract:
+  //   clickup_task_id  — normalized from task_id OR payload.task.id (ClickUp
+  //                      varies this across webhook versions)
+  //   event_type       — raw ClickUp event name (e.g. "taskStatusUpdated")
+  //   history_items    — verbatim ClickUp history payload array; Plan 05-03
+  //                      validates with zod before any DB write (T-05-02-02)
+  //   received_at      — ISO timestamp stamped by the route (not ClickUp)
+  "support-tickets/clickup-status.received": {
+    data: {
+      clickup_task_id: string;
+      event_type: string; // raw ClickUp event name
+      history_items: Array<Record<string, unknown>>; // verbatim ClickUp history payload
+      received_at: string; // ISO, stamped by the route
+    };
+  };
+
   // Phase 87 Plan 04 — one-shot retro-classification trigger. Triggered by
   // the operator CLI `web/scripts/run-retro-classify.ts`. Side-Channel
   // Isolation: handler writes ONLY to stage_3_retro_runs +
