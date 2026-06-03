@@ -68,22 +68,21 @@ export default async function BulkReviewPage({
     notFound();
   }
 
-  // 1) Fetch the most-recent email_labels for this swarm. The hydrator keys
-  //    off email_label_id; we read the id list here to know which rows to
-  //    materialize. Order by created_at desc so the operator sees the freshest
-  //    work first.
+  // Phase 110-02 (REVIEW-01 / D-01) — the route is now swarm-generic. The
+  // loadSwarm registry gate above (unknown/disabled swarm → 404) is the ONLY
+  // gate; the former hard `swarmType !== "debtor-email" → notFound()` is
+  // removed so sales-email + info-routing render end-to-end. Debtor remains the
+  // ONLY swarm with a debtor.email_labels store: for debtor the bucket lists
+  // per-label rows (one email_id can carry 2 label rows) and the hydrator keys
+  // off email_label_id; for every other swarm the bucket lists email_id and the
+  // hydrator anchors on email_pipeline.emails.id (the shared corpus).
+  const isDebtorSwarm = swarmType === "debtor-email";
+
+  // 1) Fetch the freshest reviewable unit ids for this swarm. The bucket loader
+  //    returns `email_labels.id` values for debtor and `email_id` values for
+  //    non-debtor swarms (load-bucket-label-ids.ts list-unit branch). Order by
+  //    created_at desc so the operator sees the freshest work first.
   //
-  //    Schema note (2026-05-26 fix): debtor.email_labels has NO swarm_type
-  //    column — the `debtor` schema is implicitly the debtor-email swarm's
-  //    label store (see docs/debtor-email-pipeline-architecture.md). The
-  //    original .eq("swarm_type", swarmType) filter returned an unchecked
-  //    PostgREST error, silently producing an empty array. The surface mounted
-  //    in 2026-05-23 (commit da72965f) had been permanently empty ever since.
-  //    Other swarms with a Bulk Review surface will need their own label
-  //    table; route 404s for non-debtor swarms until that lands.
-  if (swarmType !== "debtor-email") {
-    notFound();
-  }
   // Operator UAT 2026-05-28: the Queue shows ONLY un-decided rows (no agent_run
   // human_verdict yet, no run done) — everything still needing a human look,
   // including dry-run / 'predicted' rows. loadQueueBucket is disjoint-by-
@@ -101,17 +100,21 @@ export default async function BulkReviewPage({
     limit: INITIAL_ROW_LIMIT,
     before,
   });
-  const labelIds: string[] = bucket.ids;
+  const bucketIds: string[] = bucket.ids;
 
-  // 2) Hydrate each row. hydrateBulkReviewRow may return null (e.g. label row
-  //    was deleted between the list query and the hydrate); filter nulls out.
-  //    Parallel awaits — each row's hydrator is independent.
+  // 2) Hydrate each row. hydrateBulkReviewRow may return null (e.g. the row was
+  //    deleted between the list query and the hydrate); filter nulls out.
+  //    Parallel awaits — each row's hydrator is independent. The anchor field
+  //    matches the bucket's list-unit: email_label_id for debtor (per-label
+  //    granularity), email_id for every other swarm (shared-corpus anchor).
   const hydrated = await Promise.all(
-    labelIds.map((id) =>
-      hydrateBulkReviewRow(admin, {
-        email_label_id: id,
-        swarm_type: swarmType,
-      }),
+    bucketIds.map((id) =>
+      hydrateBulkReviewRow(
+        admin,
+        isDebtorSwarm
+          ? { email_label_id: id, swarm_type: swarmType }
+          : { email_id: id, swarm_type: swarmType },
+      ),
     ),
   );
   const rows: BulkReviewRow[] = hydrated.filter(
