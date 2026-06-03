@@ -123,6 +123,104 @@ async function decidedOrDoneEmailIds(
   return [...set];
 }
 
+/** All DISTINCT email_ids the pipeline has produced an agent_run for, for this
+ *  swarm — the full reviewable population for a NON-DEBTOR swarm. Range-paged in
+ *  1000-row batches (same WR-02 guard as decidedOrDoneEmailIds) so a >1000
+ *  population can never be silently capped by PostgREST's default max-rows. The
+ *  freshest-first ordering is applied by the caller; here we only enumerate the
+ *  membership set. created_at is carried so the caller can build the composite
+ *  cursor without a second scan. */
+async function allEmailIdsForSwarm(
+  admin: Admin,
+  swarmType: string,
+): Promise<Array<{ email_id: string; created_at: string }>> {
+  // Keep one (email_id → freshest created_at) entry; an email_id can carry
+  // several agent_runs (one per stage). Dedup to the row's newest run so the
+  // composite cursor orders by the latest activity on that email.
+  const newestByEmail = new Map<string, string>();
+  for (let from = 0; ; from += AGENT_RUNS_PAGE) {
+    const runs = await admin
+      .from("agent_runs")
+      .select("email_id, created_at")
+      .eq("swarm_type", swarmType)
+      .range(from, from + AGENT_RUNS_PAGE - 1);
+    if (runs.error) {
+      throw new Error(
+        `load-bucket-label-ids: agent_runs (all-email-ids) query failed — ${runs.error.message}`,
+      );
+    }
+    const rows =
+      (runs.data as Array<{
+        email_id: string | null;
+        created_at: string | null;
+      }> | null) ?? [];
+    for (const r of rows) {
+      if (!r.email_id) continue;
+      const cAt = r.created_at ?? "";
+      const prev = newestByEmail.get(r.email_id);
+      if (prev == null || cAt > prev) newestByEmail.set(r.email_id, cAt);
+    }
+    if (rows.length < AGENT_RUNS_PAGE) break; // short page → drained.
+  }
+  return [...newestByEmail].map(([email_id, created_at]) => ({
+    email_id,
+    created_at,
+  }));
+}
+
+/** Build one bucket page (Queue or History) for a NON-DEBTOR swarm whose list
+ *  unit is the email_id itself (no debtor.email_labels store — RESEARCH OQ-4 /
+ *  SC-3 surface-layer branch). The membership predicate is identical to the
+ *  debtor path (Queue = NOT decided-or-done, History = decided-or-done); only
+ *  the COUNT UNIT changes from email_labels.id to DISTINCT email_id. Composite
+ *  cursor is (created_at desc, email_id desc), mirroring the debtor cursor so
+ *  LoadMoreLink stays format-agnostic. The decided-or-done set is range-paged
+ *  at 1000 upstream; here the population scan is also range-paged at 1000 — both
+ *  WR-02 anti-truncation guards preserved. */
+function loadEmailIdBucketPage(
+  population: Array<{ email_id: string; created_at: string }>,
+  decidedOrDone: Set<string>,
+  mode: "queue" | "history",
+  opts: BucketOpts,
+): BucketPage {
+  // Partition by the SAME membership predicate as the debtor path.
+  const members = population.filter((r) =>
+    mode === "history"
+      ? decidedOrDone.has(r.email_id)
+      : !decidedOrDone.has(r.email_id),
+  );
+  const total = members.length;
+
+  // (created_at desc, email_id desc) — total order, mirrors the debtor cursor.
+  const sorted = [...members].sort((a, b) => {
+    if (a.created_at !== b.created_at)
+      return a.created_at < b.created_at ? 1 : -1;
+    return a.email_id < b.email_id ? 1 : a.email_id > b.email_id ? -1 : 0;
+  });
+
+  // Apply the opaque "${created_at}|${email_id}" cursor in-memory (the
+  // population is already fully materialized from the range-paged scan).
+  let windowed = sorted;
+  if (opts.before) {
+    const sep = opts.before.indexOf("|");
+    const cAt = sep === -1 ? opts.before : opts.before.slice(0, sep);
+    const cid = sep === -1 ? "" : opts.before.slice(sep + 1);
+    windowed = sorted.filter(
+      (r) =>
+        r.created_at < cAt || (r.created_at === cAt && r.email_id < cid),
+    );
+  }
+
+  const pageRows = windowed.slice(0, opts.limit);
+  const ids = pageRows.map((r) => r.email_id);
+  const last = pageRows[pageRows.length - 1];
+  const nextBefore =
+    pageRows.length === opts.limit && windowed.length > opts.limit && last
+      ? `${last.created_at}|${last.email_id}`
+      : null;
+  return { ids, total, nextBefore };
+}
+
 /** Build one bucket page (Queue or History) from a resolved membership set.
  *  `mode` selects the membership operator on debtor.email_labels.email_id:
  *    - "queue":   NOT IN decidedOrDone (the complement); when the set is empty,
@@ -294,26 +392,53 @@ async function loadBucketPage(
   return { ids, total, nextBefore };
 }
 
-/** Queue bucket: label rows whose email is NOT decided-or-done (un-decided AND
- *  not done) — everything still awaiting a human look, INCLUDING `predicted`. */
+// Phase 110-02 (REVIEW-01 / SC-3 surface-layer / RESEARCH OQ-4) — debtor is the
+// ONLY swarm with a debtor.email_labels store, so its bucket list unit is the
+// per-label email_labels.id (one email_id can carry 2 label rows, each its own
+// reviewable entry). Every other swarm has no label store; its reviewable unit
+// is the DISTINCT email_id itself. This branch lives at the SURFACE layer (the
+// page-data loaders), NOT in any shared pipeline worker — it does not introduce
+// a swarm branch into Stage 0-4 processing, so the SWARM-02 / Plan-01
+// coordinator-swarm-branch-guard invariant is preserved (SC-3 scope).
+function isDebtorSwarm(swarmType: string): boolean {
+  return swarmType === "debtor-email";
+}
+
+/** Queue bucket: rows whose email is NOT decided-or-done (un-decided AND not
+ *  done) — everything still awaiting a human look, INCLUDING `predicted`. The
+ *  list unit is email_labels.id for debtor and email_id for every other swarm. */
 export async function loadQueueBucket(
   admin: Admin,
   swarmType: string,
   opts: BucketOpts,
 ): Promise<BucketPage> {
   const decidedOrDone = await decidedOrDoneEmailIds(admin, swarmType);
-  return loadBucketPage(admin, decidedOrDone, "queue", opts);
+  if (isDebtorSwarm(swarmType)) {
+    return loadBucketPage(admin, decidedOrDone, "queue", opts);
+  }
+  const population = await allEmailIdsForSwarm(admin, swarmType);
+  return loadEmailIdBucketPage(population, new Set(decidedOrDone), "queue", opts);
 }
 
-/** History bucket: label rows whose email IS decided-or-done (ANY run carries a
- *  human_verdict OR ANY run status === "done"). Exact complement of the Queue. */
+/** History bucket: rows whose email IS decided-or-done (ANY run carries a
+ *  human_verdict OR ANY run status === "done"). Exact complement of the Queue.
+ *  List unit is email_labels.id for debtor and email_id for every other swarm. */
 export async function loadHistoryBucket(
   admin: Admin,
   swarmType: string,
   opts: BucketOpts,
 ): Promise<BucketPage> {
   const decidedOrDone = await decidedOrDoneEmailIds(admin, swarmType);
-  return loadBucketPage(admin, decidedOrDone, "history", opts);
+  if (isDebtorSwarm(swarmType)) {
+    return loadBucketPage(admin, decidedOrDone, "history", opts);
+  }
+  const population = await allEmailIdsForSwarm(admin, swarmType);
+  return loadEmailIdBucketPage(
+    population,
+    new Set(decidedOrDone),
+    "history",
+    opts,
+  );
 }
 
 // Plan 06-02: the @deprecated limit-only back-compat shims have been REMOVED —

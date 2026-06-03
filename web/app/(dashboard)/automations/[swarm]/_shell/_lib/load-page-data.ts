@@ -88,10 +88,14 @@ interface LabelingSettingsRow {
 // wrapper) silently fails the lookup → the row defaults to dry_run=true and a
 // genuinely-live row loses its "Auto-applied" marker, understating live
 // activity. Normalizing BOTH sides identically removes that silent mis-match.
-// (The labeling_settings SELECT is intentionally unscoped: labeling_settings
-// has no swarm/entity column and the /review route 404s for non-debtor swarms,
-// so a cross-swarm address collision is latent, not live. Re-scope the SELECT
-// here once a second swarm ships its own label table — see WR-03.)
+// Phase 110-02 (REVIEW-01) — the /review route NO LONGER 404s for non-debtor
+// swarms, so the labeling_settings read is now re-scoped to debtor only.
+// debtor.labeling_settings is a debtor-schema table with no swarm column; a
+// non-debtor swarm has no per-mailbox dry_run store yet (it ships with the
+// Plan 04 enrichment migration). For a non-debtor swarm we SKIP the read
+// entirely and every row defaults to dry_run=true (A3 / Pitfall 4: an
+// unresolved row is NOT shown as live) — the loader tolerates the missing
+// settings row instead of throwing on a cross-schema miss.
 function normalizeMailbox(raw: string | null | undefined): string | null {
   if (raw == null) return null;
   // Strip a `Display Name <addr@host>` wrapper down to the bare address.
@@ -123,6 +127,10 @@ export async function loadReviewPageData(
 
   if (emailIds.length === 0) return empty;
 
+  // Phase 110-02: re-scope the dry_run read to debtor only (debtor.labeling_settings
+  // is a debtor-schema table). Non-debtor swarms skip it → empty map → dry_run
+  // defaults to true per row (loader tolerates the missing settings row).
+  const isDebtorSwarm = swarmType === "debtor-email";
   const [emailsRes, mailboxIdMap, mailboxLabelMap, labelingRes] =
     await Promise.all([
       admin
@@ -137,11 +145,13 @@ export async function loadReviewPageData(
       loadEmailMailboxes(admin, emailIds, swarmType),
       // numeric mailbox_id → display label.
       loadMailboxLabels(admin, swarmType),
-      // dry_run flag keyed by source_mailbox text (Pitfall 4).
-      admin
-        .schema("debtor")
-        .from("labeling_settings")
-        .select("source_mailbox, dry_run"),
+      // dry_run flag keyed by source_mailbox text (Pitfall 4) — debtor only.
+      isDebtorSwarm
+        ? admin
+            .schema("debtor")
+            .from("labeling_settings")
+            .select("source_mailbox, dry_run")
+        : Promise.resolve({ data: [] as LabelingSettingsRow[], error: null }),
     ]);
 
   // GAP 1 guard: a failed email SELECT must NEVER again silently empty every
