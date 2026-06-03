@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { INTENT_VERSION_V2 } from "@/lib/automations/debtor-email/coordinator/types";
+import { TENANT_DOMAINS_BY_SWARM } from "@/lib/automations/debtor-email/coordinator/tenant-domains.generated";
 
 // ---- Inngest mock --------------------------------------------------------
 const inngestSend = vi.fn().mockResolvedValue({ ids: ["evt"] });
@@ -969,5 +970,146 @@ describe("Phase 80: Stage 3 classifier emits predicted (no inline dispatch)", ()
           ?.kanban_reason === "string",
     );
     expect(kanbanInsert).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 110 Plan 01 (D-07 / D-09) — swarm_type generalization parity baseline.
+//
+// Plan 03 of Phase 110 replaces the module-level `const SWARM_TYPE =
+// "debtor-email"` (debtor-email-coordinator.ts:47) with `event.data.swarm_type`
+// so the coordinator becomes a shared cross-swarm worker (SWARM-02). These
+// assertions PIN debtor's CURRENT observable outputs so that refactor is
+// provably behavior-preserving for the live debtor path. They MUST pass against
+// the CURRENT (pre-refactor) code — this is the GREEN baseline every later plan
+// must keep green (D-09 mandates heavy debtor regression coverage around the
+// coordinator generalization).
+//
+// What is pinned (the exact outputs Plan 03 must NOT change for debtor-email):
+//   1. coordinator_runs insert carries swarm_type='debtor-email'.
+//   2. The emitted pipeline_events row carries swarm_type='debtor-email' + stage=3.
+//   3. The emitted event name is EXACTLY 'debtor-email/predicted'.
+//   4. TENANT_DOMAINS resolves from TENANT_DOMAINS_BY_SWARM['debtor-email']
+//      (non-empty) — the registry-driven source Plan 03 keys by swarm_type.
+//   5. Entity coercion still defaults to 'smeba' when email.entity is null.
+// ---------------------------------------------------------------------------
+
+describe("D-07/D-09: swarm_type generalization parity (debtor unchanged)", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    captured.inserts.length = 0;
+    captured.updates.length = 0;
+    stepRunNames.length = 0;
+    supabaseMock = makeSupabaseMock();
+    loadSwarmIntentsMock.mockReset();
+    loadSwarmIntentsMock.mockImplementation(
+      async (_supabase: unknown, _swarmType: string) => [
+        defaultIntentRow("copy_document_request"),
+      ],
+    );
+    vi.resetModules();
+    const mod = await import("../debtor-email-coordinator");
+    handler = (mod.debtorEmailCoordinator as unknown as { handler: typeof handler })
+      .handler;
+  });
+
+  // Step names are tracked so we can re-use the existing buildEvent fixture and
+  // a tracing step stub identical to the Phase 80 block.
+  const stepRunNames: string[] = [];
+  const tracedStep = {
+    run: async (name: string, fn: () => Promise<unknown>) => {
+      stepRunNames.push(name);
+      return fn();
+    },
+  };
+
+  function seedHappyPath() {
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          { intent: "copy_document_request", confidence: "high", ...baseRanked },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+    loadCategoriesMock.mockResolvedValue([
+      buildCategory("copy_document_request", false),
+    ]);
+  }
+
+  it("(1) coordinator_runs insert carries swarm_type='debtor-email'", async () => {
+    seedHappyPath();
+    await handler({ event: buildEvent(), step: tracedStep });
+
+    const coordInsert = captured.inserts.find(
+      (i) => i.table === "coordinator_runs",
+    );
+    expect(coordInsert).toBeTruthy();
+    expect((coordInsert!.row as { swarm_type?: string }).swarm_type).toBe(
+      "debtor-email",
+    );
+  });
+
+  it("(2) emitted pipeline_events row carries swarm_type='debtor-email' + stage=3", async () => {
+    seedHappyPath();
+    await handler({ event: buildEvent(), step: tracedStep });
+
+    const ev = captured.inserts.find(
+      (i) =>
+        i.table === "pipeline_events" &&
+        (i.row as { stage?: number }).stage === 3,
+    );
+    expect(ev).toBeTruthy();
+    expect((ev!.row as { swarm_type?: string }).swarm_type).toBe("debtor-email");
+    expect((ev!.row as { stage?: number }).stage).toBe(3);
+  });
+
+  it("(3) emitted event name equals 'debtor-email/predicted'", async () => {
+    seedHappyPath();
+    await handler({ event: buildEvent(), step: tracedStep });
+
+    const predictedEmit = inngestSend.mock.calls.find(
+      (c) => (c[0] as { name: string }).name === "debtor-email/predicted",
+    );
+    expect(predictedEmit).toBeDefined();
+    // Exact string — Plan 03 composes this from event.data.swarm_type; for
+    // debtor it MUST still produce this literal.
+    expect((predictedEmit![0] as { name: string }).name).toBe(
+      "debtor-email/predicted",
+    );
+    const payload = (predictedEmit![0] as { data: Record<string, unknown> })
+      .data;
+    expect(payload.swarm_type).toBe("debtor-email");
+  });
+
+  it("(4) TENANT_DOMAINS resolves from TENANT_DOMAINS_BY_SWARM['debtor-email'] (non-empty)", () => {
+    // The coordinator builds TENANT_DOMAINS from this registry-driven map keyed
+    // by SWARM_TYPE (debtor-email-coordinator.ts:55). Plan 03 keys it by
+    // event.data.swarm_type instead — the debtor list must stay non-empty.
+    const domains = TENANT_DOMAINS_BY_SWARM["debtor-email"];
+    expect(Array.isArray(domains)).toBe(true);
+    expect(domains.length).toBeGreaterThan(0);
+    expect(domains).toContain("smeba.nl");
+  });
+
+  it("(5) entity coercion defaults to 'smeba' when email.entity is null", async () => {
+    seedHappyPath();
+    // entity=null exercises the `email.entity ?? "smeba"` coercion at
+    // debtor-email-coordinator.ts:89. The default flows into the predicted emit.
+    await handler({ event: buildEvent({ entity: null }), step: tracedStep });
+
+    const predictedEmit = inngestSend.mock.calls.find(
+      (c) => (c[0] as { name: string }).name === "debtor-email/predicted",
+    );
+    expect(predictedEmit).toBeDefined();
+    const payload = (predictedEmit![0] as { data: Record<string, unknown> })
+      .data;
+    expect(payload.entity).toBe("smeba");
   });
 });
