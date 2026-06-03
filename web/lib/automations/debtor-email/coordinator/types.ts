@@ -10,7 +10,14 @@ import type { Entity } from "./entity.generated";
 // Phase 69 D-03 / CANO-02 — Entity literal-union sourced from registry-driven
 // codegen. DO NOT add brands here; INSERT into swarms.entity_brand + run
 // `npm run codegen` (writes ./entity.generated.ts).
-export { ENTITY_BRANDS as ENTITY, type Entity } from "./entity.generated";
+// Phase 110-02 (D-08): the codegen now emits a per-swarm map
+// (ENTITY_BRANDS_BY_SWARM) instead of a flat ENTITY_BRANDS tuple. Re-export the
+// map directly; `Entity` remains the union over all swarms.
+export {
+  ENTITY_BRANDS_BY_SWARM,
+  ENTITY_BRANDS_BY_SWARM as ENTITY,
+  type Entity,
+} from "./entity.generated";
 
 export const INTENT = [
   "copy_document_request",

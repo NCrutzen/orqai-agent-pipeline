@@ -24,8 +24,19 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { SWARM_INTENTS } from "@/lib/automations/debtor-email/coordinator/intent.generated";
+import { SWARM_INTENTS_BY_SWARM } from "@/lib/automations/debtor-email/coordinator/intent.generated";
 import type { RankedIntent } from "@/lib/bulk-review/types";
+
+// Phase 110-02 (D-08) — the codegen emits a per-swarm map now. This editor's
+// default membership check is a fallback only (production callers pass
+// `intentKeyRegistry`, the per-swarm registry, via props). The flat union over
+// ALL swarms is the correct fallback superset: it accepts any registered
+// intent regardless of swarm, and debtor's intents remain a subset (behavior
+// preserved). Real per-swarm validation happens server-side (override-actions
+// + the hydrator) keyed by swarm_type.
+const ALL_SWARM_INTENTS: ReadonlyArray<string> = Array.from(
+  new Set(Object.values(SWARM_INTENTS_BY_SWARM).flat()),
+);
 
 import styles from "./ranked-intent-editor.module.css";
 
@@ -107,7 +118,7 @@ export function RankedIntentEditor({
   }, [movedKey]);
 
   const registry = useMemo<ReadonlySet<string>>(
-    () => new Set(intentKeyRegistry ?? SWARM_INTENTS),
+    () => new Set(intentKeyRegistry ?? ALL_SWARM_INTENTS),
     [intentKeyRegistry],
   );
 

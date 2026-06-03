@@ -34,7 +34,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { writeOverride } from "@/lib/bulk-review/write-override";
 import { loadSwarmNoiseCategories } from "@/lib/swarms/registry";
 import { inngest } from "@/lib/inngest/client";
-import { SWARM_INTENTS } from "@/lib/automations/debtor-email/coordinator/intent.generated";
+import { SWARM_INTENTS_BY_SWARM } from "@/lib/automations/debtor-email/coordinator/intent.generated";
 import type { RankedIntent } from "@/lib/bulk-review/types";
 
 // Phase 65 learning dae6276 — never alias `inngest.send`. Inline-call via
@@ -483,9 +483,20 @@ export async function reorderStage3Intents(
   }
 
   // T-03-03-02: server-side validation of every intent_key against the
-  // codegen'd SWARM_INTENTS literal-union (Stage 3 vocabulary only — Stage 1's
+  // codegen'd per-swarm literal-union (Stage 3 vocabulary only — Stage 1's
   // swarm_noise_categories is NEVER consulted, hard-separation lock).
-  const knownIntents: ReadonlySet<string> = new Set(SWARM_INTENTS);
+  // Phase 110-02 (D-08): keyed by input.swarm_type now (the codegen emits a
+  // per-swarm map). Falls back to the union over ALL swarms for an un-seeded
+  // swarm so a legitimate corpus intent isn't rejected before its swarm_intents
+  // land — debtor's closed list is unchanged (its map entry is authoritative).
+  const swarmIntentUnion = (
+    SWARM_INTENTS_BY_SWARM as Record<string, readonly string[]>
+  )[input.swarm_type];
+  const knownIntents: ReadonlySet<string> = new Set(
+    swarmIntentUnion && swarmIntentUnion.length > 0
+      ? swarmIntentUnion
+      : Object.values(SWARM_INTENTS_BY_SWARM).flat(),
+  );
   if (!Array.isArray(input.new_ranked_intents) || input.new_ranked_intents.length === 0) {
     return {
       ok: false,
