@@ -309,7 +309,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [~] 110-04-PLAN.md — Wave 3: swarms full-funnel enrichment + per-stage dry_run_config + per-mailbox health migrations + worker gate refactor + [BLOCKING] schema push/codegen/advisor + VERIFY-01 (SWARM-01, VERIFY-01) — **BLOCKED**: Tasks 1–3 done & merged (migrations written, dry-run gate refactor GREEN, verify tests committed); Tasks 4–5 (remote schema push + codegen regen + RLS advisor + production-write governance) blocked on expired `SUPABASE_ACCESS_TOKEN` / no MCP access to project `mvqjhlxfvtqqubqgdvhz`. Resume protocol in 110-04-SUMMARY.md.
+- [x] 110-04-PLAN.md — Wave 3: swarms full-funnel enrichment + per-stage dry_run_config + per-mailbox health migrations + worker gate refactor + [BLOCKING] schema push/codegen/advisor + VERIFY-01 (SWARM-01, VERIFY-01) — **COMPLETE 2026-06-03**: Tasks 1–3 merged earlier; Task 4 unblocked by re-linking Supabase MCP OAuth to the Agent-Workforce org, then 3 migrations applied via `apply_migration`, `entity.generated.ts` regenerated + committed (`c774f989`), RLS advisor green (0 ERROR); live-verified debtor `stage_1_cleanup=false` (LIVE) + sales inert/blocked. Task 5 governance checkpoint **approved by operator 2026-06-03**. (per-mailbox `verkoop@smeba.nl` health row populates on next monitor cron tick — non-blocking.)
 
 **UI hint**: yes
 
