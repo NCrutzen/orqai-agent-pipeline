@@ -97,3 +97,7 @@ Built the sales-email Stage-1 retro-run harness (D-01): an idempotent, side-chan
 ## Known Stubs
 
 None — the harness is a complete data pipeline (no UI props, no placeholder data sources). The migration is intentionally not applied here; Plan 05 ([BLOCKING]) owns the live apply via MCP.
+
+## Self-Check: PASSED
+
+All 7 created/modified key files present on disk; all 6 commits (8d5b14b3, f8df7ea5, f2ce8d36, 9538b4bb, 6a69a242, 0aa3bb0e) reachable from HEAD.
