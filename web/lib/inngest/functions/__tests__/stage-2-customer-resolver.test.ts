@@ -29,6 +29,20 @@ vi.mock("@/lib/automations/debtor-email/resolve-debtor", () => ({
   resolveDebtor: (...args: unknown[]) => resolveDebtorMock(...args),
 }));
 
+// ---- Phase 114-06 — loadStage2Resolver mock (generic / sales path) --------
+// The generic (sales) Stage 2 path dispatches via loadStage2Resolver(path) and
+// calls module.resolveEntity(args, config). Mocking it lets the test observe
+// the args (CR-01: brand_id must be 'SB', not null) without hitting NXT. The
+// resolveEntity spy is reset per-test; tests push their own implementation.
+const resolveEntityMock = vi.fn();
+const loadStage2ResolverMock = vi.fn(async () => ({
+  resolveEntity: resolveEntityMock,
+}));
+vi.mock("@/lib/swarms/dynamic", () => ({
+  loadStage2Resolver: (...args: unknown[]) =>
+    (loadStage2ResolverMock as unknown as (...a: unknown[]) => unknown)(...args),
+}));
+
 // ---- side-effects registry mock -----------------------------------------
 // Phase 68 swap (SWRM-04): label-resolver routes the icontroller-tag emit
 // through evaluateSideEffects(stage2_match_live). Mirror the production
@@ -1033,5 +1047,204 @@ describe("Phase 04.1 — steps trace", () => {
     expect((dd.steps as unknown[]).length).toBe(4);
     expect(dd.winner).toBeNull();
     expect(dd.failure_reason).toBe("nxt timeout");
+  });
+});
+
+// Phase 114-06 — gap closure. The generic (sales) Stage 2 path. Proves:
+//   CR-01: a non-null brand_id ('SB', from resolution_config.scope.brand_scope)
+//          reaches resolver.resolveEntity — sender_match + factuur_match become
+//          reachable (they were permanently dead with the always-null debtor
+//          labeling_settings brand_id).
+//   CR-02: entity_brand is normalized to a scalar code for BOTH registry shapes
+//          (string-array ['SB'] and object-array [{code:'SB'}]) on the Stage 2→3
+//          coordinator.requested hand-off — never '[object Object]', never an object.
+describe("sales generic path — gap closure (Phase 114-06)", () => {
+  const SALES_EMAIL_ROW = {
+    id: "sales-email-uuid-1",
+    conversation_id: "sales-conv-1",
+    subject: "Offerte aanvraag",
+    body_text: "Graag een offerte",
+    sender_email: "prospect@bedrijf.nl",
+    mailbox: "verkoop@smeba.nl",
+  };
+
+  // Sales swarm gate carrying the registry data that drives usesGenericPath.
+  // entity_brand shape is parameterized per-test.
+  function makeSalesAdminMock(entityBrand: unknown) {
+    const auditInserts: Array<Record<string, unknown>> = [];
+    const automationRunUpdateEq = vi.fn(async () => ({ data: null, error: null }));
+    const automationRunUpdate = vi.fn(() => ({ eq: automationRunUpdateEq }));
+
+    function emailsBuilder() {
+      const b: Record<string, unknown> = {};
+      b.select = vi.fn(() => b);
+      b.eq = vi.fn(() => b);
+      b.or = vi.fn(() => b);
+      b.maybeSingle = vi.fn(async () => ({ data: SALES_EMAIL_ROW, error: null }));
+      return b;
+    }
+    function labelingSettingsBuilder() {
+      // No labeling_settings row exists for verkoop@smeba.nl — this is the
+      // root cause CR-01 fixes (brand_id was always null on this path).
+      const b: Record<string, unknown> = {};
+      b.select = vi.fn(() => b);
+      b.eq = vi.fn(() => b);
+      b.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
+      return b;
+    }
+    function resolutionAuditBuilder() {
+      return {
+        insert: vi.fn(async (row: Record<string, unknown>) => {
+          auditInserts.push(row);
+          return { error: null };
+        }),
+      };
+    }
+
+    const schemaImpl = (schemaName: string) => ({
+      from: vi.fn((table: string) => {
+        if (schemaName === "email_pipeline" && table === "emails") {
+          return emailsBuilder();
+        }
+        if (schemaName === "email_pipeline" && table === "resolution_audit") {
+          return resolutionAuditBuilder();
+        }
+        if (schemaName === "debtor" && table === "labeling_settings") {
+          return labelingSettingsBuilder();
+        }
+        const b: Record<string, unknown> = {};
+        b.select = vi.fn(() => b);
+        b.eq = vi.fn(() => b);
+        b.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
+        return b;
+      }),
+    });
+
+    function swarmsBuilder() {
+      const b: Record<string, unknown> = {};
+      b.select = vi.fn(() => b);
+      b.eq = vi.fn(() => b);
+      b.maybeSingle = vi.fn(async () => ({
+        data: {
+          swarm_type: "sales-email",
+          enabled: true,
+          stage2_entity_resolver:
+            "@/lib/automations/sales-email/resolve-customer",
+          entity_brand: entityBrand,
+          resolution_config: {
+            version: "2026-06-04.v1",
+            source: { kind: "nxt", resolver_tool_id: "nxt.rest_proxy" },
+            scope: {
+              environment_id: "BX",
+              brand_mode: "tiebreaker",
+              brand_scope: ["SB"],
+            },
+            precedence: ["sender_match", "offerte_match", "factuur_match"],
+          },
+          dry_run_config: {
+            stage_2_resolution: true,
+            stage_3_labeling: true,
+          },
+        },
+        error: null,
+      }));
+      return b;
+    }
+
+    const pipelineEventsInsert = vi.fn(async () => ({ data: null, error: null }));
+    const fromImpl = (table: string) => {
+      if (table === "automation_runs") return { update: automationRunUpdate };
+      if (table === "pipeline_events") return { insert: pipelineEventsInsert };
+      if (table === "swarms") return swarmsBuilder();
+      return { update: vi.fn(() => ({ eq: vi.fn(async () => ({})) })) };
+    };
+
+    return {
+      schema: vi.fn(schemaImpl),
+      from: vi.fn(fromImpl),
+      __captures: { auditInserts },
+    };
+  }
+
+  function buildSalesEvent() {
+    return {
+      id: "evt-sales-test",
+      name: "sales-email/stage-2.customer-resolve.requested",
+      data: {
+        automation_run_id: "sales-ar-1",
+        message_id: "sales-msg-1",
+        source_mailbox: "verkoop@smeba.nl",
+        category_key: "unknown",
+        swarm_type: "sales-email",
+      },
+    };
+  }
+
+  async function loadSalesHandler(entityBrand: unknown) {
+    vi.clearAllMocks();
+    adminMock = makeSalesAdminMock(entityBrand) as unknown as typeof adminMock;
+    resolveDebtorMock.mockReset();
+    resolveEntityMock.mockReset();
+    loadStage2ResolverMock.mockClear();
+    loadStage2ResolverMock.mockResolvedValue({ resolveEntity: resolveEntityMock });
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../stage-2-customer-resolver");
+    return (mod.stage2CustomerResolver as unknown as {
+      handler: (ctx: unknown) => Promise<unknown>;
+    }).handler;
+  }
+
+  const UNRESOLVED_RESULT = {
+    method: "unresolved",
+    customer_account_id: null,
+    customer_name: null,
+    confidence: "none",
+    inputs: { kind: "unresolved", sender_email: null, matched_identifiers: [] },
+  };
+
+  it("Test A (CR-01): non-null brand_id 'SB' from config reaches resolveEntity", async () => {
+    const handler = await loadSalesHandler(["SB"]);
+    resolveEntityMock.mockResolvedValueOnce(UNRESOLVED_RESULT);
+
+    await handler({ event: buildSalesEvent(), step: stepStub });
+
+    expect(resolveEntityMock).toHaveBeenCalledTimes(1);
+    const args = resolveEntityMock.mock.calls[0][0] as { brand_id: unknown };
+    expect(args.brand_id).toBe("SB");
+    expect(args.brand_id).not.toBeNull();
+  });
+
+  it("Test B (CR-02 string shape): entity_brand ['SB'] → coordinator.requested entity_brand === 'SB'", async () => {
+    const handler = await loadSalesHandler(["SB"]);
+    resolveEntityMock.mockResolvedValueOnce(UNRESOLVED_RESULT);
+
+    await handler({ event: buildSalesEvent(), step: stepStub });
+
+    const emit = inngestSend.mock.calls.find((c) =>
+      (c[0] as { name: string }).name.endsWith("/coordinator.requested"),
+    );
+    expect(emit).toBeDefined();
+    const data = (emit![0] as { data: Record<string, unknown> }).data;
+    expect(data.entity_brand).toBe("SB");
+    expect(typeof data.entity_brand).toBe("string");
+    expect(data.entity).toBe("SB");
+  });
+
+  it("Test C (CR-02 object shape): entity_brand [{code:'SB'}] → coordinator.requested entity_brand === 'SB' (never '[object Object]')", async () => {
+    const handler = await loadSalesHandler([{ code: "SB", display_name: "Smeba" }]);
+    resolveEntityMock.mockResolvedValueOnce(UNRESOLVED_RESULT);
+
+    await handler({ event: buildSalesEvent(), step: stepStub });
+
+    const emit = inngestSend.mock.calls.find((c) =>
+      (c[0] as { name: string }).name.endsWith("/coordinator.requested"),
+    );
+    expect(emit).toBeDefined();
+    const data = (emit![0] as { data: Record<string, unknown> }).data;
+    expect(data.entity_brand).toBe("SB");
+    expect(typeof data.entity_brand).toBe("string");
+    expect(data.entity_brand).not.toBe("[object Object]");
   });
 });
