@@ -219,3 +219,19 @@ describe("extractTransitions — left_to_untracked vangnet (gap-fix 2026-06-04)"
     expect(out[0].kind).toBe("moved_to_afgehandeld");
   });
 });
+
+describe("extractTransitions — move naar getrackte 'other'-map (gap-fix variant 2)", () => {
+  it("Test 9d: inbox -> getrackte other-map (Sugar-sweep) -> left_to_untracked met to_bucket", () => {
+    const events: RawDeltaEvent[] = [
+      { id: "m12", _folderId: "F-inbox", "@removed": { reason: "deleted" } },
+      { id: "m12", _folderId: "F-sugar", parentFolderId: "F-sugar" }, // bucket: other
+    ];
+    const out = extractTransitions(baseInput(events));
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      kind: "left_to_untracked",
+      from_bucket: "inbox",
+      to_bucket: "other",
+    });
+  });
+});

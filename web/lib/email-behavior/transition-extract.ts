@@ -167,7 +167,23 @@ export function extractTransitions(input: ExtractInput): Transition[] {
     if (fromBucket === toBucket) continue; // geen daadwerkelijke bucket-verandering
 
     const kind = moveKind(fromBucket, toBucket);
-    if (kind === null) continue;
+    if (kind === null) {
+      // Gap-fix variant 2 (2026-06-04): move uit een betekenisvolle bucket naar
+      // een getrackte-maar-betekenisloze bestemming (bv. de Power-Automate
+      // sweep inbox -> "Sugar Archive"). Geen verdict-soort, wel vastleggen —
+      // anders is een bulk-leegloop van de inbox opnieuw onzichtbaar.
+      if (fromBucket !== "other") {
+        handledAsMove.add(id);
+        out.push({
+          immutable_id: id,
+          kind: "left_to_untracked",
+          from_bucket: fromBucket,
+          to_bucket: toBucket,
+          observed_at,
+        });
+      }
+      continue;
+    }
 
     handledAsMove.add(id);
     out.push({
