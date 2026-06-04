@@ -36,6 +36,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BulkReviewRow } from "@/lib/bulk-review/types";
 import { loadEmailMailboxes } from "./load-email-mailboxes";
 import { loadMailboxLabels } from "./load-mailbox-labels";
+import { loadSwarm } from "@/lib/swarms/registry";
+import { isStageBlocked } from "@/lib/pipeline-gating/dry-run-gate";
 
 export interface ReviewPageData {
   /** email_label_id → sender_name ?? sender_email */
@@ -88,10 +90,14 @@ interface LabelingSettingsRow {
 // wrapper) silently fails the lookup → the row defaults to dry_run=true and a
 // genuinely-live row loses its "Auto-applied" marker, understating live
 // activity. Normalizing BOTH sides identically removes that silent mis-match.
-// (The labeling_settings SELECT is intentionally unscoped: labeling_settings
-// has no swarm/entity column and the /review route 404s for non-debtor swarms,
-// so a cross-swarm address collision is latent, not live. Re-scope the SELECT
-// here once a second swarm ships its own label table — see WR-03.)
+// Phase 110-02 (REVIEW-01) — the /review route NO LONGER 404s for non-debtor
+// swarms, so the labeling_settings read is now re-scoped to debtor only.
+// debtor.labeling_settings is a debtor-schema table with no swarm column; a
+// non-debtor swarm has no per-mailbox dry_run store yet (it ships with the
+// Plan 04 enrichment migration). For a non-debtor swarm we SKIP the read
+// entirely and every row defaults to dry_run=true (A3 / Pitfall 4: an
+// unresolved row is NOT shown as live) — the loader tolerates the missing
+// settings row instead of throwing on a cross-schema miss.
 function normalizeMailbox(raw: string | null | undefined): string | null {
   if (raw == null) return null;
   // Strip a `Display Name <addr@host>` wrapper down to the bare address.
@@ -123,6 +129,20 @@ export async function loadReviewPageData(
 
   if (emailIds.length === 0) return empty;
 
+  // Phase 110-02: re-scope the dry_run read to debtor only (debtor.labeling_settings
+  // is a debtor-schema table). Non-debtor swarms skip it.
+  //
+  // Phase 110-04 (D-10/D-11): for a non-debtor swarm the per-row dry_run now
+  // resolves from the registry per-stage gate (swarms.dry_run_config.stage_3_labeling)
+  // rather than a blanket true. Sales seeds stage_3_labeling=true so the
+  // effective default is unchanged (a non-debtor row is NOT shown live), but the
+  // value is now registry-sourced instead of assumed. The loader still tolerates
+  // a missing config (fail-closed → blocked/true) and never throws for a
+  // non-debtor swarm.
+  const isDebtorSwarm = swarmType === "debtor-email";
+  const nonDebtorStageBlocked = isDebtorSwarm
+    ? true // unused for debtor (per-mailbox path below owns it)
+    : isStageBlocked(await loadSwarm(admin, swarmType), "stage_3_labeling");
   const [emailsRes, mailboxIdMap, mailboxLabelMap, labelingRes] =
     await Promise.all([
       admin
@@ -137,11 +157,13 @@ export async function loadReviewPageData(
       loadEmailMailboxes(admin, emailIds, swarmType),
       // numeric mailbox_id → display label.
       loadMailboxLabels(admin, swarmType),
-      // dry_run flag keyed by source_mailbox text (Pitfall 4).
-      admin
-        .schema("debtor")
-        .from("labeling_settings")
-        .select("source_mailbox, dry_run"),
+      // dry_run flag keyed by source_mailbox text (Pitfall 4) — debtor only.
+      isDebtorSwarm
+        ? admin
+            .schema("debtor")
+            .from("labeling_settings")
+            .select("source_mailbox, dry_run")
+        : Promise.resolve({ data: [] as LabelingSettingsRow[], error: null }),
     ]);
 
   // GAP 1 guard: a failed email SELECT must NEVER again silently empty every
@@ -257,7 +279,11 @@ export async function loadReviewPageData(
     // whitespace / `Name <addr>` mismatch and mislabel a live row as dry_run.
     const recipient = normalizeMailbox(e.mailbox);
     const resolved = recipient != null ? dryRunByMailbox[recipient] : undefined;
-    out.dryRunByRow[labelId] = resolved ?? true;
+    // Debtor: per-mailbox labeling_settings (?? true). Non-debtor: the registry
+    // per-stage gate (stage_3_labeling), fail-closed to blocked/true.
+    out.dryRunByRow[labelId] = isDebtorSwarm
+      ? resolved ?? true
+      : nonDebtorStageBlocked;
   }
 
   return out;

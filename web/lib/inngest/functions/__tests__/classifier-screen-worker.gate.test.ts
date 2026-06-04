@@ -74,8 +74,11 @@ vi.mock("@/lib/debtor-email/classify", () => ({
 // settings + whitelist + Outlook meta. We mock these as no-ops/empty so the
 // dispatch block bails out (settings=null → fall through to existing
 // verdict.recorded / requires_review path that this file actually tests).
+// Phase 111 Test B: mutable whitelist so Test B can flip promoted/non-promoted
+// per case. Defaults to empty (existing debtor tests rely on the empty set).
+let gateWhitelistSet: Set<string> = new Set<string>();
 vi.mock("@/lib/classifier/cache", () => ({
-  readWhitelist: vi.fn().mockResolvedValue(new Set<string>()),
+  readWhitelist: vi.fn(async () => gateWhitelistSet),
 }));
 vi.mock("@/lib/outlook", () => ({
   categorizeEmail: vi.fn().mockResolvedValue({ success: true, error: null }),
@@ -226,6 +229,7 @@ describe("Phase 999.8 D-01 / D-10 — classifier-screen-worker confidence gate",
   beforeEach(async () => {
     vi.clearAllMocks();
     agentRunsInserts.length = 0;
+    gateWhitelistSet = new Set<string>();
     adminMock = makeAdminMock();
     loadSwarmMock.mockReset();
     loadSwarmNoiseCategoriesMock.mockReset();
@@ -337,6 +341,11 @@ describe("Phase 999.8 D-01 / D-10 — classifier-screen-worker confidence gate",
   });
 
   it("LLM high confidence → emits classifier/verdict.recorded, NOT requires_review", async () => {
+    // Phase 111 Finding 2: this test isolates the CONFIDENCE gate, so seed the
+    // promoted whitelist to satisfy the (now generalized) Wilson promotion
+    // gate — otherwise the verdict would route to requires_review on the
+    // promotion check rather than the confidence check under test here.
+    gateWhitelistSet = new Set<string>(["llm:payment_admittance:high"]);
     invokeOrqAgentMock.mockResolvedValue({
       raw: {
         category_key: "payment_admittance",
@@ -487,5 +496,166 @@ describe("Phase 999.8 D-01 / D-10 — classifier-screen-worker confidence gate",
     await handler({ event: baseEvent(), step: makeStepStub(cache) });
 
     expect(emitPipelineEventMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Phase 111 Plan 01 — Test B: swarm-agnostic Wilson promotion gate in Step 5.
+//
+// CRITICAL FINDING 2: the Wilson promotion gate ("auto-archive only if the
+// llm:{cat}:high rule is status='promoted'") lives ONLY in the debtor-only
+// Step 4.5 block (stage1_regex_module === "@/lib/debtor-email/classify").
+// Sales (stage1_regex_module=null) skips that block and reaches Step 5, where
+// gateClearsForAutoArchive currently gates on confidence='high' ALONE — no
+// promotion check.
+//
+// Contract (RED until Task 3):
+//   - sales high-confidence LLM verdict, rule NOT promoted → requires_review
+//   - sales high-confidence LLM verdict, rule IS promoted  → verdict.recorded
+//   - sales LLM 'unknown' (any confidence)                 → verdict.recorded
+//     (Anti-Pattern A2: unknown short-circuit preserved; never gated)
+//
+// Swarm-agnostic — driven by readWhitelist(admin, swarm_type), no swarm
+// literal branch.
+// ───────────────────────────────────────────────────────────────────────────
+
+const SALES_SWARM_ROW = {
+  swarm_type: "sales-email",
+  display_name: "Sales Email",
+  description: null,
+  review_route: "/automations/sales-email/review",
+  source_table: "automation_runs",
+  enabled: true,
+  ui_config: {
+    tree_levels: [],
+    row_columns: [],
+    drawer_fields: [],
+    default_sort: "created_at desc",
+  },
+  side_effects: [],
+  // The decisive fact — sales has NO regex module, so it skips the debtor
+  // Step 4.5 block and reaches the swarm-agnostic Step 5 gate.
+  stage1_regex_module: null,
+  stage2_entity_resolver: null,
+  stage3_coordinator_agent_key: null,
+  canonical_context_shape: null,
+  entity_brand: [],
+};
+
+const SALES_CATEGORIES = [
+  {
+    swarm_type: "sales-email",
+    category_key: "auto_reply",
+    display_label: "Auto-Reply",
+    outlook_label: "Auto-Reply",
+    action: "categorize_archive",
+    swarm_dispatch: null,
+    display_order: 10,
+    enabled: true,
+  },
+  {
+    swarm_type: "sales-email",
+    category_key: "unknown",
+    display_label: "Unknown",
+    outlook_label: null,
+    action: "manual_review",
+    swarm_dispatch: null,
+    display_order: 50,
+    enabled: true,
+  },
+];
+
+const salesEvent = () => ({
+  id: "evt-gate-sales-1",
+  name: "classifier/screen.requested",
+  data: {
+    automation_run_id: "ar-uuid-gate-sales-1",
+    email_id: "email-uuid-gate-sales-1",
+    message_id: "msg-graph-gate-sales-1",
+    source_mailbox: "verkoop@smeba.nl",
+    subject: "Out of office",
+    body_text: "I am away until Monday.",
+    swarm_type: "sales-email",
+    entity: null,
+  },
+});
+
+describe("Phase 111 Test B — swarm-agnostic Wilson promotion gate in Step 5 (Finding 2)", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    agentRunsInserts.length = 0;
+    gateWhitelistSet = new Set<string>();
+    adminMock = makeAdminMock();
+    loadSwarmMock.mockReset();
+    loadSwarmNoiseCategoriesMock.mockReset();
+    loadSwarmMock.mockResolvedValue(SALES_SWARM_ROW);
+    loadSwarmNoiseCategoriesMock.mockResolvedValue(SALES_CATEGORIES);
+    emitPipelineEventMock.mockReset();
+    emitPipelineEventMock.mockResolvedValue(undefined);
+    invokeOrqAgentMock.mockReset();
+    classifyMock.mockReset();
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../classifier-screen-worker");
+    handler = (
+      mod.classifierScreenWorker as unknown as { handler: typeof handler }
+    ).handler;
+  });
+
+  it("sales high-confidence LLM verdict, rule NOT promoted → requires_review (NOT verdict.recorded)", async () => {
+    gateWhitelistSet = new Set<string>(); // empty promoted set
+    invokeOrqAgentMock.mockResolvedValue({
+      raw: { category_key: "auto_reply", confidence: "high", reasoning: null },
+      agent: { agent_key: "stage-1-category-classifier" },
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      billing: { total_cost: 0 },
+      cost_cents: 0,
+    });
+
+    const cache: StepCache = new Map();
+    await handler({ event: salesEvent(), step: makeStepStub(cache) });
+
+    const names = eventNamesSent();
+    expect(names).toContain("classifier/screen.requires_review");
+    expect(names).not.toContain("classifier/verdict.recorded");
+  });
+
+  it("sales high-confidence LLM verdict, rule IS promoted → verdict.recorded", async () => {
+    gateWhitelistSet = new Set<string>(["llm:auto_reply:high"]);
+    invokeOrqAgentMock.mockResolvedValue({
+      raw: { category_key: "auto_reply", confidence: "high", reasoning: null },
+      agent: { agent_key: "stage-1-category-classifier" },
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      billing: { total_cost: 0 },
+      cost_cents: 0,
+    });
+
+    const cache: StepCache = new Map();
+    await handler({ event: salesEvent(), step: makeStepStub(cache) });
+
+    const names = eventNamesSent();
+    expect(names).toContain("classifier/verdict.recorded");
+    expect(names).not.toContain("classifier/screen.requires_review");
+  });
+
+  it("sales LLM 'unknown' high confidence → verdict.recorded (Anti-Pattern A2 short-circuit preserved)", async () => {
+    gateWhitelistSet = new Set<string>(); // even with empty promoted set
+    invokeOrqAgentMock.mockResolvedValue({
+      raw: { category_key: "unknown", confidence: "high", reasoning: null },
+      agent: { agent_key: "stage-1-category-classifier" },
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      billing: { total_cost: 0 },
+      cost_cents: 0,
+    });
+
+    const cache: StepCache = new Map();
+    await handler({ event: salesEvent(), step: makeStepStub(cache) });
+
+    const names = eventNamesSent();
+    expect(names).toContain("classifier/verdict.recorded");
+    expect(names).not.toContain("classifier/screen.requires_review");
   });
 });

@@ -32,10 +32,28 @@ import {
   loadSwarmIntents,
   loadSwarmNoiseCategories,
 } from "@/lib/swarms/registry";
-import { SWARM_INTENTS } from "@/lib/automations/debtor-email/coordinator/intent.generated";
+import { SWARM_INTENTS_BY_SWARM } from "@/lib/automations/debtor-email/coordinator/intent.generated";
 import type { Intent } from "@/lib/automations/debtor-email/coordinator/intent.generated";
-import { ENTITY_BRANDS } from "@/lib/automations/debtor-email/coordinator/entity.generated";
+import { ENTITY_BRANDS_BY_SWARM } from "@/lib/automations/debtor-email/coordinator/entity.generated";
 import type { Entity } from "@/lib/automations/debtor-email/coordinator/entity.generated";
+
+// Phase 110-02 (D-08) — the codegen now emits per-swarm maps. The hydrator's
+// runtime hard-separation guards (Stage 3 intent / Stage 2 entity validation)
+// must therefore look up the literal-union members for THIS row's swarm_type,
+// defaulting to an empty list for an unknown/un-seeded swarm (fail-closed:
+// every value is rejected, never silently accepted — threat T-110-06).
+function intentsForSwarm(swarmType: string): readonly string[] {
+  return (
+    (SWARM_INTENTS_BY_SWARM as Record<string, readonly string[]>)[swarmType] ??
+    []
+  );
+}
+function brandsForSwarm(swarmType: string): readonly string[] {
+  return (
+    (ENTITY_BRANDS_BY_SWARM as Record<string, readonly string[]>)[swarmType] ??
+    []
+  );
+}
 
 import type {
   BulkReviewOverrideCapture,
@@ -54,7 +72,16 @@ import type {
 import { BULK_REVIEW_ROW_VERSION } from "./types";
 
 export interface HydrateOptions {
-  email_label_id: string;
+  // Phase 110-02 (D-01) — the anchor is generalized off the debtor-only
+  // email_labels table onto the shared corpus email_pipeline.emails.id
+  // (email_id). Callers pass EITHER:
+  //   - email_id (the generic, cross-swarm anchor — sales/info-routing/debtor)
+  //   - email_label_id (debtor back-compat: the bucket loader still lists
+  //     debtor rows by email_labels.id, which carries the email_id we anchor on)
+  // At least one MUST be provided. When only email_label_id is given the
+  // debtor email_labels row is loaded first and its email_id becomes the anchor.
+  email_id?: string;
+  email_label_id?: string;
   swarm_type: string;
 }
 
@@ -136,54 +163,107 @@ export async function hydrateBulkReviewRow(
   admin: SupabaseClient,
   opts: HydrateOptions,
 ): Promise<BulkReviewRow | null> {
-  // (1) email_labels (debtor schema) — load the anchor row.
+  // (1) ANCHOR — Phase 110-02 (D-01). The hydrator anchors on the shared
+  //     corpus identity email_pipeline.emails.id (email_id) so it serves EVERY
+  //     swarm uniformly (debtor + sales + info-routing). debtor.email_labels is
+  //     now read ONLY as a debtor-specific enrichment join (step 1b below) —
+  //     never the cross-swarm anchor.
   //
-  // 2026-05-27 fix: `swarm_type` removed from the SELECT list. The column
-  // doesn't exist on debtor.email_labels (the schema is implicitly the
-  // debtor-email swarm's labels store). Including it caused PostgREST to
-  // return a single { error: column "swarm_type" does not exist } per row,
-  // .maybeSingle() collapsed that to {data: null}, and the page rendered
-  // empty. Co-bug with /review/page.tsx swarm_type filter (already fixed).
-  const labelRes = await admin
-    .schema("debtor")
-    .from("email_labels")
-    .select(
-      "id, email_id, corrected_customer_account_id, reviewed_by, reviewed_at, draft_quality, feedback_reason, customer_account_id, debtor_name",
-    )
-    .eq("id", opts.email_label_id)
-    .maybeSingle();
+  //     Anchor resolution:
+  //       - opts.email_id present → that IS the anchor (generic path).
+  //       - else opts.email_label_id present → debtor back-compat: load the
+  //         email_labels row by id and lift its email_id as the anchor.
+  const isDebtor = opts.swarm_type === "debtor-email";
 
-  if (labelRes.error) {
-    console.warn(
-      `[hydrate] debtor.email_labels query failed for id=${opts.email_label_id}: ${labelRes.error.message}`,
-    );
-    return null;
+  // (1a) Debtor-only enrichment join. For swarm_type==='debtor-email' load the
+  //      email_labels row that carries the Stage-4 + override slots
+  //      (corrected_customer_account_id, reviewed_by, draft_quality,
+  //      feedback_reason, debtor_name). For every other swarm these slots are
+  //      null — the corpus has no per-swarm label store yet (correct: there is
+  //      no debtor override-capture surface for sales/info-routing).
+  //
+  //      2026-05-27 fix carried forward: `swarm_type` is NOT in the SELECT — the
+  //      column doesn't exist on debtor.email_labels (the schema is implicitly
+  //      the debtor-email swarm's label store).
+  let label: EmailLabelRow | null = null;
+  if (isDebtor) {
+    // Match on email_label_id when the caller passed one (the bucket loader
+    // lists debtor rows by email_labels.id); otherwise match on the email_id
+    // anchor (join on email_id).
+    let labelQuery = admin
+      .schema("debtor")
+      .from("email_labels")
+      .select(
+        "id, email_id, corrected_customer_account_id, reviewed_by, reviewed_at, draft_quality, feedback_reason, customer_account_id, debtor_name",
+      );
+    labelQuery =
+      opts.email_label_id != null
+        ? labelQuery.eq("id", opts.email_label_id)
+        : labelQuery.eq("email_id", opts.email_id ?? "");
+    const labelRes = await labelQuery.maybeSingle();
+
+    if (labelRes.error) {
+      console.warn(
+        `[hydrate] debtor.email_labels query failed for id=${opts.email_label_id ?? opts.email_id}: ${labelRes.error.message}`,
+      );
+      return null;
+    }
+    // Synthesize the columns the projection wants but the schema doesn't have
+    // so downstream `label.<x> ?? <fallback>` continues to work.
+    const labelData = labelRes.data as Omit<
+      EmailLabelRow,
+      "swarm_type" | "entity_brand" | "handler_key" | "handler_output_kind"
+    > | null;
+    label = labelData
+      ? {
+          ...labelData,
+          swarm_type: null,
+          entity_brand: null,
+          handler_key: null,
+          handler_output_kind: null,
+        }
+      : null;
+    // For the debtor back-compat path (anchored via email_label_id) a missing
+    // label row means the row vanished between list + hydrate — early-return
+    // null, preserving today's behavior byte-for-byte.
+    if (opts.email_label_id != null && !label) return null;
   }
-  // Synthesize the columns the projection wants but the schema doesn't have
-  // so downstream `label.<x> ?? <fallback>` continues to work.
-  const labelData = labelRes.data as Omit<
-    EmailLabelRow,
-    "swarm_type" | "entity_brand" | "handler_key" | "handler_output_kind"
-  > | null;
-  const label: EmailLabelRow | null = labelData
-    ? {
-        ...labelData,
-        swarm_type: null,
-        entity_brand: null,
-        handler_key: null,
-        handler_output_kind: null,
-      }
-    : null;
-  if (!label) return null;
 
-  // (2) pipeline_events (public) — ordered (stage, created_at) so the first
-  //     row per stage is the canonical first-pass event for the slot.
+  // (1b) Resolve the canonical anchor email_id. The generic anchor is
+  //      opts.email_id; the debtor back-compat path lifts it from the loaded
+  //      label row.
+  const anchorEmailId: string = opts.email_id ?? label?.email_id ?? "";
+
+  // (1c) Generic corpus anchor. For non-debtor swarms (which have no
+  //      email_labels enrichment row) confirm/enrich the anchor against the
+  //      shared corpus email_pipeline.emails. The row is enrichment-only today
+  //      (the Stage 0-3 evidence comes from pipeline_events/agent_runs below),
+  //      so a miss is non-fatal — the anchor identity is opts.email_id. This
+  //      keeps the debtor path (which already loaded its anchor from
+  //      email_labels) free of an extra round-trip.
+  if (!isDebtor) {
+    const emailRes = await admin
+      .schema("email_pipeline")
+      .from("emails")
+      .select("id")
+      .eq("id", anchorEmailId)
+      .maybeSingle();
+    if (emailRes.error) {
+      console.warn(
+        `[hydrate] email_pipeline.emails query failed for id=${anchorEmailId}: ${emailRes.error.message}`,
+      );
+    }
+  }
+
+  // (2) pipeline_events (public) — keyed on the anchor email_id; ordered
+  //     (stage, created_at) so the first row per stage is the canonical
+  //     first-pass event for the slot. Already swarm-generic — NO CHANGE.
   const eventsRes = await admin
     .from("pipeline_events")
     .select(
       "id, stage, decision, confidence, decision_details, override, triggered_by, created_at, cost_cents",
     )
-    .eq("email_id", label.email_id ?? "")
+    .eq("email_id", anchorEmailId)
     .order("stage", { ascending: true })
     .order("created_at", { ascending: true });
 
@@ -193,11 +273,12 @@ export async function hydrateBulkReviewRow(
 
   // (3) agent_runs (public) — capture-column source for Axis 1 and the
   //     authoritative source for Stage 3 ranked_intents (see audit-mapper
-  //     comment block: tool_outputs.intent_first_pass.ranked).
+  //     comment block: tool_outputs.intent_first_pass.ranked). Already
+  //     swarm-generic — NO CHANGE.
   const runsRes = await admin
     .from("agent_runs")
     .select("id, stage, corrected_category, human_verdict, tool_outputs")
-    .eq("email_id", label.email_id ?? "");
+    .eq("email_id", anchorEmailId);
 
   const runs: AgentRunRow[] = Array.isArray(runsRes.data)
     ? (runsRes.data as AgentRunRow[])
@@ -354,15 +435,15 @@ export async function hydrateBulkReviewRow(
             : null;
 
     let entity_brand: Entity | null = null;
-    const rawBrand = asString(label.entity_brand);
+    const rawBrand = asString(label?.entity_brand ?? null);
     if (rawBrand !== null) {
       if (brandCodes.size > 0 && !brandCodes.has(rawBrand)) {
         console.warn(
           `[hydrate] stage_2 entity_brand "${rawBrand}" not in swarms.entity_brand register for swarm="${opts.swarm_type}"; setting to null`,
         );
-      } else if (!(ENTITY_BRANDS as readonly string[]).includes(rawBrand)) {
+      } else if (!brandsForSwarm(opts.swarm_type).includes(rawBrand)) {
         console.warn(
-          `[hydrate] stage_2 entity_brand "${rawBrand}" not in generated ENTITY_BRANDS literal-union; setting to null`,
+          `[hydrate] stage_2 entity_brand "${rawBrand}" not in generated ENTITY_BRANDS_BY_SWARM[${opts.swarm_type}] literal-union; setting to null`,
         );
       } else {
         entity_brand = rawBrand as Entity;
@@ -391,7 +472,7 @@ export async function hydrateBulkReviewRow(
     // label has no debtor_name (renderer shows the account-only fallback).
     // NEVER fabricate a name (anti-drift note 5). NOT a vocabulary read —
     // hard-separation invariant preserved.
-    const customer_name: string | null = label.debtor_name;
+    const customer_name: string | null = label?.debtor_name ?? null;
 
     // Plan 03-06 — sender_map promotion lineage (sketch 004 line 565).
     // NOT-IN-CORPUS: the sender_map table has no promoted_at /
@@ -416,8 +497,9 @@ export async function hydrateBulkReviewRow(
       entity_brand,
       resolver_source,
       customer_account_id:
-        asString(d.customer_account_id) ?? label.customer_account_id,
-      corrected_customer_account_id: label.corrected_customer_account_id,
+        asString(d.customer_account_id) ?? label?.customer_account_id ?? null,
+      corrected_customer_account_id:
+        label?.corrected_customer_account_id ?? null,
       confidence: stage2Event.confidence ?? asNumber(d.confidence),
       pipeline_event_id: stage2Event.id,
       resolver_steps,
@@ -455,11 +537,19 @@ export async function hydrateBulkReviewRow(
         if (!isRecord(r)) continue;
         const intent_key = asString(r.intent_key) ?? asString(r.intent);
         if (!intent_key) continue;
-        if (!(SWARM_INTENTS as readonly string[]).includes(intent_key)) {
+        // Compile-time literal-union guard (per-swarm map). Skip the guard
+        // entirely for an un-seeded swarm whose SWARM_INTENTS_BY_SWARM entry is
+        // empty (e.g. sales-email before its intents land in Plan 113) — there
+        // is no closed list to validate against yet, so the registry guard
+        // below (which also no-ops while swarm_intents is empty) is the sole
+        // authority. For a seeded swarm (debtor) the list is non-empty and the
+        // hard-separation filter stays fully active — byte-for-byte unchanged.
+        const swarmIntentUnion = intentsForSwarm(opts.swarm_type);
+        if (swarmIntentUnion.length > 0 && !swarmIntentUnion.includes(intent_key)) {
           // hard separation: a swarm_noise_categories value (e.g. "auto_reply")
           // would land here. Drop + warn so the operator surfaces it.
           console.warn(
-            `[hydrate] stage_3 ranked_intent "${intent_key}" not in SWARM_INTENTS — filtered (hard separation: Stage 3 vocabulary is swarm_intents.intent_key only, NEVER a swarm_noise_categories key)`,
+            `[hydrate] stage_3 ranked_intent "${intent_key}" not in SWARM_INTENTS_BY_SWARM[${opts.swarm_type}] — filtered (hard separation: Stage 3 vocabulary is swarm_intents.intent_key only, NEVER a swarm_noise_categories key)`,
           );
           continue;
         }
@@ -521,7 +611,7 @@ export async function hydrateBulkReviewRow(
     if (
       top_intent === null &&
       eventDecision &&
-      (SWARM_INTENTS as readonly string[]).includes(eventDecision)
+      intentsForSwarm(opts.swarm_type).includes(eventDecision)
     ) {
       top_intent = eventDecision as Intent;
     }
@@ -559,12 +649,12 @@ export async function hydrateBulkReviewRow(
 
   // ----- Stage 4 ---------------------------------------------------------
   let stage_4: BulkReviewStage4Slot | null = null;
-  if (stage4Event || label.draft_quality || label.handler_key) {
+  if (stage4Event || label?.draft_quality || label?.handler_key) {
     stage_4 = {
-      handler_key: label.handler_key,
-      draft_quality: label.draft_quality,
-      feedback_reason: label.feedback_reason,
-      handler_output_kind: label.handler_output_kind,
+      handler_key: label?.handler_key ?? null,
+      draft_quality: label?.draft_quality ?? null,
+      feedback_reason: label?.feedback_reason ?? null,
+      handler_output_kind: label?.handler_output_kind ?? null,
       pipeline_event_id: stage4Event?.id ?? null,
     };
   }
@@ -585,18 +675,23 @@ export async function hydrateBulkReviewRow(
   const overrides: BulkReviewOverrideCapture = {
     axis_1_corrected_category: axis1Run?.corrected_category ?? null,
     axis_1_human_verdict: axis1Run?.human_verdict ?? null,
-    axis_2_corrected_customer_account_id: label.corrected_customer_account_id,
-    axis_2_reviewed_by: label.reviewed_by,
-    axis_2_reviewed_at: label.reviewed_at,
-    axis_4_draft_quality: label.draft_quality,
-    axis_4_feedback_reason: label.feedback_reason,
+    axis_2_corrected_customer_account_id:
+      label?.corrected_customer_account_id ?? null,
+    axis_2_reviewed_by: label?.reviewed_by ?? null,
+    axis_2_reviewed_at: label?.reviewed_at ?? null,
+    axis_4_draft_quality: label?.draft_quality ?? null,
+    axis_4_feedback_reason: label?.feedback_reason ?? null,
     axis_3_event_ids,
   };
 
   return {
-    email_label_id: label.id,
-    swarm_type: label.swarm_type ?? opts.swarm_type,
-    email_id: label.email_id,
+    // For non-debtor swarms there is no email_labels row, so email_label_id
+    // falls back to the email_label_id the caller passed (debtor) or the
+    // email_id anchor (generic). The BulkReviewRow.email_label_id field is the
+    // row's stable React key; the anchor email_id is the cross-swarm identity.
+    email_label_id: label?.id ?? opts.email_label_id ?? anchorEmailId,
+    swarm_type: label?.swarm_type ?? opts.swarm_type,
+    email_id: label?.email_id ?? (anchorEmailId || null),
     context_version: BULK_REVIEW_ROW_VERSION,
     stage_0,
     stage_1,

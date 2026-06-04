@@ -97,8 +97,24 @@ const loadSwarmNoiseCategoriesMock = vi.fn(
   async (..._args: unknown[]) => categoriesToReturn,
 );
 
+// Phase 111 (Finding 1): the verdict-worker now loads the swarm row and gates
+// the inline Outlook calls behind isStageBlocked(swarmRow,'stage_1_archive').
+// These registry-dispatch tests assert the side-effect dispatch independent of
+// that gate, so loadSwarm returns a LIVE stage_1_archive (false) + isStageBlocked
+// defaults to false — preserving pre-111 behavior (archive fires for Test 2).
+const loadSwarmMock = vi.fn(async (..._args: unknown[]) => ({
+  swarm_type: "debtor-email",
+  dry_run_config: { stage_1_archive: false },
+}));
+
 vi.mock("@/lib/swarms/registry", () => ({
+  loadSwarm: (...args: unknown[]) => loadSwarmMock(...args),
   loadSwarmNoiseCategories: (...args: unknown[]) => loadSwarmNoiseCategoriesMock(...args),
+}));
+
+const isStageBlockedMock = vi.fn((..._args: unknown[]) => false);
+vi.mock("@/lib/pipeline-gating/dry-run-gate", () => ({
+  isStageBlocked: (...args: unknown[]) => isStageBlockedMock(...args),
 }));
 
 // Phase 68 (SWRM-04) — verdict-worker now reads the cleanup INSERT from

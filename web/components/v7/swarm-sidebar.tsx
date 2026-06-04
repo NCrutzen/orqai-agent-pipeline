@@ -63,6 +63,13 @@ const WORKSPACE_ITEMS = [
 
 const AUTOMATIONS_ITEMS = [
   { title: "Debtor Review", href: "/automations/debtor-email/review", icon: Mail, match: (p: string) => p.startsWith("/automations/debtor-email/review") || p.startsWith("/automations/debtor-email-review") },
+  // Phase 110-02 (REVIEW-01 / SWARM-01) — the /review route is now swarm-generic
+  // (no 404 for non-debtor swarms), so sales-email gets its own Bulk Review entry.
+  // TODO(D-03): registry-drive AUTOMATIONS_ITEMS from the `swarms` prop — filter
+  // enabled email swarms and synthesize the "{slug}/review" href. Left static for
+  // now because SwarmWithCounts carries no swarm_type/slug nor an email-swarm flag
+  // (lib/v7/sidebar-types.ts), so registry-driving is non-trivial within budget.
+  { title: "Sales Review", href: "/automations/sales-email/review", icon: Mail, match: (p: string) => p.startsWith("/automations/sales-email/review") },
   { title: "Uren Controle", href: "/automations/uren-controle", icon: Timer, match: (p: string) => p.startsWith("/automations/uren-controle") },
   { title: "Agent Namer", href: "/automations/agent-namer", icon: Tag, match: (p: string) => p.startsWith("/automations/agent-namer") },
   { title: "Rijtijden", href: "/rijtijden", icon: Clock, match: (p: string) => p.startsWith("/rijtijden") },

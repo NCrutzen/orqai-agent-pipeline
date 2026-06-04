@@ -20,9 +20,10 @@ import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { categorizeEmail, archiveEmail } from "@/lib/outlook";
-import { loadSwarmNoiseCategories } from "@/lib/swarms/registry";
+import { loadSwarm, loadSwarmNoiseCategories } from "@/lib/swarms/registry";
 import { evaluateSideEffects } from "@/lib/swarms/side-effects";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
+import { isStageBlocked } from "@/lib/pipeline-gating/dry-run-gate";
 
 export const classifierVerdictWorker = inngest.createFunction(
   { id: "classifier/verdict-worker", retries: 2 },
@@ -72,6 +73,16 @@ export const classifierVerdictWorker = inngest.createFunction(
     const categories = await step.run("load-categories", () =>
       loadSwarmNoiseCategories(admin, swarm_type),
     );
+    // Phase 111 Finding 1: load the full swarm row so the inline Outlook
+    // categorize+archive below can be gated behind the per-stage dry-run
+    // flag (swarms.dry_run_config.stage_1_archive). Phase 110-04 wired this
+    // gate into the four side-effect workers but NOT this inline path —
+    // sales auto_reply/ooo_* all carry outlook_label, so without this gate
+    // flipping action='categorize_archive' would fire LIVE Outlook calls.
+    // Registry-driven (no swarm_type literal) per SWARM-02 / Anti-Pattern A3.
+    const swarmRow = await step.run("load-swarm-row", () =>
+      loadSwarm(admin, swarm_type),
+    );
     const category = categories.find((c) => c.category_key === finalCategoryKey);
 
     if (!category) {
@@ -104,7 +115,22 @@ export const classifierVerdictWorker = inngest.createFunction(
         case "categorize_archive": {
           // D-11: outlook_label nullable. When null, skip BOTH categorize and
           // archive (graceful for non-Outlook-sourced swarms).
-          if (category.outlook_label) {
+          //
+          // Phase 111 Finding 1: ALSO require the stage_1_archive flag to be
+          // LIVE (not blocked) before firing the inline Outlook calls.
+          // Convention (dry-run-gate): isStageBlocked TRUE = BLOCKED (dry-run),
+          // FALSE = LIVE, MISSING = blocked (fail-closed). Sales is all-blocked
+          // → stays inert until Phase 112 wires go-live. Swarm-agnostic.
+          // Phase 111 WR-01: capture the archive-live condition ONCE so the
+          // Stage-4 "auto_archived_noise" telemetry emit below is gated on the
+          // exact same predicate as the inline Outlook archive. Without this,
+          // a dry-run-BLOCKED sales verdict (no live archive) still wrote a
+          // pipeline_events row asserting the email left the inbox — a phantom
+          // archive signal that pollutes the handled-overview surface.
+          const archiveLive =
+            !!category.outlook_label &&
+            !isStageBlocked(swarmRow, "stage_1_archive");
+          if (archiveLive) {
             await step.run("categorize", async () => {
               const r = await categorizeEmail(
                 source_mailbox,
@@ -240,6 +266,12 @@ export const classifierVerdictWorker = inngest.createFunction(
           // (UNIQUE on email_id + swarm_type + stage WHERE email_id IS NOT NULL).
           // Stage 4 success row is informational only — hard-separation preserved
           // (no intent fields, no dispatch; Stage 1 noise registry untouched).
+          //
+          // Phase 111 WR-01: gate the emit on `archiveLive`. The Stage-4
+          // "auto_archived_noise" row asserts the email left the inbox; only
+          // write it when the inline archive actually fired. Dry-run-blocked
+          // (sales) verdicts skip it so no phantom archive telemetry lands.
+          if (archiveLive) {
           await step.run("emit-stage-4-handled", async () => {
             // Resolve email_pipeline.emails.id from Outlook message_id. We can't
             // reuse `emailRow` above — it's only loaded when stage1Dispatches
@@ -295,6 +327,7 @@ export const classifierVerdictWorker = inngest.createFunction(
               throw err;
             }
           });
+          }
           break;
         }
         case "swarm_dispatch": {

@@ -80,17 +80,26 @@ categorize_archive               swarm_dispatch -> Stage 2 -> Stage 3 -> Stage 4
 
 The first four route to `categorize_archive`. `unknown` is the only key that hands off to the LLM stages of the funnel via `debtor-email/label-resolve.requested`.
 
-### Source-of-truth invariant — noise-key enum (Phase 78 codegen)
+### Source-of-truth invariant — noise-key closed list (call-time, NOT a baked-in enum)
 
-The closed list of noise keys exists in three places that must agree:
+> **Corrected Phase 111 (Finding 3).** An earlier revision of this section claimed a "3-place enum invariant" where the noise-key list had to agree across a TS enum, the Postgres rows, AND an `enum` field baked into the Orq agent's `response_format: json_schema`. **The runtime does not enforce that.** Verified against `20260506_phase74_stage1_classifier_agent.sql` and the screen-worker:
 
-1. The TypeScript validator for the Stage 1 LLM 2nd-pass output.
-2. The `swarm_noise_categories.category_key` rows in Postgres.
-3. The `enum` field inside the Orq agent `stage-1-category-classifier`'s `response_format: json_schema`.
+- The Orq agent `stage-1-category-classifier`'s `category_key` output field is typed **`{'type':'string'}` — NOT an enum.** The closed list is **passed at call-time** as the `<categories>` input array, built from the enabled `swarm_noise_categories` rows for the swarm (screen-worker builds this per-invocation). There is no baked-in enum to keep in sync, so **no Orq Studio edit** is needed to add a noise key.
+- The TypeScript validator (`Stage1OutputSchema`) is `z.string()` — also **not** enum-bound.
+- **`npm run codegen` does NOT cover `swarm_noise_categories`.** Codegen (`gen-intent-types.ts`) reads `swarm_intents` (Stage 3) only. Adding a noise key therefore requires **no codegen** and **no `*.generated.ts` change.**
 
-**Same rule as Stage 3** — see [`./stage-3-coordinator.md#source-of-truth-invariant--intent-enum-phase-78-codegen`](./stage-3-coordinator.md) for the full pattern. The registry is the single source of truth; the TS literal-union is build-time generated; the Orq JSON schema is regenerated from the same registry read; CI gate prevents drift. Phase 78's codegen pass covers both `swarm_noise_categories` and `swarm_intents` in one script.
+**Net:** the runtime closed-list authority is effectively a single place — the enabled `swarm_noise_categories` rows in Postgres, read at call-time. So **adding a new LLM-category noise key is pure registry data**: INSERT the `swarm_noise_categories` row + re-fire the `classifier/llm-rules-seed.run` event (so the new key's `llm:{cat}:high` candidate rule is minted). No Orq Studio edit, no codegen, no hand-edited generated file.
 
-Onboarding a new swarm = INSERT noise rows + run codegen + commit the regenerated file. Never hand-edit `*.generated.ts`.
+> Caveat: this holds only while the agent's `category_key` stays `{'type':'string'}`. If a future phase tightens it to a generated enum, re-instate the codegen/Studio step and re-verify via `get_agent`.
+
+A deterministic **regex Pass-1 rule** is the exception — that is code, not registry data: it needs a module registered in `STAGE1_REGEX_MODULES` + a `swarms.stage1_regex_module` UPDATE (the debtor swarm is the only one with a regex module today). Prefer the LLM-category (registry-data) form unless a candidate has a crisp, anchored, bounded-quantifier signature that warrants the regex code cost.
+
+### Inherited AP-noise rule disposition for the sales-email swarm (Phase 111)
+
+The sales-email swarm inherited 8 AP-noise rules from the debtor calibration. Their Phase 111 disposition:
+
+- **D-08 — 7 rules kept as-is (inherited trust), NOT empirically re-validated here:** `coupa_invoice_approved_notification`, `coupa_invoice_paid_notification`, `frieslandcampina_portal_reject`, `iss_ptp_autoreply`, `m365_quarantine`, `sender_phishing_notice`, `supplier_bank_change_notification`. They stay at `categorize_archive` by decision.
+- **D-09 — `own_outbound_invoice_loopback` is the one exception, decided test-first:** its sales enable/disable is taken purely from the measured false-archive rate on the retro corpus (normalized-inbound mail only), NOT a preset — it mis-archived ~40% on debtor and is disabled there. See `web/lib/automations/sales-email/retro/loopback-validation.ts`.
 
 ## Sales-Email Parallel Block
 

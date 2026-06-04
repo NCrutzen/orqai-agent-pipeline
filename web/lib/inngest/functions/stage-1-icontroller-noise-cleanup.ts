@@ -10,6 +10,8 @@ import {
   ICONTROLLER_MAILBOXES,
   isKnownMailbox,
 } from "@/lib/automations/debtor-email/mailboxes";
+import { loadSwarm } from "@/lib/swarms/registry";
+import { isStageBlocked } from "@/lib/pipeline-gating/dry-run-gate";
 
 /**
  * Stage 1 iController noise-cleanup shard worker (renamed Phase 88.1 —
@@ -72,6 +74,52 @@ export const stage1IcontrollerNoiseCleanup = inngest.createFunction(
       rows: PendingRow[];
     };
     const processorName = `inngest-cleanup-cron-w${workerIndex}`;
+
+    // Phase 110 Plan 04 (D-10 / D-11) — per-stage gate. The cleanup worker had
+    // NO gate before this phase: it opened a production iController session and
+    // deleted unconditionally (the 867-delete footgun). It now consults the
+    // swarm's per-stage governance (stage_1_cleanup). Fail-closed: a missing
+    // flag blocks. The seed migration gives debtor-email stage_1_cleanup=false
+    // (LIVE), so debtor's effective behavior is UNCHANGED (D-11). This event is
+    // debtor-email-scoped (event id debtor-email/stage-1.*); OQ-1 confirms the 6
+    // debtor mailboxes are uniform, so a single per-swarm flag is exact — no
+    // per-mailbox override layer.
+    const swarm = await step.run("load-swarm-gate", async () =>
+      loadSwarm(admin, "debtor-email"),
+    );
+    const cleanupBlocked = isStageBlocked(swarm, "stage_1_cleanup");
+
+    if (cleanupBlocked) {
+      // Blocked: skip the iController session + deletes entirely. Mark each row
+      // skipped (mirrors the skipped path) so the kanban shows the rows were
+      // intentionally not actioned rather than silently dropped.
+      return step.run("skip-shard-gated", async () => {
+        for (const row of rows) {
+          await admin
+            .from("automation_runs")
+            .update({
+              automation: "debtor-email-cleanup",
+              status: "completed",
+              result: {
+                ...row.result,
+                icontroller: "skipped_gated",
+                processed_by: processorName,
+              },
+              completed_at: new Date().toISOString(),
+            })
+            .eq("id", row.id);
+        }
+        await emitAutomationRunStale(admin, "debtor-email-cleanup");
+        return {
+          workerIndex,
+          processed: rows.length,
+          deleted: 0,
+          not_found: 0,
+          failed: 0,
+          skipped_gated: rows.length,
+        };
+      });
+    }
 
     return step.run("process-shard", async () => {
       const out: Outcome[] = [];

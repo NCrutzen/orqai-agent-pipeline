@@ -1,0 +1,6 @@
+{
+  "name": "dry-run-gate",
+  "private": true,
+  "main": "index.ts",
+  "types": "index.ts"
+}

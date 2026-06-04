@@ -912,10 +912,40 @@ export const classifierScreenWorker = inngest.createFunction(
     // classifier-verdict-worker contract: verdict-worker dispatches via
     // swarm_noise_categories.action, not via decision; preserve those
     // semantics.
+    // Phase 111 Finding 2: the Wilson promotion gate ("auto-archive only if
+    // the llm:{cat}:high rule is status='promoted'") previously lived ONLY in
+    // the debtor-only Step 4.5 block. Sales (stage1_regex_module=null) skips
+    // that block and reaches here, where the gate used to clear on
+    // confidence='high' ALONE — auto-archiving every high-confidence verdict
+    // from day one regardless of promotion. Generalize the promotion check
+    // into this swarm-agnostic path: a high-confidence, non-'unknown' LLM
+    // verdict ALSO requires its llm:{cat}:high rule to be promoted before it
+    // clears to verdict.recorded; otherwise it routes to
+    // classifier/screen.requires_review (no subscriber → stays 'predicted').
+    //
+    // Swarm-agnostic: readWhitelist(admin, swarm_type) is already swarm-scoped
+    // (.eq("swarm_type", ...)). No swarm_type literal branch (SWARM-02 / A3).
+    // finalCategoryKey==='unknown' keeps its short-circuit (Anti-Pattern A2 —
+    // unknown is never a promotable noise rule). Replay-safe: readWhitelist is
+    // wrapped in step.run, mirroring the debtor block's load-whitelist step.
+    let promotionGateClears = true;
+    if (
+      llmInvoked &&
+      llmConfidence === "high" &&
+      finalCategoryKey !== "unknown"
+    ) {
+      const step5Whitelist = await step.run(
+        "read-whitelist-step5",
+        async () => Array.from(await readWhitelist(admin, swarm_type)),
+      );
+      const effectiveMatchedRule = `llm:${finalCategoryKey}:${llmConfidence}`;
+      promotionGateClears = new Set(step5Whitelist).has(effectiveMatchedRule);
+    }
+
     const gateClearsForAutoArchive =
       !llmInvoked ||
-      llmConfidence === "high" ||
-      finalCategoryKey === "unknown";
+      finalCategoryKey === "unknown" ||
+      (llmConfidence === "high" && promotionGateClears);
 
     if (gateClearsForAutoArchive) {
       await step.run("emit-verdict", async () =>

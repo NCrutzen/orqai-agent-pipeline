@@ -121,6 +121,10 @@ const loadBrandRegisterMock = vi.fn(async (_admin: unknown, _swarm: string, enti
 vi.mock("@/lib/swarms/brand-register", () => ({
   loadBrandRegister: (...args: unknown[]) =>
     loadBrandRegisterMock(...(args as [unknown, string, string])),
+  // registry.ts (in the import chain) also imports loadAllBrandRegisters
+  // (Phase 69-03). This test never exercises it — stub to [] so the module
+  // mock is complete and import resolution doesn't throw.
+  loadAllBrandRegisters: async (..._args: unknown[]) => [],
 }));
 
 vi.mock("@/lib/inngest/client", () => ({
@@ -228,6 +232,13 @@ describe("classifier-invoice-copy-handler", () => {
       dry_run: false,
       entity: "smeba",
       icontroller_company: "smebabrandbeveiliging",
+    };
+    // Phase 110-04: the handler folds dry_run_config.stage_4_handlers["invoice-copy"]
+    // into the dry_run decision (isHandlerBlocked). To exercise the production
+    // draft path (dry_run=false → env=production) the registry gate must be
+    // UNblocked; an absent swarm row fail-closes to blocked → acceptance.
+    readResponses[".swarms"] = {
+      dry_run_config: { stage_4_handlers: { "invoice-copy": false } },
     };
 
     const fetchSpy = vi.fn();

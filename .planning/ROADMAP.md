@@ -17,7 +17,7 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 | **v8.0** | Agentic Platform — canonical 5-stage funnel + debtor-email + sales-email Stage 0-1 | **Shipped 2026-05-20** |
 | **v8.1** | Validation + Visibility — body ingestion, Stage 1 noise rules, Stage 3 prompt v3, open-set discovery | **Shipped 2026-06-01** |
 | **v8.2** | Stage 2 Resolution Recall — debtor track (SQL-native NXT resolver) · _parallel with V9.0_ | **Defined / next** |
-| **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) · _parallel with v8.2_ | **Defined** _(was V10.0)_ |
+| **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) · _parallel with v8.2_ | **In progress** _(was V10.0)_ |
 | **V10.0** | Promotion Recommender + Learning Inbox + reply-tracing (self-learning) | **Defined** _(was V9.0)_ |
 | **V11.0** | Intent-prioritised handlers | **Defined** |
 
@@ -98,6 +98,7 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 **Core principle (locked 2026-05-19):** Intent vocabulary emerges from the **LLM's proposals + operator promotion** during dry-run, never from hand-curation. Phase 86 builds the discovery surface; the self-learning milestone (V10.0; re-sequenced 2026-06-02) builds the promotion side.
 
 **Dependency graph:**
+
 ```
 83 (input fix) ──┬──> 85 (prompt v3 + V3 schema with intent_proposal)
                  │      │
@@ -112,18 +113,21 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 - [x] **Phase 84: Stage 1 noise rules for AP-automation FYI traffic** — 7 noise categories live in `classify.ts` (Coupa Betaald/Goedgekeurd, ISS PtP auto-reply, M365 quarantine, FrieslandCampina rejects, RSK phishing notices, FarmPlus supplier bank-change, own-domain outbound loopback — Coupa PO dropped per calibration). `swarms.tenant_domains` column + codegen shipped. VERIFICATION **9/11 PASS, KEEP-OPEN-PENDING-SHADOW** — 2 PENDING-OPERATOR items are the 7-day shadow window (Day-0 pre-flight + D-05 gate evaluation per PROMOTION-RUNBOOK.md). Code-side complete 2026-05-20.
   **Plans:** 4 plans
   Plans:
+
   - [x] 84-01-PLAN.md — Wave 0: RED tests + hard-separation static check + CORPUS-SAMPLES
   - [x] 84-02-PLAN.md — Wave 1: 3 migrations (tenant_domains column + 16 swarm_noise_categories rows + 8 classifier_rules candidates) + gen-tenant-domains.ts codegen + stub retirement
   - [x] 84-03-PLAN.md — Wave 2: 7 classify.ts matchers + own_outbound_invoice_loopback + direction passthrough
   - [x] 84-04-PLAN.md — Wave 3: PROMOTION-RUNBOOK.md + CORPUS-SAMPLES Day-7 columns (operator-driven shadow window still pending)
 - [x] **Phase 85: Stage 3 prompt v3** — intent definitions + per-intent few-shot + open-set output schema (`intent_proposal` + `proposal_reason` additive fields; closed-list `intent` enum unchanged). `intent_version='2026-05-19.v3'` live in Orq Studio. V3 schema + tolerant V2|V3 parser + cache-key flip in code. **12-email regression GREEN — 1/12 changed (V3 improvement, not regression).** VERIFICATION **6/7 + 1/1 = passed_with_open_operator_items** (token-observation + V2-retirement TODO outstanding per Plan 04 wall-clock dependencies). Deployed 2026-05-20.
   **Plans:** 4 plans
+
   - [x] 85-01-PLAN.md — Wave 0: corpus + regression baseline + monthly volume + RED Vitest suite
   - [x] 85-02-PLAN.md — Wave 1: V3 Zod schema + tolerant parser + cache-key flip + telemetry emit
   - [x] 85-03-PLAN.md — Wave 2: V3 prompt + V3 json_schema + Orq PATCH ritual + 3 smokes GREEN
   - [~] 85-04-PLAN.md — Wave 3: operator regression rerun GREEN; 3-day token observation + V2-retirement TODO outstanding (autonomous:false — wall-clock dependencies)
 - [x] **Phase 86: Open-set intent discovery** — `intent_proposal` persisted via `intent_proposals_v1` view + `intent_proposal_clusters` nightly Levenshtein refresh + `intent_proposal_views` telemetry. New Bulk Review "Intent proposals" tab (`web/app/(dashboard)/automations/[swarm]/intent-proposals/page.tsx`) with DiscoveryTabStrip peer component + RTL coverage. Read-only — no promotion button (V10.0 owns Learning Inbox; re-sequenced 2026-06-02). Cross-swarm by default. VERIFICATION **7/7 PASS, KEEP-OPEN-PENDING-WINDOW** (4 human_verification items are operator UAT — Day-0 pre-flight per 86-DAY-0-CHECKPOINT.md + first 04:00 Amsterdam cron tick + intent_proposal_views row stamping). Code-side complete 2026-05-20.
   **Plans:** 4 plans
+
   - [x] 86-01-PLAN.md — Wave 0: data layer (view + clusters table + views telemetry + types + shape-lock tests)
   - [x] 86-02-PLAN.md — Wave 1: Levenshtein cluster algorithm + nightly cron + RED→GREEN tests
   - [x] 86-03-PLAN.md — Wave 2: Intent Proposals RSC page + server actions + client shell + DiscoveryTabStrip + RTL coverage
@@ -132,6 +136,7 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 - [x] **Phase 88: Review-surface cleanup** — three operator-confusion items on the unified `_shell/`: (D-01) override + note flow consolidation on Stages 0/2/3; (D-02) Stage 1 "Needs review" chip semantics rename + verdict-based "Pending my review" chip; (D-03) Stage 4 layout parity with Stage 1/2/3 chip-strip pattern + detail-pane width regression fix. Pure frontend. **Independent of 83-87.** (completed 2026-05-20)
   **Plans:** 4 plans
   Plans:
+
   - [x] 88-01-PLAN.md — Wave 0 pre-flight: RPC column shape verify + needs_action deeplink grep + in-browser detail-pane width repro
   - [x] 88-02-PLAN.md — Wave 1: D-01 wire Stage 2 + Stage 3 override widgets (fused note+override + cancel-override) into _shell/detail-pane
   - [x] 88-03-PLAN.md — Wave 1: D-02 verdict-pending RPC + chip semantics rewire + NeedsActionChip + ?needs_action URL deletion
@@ -140,6 +145,7 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 - [x] **Phase 88.2: Tier-2 CI backlog cleanup** (INSERTED) — clear the multi-developer Tier-2 backlog: workspace gate gets a CI counterpart via `.github/workflows/pr-checks.yml` (shipped PR #34), then phase 88.2 burned down 194 lint errors → 0 + 47 test failures → 0 + 5 disciplined skips with todos. Cold-cache 2m14s, warm-cache 2m19s (vs 8m / 5m budgets). PR #45 + #47 close R-4/R-5 evidence loop. (completed 2026-05-21)
   **Plans:** 5 plans across 4 waves
   Plans:
+
   - [x] 88.2-01-PLAN.md — Wave 0: ESLint config tune (`globalIgnores(["lib/automations/**"])` + `argsIgnorePattern: "^_"`) → 194 → 86 errors
   - [x] 88.2-02-PLAN.md — Wave 1: test-infra primitives (`web/test-setup.ts` `vi.mock("next/headers")` + `web/test-utils/supabase-mock.ts` Proxy admin mock)
   - [x] 88.2-03-PLAN.md — Wave 1: residual lint burn-down (`lib/inngest/`, `debtor-email-analyzer/`, long-tail) + 12 React Compiler errors fixed at source
@@ -154,6 +160,7 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 **Goal:** Rename three Inngest functions to match the canonical 5-stage pipeline vocabulary, so on-call operators and future contributors can read function names and immediately know which stage they belong to. Phase 80+ collapsed multiple legacy workers into the unified coordinator, but the survivors still carry pre-stage-funnel names (`classifier-*`, `debtor-email-icontroller-*`) that obscure their role. This rename + telemetry alignment is the final naming cleanup before V8.2 handler work begins.
 
 **Scope:**
+
 - Rename `classifier-label-resolver` → `stage-2-customer-resolver` (Stage 2 entity resolution).
 - Rename `debtor-email-icontroller-tagger` → `stage-2-icontroller-label-applier` (Stage 2 follow-up action, locked as Stage 2).
 - Rename `debtor-email-icontroller-cleanup-worker` → `stage-1-icontroller-noise-cleanup` (Stage 1 noise-side cleanup).
@@ -161,6 +168,7 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 - Align Stage 2 telemetry: ensure `pipeline_events.stage = 2` is emitted for the renamed Stage 2 functions (if not already), and that `swarm_type='debtor-email'` is set consistently. No new columns.
 
 **Out of scope:**
+
 - Refactoring function bodies / changing behavior — pure rename + telemetry alignment.
 - Renaming live tables (`agent_runs`, `coordinator_runs`, `pipeline_events`) — those are Phase 80+ canonical.
 - Adding new stages or merging stages.
@@ -168,6 +176,7 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 - Touching cron schedules or `concurrency` configs.
 
 **Acceptance:**
+
 - All three functions registered on `/api/inngest` under the new ids and respond to events fired under the new names.
 - No reference to the three old function ids remains in `web/lib/inngest/functions/`, `web/lib/inngest/events.ts`, `web/app/api/inngest/route.ts`, `web/lib/automations/debtor-email/`, or any test file (grep clean).
 - `pipeline_events.stage` distribution shows Stage 2 events from the two renamed Stage 2 functions in production after deploy.
@@ -175,6 +184,7 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 - Vercel production deploy succeeds and the Inngest dashboard shows the three new function ids registered.
 
 **Blast-radius mitigation:**
+
 - This is the LAST phase before V8.2 — own deploy window, not bundled with Phase 87 closure.
 - Event-name migration uses dual-emit-then-cutover OR single atomic deploy (decide in discuss-phase).
 - Inngest historical runs under old function ids are preserved (Inngest treats function-id changes as new functions; old runs stay queryable under old id).
@@ -183,6 +193,7 @@ Note: Phases 55+ (debtor-email pipeline, swarm-registry, classifier, …) added 
 
 **Plans:** 7 plans
 Plans:
+
 - [x] 88.1-01-PLAN.md — Wave 1: audit artefact (88.1-AUDIT.md committed)
 - [x] 88.1-02-PLAN.md — Wave 2: RED grep-guard Vitest test for the 7 legacy strings + Phase 65 destructure check
 - [x] 88.1-03-PLAN.md — Wave 3: rename classifier-label-resolver → stage-2-customer-resolver
@@ -207,6 +218,7 @@ Plans:
 **Independent of 83-87, 88.1.**
 
 **Plans:** 5 plans
+
 - [ ] 88.2-01-PLAN.md — ESLint config tune (globalIgnores lib/automations + argsIgnorePattern); foundation wave retires ~108 errors + 163 warnings
 - [ ] 88.2-02-PLAN.md — Test infra: global next/headers mock in web/test-setup.ts + new web/test-utils/supabase-mock.ts Proxy mock; retires ~38 test failures
 - [ ] 88.2-03-PLAN.md — Lint burn-down (any-narrow in lib/inngest/ + debtor-email-analyzer/src/ + long-tail; require→import; 10 React Compiler errors at source per D-14)
@@ -230,9 +242,160 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 ---
 
-### V9.0 Sales-Email Canonical Pipeline — Outlook-driven — DEFINED (re-sequenced 2026-06-02; was V10.0)
+### V9.0 Sales-Email Canonical Pipeline — Outlook-driven (Phases 110–115) — ACTIVE (re-sequenced 2026-06-02; was V10.0)
 
-`verkoop@smeba.nl` runs the same 5-stage funnel end-to-end, **driven from Outlook** (SugarCRM deprecated 2026-06-02 — `sales-email-analyzer/` + `fetch-sugarcrm-emails.ts` retired). **Stage 2 reuses the v8.2 NXT resolver** by per-swarm config (`swarms.stage2_entity_resolver` + `resolution_config`) — no Sugar adapter, no engine rebuild; customer-less prospects fall through to Stage 3. Sales-specific Stage 3 intent agent, Phase 78 properly planned and executed. **Runs in parallel with the v8.2 debtor track** and no longer depends on the self-learning milestone. See `.planning/MILESTONES.md` for full charter.
+**Milestone goal:** `verkoop@smeba.nl` runs the full canonical 5-stage funnel end-to-end with an operator-usable Bulk Review trace — the actual "second swarm validation" v8.0 promised, and the first cross-swarm reuse of the v8.2 NXT resolver. **NOT "move to Outlook"** (ingest already live, 827 emails/30d, Sugar→Outlook cutover done 2026-05-06): the delta is finish Stage 1 + add Stage 2/3 + Bulk Review + clean up dead Sugar code.
+
+**Verified baseline (do NOT re-build — verified 2026-06-02 against production):** Outlook ingest is the production path; Stage 0 + the swarm-agnostic Stage 1 LLM classifier are live; the `sales-email` `swarms` row exists as a Stage-0/1 shell; feedback forms are swarm-generic. Greenfield: `swarm_intents`=0, sales `orq_agents`=0, no Outlook-archive side-effect, Bulk Review not yet operator-usable.
+
+**Hard constraints (encoded across phases):** registry changes (`swarms` / `swarm_intents` / `swarm_noise_categories` / `zapier_tools`) ship as `supabase/migrations/` + `npm run codegen` committed atomically — never hand-edit `*.generated.ts` (docs/collaboration.md); zero `if swarm==='sales-email'` branches in shared workers — variance lives in registry data (SWARM-02 gate); Stage 4 handlers are OUT (V11.0) — handler-less intents land in the Phase 76 Kanban human-lane.
+
+**Sequencing principle:** observe → understand → THEN automate. Visibility first (110), then Stage 1 noise settled (111) before any Outlook auto-archive side-effect (112), Stage 3 intent agent (113), Stage 2 resolver reuse interleaved with the v8.2 seam (114), dead-code decommission last (115).
+
+**Dependency graph:**
+
+```
+110 (visibility + swarm-row enrichment + SWARM-02 gate + verify)
+  ├──> 111 (Stage 1 noise expand + calibrate)
+  │       └──> 112 (Outlook archive side-effect + backfill)   [needs rules settled]
+  ├──> 113 (Stage 3 sales intent agent)
+  └──> 114 (Stage 2 resolver reuse)  ──┄ external dep: v8.2 RESL-01/02/03 (interleave, don't block)
+115 (SugarCRM dead-code decommission)  [independent — last or parallel]
+```
+
+- [x] **Phase 110: Visibility Foundation — Bulk Review + swarm-row enrichment + ingest verify** — operator can see and follow sales emails before anything auto-acts; the Stage-0/1 shell `swarms` row is enriched to a full-funnel config via migration + codegen; the architecture gate (no per-swarm branches) is asserted; Outlook ingest health is verified/monitored. (completed 2026-06-03)
+- [x] **Phase 111: Stage 1 Noise Expansion + Calibration** — mine the 827+ corpus for new sales-specific noise rules and calibrate/flip the safe core categories behind the shadow→promote gate, all as audit-trailed registry data. (completed 2026-06-03)
+- [ ] **Phase 112: Outlook Cleanup + Backfill (gated production writes)** — wire the Stage 1 Outlook-archive side-effect for sales and backfill it over the ingested corpus, auto-archiving high-confidence/AP-noise and routing ambiguous matches to operator approval, idempotently.
+- [ ] **Phase 113: Stage 3 Sales Intent Agent (greenfield)** — build a sales-specific Orq intent agent + seed `swarm_intents` from the live corpus so every sales email leaving Stage 1 reaches a Stage 3 verdict, with handler-less intents landing in the Kanban human-lane.
+- [ ] **Phase 114: Stage 2 Resolver Reuse — cross-swarm generality proof** — sales Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config with zero Engine code changes; the debtor-only self-auth tier degrades to a no-op for sales.
+- [ ] **Phase 115: SugarCRM Dead-Code Decommission** — remove the now-dead SugarCRM source code and stale registry notes after confirming no live path depends on it.
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 110. Visibility Foundation | 4/4 | Complete   | 2026-06-03 |
+| 111. Stage 1 Noise Expansion + Calibration | 5/5 | Complete   | 2026-06-03 |
+| 112. Outlook Cleanup + Backfill | 2/3 | In Progress|  |
+| 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
+| 114. Stage 2 Resolver Reuse | 0/TBD | Not started | - |
+| 115. SugarCRM Dead-Code Decommission | 0/TBD | Not started | - |
+
+---
+
+## Phase Details
+
+### Phase 110: Visibility Foundation — Bulk Review + swarm-row enrichment + ingest verify
+
+**Goal**: The sales operator can actually see and follow `verkoop@smeba.nl` emails end-to-end in Bulk Review before any phase auto-acts, and the `sales-email` `swarms` row is upgraded from a Stage-0/1 shell to a full-funnel registry config — the foundation every later phase reads from.
+**Depends on**: Nothing (first V9.0 phase). Baseline: Outlook ingest + Stage 0/1 already live.
+**Depends on (external/cross-track)**: none.
+**Requirements**: REVIEW-01, SWARM-01, SWARM-02, VERIFY-01
+**Success Criteria** (what must be TRUE):
+
+  1. The operator can open a sales-email Bulk Review surface from the sidebar and see rows + detail pane + queue tree + per-stage tabs (0/1/2/3) + the swarm-generic feedback form rendering for `sales-email` (REVIEW-01).
+  2. The `sales-email` `swarms` row carries a full-funnel config — `entity_brand=smeba`, `canonical_context_shape`, `stage2_entity_resolver`, `resolution_config`, `stage3_coordinator_agent_key` — shipped as one migration with `npm run codegen` committed atomically and no hand-edited `*.generated.ts` (SWARM-01).
+  3. No shared worker (`classify` / classifier / coordinator / dispatcher) contains an `if swarm==='sales-email'` branch — any variance needed is expressed as registry data, asserted by a static check or grep gate (SWARM-02).
+  4. Sales ingest is confirmed Outlook-based (not a residual SugarCRM poll), `verkoop@smeba.nl` ~33/day throughput is visible in the pipeline-health monitor, and any stuck/legacy `source='sugarcrm'` rows are dispositioned (VERIFY-01).
+
+**Plans**: 4 plans (3 waves; hard debtor-regression gates isolate the two live-path crossings)
+Plans:
+**Wave 1**
+
+- [x] 110-01-PLAN.md — Wave 1: Wave-0 regression net — debtor coordinator parity tests + SWARM-02 static guard (coordinator+dispatcher) + RED contracts for the email_id anchor & per-stage dry-run gate (SWARM-02, REVIEW-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 110-02-PLAN.md — Wave 2: low-risk generalization — email_id hydrator anchor + per-swarm codegen maps + un-404 route (also un-404s info-routing) + sidebar entry (REVIEW-01, SWARM-01 codegen half, SWARM-02 surface half)
+- [x] 110-03-PLAN.md — Wave 2: HIGHEST-RISK — coordinator SWARM_TYPE→payload + wildcard `*/coordinator.requested`; debtor Stage-3 behavior provably unchanged (SWARM-02, D-09)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 110-04-PLAN.md — Wave 3: swarms full-funnel enrichment + per-stage dry_run_config + per-mailbox health migrations + worker gate refactor + [BLOCKING] schema push/codegen/advisor + VERIFY-01 (SWARM-01, VERIFY-01) — **COMPLETE 2026-06-03**: Tasks 1–3 merged earlier; Task 4 unblocked by re-linking Supabase MCP OAuth to the Agent-Workforce org, then 3 migrations applied via `apply_migration`, `entity.generated.ts` regenerated + committed (`c774f989`), RLS advisor green (0 ERROR); live-verified debtor `stage_1_cleanup=false` (LIVE) + sales inert/blocked. Task 5 governance checkpoint **approved by operator 2026-06-03**. (per-mailbox `verkoop@smeba.nl` health row populates on next monitor cron tick — non-blocking.)
+
+**UI hint**: yes
+
+### Phase 111: Stage 1 Noise Expansion + Calibration
+
+**Goal**: The 5 core sales noise categories are calibrated against the live corpus and the safe ones flip to auto-archive behind the shadow→promote gate, and new sales-specific noise rules discovered from the 827+ corpus are added as registry data — so Stage 1 stops over-routing sales noise into manual review.
+**Depends on**: Phase 110 (Bulk Review visible so calibration evidence is observable; full-funnel swarm row).
+**Depends on (external/cross-track)**: none.
+**Requirements**: STAGE1-01, STAGE1-02
+**Success Criteria** (what must be TRUE):
+
+  1. The safe core categories (auto-reply, OOO temporary/permanent) move `manual_review` → `categorize_archive` behind the shadow→promote gate, while `payment_admittance` and `unknown` stay in review with a recorded rationale — delivered as a migration with audit trail (STAGE1-01).
+  2. New sales-specific Stage 1 noise rules discovered from the multi-week corpus are added as `swarm_noise_categories` rows with an audit trail, data-driven rather than hand-curated (STAGE1-02).
+  3. The 8 inherited AP-noise rules are re-validated for sales fit; in particular `own_outbound_invoice_loopback` is gated/disabled for sales unless it holds on the sales corpus (it mis-archived ~40% on debtor and is disabled there) (STAGE1-02).
+
+**Plans**: 5 plans
+
+Plans:
+
+- [x] 111-01-PLAN.md — Close the two CRITICAL gating gaps (verdict-worker isStageBlocked + swarm-agnostic Wilson promotion gate in Step 5) + debtor regression net [Wave 1]
+- [x] 111-03-PLAN.md — Stage-1 retro-run harness (new table + selector + aggregator) over both corpora, idempotent + side-channel isolated [Wave 1]
+- [x] 111-02-PLAN.md — Audited calibration-flip migration: 3 safe categories → categorize_archive (inert behind 01's gate) [Wave 2]
+- [x] 111-04-PLAN.md — Cluster-mining discovery + loopback test-first (D-09) + RFC doc correction (Finding 3) [Wave 2]
+- [x] 111-05-PLAN.md — [BLOCKING] Apply both migrations via Supabase MCP + live verify (no codegen drift, RLS 0 ERROR) [Wave 3]
+
+### Phase 112: Outlook Cleanup + Backfill (gated production writes)
+
+**Goal**: Sales gains the Stage 1 Outlook-archive action it currently lacks, and the settled noise rules are retroactively applied over the already-ingested corpus — high-confidence noise auto-archived, ambiguous matches routed to operator approval, safe to re-run.
+**Depends on**: Phase 111 (noise rules must be settled before they drive production archive writes), Phase 110 (Bulk Review is the approval surface for ambiguous matches).
+**Depends on (external/cross-track)**: none.
+**Requirements**: CLEANUP-01, CLEANUP-02
+**Success Criteria** (what must be TRUE):
+
+  1. A Stage 1 Outlook-archive side-effect is wired for sales `categorize_archive` categories — a `swarms.side_effects` entry + a cleanup worker that archives matching mail in `verkoop@smeba.nl` via Graph (sales uses Outlook archive where debtor uses iController delete) (CLEANUP-01).
+  2. The noise rules are backfilled over the ingested corpus: high-confidence / AP-noise categories auto-archive, ambiguous matches route to Bulk Review for operator approval, and `own_outbound_invoice_loopback` is EXCLUDED from auto per the debtor incident (CLEANUP-02).
+  3. The backfill is idempotent — re-running it produces no duplicate archives and no double side-effects (CLEANUP-02).
+
+**Plans**: 3 plans
+
+- [x] 112-01-PLAN.md — Backfill sweeper + disposition + Graph-id selection + RED tests (report mode; inert)
+- [x] 112-02-PLAN.md — Go-live flip migration (written, not applied) + verdict-worker gate test
+- [ ] 112-03-PLAN.md — Report dry-run → canary → [BLOCKING] human-gated flip apply + live verify
+
+### Phase 113: Stage 3 Sales Intent Agent (greenfield)
+
+**Goal**: A sales-specific Stage 3 intent agent exists and runs through the existing registry-driven dispatcher, so every sales email leaving Stage 1 reaches a Stage 3 verdict — with no Stage 4 handler yet, unhandled intents land cleanly in the Kanban human-lane.
+**Depends on**: Phase 110 (full-funnel swarm row with `stage3_coordinator_agent_key`; Bulk Review to observe verdicts), Phase 111 (Stage 1 flip so the Stage 3 denominator reflects real sales traffic).
+**Depends on (external/cross-track)**: none.
+**Requirements**: STAGE3-01, STAGE3-02, STAGE3-03
+**Success Criteria** (what must be TRUE):
+
+  1. A new Orq `sales-intent-agent` is registered in `orq_agents`, `swarm_intents` rows are seeded, `swarms.stage3_coordinator_agent_key` is set, and dispatch runs through the existing shared Stage 3 dispatcher with no edits to it (STAGE3-01).
+  2. The sales intent vocabulary is seeded from the 827-email live corpus + the Phase 86 open-set discovery surface — emerging from data + operator promotion, never hand-curated (honors the locked 2026-05-19 principle) (STAGE3-02).
+  3. After the Stage 1 flip, every sales email leaving Stage 1 reaches a Stage 3 verdict; intents with no Stage 4 handler land in the Kanban human-lane (Phase 76) with a clear reason — zero silent dead-letters (STAGE3-03).
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 114: Stage 2 Resolver Reuse — cross-swarm generality proof
+
+**Goal**: Sales-email Stage 2 resolves customers by reusing the v8.2 NXT resolver purely via per-swarm config — the concrete cross-swarm generality claim — with the debtor-only self-auth tier degrading to a no-op and customer-less prospects falling through to Stage 3.
+**Depends on**: Phase 110 (`stage2_entity_resolver` + `resolution_config` populated on the swarm row).
+**Depends on (external/cross-track)**: v8.2 RESL-01/02/03 (the dynamic-dispatch resolver seam in the parallel debtor workspace). Sequenced to land AS that seam lands; interleaves with — does NOT block — the rest of V9.0.
+**Requirements**: STAGE2-01, STAGE2-02
+**Success Criteria** (what must be TRUE):
+
+  1. Sales Stage 2 resolves customers via `swarms.stage2_entity_resolver` + `resolution_config` (the RESL-03 dynamic-dispatch seam) with **zero Engine code changes** — config-only onboarding, verified by a no-Engine-diff check (STAGE2-01).
+  2. The debtor-only self-auth resolution tier degrades to a no-op for sales, verified by a designed acceptance test (STAGE2-02).
+  3. Customer-less prospects (no NXT match) fall through to Stage 3 without blocking the pipeline (STAGE2-02).
+
+**Plans**: TBD
+
+### Phase 115: SugarCRM Dead-Code Decommission
+
+**Goal**: The dead SugarCRM code surface and stale registry notes are removed now that the live path is fully off Sugar — a clean-up that shrinks the attack/maintenance surface without touching any live behavior.
+**Depends on**: Nothing within V9.0 (independent cleanup). Can run last or in parallel. Confirm no live consumer first.
+**Depends on (external/cross-track)**: none.
+**Requirements**: SUGAR-01
+**Success Criteria** (what must be TRUE):
+
+  1. `web/lib/automations/sales-email-analyzer/` (incl. `fetch-sugarcrm-emails.ts`), `web/app/api/automations/smeba/sugarcrm-search`, `…/write-analysis`, and the stale `zapier_tools` Sugar note are removed (SUGAR-01).
+  2. A pre-removal check confirms no live path depends on the removed surface; the build / typecheck / tests stay green after removal (SUGAR-01).
+
+**Plans**: TBD
+
+---
 
 ### V10.0 Promotion Recommender + Learning Inbox + Reply-Tracing — DEFINED (re-sequenced 2026-06-02; was V9.0)
 
@@ -245,6 +408,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 ---
 
 </content>
+
 ## Backlog
 
 ### Phase 999.1: UK/IE mailbox onboarding — apply 60-08 corpus-backfill + spot-check pipeline (BACKLOG)
@@ -254,6 +418,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 **Trigger:** When the first UK or IE debtor mailbox is operationally onboarded — env var provisioned, NXT entity registered, or stakeholder ask.
 
 **Scope:**
+
 1. Add UK/IE rows to `debtor.labeling_settings` (e.g. `debiteuren@<entity>.uk`, `debiteuren@<entity>.ie`)
 2. Verify Outlook ingest is wired for those mailboxes (Zapier trigger + ingest route)
 3. Collect 1-2 weeks of UK/IE traffic in `email_pipeline.emails`
@@ -272,14 +437,16 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 **Effort:** ~half-day engineering (mostly ops + spot-check time, regex tuning iterative)
 
 **Reference docs:**
+
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-08-PLAN.md` — methodology
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-08-RUNBOOK.md` — operator script
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 4 plans
+**Plans:** 2/3 plans executed
 
 Plans:
+
 - [ ] TBD (promote with /gsd-review-backlog when first UK/IE mailbox lands)
 
 ### Phase 999.2: Unified Email Bulk Review surface — cross-swarm inbox with permission scoping (BACKLOG)
@@ -305,6 +472,7 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
+
 - [x] 999.4-01-PLAN.md — Wave 0: live Orq Router smoke (gate A1+A2+A3) + RED test scaffolds for client.test, stage-0-safety-worker.test, classifier-screen-worker.test, automation-runs-sweeper.test
 - [ ] 999.4-02-PLAN.md — Fix B: OrqClientTimeoutError class + 45s AbortController deadline at the existing invokeOrqAgent fetch boundary; Stage 0 worker try/catch coerces verdict=safe ONLY on OrqClientTimeoutError (D-01..D-04)
 - [ ] 999.4-03-PLAN.md — Fix C: invokeOrqModel sibling helper + 60s system-prompt cache; swap stage-0-safety-classifier and stage-1-category-classifier call sites onto POST /v2/router/chat/completions (D-05..D-08)
@@ -317,11 +485,13 @@ Plans:
 **Why backlogged:** raised 2026-05-07 while patching the Stage 0 ingest collision (commit `d49b919`). The collision fix unblocks the immediate production issue; this phase removes the latent footgun. Not urgent — the legacy fetcher is already mostly silent — but worth a clean shutdown so the next regression-hunter doesn't lose a day to it.
 
 **Open questions** (resolve at start of /gsd-discuss-phase):
+
 1. Where does the legacy fetcher live? `web/debtor-email-analyzer/src/fetch-emails.ts` is a CLI (not a cron) that writes without `source` (so rows default to `'outlook'`). Are there other writers? Is anything still calling it?
 2. Are downstream consumers of `source='outlook'` rows (e.g. `web/lib/automations/email-insights/configs/debtor.json` which filters on `source='outlook'`) impacted by switching to `source='zapier-debtor-ingest'`? If yes, decide: rewrite filters, or backfill/migrate the source label.
 3. Sales-email uses `source='sugarcrm'` (34k rows) and is unaffected — confirm scope is debtor-only.
 
 **Recommended staging:**
+
 1. Audit who/what writes `source='outlook'` for debtor mailboxes today (likely: nobody actively, but verify).
 2. Disable any active writer (cron job / CLI invocation / Zapier task).
 3. Update analyzer filters to read from `source IN ('outlook', 'zapier-debtor-ingest')` for historical continuity, OR backfill old `source='outlook'` debtor rows to a unified label.
@@ -330,6 +500,7 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
+
 - [ ] TBD (promote with /gsd-review-backlog when ready to scope)
 
 ### Phase 999.4: Stage 0 LLM-verdict timeout / Orq fallback-chain hardening (BACKLOG)
@@ -347,12 +518,14 @@ Plans:
 **Recommendation:** ship Fix B first (immediate stability) then file Fix C as observability work to track Orq tail latency over time. Both could ship in one phase.
 
 **Related signals** (worth correlating):
+
 - Pre-existing 405 OData / ZapierRelayError ReadTimeout errors in Vercel logs (different Inngest function, `categorize` step) likely share root cause: Zapier-relayed external calls timing out under load.
 - The 11,758-token Stage 0 outlier suggests body truncation upstream may also be useful.
 
 **Plans:** 4 plans
 
 Plans:
+
 - [ ] TBD (promote with /gsd-review-backlog when ready to scope)
 
 ### Phase 999.5: ~~Restore Stage 0/1 cost_cents~~ — CANCELLED 2026-05-07
@@ -360,6 +533,7 @@ Plans:
 **Status:** CANCELLED. The phase premise (cost_cents = 0 after Plan 03 Router swap) is no longer applicable — Plan 03 was reverted (see commit `31fc9ce`) after empirical evidence on 2026-05-07 showed the Orq Agents-product queue-stuck issue isn't chronic (50 most recent Stage 0/1 traces all healthy, median ~1.5s, p99 < 8s, zero outliers >10s). Stage 0/1 stays on the Agents path (`/v2/agents/{key}/responses`), which already returns per-call billing on the response — `cost_cents > 0` keeps working without any reconciliation pipeline.
 
 **Findings worth preserving (locked while researching):**
+
 - Cost field path on Orq traces: `attributes.orq.billing.total_cost` (USD float, e.g. `0.003193` for one Stage 0 call). Available for both `product=agents` and `product=router` traces.
 - Trace `name` field equals our `agent_key` exactly (`stage-0-safety-classifier`, `stage-1-category-classifier`) — easy correlation if we ever need trace reconciliation.
 - Custom `metadata.*` is arbitrary key/value, persisted on the trace — pass `metadata: { agent_run_id }` at invoke for 1:1 correlation back to `agent_runs.id`.
@@ -378,6 +552,7 @@ Plans:
 **Why:** Today these emails flow through to `category_key='unknown'`, burn an LLM call, then waste an NXT contact + identifier lookup, and finally surface as "unresolved" at Stage 2 — pure noise the resolver can't help with anyway.
 
 **Concrete sample (2026-05-07):**
+
 - email_id `365cc739-5973-4362-8a47-a7d489a3b0f6`
 - Subject: "IKEA would like to connect with you on SAP Business Network"
 - Sender: `noreply@us.bn.cloud.ariba.com`
@@ -385,6 +560,7 @@ Plans:
 - Discovered during `/gsd-debug stage1-unknown-no-dispatch` deep-dive
 
 **Pattern candidates (to validate before promotion):**
+
 - Sender domain regex: `\.bn\.cloud\.ariba\.com$`
 - Subject regex (case-insensitive): `SAP Business Network|would like to connect|ariba network`
 
@@ -395,6 +571,7 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (promote with /gsd-review-backlog when 2-3 cross-entity samples are collected)
 
 ### Phase 999.7: Stage 0 budget-breach failures on long emails (BACKLOG)
@@ -404,16 +581,19 @@ Plans:
 **Why backlogged:** raised 2026-05-07 — newly identified as a distinct root cause for "email row not found" symptoms, separate from the earlier race-mode failures (12:59 / 13:11). Decide approach next week.
 
 **Concrete samples (2026-05-07 14:46):**
+
 - `budget breach: token_count 12358 > 5000` (smeba-fire, 14:46:45) — 2.5× over budget
 - `budget breach: token_count 12362 > 5000` (smeba.nl, 14:46:44) — 2.5× over budget
 
 **Two options to weigh at /gsd-discuss-phase:**
+
 1. **Raise the Stage 0 token budget** — simplest; pick a ceiling that covers the realistic long-email tail (e.g. 16k or 32k) and accept the marginal cost.
 2. **Truncate body upstream before Stage 0** — keep budget tight; truncate at ingest (head + tail window, or strip quoted history / signatures). Preserves cost discipline; needs care so injection content isn't smuggled past the safety check via truncation.
 
 Hybrid is plausible (raise budget moderately + add quoted-history strip).
 
 **Open questions:**
+
 - Where exactly is the 5000-token budget configured (Stage 0 worker code vs Orq agent settings)?
 - Is the rejection path emitting a clean failure status on `automation_runs`, or is it the source of stale `pending` rows that the 999.4 sweeper would also catch?
 - Distribution: how many emails/day breach? If <1/day, raise-budget is fine; if many, truncation pays off.
@@ -423,6 +603,7 @@ Hybrid is plausible (raise budget moderately + add quoted-history strip).
 **Plans:** 3 plans
 
 Plans:
+
 - [ ] 999.7-01-PLAN.md — Wave 0: install email-reply-parser, seed fixtures, write RED tests for strip helper + bump budget-counter assertion
 - [ ] 999.7-02-PLAN.md — Wave 1: ship strip-quoted-history.ts + bump BUDGET_CEILING_TOKENS to 16000 with role-split comment
 - [ ] 999.7-03-PLAN.md — Wave 2: wire strip step into Stage 0 worker, extend telemetry dual-write, lock ORIGINAL body forwarding to Stage 1
@@ -438,6 +619,7 @@ Plans:
 Compounding this, `labeling-flip-cron.ts:94-122` aggregates `agent_runs.human_verdict` per mailbox into a single Wilson-CI lower bound — predictor-blind. Wrong LLM calls (which arrive *because* the regex abstained) currently get counted into the same accuracy stream as wrong regex calls. Worst case: an LLM that mis-classifies "invoice correction request" → `payment_admittance` at medium confidence drags the per-mailbox CI low enough to demote the regex's `dry_run=false` status, even though the regex rules themselves are unchanged.
 
 **Motivating sample (2026-05-08):**
+
 - email_id `09823c92-f6c4-4bce-bb9c-e7935e508e40` (mailbox `debiteuren@smeba-fire.be`, entity `smeba-fire`)
 - Subject: "FW: Invoice 17338747" from `Therese.Hendriks@ago-groep.nl`
 - Stage 1 regex: `no_match` → unknown
@@ -447,15 +629,18 @@ Compounding this, `labeling-flip-cron.ts:94-122` aggregates `agent_runs.human_ve
 - Full trace: `agent_runs.id=57097576-bb47-419e-934a-41508e2f304c`, `pipeline_events` Stage 1 row at 2026-05-08 13:33:37 UTC. See NOTES.md in this phase folder.
 
 **Scope of the gate (to refine in /gsd-discuss-phase):**
+
 - Hard threshold: `categorize_archive` requires `llm_confidence === "high"`. `medium`/`low` LLM verdicts route to a new review surface (likely a Stage 1 LLM low-confidence lane, distinct from the existing Stage 1 Bulk Review which currently only sees regex-promoted predictions).
 - The "unknown" → `action='reject'` (label-only-skip) escape valve stays as today.
 - Regex predictions are *not* gated by this phase — their conservatism is structural (specificity ordering + first-match-wins) and their promotion already passes through Wilson-CI on `labeling-flip-cron`. Phase 999.8 only touches the LLM 2nd-pass path.
 
 **Scope of predictor attribution (to refine in /gsd-discuss-phase):**
+
 - Every Stage 1 prediction must carry a `predictor` tag (at minimum: `regex:rule_X` | `llm_2nd_pass`). Today this is reconstructable by joining `pipeline_events.decision_details.regex.matchedRule` and `.llm_invoked`, but it is *not* on the verdict-side `agent_runs` row written by `recordVerdict` (`web/app/(dashboard)/automations/[swarm]/review/actions.ts:131-146`). The phase must thread `predictor` onto the verdict row so the feedback math can group on it without a cross-table join.
 - `labeling-flip-cron` (and any successor learning loop) must aggregate Wilson-CI per-predictor, not just per-mailbox. Minimum: regex stream vs LLM-2nd-pass stream. Whether regex splits further per-rule is a discuss-phase open question.
 
 **Open questions for /gsd-discuss-phase:**
+
 1. **UI affordance**: should Bulk Review surface "predicted by: LLM (medium)" as a visible chip, and offer verdict classes like *"LLM was wrong — regex should be extended"* vs *"regex rule X was wrong"* — or keep the UI as-is and only split server-side?
 2. **Regex attribution granularity**: LLM-vs-regex (2 streams) or LLM-vs-each-regex-rule (N streams) in the feedback math?
 3. **Low-confidence routing target**: new dedicated surface, or reuse the Stage 0 escalate-to-Kanban pattern (`escalateToKanban` in `web/app/(dashboard)/automations/[swarm]/review/actions.ts`)?
@@ -463,6 +648,7 @@ Compounding this, `labeling-flip-cron.ts:94-122` aggregates `agent_runs.human_ve
 5. **Threshold scope**: does the `high`-only gate apply uniformly across categories, or are some `swarm_noise_categories` rows (e.g. high-volume safe categories like `out_of_office`) allowed `medium` because the cost of a false positive there is lower?
 
 **Non-goals:**
+
 - Changing the LLM's output contract (still `"low"|"medium"|"high"` enum). A real top-2 + margin signal is a separate, larger phase.
 - Changing the regex-pass logic.
 - Stage 3 (coordinator / intent classifier) confidence gating — that lives in the Stage 3 RFC and is out of scope.
@@ -474,6 +660,7 @@ Compounding this, `labeling-flip-cron.ts:94-122` aggregates `agent_runs.human_ve
 **Plans:** 8 plans
 
 Plans:
+
 - [ ] 999.8-01-PLAN.md — Wave 0: RED test scaffolds for gate, predictor write, cron split, page filter
 - [ ] 999.8-02-PLAN.md — Wave 1: agent_runs.predictor migration + denormalize predictor onto pipeline_events + swarm_type reconciliation (cron filter realign to 'debtor-email')
 - [ ] 999.8-03-PLAN.md — Wave 2: confidence gate in classifier-screen-worker + classifier/screen.requires_review event (D-01, D-10)
@@ -488,6 +675,7 @@ Plans:
 **Goal:** Onboard `info@smeba.nl` as its own swarm (`swarm_type='info-routing'`, `entity_brand='smeba'`) using only registry inserts — proving the cross-swarm thesis on a second swarm type after debtor-email + sales-email. Stage 0→1 noise filter for ~61 inbound emails/day; Stage 3 ships as a shadow placeholder with a single `triage_required` intent. Real router vocabulary (department-routing) emerges through Phase 86's discovery surface — never hand-curated.
 
 **Hard prerequisites (cannot start until ALL four close):**
+
 - Phase 78 (build-time codegen for `swarm_intents` + `swarm_noise_categories` literal-union TS types)
 - Phase 84 (`swarms.tenant_domains` column + own-domain loopback rule + codegen)
 - Phase 85 (Stage 3 prompt v3 + V3 schema with `intent_proposal` field)
@@ -496,18 +684,21 @@ Plans:
 Earliest practical start = V8.2 cycle, after `/gsd-audit-milestone v8.1` confirms 78/84/85/86 all landed.
 
 **Pre-work already done (Spikes 001-004, 2026-05-19):**
+
 - 5,505 rows of `info@smeba.nl` 90-day corpus persisted in `email_pipeline.emails` (idempotent on `source_id`; re-runs cheap)
 - Cross-tenant Graph access via `zapier@moyneroberts.com` connection `56014785` verified
 - 7-rule first-match-wins noise classifier proven against corpus: 76.9% noise coverage (~14 emails/day reach Stage 3, ~7/day real business email)
 - Cross-swarm rule transferability quantified: 56% of debtor-email's production regex transfers cleanly (`spam`, `payment_admittance`, `auto_reply`, `ooo_temporary`, `ooo_permanent`); +1 new rule (`generic_noreply_notification`, 4.0% volume); `own_domain_loopback` (17.9%) inherits Phase 84
 
 **Reference documents (read before /gsd-discuss-phase 999.9):**
+
 - Full proposal: `docs/designs/2026-05-19-smeba-info-routing-swarm-proposal.md` (5 open plan-time questions kept deliberately unresolved)
 - Implementation blueprint: `.claude/skills/spike-findings-agent-workforce/references/info-routing-swarm-phase-88.md` (auto-loads via CLAUDE.md routing line)
 - Spike series + verdicts: `.planning/spikes/MANIFEST.md`
 - Architecture canon: `docs/agentic-pipeline/README.md` + `stage-1-regex.md`
 
 **Open plan-time questions (deferred to /gsd-discuss-phase 999.9):**
+
 1. Does `generic_noreply_notification` ship info-routing-only or promote cross-swarm to debtor-email?
 2. Outlook label vocabulary — share debtor-email labels or info-routing-specific labels?
 3. `payment_admittance` archive-vs-forward — debtor-email archives; info-routing might forward to finance since this IS the misroute case (62 of 5,316 emails over 90d are misrouted payment confirmations)
@@ -520,6 +711,7 @@ Earliest practical start = V8.2 cycle, after `/gsd-audit-milestone v8.1` confirm
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (run /gsd-discuss-phase 999.9 once v8.1 phases 78/84/85/86 are confirmed live)
 
 ### Phase 999.10: Bulk Review queue — per-stage dry-run indicator + condensed action-pill row (BACKLOG)
@@ -539,4 +731,5 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (promote with /gsd-review-backlog when ready)

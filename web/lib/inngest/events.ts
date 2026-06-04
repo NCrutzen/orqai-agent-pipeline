@@ -205,13 +205,18 @@ export type Events = {
       automation_run_id: string;
       agent_run_id: string;
       swarm_type: string;
-      rule_key: string;
+      // Phase 111 WR-02: rule_key/entity are OPTIONAL — the
+      // classifier-screen-worker emit sites (emit-verdict-unknown /
+      // emit-verdict) send neither. The consumer (classifier-verdict-worker)
+      // never reads them. Marking optional makes the type match the wire
+      // shape instead of silently lying about a required-field contract.
+      rule_key?: string;
       decision: "approve" | "reject";
       message_id: string;
       source_mailbox: string;
-      entity: string;
+      entity?: string | null;
       predicted_category: string;
-      override_category?: string;
+      override_category?: string | null;
     };
   };
 
@@ -802,6 +807,42 @@ export type Events = {
       until: string;
       sample_limit?: number;
       run_id?: string;
+    };
+  };
+  // Phase 111 Plan 03 (D-01) — one-shot Stage-1 noise retro-classification
+  // trigger for the sales-email swarm. Side-Channel Isolation: handler writes
+  // ONLY to stage_1_retro_runs; never to automation_runs / agent_runs /
+  // pipeline_events; emits no downstream events.
+  "sales-email/stage-1-retro-classify.requested": {
+    data: {
+      swarm_type: "sales-email";
+      since: string;
+      until: string;
+      sample_limit?: number;
+      run_id?: string;
+      // Phase 111 WR-03: FIXED reference disposition for the would_archive
+      // calibration signal. When provided, would_archive is computed against
+      // this explicit set of category keys (deterministic regardless of the
+      // live swarm_noise_categories.action flip apply order). When omitted,
+      // the harness falls back to the LIVE action map and stamps that choice
+      // in the run output so the evidence is still interpretable.
+      archive_reference_keys?: string[];
+    };
+  };
+  // Phase 112 Plan 01 (CLEANUP-02) — one-shot Stage-1 noise BACKFILL sweeper
+  // for the sales-email swarm. Ships INERT: mode defaults to 'report' (zero
+  // Graph writes, zero pipeline_events/automation_runs inserts). 'canary' caps
+  // auto-archives at `limit`; 'full' sweeps all. Auto-set is registry-derived
+  // (action='categorize_archive' minus loopback); ambiguous → Bulk Review;
+  // loopback skipped entirely (D-05/D-06). Idempotent on re-run (D-08).
+  "sales-email/stage-1.backfill": {
+    data: {
+      mode?: "report" | "canary" | "full";
+      // Auto-archive cap for mode='canary'.
+      limit?: number;
+      // Optional corpus window override (defaults to a 365-day lookback).
+      since?: string;
+      until?: string;
     };
   };
 };
