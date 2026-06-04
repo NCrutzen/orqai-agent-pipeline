@@ -853,4 +853,19 @@ export type Events = {
   "sales-email/folder-convention.requested": {
     data: Record<string, never>;
   };
+
+  // Phase 112.5 Plan 04 (SC-1/SC-2) — registry-driven Outlook behaviour delta-sync.
+  // Cron (business-hours) + this event drive the same worker. It iterates ALL
+  // public.swarms rows with behavior_tracking_config.enabled=true (no hardcoded
+  // swarm list), polls each tracked folder, extracts transitions, derives review
+  // signals (incl. restore=correctie_false_positive via a swarm_type-scoped
+  // pipeline_events stage-4 ledger join) and writes idempotently to
+  // swarm_email_transitions + swarm_review_signals. The first run per folder is
+  // a bootstrap (0 signals, only the deltaLink + folder-map persisted).
+  // Optional data.swarm_type narrows the run to a single enabled swarm.
+  "swarm/behavior-sync.requested": {
+    data: {
+      swarm_type?: string;
+    };
+  };
 };
