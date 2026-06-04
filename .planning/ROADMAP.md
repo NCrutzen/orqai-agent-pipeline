@@ -279,7 +279,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 111. Stage 1 Noise Expansion + Calibration | 5/5 | Complete   | 2026-06-03 |
 | 112. Outlook Cleanup + Backfill | 3/3 | Complete   | 2026-06-04 |
 | 112.5 Outlook Behavior Tracking | 4/4 | Complete (activatie uitgesteld) | 2026-06-04 |
-| 114. Stage 2 Resolver Reuse *(executes before 113)* | 6/7 | In Progress|  |
+| 114. Stage 2 Resolver Reuse *(executes before 113)* | 7/7 | Complete   | 2026-06-04 |
 | 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
 | 115. SugarCRM Dead-Code Decommission | 0/TBD | Not started | - |
 
@@ -412,7 +412,7 @@ Plans:
 - [x] 114-04-PLAN.md — Sales resolve-customer adapter + offerte/order/Sites lookups (nxtRequest) + one dispatch line + real resolution_config seed + registry-driven worker rewire + [BLOCKING] apply (wave 2)
 - [x] 114-05-PLAN.md — STAGE2-02 acceptance tests (self-auth no-op + unresolved fall-through) + STAGE2-01 no-Engine-diff guard + D-02 rebase note (wave 3)
 - [x] 114-06-PLAN.md — [gap] Worker fixes: CR-01 generic-path brand_id from config.scope.brand_scope, CR-02 entity_brand type-guard, WR-01 config-sourced nxt_database + worker tests (wave 1)
-- [ ] 114-07-PLAN.md — [gap] Sales adapter/lookup hardening: WR-02 postcode gating+medium confidence, WR-03 order \b anchor, WR-04 surface attempted identifiers, WR-05 quoted-header sender scope, IN-01 import merge (wave 1)
+- [x] 114-07-PLAN.md — [gap] Sales adapter/lookup hardening: WR-02 postcode gating+medium confidence, WR-03 order \b anchor, WR-04 surface attempted identifiers, WR-05 quoted-header sender scope, IN-01 import merge (wave 1)
 
 ### Phase 115: SugarCRM Dead-Code Decommission
 
@@ -475,7 +475,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 6/7 plans executed
+**Plans:** 7/7 plans complete
 
 Plans:
 
