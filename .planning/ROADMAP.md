@@ -446,10 +446,18 @@ Plans:
 **Plans**: 6 plans (4 waves)
 
 Plans:
+**Wave 1**
+
 - [ ] 116-01-PLAN.md — Generic email_attachments table + private Storage bucket + RLS + attachment_config registry switches (ATTACH-05) [wave 1]
 - [ ] 116-02-PLAN.md — Graph attachment helpers + unpdf install + swarm-agnostic extract service (unpdf text-layer + Orq vision fallback) (ATTACH-02) [wave 1]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 116-03-PLAN.md — Registry-gated metadata capture in sales + debtor ingest routes (ATTACH-01) [wave 2]
 - [ ] 116-04-PLAN.md — Stage-1.5 extraction funnel-step worker + registry dispatch rewire (ATTACH-02) [wave 2]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 116-05-PLAN.md — Stage 2 adapter-side body_text concat (STAGE2-01-safe) + Bulk Review detail-pane attachment display (ATTACH-03, ATTACH-06) [wave 3]
 - [ ] 116-06-PLAN.md — Gated corpus backfill worker (metadata all / extraction survivors-only) (ATTACH-04) [wave 3]
 
@@ -462,7 +470,6 @@ T2 synthesis on captured `email_feedback`, Learning Inbox tab on Bulk Review, da
 ### V11.0 Intent-Prioritised Handlers — DEFINED
 
 Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler-scaffolding template; dispatch via `swarm_intents.handler_event` registry. Depends on V9.0 (sales second-swarm intent volume) + V10.0 (operator-promoted intent definitions).
-
 
 ---
 

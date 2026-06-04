@@ -4,12 +4,12 @@ milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
 stopped_at: Phase 116 context gathered
-last_updated: "2026-06-04T17:50:59.965Z"
-last_activity: 2026-06-04
+last_updated: "2026-06-04T18:36:19.262Z"
+last_activity: 2026-06-04 -- Phase 116 planning complete
 progress:
   total_phases: 10
   completed_phases: 6
-  total_plans: 35
+  total_plans: 41
   completed_plans: 28
   percent: 60
 ---
@@ -70,7 +70,7 @@ Status: Ready to execute
 Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — COMPLETE (go-live verified 2026-06-04)
 Plan: 3 of 3
 Status: Sales Stage-1 Outlook archive LIVE (`stage_1_archive=false`, migration `sales_stage1_archive_golive`); backfill complete (67 archived / 38 sugar-skip / ~1650 queued predicted); loopback disabled + supplier_bank_change demoted after canary findings
-Last activity: 2026-06-04
+Last activity: 2026-06-04 -- Phase 116 planning complete
 
 **Phase 112 incident (2026-06-04):** prod ran pre-110-04 code without the per-stage gate → loopback rule archived 141 real internal forwards since May 21. Emergency stop + full restore + gate-code deployed (PR #61) + canary bugfixes (PR #65: global canary cap, Graph-400 skip). Learning `52930d32`. Details: `phases/112-*/112-03-SUMMARY.md`.
 
