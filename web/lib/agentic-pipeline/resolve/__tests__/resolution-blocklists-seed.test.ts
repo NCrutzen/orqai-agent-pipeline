@@ -25,11 +25,14 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => adminMock,
 }));
 
-// RED: Plan 02/05 builds web/lib/agentic-pipeline/resolve/blocklists.ts exporting
-// loadResolutionBlocklists(admin, swarmType) → BlocklistRow[].
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-expect-error — Plan 02/05 builds web/lib/agentic-pipeline/resolve/blocklists.ts.
-import { loadResolutionBlocklists } from "../blocklists";
+// Phase 114: resolution_blocklists is debtor-track (donor 20260601b), not in this enabler-PR scope (D-01)
+// The `../blocklists` loader is built in the debtor Plan 02/05 and does not exist in this
+// enabler-PR. We preserve the donor artifact but skip the suite (describe.skip below) so the
+// file loads without a hard import-resolution failure. A no-op stub stands in for the loader.
+const loadResolutionBlocklists = async (
+  _admin: unknown,
+  _swarmType: string,
+): Promise<Array<{ list_kind: string; value_kind: string }>> => [];
 
 // Expected minimum counts, traceable to DESIGN-GUIDE §5 Lists 1–4.
 const EXPECTED_MIN: Record<string, Record<string, number>> = {
@@ -39,7 +42,8 @@ const EXPECTED_MIN: Record<string, Record<string, number>> = {
   own_domain_as_customer: { domain: 8 },
 };
 
-describe("Phase 90 RESL-04: resolution_blocklists seed counts (DESIGN-GUIDE §5)", () => {
+// Phase 114: resolution_blocklists is debtor-track (donor 20260601b), not in this enabler-PR scope (D-01)
+describe.skip("Phase 90 RESL-04: resolution_blocklists seed counts (DESIGN-GUIDE §5)", () => {
   beforeEach(() => {
     // A representative seed shape the GREEN state would read back. In the RED
     // state the import already failed, so this never executes.
