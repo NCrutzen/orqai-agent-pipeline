@@ -404,7 +404,12 @@ Plans:
   2. The debtor-only self-auth resolution tier degrades to a no-op for sales, verified by a designed acceptance test (STAGE2-02).
   3. Customer-less prospects (no NXT match) fall through to Stage 3 without blocking the pipeline (STAGE2-02).
 
-**Plans**: TBD
+**Plans**: 5 plans (3 waves)
+- [ ] 114-01-PLAN.md — Cherry-pick the v8.2 RESL-03 seam (dispatch + engine + config + steps + debtor adapter refactor) verbatim; donor suite green (wave 1)
+- [ ] 114-02-PLAN.md — Generic email_pipeline.resolution_audit table (RLS) + stage_2_resolution dry-run gate key + [BLOCKING] migration apply (wave 1)
+- [ ] 114-03-PLAN.md — Ingest prereq fixes (has_attachments + sender_email root-cause, D-14) + data-driven identifier-mining script (D-04) (wave 1)
+- [ ] 114-04-PLAN.md — Sales resolve-customer adapter + offerte/order/Sites lookups (nxtRequest) + one dispatch line + real resolution_config seed + registry-driven worker rewire + [BLOCKING] apply (wave 2)
+- [ ] 114-05-PLAN.md — STAGE2-02 acceptance tests (self-auth no-op + unresolved fall-through) + STAGE2-01 no-Engine-diff guard + D-02 rebase note (wave 3)
 
 ### Phase 115: SugarCRM Dead-Code Decommission
 
