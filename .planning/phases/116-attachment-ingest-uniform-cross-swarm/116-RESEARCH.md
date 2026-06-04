@@ -392,19 +392,21 @@ if (captureOn && meta.hasAttachments) { /* listAttachments + insert rows */ }
 | A4 | Graph `$value` on a `fileAttachment` returns the raw file bytes; itemAttachment/referenceAttachment types are out of v1 scope (treat as `unsupported`). | Pitfall 5 | MEDIUM — reference attachments (OneDrive links) carry no bytes; must be handled as a status, not a crash. |
 | A5 | The corpus is ~1,273 sales mails (from the folded todo); exact count + attachment-bearing fraction should be measured at plan time to size caps. | Backfill / Caps | LOW — affects cap tuning + cost estimate, not architecture. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Orq vision model catalog ID (OQ-1).**
+*All three questions were resolved at planning time (2026-06-04); the decisions are encoded in the Phase 116 plans.*
+
+1. **Orq vision model catalog ID (OQ-1).** — **RESOLVED:** Plan 02 Task 2 uses `anthropic/claude-sonnet-4-5-20250929` via the ad-hoc Orq Router (the same live, `list_models`-validated catalog ID already used by `detect-system.ts` in the support-tickets swarm). A task note allows swapping to a cheaper EU vision model only if `list_models`-validated first per CLAUDE.md.
    - What we know: D-09 mandates Orq.ai Router vision; CLAUDE.md lists Anthropic vision-capable models (e.g. `aws/eu.anthropic.claude-*`), Gemini, GPT-4o — all vision-capable.
    - What's unclear: which exact catalog ID to use, and whether it's invoked via the `orq_agents` registry (a new vision agent row) or the ad-hoc Router. Must `list_models`-validate before binding (CLAUDE.md hard rule — PATCH accepts unknown IDs silently).
    - Recommendation: plan a task to `list_models`, pick a vision-capable EU-hosted model, and register it (registry row, not env var) following the `support-tickets` Orq precedent (that swarm already does vision — copy its model choice/invocation).
 
-2. **Extraction worker shape — dedicated vs inline (OQ-2).**
+2. **Extraction worker shape — dedicated vs inline (OQ-2).** — **RESOLVED:** Plan 04 implements the recommended dedicated `stage-1.5-attachment-extractor` worker; the verdict worker's dispatch is rewired via registry (migration in Plan 04 Task 1), and the extractor passes straight through to the registry-derived Stage 2 event (`attachment_config.stage2_dispatch_event`) when `extract` is OFF.
    - What we know: Pattern 2 recommends a dedicated `stage-1.5` worker for fail-soft isolation + cap gating.
    - What's unclear: whether the pass-through-when-OFF path is cleanest as the worker emitting Stage 2 immediately, vs the verdict worker conditionally choosing the target event.
    - Recommendation: dedicated worker; verdict worker always emits the extraction event; the extractor decides (registry switch) whether to extract or pass straight through to the Stage 2 event. Keeps verdict worker change to one line.
 
-3. **PDF rasterization for scanned docs (OQ-3).**
+3. **PDF rasterization for scanned docs (OQ-3).** — **RESOLVED:** Plan 02 Task 2 passes the original PDF/image bytes to the Orq vision model directly (Claude Sonnet accepts PDF input natively); no separate rasterization step is built. jpg/png attachments need no rasterization (D-10).
    - What we know: text-layer parse is `unpdf.extractText`; the vision fallback needs page images.
    - What's unclear: best rasterization path inside the worker (unpdf rendering, or send the whole PDF to a vision model that accepts PDFs directly — some do).
    - Recommendation: spike at plan time; if the chosen Orq vision model accepts PDF input directly, skip rasterization entirely. jpg/png attachments need no rasterization (D-10).
