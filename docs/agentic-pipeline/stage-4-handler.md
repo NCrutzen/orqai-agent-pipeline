@@ -60,6 +60,17 @@ Adding a new tool is a single `INSERT` into `zapier_tools`; no code change, no V
 
 [`web/lib/automations/debtor-email/nxt-zap-client.ts`](../../web/lib/automations/debtor-email/nxt-zap-client.ts) is the canonical client wrapper that reads a `tool_id` from `zapier_tools`, applies the row's auth method, and dispatches the call. Other handlers reuse this client rather than rolling their own tool-call shim.
 
+### Two NXT access paths — pick the right one
+
+A handler needing NXT data has **two** distinct backends; they are complementary, not alternatives:
+
+| Path | Use for | Client |
+|---|---|---|
+| **Zapier-SQL / S3** (whitelisted IP) | Raw NXT SQL queries, document/S3 fetch | `zapier_tools` registry → `nxt-zap-client.ts` |
+| **Direct REST `/api/*`** (token-harvest) | Anything the NXT SPA itself does: customer/site/item search, price determination, order creation | `nxt-zapier/nxt-client.ts` (`nxtRequest`) or the hosted proxy `POST /api/automations/nxt/proxy` |
+
+The REST path harvests the Auth0 Bearer token server-side via Browserless and caches it — a handler never touches a token. Full contract + security model: [`docs/nxt-rest-access.md`](../../docs/nxt-rest-access.md). For handlers/skills running **outside** the agent-workforce repo, the same proxy is exposed via the MCP server in [`tools/nxt-mcp/`](../../tools/nxt-mcp/).
+
 ## Allowed-Intents Allowlist (forward-ref Phase 64)
 
 Per BUDG-02, Phase 64 adds an `allowed_for_intents text[]` column to `zapier_tools`. Each tool row will declare which intents may invoke it -- a copy-document handler cannot reach a payment-update tool because the payment-update tool's row will not list the `invoice_copy_request` intent in its `allowed_for_intents` array. Today this column **does not exist**; intent-to-tool mapping is implicit in handler code. Mark explicitly as forward-reference: this is the target shape, not the today-state.
