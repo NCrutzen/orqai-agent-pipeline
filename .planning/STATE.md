@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
-stopped_at: Phase 112 complete — sales Stage-1 archive LIVE
-last_updated: "2026-06-04T09:05:00.000Z"
-last_activity: 2026-06-04 -- Phase 112 complete (go-live flip applied after incident + canary)
+stopped_at: Phase 112.5 complete — behavior tracking deployed (disabled tot Sugar cut-over)
+last_updated: "2026-06-04T13:10:00.000Z"
+last_activity: 2026-06-04 -- Phase 112.5 complete (PR #66 merged; activatie uitgesteld tot Sugar cut-over)
 progress:
   total_phases: 8
-  completed_phases: 4
-  total_plans: 24
-  completed_plans: 17
-  percent: 50
+  completed_phases: 5
+  total_plans: 28
+  completed_plans: 21
+  percent: 56
 ---
 
 # Project State
@@ -57,11 +57,16 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 112 COMPLETE → next Phase 113 (Stage 3 Sales Intent Agent)
+**Current focus:** Phase 112.5 COMPLETE (activatie ⏸ tot Sugar cut-over) → next Phase 113 (Stage 3 Sales Intent Agent)
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
+Phase: 112.5 (outlook-behavior-tracking-passive-review-signals) — COMPLETE (PR #66 merged 2026-06-04; activatie uitgesteld tot Sugar cut-over)
+Plan: 4 of 4
+Status: Behavior-tracking code live-deployed maar registry-disabled (Power Automate veegt verkoop@ naar Sugar Archive tot de harde cut-over, datum onbekend). Reactivatie = runbook docs/swarm-behavior-tracking.md + todo 2026-06-04-sugar-cutover-enable-behavior-tracking. Folder-conventie-vraag beantwoord: afgehandeld-boom ~58k vs Archief 80 (zeer consistent).
+
+**Phase 112 outcome (zelfde dag):**
 Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — COMPLETE (go-live verified 2026-06-04)
 Plan: 3 of 3
 Status: Sales Stage-1 Outlook archive LIVE (`stage_1_archive=false`, migration `sales_stage1_archive_golive`); backfill complete (67 archived / 38 sugar-skip / ~1650 queued predicted); loopback disabled + supplier_bank_change demoted after canary findings
