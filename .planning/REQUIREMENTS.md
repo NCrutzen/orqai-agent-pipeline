@@ -40,8 +40,8 @@ Requirements for V9.0. Each maps to a roadmap phase (110+).
 
 ### Stage 2 — Resolver Reuse (cross-track dependency: v8.2 RESL-01/02/03)
 
-- [ ] **STAGE2-01**: Sales-email Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config (`stage2_entity_resolver` + `resolution_config`, the RESL-03 dynamic-dispatch seam) — **zero Engine code changes** (the cross-swarm generality proof). Sequenced to land as the v8.2 seam lands; interleaves with, does not block, the rest of V9.0.
-- [ ] **STAGE2-02**: The debtor-only self-auth resolution tier degrades to a no-op for sales (designed acceptance test); customer-less prospects fall through to Stage 3 without blocking.
+- [x] **STAGE2-01**: Sales-email Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config (`stage2_entity_resolver` + `resolution_config`, the RESL-03 dynamic-dispatch seam) — **zero Engine code changes** (the cross-swarm generality proof). Sequenced to land as the v8.2 seam lands; interleaves with, does not block, the rest of V9.0.
+- [x] **STAGE2-02**: The debtor-only self-auth resolution tier degrades to a no-op for sales (designed acceptance test); customer-less prospects fall through to Stage 3 without blocking.
 
 ### Stage 3 — Sales Intent Agent (greenfield)
 
@@ -98,11 +98,12 @@ Which phases cover which requirements. Populated by the roadmapper.
 | STAGE3-01 | Phase 113 | Pending |
 | STAGE3-02 | Phase 113 | Pending |
 | STAGE3-03 | Phase 113 | Pending |
-| STAGE2-01 | Phase 114 | Pending |
-| STAGE2-02 | Phase 114 | Pending |
+| STAGE2-01 | Phase 114 | Complete |
+| STAGE2-02 | Phase 114 | Complete |
 | SUGAR-01 | Phase 115 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 14 total
 - Mapped to phases: 14 (Phases 110–115)
 - Unmapped: 0 ✓
