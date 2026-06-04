@@ -141,9 +141,49 @@ export const stage2CustomerResolver = inngest.createFunction(
     const usesGenericPath = resolutionConfig !== null && resolverPath !== null;
     // The generic Stage 2 audit write is fail-closed gated.
     const stage2Blocked = isStageBlocked(swarmGate, "stage_2_resolution");
-    const entityBrand: string | null = Array.isArray(swarmGate?.entity_brand)
-      ? ((swarmGate?.entity_brand as unknown[])[0] as string | undefined) ?? null
-      : null;
+
+    // Phase 114-06 (CR-01) — generic-path brand_id. For the legacy debtor path
+    // brand_id comes from debtor.labeling_settings (settingsRow.brand_id). For
+    // the generic (sales) path NO labeling_settings row exists for the sales
+    // mailbox, so settingsRow.brand_id is always null → sender_match +
+    // factuur_match (both brand-scoped) were permanently dead. Source the brand
+    // from the swarm's resolution_config.scope.brand_scope[0] instead (sales
+    // seed: ['SB']). effectiveBrandId is what reaches resolveEntity.
+    const genericBrandId =
+      (resolutionConfig as { scope?: { brand_scope?: string[] } } | null)?.scope
+        ?.brand_scope?.[0] ?? null;
+    const effectiveBrandId = usesGenericPath ? genericBrandId : brandId;
+
+    // Phase 114-06 (WR-01) — generic-path nxt_database. The seeded sales config
+    // has no `nxt_database` key today (scope.environment_id 'BX' is NOT a db
+    // handle). Source it from config.source.nxt_database when present; the
+    // literal "nxt" remains the documented default ONLY when that key is absent,
+    // justified because every currently-onboarded NXT swarm shares the single
+    // "nxt" database handle (config-sourced first, magic-string last).
+    const genericNxtDatabase =
+      (resolutionConfig as { source?: { nxt_database?: string } } | null)?.source
+        ?.nxt_database ?? null;
+    const effectiveNxtDatabase = usesGenericPath
+      ? genericNxtDatabase ?? "nxt"
+      : nxtDatabase;
+
+    // Phase 114-06 (CR-02) — entity_brand type guard. swarms.entity_brand is
+    // operator-seeded jsonb in EITHER the legacy string-array shape (['SB']) or
+    // the post-migration object-array shape ([{code:'SB',...}]). The prior blind
+    // `[0] as string` cast produced "[object Object]" in resolution_audit and on
+    // the Stage 2→3 coordinator hand-off for the object shape. Normalize the
+    // first element to a scalar code: string passthrough, object → `.code`,
+    // anything else → null. Inline guard (NOT loadBrandRegister, which is async
+    // and would need a step.run — replay-unsafe here).
+    const firstBrand = Array.isArray(swarmGate?.entity_brand)
+      ? (swarmGate?.entity_brand as unknown[])[0]
+      : undefined;
+    const entityBrand: string | null =
+      typeof firstBrand === "string"
+        ? firstBrand
+        : firstBrand && typeof firstBrand === "object"
+          ? (firstBrand as { code?: string }).code ?? null
+          : null;
 
     // Run resolver. Errors are caught + surfaced via email_labels.error so
     // the kanban can show the failure without blocking other events.
@@ -185,8 +225,12 @@ export const stage2CustomerResolver = inngest.createFunction(
             } else {
               result = await resolver.resolveEntity(
                 {
-                  nxt_database: nxtDatabase ?? "nxt",
-                  brand_id: brandId,
+                  // Phase 114-06 — config-sourced generic-path context (CR-01 /
+                  // WR-01). Debtor path is unaffected: on that path
+                  // usesGenericPath is false, so effective* === the legacy
+                  // settingsRow values.
+                  nxt_database: effectiveNxtDatabase ?? "nxt",
+                  brand_id: effectiveBrandId,
                   conversation_id: emailRow.conversation_id ?? null,
                   from_email: emailRow.sender_email ?? null,
                   subject: emailRow.subject ?? "",
