@@ -31,6 +31,7 @@
 export interface DryRunConfig {
   stage_1_archive?: boolean;
   stage_1_cleanup?: boolean;
+  stage_2_resolution?: boolean;
   stage_3_labeling?: boolean;
   stage_4_handlers?: Record<string, boolean>;
 }
@@ -46,7 +47,7 @@ export interface SwarmLikeForGate {
  */
 export function isStageBlocked(
   swarm: SwarmLikeForGate | null | undefined,
-  stage: "stage_1_archive" | "stage_1_cleanup" | "stage_3_labeling",
+  stage: "stage_1_archive" | "stage_1_cleanup" | "stage_2_resolution" | "stage_3_labeling",
 ): boolean {
   return swarm?.dry_run_config?.[stage] ?? true;
 }
@@ -69,7 +70,7 @@ export function isHandlerBlocked(
  */
 export function resolveStageDryRun(
   swarm: SwarmLikeForGate | null | undefined,
-  stage: "stage_1_archive" | "stage_1_cleanup" | "stage_3_labeling",
+  stage: "stage_1_archive" | "stage_1_cleanup" | "stage_2_resolution" | "stage_3_labeling",
 ): boolean {
   return isStageBlocked(swarm, stage);
 }
