@@ -13,6 +13,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
+export interface AiThinking {
+  reasoning: string | null;
+  completeness_verdict_raw: string | null;
+  effective_verdict: string | null;
+  chosen_intent_raw: string | null;
+  effective_intent: string | null;
+  confidence_raw: string | null;
+  effective_confidence: string | null;
+  missing_information: string[] | null;
+  override_reason: string | null;
+  model_used: string | null;
+}
+
 export interface SubmissionRow {
   id: string;
   submission_id: string;
@@ -28,6 +41,7 @@ export interface SubmissionRow {
   clickup_status: string | null;
   clickup_task_id: string | null;
   time_to_resolve_minutes: number | null;
+  ai_thinking: AiThinking | null;
 }
 
 export interface OverrideDeltaAxis {
@@ -121,5 +135,43 @@ export async function loadSubmissions(
 
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as unknown as SubmissionRow[];
+  const rows = (data ?? []) as unknown as Omit<SubmissionRow, "ai_thinking">[];
+
+  // Batch-fetch Stage 3 pipeline_events for all submission IDs.
+  const submissionIds = rows.map((r) => r.submission_id).filter(Boolean);
+  const thinkingMap = new Map<string, AiThinking>();
+
+  if (submissionIds.length > 0) {
+    const { data: evtData, error: evtError } = await admin
+      .from("pipeline_events")
+      .select("email_id, decision_details")
+      .eq("swarm_type", "support-tickets")
+      .eq("stage", 3)
+      .in("email_id", submissionIds);
+
+    if (!evtError && evtData) {
+      for (const evt of evtData as unknown as { email_id: string; decision_details: Record<string, unknown> }[]) {
+        const d = evt.decision_details ?? {};
+        thinkingMap.set(evt.email_id, {
+          reasoning: (d.reasoning as string | null) ?? null,
+          completeness_verdict_raw: (d.completeness_verdict_raw as string | null) ?? null,
+          effective_verdict: (d.effective_verdict as string | null) ?? null,
+          chosen_intent_raw: (d.chosen_intent_raw as string | null) ?? null,
+          effective_intent: (d.effective_intent as string | null) ?? null,
+          confidence_raw: (d.confidence_raw as string | null) ?? null,
+          effective_confidence: (d.effective_confidence as string | null) ?? null,
+          missing_information: Array.isArray(d.missing_information)
+            ? (d.missing_information as string[])
+            : null,
+          override_reason: (d.override_reason as string | null) ?? null,
+          model_used: (d.model_used as string | null) ?? null,
+        });
+      }
+    }
+  }
+
+  return rows.map((r) => ({
+    ...r,
+    ai_thinking: thinkingMap.get(r.submission_id) ?? null,
+  })) as SubmissionRow[];
 }

@@ -42,6 +42,18 @@ const baseRow: SubmissionRow = {
   clickup_status: "in-progress",
   clickup_task_id: "CT-123",
   time_to_resolve_minutes: 45,
+  ai_thinking: {
+    reasoning: "This ticket requires escalation to ClickUp.",
+    completeness_verdict_raw: "complete",
+    effective_verdict: "complete",
+    chosen_intent_raw: "clickup-escalate",
+    effective_intent: "clickup-escalate",
+    confidence_raw: "high",
+    effective_confidence: "high",
+    missing_information: null,
+    override_reason: null,
+    model_used: "gpt-4o",
+  },
 };
 
 const overriddenRow: SubmissionRow = {
@@ -55,6 +67,12 @@ const nullTimeRow: SubmissionRow = {
   ...baseRow,
   id: "00000000-0000-4000-8000-000000000004",
   time_to_resolve_minutes: null,
+};
+
+const noAiRow: SubmissionRow = {
+  ...baseRow,
+  id: "00000000-0000-4000-8000-000000000005",
+  ai_thinking: null,
 };
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -155,5 +173,31 @@ describe("SupportTicketsClientShell", () => {
       />,
     );
     expect(screen.getByText("No submissions found")).toBeTruthy();
+  });
+
+  it("T7 — AI-denkwerk reasoning and verdict render when ai_thinking is present", () => {
+    render(
+      <SupportTicketsClientShell
+        rows={[baseRow]}
+        activeSystem=""
+        activeIntent=""
+        activeStatus=""
+      />,
+    );
+    expect(screen.getByText("This ticket requires escalation to ClickUp.")).toBeTruthy();
+    // verdict chip: compleet: complete→complete
+    expect(screen.getByText(/compleet:.*complete/)).toBeTruthy();
+  });
+
+  it("T8 — fallback text renders when ai_thinking is null", () => {
+    render(
+      <SupportTicketsClientShell
+        rows={[noAiRow]}
+        activeSystem=""
+        activeIntent=""
+        activeStatus=""
+      />,
+    );
+    expect(screen.getByText("Geen Stage-3 denkwerk vastgelegd.")).toBeTruthy();
   });
 });
