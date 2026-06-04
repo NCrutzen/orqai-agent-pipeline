@@ -269,6 +269,21 @@ export type Events = {
     };
   };
 
+  // Sales email swarm — Stage 2 customer-resolver (Phase 114-04, Pitfall 6).
+  // Same payload as the debtor event; emitted by classifier-verdict-worker for
+  // the sales 'unknown' bucket (swarm_dispatch seeded in migration 20260604b).
+  // The stage-2-customer-resolver worker listens on BOTH this and the debtor
+  // event (trigger array) and routes by registry data (resolution_config).
+  "sales-email/stage-2.customer-resolve.requested": {
+    data: {
+      automation_run_id: string;
+      swarm_type: string;
+      category_key: string;
+      message_id: string;
+      source_mailbox: string;
+    };
+  };
+
   // Debtor email swarm — invoice-copy handler (Phase 56-02 wave 3, swarm_dispatch
   // target for category_key='invoice_copy_request'). Resolves customer + fetches
   // PDF + creates iController draft via the Orq.ai copy-document body agent.

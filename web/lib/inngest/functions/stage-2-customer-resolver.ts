@@ -36,6 +36,8 @@ import {
 import { evaluateSideEffects } from "@/lib/swarms/side-effects";
 import { loadSwarm } from "@/lib/swarms/registry";
 import { isStageBlocked } from "@/lib/pipeline-gating/dry-run-gate";
+import { loadStage2Resolver } from "@/lib/swarms/dynamic";
+import type { EngineConfig } from "@/lib/agentic-pipeline/resolve/engine";
 
 // Inngest's typed `inngest.send` would reject a runtime-built event name
 // here as well; we know the name statically but use the cast pattern from
@@ -45,7 +47,15 @@ type SendFn = (p: { name: string; data: Record<string, unknown> }) => Promise<un
 
 export const stage2CustomerResolver = inngest.createFunction(
   { id: "stage-2-customer-resolver", retries: 0 },
-  { event: "debtor-email/stage-2.customer-resolve.requested" },
+  // Phase 114-04 (Pitfall 6) — the worker now listens for BOTH the debtor and
+  // the sales Stage 2 request events (Inngest accepts a trigger array; mirrors
+  // the Stage 3 dispatcher precedent, STATE Phase 80-03). The sales event name
+  // is seeded on the sales 'unknown' noise category's swarm_dispatch column
+  // (migration 20260604b), so classifier-verdict-worker emits it for sales rows.
+  [
+    { event: "debtor-email/stage-2.customer-resolve.requested" },
+    { event: "sales-email/stage-2.customer-resolve.requested" },
+  ],
   async ({ event, step }) => {
     const {
       automation_run_id,
@@ -115,13 +125,34 @@ export const stage2CustomerResolver = inngest.createFunction(
     const nxtDatabase: string | null = settingsRow?.nxt_database ?? null;
     const brandId: string | null = settingsRow?.brand_id ?? null;
 
+    // Phase 114-04 (SWARM-02-clean) — registry-driven Stage 2 dispatch. The
+    // discriminator is REGISTRY DATA, not a per-swarm literal: a swarm row that
+    // carries a resolution_config takes the GENERIC path (dispatch via
+    // loadStage2Resolver + write the swarm-agnostic resolution_audit table,
+    // gated by stage_2_resolution). A row WITHOUT resolution_config (the legacy
+    // debtor row) keeps its resolveDebtor + debtor.email_labels path entirely
+    // unchanged — debtor result is byte-identical (D-03 dormant intent).
+    const resolverPath: string | null =
+      (swarmGate?.stage2_entity_resolver as string | null | undefined) ?? null;
+    const resolutionConfig =
+      (swarmGate?.resolution_config as EngineConfig | null | undefined) ?? null;
+    // usesGenericPath is derived purely from registry data (resolution_config
+    // present). This is the audit_target discriminator — NO `if swarm===…`.
+    const usesGenericPath = resolutionConfig !== null && resolverPath !== null;
+    // The generic Stage 2 audit write is fail-closed gated.
+    const stage2Blocked = isStageBlocked(swarmGate, "stage_2_resolution");
+    const entityBrand: string | null = Array.isArray(swarmGate?.entity_brand)
+      ? ((swarmGate?.entity_brand as unknown[])[0] as string | undefined) ?? null
+      : null;
+
     // Run resolver. Errors are caught + surfaced via email_labels.error so
     // the kanban can show the failure without blocking other events.
     const resolverResult = await step.run("resolve-debtor", async () => {
       let result: ResolveResult;
       let resolverError: string | null = null;
-      if (!nxtDatabase) {
-        // No NXT context → only thread inheritance is achievable.
+      if (!nxtDatabase && !usesGenericPath) {
+        // No NXT context (legacy debtor path) → only thread inheritance is
+        // achievable. The generic path does its own no-match fall-through.
         result = await runThreadInheritanceOnly({
           admin,
           conversation_id: emailRow.conversation_id ?? null,
@@ -129,14 +160,51 @@ export const stage2CustomerResolver = inngest.createFunction(
         });
       } else {
         try {
-          result = await resolveDebtor({
-            nxt_database: nxtDatabase,
-            brand_id: brandId,
-            conversation_id: emailRow.conversation_id ?? null,
-            from_email: emailRow.sender_email ?? null,
-            subject: emailRow.subject ?? "",
-            body_text: emailRow.body_text ?? "",
-          });
+          if (usesGenericPath) {
+            // Phase 114-04 — registry dispatch (the donor rewire shape). Load
+            // the module named by swarms.stage2_entity_resolver and run it with
+            // the swarm's resolution_config. For sales this is the sales adapter;
+            // for any future swarm it is theirs. NEVER nest a step.run inside
+            // resolveEntity (replay-safety — we are already inside step.run).
+            const resolver = await loadStage2Resolver(resolverPath);
+            if (!resolver) {
+              // Router shape (stage2_entity_resolver NULL) — should not reach
+              // here since usesGenericPath requires resolverPath != null, but
+              // guard defensively: degrade to unresolved.
+              result = {
+                method: "unresolved",
+                customer_account_id: null,
+                customer_name: null,
+                confidence: "none",
+                inputs: {
+                  kind: "unresolved",
+                  sender_email: emailRow.sender_email ?? null,
+                  matched_identifiers: [],
+                },
+              };
+            } else {
+              result = await resolver.resolveEntity(
+                {
+                  nxt_database: nxtDatabase ?? "nxt",
+                  brand_id: brandId,
+                  conversation_id: emailRow.conversation_id ?? null,
+                  from_email: emailRow.sender_email ?? null,
+                  subject: emailRow.subject ?? "",
+                  body_text: emailRow.body_text ?? "",
+                },
+                resolutionConfig as EngineConfig,
+              );
+            }
+          } else {
+            result = await resolveDebtor({
+              nxt_database: nxtDatabase as string,
+              brand_id: brandId,
+              conversation_id: emailRow.conversation_id ?? null,
+              from_email: emailRow.sender_email ?? null,
+              subject: emailRow.subject ?? "",
+              body_text: emailRow.body_text ?? "",
+            });
+          }
         } catch (err) {
           resolverError = err instanceof Error ? err.message : String(err);
           result = {
@@ -161,6 +229,144 @@ export const stage2CustomerResolver = inngest.createFunction(
 
     const { result, resolverError, trace } = resolverResult;
 
+    // ── Phase 114-04: generic (non-debtor) Stage 2 path ──────────────────────
+    // Registry-driven: a swarm with a resolution_config writes the swarm-agnostic
+    // email_pipeline.resolution_audit row (NOT debtor.email_labels), gated by
+    // stage_2_resolution (fail-closed → sales is dry-run until cut-over), then
+    // hands off to Stage 3 for BOTH resolved + unresolved (STAGE2-02). The
+    // debtor-specific email_labels / iController side-effect machinery below is
+    // skipped entirely for this path (no per-swarm branch — purely registry-data
+    // driven via usesGenericPath).
+    if (usesGenericPath) {
+      const auditDryRun = stage2Blocked;
+
+      await step.run("write-resolution-audit", async () => {
+        const { error } = await admin
+          .schema("email_pipeline")
+          .from("resolution_audit")
+          .insert({
+            swarm_type: swarm_type ?? "unknown",
+            email_id: emailRow.id,
+            conversation_id: emailRow.conversation_id ?? null,
+            method: result.method,
+            customer_account_id: result.customer_account_id,
+            customer_name: result.customer_name,
+            confidence: result.confidence,
+            entity_brand: entityBrand,
+            dry_run: auditDryRun,
+            trace: {
+              reason: result.reason ?? null,
+              candidates_considered: result.candidates_considered ?? null,
+              inputs: result.inputs,
+              steps: trace.steps,
+              winner: trace.winner,
+              resolver_error: resolverError,
+            },
+          });
+        if (error) {
+          throw new Error(`resolution_audit insert failed: ${error.message}`);
+        }
+
+        // Phase 70 dual-write — same telemetry surface as the debtor path.
+        const isResolved = result.customer_account_id !== null;
+        await emitPipelineEvent(admin, {
+          swarm_type: swarm_type ?? "unknown",
+          stage: 2,
+          email_id: emailRow.id,
+          decision: isResolved ? "resolved" : "unresolved",
+          confidence: resolverError
+            ? null
+            : numericConfidence(
+                result.confidence as
+                  | "high"
+                  | "medium"
+                  | "low"
+                  | "none"
+                  | null
+                  | undefined,
+              ),
+          decision_details: {
+            method: result.method,
+            customer_account_id: result.customer_account_id,
+            customer_name: result.customer_name,
+            candidates_considered: result.candidates_considered ?? null,
+            inputs: result.inputs,
+            steps: trace.steps,
+            winner: trace.winner,
+            failure_reason: resolverError,
+            dry_run: auditDryRun,
+          },
+          automation_run_id: automation_run_id ?? null,
+          triggered_by: "pipeline",
+        });
+      });
+
+      // Close the automation run (kanban). Unresolved/dry-run → review lane.
+      const genericFinalStatus = resolverError
+        ? "failed"
+        : !result.customer_account_id
+          ? "predicted"
+          : auditDryRun
+            ? "predicted"
+            : "completed";
+      await step.run("close-automation-run", async () => {
+        await admin
+          .from("automation_runs")
+          .update({
+            status: genericFinalStatus,
+            error_message: resolverError,
+            result: {
+              method: result.method,
+              confidence: result.confidence,
+              customer_account_id: result.customer_account_id,
+              customer_name: result.customer_name,
+              candidates_considered: result.candidates_considered,
+              dry_run: auditDryRun,
+              email_id: emailRow.id,
+            },
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", automation_run_id);
+        await emitAutomationRunStale(admin, `${swarm_type}-review`);
+      });
+
+      // Stage 2 → Stage 3 hand-off for BOTH resolved + unresolved (STAGE2-02).
+      // PipelineStageContext: customer_id string|null (null = resolved-but-no-
+      // match, legal), entity_brand from registry, context_version:1. The event
+      // name is the swarm's own coordinator event (stage-named convention).
+      await step.run("emit-coordinator", async () =>
+        (inngest.send as unknown as SendFn)({
+          name: `${swarm_type ?? "unknown"}/coordinator.requested`,
+          data: {
+            email_id: emailRow.id,
+            automation_run_id,
+            entity: entityBrand,
+            entity_brand: entityBrand,
+            context_version: 1,
+            subject: emailRow.subject ?? "",
+            body_text: emailRow.body_text ?? "",
+            sender_email: emailRow.sender_email ?? "",
+            mailbox: emailRow.mailbox,
+            received_at: new Date().toISOString(),
+            graph_message_id: message_id,
+            customer_id: result.customer_account_id,
+            customer_account_id: result.customer_account_id,
+            customer_name: result.customer_name,
+          },
+        }),
+      );
+
+      return {
+        ok: true,
+        method: result.method,
+        confidence: result.confidence,
+        customer_account_id: result.customer_account_id,
+        status: genericFinalStatus,
+        category_key,
+      };
+    }
+
+    // ── Legacy debtor path (unchanged) ───────────────────────────────────────
     // Insert audit row in debtor.email_labels.
     const labelStatus = dryRun
       ? "dry_run"
