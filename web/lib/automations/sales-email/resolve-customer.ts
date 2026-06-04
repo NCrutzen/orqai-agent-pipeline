@@ -262,14 +262,22 @@ export async function resolveEntity(
 
 /** Map a SalesCustomerMatch-style hit to the LOCKED identifier_match result. */
 function identifierResult(
-  hit: { customer_account_id: string; customer_name: string | null; matched_identifier: string },
+  hit: {
+    customer_account_id: string;
+    customer_name: string | null;
+    matched_identifier: string;
+    // WR-02 (Phase 114-07): per-lookup confidence. Absent ⇒ "high"
+    // (offerte/order are strong identifiers). postcode→Site self-downgrades to
+    // "medium" (corroborating-strength; D-06 fast-follow raises it later).
+    confidence?: "high" | "medium" | "low";
+  },
   matchedIdentifiers: string[],
 ): ResolveResult {
   return {
     method: "identifier_match",
     customer_account_id: hit.customer_account_id,
     customer_name: hit.customer_name,
-    confidence: "high",
+    confidence: hit.confidence ?? "high",
     candidates_considered: 1,
     inputs: {
       kind: "identifier_match",

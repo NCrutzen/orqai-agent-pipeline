@@ -17,6 +17,28 @@ import type { SalesCustomerMatch } from "./offerte";
 // NL postcode (1234 AB). Data-driven shape from the mining report.
 const POSTCODE = /\b[1-9][0-9]{3}\s?[A-Za-z]{2}\b/g;
 
+// WR-02 (Phase 114-07): the bare "4 digits + 2 letters" shape ALSO matches SKUs,
+// product references, and reference codes (e.g. "Onderdeel 1234AB"). Postcode is
+// 55% of sales volume, so an over-match resolves the WRONG account at high
+// confidence. We narrow extraction to an address-like CONTEXT: a candidate is
+// only accepted when the ~30-char window AROUND it contains a street-number
+// pattern OR an address-label cue. This is a heuristic narrowing, NOT a full NL
+// postcode-range validation (that would be the proper fix — see D-06 todo).
+const ADDRESS_CUE = /(adres|postcode|straat|weg|laan|plein|locatie|vestiging)/i;
+// A street number immediately before the postcode token, e.g. "Dorpsstraat 1, ".
+const STREET_NUMBER_BEFORE = /\d+\s*[a-zA-Z]?,?\s*$/;
+
+function hasAddressContext(text: string, matchIndex: number, matchLen: number): boolean {
+  const before = text.slice(Math.max(0, matchIndex - 30), matchIndex);
+  const after = text.slice(matchIndex + matchLen, matchIndex + matchLen + 30);
+  const window = before + " " + after;
+  if (ADDRESS_CUE.test(window)) return true;
+  // A street-number pattern directly preceding the postcode (NL convention:
+  // "<straat> <huisnummer>, <postcode> <plaats>").
+  if (STREET_NUMBER_BEFORE.test(before)) return true;
+  return false;
+}
+
 /** Deduped, normalized NL postcodes in subject-first order. */
 export function extractPostcodeCandidates(
   subject: string,
@@ -26,6 +48,11 @@ export function extractPostcodeCandidates(
   for (const text of [subject, body]) {
     POSTCODE.lastIndex = 0;
     for (const m of text.matchAll(POSTCODE)) {
+      // WR-02 gate: reject a standalone token (SKU/reference) with no address
+      // context. Only a postcode in an address-like context is a candidate.
+      if (m.index === undefined || !hasAddressContext(text, m.index, m[0].length)) {
+        continue;
+      }
       // Canonical "1234AB" (strip the optional space, uppercase the letters).
       found.push(m[0].replace(/\s+/g, "").toUpperCase());
     }
@@ -56,7 +83,15 @@ export async function lookupPostcodeToAccount(
       return null;
     });
     const match = pickCustomer(res?.data);
-    if (match) return { ...match, matched_identifier: postcode };
+    // WR-02 (Phase 114-07): a postcode maps to potentially MULTIPLE Sites, so
+    // even a hit is only corroborating-strength → confidence:"medium", not
+    // "high". The adapter honors this via SalesCustomerMatch.confidence. Full
+    // multi-match corroboration (multiple agreeing signals RAISE confidence) is
+    // the deferred D-06 engine fast-follow
+    // (.planning/todos/pending/2026-06-04-d06-corroboration-fast-follow.md);
+    // this downgrade is the safe interim.
+    if (match)
+      return { ...match, matched_identifier: postcode, confidence: "medium" };
   }
   return null;
 }

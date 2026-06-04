@@ -13,7 +13,10 @@
 import { nxtRequest } from "@/lib/automations/nxt-zapier/nxt-client";
 import type { SalesCustomerMatch } from "./offerte";
 
-const ORDER_GENERIC = /order[a-z]*\s*[:#]?\s*(\d{4,8})/gi;
+// WR-03 (Phase 114-07): leading \b so a mid-word "order" (e.g. "herorder",
+// "wederorder") no longer matches — only a token that STARTS with "order".
+// WERKORDER already requires the literal 'werkorder' prefix; left as-is.
+const ORDER_GENERIC = /\border[a-z]*\s*[:#]?\s*(\d{4,8})/gi;
 const WERKORDER = /werkorder\s*(\d{5,8})/gi;
 
 /** Deduped order numbers in subject-first order. */

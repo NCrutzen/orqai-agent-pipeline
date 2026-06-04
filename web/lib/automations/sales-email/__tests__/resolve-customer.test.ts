@@ -38,6 +38,8 @@ vi.mock("@/lib/automations/debtor-email/nxt-zap-client", () => ({
 }));
 
 import { resolveEntity } from "../resolve-customer";
+import { extractOrderCandidates } from "../lookups/order";
+import { extractPostcodeCandidates } from "../lookups/sites";
 
 // Sales config (mirrors the migration seed). Precedence is data-driven from the
 // Plan 03 mining report: highest-frequency / highest-confidence first.
@@ -160,5 +162,66 @@ describe("Phase 114-04: sales resolve-customer adapter", () => {
 
     // The format-validation gate must run BEFORE any nxtRequest call.
     expect(nxtRequestMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("Phase 114-07 Task 1: order regex word-boundary (WR-03)", () => {
+  it("does NOT match a mid-word 'order' (herorder)", () => {
+    expect(extractOrderCandidates("herorder 12345", "")).toEqual([]);
+  });
+
+  it("still matches a genuine leading 'order'", () => {
+    expect(extractOrderCandidates("order 12345", "")).toEqual(["12345"]);
+  });
+
+  it("still matches 'ordernummer: 67890'", () => {
+    expect(extractOrderCandidates("ordernummer: 67890", "")).toEqual(["67890"]);
+  });
+
+  it("still matches 'werkorder 1634448'", () => {
+    expect(extractOrderCandidates("werkorder 1634448", "")).toEqual([
+      "1634448",
+    ]);
+  });
+});
+
+describe("Phase 114-07 Task 1: postcode address-context gate (WR-02)", () => {
+  it("rejects a bare SKU/reference token with no address context", () => {
+    // '1234AB' shaped like a postcode but sitting alone (a part/reference) →
+    // not an address → not a candidate.
+    expect(extractPostcodeCandidates("Onderdeel 1234AB op voorraad?", "")).toEqual(
+      [],
+    );
+  });
+
+  it("still extracts a genuine postcode in an address line", () => {
+    expect(
+      extractPostcodeCandidates("Bezoekadres: Dorpsstraat 1, 1234 AB Smeba", ""),
+    ).toEqual(["1234AB"]);
+  });
+
+  it("resolves a postcode match at confidence:medium (not high) — D-06 interim", async () => {
+    nxtRequestMock.mockResolvedValue({
+      status: 200,
+      ok: true,
+      data: { customerId: 778899, customerName: "Site BV" },
+    });
+
+    const result = await resolveEntity(
+      {
+        ...baseArgs,
+        from_email: "unknown@nowhere.example",
+        subject: "Onderhoud op locatie",
+        // Address-context postcode so it survives the WR-02 gate.
+        body_text: "Adres: Dorpsstraat 1, 1234 AB Smeba — graag inplannen.",
+      },
+      // sender/offerte miss → postcode hits first.
+      { ...salesConfig, precedence: ["postcode_site_match"] },
+    );
+
+    expect(result.customer_account_id).toBe("778899");
+    expect(result.method).toBe("identifier_match");
+    expect(result.confidence).toBe("medium");
+    expect(result.confidence).not.toBe("high");
   });
 });

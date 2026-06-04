@@ -22,6 +22,13 @@ export interface SalesCustomerMatch {
   customer_account_id: string;
   customer_name: string | null;
   matched_identifier: string;
+  // WR-02 (Phase 114-07): per-lookup confidence the adapter honors when building
+  // its ResolveResult. Absent ⇒ "high" (offerte/order are strong identifiers).
+  // postcode→Site is a corroborating-strength signal (one postcode can map to
+  // multiple Sites) so it self-downgrades to "medium" pending the D-06
+  // multi-match corroboration engine fast-follow
+  // (.planning/todos/pending/2026-06-04-d06-corroboration-fast-follow.md).
+  confidence?: "high" | "medium" | "low";
 }
 
 /** Deduped offerte identifiers in subject-first order (subject = higher signal). */
