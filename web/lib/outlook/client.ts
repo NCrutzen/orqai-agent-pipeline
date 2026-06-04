@@ -178,8 +178,12 @@ export async function listInboxMessages(
 export async function getMessageMeta(
   mailbox: string,
   messageId: string,
-): Promise<{ subject: string; from: string; fromName: string; receivedAt: string; categories: string[] }> {
-  const fields = "id,subject,from,receivedDateTime,categories";
+): Promise<{ subject: string; from: string; fromName: string; receivedAt: string; categories: string[]; hasAttachments: boolean }> {
+  // Phase 114-03 (D-14): add `sender` (fallback for empty `from`) +
+  // `hasAttachments`. Graph omits `from` on some message classes (drafts,
+  // certain delegated/shared-mailbox sends); `sender` is the verified
+  // submitting account and recovers the address in those cases.
+  const fields = "id,subject,from,sender,receivedDateTime,categories,hasAttachments";
   const res = await graphFetch(
     `/users/${enc(mailbox)}/messages/${enc(messageId)}?$select=${fields}`,
   );
@@ -188,16 +192,24 @@ export async function getMessageMeta(
   }
   const data = (await res.json()) as {
     subject?: string;
-    from?: { emailAddress: { address: string; name?: string } };
+    from?: { emailAddress: { address?: string; name?: string } };
+    sender?: { emailAddress: { address?: string; name?: string } };
     receivedDateTime?: string;
     categories?: string[];
+    hasAttachments?: boolean;
   };
+  // Prefer `from`; fall back to `sender` when `from` is empty/absent.
+  const fromAddr = data.from?.emailAddress?.address ?? "";
+  const senderAddr = data.sender?.emailAddress?.address ?? "";
+  const fromName = data.from?.emailAddress?.name ?? "";
+  const senderName = data.sender?.emailAddress?.name ?? "";
   return {
     subject: data.subject ?? "",
-    from: data.from?.emailAddress.address ?? "",
-    fromName: data.from?.emailAddress.name ?? "",
+    from: fromAddr || senderAddr,
+    fromName: fromName || senderName,
     receivedAt: data.receivedDateTime ?? "",
     categories: data.categories ?? [],
+    hasAttachments: data.hasAttachments ?? false,
   };
 }
 
@@ -223,6 +235,15 @@ export interface FetchedMessageBody {
   bodyHtml: string;
   /** Graph's reported contentType for body. */
   bodyType: "text" | "html";
+  /**
+   * Phase 114-03 (D-14): sender address with `from`→`sender` fallback.
+   * Empty string only when Graph omits both `from` and `sender`.
+   */
+  from: string;
+  /** Display name paired with `from` (sender-name fallback). */
+  fromName: string;
+  /** Phase 114-03 (D-14): Graph `hasAttachments` — attachment presence signal. */
+  hasAttachments: boolean;
   /** Verbatim Graph message envelope JSON. Recovery path for retro-extraction (D-02). */
   rawJson: Record<string, unknown>;
 }
@@ -243,8 +264,11 @@ export async function fetchMessageBody(
   mailbox: string,
   messageId: string,
 ): Promise<FetchedMessageBody> {
+  // Phase 114-03 (D-14): add `sender` (fallback for empty `from`) +
+  // `hasAttachments` so a single Graph call surfaces a robust sender + the
+  // attachment-presence signal alongside the body.
   const fields =
-    "body,uniqueBody,internetMessageId,conversationId,from,toRecipients,ccRecipients";
+    "body,uniqueBody,internetMessageId,conversationId,from,sender,hasAttachments,toRecipients,ccRecipients";
   const res = await graphFetch(
     `/users/${enc(mailbox)}/messages/${enc(messageId)}?$select=${fields}`,
   );
@@ -254,6 +278,9 @@ export async function fetchMessageBody(
   const data = (await res.json()) as {
     body?: { contentType?: "text" | "html"; content?: string };
     uniqueBody?: { contentType?: "text" | "html"; content?: string };
+    from?: { emailAddress: { address?: string; name?: string } };
+    sender?: { emailAddress: { address?: string; name?: string } };
+    hasAttachments?: boolean;
     [k: string]: unknown;
   };
 
@@ -273,11 +300,20 @@ export async function fetchMessageBody(
     : "";
   const bodyHtml = bodyType === "html" ? bodyContent : "";
 
+  // Phase 114-03 (D-14): prefer `from`, fall back to `sender`.
+  const fromAddr = data.from?.emailAddress?.address ?? "";
+  const senderAddr = data.sender?.emailAddress?.address ?? "";
+  const fromName = data.from?.emailAddress?.name ?? "";
+  const senderName = data.sender?.emailAddress?.name ?? "";
+
   return {
     bodyText,
     bodyUniqueText,
     bodyHtml,
     bodyType,
+    from: fromAddr || senderAddr,
+    fromName: fromName || senderName,
+    hasAttachments: data.hasAttachments ?? false,
     rawJson: data as Record<string, unknown>,
   };
 }

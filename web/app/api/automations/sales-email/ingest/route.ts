@@ -99,7 +99,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   const isoNow = new Date().toISOString();
 
   // 1) Fetch authoritative subject/body/from from Graph (via Zapier SDK).
-  let meta: { subject: string; from: string; fromName: string; receivedAt: string };
+  let meta: { subject: string; from: string; fromName: string; receivedAt: string; hasAttachments: boolean };
   let msg: {
     bodyText: string;        // full thread (Phase 83 D-01)
     bodyUniqueText: string;  // new bit only
@@ -113,9 +113,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     ]);
     meta = {
       subject: m.subject,
-      from: m.from,
-      fromName: m.fromName,
+      // Phase 114-03 (D-14): getMessageMeta already applies the from→sender
+      // fallback; the fetchMessageBody value is a second fallback in case the
+      // two Graph calls disagree (one omits `from`/`sender` the other carries).
+      from: m.from || b.from,
+      fromName: m.fromName || b.fromName,
       receivedAt: m.receivedAt,
+      // hasAttachments from either call (both now request it).
+      hasAttachments: m.hasAttachments || b.hasAttachments,
     };
     msg = {
       bodyText: b.bodyText,
@@ -185,6 +190,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
           conversation_id: conversationId || null,
           sender_email: meta.from || null,
           sender_name: meta.fromName || null,
+          // Phase 114-03 (D-14): capture attachment presence for new mail
+          // (was never written → false on all rows). Stage 2 uses attachments
+          // as a hard resolution signal (PO/offertenummer on letterhead).
+          has_attachments: meta.hasAttachments ?? false,
           received_at: meta.receivedAt || isoNow,
           direction: "inbound",
           internet_message_id: messageId,
