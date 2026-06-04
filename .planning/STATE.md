@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
-status: verifying
+status: executing
 stopped_at: Completed 114-05-PLAN.md
-last_updated: "2026-06-04T15:42:52.745Z"
+last_updated: "2026-06-04T16:11:45.618Z"
 last_activity: 2026-06-04
 progress:
   total_phases: 9
-  completed_phases: 6
-  total_plans: 33
-  completed_plans: 26
-  percent: 67
+  completed_phases: 5
+  total_plans: 35
+  completed_plans: 27
+  percent: 56
 ---
 
 # Project State
@@ -63,8 +63,8 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 114 (stage-2-resolver-reuse-cross-swarm-generality-proof) — EXECUTING
-Plan: 5 of 5
-Status: Phase complete — ready for verification
+Plan: 2 of 7
+Status: Ready to execute
 
 **Phase 112 outcome (zelfde dag):**
 Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — COMPLETE (go-live verified 2026-06-04)
@@ -162,6 +162,7 @@ Last activity: 2026-06-04
 | Phase 114 P02 | 25m | 3 tasks | 3 files |
 | Phase 114 P03 | 7m | 4 tasks | 5 files |
 | Phase 114 P05 | 15m | 3 tasks | 4 files |
+| Phase 114 P06 | 4m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -267,6 +268,7 @@ Last activity: 2026-06-04
 - [Phase 114-04]: Sales onboards to Stage 2 via config + ONE dispatch line + a sales lookup adapter (offerte/order/Sites via nxtRequest, factuur+sender reuse debtor D-11) — ZERO edits to engine.ts/config.ts/resolve/steps/* (STAGE2-01 generality proof in action). Real resolution_config live on remote (mvqjhlxfvtqqubqgdvhz, Management API HTTP 201): precedence ["sender_match","offerte_match","postcode_site_match","factuur_match","order_match"] (data-driven D-04, case_ref excluded — corroborating-only), auto_safe_kinds:[] (STAGE2-02 no-op), llm_tiebreaker:false. dry_run_config.stage_2_resolution=true (fail-closed). Sales Stage 2 swarm_dispatch event 'sales-email/stage-2.customer-resolve.requested' seeded (Pitfall 6); worker registry-driven (loadStage2Resolver + generic resolution_audit write + second Inngest trigger), debtor behaviour-neutral. check:supabase 0 ERROR. **Checkpoint decisions (operator):** (1) migration applied to remote; (2) D-06 multi-match corroboration DEFERRED to fast-follow (tripwire todo `2026-06-04-d06-corroboration-fast-follow.md` — corroboration ENGINE change must land BEFORE the no-Engine-diff gate is final; Plan 05 Task 3 asserts it exists).
 - [Phase ?]: Phase 114-03: ingest hardened (from→sender fallback + has_attachments, swarm-agnostic); D-14 fix-forward only; D-04 mining report committed (postcode 55%/offerte_sb 22%/case_ref 18%/factuur 7%, total=1282 with_sender=928 null=354) — Plan 04 precedence input, Pitfall-4 corrected.
 - [Phase ?]: Phase 114-05: STAGE2-01 locked via scripts/no-engine-diff-check.sh (byte-equality engine/config/steps vs donor; single sales dispatch line allowed; PROVISIONAL until D-06 corroboration fast-follow). STAGE2-02 locked via self-auth-noop + unresolved-fallthrough acceptance tests. D-02 v8.2 rebase note left.
+- [Phase ?]: Phase 114-06: SC-1 blockers closed in the Stage 2 worker only — CR-01 generic brand_id from resolution_config.scope.brand_scope[0], CR-02 entity_brand inline-guarded to scalar code (object→.code), WR-01 nxt_database config-sourced. Debtor byte-neutral; no-engine-diff exit 0; suite 2461 green.
 
 ### Blockers/Concerns
 
@@ -299,7 +301,7 @@ Last activity: 2026-06-04
 
 ## Session Continuity
 
-Last session: 2026-06-04T15:42:52.715Z
+Last session: 2026-06-04T16:11:19.529Z
 Stopped at: Completed 114-05-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
