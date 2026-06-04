@@ -272,6 +272,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 - [x] **Phase 114: Stage 2 Resolver Reuse — cross-swarm generality proof** *(re-sequenced 2026-06-04: executes BEFORE 113)* — sales Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config with zero Engine code changes; the debtor-only self-auth tier degrades to a no-op for sales. (completed 2026-06-04)
 - [ ] **Phase 113: Stage 3 Sales Intent Agent (greenfield)** *(re-sequenced 2026-06-04: executes AFTER 114 — intent seeding consumes the customer-resolved corpus)* — build a sales-specific Orq intent agent + seed `swarm_intents` from the live corpus so every sales email leaving Stage 1 reaches a Stage 3 verdict, with handler-less intents landing in the Kanban human-lane.
 - [ ] **Phase 115: SugarCRM Dead-Code Decommission** — remove the now-dead SugarCRM source code and stale registry notes after confirming no live path depends on it.
+- [ ] **Phase 116: Attachment Ingest (uniform cross-swarm)** *(added 2026-06-04)* — capture attachment metadata + on-demand content extraction (PDF text first) as a registry-configured, swarm-agnostic data source feeding Stage 2 resolution, Stage 3 intent signals, and future Stage 4 handlers; sales onboards first, other swarms opt in via registry row only.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -427,6 +428,21 @@ Plans:
 
 **Plans**: TBD
 
+### Phase 116: Attachment Ingest — uniform cross-swarm attachment data source
+
+**Goal**: Attachments become a first-class, swarm-agnostic data source in the pipeline: ingest captures attachment metadata (filenames/content-types/sizes) per email, content extraction (PDF text first) is available on demand, and the extracted data is exposed as a uniform source any swarm consumes via registry config — Stage 2 resolution (PO/offertenummer on letterhead — the hardest identifier often lives only in the attachment), Stage 3 intent signals ("stuurt PO mee" vs "vraagt offerte aan"), and future Stage 4 handlers (V11.0). No per-swarm branches in shared workers (SWARM-02 architecture gate); engine files stay byte-identical to the v8.2 donor (STAGE2-01 constraint) — attachment-derived text enters Stage 2 as an adapter-side body-source, never an Engine edit.
+**Depends on**: Phase 110 (ingest path), Phase 112 (gated Outlook write/backfill patterns). Sales (`verkoop@`) onboards first; debtor and future swarms (info@, Phase 88 prep) opt in via registry — uniformity is a design requirement, not a follow-up.
+**Depends on (external/cross-track)**: none hard; debtor-swarm adoption (invoice-copy attachments) is optional and must require only a registry row, no code change.
+**Requirements**: TBD (new ATTACH-* requirements at planning; folds in todo `2026-06-04-sales-ingest-attachments-gap.md` — metadata capture, backfill decision over the 1,273-mail corpus via `source_id` Graph message-ids)
+**Success Criteria** (what must be TRUE):
+
+  1. Ingest writes attachment metadata for new mail in every onboarded swarm; capture is swarm-agnostic, configured via registry.
+  2. Attachment content extraction (PDF text minimum) is callable as a uniform source — zero swarm-specific branches in shared workers (SWARM-02 holds).
+  3. Stage 2 can consume attachment-derived identifiers as an additional adapter-side source with the no-engine-diff guard still green (STAGE2-01 holds).
+  4. Backfill over the existing corpus is executed or explicitly deferred with rationale; the `has_attachments=false`-on-all-rows blind spot is closed.
+
+**Plans**: TBD
+
 ---
 
 ### V10.0 Promotion Recommender + Learning Inbox + Reply-Tracing — DEFINED (re-sequenced 2026-06-02; was V9.0)
@@ -436,6 +452,7 @@ T2 synthesis on captured `email_feedback`, Learning Inbox tab on Bulk Review, da
 ### V11.0 Intent-Prioritised Handlers — DEFINED
 
 Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler-scaffolding template; dispatch via `swarm_intents.handler_event` registry. Depends on V9.0 (sales second-swarm intent volume) + V10.0 (operator-promoted intent definitions).
+
 
 ---
 
