@@ -104,7 +104,10 @@ export async function selectBackfillCandidates(
 
   const idsById = new Map<string, IdRow>();
   const emailIds = base.map((c) => c.email_id);
-  const CHUNK = 500;
+  // 150, not 500: a 500-uuid .in() builds a ~19.6KB URL that PostgREST/undici
+  // rejects with UND_ERR_HEADERS_OVERFLOW (>16KB) — hit live on the first
+  // report-mode run (2026-06-04). 150 ids ≈ 5.9KB, comfortably under the cap.
+  const CHUNK = 150;
   for (let i = 0; i < emailIds.length; i += CHUNK) {
     const slice = emailIds.slice(i, i + CHUNK);
     const { data, error } = (await admin
