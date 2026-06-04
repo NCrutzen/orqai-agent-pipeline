@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
-status: completed
+status: executing
 stopped_at: Phase 112 context gathered
-last_updated: "2026-06-03T12:22:08.461Z"
-last_activity: 2026-06-03 -- Phase 111 executed + verified
+last_updated: "2026-06-03T15:05:08.982Z"
+last_activity: 2026-06-03 -- Phase 112 execution started
 progress:
   total_phases: 8
   completed_phases: 3
-  total_plans: 21
+  total_plans: 24
   completed_plans: 14
   percent: 38
 ---
@@ -48,15 +48,15 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 111 — stage-1-noise-expansion-calibration
+**Current focus:** Phase 112 — outlook-cleanup-backfill-gated-production-writes
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 111 (stage-1-noise-expansion-calibration) — COMPLETE (verification passed)
-Plan: 5 of 5
-Status: Phase 111 complete; next is Phase 112 (Outlook Cleanup + Backfill — gated production writes)
-Last activity: 2026-06-03 -- Phase 111 executed + verified
+Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 112
+Last activity: 2026-06-03 -- Phase 112 execution started
 
 **Phase 111 outcome:** Stage 1 noise calibration for sales-email. Both migrations applied live (3 safe keys → categorize_archive, INERT behind the Plan-01 verdict-worker gate until Phase 112; stage_1_retro_runs table). The two CRITICAL architecture gaps closed swarm-agnostically (verdict-worker dry-run gate + Wilson promotion gate generalized — 0 per-swarm branches). Stage-1 retro harness + operator-gated cluster-mining discovery shipped (no auto-INSERT). own_outbound_invoice_loopback left test-first (data-driven). Live: check:supabase 0 ERROR, codegen no-drift, 313 tests green.
 
