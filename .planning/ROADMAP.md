@@ -435,7 +435,7 @@ Plans:
 **Goal**: Attachments become a first-class, swarm-agnostic data source in the pipeline: ingest captures attachment metadata (filenames/content-types/sizes) per email, content extraction (PDF text first) is available on demand, and the extracted data is exposed as a uniform source any swarm consumes via registry config — Stage 2 resolution (PO/offertenummer on letterhead — the hardest identifier often lives only in the attachment), Stage 3 intent signals ("stuurt PO mee" vs "vraagt offerte aan"), and future Stage 4 handlers (V11.0). No per-swarm branches in shared workers (SWARM-02 architecture gate); engine files stay byte-identical to the v8.2 donor (STAGE2-01 constraint) — attachment-derived text enters Stage 2 as an adapter-side body-source, never an Engine edit.
 **Depends on**: Phase 110 (ingest path), Phase 112 (gated Outlook write/backfill patterns). Sales (`verkoop@`) onboards first; debtor and future swarms (info@, Phase 88 prep) opt in via registry — uniformity is a design requirement, not a follow-up.
 **Depends on (external/cross-track)**: none hard; debtor-swarm adoption (invoice-copy attachments) is optional and must require only a registry row, no code change.
-**Requirements**: TBD (new ATTACH-* requirements at planning; folds in todo `2026-06-04-sales-ingest-attachments-gap.md` — metadata capture, backfill decision over the 1,273-mail corpus via `source_id` Graph message-ids)
+**Requirements**: ATTACH-01, ATTACH-02, ATTACH-03, ATTACH-04, ATTACH-05, ATTACH-06 (defined at planning 2026-06-04 from the 4 success criteria + CONTEXT D-01..D-13; folds in todo `2026-06-04-sales-ingest-attachments-gap.md`)
 **Success Criteria** (what must be TRUE):
 
   1. Ingest writes attachment metadata for new mail in every onboarded swarm; capture is swarm-agnostic, configured via registry.
@@ -443,7 +443,15 @@ Plans:
   3. Stage 2 can consume attachment-derived identifiers as an additional adapter-side source with the no-engine-diff guard still green (STAGE2-01 holds).
   4. Backfill over the existing corpus is executed or explicitly deferred with rationale; the `has_attachments=false`-on-all-rows blind spot is closed.
 
-**Plans**: TBD
+**Plans**: 6 plans (4 waves)
+
+Plans:
+- [ ] 116-01-PLAN.md — Generic email_attachments table + private Storage bucket + RLS + attachment_config registry switches (ATTACH-05) [wave 1]
+- [ ] 116-02-PLAN.md — Graph attachment helpers + unpdf install + swarm-agnostic extract service (unpdf text-layer + Orq vision fallback) (ATTACH-02) [wave 1]
+- [ ] 116-03-PLAN.md — Registry-gated metadata capture in sales + debtor ingest routes (ATTACH-01) [wave 2]
+- [ ] 116-04-PLAN.md — Stage-1.5 extraction funnel-step worker + registry dispatch rewire (ATTACH-02) [wave 2]
+- [ ] 116-05-PLAN.md — Stage 2 adapter-side body_text concat (STAGE2-01-safe) + Bulk Review detail-pane attachment display (ATTACH-03, ATTACH-06) [wave 3]
+- [ ] 116-06-PLAN.md — Gated corpus backfill worker (metadata all / extraction survivors-only) (ATTACH-04) [wave 3]
 
 ---
 
