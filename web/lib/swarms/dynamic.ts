@@ -51,6 +51,10 @@ const STAGE2_RESOLVER_MODULES: Record<
     import("@/lib/automations/debtor-email/resolve-debtor"),
   "@/lib/agentic-pipeline/resolve/engine": () =>
     import("@/lib/agentic-pipeline/resolve/engine"),
+  // Phase 114-04: the SOLE bundler-mandated dispatch-map line for sales (STAGE2-01
+  // Pitfall 2 — not a resolution-logic change; the engine is untouched).
+  "@/lib/automations/sales-email/resolve-customer": () =>
+    import("@/lib/automations/sales-email/resolve-customer"),
 };
 
 const TTL_MS = 60_000;
