@@ -279,7 +279,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 111. Stage 1 Noise Expansion + Calibration | 5/5 | Complete   | 2026-06-03 |
 | 112. Outlook Cleanup + Backfill | 3/3 | Complete   | 2026-06-04 |
 | 112.5 Outlook Behavior Tracking | 4/4 | Complete (activatie uitgesteld) | 2026-06-04 |
-| 114. Stage 2 Resolver Reuse *(executes before 113)* | 2/5 | In Progress|  |
+| 114. Stage 2 Resolver Reuse *(executes before 113)* | 3/5 | In Progress|  |
 | 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
 | 115. SugarCRM Dead-Code Decommission | 0/TBD | Not started | - |
 
@@ -408,7 +408,7 @@ Plans:
 
 - [x] 114-01-PLAN.md — Cherry-pick the v8.2 RESL-03 seam (dispatch + engine + config + steps + debtor adapter refactor) verbatim; donor suite green (wave 1)
 - [x] 114-02-PLAN.md — Generic email_pipeline.resolution_audit table (RLS) + stage_2_resolution dry-run gate key + [BLOCKING] migration apply (wave 1)
-- [ ] 114-03-PLAN.md — Ingest prereq fixes (has_attachments + sender_email root-cause, D-14) + data-driven identifier-mining script (D-04) (wave 1)
+- [x] 114-03-PLAN.md — Ingest prereq fixes (has_attachments + sender_email root-cause, D-14) + data-driven identifier-mining script (D-04) (wave 1)
 - [ ] 114-04-PLAN.md — Sales resolve-customer adapter + offerte/order/Sites lookups (nxtRequest) + one dispatch line + real resolution_config seed + registry-driven worker rewire + [BLOCKING] apply (wave 2)
 - [ ] 114-05-PLAN.md — STAGE2-02 acceptance tests (self-auth no-op + unresolved fall-through) + STAGE2-01 no-Engine-diff guard + D-02 rebase note (wave 3)
 
@@ -473,7 +473,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 
