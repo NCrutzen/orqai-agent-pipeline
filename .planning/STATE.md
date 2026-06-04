@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
-status: "Behavior-tracking code live-deployed maar registry-disabled (Power Automate veegt verkoop@ naar Sugar Archive tot de harde cut-over, datum onbekend). Reactivatie = runbook docs/swarm-behavior-tracking.md + todo 2026-06-04-sugar-cutover-enable-behavior-tracking. Folder-conventie-vraag beantwoord: afgehandeld-boom ~58k vs Archief 80 (zeer consistent)."
+status: executing
 stopped_at: Phase 114 context gathered
-last_updated: "2026-06-04T13:47:20.897Z"
-last_activity: 2026-06-04 -- Phase 112 complete
+last_updated: "2026-06-04T14:31:50.426Z"
+last_activity: 2026-06-04 -- Phase 114 planning complete
 progress:
   total_phases: 9
   completed_phases: 5
-  total_plans: 28
+  total_plans: 33
   completed_plans: 21
   percent: 56
 ---
@@ -64,13 +64,13 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 Phase: 112.5 (outlook-behavior-tracking-passive-review-signals) — COMPLETE (PR #66 merged 2026-06-04; activatie uitgesteld tot Sugar cut-over)
 Plan: 4 of 4
-Status: Behavior-tracking code live-deployed maar registry-disabled (Power Automate veegt verkoop@ naar Sugar Archive tot de harde cut-over, datum onbekend). Reactivatie = runbook docs/swarm-behavior-tracking.md + todo 2026-06-04-sugar-cutover-enable-behavior-tracking. Folder-conventie-vraag beantwoord: afgehandeld-boom ~58k vs Archief 80 (zeer consistent).
+Status: Ready to execute
 
 **Phase 112 outcome (zelfde dag):**
 Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — COMPLETE (go-live verified 2026-06-04)
 Plan: 3 of 3
 Status: Sales Stage-1 Outlook archive LIVE (`stage_1_archive=false`, migration `sales_stage1_archive_golive`); backfill complete (67 archived / 38 sugar-skip / ~1650 queued predicted); loopback disabled + supplier_bank_change demoted after canary findings
-Last activity: 2026-06-04 -- Phase 112 complete
+Last activity: 2026-06-04 -- Phase 114 planning complete
 
 **Phase 112 incident (2026-06-04):** prod ran pre-110-04 code without the per-stage gate → loopback rule archived 141 real internal forwards since May 21. Emergency stop + full restore + gate-code deployed (PR #61) + canary bugfixes (PR #65: global canary cap, Graph-400 skip). Learning `52930d32`. Details: `phases/112-*/112-03-SUMMARY.md`.
 
