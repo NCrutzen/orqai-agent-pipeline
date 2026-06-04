@@ -225,3 +225,97 @@ describe("Phase 114-07 Task 1: postcode address-context gate (WR-02)", () => {
     expect(result.confidence).not.toBe("high");
   });
 });
+
+describe("Phase 114-07 Task 2: quoted-header-scoped sender (WR-05)", () => {
+  it("prefers the quoted-header address over a positionally-earlier signature address", async () => {
+    // sender lookup resolves the quoted-header klant, but NOT noreply@vendor.com.
+    lookupSenderMock.mockImplementation(
+      async (input: { sender_email: string }) => {
+        if (input.sender_email === "klant@bv.nl") {
+          return {
+            matches: [
+              { top_level_customer_id: "555", top_level_customer_name: "Klant BV" },
+            ],
+          };
+        }
+        return { matches: [] };
+      },
+    );
+
+    const result = await resolveEntity(
+      {
+        ...baseArgs,
+        // Own-tenant forwarder → D-07 quoted-sender extraction kicks in.
+        from_email: "verkoop@smeba.nl",
+        subject: "FW: vraag",
+        body_text: [
+          "Met vriendelijke groet,",
+          "noreply@vendor.com", // positionally FIRST, but a signature address
+          "",
+          "Van: klant@bv.nl",
+          "Verzonden: maandag",
+          "Aan: verkoop@smeba.nl",
+          "Onderwerp: vraag",
+          "",
+          "Graag een offerte.",
+        ].join("\n"),
+      },
+      { ...salesConfig, precedence: ["sender_match"] },
+    );
+
+    expect(result.method).toBe("sender_match");
+    expect(result.customer_account_id).toBe("555");
+    expect(result.inputs.kind).toBe("sender_match");
+    if (result.inputs.kind === "sender_match") {
+      expect(result.inputs.sender_email).toBe("klant@bv.nl");
+    }
+  });
+
+  it("returns unresolved when the body has no quoted-header block (no positional first-match guess)", async () => {
+    const result = await resolveEntity(
+      {
+        ...baseArgs,
+        from_email: "verkoop@smeba.nl", // own-tenant forwarder
+        subject: "Notitie",
+        // Stray address in a signature, but NO quoted-header line.
+        body_text: "Zie ook noreply@vendor.com voor details. Groet.",
+      },
+      { ...salesConfig, precedence: ["sender_match"] },
+    );
+
+    expect(result.method).toBe("unresolved");
+    expect(result.customer_account_id).toBeNull();
+    // No quoted-header → effective sender is null, lookup never attempted.
+    expect(lookupSenderMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("Phase 114-07 Task 2: unresolved path carries attempted identifiers (WR-04)", () => {
+  it("surfaces extracted-but-unmatched identifiers on the unresolved fall-through", async () => {
+    // offerte/order extract candidates, but NXT resolves NONE → unresolved,
+    // yet the attempted-identifier trail must be non-empty.
+    nxtRequestMock.mockResolvedValue({
+      status: 200,
+      ok: true,
+      data: { content: [] }, // no customer on any search
+    });
+
+    const result = await resolveEntity(
+      {
+        ...baseArgs,
+        from_email: "prospect@brand-new.example",
+        subject: "Offerte SB014967 / order 12345",
+        body_text: "Graag update op offerte SB014967 en order 12345.",
+      },
+      { ...salesConfig, precedence: ["offerte_match", "order_match"] },
+    );
+
+    expect(result.method).toBe("unresolved");
+    expect(result.customer_account_id).toBeNull();
+    expect(result.inputs.kind).toBe("unresolved");
+    if (result.inputs.kind === "unresolved") {
+      expect(result.inputs.matched_identifiers.length).toBeGreaterThanOrEqual(1);
+      expect(result.inputs.matched_identifiers).toContain("SB014967");
+    }
+  });
+});

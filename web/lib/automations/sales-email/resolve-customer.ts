@@ -38,12 +38,24 @@ import {
   type ResolveResult,
   type EngineConfig,
 } from "@/lib/agentic-pipeline/resolve/engine";
-import { lookupSenderToAccount } from "@/lib/automations/debtor-email/nxt-zap-client";
+// IN-01 (Phase 114-07): the two nxt-zap-client imports merged into one statement.
+import {
+  lookupSenderToAccount,
+  lookupIdentifierToAccount,
+} from "@/lib/automations/debtor-email/nxt-zap-client";
 import { extractInvoiceCandidates } from "@/lib/automations/debtor-email/extract-invoices";
-import { lookupIdentifierToAccount } from "@/lib/automations/debtor-email/nxt-zap-client";
-import { lookupOfferteToAccount } from "./lookups/offerte";
-import { lookupOrderToAccount } from "./lookups/order";
-import { lookupPostcodeToAccount } from "./lookups/sites";
+import {
+  lookupOfferteToAccount,
+  extractOfferteCandidates,
+} from "./lookups/offerte";
+import {
+  lookupOrderToAccount,
+  extractOrderCandidates,
+} from "./lookups/order";
+import {
+  lookupPostcodeToAccount,
+  extractPostcodeCandidates,
+} from "./lookups/sites";
 
 // Sales tenant domains (source of truth: public.swarms.tenant_domains for
 // sales-email = ["smeba.nl"]). Sales-specific glue, NOT an engine concern. When
@@ -64,16 +76,36 @@ function isOwnTenant(email: string | null): boolean {
   return SALES_TENANT_DOMAINS.some((d) => lower.endsWith(`@${d}`));
 }
 
+// WR-05 (Phase 114-07): a quoted-header line that introduces the original
+// sender on an internal forward. We ONLY trust an address that appears in (or
+// just after) such a header — a bare address in a signature, cc list, or
+// disclaimer must NOT be treated as the sender (it would resolve a wrong
+// external party at confidence:"high").
+const QUOTED_HEADER_RE = /^\s*(van:|from:|verzonden namens\b|on\b.*\bwrote:)/i;
+
 /**
- * D-07 — pull the FIRST non-tenant email address out of the (quoted) body. On an
- * internal forward the originating customer address appears in the quoted header
- * ("Van: klant@bv.nl"). We pick the first address that is NOT an own-tenant
- * domain so a forwarded thread resolves to the real customer, not the forwarder.
+ * D-07 + WR-05 — pull the originating customer address out of the quoted-header
+ * CONTEXT, not from anywhere in the body. On an internal forward the original
+ * sender appears in a quoted header ("Van: klant@bv.nl"). We scan for the FIRST
+ * quoted-header line and take the first non-own-tenant address from that line
+ * and the few lines immediately following it. If NO quoted-header block is
+ * present we return null — we do NOT fall back to a positional first-match guess
+ * over the whole body (that let signature/cc/disclaimer addresses hijack
+ * sender_match — WR-05). D-07 (internal forwards are still resolved) is
+ * preserved: we resolve via the quoted header, just not via an arbitrary body
+ * address.
  */
 function extractQuotedSender(body: string): string | null {
-  EMAIL_RE.lastIndex = 0;
-  for (const m of body.matchAll(EMAIL_RE)) {
-    if (!isOwnTenant(m[0])) return m[0].toLowerCase();
+  const lines = body.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    if (!QUOTED_HEADER_RE.test(lines[i])) continue;
+    // Found a quoted header — scan it + the next few lines for the first
+    // non-own-tenant address (the originating customer).
+    const window = lines.slice(i, i + 5).join("\n");
+    EMAIL_RE.lastIndex = 0;
+    for (const m of window.matchAll(EMAIL_RE)) {
+      if (!isOwnTenant(m[0])) return m[0].toLowerCase();
+    }
   }
   return null;
 }
@@ -176,29 +208,26 @@ export async function resolveEntity(
       }
 
       case "offerte_match": {
+        // WR-04: record attempted identifiers at EXTRACTION time (before the
+        // lookup) so the unresolved fall-through carries what was tried, not
+        // only what matched.
+        seenIdentifiers.push(...extractOfferteCandidates(subject, body));
         const hit = await lookupOfferteToAccount(NXT_ENV, subject, body);
-        if (hit) {
-          seenIdentifiers.push(hit.matched_identifier);
-          return identifierResult(hit, seenIdentifiers);
-        }
+        if (hit) return identifierResult(hit, dedupe(seenIdentifiers));
         break;
       }
 
       case "postcode_site_match": {
+        seenIdentifiers.push(...extractPostcodeCandidates(subject, body));
         const hit = await lookupPostcodeToAccount(NXT_ENV, subject, body);
-        if (hit) {
-          seenIdentifiers.push(hit.matched_identifier);
-          return identifierResult(hit, seenIdentifiers);
-        }
+        if (hit) return identifierResult(hit, dedupe(seenIdentifiers));
         break;
       }
 
       case "order_match": {
+        seenIdentifiers.push(...extractOrderCandidates(subject, body));
         const hit = await lookupOrderToAccount(NXT_ENV, subject, body);
-        if (hit) {
-          seenIdentifiers.push(hit.matched_identifier);
-          return identifierResult(hit, seenIdentifiers);
-        }
+        if (hit) return identifierResult(hit, dedupe(seenIdentifiers));
         break;
       }
 
@@ -257,7 +286,20 @@ export async function resolveEntity(
   }
 
   // STAGE2-02 fall-through: prospect / no resolvable signal → unresolved.
-  return unresolved(effectiveSender, seenIdentifiers);
+  // WR-04: seenIdentifiers now carries every identifier the adapter ATTEMPTED
+  // (extracted-but-unmatched), so the unresolved audit trail is non-empty when
+  // identifiers were present. NOTE: the Stage 2 worker's catch-block
+  // `matched_identifiers: []` (WR-04 part 2) is effectively DEAD for sales —
+  // every lookup here `.catch`es to null and the adapter never throws, so the
+  // worker never enters that path for the sales swarm. The adapter-side trail
+  // is therefore the real fix; no worker change is needed (and the worker file
+  // is owned by plan 114-06).
+  return unresolved(effectiveSender, dedupe(seenIdentifiers));
+}
+
+/** Order-preserving de-duplication for the attempted-identifier trail. */
+function dedupe(ids: string[]): string[] {
+  return Array.from(new Set(ids));
 }
 
 /** Map a SalesCustomerMatch-style hit to the LOCKED identifier_match result. */
