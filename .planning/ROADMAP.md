@@ -448,7 +448,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 116-01-PLAN.md — Generic email_attachments table + private Storage bucket + RLS + attachment_config registry switches (ATTACH-05) [wave 1]
+- [x] 116-01-PLAN.md — Generic email_attachments table + private Storage bucket + RLS + attachment_config registry switches (ATTACH-05) [wave 1]
 - [ ] 116-02-PLAN.md — Graph attachment helpers + unpdf install + swarm-agnostic extract service (unpdf text-layer + Orq vision fallback) (ATTACH-02) [wave 1]
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -509,7 +509,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 7/7 plans complete
+**Plans:** 1/6 plans executed
 
 Plans:
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
-stopped_at: Phase 116 context gathered
-last_updated: "2026-06-04T18:36:19.262Z"
-last_activity: 2026-06-04 -- Phase 116 planning complete
+stopped_at: 116-01 complete — Task 3 remote-apply checkpoint pending
+last_updated: "2026-06-04T18:42:53.830Z"
+last_activity: 2026-06-04 -- Phase 116 execution started
 progress:
   total_phases: 10
   completed_phases: 6
   total_plans: 41
-  completed_plans: 28
+  completed_plans: 29
   percent: 60
 ---
 
@@ -57,20 +57,20 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 114 — stage-2-resolver-reuse-cross-swarm-generality-proof
+**Current focus:** Phase 116 — attachment-ingest-uniform-cross-swarm
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 115
-Plan: Not started
-Status: Ready to execute
+Phase: 116 (attachment-ingest-uniform-cross-swarm) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 116
 
 **Phase 112 outcome (zelfde dag):**
 Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — COMPLETE (go-live verified 2026-06-04)
 Plan: 3 of 3
 Status: Sales Stage-1 Outlook archive LIVE (`stage_1_archive=false`, migration `sales_stage1_archive_golive`); backfill complete (67 archived / 38 sugar-skip / ~1650 queued predicted); loopback disabled + supplier_bank_change demoted after canary findings
-Last activity: 2026-06-04 -- Phase 116 planning complete
+Last activity: 2026-06-04 -- Phase 116 execution started
 
 **Phase 112 incident (2026-06-04):** prod ran pre-110-04 code without the per-stage gate → loopback rule archived 141 real internal forwards since May 21. Emergency stop + full restore + gate-code deployed (PR #61) + canary bugfixes (PR #65: global canary cap, Graph-400 skip). Learning `52930d32`. Details: `phases/112-*/112-03-SUMMARY.md`.
 
@@ -165,6 +165,7 @@ Last activity: 2026-06-04 -- Phase 116 planning complete
 | Phase 114 P06 | 4m | 2 tasks | 2 files |
 | Phase 114 P07 | 12m | 2 tasks | 5 files |
 | 114 | 7 | - | - |
+| Phase 116 P01 | 8m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -273,6 +274,7 @@ Last activity: 2026-06-04 -- Phase 116 planning complete
 - [Phase ?]: Phase 114-05: STAGE2-01 locked via scripts/no-engine-diff-check.sh (byte-equality engine/config/steps vs donor; single sales dispatch line allowed; PROVISIONAL until D-06 corroboration fast-follow). STAGE2-02 locked via self-auth-noop + unresolved-fallthrough acceptance tests. D-02 v8.2 rebase note left.
 - [Phase ?]: Phase 114-06: SC-1 blockers closed in the Stage 2 worker only — CR-01 generic brand_id from resolution_config.scope.brand_scope[0], CR-02 entity_brand inline-guarded to scalar code (object→.code), WR-01 nxt_database config-sourced. Debtor byte-neutral; no-engine-diff exit 0; suite 2461 green.
 - [Phase ?]: Phase 114-07: closed review warnings WR-02..WR-05 + IN-01 in sales lookups/adapter (postcode address-context gate + medium confidence per D-06 interim; order regex word-boundary-anchored; quoted-header-scoped sender; unresolved path surfaces attempted identifiers). ZERO engine/config/steps diff.
+- [Phase ?]: Phase 116-01: generic email_attachments table + private bucket + RLS; swarms.attachment_config switches (capture/extract + caps + stage2_dispatch_event) seeded sales=both-on debtor=capture-only (D-13). Migrations committed; remote-apply + check:supabase gated to checkpoint.
 
 ### Blockers/Concerns
 
@@ -305,10 +307,10 @@ Last activity: 2026-06-04 -- Phase 116 planning complete
 
 ## Session Continuity
 
-Last session: 2026-06-04T17:50:59.902Z
-Stopped at: Phase 116 context gathered
+Last session: 2026-06-04T18:42:53.797Z
+Stopped at: 116-01 complete — Task 3 remote-apply checkpoint pending
 Resume with: `/gsd-execute-phase 65`
-Resume file: .planning/phases/116-attachment-ingest-uniform-cross-swarm/116-CONTEXT.md
+Resume file: .planning/phases/116-attachment-ingest-uniform-cross-swarm/116-01-PLAN.md
 
 ## Deferred Items
 
