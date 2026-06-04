@@ -340,9 +340,12 @@ This rewire is behaviour-neutral for debtor (the debtor adapter's `resolveEntity
 | A4 | The Stage 2 worker can be made swarm-generic (event pattern or sales registration) without a per-swarm branch | Pitfall 6 | If the worker hard-codes the debtor event name, sales needs either a wildcard listener or a new function — an architecture decision, not a config one. |
 | A5 | `resolution_config` free-form jsonb can express the sales precedence + scope without engine changes (excluding corroboration) | STAGE2-01 | If sales needs a step kind the engine doesn't have (e.g. Sites-postcode match), that's a new generic step module — additive to `resolve/steps/`, arguably not an "Engine" change but needs the no-Engine-diff definition (Pitfall 2). |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All four questions were resolved during planning (iteration 2, 2026-06-04). Inline `RESOLVED:` annotations below.
 
 1. **Multi-match corroboration (D-06) — config or engine work?** (HIGHEST PRIORITY)
+   - **RESOLVED:** iteration 1 ships precedence-only; D-06 deferral decided at the Plan 04 Task 3 checkpoint, with a mandatory tripwire todo (`.planning/todos/pending/2026-06-04-d06-corroboration-fast-follow.md`) on the defer path, asserted by Plan 05 Task 3.
    - What we know: The engine is precedence-order + single-hit short-circuit; `resolution_config` has no corroboration field. CONTEXT D-06 explicitly permits engine work IF it lands in/right-after the enabler-PR, before the no-Engine-diff measurement.
    - What's unclear: Whether iteration 1 needs corroboration or can ship precedence-only.
    - Recommendation: Ship iteration 1 **precedence-only** (cleanest STAGE2-01); spec corroboration as a generic engine capability for a fast follow that lands BEFORE the no-Engine-diff measurement is taken as the acceptance gate. Raise to the user in discuss-phase if not already settled.
@@ -350,12 +353,15 @@ This rewire is behaviour-neutral for debtor (the debtor adapter's `resolveEntity
 2. **Definition of "Engine" for the no-Engine-diff check (STAGE2-01).**
    - What we know: Onboarding requires one line in `STAGE2_RESOLVER_MODULES` (bundler constraint).
    - Recommendation: Acceptance criterion = "zero diff to `engine.ts`, `config.ts`, and `resolve/steps/*`; the only `web/lib/swarms/dynamic.ts` change is the single dispatch-map registration line." Make this explicit so the criterion is verifiable.
+   - **RESOLVED:** exactly this precise scope adopted — Plan 05 Task 2 (`scripts/no-engine-diff-check.sh`: byte-equality on `engine.ts`/`config.ts`/`steps/*`, single `STAGE2_RESOLVER_MODULES` line allowed).
 
 3. **New sales step kinds (offerte/order/Sites) — generic step modules or sales-adapter-internal?**
    - Recommendation: Build them as generic `resolve/steps/*` where the lookup is reusable (Sites-postcode is cross-swarm), keeping sales-specific glue in the sales adapter. Confirm during planning which lookups are genuinely cross-swarm.
+   - **RESOLVED:** sales-adapter-internal lookups (`lib/automations/sales-email/lookups/*`) with sales glue in `resolve-customer.ts` — Plan 04 Task 1 (option b); generic step promotion deferred until a second swarm needs them.
 
 4. **Generic resolution audit table (D-12) schema placement + Stage 2 gate key.**
    - Recommendation: `email_pipeline` schema (alongside `emails`) keeps it pipeline-scoped and PostgREST-exposed; add a `stage_2_resolution` key to `DryRunConfig` (fail-closed, sales blocked by default) rather than overloading `stage_3_labeling`.
+   - **RESOLVED:** as recommended — Plan 02 (`email_pipeline.resolution_audit` with RLS + `stage_2_resolution` fail-closed gate key).
 
 ## Environment Availability
 
