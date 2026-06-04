@@ -54,6 +54,7 @@ const INPUT_BASE = {
   name: "[iController] PDF export crash on large data sets",
   description: "AI Summary: user reports PDF crash\n\nTranscript: transcript here",
   submission_id: "sub-aaaabbbb",
+  submitter_email: "danny.vaessens.cb@moyneroberts.com",
 };
 
 // ---------------------------------------------------------------------------
@@ -249,6 +250,7 @@ describe("callClickupCreateTask (async_callback)", () => {
     expect(body.assignee_user_id).toBe(INPUT_BASE.assignee_user_id);
     expect(body.name).toBe(INPUT_BASE.name);
     expect(body.description).toBe(INPUT_BASE.description);
+    expect(body.submitter_email).toBe(INPUT_BASE.submitter_email);
     expect(body.custom_fields).toMatchObject({ submission_id: INPUT_BASE.submission_id });
   });
 

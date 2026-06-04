@@ -482,6 +482,7 @@ export async function runVendorDraftHandler(
           name: `[VENDOR] [${proposed_system ?? "unknown"}] ${(ticket.transcript ?? "").slice(0, 80)}`,
           description: `Vendor-draft primary path.\n\nTranscript: ${ticket.transcript ?? "(none)"}`,
           submission_id: ticket.submission_id,
+          submitter_email: ticket.submitter_id ?? "",
         },
         "clickup-escalate", // intentional re-use of escalate allowlist — see comment above
       );

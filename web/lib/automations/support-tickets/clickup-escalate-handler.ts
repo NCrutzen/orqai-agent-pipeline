@@ -553,6 +553,7 @@ export async function runClickupEscalateHandler(
         name: taskName,
         description: taskDescription,
         submission_id: ticket.submission_id,
+        submitter_email: ticket.submitter_id ?? "",
       },
       "clickup-escalate",
     );

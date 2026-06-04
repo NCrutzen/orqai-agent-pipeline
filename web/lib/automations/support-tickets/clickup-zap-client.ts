@@ -168,6 +168,13 @@ export interface ClickupCreateTaskInput {
   description: string;
   /** submission_id passed as ClickUp custom_field for Zap-side dedup (T-04-05-01) */
   submission_id: string;
+  /**
+   * Submitter identity — sourced from support_tickets.submitter_id, which is the
+   * M365 email/UPN of the ticket creator in production. Surfaced on the ClickUp task
+   * (mapped to the "emailadres" field by the Zap) so engineers can keep the creator
+   * informed of status changes. Empty string when unknown.
+   */
+  submitter_email: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -289,6 +296,9 @@ export async function callClickupCreateTask(
     name: input.name,
     description: input.description,
     submission_id: input.submission_id,
+    // Submitter email (M365 identity) — Zap maps this to the ClickUp "emailadres"
+    // field so the engineer can notify the creator of status changes.
+    submitter_email: input.submitter_email,
     // Zap-side dedup custom field (T-04-05-01 defense in depth)
     custom_fields: { submission_id: input.submission_id },
     timestamp: new Date().toISOString(),
