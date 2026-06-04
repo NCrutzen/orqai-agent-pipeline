@@ -329,6 +329,48 @@ describe("sales-email Stage-1 backfill", () => {
     expect(emitPipelineEvent).toHaveBeenCalledTimes(0);
   });
 
+  it("9: canary cap is GLOBAL across batches (regression: live canary archived 64 instead of 15, 2026-06-04)", async () => {
+    // 160 auto candidates → 2 batches (150 + 10). limit=155 must let batch 1
+    // archive 150 and batch 2 exactly 5 — pre-fix, the per-batch `local`
+    // counter let every batch archive up to `limit` independently.
+    candidatesReturn.rows = Array.from({ length: 160 }, (_, i) =>
+      candidate({ email_id: `e-${i}`, source_id: `AAMkGraph-${i}` }),
+    );
+    const ret = await getHandler()({ event: { data: { mode: "canary", limit: 155 } }, step: makeStep() });
+    expect(archiveEmail).toHaveBeenCalledTimes(155);
+    expect(ret).toMatchObject({ archived: 155 });
+  });
+
+  it("10: canary limit reached in batch 1 → later batch steps are skipped entirely", async () => {
+    candidatesReturn.rows = Array.from({ length: 160 }, (_, i) =>
+      candidate({ email_id: `e-${i}`, source_id: `AAMkGraph-${i}` }),
+    );
+    const step = makeStep();
+    const ret = await getHandler()({ event: { data: { mode: "canary", limit: 10 } }, step });
+    expect(archiveEmail).toHaveBeenCalledTimes(10);
+    expect(ret).toMatchObject({ archived: 10 });
+    const batchSteps = step.calls.filter((c) => c.id.startsWith("backfill-batch-"));
+    expect(batchSteps).toHaveLength(1); // batch 1 only — break before batch 2
+  });
+
+  it("11: Graph 400 (malformed source_id) → no_live_message skip, run continues (regression: live canary run failed mid-run, 2026-06-04)", async () => {
+    candidatesReturn.rows = [
+      candidate({ email_id: "e-bad", source_id: "sugar-legacy-id" }),
+      candidate({ email_id: "e-ok", source_id: "AAMkGraph-ok" }),
+    ];
+    categorizeEmail.mockImplementation(async (_m: string, id: string) =>
+      id === "sugar-legacy-id"
+        ? { success: false, error: "Failed to get message: 400" }
+        : { success: true },
+    );
+    const ret = await getHandler()({ event: { data: { mode: "full" } }, step: makeStep() });
+    // bad id skipped as no_live_message, good one archived — no throw
+    expect(archiveEmail).toHaveBeenCalledTimes(1);
+    expect(archiveEmail).toHaveBeenCalledWith("verkoop@smeba.nl", "AAMkGraph-ok");
+    expect(emitPipelineEvent).toHaveBeenCalledTimes(1);
+    expect(ret).toMatchObject({ archived: 1, no_live_message: 1 });
+  });
+
   it("config: concurrency limit 1 + retries 1", () => {
     const cfg = (salesEmailStage1Backfill as unknown as { __config: Record<string, unknown> }).__config;
     expect(cfg.concurrency).toMatchObject({ limit: 1 });

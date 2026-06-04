@@ -86,6 +86,12 @@ type Counts = {
 
 const ARCHIVED_AS_SUCCESS = /404|ErrorItemNotFound|already/i;
 
+// Graph 400 = malformed message id (e.g. a legacy/non-Graph source_id on an
+// imported row). The 404-style ARCHIVED_AS_SUCCESS treatment doesn't apply —
+// 400 means "this id can never resolve", so the candidate is skipped as
+// no_live_message rather than failing the run.
+const BAD_GRAPH_ID = /\b400\b/;
+
 export const salesEmailStage1Backfill = inngest.createFunction(
   { id: "sales-email/stage-1.backfill", retries: 1, concurrency: { limit: 1 } },
   { event: "sales-email/stage-1.backfill" },
@@ -130,6 +136,14 @@ export const salesEmailStage1Backfill = inngest.createFunction(
     for (let i = 0; i < candidateIds.length; i += BATCH_SIZE) {
       const batchIdx = Math.floor(i / BATCH_SIZE);
       const batchIds = candidateIds.slice(i, i + BATCH_SIZE);
+
+      // Canary cap is GLOBAL across batches. `local.archived` resets per batch
+      // step, so capping on it alone let every batch archive up to `limit` —
+      // the first live canary (2026-06-04) archived 64 instead of 15 that way.
+      // `counts.archived` is derived from memoized prior-step outputs, so this
+      // is deterministic under Inngest replay.
+      if (mode === "canary" && counts.archived >= limit) break;
+      const archivedBefore = counts.archived;
 
       const batchResult = await step.run(
         `backfill-batch-${batchIdx}`,
@@ -239,8 +253,10 @@ export const salesEmailStage1Backfill = inngest.createFunction(
 
             local.would_auto++;
             if (mode === "report") continue;
-            // Canary cap.
-            if (mode === "canary" && local.archived >= limit) continue;
+            // Canary cap — cumulative across batches (archivedBefore carries
+            // the total from prior batch steps; see loop-top comment).
+            if (mode === "canary" && archivedBefore + local.archived >= limit)
+              continue;
 
             const label =
               noiseCategories.find(
@@ -254,10 +270,22 @@ export const salesEmailStage1Backfill = inngest.createFunction(
               graphId,
               label,
             );
+            if (!catRes.success && BAD_GRAPH_ID.test(catRes.error ?? "")) {
+              // Malformed/non-Graph source_id (legacy import row) — Graph
+              // answers 400, the message is unreachable by this id. Treat as
+              // no-live-message no-op (D-07) instead of failing the whole run;
+              // the first live canary (2026-06-04) died mid-run on this.
+              local.no_live_message++;
+              continue;
+            }
             if (!catRes.success && !ARCHIVED_AS_SUCCESS.test(catRes.error ?? "")) {
               throw new Error(`categorize failed: ${catRes.error}`);
             }
             const arcRes = await archiveEmail(SALES_OUTLOOK_MAILBOX, graphId);
+            if (!arcRes.success && BAD_GRAPH_ID.test(arcRes.error ?? "")) {
+              local.no_live_message++;
+              continue;
+            }
             if (!arcRes.success && !ARCHIVED_AS_SUCCESS.test(arcRes.error ?? "")) {
               throw new Error(`archive failed: ${arcRes.error}`);
             }
