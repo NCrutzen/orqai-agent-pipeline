@@ -30,6 +30,7 @@ files_reviewed_list:
   - web/lib/automations/sales-email/lookups/sites.ts
   - web/lib/automations/sales-email/resolve-customer.ts
   - web/lib/inngest/events.ts
+  - web/lib/inngest/functions/__tests__/stage-2-customer-resolver.test.ts
   - web/lib/inngest/functions/stage-2-customer-resolver.ts
   - web/lib/outlook/__tests__/fetch-shape.test.ts
   - web/lib/outlook/client.ts
@@ -37,13 +38,12 @@ files_reviewed_list:
   - web/lib/pipeline-gating/dry-run-gate/index.ts
   - web/lib/swarms/dynamic.ts
   - web/lib/swarms/types.ts
-  - web/scripts/output/sales-identifier-mining.json
   - web/scripts/sales-identifier-mining.ts
 findings:
-  critical: 2
-  warning: 5
-  info: 4
-  total: 11
+  critical: 0
+  warning: 3
+  info: 3
+  total: 6
 status: issues_found
 ---
 
@@ -51,247 +51,148 @@ status: issues_found
 
 **Reviewed:** 2026-06-04
 **Depth:** standard
-**Files Reviewed:** 33
 **Status:** issues_found
 
 ## Summary
 
-Phase 114 onboards a sales Stage 2 entity resolver onto the generic resolution
-engine transplanted from the donor branch, with a registry-driven worker
-dispatch and a swarm-agnostic `resolution_audit` table. The no-Engine-diff guard
-and the migrations are well-constructed, and the engine/steps files were verified
-against the donor-byte-identical constraint (no logic-change findings raised in
-those files, per scope note).
+This is a re-review after gap-closure plans 114-06 and 114-07 (commits
+`a56cce82`, `88bde9f0`, `d2af4442`, `11f71fef`) addressed every finding from the
+prior REVIEW.md. All 11 prior findings are confirmed RESOLVED in the current
+code, with new regression tests pinning the CR-01/CR-02/WR-02/WR-03/WR-05 fixes.
 
-Two correctness defects dominate. First, the worker sources `brand_id` exclusively
-from `debtor.labeling_settings` keyed by `source_mailbox` — for sales
-(`verkoop@smeba.nl`) that row does not exist, so `brand_id` is `null` and **two of
-the five seeded precedence steps (`sender_match`, `factuur_match`) can never fire**.
-Second, `entity_brand` is read as `entity_brand[0]` and cast `as string`, but the
-registry shape for that column has migrated to an array of objects — the audit row
-and the Stage 3 hand-off can carry `"[object Object]"` / a JSON object where a brand
-string is expected. Both undermine the "cross-swarm generality proof" the phase
-claims to demonstrate.
+The two prior BLOCKERS are genuinely fixed: `effectiveBrandId` now sources the
+brand from `resolution_config.scope.brand_scope[0]` on the generic path (CR-01),
+so `sender_match`/`factuur_match` are reachable for sales; and `entityBrand` is
+normalized to a scalar code for both the string-array and object-array registry
+shapes (CR-02), with three new worker tests (Test A/B/C) asserting `brand_id`
+reaches `resolveEntity` and `entity_brand` is never `"[object Object]"`.
 
-## Critical Issues
+No new BLOCKERs. Three WARNINGs and three INFO items remain — all are residual
+robustness gaps in the heuristic identifier extractors that the fixes narrowed
+but did not fully close (acknowledged in code as D-06 fast-follow territory), plus
+a small inconsistency in how attempted identifiers are recorded and a `lastIndex`
+foot-gun on a shared module-level regex.
 
-### CR-01: Sales `brand_id` is always null → `sender_match` and `factuur_match` are dead steps
+## Prior findings resolution
 
-**File:** `web/lib/inngest/functions/stage-2-customer-resolver.ts:86-126`
-**Issue:**
-The worker loads resolver inputs from `debtor.labeling_settings`:
-
-```ts
-step.run("load-settings", async () => {
-  const { data } = await admin
-    .schema("debtor")
-    .from("labeling_settings")
-    .select("dry_run, nxt_database, brand_id, entity, icontroller_company")
-    .eq("source_mailbox", source_mailbox)   // = "verkoop@smeba.nl" for sales
-    .maybeSingle();
-  return data;
-}),
-...
-const brandId: string | null = settingsRow?.brand_id ?? null;
-```
-
-`debtor.labeling_settings` is the debtor swarm's per-mailbox table; there is no row
-for the sales mailbox `verkoop@smeba.nl`, so `settingsRow` is `null` and
-`brandId === null` for every sales email. The sales adapter then gates two of its
-five precedence steps on `args.brand_id`:
-
-- `sender_match`: `if (effectiveSender && args.brand_id)` (resolve-customer.ts:131)
-- `factuur_match`: `if (extract.candidates.length > 0 && args.brand_id)` (resolve-customer.ts:208)
-
-Both branches are skipped whenever `brand_id` is null — i.e. always — so sales
-resolution silently collapses to offerte/postcode/order only. The seed migration
-documents `sender_match` as the highest-confidence cross-cutting signal and places
-it FIRST in precedence, but at runtime it is unreachable. This defeats the
-data-driven precedence design and will mis-route every sender-resolvable or
-invoice-resolvable sales email to `unresolved`.
-
-The seed config carries the brand in `scope.brand_scope: ['SB']`, but neither the
-worker nor the adapter reads `config.scope` — `brand_id` only ever comes from the
-(nonexistent) debtor settings row.
-
-**Fix:** Source the brand for the generic path from registry/config rather than
-`debtor.labeling_settings`. For example, in the worker derive the brand from the
-swarm's `resolution_config.scope.brand_scope` (or `entity_brand`) when
-`usesGenericPath`, and pass that as `brand_id`:
-
-```ts
-const genericBrandId =
-  (resolutionConfig as { scope?: { brand_scope?: string[] } } | null)
-    ?.scope?.brand_scope?.[0] ?? null;
-const effectiveBrandId = usesGenericPath ? genericBrandId : brandId;
-```
-
-then pass `effectiveBrandId` into `resolver.resolveEntity({ ..., brand_id: effectiveBrandId })`.
-Add a worker-level test asserting that for a sales event a non-null brand reaches
-`resolveEntity` so `sender_match` is exercised.
-
-### CR-02: `entity_brand` read as `[0] as string` corrupts the audit + Stage 3 hand-off
-
-**File:** `web/lib/inngest/functions/stage-2-customer-resolver.ts:144-146`
-**Issue:**
-
-```ts
-const entityBrand: string | null = Array.isArray(swarmGate?.entity_brand)
-  ? ((swarmGate?.entity_brand as unknown[])[0] as string | undefined) ?? null
-  : null;
-```
-
-Per `web/lib/swarms/types.ts:57-63`, `entity_brand` migrated from `string[]`
-(Phase 68 seed) to `Record<string, unknown>[]` (BrandRegister metadata objects)
-after `20260505a_entity_brand_expansion.sql`, and `brand-register.ts` is the
-canonical reader. Taking `[0] as string` blindly assumes the legacy string-array
-shape. If the sales row carries the post-migration object shape, `entityBrand`
-becomes an object cast to `string`, which is then:
-
-- inserted into `email_pipeline.resolution_audit.entity_brand` (a `text` column,
-  migration `20260604_generic_resolution_audit.sql:36`) — stringified to
-  `"[object Object]"` or rejected, and
-- emitted as both `entity` and `entity_brand` on `${swarm_type}/coordinator.requested`
-  (lines 343-344), feeding a malformed brand into the Stage 2→3 context-shape
-  contract.
-
-This is a silent data-corruption path on the exact "generic audit + Stage 3
-hand-off" surface the phase introduces.
-
-**Fix:** Read the brand through the canonical brand-register loader (or normalize
-explicitly), e.g.:
-
-```ts
-const firstBrand = Array.isArray(swarmGate?.entity_brand)
-  ? swarmGate!.entity_brand[0]
-  : null;
-const entityBrand: string | null =
-  typeof firstBrand === "string"
-    ? firstBrand
-    : firstBrand && typeof firstBrand === "object"
-      ? (firstBrand as { code?: string; brand_id?: string }).code ??
-        (firstBrand as { brand_id?: string }).brand_id ?? null
-      : null;
-```
-
-Confirm the sales row's `entity_brand` shape and add an assertion test that the
-emitted `entity_brand` is a scalar brand code, not an object.
+| ID | Prior finding | Status | Evidence |
+|----|---------------|--------|----------|
+| CR-01 | Sales `brand_id` always null → `sender_match`/`factuur_match` dead | RESOLVED | `stage-2-customer-resolver.ts:152-155` derives `genericBrandId` from `resolution_config.scope.brand_scope[0]`; `effectiveBrandId` passed to `resolveEntity` (`:233`). Worker Test A asserts `args.brand_id === "SB"` (`stage-2-customer-resolver.test.ts:1207-1217`). |
+| CR-02 | `entity_brand[0] as string` corrupts audit + Stage 3 hand-off | RESOLVED | `:178-186` normalizes first element: string passthrough, object → `.code`, else null. Worker Tests B/C assert scalar `"SB"` for both shapes, never `"[object Object]"` (`:1219-1249`). |
+| WR-01 | `nxt_database` hardcoded `"nxt"` for sales | RESOLVED (partial, see WR-A) | `:163-168` sources `config.source.nxt_database` first, `"nxt"` only as documented fallback. The seed has no `nxt_database` key, so the literal still applies at runtime — acceptable per the documented single-handle justification, but see new WR-A. |
+| WR-02 | postcode regex over-matches SKUs/refs → wrong account high-conf | RESOLVED | `sites.ts:27-40` adds `hasAddressContext` gate; postcode hits self-downgrade to `confidence:"medium"` (`:94`). Tests at `resolve-customer.test.ts:188-227`. Residual gap noted as WR-B. |
+| WR-03 | `order` regex matches mid-word | RESOLVED | `order.ts:19` now `/\border[a-z]*.../`. Negative test `extractOrderCandidates("herorder 12345","")` → `[]` (`resolve-customer.test.ts:169`). |
+| WR-04 | error fallback discards extracted identifiers | RESOLVED | Adapter accumulates `seenIdentifiers` at extraction time and returns them on the unresolved path (`resolve-customer.ts:214,221,228,236,297`). Test `:293-320`. Residual ordering note in WR-C. |
+| WR-05 | `extractQuotedSender` picks first body email anywhere | RESOLVED | Rewritten to require a `QUOTED_HEADER_RE` context window (`resolve-customer.ts:84-111`). Tests `:229-291` confirm signature address does not win and no-header → unresolved. |
+| IN-01 | Duplicate `lookupIdentifierToAccount` import | RESOLVED | Merged into one import statement (`resolve-customer.ts:42-45`). |
+| IN-02 | `pickCustomer` duplicated across 3 lookups | NOT ADDRESSED (still valid) | `offerte.ts:86`, `order.ts:67`, `sites.ts:103` still copy-paste. Re-filed as IN-A. |
+| IN-03 | `case_ref` unsupported, no runtime guard | NOT ADDRESSED (still valid) | Engine + adapter still silently skip unknown precedence names. Re-filed as IN-B. |
+| IN-04 | `runThreadInheritanceOnly` duplicated | NOT ADDRESSED (accepted) | Still duplicated (`stage-2-customer-resolver.ts:653`), acknowledged in comment. No action this phase. |
 
 ## Warnings
 
-### WR-01: `nxt_database` defaulted to literal `"nxt"` for sales reads
+### WR-A: Sales `nxt_database` still resolves to the literal `"nxt"` at runtime
 
-**File:** `web/lib/inngest/functions/stage-2-customer-resolver.ts:188`
-**Issue:** On the generic path the worker passes
-`nxt_database: nxtDatabase ?? "nxt"`. For sales `nxtDatabase` is null (same root
-cause as CR-01 — no debtor settings row), so the literal `"nxt"` is used. The sales
-sender/factuur lookups (`lookupSenderToAccount`, `lookupIdentifierToAccount`) thread
-this into the debtor Zapier-SQL cross-DB views. If `"nxt"` is not the correct
-database handle for the sales brand, those lookups silently return no matches rather
-than erroring. Even after CR-01 is fixed, this hardcoded fallback should come from
-config, not a magic string.
-**Fix:** Source `nxt_database` from `resolution_config.source`/`scope` for the
-generic path (or document why `"nxt"` is always correct for every onboarded swarm)
-and drop the literal default.
+**File:** `web/lib/inngest/functions/stage-2-customer-resolver.ts:163-168`; `supabase/migrations/20260604b_sales_resolution_config.sql:46-77`
+**Issue:** The WR-01 fix sources `nxt_database` from `config.source.nxt_database`,
+but the seeded sales `resolution_config.source` (migration 20260604b) carries only
+`kind`/`resolver_tool_id`/`fallback` — there is NO `nxt_database` key. So
+`genericNxtDatabase` is `null` and `effectiveNxtDatabase` falls to the literal
+`"nxt"` for every sales email, which is exactly the runtime behavior WR-01 flagged.
+The code is now structurally correct (config-first), but the data does not exercise
+that path, so the hardcoded fallback is still the live value. Note the sales NXT
+lookups (`lookupSenderToAccount`, `lookupIdentifierToAccount`) thread this into the
+debtor Zapier-SQL cross-DB views; if `"nxt"` is not the correct handle for the SB
+brand, those two lookups silently return no matches rather than erroring. The
+offerte/order/Sites lookups go through `nxtRequest` and ignore `nxt_database`
+entirely, so only the two reused debtor lookups are exposed.
+**Fix:** Either add `source.nxt_database` to the sales seed so the value is
+explicit and auditable, or add a test asserting the reused debtor lookups receive
+the intended database handle for sales. If `"nxt"` is genuinely correct for SB,
+add a one-line comment in the migration recording that the omission is deliberate.
 
-### WR-02: `postcode_site_match` regex collides with other identifier formats → wrong-account risk
+### WR-B: Postcode address-context gate is still defeatable; `confidence:"medium"` does not prevent a wrong-account short-circuit
 
-**File:** `web/lib/automations/sales-email/lookups/sites.ts:18`
-**Issue:** `POSTCODE = /\b[1-9][0-9]{3}\s?[A-Za-z]{2}\b/g` matches any
-"4 digits + 2 letters" token, not only genuine NL postcodes. Tokens such as a
-reference like `1234AB`, a product/SKU code, or a partial offerte fragment will be
-treated as a postcode and sent to `/api/sites/search`. Because the adapter
-short-circuits on the FIRST hit and `postcode_site_match` sits ahead of
-`factuur_match`/`order_match` in precedence, a spurious postcode match can resolve an
-email to the wrong customer account with `confidence: "high"`. This is the highest-
-volume identifier (55%), so false positives here have broad blast radius.
-**Fix:** Tighten validation — require the postcode to appear in an address-like
-context, validate against a real NL postcode range/list, and/or treat a postcode-only
-match as `medium` confidence pending corroboration (the D-06 fast-follow). At minimum
-add negative-case tests (SKU/reference strings that must NOT resolve).
+**File:** `web/lib/automations/sales-email/lookups/sites.ts:27-40`, `web/lib/automations/sales-email/resolve-customer.ts:220-225`
+**Issue:** The `hasAddressContext` heuristic accepts a postcode-shaped token if a
+30-char window contains an address cue (`adres|postcode|straat|...`) OR a
+street-number pattern precedes it. A reference like `"locatie 1234AB"` or
+`"vestiging 5678CD"` matches the `ADDRESS_CUE` alternation and passes the gate even
+when the token is a product/site reference rather than a real NL postcode — the
+gate narrows the false-positive surface but does not eliminate it. More importantly,
+the `confidence:"medium"` downgrade is cosmetic for routing: the adapter still
+returns the FIRST postcode hit and short-circuits the precedence loop
+(`resolve-customer.ts:223`), so a spurious-but-context-passing postcode resolves the
+email to a (possibly wrong) account and skips `factuur_match`/`order_match`
+entirely. The medium label informs an operator but does not gate the auto-route.
+Sales Stage 2 is dry-run (`stage_2_resolution=true`) today, so blast radius is
+contained until cut-over, but the wrong-account risk re-arms at go-live.
+**Fix:** Validate the postcode against a real NL postcode range/list (the proper
+fix the code defers to the D-06 todo), and/or treat a medium-confidence
+postcode-only hit as non-terminal — let lower-precedence strong identifiers
+(factuur/order) still run and win. At minimum add a negative test for the
+`"locatie 1234AB"` cue-collision case.
 
-### WR-03: `order` regex matches mid-word, broadening false positives
+### WR-C: `seenIdentifiers` ordering across steps misrepresents the attempted-identifier trail; `sender_match` not recorded
 
-**File:** `web/lib/automations/sales-email/lookups/order.ts:16`
-**Issue:** `ORDER_GENERIC = /order[a-z]*\s*[:#]?\s*(\d{4,8})/gi` has no leading word
-boundary, so it matches inside longer words ("herorder 12345", "doororder...", and
-"werkorder 1634448" via the embedded "order"). The werkorder collision is benign
-(deduped to the same digits), but the missing `\b` means unrelated substrings ending
-in "order" followed by any 4-8 digit run get extracted and sent to NXT. Combined with
-first-hit short-circuit, this is a (lower-volume) wrong-account vector.
-**Fix:** Anchor the pattern: `/\border[a-z]*\s*[:#]?\s*(\d{4,8})/gi`. Add a test for
-a mid-word negative case.
-
-### WR-04: Worker error fallback discards extracted identifiers in `matched_identifiers`
-
-**File:** `web/lib/inngest/functions/stage-2-customer-resolver.ts:208-221`
-**Issue:** When `resolver.resolveEntity` throws, the catch block builds an
-`unresolved` result with `matched_identifiers: []`, discarding any identifiers the
-adapter had extracted before the throw. The legacy debtor path has the same shape,
-but for sales this means the audit row + Stage 3 hand-off lose the evidence trail
-exactly when a lookup failed — the case where an operator most needs to see which
-identifier was attempted. Note also the adapter itself never throws on lookup error
-(every lookup `.catch`es to null/empty), so this catch is effectively dead for the
-sales path; the audit will show no identifiers even though some were tried.
-**Fix:** Have the adapter surface attempted identifiers even on the unresolved path
-(it already accumulates `seenIdentifiers`), and prefer the adapter's own
-`inputs.matched_identifiers` over `[]` in the worker catch.
-
-### WR-05: `extractQuotedSender` picks the first non-tenant email anywhere in the body
-
-**File:** `web/lib/automations/sales-email/resolve-customer.ts:73-79`
-**Issue:** On an own-tenant forward the adapter scans the whole body and returns the
-FIRST non-tenant email address as the effective sender. Email bodies routinely
-contain unrelated addresses (cc lists, signatures, mailto links, disclaimers,
-prior-thread participants). Picking the first match positionally can resolve the
-thread to the wrong external party, again with `confidence: "high"` via
-`sender_match`. The mining report notes 23% internal forwards, so this path is well-
-exercised.
-**Fix:** Constrain extraction to the quoted-header context (e.g. lines following
-`Van:`/`From:`/`Verzonden namens`), or require the address to appear in the first
-quoted header block rather than anywhere in the body. Add a fixture with a signature
-address that must NOT win over the quoted-header sender.
+**File:** `web/lib/automations/sales-email/resolve-customer.ts:158,214-236,297`
+**Issue:** The WR-04 fix records identifiers at extraction time, but the trail is
+order-sensitive on the FIRST step's extraction, not on what was actually mined from
+the email. `seenIdentifiers` is pushed per-step in precedence order, then
+`dedupe()`d. If `offerte_match` runs first it pushes offerte numbers; a later
+`factuur_match` pushes invoice numbers — so the recorded trail order reflects
+precedence order, not document order, which can mislead an operator triaging the
+audit row about which identifier was "primary." Separately, when resolution fails
+purely because the sender did not match (sender present, no NXT hit, no other
+identifiers in the body), the unresolved result carries `matched_identifiers: []`
+and `sender_email: effectiveSender` — but there is no record that a sender lookup
+was attempted-and-missed, which is the WR-04 evidence-trail concern applied to the
+sender path. The audit `trace` does capture step status via `buildResolverTrace`,
+so this is a secondary surface, but the `matched_identifiers` field alone understates
+what was tried.
+**Fix:** Either document that `matched_identifiers` is identifier-kinds-only (and
+rely on `trace.steps` for the sender attempt), or include the attempted sender in
+the unresolved trail. Consider preserving document order when accumulating
+`seenIdentifiers` if operators read order as signal strength.
 
 ## Info
 
-### IN-01: Duplicate `lookupIdentifierToAccount` import
+### IN-A: `pickCustomer` still duplicated verbatim across three lookup modules
 
-**File:** `web/lib/automations/sales-email/resolve-customer.ts:41-43`
-**Issue:** `lookupSenderToAccount` and `lookupIdentifierToAccount` are imported from
-the same module (`nxt-zap-client`) across two separate `import` statements (lines 41
-and 43). Harmless but redundant.
-**Fix:** Merge into a single import statement.
+**File:** `web/lib/automations/sales-email/lookups/offerte.ts:86-105`, `order.ts:67-85`, `sites.ts:103-122`
+**Issue:** The tolerant response-envelope parser `pickCustomer` is copy-pasted in
+all three lookup modules (the prior IN-02, unaddressed). `sites.ts` already diverges
+slightly in its leading comment, illustrating the drift risk. The `SalesCustomerMatch`
+type is shared from `offerte.ts` but the parser is not.
+**Fix:** Extract a shared `pickCustomer` into `lookups/_shared.ts` (alongside the
+already-shared `SalesCustomerMatch` type).
 
-### IN-02: Three identical `pickCustomer` helpers duplicated across lookups
+### IN-B: Unsupported precedence step names are still silently skipped
 
-**File:** `web/lib/automations/sales-email/lookups/offerte.ts:79`, `order.ts:64`, `sites.ts:68`
-**Issue:** The tolerant response-envelope parser `pickCustomer` is copy-pasted
-verbatim in all three lookup modules. Divergence risk if one is later hardened and
-the others are not.
-**Fix:** Extract a shared `pickCustomer` (and the `SalesCustomerMatch` type already
-shared from offerte.ts) into a single `lookups/_shared.ts`.
+**File:** `web/lib/agentic-pipeline/resolve/engine.ts:162-163`, `web/lib/automations/sales-email/resolve-customer.ts:283-284`
+**Issue:** Both the engine `for` loop and the sales adapter `switch` fall through
+silently on an unknown precedence entry (the prior IN-03, unaddressed). A future
+operator who adds `"case_ref"` (or typos `"offerte_macth"`) to the precedence array
+gets a config that looks active but does nothing — no log, no error. `case_ref` is
+mined at 18% and explicitly documented as intentionally excluded, which makes an
+accidental future re-add plausible.
+**Fix:** Emit a `console.warn` (or a one-time telemetry breadcrumb) when a precedence
+entry matches no known step, so unsupported/typo'd names are observable.
 
-### IN-03: `case_ref` mined but silently unsupported — no runtime guard
+### IN-C: Shared module-level `EMAIL_RE` is `/g` and reused across calls — `lastIndex` foot-gun
 
-**File:** `supabase/migrations/20260604b_sales_resolution_config.sql:20-23`
-**Issue:** The migration header explains `case_ref` (18%) is intentionally excluded
-from precedence because it has no account lookup. That reasoning is sound, but
-nothing in code or schema prevents a future operator from adding `"case_ref"` to the
-precedence array, where the engine/adapter would silently skip it (unknown step name)
-— a config that looks active but does nothing.
-**Fix:** Optionally log a warning when a precedence entry matches no known step, so a
-typo'd or unsupported step name is observable rather than silent.
-
-### IN-04: `runThreadInheritanceOnly` duplicated from the thread-inheritance step
-
-**File:** `web/lib/inngest/functions/stage-2-customer-resolver.ts:609-674`
-**Issue:** This helper reimplements the exact query + mapping already in
-`resolve/steps/thread-inheritance.ts`. The comment acknowledges the duplication
-("kept duplicated rather than extracted"). Acceptable given the engine-byte-identical
-constraint, but worth noting as a known maintenance hazard if the debtor label query
-schema changes.
-**Fix:** None required this phase; track for consolidation once the engine-diff guard
-is retired.
+**File:** `web/lib/automations/sales-email/resolve-customer.ts:70,98-109`
+**Issue:** `EMAIL_RE` is a module-scoped global-flag regex consumed inside
+`extractQuotedSender` via `window.matchAll(EMAIL_RE)`. `matchAll` requires the `/g`
+flag (correct) and the code resets `EMAIL_RE.lastIndex = 0` before iterating, so the
+current call sites are safe. But `isOwnTenant` does not use the regex and a future
+refactor that switches any call to `EMAIL_RE.test()` / `EMAIL_RE.exec()` would
+inherit stateful `lastIndex` across invocations and produce intermittent
+false-negatives (the classic shared-global-regex bug). This is latent, not a live
+defect.
+**Fix:** Make `EMAIL_RE` a non-global local (or construct it per-call) for the
+`matchAll` use, or add a comment pinning the `/g` + `lastIndex=0` invariant so a
+future `.test()` user does not get bitten.
 
 ---
 
