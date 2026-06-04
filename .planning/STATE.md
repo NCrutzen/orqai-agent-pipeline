@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
-status: executing
+status: completed
 stopped_at: Phase 114 context gathered
-last_updated: "2026-06-04T15:04:15.682Z"
+last_updated: "2026-06-04T15:24:38.493Z"
 last_activity: 2026-06-04
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 33
-  completed_plans: 24
+  completed_plans: 25
   percent: 56
 ---
 
@@ -63,8 +63,8 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 114 (stage-2-resolver-reuse-cross-swarm-generality-proof) — EXECUTING
-Plan: 4 of 5
-Status: Ready to execute
+Plan: 5 of 5
+Status: Plan 04 complete (sales Stage 2 resolver reuse live on remote, fail-closed); ready for Plan 05 (no-Engine-diff gate)
 
 **Phase 112 outcome (zelfde dag):**
 Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — COMPLETE (go-live verified 2026-06-04)
@@ -263,6 +263,7 @@ Last activity: 2026-06-04
 - R8 covered by runnable Playwright spec — no .md fallback
 - [Phase ?]: Phase 114-01: v8.2 RESL-03 resolver seam transplanted verbatim (generic resolveEntity engine + loadStage2Resolver dispatch + debtor config+adapter refactor + donor test suite); donor seam suite green (port-equivalence + dispatch pass); D-03 dormant honored (Stage 2 worker un-rewired). Cross-track: workspace/v8.2-resolution-recall must rebase after enabler merge (D-02).
 - [Phase ?]: Phase 114-02: generic email_pipeline.resolution_audit table (swarm-agnostic, RLS service_role+authenticated SELECT) applied to remote; stage_2_resolution fail-closed gate key live; D-13 read surface unblocked. Task 3 checkpoint cleared via Management API apply.
+- [Phase 114-04]: Sales onboards to Stage 2 via config + ONE dispatch line + a sales lookup adapter (offerte/order/Sites via nxtRequest, factuur+sender reuse debtor D-11) — ZERO edits to engine.ts/config.ts/resolve/steps/* (STAGE2-01 generality proof in action). Real resolution_config live on remote (mvqjhlxfvtqqubqgdvhz, Management API HTTP 201): precedence ["sender_match","offerte_match","postcode_site_match","factuur_match","order_match"] (data-driven D-04, case_ref excluded — corroborating-only), auto_safe_kinds:[] (STAGE2-02 no-op), llm_tiebreaker:false. dry_run_config.stage_2_resolution=true (fail-closed). Sales Stage 2 swarm_dispatch event 'sales-email/stage-2.customer-resolve.requested' seeded (Pitfall 6); worker registry-driven (loadStage2Resolver + generic resolution_audit write + second Inngest trigger), debtor behaviour-neutral. check:supabase 0 ERROR. **Checkpoint decisions (operator):** (1) migration applied to remote; (2) D-06 multi-match corroboration DEFERRED to fast-follow (tripwire todo `2026-06-04-d06-corroboration-fast-follow.md` — corroboration ENGINE change must land BEFORE the no-Engine-diff gate is final; Plan 05 Task 3 asserts it exists).
 - [Phase ?]: Phase 114-03: ingest hardened (from→sender fallback + has_attachments, swarm-agnostic); D-14 fix-forward only; D-04 mining report committed (postcode 55%/offerte_sb 22%/case_ref 18%/factuur 7%, total=1282 with_sender=928 null=354) — Plan 04 precedence input, Pitfall-4 corrected.
 
 ### Blockers/Concerns
