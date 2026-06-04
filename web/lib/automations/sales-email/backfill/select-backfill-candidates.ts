@@ -85,7 +85,76 @@ type IdRow = {
   id: string;
   source_id: string | null;
   internet_message_id: string | null;
+  sender_email: string | null;
+  subject: string | null;
+  received_at: string | null;
 };
+
+/**
+ * The lean per-batch candidate shape the worker hydrates inside each batch
+ * step: Graph-id resolution fields + the small display fields queuePredicted
+ * writes onto the Bulk Review predicted row. Excludes `body` (the step-output
+ * overflow culprit) — bodies never cross or enter a step boundary.
+ */
+export type LeanBackfillCandidate = {
+  email_id: string;
+  source_id: string | null;
+  internet_message_id: string | null;
+  sender_email: string | null;
+  subject: string | null;
+  received_at: string | null;
+};
+
+/**
+ * Read `source_id, internet_message_id` for a set of email_ids (chunked).
+ *
+ * Extracted as its own seam (2026-06-04) so the Inngest worker can hydrate
+ * Graph ids PER BATCH inside each batch step instead of carrying the full
+ * candidate rows across the step boundary — full RetroCandidate rows include
+ * `subject`/`body`, and returning them from `step.run` blew Inngest's
+ * step-output size limit on the first live report-mode run.
+ *
+ * The id read is chunked at 150 — a 500-uuid .in() builds a ~19.6KB URL that
+ * PostgREST/undici rejects with UND_ERR_HEADERS_OVERFLOW (>16KB); 150 ids
+ * ≈ 5.9KB, comfortably under the cap. (Also stays under the PostgREST
+ * 1000-row IN cap — Pitfall 3.)
+ */
+export async function hydrateGraphIds(
+  admin: Pick<SupabaseClient, "schema">,
+  emailIds: string[],
+): Promise<Map<string, IdRow>> {
+  const idsById = new Map<string, IdRow>();
+  const CHUNK = 150;
+  for (let i = 0; i < emailIds.length; i += CHUNK) {
+    const slice = emailIds.slice(i, i + CHUNK);
+    const { data, error } = (await admin
+      .schema("email_pipeline")
+      .from("emails")
+      .select("id, source_id, internet_message_id, sender_email, subject, received_at")
+      .in("id", slice)) as { data: IdRow[] | null; error: unknown };
+    if (error) throw error as Error;
+    for (const r of data ?? []) idsById.set(r.id, r);
+  }
+  return idsById;
+}
+
+/**
+ * Lean selection for the Inngest step boundary: candidate email_ids ONLY.
+ *
+ * Why ids-only: the select runs inside `step.run`, and Inngest persists the
+ * step's return value. Full candidates carry `subject`/`body` (RetroCandidate)
+ * — at the 365-day two-corpus window that is many MB and exceeded the
+ * step-output limit live (2026-06-04). Ids are ~40 bytes each; the worker
+ * re-hydrates the Graph-id fields per batch via `hydrateGraphIds`.
+ * Same hardened selection invariants as `selectBackfillCandidates`.
+ */
+export async function selectBackfillCandidateIds(
+  admin: Pick<SupabaseClient, "schema">,
+  args: SelectCandidatesArgs,
+): Promise<string[]> {
+  const base = await selectCandidates(admin, args);
+  return base.map((c) => c.email_id);
+}
 
 /**
  * Select the backfill corpus and attach Graph-id resolution data per candidate.
@@ -93,7 +162,9 @@ type IdRow = {
  * Step 1: `selectCandidates` (the hardened 111 selector — same invariants).
  * Step 2: read `source_id, internet_message_id` for those email_ids and join.
  *
- * The id read is chunked to stay under the PostgREST 1000-row IN cap (Pitfall 3).
+ * NOTE: returns FULL candidate rows (incl. subject/body via RetroCandidate) —
+ * do NOT return this from an Inngest `step.run` (step-output limit; see
+ * `selectBackfillCandidateIds` + `hydrateGraphIds` for the step-safe pair).
  */
 export async function selectBackfillCandidates(
   admin: Pick<SupabaseClient, "schema">,
@@ -102,22 +173,10 @@ export async function selectBackfillCandidates(
   const base = await selectCandidates(admin, args);
   if (base.length === 0) return [];
 
-  const idsById = new Map<string, IdRow>();
-  const emailIds = base.map((c) => c.email_id);
-  // 150, not 500: a 500-uuid .in() builds a ~19.6KB URL that PostgREST/undici
-  // rejects with UND_ERR_HEADERS_OVERFLOW (>16KB) — hit live on the first
-  // report-mode run (2026-06-04). 150 ids ≈ 5.9KB, comfortably under the cap.
-  const CHUNK = 150;
-  for (let i = 0; i < emailIds.length; i += CHUNK) {
-    const slice = emailIds.slice(i, i + CHUNK);
-    const { data, error } = (await admin
-      .schema("email_pipeline")
-      .from("emails")
-      .select("id, source_id, internet_message_id")
-      .in("id", slice)) as { data: IdRow[] | null; error: unknown };
-    if (error) throw error as Error;
-    for (const r of data ?? []) idsById.set(r.id, r);
-  }
+  const idsById = await hydrateGraphIds(
+    admin,
+    base.map((c) => c.email_id),
+  );
 
   return base.map((c) => {
     const ids = idsById.get(c.email_id);

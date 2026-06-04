@@ -48,10 +48,12 @@ import {
   classifyDisposition,
 } from "@/lib/automations/sales-email/backfill/disposition";
 import {
-  selectBackfillCandidates,
+  selectBackfillCandidateIds,
+  hydrateGraphIds,
   resolveGraphIdSource,
   SALES_OUTLOOK_MAILBOX,
-  type BackfillCandidate,
+  type GraphIdResolvable,
+  type LeanBackfillCandidate,
 } from "@/lib/automations/sales-email/backfill/select-backfill-candidates";
 import { resolveVerdicts } from "@/lib/automations/sales-email/backfill/resolve-verdicts";
 
@@ -102,9 +104,13 @@ export const salesEmailStage1Backfill = inngest.createFunction(
       data.since ??
       new Date(Date.now() - DEFAULT_LOOKBACK_DAYS * 86_400_000).toISOString();
 
-    const candidates = await step.run("select-candidates", async () => {
+    // Ids ONLY across the step boundary — full candidates carry subject/body
+    // (RetroCandidate) and exceeded Inngest's step-output size limit on the
+    // first live report-mode run (2026-06-04). Graph-id fields are re-hydrated
+    // per batch inside each batch step (CLAUDE.md: grote outputs → referentie).
+    const candidateIds = await step.run("select-candidates", async () => {
       const admin = createAdminClient();
-      return selectBackfillCandidates(admin, {
+      return selectBackfillCandidateIds(admin, {
         swarm_type: SWARM_TYPE,
         since,
         until,
@@ -121,14 +127,29 @@ export const salesEmailStage1Backfill = inngest.createFunction(
       skipped_already_archived: 0,
     };
 
-    for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+    for (let i = 0; i < candidateIds.length; i += BATCH_SIZE) {
       const batchIdx = Math.floor(i / BATCH_SIZE);
-      const batch = candidates.slice(i, i + BATCH_SIZE) as BackfillCandidate[];
+      const batchIds = candidateIds.slice(i, i + BATCH_SIZE);
 
       const batchResult = await step.run(
         `backfill-batch-${batchIdx}`,
         async () => {
           const admin = createAdminClient();
+
+          // Re-hydrate the Graph-id fields for THIS batch only (lean step
+          // boundary — see select-candidates comment above).
+          const graphIdsById = await hydrateGraphIds(admin, batchIds);
+          const batch: LeanBackfillCandidate[] = batchIds.map((email_id) => {
+            const row = graphIdsById.get(email_id);
+            return {
+              email_id,
+              source_id: row?.source_id ?? null,
+              internet_message_id: row?.internet_message_id ?? null,
+              sender_email: row?.sender_email ?? null,
+              subject: row?.subject ?? null,
+              received_at: row?.received_at ?? null,
+            };
+          });
 
           // Auto-set is registry-derived (D-05) — load once per batch.
           const noiseCategories = await loadSwarmNoiseCategories(
@@ -289,7 +310,7 @@ export const salesEmailStage1Backfill = inngest.createFunction(
     return {
       run_id: runId,
       mode,
-      candidates_count: candidates.length,
+      candidates_count: candidateIds.length,
       ...counts,
     };
   },
@@ -304,7 +325,7 @@ export const salesEmailStage1Backfill = inngest.createFunction(
  * historic-with-live-message case, RESEARCH A3.)
  */
 async function resolveLiveGraphId(
-  candidate: BackfillCandidate,
+  candidate: GraphIdResolvable,
 ): Promise<string | null> {
   if (!candidate.internet_message_id) return null;
   try {
@@ -327,7 +348,7 @@ async function resolveLiveGraphId(
  */
 async function queuePredicted(
   admin: ReturnType<typeof createAdminClient>,
-  candidate: BackfillCandidate,
+  candidate: LeanBackfillCandidate,
   predictedCategory: string,
 ): Promise<void> {
   const messageId = candidate.source_id ?? candidate.email_id;

@@ -80,6 +80,32 @@ vi.mock("@/lib/automations/sales-email/backfill/select-backfill-candidates", asy
   return {
     ...actual,
     selectBackfillCandidates: () => selectBackfillCandidates(),
+    // Step-output-limit refactor (2026-06-04): the worker now sends ids-only
+    // across the step boundary and re-hydrates per batch. Both seams are
+    // driven from the same candidate fixtures.
+    selectBackfillCandidateIds: async () =>
+      (await selectBackfillCandidates()).map((r) => r.email_id),
+    hydrateGraphIds: async (_admin: unknown, emailIds: string[]) => {
+      const byId = new Map(candidatesReturn.rows.map((r) => [r.email_id, r]));
+      return new Map(
+        emailIds
+          .filter((id) => byId.has(id))
+          .map((id) => {
+            const r = byId.get(id)!;
+            return [
+              id,
+              {
+                id: r.email_id,
+                source_id: r.source_id,
+                internet_message_id: r.internet_message_id,
+                sender_email: r.sender_email,
+                subject: r.subject,
+                received_at: r.received_at,
+              },
+            ];
+          }),
+      );
+    },
     SALES_OUTLOOK_MAILBOX: "verkoop@smeba.nl",
   };
 });
