@@ -61,7 +61,9 @@ import {
 } from "@/lib/email-behavior/folder-map";
 import {
   extractTransitions,
+  moveKind,
   type RawDeltaEvent,
+  type Transition,
 } from "@/lib/email-behavior/transition-extract";
 import {
   deriveSignals,
@@ -198,29 +200,36 @@ export const swarmBehaviorSync = inngest.createFunction(
     for (const sw of enabledSwarms) {
       const { swarm_type: swarmType, mailbox, weights } = sw;
 
-      // (3) Bootstrap the folder-map for this mailbox if it is empty: resolve the
-      // full tree recursively, bucket ancestry-aware, upsert.
-      await step.run(`bootstrap-folder-map-${swarmType}`, async () => {
+      // (3) Refresh the folder-map for this mailbox EVERY tick (gap-fix
+      // 2026-06-04): resolve the full tree recursively, bucket ancestry-aware,
+      // and INSERT any folders not yet in the map (ignoreDuplicates — existing
+      // rows keep operator-curated tracked/bucket values). Originally this only
+      // ran when the map was empty, which left a freshly created
+      // "afgehandeld/2026" year-folder invisible: a drag into it produced zero
+      // transitions. New year-folders are an annual ritual; discovery must be
+      // continuous, not bootstrap-only.
+      await step.run(`refresh-folder-map-${swarmType}`, async () => {
         const admin = createAdminClient();
         const existing = await loadFolderMap(admin, mailbox);
-        if (existing.size > 0) return { bootstrapped: false, folders: existing.size };
 
         const folders = await resolveFolders(mailbox);
-        const rows = folders.map((f) => ({
-          folder_id: f.folder_id,
-          mailbox,
-          display_name: f.display_name,
-          bucket: bucketForFolderPath(f.path),
-          tracked: true,
-        }));
-        if (rows.length > 0) {
+        const newRows = folders
+          .filter((f) => !existing.has(f.folder_id))
+          .map((f) => ({
+            folder_id: f.folder_id,
+            mailbox,
+            display_name: f.display_name,
+            bucket: bucketForFolderPath(f.path),
+            tracked: true,
+          }));
+        if (newRows.length > 0) {
           const { error } = await admin
             .from("outlook_folder_map")
-            .upsert(rows, { onConflict: "folder_id" });
+            .upsert(newRows, { onConflict: "folder_id", ignoreDuplicates: true });
           if (error)
             throw new Error(`folder-map upsert failed: ${error.message}`);
         }
-        return { bootstrapped: true, folders: rows.length };
+        return { known: existing.size, added: newRows.length };
       });
 
       // The folders to poll for this swarm (tracked=true).
@@ -233,8 +242,18 @@ export const swarmBehaviorSync = inngest.createFunction(
       );
 
       // (4) Per tracked folder: load token, deltaPage, persist token INSIDE the
-      // step. Bootstrap folders contribute their token but 0 events to derive.
+      // step. Bootstrap folders contribute their token but 0 events to derive —
+      // EXCEPT (gap-fix 2026-06-04) when a bootstrap item matches a pending
+      // `left_to_untracked` transition: that means the mail earlier vanished
+      // from a tracked folder into THIS (then-unknown) folder. Such matches are
+      // promoted to a real move-transition in derive-and-write.
       const nonBootstrapEvents: LeanEvent[] = [];
+      const bootstrapCorrections: {
+        immutable_id: string;
+        from_bucket: string;
+        to_bucket: string;
+        correction_row_id: string;
+      }[] = [];
       let bootstrappedFolders = 0;
 
       for (const folder of tracked) {
@@ -277,18 +296,62 @@ export const swarmBehaviorSync = inngest.createFunction(
             if (upErr)
               throw new Error(`token upsert failed: ${upErr.message}`);
 
+            // Bootstrap-correlatie (gap-fix): pending left_to_untracked rows
+            // (to_bucket IS NULL, laatste 14 dagen — afgeleid van tickIso,
+            // replay-deterministisch) waarvan het immutable id in de bootstrap-
+            // inhoud van deze folder zit, zijn alsnog opgeloste moves. Kleine
+            // set (per-tick drags), dus in-memory intersectie.
+            let corrections: {
+              immutable_id: string;
+              from_bucket: string;
+              correction_row_id: string;
+            }[] = [];
+            if (page.wasBootstrap) {
+              const sinceIso = new Date(
+                Date.parse(tickIso) - 14 * 86_400_000,
+              ).toISOString();
+              const { data: pending } = await admin
+                .from("swarm_email_transitions")
+                .select("id, immutable_id, from_bucket")
+                .eq("swarm_type", swarmType)
+                .eq("mailbox", mailbox)
+                .eq("kind", "left_to_untracked")
+                .is("to_bucket", null)
+                .gte("observed_at", sinceIso)
+                .limit(500);
+              const pendingRows = (pending ?? []) as {
+                id: string;
+                immutable_id: string;
+                from_bucket: string | null;
+              }[];
+              if (pendingRows.length > 0) {
+                const inFolder = new Set(page.events.map((e) => e.id));
+                corrections = pendingRows
+                  .filter((p) => inFolder.has(p.immutable_id) && p.from_bucket)
+                  .map((p) => ({
+                    immutable_id: p.immutable_id,
+                    from_bucket: p.from_bucket as string,
+                    correction_row_id: p.id,
+                  }));
+              }
+            }
+
             // Bootstrap (first run / 410-resync): pre-existing state is not a
             // transition — emit 0 signals for this folder (Pattern 1). Carry
             // only lean events for non-bootstrap pages over the boundary.
             return {
               wasBootstrap: page.wasBootstrap,
               events: page.wasBootstrap ? [] : page.events.map(toLean),
+              corrections,
             };
           },
         );
 
         if (folderResult.wasBootstrap) {
           bootstrappedFolders += 1;
+          for (const c of folderResult.corrections) {
+            bootstrapCorrections.push({ ...c, to_bucket: folder.bucket });
+          }
           continue;
         }
         nonBootstrapEvents.push(...folderResult.events);
@@ -304,7 +367,7 @@ export const swarmBehaviorSync = inngest.createFunction(
           let signalsWritten = 0;
           let skippedSugar = 0;
 
-          if (nonBootstrapEvents.length === 0) {
+          if (nonBootstrapEvents.length === 0 && bootstrapCorrections.length === 0) {
             return {
               transitionsWritten,
               signalsWritten,
@@ -323,7 +386,14 @@ export const swarmBehaviorSync = inngest.createFunction(
           // Last-known bucket / prev categories / prev read-state per immutable
           // id (Pitfall 3 — split-over-ticks). Source of truth: the most recent
           // prior transition row per immutable_id for this swarm+mailbox.
-          const immutableIds = Array.from(new Set(rawEvents.map((e) => e.id)));
+          // Correction-ids tellen mee zodat hun email_id-mapping hieronder ook
+          // voor de gepromote bootstrap-correlaties geldt (gap-fix 2026-06-04).
+          const immutableIds = Array.from(
+            new Set([
+              ...rawEvents.map((e) => e.id),
+              ...bootstrapCorrections.map((c) => c.immutable_id),
+            ]),
+          );
           const lastKnownBucket = new Map<string, string>();
           const prevCategories = new Map<string, string[]>();
           const prevIsRead = new Map<string, boolean>();
@@ -399,6 +469,37 @@ export const swarmBehaviorSync = inngest.createFunction(
             prevIsRead,
             conversationToEmailId,
           });
+
+          // Bootstrap-correlaties promoten naar echte move-transities (gap-fix
+          // 2026-06-04): een eerder vastgelegde left_to_untracked waarvan het
+          // doel nu bekend is (nieuw-ontdekte folder bevatte het id bij
+          // bootstrap). Zelfde moveKind-semantiek als binnen-tick correlatie.
+          // De originele left_to_untracked rij krijgt to_bucket gezet zodat een
+          // latere 410-resync hem niet nogmaals correleert.
+          const correctedRowIds: string[] = [];
+          for (const c of bootstrapCorrections) {
+            const kind = moveKind(c.from_bucket, c.to_bucket);
+            if (kind === null) continue;
+            const synthetic: Transition = {
+              immutable_id: c.immutable_id,
+              kind,
+              from_bucket: c.from_bucket,
+              to_bucket: c.to_bucket,
+              observed_at: tickIso,
+            };
+            transitions.push(synthetic);
+            correctedRowIds.push(c.correction_row_id);
+          }
+          if (correctedRowIds.length > 0) {
+            const { error: corrErr } = await admin
+              .from("swarm_email_transitions")
+              .update({ to_bucket: "resolved_by_bootstrap" })
+              .in("id", correctedRowIds);
+            if (corrErr)
+              throw new Error(
+                `left_to_untracked correction update failed: ${corrErr.message}`,
+              );
+          }
 
           if (transitions.length === 0) {
             return {

@@ -184,3 +184,38 @@ describe("extractTransitions — replied via conversationId (Plan-checker warnin
     expect(out).toHaveLength(0);
   });
 });
+
+describe("extractTransitions — left_to_untracked vangnet (gap-fix 2026-06-04)", () => {
+  it("Test 9a: @removed uit inbox zonder verschijning elders -> left_to_untracked", () => {
+    // De Sugar-sweep / verse-jaarmap blinde vlek: mail verdwijnt uit een
+    // getrackte bucket en duikt nergens getrackt op.
+    const events: RawDeltaEvent[] = [
+      { id: "m9", _folderId: "F-inbox", "@removed": { reason: "deleted" } },
+    ];
+    const out = extractTransitions(baseInput(events));
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      immutable_id: "m9",
+      kind: "left_to_untracked",
+      from_bucket: "inbox",
+      to_bucket: null,
+    });
+  });
+
+  it("Test 9b: @removed uit een 'other'-bucket -> geen transitie", () => {
+    const events: RawDeltaEvent[] = [
+      { id: "m10", _folderId: "F-unknown", "@removed": { reason: "deleted" } },
+    ];
+    expect(extractTransitions(baseInput(events))).toHaveLength(0);
+  });
+
+  it("Test 9c: @removed mét verschijning in een getrackte folder -> géén left_to_untracked (gewone move wint)", () => {
+    const events: RawDeltaEvent[] = [
+      { id: "m11", _folderId: "F-inbox", "@removed": { reason: "deleted" } },
+      { id: "m11", _folderId: "F-afg", parentFolderId: "F-afg" },
+    ];
+    const out = extractTransitions(baseInput(events));
+    expect(out).toHaveLength(1);
+    expect(out[0].kind).toBe("moved_to_afgehandeld");
+  });
+});

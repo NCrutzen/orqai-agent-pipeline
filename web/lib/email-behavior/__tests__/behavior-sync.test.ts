@@ -145,12 +145,20 @@ function makeQuery(table: string) {
     return { data: [], error: null };
   };
 
-  // chainable filter methods
-  for (const k of ["eq", "in", "order", "select"]) {
+  // chainable filter methods (.is/.gte/.limit zijn no-op chains voor de
+  // left_to_untracked bootstrap-correlatie-query — gap-fix 2026-06-04; .is
+  // filtert wel op null-gelijkheid zodat gecorrigeerde rijen niet meedoen)
+  for (const k of ["eq", "in", "order", "select", "is", "gte", "limit", "update"]) {
     builder[k] = (...args: unknown[]) => {
       if (k === "eq") filters.push({ col: String(args[0]), val: args[1], kind: "eq" });
       if (k === "in")
         filters.push({ col: String(args[0]), val: args[1], kind: "in" });
+      if (k === "is" && args[1] === null)
+        filters.push({ col: String(args[0]), val: null, kind: "eq" });
+      if (k === "update") {
+        // .update({...}).in(...) — pas toe bij await via then() hieronder.
+        (builder as { _updatePatch?: unknown })._updatePatch = args[0];
+      }
       return builder;
     };
   }
@@ -207,11 +215,25 @@ function makeQuery(table: string) {
     return { data: null, error: null };
   };
 
-  // make `await builder` resolve to a select on the filtered table
+  // make `await builder` resolve to a select on the filtered table — of, bij
+  // een .update(...)-chain, de patch toepassen op de gematchte rijen.
   (builder as { then?: unknown }).then = (
     onF?: (v: { data: unknown; error: unknown }) => unknown,
     onR?: (e: unknown) => unknown,
-  ) => Promise.resolve(resolveSelect()).then(onF, onR);
+  ) => {
+    const patch = (builder as { _updatePatch?: Record<string, unknown> })
+      ._updatePatch;
+    if (patch && table === "swarm_email_transitions") {
+      for (const row of applyFilters(db.transitions as never) as Record<
+        string,
+        unknown
+      >[]) {
+        Object.assign(row, patch);
+      }
+      return Promise.resolve({ data: null, error: null }).then(onF, onR);
+    }
+    return Promise.resolve(resolveSelect()).then(onF, onR);
+  };
 
   // expose schema setter
   (builder as { __setSchema?: (s: string) => void }).__setSchema = (s: string) => {
@@ -574,3 +596,92 @@ type PerSwarmLike = {
   bootstrapped_folders: number;
   skipped_sugar: number;
 };
+
+describe("swarmBehaviorSync — bootstrap-correlatie (gap-fix 2026-06-04)", () => {
+  it("6: pending left_to_untracked + nieuw-ontdekte afgehandeld-jaarmap -> moved_to_afgehandeld + approve_handled", async () => {
+    db.swarms = [
+      {
+        swarm_type: "sales-email",
+        behavior_tracking_config: { enabled: true, mailbox: MAILBOX },
+      },
+    ];
+    // Map kent alleen inbox+archive; 'afgehandeld' (F-afg) en jaarmap '2026'
+    // (F-2026) zijn NIEUW — de per-tick refresh moet ze ontdekken.
+    seedFolderMap();
+    db.tokens.set("F-inbox", { delta_link: "PREV-inbox", bootstrapped: true });
+    db.tokens.set("F-archive", { delta_link: "PREV-archive", bootstrapped: true });
+    db.emails = [
+      { id: "e-d1", source_id: "IM-d1", conversation_id: null, mailbox: MAILBOX, source: "outlook" },
+    ];
+    // De eerder vastgelegde verdwijning uit de inbox (vorige tick).
+    db.transitions = [
+      {
+        id: "corr-1",
+        swarm_type: "sales-email",
+        mailbox: MAILBOX,
+        email_id: "e-d1",
+        immutable_id: "IM-d1",
+        kind: "left_to_untracked",
+        from_bucket: "inbox",
+        to_bucket: null,
+        dedupe_key: "sales-email|IM-d1|left_to_untracked|earlier",
+        observed_at: new Date(Date.now() - 3_600_000).toISOString(),
+      },
+    ];
+
+    graphFetchMock.mockImplementation(async (url: string) => {
+      if (/\/mailFolders\?/.test(url)) {
+        return jsonResponse({
+          value: [
+            { id: "F-inbox", displayName: "Inbox", childFolderCount: 1 },
+            { id: "F-archive", displayName: "Archief", childFolderCount: 0 },
+          ],
+        });
+      }
+      if (/F-inbox\/childFolders/.test(url)) {
+        return jsonResponse({
+          value: [{ id: "F-afg", displayName: "afgehandeld", childFolderCount: 1 }],
+        });
+      }
+      if (/F-afg\/childFolders/.test(url)) {
+        return jsonResponse({
+          value: [{ id: "F-2026", displayName: "2026", childFolderCount: 0 }],
+        });
+      }
+      if (/F-inbox\/messages\/delta/.test(url) || url === "PREV-inbox") {
+        return jsonResponse({ value: [], "@odata.deltaLink": "NEXT-inbox" });
+      }
+      if (/F-archive\/messages\/delta/.test(url) || url === "PREV-archive") {
+        return jsonResponse({ value: [], "@odata.deltaLink": "NEXT-archive" });
+      }
+      if (/F-afg\/messages\/delta/.test(url)) {
+        return jsonResponse({ value: [], "@odata.deltaLink": "BOOT-afg" });
+      }
+      if (/F-2026\/messages\/delta/.test(url)) {
+        // bootstrap-inhoud van de verse jaarmap bevat de verdwenen mail
+        return jsonResponse({
+          value: [{ id: "IM-d1", parentFolderId: "F-2026" }],
+          "@odata.deltaLink": "BOOT-2026",
+        });
+      }
+      return jsonResponse({ value: [], "@odata.deltaLink": "DELTA" });
+    });
+
+    const out = (await getHandler()({ step: makeStep() })) as {
+      results: Array<{ transitions_written: number; signals_written: number; by_verdict: Record<string, number> }>;
+    };
+
+    // refresh ontdekte F-afg + F-2026 met afgehandeld-bucket (ancestry).
+    const f2026 = db.folderMap.find((f) => f.folder_id === "F-2026");
+    expect(f2026?.bucket).toBe("afgehandeld");
+
+    // de correlatie promoveerde de pending rij naar een echte move + verdict.
+    const promoted = db.transitions.find((t) => t.kind === "moved_to_afgehandeld");
+    expect(promoted).toMatchObject({ immutable_id: "IM-d1", from_bucket: "inbox", to_bucket: "afgehandeld" });
+    const original = db.transitions.find((t) => t.id === "corr-1");
+    expect(original?.to_bucket).toBe("resolved_by_bootstrap");
+    expect(out.results[0].by_verdict).toMatchObject({ approve_handled: 1 });
+    const signal = db.signals.find((s) => s.verdict === "approve_handled");
+    expect(signal).toMatchObject({ email_id: "e-d1", transition_kind: "moved_to_afgehandeld" });
+  });
+});

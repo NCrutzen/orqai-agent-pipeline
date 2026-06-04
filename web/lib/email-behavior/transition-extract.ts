@@ -29,7 +29,18 @@ export type TransitionKind =
   | "restored_from_archive"
   | "category_edited"
   | "read_aged"
-  | "replied";
+  | "replied"
+  /**
+   * Vangnet (gap-fix 2026-06-04): het bericht verdween uit een getrackte folder
+   * (@removed) zonder verschijning in een andere getrackte folder binnen deze
+   * tick én zonder lastKnownBucket-match. Doel onbekend — bv. een move naar een
+   * niet-getrackte map (Power-Automate sweep naar "Sugar Archive", of een
+   * nieuw aangemaakte afgehandeld-jaarmap die nog niet in de folder-map zit).
+   * Geen verdict (observability-only); de worker kan hem later corrigeren
+   * wanneer een nieuw-ontdekte folder bij bootstrap hetzelfde immutable id
+   * blijkt te bevatten (bootstrap-correlatie).
+   */
+  | "left_to_untracked";
 
 /**
  * Eén ruw Graph delta-event, verrijkt met `_folderId` (de folder waarop de
@@ -101,8 +112,13 @@ function categoriesDiffer(a: string[], b: string[]): boolean {
   return false;
 }
 
-/** Map een bron->doel bucket-paar naar de bijbehorende move-transitie, of null. */
-function moveKind(from: string, to: string): TransitionKind | null {
+/**
+ * Map een bron->doel bucket-paar naar de bijbehorende move-transitie, of null.
+ * Geëxporteerd (gap-fix 2026-06-04) zodat de worker bootstrap-correlaties
+ * (left_to_untracked -> alsnog-bekende doel-bucket) met dezelfde semantiek kan
+ * promoten naar een echte move-transitie.
+ */
+export function moveKind(from: string, to: string): TransitionKind | null {
   if (from === "inbox" && to === "afgehandeld") return "moved_to_afgehandeld";
   if (from === "inbox" && to === "archive") return "self_archived";
   if (from === "archive" && to === "inbox") return "restored_from_archive";
@@ -159,6 +175,23 @@ export function extractTransitions(input: ExtractInput): Transition[] {
       kind,
       from_bucket: fromBucket,
       to_bucket: toBucket,
+      observed_at,
+    });
+  }
+
+  // 1b. Vangnet (gap-fix 2026-06-04): @removed uit een getrackte, betekenisvolle
+  //     bucket ZONDER verschijning elders in deze tick -> left_to_untracked.
+  //     Zonder dit vangnet is een move naar een niet-getrackte map (Sugar-sweep,
+  //     verse jaarmap) volledig onzichtbaar.
+  for (const [id, fromFolder] of leftFolders) {
+    if (enteredFolders.has(id)) continue; // beide helften gezien -> al behandeld
+    const fromBucket = bucketOf(fromFolder);
+    if (fromBucket === "other") continue; // verdwijning uit een niet-betekenisvolle bron
+    out.push({
+      immutable_id: id,
+      kind: "left_to_untracked",
+      from_bucket: fromBucket,
+      to_bucket: null,
       observed_at,
     });
   }
