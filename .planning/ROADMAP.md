@@ -276,7 +276,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 110. Visibility Foundation | 4/4 | Complete   | 2026-06-03 |
 | 111. Stage 1 Noise Expansion + Calibration | 5/5 | Complete   | 2026-06-03 |
 | 112. Outlook Cleanup + Backfill | 3/3 | Complete   | 2026-06-04 |
-| 112.5 Outlook Behavior Tracking | 0/TBD | Not started | - |
+| 112.5 Outlook Behavior Tracking | 0/4 | Planned     | - |
 | 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
 | 114. Stage 2 Resolver Reuse | 0/TBD | Not started | - |
 | 115. SugarCRM Dead-Code Decommission | 0/TBD | Not started | - |
@@ -367,7 +367,13 @@ Plans:
   2. Een signaal-afleiding mapt transities naar review-verdicts (approve/reject/correctie incl. her-classificatie via categorie-wijziging) in een query-bare tabel; restore-from-archive op een door óns gearchiveerde mail telt als false-positive-correctie.
   3. Folder-conventie-analyse beantwoordt de open vraag "hoe consistent is afgehandeld-vs-Archief?" met cijfers over de bestaande corpus, en de signaal-weging is daarop afgestemd.
 
-**Plans**: TBD (plan-phase)
+**Plans**: 4 plans (4 waves; sequentiële executie — waves drukken alleen ordening uit)
+Plans:
+
+- [ ] 112.5-01-PLAN.md — Wave 1: folder-conventie-analyse (SC-3, eerste deliverable) — pure aggregatie + one-shot read-only report-worker + operator stelt signaal-weging vast
+- [ ] 112.5-02-PLAN.md — Wave 2: datalaag — migration (4 RLS-tabellen) [orchestrator past toe via MCP] + graphFetch Prefer-header + folder-map registry-reader (SC-1, SC-2)
+- [ ] 112.5-03-PLAN.md — Wave 3: pure helpers test-first — transition-extract (cross-folder + split-over-ticks) + signal-derive (restore=correctie via ledger) + delta-client (bootstrap/410-suppressie) (SC-1, SC-2)
+- [ ] 112.5-04-PLAN.md — Wave 4: delta-sync worker (cron+event) — ledger-join, idempotente dubbele-tabel inserts, bootstrap-suppressie, Sugar-skip + [orchestrator] eerste live delta-tick verificatie (SC-1, SC-2)
 
 ### Phase 113: Stage 3 Sales Intent Agent (greenfield)
 
