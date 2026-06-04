@@ -845,4 +845,12 @@ export type Events = {
       until?: string;
     };
   };
+  // Phase 112.5 Plan 01 (SC-3) — one-shot READ-ONLY folder-convention report.
+  // Counts the verkoop@smeba.nl corpus across inbox/archive/afgehandeld buckets
+  // and returns an afgehandeld-vs-archive ratio. Side-Channel Isolation: the
+  // handler writes to NO live table and emits no downstream events. Takes no
+  // payload fields — the mailbox is pinned in the worker.
+  "sales-email/folder-convention.requested": {
+    data: Record<string, never>;
+  };
 };

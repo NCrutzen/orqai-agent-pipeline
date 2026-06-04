@@ -20,10 +20,18 @@ function getZapierClient() {
 
 /**
  * Make an authenticated Microsoft Graph API call via Zapier SDK.
+ *
+ * Exported (Phase 112.5) so read-only report/delta workers can issue their own
+ * Graph GETs through the single credential boundary (connection 56014785) +
+ * the built-in socket/504/ReadTimeout retry, instead of hand-rolling a second
+ * Graph client. Callers that need an immutable-id or pagesize hint pass it via
+ * the optional `prefer` option (additive, non-breaking).
  */
-async function graphFetch(
+export async function graphFetch(
   path: string,
-  options: { method: string; body?: unknown } = { method: "GET" },
+  options: { method: string; body?: unknown; prefer?: string } = {
+    method: "GET",
+  },
 ): Promise<Response> {
   const zapier = getZapierClient();
   const url = path.startsWith("http") ? path : `${GRAPH_BASE}${path}`;
@@ -36,6 +44,15 @@ async function graphFetch(
   if (options.body) {
     fetchOptions.headers = { "Content-Type": "application/json" };
     fetchOptions.body = JSON.stringify(options.body);
+  }
+
+  // Optional Prefer header (e.g. 'IdType="ImmutableId"', 'odata.maxpagesize=100').
+  // Merge into any existing headers so a body + prefer can coexist.
+  if (options.prefer) {
+    fetchOptions.headers = {
+      ...((fetchOptions.headers as Record<string, string>) ?? {}),
+      Prefer: options.prefer,
+    };
   }
 
   // Retry transient transport failures: socket drops over the undici pool
