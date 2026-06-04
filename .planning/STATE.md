@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
-stopped_at: Phase 113 context gathered; 116 re-sequenced before 113
-last_updated: "2026-06-04T17:23:38.186Z"
+stopped_at: Phase 116 context gathered
+last_updated: "2026-06-04T17:50:59.965Z"
 last_activity: 2026-06-04
 progress:
   total_phases: 10
@@ -305,10 +305,10 @@ Last activity: 2026-06-04
 
 ## Session Continuity
 
-Last session: 2026-06-04T17:23:38.171Z
-Stopped at: Phase 113 context gathered; 116 re-sequenced before 113
+Last session: 2026-06-04T17:50:59.902Z
+Stopped at: Phase 116 context gathered
 Resume with: `/gsd-execute-phase 65`
-Resume file: .planning/phases/113-stage-3-sales-intent-agent-greenfield/113-CONTEXT.md
+Resume file: .planning/phases/116-attachment-ingest-uniform-cross-swarm/116-CONTEXT.md
 
 ## Deferred Items
 
