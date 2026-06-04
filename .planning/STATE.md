@@ -16,6 +16,15 @@ progress:
 
 # Project State
 
+## Out-of-band capture (2026-06-04) — NXT direct REST access
+
+Ad-hoc enabler gebouwd buiten de GSD-workflow (branch `feat/nxt-rest-proxy-mcp`, PR #63), retroactief vastgelegd in `.planning/quick/2026-06-04-nxt-rest-proxy-direct-api/`. **Workspace-gate override geflagd** (geen `/gsd-new-workspace`; infra/enabler-werk, niet milestone-gesequenced).
+
+- **Wat:** generieke NXT REST passthrough-proxy (`/api/automations/nxt/proxy`) + `nxtRequest()` client + MCP-server (`tools/nxt-mcp/`) zodat skills/Stage-4 Handlers rechtstreeks tegen NXT `/api/*` praten zonder handmatig token-beheer.
+- **Security:** env-gescheiden secrets (acc/prod), read-only prod (`allowWrite:true` voor niet-GET). Nieuwe Vercel secret `NXT_PROD_WEBHOOK_SECRET`.
+- **Verifieerd live:** acc + prod read-only + 6/6 route-gating. NXT-credentials → `active`. Learning `9dfb23b5`.
+- **Open:** PR #63 merge + prod-deploy nodig vóór collega de hosted endpoint gebruikt. Enabler voor V9.0 (sales) + debtor Stage-4 tracks.
+
 ## Roadmap Re-sequencing (2026-06-02, operator)
 
 Future milestones re-slotted + split into **two parallel tracks** (full detail in `PROJECT.md`, `ROADMAP.md`, `MILESTONES.md` V9.0/V10.0 notes):

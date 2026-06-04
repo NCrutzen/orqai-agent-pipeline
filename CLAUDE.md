@@ -88,7 +88,7 @@ Vereist service role key. Velden: `name`, `description`, `status` (idea→buildi
 ## Systemen
 
 Core systemen in `systems` tabel. Belangrijkste:
-- **NXT** — ERP. Geen API. Browser automation of SQL via Zapier.
+- **NXT** — ERP. Geen *officiële* API, maar wél een bruikbare REST-backend op `/api/*` (JHipster/Auth0 SPA). Token via Browserless-harvest + gehoste passthrough-proxy → `docs/nxt-rest-access.md`. SQL via Zapier blijft de route voor whitelisted-IP queries.
 - **iController** — Facturatie. Geen API. Browser automation.
 - **Cura-portaal** — Zorgplatform. Heeft API.
 - **Linqur** — E-learning.
@@ -223,6 +223,14 @@ const browser = await chromium.connectOverCDP(
 - Catch Hook trigger toont **niet** alle headers betrouwbaar in Zapier's field picker. Voor auth-validatie: gebruik **body field** (`auth: "<secret>"`) ipv `Authorization: Bearer` header. Beide Zaps (invoice-fetch én NXT generic-lookup) volgen dit patroon.
 
 → `docs/zapier-patterns.md`
+
+### NXT REST (token-harvest + proxy)
+- NXT heeft **geen officiële API**, maar de JHipster/Auth0 SPA praat met een REST-backend op `/api/*` die we wél kunnen aanspreken. De werkende JWT is de **RS256 Bearer-header** die het front naar `/api/*` stuurt — NIET het JWE-token uit `/oauth/token` (dat wijst de API af) en niet "handmatig" uit `jhi-authenticationToken` in local storage.
+- Token wordt **server-side** ge-harvest via Browserless (`acquireTokenViaBrowserless`), gecached in `settings` (`token-store.ts`, refresh <5min vóór exp). Een skill/Handler raakt het token NOOIT zelf aan.
+- **Aanhaken:** in-process → `import { nxtRequest } from "@/lib/automations/nxt-zapier/nxt-client"`. Buiten de repo → gehoste proxy `POST /api/automations/nxt/proxy` of de MCP-server in `tools/nxt-mcp/`.
+- **Security:** env-gescheiden secrets (acc `AUTOMATION_WEBHOOK_SECRET`, prod `NXT_PROD_WEBHOOK_SECRET`); read-only prod (niet-GET vereist `allowWrite:true`). ⚠️ NXT doet reads óók via POST, dus prod-lookups hebben óók `allowWrite:true` nodig.
+
+→ `docs/nxt-rest-access.md` · `web/lib/automations/nxt-zapier/`
 
 ## Project Structuur
 

@@ -62,6 +62,41 @@ async function nxtFetch(
   return res;
 }
 
+/**
+ * Generieke passthrough naar een willekeurig NXT /api endpoint. Throwt NIET op
+ * non-2xx — geeft status + geparste body terug zodat de proxy-route NXT's
+ * antwoord 1-op-1 kan relayen. Gebruikt door /api/automations/nxt/proxy.
+ */
+export async function nxtRequest(
+  env: NxtEnvironment,
+  method: string,
+  path: string,
+  body?: unknown
+): Promise<{ status: number; ok: boolean; data: unknown }> {
+  if (!path.startsWith("/api/")) {
+    throw new Error(`path moet met /api/ beginnen, kreeg: ${path}`);
+  }
+  const init: RequestInit & { body?: string } = { method: method.toUpperCase() };
+  if (body !== undefined && method.toUpperCase() !== "GET") {
+    init.body = typeof body === "string" ? body : JSON.stringify(body);
+  }
+  const token = await getValidToken(env);
+  const cb = `cacheBuster=${Date.now()}`;
+  const url = `${NXT_BASES[env]}${path}${path.includes("?") ? "&" : "?"}${cb}`;
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const res = await fetch(url, { ...init, headers });
+  const text = await res.text().catch(() => "");
+  let data: unknown = text;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    /* laat als raw text staan */
+  }
+  return { status: res.status, ok: res.ok, data };
+}
+
 export async function createSalesOrder(
   input: CreateSalesOrderInput
 ): Promise<CreateSalesOrderResult> {

@@ -657,6 +657,144 @@ export type Events = {
       operator_id?: string;
     };
   };
+  // Phase 2 support-tickets Stage 2 enrichment — emitted by the support-tickets
+  // ingest route AFTER the Stage 0/1 pipeline_events rows are written. Consumed
+  // by stage2SupportTicketsEnrichment (Plan 02-02 baseline, extended by Plans
+  // 02-03..02-05). The locked event-name contract (renames are a breaking
+  // change across Phase 2 plans).
+  "support-tickets/stage-2.requested": {
+    data: {
+      support_ticket_id: string; // UUID — public.support_tickets.id (PK)
+      submission_id: string; // UUID — support_tickets.submission_id (= pipeline_events.email_id handle)
+      external_task_id: string; // text — upstream tracker id (ClickUp etc.)
+      attempt: number; // support_tickets.attempt (1 on first submission)
+    };
+  };
+
+  // Phase 2 Plan 02-05 — Stage 2 → Stage 3 handoff. Emitted by
+  // stage2SupportTicketsEnrichment as the FINAL step.run() after the
+  // canonical stage=2 pipeline_events row is durably written (T-02-29
+  // mitigation). Phase 3 owns the listener.
+  "support-tickets/stage-3.coordinator.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+    };
+  };
+
+  // Phase 3 Plan 03-03 — Stage 3 → Stage 4 handoff. Emitted by
+  // stage3SupportTicketsCoordinator on the happy-path decisions
+  // (`stage_3_coordinator`, `stage_3_coordinator_invariant_violated`,
+  // `stage_3_coordinator_hallucinated_intent`). NOT fired on quarantine /
+  // cost-ceiling / failed paths. Phase 4 owns the listener.
+  "support-tickets/stage-4.handler.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+      chosen_intent:
+        | "clarification-needed"
+        | "duplicate"
+        | "info-answer"
+        | "clickup-escalate"
+        | "vendor-draft";
+      completeness_verdict: "complete" | "incomplete";
+    };
+  };
+
+  // Phase 4 Plan 04-02 — per-handler events. Produced by the Stage 4
+  // dispatcher (stage-4-dispatcher.ts) after registry-driven fanout.
+  // Each event carries the same Stage4HandlerPayload — the handler owns
+  // the stage=4 pipeline_events row. UNIQUE constraint on (email_id,
+  // swarm_type, stage) means dispatcher and handler paths are mutually
+  // exclusive: dispatcher only writes when NOT fanning out.
+  "support-tickets/clarification-needed.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+      chosen_intent:
+        | "clarification-needed"
+        | "duplicate"
+        | "info-answer"
+        | "clickup-escalate"
+        | "vendor-draft";
+      completeness_verdict: "complete" | "incomplete";
+    };
+  };
+  "support-tickets/duplicate.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+      chosen_intent:
+        | "clarification-needed"
+        | "duplicate"
+        | "info-answer"
+        | "clickup-escalate"
+        | "vendor-draft";
+      completeness_verdict: "complete" | "incomplete";
+    };
+  };
+  "support-tickets/info-answer.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+      chosen_intent:
+        | "clarification-needed"
+        | "duplicate"
+        | "info-answer"
+        | "clickup-escalate"
+        | "vendor-draft";
+      completeness_verdict: "complete" | "incomplete";
+    };
+  };
+  "support-tickets/clickup-escalate.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+      chosen_intent:
+        | "clarification-needed"
+        | "duplicate"
+        | "info-answer"
+        | "clickup-escalate"
+        | "vendor-draft";
+      completeness_verdict: "complete" | "incomplete";
+    };
+  };
+  "support-tickets/vendor-draft.requested": {
+    data: {
+      support_ticket_id: string;
+      submission_id: string;
+      chosen_intent:
+        | "clarification-needed"
+        | "duplicate"
+        | "info-answer"
+        | "clickup-escalate"
+        | "vendor-draft";
+      completeness_verdict: "complete" | "incomplete";
+    };
+  };
+
+  // Phase 5 Plan 05-02 (OUTBOUND-01) — inbound ClickUp webhook status change.
+  // Emitted by the clickup-webhook route AFTER body-secret validation and
+  // payload normalization. Consumed by the Plan 05-03 Inngest function which
+  // owns the replay-safe support_tickets DB writes (step.run). The route is
+  // purely validate-and-fan-out; it does NOT write to support_tickets directly.
+  //
+  // Payload contract:
+  //   clickup_task_id  — normalized from task_id OR payload.task.id (ClickUp
+  //                      varies this across webhook versions)
+  //   event_type       — raw ClickUp event name (e.g. "taskStatusUpdated")
+  //   history_items    — verbatim ClickUp history payload array; Plan 05-03
+  //                      validates with zod before any DB write (T-05-02-02)
+  //   received_at      — ISO timestamp stamped by the route (not ClickUp)
+  "support-tickets/clickup-status.received": {
+    data: {
+      clickup_task_id: string;
+      event_type: string; // raw ClickUp event name
+      history_items: Array<Record<string, unknown>>; // verbatim ClickUp history payload
+      received_at: string; // ISO, stamped by the route
+    };
+  };
+
   // Phase 87 Plan 04 — one-shot retro-classification trigger. Triggered by
   // the operator CLI `web/scripts/run-retro-classify.ts`. Side-Channel
   // Isolation: handler writes ONLY to stage_3_retro_runs +

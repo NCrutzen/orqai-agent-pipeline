@@ -1,0 +1,14 @@
+{
+  "name": "nxt-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server die Claude Code skills toegang geeft tot de NXT REST-API via de gehoste passthrough-proxy (geen token/credentials lokaal nodig).",
+  "bin": {
+    "nxt-mcp": "./server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  }
+}

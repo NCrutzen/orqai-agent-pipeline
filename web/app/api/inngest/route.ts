@@ -55,6 +55,15 @@ import { salesEmailStage1Backfill } from "@/lib/inngest/functions/sales-email-st
 import { phase87ReadinessNotify } from "@/lib/inngest/functions/phase-87-readiness-notify";
 import { pipelineHealthMonitor } from "@/lib/inngest/functions/pipeline-health-monitor";
 import { pipelineHealthWeeklyDigest } from "@/lib/inngest/functions/pipeline-health-weekly-digest";
+import { stage2SupportTicketsEnrichment } from "@/lib/automations/support-tickets/stage-2-enrichment";
+import { stage3SupportTicketsCoordinator } from "@/lib/automations/support-tickets/stage-3-coordinator";
+import { stage4SupportTicketsDispatcher } from "@/lib/automations/support-tickets/stage-4-dispatcher";
+import { stage4SupportTicketsClarificationHandler } from "@/lib/automations/support-tickets/clarification-handler";
+import { stage4SupportTicketsDuplicateHandler } from "@/lib/automations/support-tickets/duplicate-handler";
+import { stage4SupportTicketsInfoAnswerHandler } from "@/lib/automations/support-tickets/info-answer-handler";
+import { stage4SupportTicketsClickupEscalateHandler } from "@/lib/automations/support-tickets/clickup-escalate-handler";
+import { stage4SupportTicketsVendorDraftHandler } from "@/lib/automations/support-tickets/vendor-draft-handler";
+import { clickupOutbound } from "@/lib/automations/support-tickets/clickup-outbound";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -104,5 +113,14 @@ export const { GET, POST, PUT } = serve({
     phase87ReadinessNotify,
     pipelineHealthMonitor,
     pipelineHealthWeeklyDigest,
+    stage2SupportTicketsEnrichment,
+    stage3SupportTicketsCoordinator,
+    stage4SupportTicketsDispatcher,
+    stage4SupportTicketsClarificationHandler,
+    stage4SupportTicketsDuplicateHandler,
+    stage4SupportTicketsInfoAnswerHandler,
+    stage4SupportTicketsClickupEscalateHandler,
+    stage4SupportTicketsVendorDraftHandler,
+    clickupOutbound,
   ],
 });
