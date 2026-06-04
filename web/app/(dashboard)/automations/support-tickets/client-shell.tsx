@@ -308,12 +308,13 @@ export function SupportTicketsClientShell({
                   delta.intent.changed ||
                   delta.system.changed ||
                   delta.assignee.changed;
+                const ai = row.ai_thinking;
 
-                return (
+                const mainRow = (
                   <tr
-                    key={row.id}
+                    key={`${row.id}-main`}
                     style={{
-                      borderBottom: "1px solid var(--v7-border)",
+                      borderBottom: ai ? "none" : "1px solid var(--v7-border)",
                       background: anyChanged
                         ? "color-mix(in srgb, var(--v7-brand-primary-soft) 20%, transparent)"
                         : "transparent",
@@ -457,6 +458,62 @@ export function SupportTicketsClientShell({
                     </td>
                   </tr>
                 );
+                const aiRow = (
+                  <tr
+                    key={`${row.id}-ai`}
+                    style={{ borderBottom: "1px solid var(--v7-border)" }}
+                  >
+                    <td
+                      colSpan={10}
+                      style={{
+                        padding: "4px var(--space-3) 6px",
+                        fontSize: "11px",
+                        color: "var(--v7-text-muted)",
+                        background: "var(--v7-bg-1)",
+                      }}
+                    >
+                      {ai === null ? (
+                        <span style={{ fontStyle: "italic" }}>
+                          Geen Stage-3 denkwerk vastgelegd.
+                        </span>
+                      ) : (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 8px", alignItems: "flex-start" }}>
+                          <span style={{ fontWeight: 600, marginRight: 4 }}>{"🧠 AI-denkwerk"}</span>
+                          {ai.reasoning && (
+                            <span style={{ flex: "1 1 100%", color: "var(--v7-text)", marginBottom: 2 }}>
+                              {ai.reasoning}
+                            </span>
+                          )}
+                          <span style={{ background: "var(--v7-bg-2)", borderRadius: 3, padding: "1px 5px", border: "1px solid var(--v7-border)" }}>
+                            {`compleet: ${ai.completeness_verdict_raw ?? "—"}→${ai.effective_verdict ?? "—"}`}
+                          </span>
+                          <span style={{ background: "var(--v7-bg-2)", borderRadius: 3, padding: "1px 5px", border: "1px solid var(--v7-border)" }}>
+                            {`intent: ${ai.chosen_intent_raw ?? "—"}→${ai.effective_intent ?? "—"}`}
+                          </span>
+                          <span style={{ background: "var(--v7-bg-2)", borderRadius: 3, padding: "1px 5px", border: "1px solid var(--v7-border)" }}>
+                            {`vertrouwen: ${ai.confidence_raw ?? "—"}`}
+                          </span>
+                          {ai.missing_information && ai.missing_information.length > 0 && (
+                            <span style={{ background: "var(--v7-bg-2)", borderRadius: 3, padding: "1px 5px", border: "1px solid var(--v7-border)" }}>
+                              {`ontbrekend: ${ai.missing_information.join("; ")}`}
+                            </span>
+                          )}
+                          {ai.override_reason && (
+                            <span style={{ background: "var(--v7-bg-2)", borderRadius: 3, padding: "1px 5px", border: "1px solid var(--v7-border)" }}>
+                              {`override: ${ai.override_reason}`}
+                            </span>
+                          )}
+                          {ai.model_used && (
+                            <span style={{ background: "var(--v7-bg-2)", borderRadius: 3, padding: "1px 5px", border: "1px solid var(--v7-border)" }}>
+                              {`model: ${ai.model_used}`}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+                return [mainRow, aiRow];
               })}
             </tbody>
           </table>
