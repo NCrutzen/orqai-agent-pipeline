@@ -4,8 +4,8 @@ milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
 stopped_at: Phase 112.5 complete — behavior tracking deployed (disabled tot Sugar cut-over)
-last_updated: "2026-06-04T13:10:00.000Z"
-last_activity: 2026-06-04 -- Phase 112.5 complete (PR #66 merged; activatie uitgesteld tot Sugar cut-over)
+last_updated: "2026-06-04T14:05:00.000Z"
+last_activity: 2026-06-04 -- V9.0 re-sequenced (114 vóór 113, data-gedreven); 2 sales-ingest-gap todos vastgelegd; next: /gsd-discuss-phase 114
 progress:
   total_phases: 8
   completed_phases: 5
@@ -195,6 +195,7 @@ Last activity: 2026-06-04 -- Phase 112 complete
 
 ### Decisions
 
+- **[2026-06-04, operator] V9.0 re-sequenced: Phase 114 (Stage 2 resolver reuse) executes BEFORE Phase 113 (Stage 3 intent agent).** Data-grond: verkoop@-corpus (1.273 inbound) is uitzonderlijk klant-resolvebaar — 32% "offerte" in subject, 27% nummer-referenties, 75% business-domeinen (2% freemail), ≥44% extern-domein overlap met debiteuren@-senders (ondergrens). Runtime is toch Stage 2→3 (context-shape contract); customer-resolved corpus verrijkt de intent-seeding (STAGE3-02) met een klant-vs-prospect-as. Consequentie: v8.2 RESL-01/02/03 seam-dep staat nu op het kritieke pad — 114-discuss moet eerst seam-status vaststellen (seam NIET geland in deze workspace; alleen registry-kolommen, `resolution_config` = inert placeholder). Twee ingest-gaten als 114-prereq vastgelegd (todos 2026-06-04: attachments-gap + sender-email-gap).
 - V7.0 uses parallel CSS namespace (--v7-*) to coexist with existing shadcn tokens
 - Azure AD must use OAuth (not SAML) to auto-link existing email/password accounts
 - Single Supabase Realtime subscription per swarm view, not per component

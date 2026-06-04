@@ -250,7 +250,9 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 **Hard constraints (encoded across phases):** registry changes (`swarms` / `swarm_intents` / `swarm_noise_categories` / `zapier_tools`) ship as `supabase/migrations/` + `npm run codegen` committed atomically — never hand-edit `*.generated.ts` (docs/collaboration.md); zero `if swarm==='sales-email'` branches in shared workers — variance lives in registry data (SWARM-02 gate); Stage 4 handlers are OUT (V11.0) — handler-less intents land in the Phase 76 Kanban human-lane.
 
-**Sequencing principle:** observe → understand → THEN automate. Visibility first (110), then Stage 1 noise settled (111) before any Outlook auto-archive side-effect (112), Stage 3 intent agent (113), Stage 2 resolver reuse interleaved with the v8.2 seam (114), dead-code decommission last (115).
+**Sequencing principle:** observe → understand → THEN automate. Visibility first (110), then Stage 1 noise settled (111) before any Outlook auto-archive side-effect (112), **Stage 2 resolver reuse first (114)**, then Stage 3 intent agent (113), dead-code decommission last (115).
+
+**Re-sequenced 2026-06-04 (operator): 114 executes BEFORE 113.** Corpus analysis of verkoop@ (1,273 inbound) shows customers are unusually resolvable here: 32% of subjects contain "offerte", 27% carry quote/order number references, 75% of attributed senders are business domains (2% freemail), and ≥44% of external-domain mail comes from domains already known as debiteuren@ senders (lower bound — based on only 536 debiteuren-inbound mails; true NXT-match rate likely higher). Runtime order is Stage 2 → Stage 3 anyway (context-shape contract): a customer-resolved corpus gives the Stage 3 intent seeding (STAGE3-02) a materially richer customer-vs-prospect axis. Consequence: the v8.2 RESL-01/02/03 external dep moves ONTO the critical path — 114's discuss/plan must resolve seam status first (the dynamic-dispatch Engine seam is NOT yet landed in this workspace; only the registry columns exist, sales `resolution_config` is an inert placeholder). Known ingest gaps to address as 114 prereqs: `has_attachments` never captured (false on all 1,273) and 28% of rows missing `sender_email` — see todos `2026-06-04-sales-ingest-attachments-gap` / `2026-06-04-sales-ingest-sender-email-gap`.
 
 **Dependency graph:**
 
@@ -258,8 +260,8 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 110 (visibility + swarm-row enrichment + SWARM-02 gate + verify)
   ├──> 111 (Stage 1 noise expand + calibrate)
   │       └──> 112 (Outlook archive side-effect + backfill)   [needs rules settled]
-  ├──> 113 (Stage 3 sales intent agent)
-  └──> 114 (Stage 2 resolver reuse)  ──┄ external dep: v8.2 RESL-01/02/03 (interleave, don't block)
+  └──> 114 (Stage 2 resolver reuse)  ──┄ external dep: v8.2 RESL-01/02/03 (NOW on critical path — resolve seam status in discuss)
+          └──> 113 (Stage 3 sales intent agent)   [intent seeding consumes customer-resolved corpus]
 115 (SugarCRM dead-code decommission)  [independent — last or parallel]
 ```
 
@@ -267,8 +269,8 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 - [x] **Phase 111: Stage 1 Noise Expansion + Calibration** — mine the 827+ corpus for new sales-specific noise rules and calibrate/flip the safe core categories behind the shadow→promote gate, all as audit-trailed registry data. (completed 2026-06-03)
 - [x] **Phase 112: Outlook Cleanup + Backfill (gated production writes)** — wire the Stage 1 Outlook-archive side-effect for sales and backfill it over the ingested corpus, auto-archiving high-confidence/AP-noise and routing ambiguous matches to operator approval, idempotently. (completed 2026-06-04; mid-phase incident + canary findings: see 112-03-SUMMARY)
 - [x] **Phase 112.5: Outlook Behavior Tracking (passive review signals)** (completed 2026-06-04; activatie uitgesteld tot Sugar cut-over — runbook docs/swarm-behavior-tracking.md) — volg gebruikersgedrag in verkoop@smeba.nl via Graph delta-sync (reply / move-to-afgehandeld / self-archive / restore-from-archive / category-edit) en destilleer daaruit approve/reject/correctie-signalen per `pipeline_event`, zodat Outlook de de-facto review-surface wordt voor sales en Bulk Review doorschuift naar operator-console. Eerste deliverable: folder-conventie-analyse (afgehandeld-vs-Archief consistentie) als kalibratie van de signaalkwaliteit.
-- [ ] **Phase 113: Stage 3 Sales Intent Agent (greenfield)** — build a sales-specific Orq intent agent + seed `swarm_intents` from the live corpus so every sales email leaving Stage 1 reaches a Stage 3 verdict, with handler-less intents landing in the Kanban human-lane.
-- [ ] **Phase 114: Stage 2 Resolver Reuse — cross-swarm generality proof** — sales Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config with zero Engine code changes; the debtor-only self-auth tier degrades to a no-op for sales.
+- [ ] **Phase 114: Stage 2 Resolver Reuse — cross-swarm generality proof** *(re-sequenced 2026-06-04: executes BEFORE 113)* — sales Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config with zero Engine code changes; the debtor-only self-auth tier degrades to a no-op for sales.
+- [ ] **Phase 113: Stage 3 Sales Intent Agent (greenfield)** *(re-sequenced 2026-06-04: executes AFTER 114 — intent seeding consumes the customer-resolved corpus)* — build a sales-specific Orq intent agent + seed `swarm_intents` from the live corpus so every sales email leaving Stage 1 reaches a Stage 3 verdict, with handler-less intents landing in the Kanban human-lane.
 - [ ] **Phase 115: SugarCRM Dead-Code Decommission** — remove the now-dead SugarCRM source code and stale registry notes after confirming no live path depends on it.
 
 | Phase | Plans Complete | Status | Completed |
@@ -277,8 +279,8 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 111. Stage 1 Noise Expansion + Calibration | 5/5 | Complete   | 2026-06-03 |
 | 112. Outlook Cleanup + Backfill | 3/3 | Complete   | 2026-06-04 |
 | 112.5 Outlook Behavior Tracking | 4/4 | Complete (activatie uitgesteld) | 2026-06-04 |
+| 114. Stage 2 Resolver Reuse *(executes before 113)* | 0/TBD | Not started | - |
 | 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
-| 114. Stage 2 Resolver Reuse | 0/TBD | Not started | - |
 | 115. SugarCRM Dead-Code Decommission | 0/TBD | Not started | - |
 
 ---
@@ -378,8 +380,8 @@ Plans:
 ### Phase 113: Stage 3 Sales Intent Agent (greenfield)
 
 **Goal**: A sales-specific Stage 3 intent agent exists and runs through the existing registry-driven dispatcher, so every sales email leaving Stage 1 reaches a Stage 3 verdict — with no Stage 4 handler yet, unhandled intents land cleanly in the Kanban human-lane.
-**Depends on**: Phase 110 (full-funnel swarm row with `stage3_coordinator_agent_key`; Bulk Review to observe verdicts), Phase 111 (Stage 1 flip so the Stage 3 denominator reflects real sales traffic).
-**Depends on (external/cross-track)**: none.
+**Depends on**: Phase 110 (full-funnel swarm row with `stage3_coordinator_agent_key`; Bulk Review to observe verdicts), Phase 111 (Stage 1 flip so the Stage 3 denominator reflects real sales traffic), **Phase 114** (re-sequenced 2026-06-04: intent seeding consumes the customer-resolved corpus — customer-vs-prospect axis from Stage 2 output).
+**Depends on (external/cross-track)**: none (the RESL dep is absorbed by Phase 114 running first).
 **Requirements**: STAGE3-01, STAGE3-02, STAGE3-03
 **Success Criteria** (what must be TRUE):
 
@@ -394,7 +396,7 @@ Plans:
 
 **Goal**: Sales-email Stage 2 resolves customers by reusing the v8.2 NXT resolver purely via per-swarm config — the concrete cross-swarm generality claim — with the debtor-only self-auth tier degrading to a no-op and customer-less prospects falling through to Stage 3.
 **Depends on**: Phase 110 (`stage2_entity_resolver` + `resolution_config` populated on the swarm row).
-**Depends on (external/cross-track)**: v8.2 RESL-01/02/03 (the dynamic-dispatch resolver seam in the parallel debtor workspace). Sequenced to land AS that seam lands; interleaves with — does NOT block — the rest of V9.0.
+**Depends on (external/cross-track)**: v8.2 RESL-01/02/03 (the dynamic-dispatch resolver seam in the parallel debtor workspace). ~~Sequenced to land AS that seam lands; interleaves with — does NOT block — the rest of V9.0.~~ **Re-sequenced 2026-06-04: 114 now executes BEFORE 113, so this dep sits on the critical path. As of 2026-06-04 the seam is NOT landed in this workspace (only registry columns exist; sales `resolution_config` = inert placeholder, `@/lib/automations/sales-email/resolve-customer` does not exist). The 114 discuss/plan must FIRST establish seam status in the debtor workspace and choose: wait / co-land / interim read-only resolution via `nxtRequest` without the Engine seam.** Prereq fixes: sales-ingest attachment + sender_email capture gaps (see pending todos 2026-06-04).
 **Requirements**: STAGE2-01, STAGE2-02
 **Success Criteria** (what must be TRUE):
 
