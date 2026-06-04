@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
-status: executing
-stopped_at: Phase 112.5 complete — behavior tracking deployed (disabled tot Sugar cut-over)
-last_updated: "2026-06-04T14:05:00.000Z"
-last_activity: 2026-06-04 -- V9.0 re-sequenced (114 vóór 113, data-gedreven); 2 sales-ingest-gap todos vastgelegd; next: /gsd-discuss-phase 114
+status: "Behavior-tracking code live-deployed maar registry-disabled (Power Automate veegt verkoop@ naar Sugar Archive tot de harde cut-over, datum onbekend). Reactivatie = runbook docs/swarm-behavior-tracking.md + todo 2026-06-04-sugar-cutover-enable-behavior-tracking. Folder-conventie-vraag beantwoord: afgehandeld-boom ~58k vs Archief 80 (zeer consistent)."
+stopped_at: Phase 114 context gathered
+last_updated: "2026-06-04T13:47:20.897Z"
+last_activity: 2026-06-04 -- Phase 112 complete
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 5
   total_plans: 28
   completed_plans: 21
@@ -290,10 +290,10 @@ Last activity: 2026-06-04 -- Phase 112 complete
 
 ## Session Continuity
 
-Last session: 2026-06-03T12:22:08.413Z
-Stopped at: Phase 112 context gathered
+Last session: 2026-06-04T13:47:20.882Z
+Stopped at: Phase 114 context gathered
 Resume with: `/gsd-execute-phase 65`
-Resume file: .planning/phases/112-outlook-cleanup-backfill-gated-production-writes/112-CONTEXT.md
+Resume file: .planning/phases/114-stage-2-resolver-reuse-cross-swarm-generality-proof/114-CONTEXT.md
 
 ## Deferred Items
 
