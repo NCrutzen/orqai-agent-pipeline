@@ -404,13 +404,15 @@ Plans:
   2. The debtor-only self-auth resolution tier degrades to a no-op for sales, verified by a designed acceptance test (STAGE2-02).
   3. Customer-less prospects (no NXT match) fall through to Stage 3 without blocking the pipeline (STAGE2-02).
 
-**Plans**: 5 plans (3 waves)
+**Plans**: 7 plans (3 waves + 1 gap-closure wave)
 
 - [x] 114-01-PLAN.md — Cherry-pick the v8.2 RESL-03 seam (dispatch + engine + config + steps + debtor adapter refactor) verbatim; donor suite green (wave 1)
 - [x] 114-02-PLAN.md — Generic email_pipeline.resolution_audit table (RLS) + stage_2_resolution dry-run gate key + [BLOCKING] migration apply (wave 1)
 - [x] 114-03-PLAN.md — Ingest prereq fixes (has_attachments + sender_email root-cause, D-14) + data-driven identifier-mining script (D-04) (wave 1)
 - [x] 114-04-PLAN.md — Sales resolve-customer adapter + offerte/order/Sites lookups (nxtRequest) + one dispatch line + real resolution_config seed + registry-driven worker rewire + [BLOCKING] apply (wave 2)
 - [x] 114-05-PLAN.md — STAGE2-02 acceptance tests (self-auth no-op + unresolved fall-through) + STAGE2-01 no-Engine-diff guard + D-02 rebase note (wave 3)
+- [ ] 114-06-PLAN.md — [gap] Worker fixes: CR-01 generic-path brand_id from config.scope.brand_scope, CR-02 entity_brand type-guard, WR-01 config-sourced nxt_database + worker tests (wave 1)
+- [ ] 114-07-PLAN.md — [gap] Sales adapter/lookup hardening: WR-02 postcode gating+medium confidence, WR-03 order \b anchor, WR-04 surface attempted identifiers, WR-05 quoted-header sender scope, IN-01 import merge (wave 1)
 
 ### Phase 115: SugarCRM Dead-Code Decommission
 
