@@ -206,4 +206,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-02 — V9.0 Sales-email (Outlook) milestone started in `workspace/sales-agent-swarm` (parallel with v8.2 debtor track). Prior: 2026-06-01 v8.1 "Validation + Visibility" closure.*
+*Last updated: 2026-06-04 — Phase 114 complete (STAGE2-01/02 validated): sales Stage 2 reuses the v8.2 NXT resolver via per-swarm config, zero Engine changes, dry-run gated; gap-closure 114-06/07 verified passed. Next: Phase 113 (Stage 3 sales intent agent). Prior: 2026-06-02 V9.0 milestone start.*
