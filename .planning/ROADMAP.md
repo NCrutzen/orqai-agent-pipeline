@@ -265,7 +265,8 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 - [x] **Phase 110: Visibility Foundation — Bulk Review + swarm-row enrichment + ingest verify** — operator can see and follow sales emails before anything auto-acts; the Stage-0/1 shell `swarms` row is enriched to a full-funnel config via migration + codegen; the architecture gate (no per-swarm branches) is asserted; Outlook ingest health is verified/monitored. (completed 2026-06-03)
 - [x] **Phase 111: Stage 1 Noise Expansion + Calibration** — mine the 827+ corpus for new sales-specific noise rules and calibrate/flip the safe core categories behind the shadow→promote gate, all as audit-trailed registry data. (completed 2026-06-03)
-- [ ] **Phase 112: Outlook Cleanup + Backfill (gated production writes)** — wire the Stage 1 Outlook-archive side-effect for sales and backfill it over the ingested corpus, auto-archiving high-confidence/AP-noise and routing ambiguous matches to operator approval, idempotently.
+- [x] **Phase 112: Outlook Cleanup + Backfill (gated production writes)** — wire the Stage 1 Outlook-archive side-effect for sales and backfill it over the ingested corpus, auto-archiving high-confidence/AP-noise and routing ambiguous matches to operator approval, idempotently. (completed 2026-06-04; mid-phase incident + canary findings: see 112-03-SUMMARY)
+- [ ] **Phase 112.5: Outlook Behavior Tracking (passive review signals)** — volg gebruikersgedrag in verkoop@smeba.nl via Graph delta-sync (reply / move-to-afgehandeld / self-archive / restore-from-archive / category-edit) en destilleer daaruit approve/reject/correctie-signalen per `pipeline_event`, zodat Outlook de de-facto review-surface wordt voor sales en Bulk Review doorschuift naar operator-console. Eerste deliverable: folder-conventie-analyse (afgehandeld-vs-Archief consistentie) als kalibratie van de signaalkwaliteit.
 - [ ] **Phase 113: Stage 3 Sales Intent Agent (greenfield)** — build a sales-specific Orq intent agent + seed `swarm_intents` from the live corpus so every sales email leaving Stage 1 reaches a Stage 3 verdict, with handler-less intents landing in the Kanban human-lane.
 - [ ] **Phase 114: Stage 2 Resolver Reuse — cross-swarm generality proof** — sales Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config with zero Engine code changes; the debtor-only self-auth tier degrades to a no-op for sales.
 - [ ] **Phase 115: SugarCRM Dead-Code Decommission** — remove the now-dead SugarCRM source code and stale registry notes after confirming no live path depends on it.
@@ -274,7 +275,8 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 |-------|----------------|--------|-----------|
 | 110. Visibility Foundation | 4/4 | Complete   | 2026-06-03 |
 | 111. Stage 1 Noise Expansion + Calibration | 5/5 | Complete   | 2026-06-03 |
-| 112. Outlook Cleanup + Backfill | 2/3 | In Progress|  |
+| 112. Outlook Cleanup + Backfill | 3/3 | Complete   | 2026-06-04 |
+| 112.5 Outlook Behavior Tracking | 0/4 | Planned     | - |
 | 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
 | 114. Stage 2 Resolver Reuse | 0/TBD | Not started | - |
 | 115. SugarCRM Dead-Code Decommission | 0/TBD | Not started | - |
@@ -351,7 +353,27 @@ Plans:
 
 - [x] 112-01-PLAN.md — Backfill sweeper + disposition + Graph-id selection + RED tests (report mode; inert)
 - [x] 112-02-PLAN.md — Go-live flip migration (written, not applied) + verdict-worker gate test
-- [ ] 112-03-PLAN.md — Report dry-run → canary → [BLOCKING] human-gated flip apply + live verify
+- [x] 112-03-PLAN.md — Report dry-run → canary → [BLOCKING] human-gated flip apply + live verify (completed 2026-06-04)
+
+### Phase 112.5: Outlook Behavior Tracking (passive review signals)
+
+**Goal**: Het dagelijkse review-oordeel voor sales verhuist van Bulk Review naar natuurlijk Outlook-gedrag — wij volgen mail-transities in `verkoop@smeba.nl` (Graph delta-sync, cron) en destilleren daaruit per `pipeline_event` een approve/reject/correctie-signaal dat de Wilson-kalibratie en (V10.0) self-learning voedt. Geen UI, geen gedragsverandering voor het team.
+**Depends on**: Phase 112 (Stage-1 archive live — er valt nu gedrag te observeren), Phase 110 (pipeline_events ledger als join-anker).
+**Depends on (external/cross-track)**: none. Voorloper van V10.0 reply-tracing (zelfde `conversation_id`-mechaniek, hier gegeneraliseerd naar alle transities).
+**Beslissing (operator, 2026-06-04)**: optie "passief volgen" gekozen uit de opties-ladder (passief → categorie-voorstel → review-folder → add-in); Bulk Review blijft bestaan als operator-console (batch-historie, promoties). Debtor blijft Bulk Review (werk gebeurt in iController).
+**Success Criteria** (what must be TRUE):
+
+  1. Een cron-based Graph delta-sync legt mail-transities vast (replied / moved-to-afgehandeld / self-archived / restored-from-archive / category-edited / unread-aged) gekoppeld aan `email_id`/`pipeline_event` — idempotent en replay-veilig.
+  2. Een signaal-afleiding mapt transities naar review-verdicts (approve/reject/correctie incl. her-classificatie via categorie-wijziging) in een query-bare tabel; restore-from-archive op een door óns gearchiveerde mail telt als false-positive-correctie.
+  3. Folder-conventie-analyse beantwoordt de open vraag "hoe consistent is afgehandeld-vs-Archief?" met cijfers over de bestaande corpus, en de signaal-weging is daarop afgestemd.
+
+**Plans**: 4 plans (4 waves; sequentiële executie — waves drukken alleen ordening uit)
+Plans:
+
+- [ ] 112.5-01-PLAN.md — Wave 1: folder-conventie-analyse (SC-3, eerste deliverable) — pure aggregatie + one-shot read-only report-worker + operator stelt signaal-weging vast
+- [ ] 112.5-02-PLAN.md — Wave 2: datalaag — migration (4 RLS-tabellen) [orchestrator past toe via MCP] + graphFetch Prefer-header + folder-map registry-reader (SC-1, SC-2)
+- [ ] 112.5-03-PLAN.md — Wave 3: pure helpers test-first — transition-extract (cross-folder + split-over-ticks) + signal-derive (restore=correctie via ledger) + delta-client (bootstrap/410-suppressie) (SC-1, SC-2)
+- [ ] 112.5-04-PLAN.md — Wave 4: delta-sync worker (cron+event) — ledger-join, idempotente dubbele-tabel inserts, bootstrap-suppressie, Sugar-skip + [orchestrator] eerste live delta-tick verificatie (SC-1, SC-2)
 
 ### Phase 113: Stage 3 Sales Intent Agent (greenfield)
 

@@ -29,6 +29,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+// 110-04 is geland: de gate-module bestaat. Statische import i.p.v. de oude
+// try/catch-require — CJS require() van een TS-pad resolvet niet betrouwbaar
+// onder CI (Node 20, eerste pr-checks run 2026-06-04) terwijl vite de import
+// gewoon transformeert.
+import * as dryRunGateModule from "../../../pipeline-gating/dry-run-gate";
 
 const read = (rel: string) => readFileSync(resolve(__dirname, rel), "utf8");
 
@@ -66,16 +71,11 @@ describe("dry-run gate preservation — current effective debtor gating (D-11)",
     // The gate helper does not exist yet. Plan 04 lands it; this assertion
     // pins the D-11 default contract so the executor of Plan 04 must satisfy
     // it. RED today because the module is absent.
-    let gateModule: unknown = null;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      gateModule = require("../../../pipeline-gating/dry-run-gate");
-    } catch {
-      gateModule = null;
-    }
-    // RED today: module absent → null. Plan 04 must export a resolver whose
-    // debtor default for stage_1_cleanup is false (live) and sales is true.
+    // 110-04 geland: module bestaat (statische import bovenaan). De assert
+    // pint dat de gate-exports aanwezig blijven (D-11 contract).
+    const gateModule: unknown = dryRunGateModule;
     expect(gateModule).not.toBeNull();
+    expect(typeof (dryRunGateModule as { isStageBlocked?: unknown }).isStageBlocked).toBe("function");
   });
 });
 

@@ -52,6 +52,8 @@ import { patternsRecommenderCron } from "@/lib/inngest/functions/promotion-recom
 import { debtorEmailStage3RetroClassify } from "@/lib/inngest/functions/debtor-email-stage-3-retro-classify";
 import { salesEmailStage1RetroClassify } from "@/lib/inngest/functions/sales-email-stage-1-retro-classify";
 import { salesEmailStage1Backfill } from "@/lib/inngest/functions/sales-email-stage-1-backfill";
+import { salesEmailFolderConvention } from "@/lib/inngest/functions/sales-email-folder-convention";
+import { swarmBehaviorSync } from "@/lib/inngest/functions/swarm-behavior-sync";
 import { phase87ReadinessNotify } from "@/lib/inngest/functions/phase-87-readiness-notify";
 import { pipelineHealthMonitor } from "@/lib/inngest/functions/pipeline-health-monitor";
 import { pipelineHealthWeeklyDigest } from "@/lib/inngest/functions/pipeline-health-weekly-digest";
@@ -110,6 +112,8 @@ export const { GET, POST, PUT } = serve({
     debtorEmailStage3RetroClassify,
     salesEmailStage1RetroClassify,
     salesEmailStage1Backfill,
+    salesEmailFolderConvention,
+    swarmBehaviorSync,
     phase87ReadinessNotify,
     pipelineHealthMonitor,
     pipelineHealthWeeklyDigest,
