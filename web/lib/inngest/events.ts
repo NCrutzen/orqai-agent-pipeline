@@ -301,6 +301,25 @@ export type Events = {
     };
   };
 
+  // Sales email swarm — Phase 116-06 attachment-metadata BACKFILL (SC-4 /
+  // ATTACH-04). Manual trigger only (CLAUDE.md cron-disable pattern). Iterates
+  // the already-ingested corpus by source_id, writes attachment metadata rows
+  // for ALL mails (closes the has_attachments=false blind spot), and runs
+  // content extraction ONLY for the Stage-1-survivor slice (D-12) via the shared
+  // Plan 04 extractEmailAttachments helper. dry_run=true → counts only, writes
+  // nothing. Fail-loud hard cap + bounded batches + 404→source_gone fail-soft.
+  "sales-email/attachments.backfill.run": {
+    data: {
+      dry_run?: boolean;
+      limit?: number;
+      batch_size?: number;
+      cap?: number;
+      since?: string;
+      until?: string;
+      mailbox?: string;
+    };
+  };
+
   // Debtor email swarm — invoice-copy handler (Phase 56-02 wave 3, swarm_dispatch
   // target for category_key='invoice_copy_request'). Resolves customer + fetches
   // PDF + creates iController draft via the Orq.ai copy-document body agent.
