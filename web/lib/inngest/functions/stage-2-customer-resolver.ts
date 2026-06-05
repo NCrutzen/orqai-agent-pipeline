@@ -81,6 +81,36 @@ export const stage2CustomerResolver = inngest.createFunction(
         if (error) {
           throw new Error(`emails lookup failed: ${error.message}`);
         }
+        // Phase 116-05 (STAGE2-01-safe) — load this email's extracted
+        // attachment text and fold it into body_text. The engine NEVER sees a
+        // new field (D-11): attachment text is *just more body text*. This is
+        // swarm-agnostic — debtor has no `extracted` rows today, so the
+        // combined body is byte-identical to the original (zero behaviour
+        // change). Kept INSIDE this step.run for replay safety (pure string
+        // assembly, no non-determinism). See body-source.ts selectResolverBody
+        // precedent. We mutate the returned row's body_text so EVERY downstream
+        // resolveEntity/resolveDebtor call (the worker passes
+        // `emailRow.body_text` at multiple sites) sees the combined value
+        // without touching the engine signature.
+        if (data?.id) {
+          const { data: attachmentRows } = await admin
+            .schema("email_pipeline")
+            .from("email_attachments")
+            .select("attachment_id, extraction_status, extracted_text")
+            .eq("email_id", data.id);
+          const attachmentText = (attachmentRows ?? [])
+            .filter(
+              (a: { extraction_status?: string; extracted_text?: string }) =>
+                a.extraction_status === "extracted" && a.extracted_text,
+            )
+            .map(
+              (a: { extracted_text?: string }) => a.extracted_text as string,
+            )
+            .join("\n\n");
+          if (attachmentText) {
+            data.body_text = `${data.body_text ?? ""}\n\n--- ATTACHMENTS ---\n${attachmentText}`;
+          }
+        }
         return data;
       }),
       step.run("load-settings", async () => {

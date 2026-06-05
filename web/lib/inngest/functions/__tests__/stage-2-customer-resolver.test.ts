@@ -105,10 +105,18 @@ const SETTINGS_ROW = {
 function makeAdminMock(overrides?: {
   settings?: typeof SETTINGS_ROW | null;
   insertedLabelId?: string;
+  // Phase 116-05 — attachment rows returned for the email_pipeline
+  // .email_attachments load inside the load-email step.
+  attachmentRows?: Array<{
+    attachment_id: string;
+    extraction_status: string;
+    extracted_text: string | null;
+  }>;
 }) {
   // Per-table builders — only need shapes used by the function.
   const settingsRow = overrides?.settings === undefined ? SETTINGS_ROW : overrides.settings;
   const insertedLabelId = overrides?.insertedLabelId ?? "label-uuid-stub";
+  const attachmentRows = overrides?.attachmentRows ?? [];
 
   // Phase 70 — capture cross-table inserts so dual-write assertions can
   // distinguish email_labels from pipeline_events.
@@ -150,7 +158,10 @@ function makeAdminMock(overrides?: {
       emailsOrFilters.push(filter);
       return b;
     });
-    b.maybeSingle = vi.fn(async () => ({ data: EMAIL_ROW, error: null }));
+    // Return a FRESH copy so the worker's in-place body_text mutation
+    // (Phase 116-05 attachment fold) does not leak into the shared EMAIL_ROW
+    // constant across handler runs.
+    b.maybeSingle = vi.fn(async () => ({ data: { ...EMAIL_ROW }, error: null }));
     return b;
   }
   function labelingSettingsBuilder() {
@@ -171,6 +182,13 @@ function makeAdminMock(overrides?: {
     from: vi.fn((table: string) => {
       if (schemaName === "email_pipeline" && table === "emails") {
         return emailsBuilder();
+      }
+      if (schemaName === "email_pipeline" && table === "email_attachments") {
+        // .select(...).eq("email_id", id) → awaited directly ({ data, error }).
+        const b: Record<string, unknown> = {};
+        b.select = vi.fn(() => b);
+        b.eq = vi.fn(async () => ({ data: attachmentRows, error: null }));
+        return b;
       }
       if (schemaName === "debtor" && table === "labeling_settings") {
         return labelingSettingsBuilder();
@@ -1246,5 +1264,121 @@ describe("sales generic path — gap closure (Phase 114-06)", () => {
     expect(data.entity_brand).toBe("SB");
     expect(typeof data.entity_brand).toBe("string");
     expect(data.entity_brand).not.toBe("[object Object]");
+  });
+});
+
+// Phase 116-05 Task 1 (TDD) — extracted attachment text is folded into the
+// body_text passed to the resolver (STAGE2-01-safe: engine signature unchanged,
+// attachment text is *just more body text*, D-11). We observe via the
+// resolveDebtor spy (legacy debtor path) — the load-email step mutates
+// emailRow.body_text in place, so every resolveEntity/resolveDebtor call site
+// sees the combined value. Debtor having no `extracted` rows is the zero-diff
+// case (tests 2 + 3).
+describe("Phase 116-05 — attachment text folded into body_text", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  async function loadHandlerWithAttachments(
+    attachmentRows: Array<{
+      attachment_id: string;
+      extraction_status: string;
+      extracted_text: string | null;
+    }>,
+  ): Promise<typeof handler> {
+    vi.clearAllMocks();
+    adminMock = makeAdminMock({ attachmentRows });
+    resolveDebtorMock.mockReset();
+    resolveDebtorMock.mockResolvedValue({
+      method: "unresolved",
+      customer_account_id: null,
+      customer_name: null,
+      confidence: "none",
+      inputs: { kind: "unresolved", sender_email: null, matched_identifiers: [] },
+    });
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../stage-2-customer-resolver");
+    return (mod.stage2CustomerResolver as unknown as {
+      handler: typeof handler;
+    }).handler;
+  }
+
+  function bodyTextSeenByResolver(): string {
+    expect(resolveDebtorMock).toHaveBeenCalled();
+    const arg = resolveDebtorMock.mock.calls[0]![0] as { body_text: string };
+    return arg.body_text;
+  }
+
+  it("Test 1: one extracted attachment → body = original + separator + attachment text", async () => {
+    handler = await loadHandlerWithAttachments([
+      {
+        attachment_id: "att-1",
+        extraction_status: "extracted",
+        extracted_text: "OFFERTE SB-12345",
+      },
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    expect(bodyTextSeenByResolver()).toBe(
+      `${EMAIL_ROW.body_text}\n\n--- ATTACHMENTS ---\nOFFERTE SB-12345`,
+    );
+  });
+
+  it("Test 2: attachment rows present but none extracted → body unchanged (no separator)", async () => {
+    handler = await loadHandlerWithAttachments([
+      {
+        attachment_id: "att-1",
+        extraction_status: "needs_vision",
+        extracted_text: null,
+      },
+      {
+        attachment_id: "att-2",
+        extraction_status: "extraction_failed",
+        extracted_text: null,
+      },
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const body = bodyTextSeenByResolver();
+    expect(body).toBe(EMAIL_ROW.body_text);
+    expect(body).not.toContain("--- ATTACHMENTS ---");
+  });
+
+  it("Test 3: no attachment rows → body unchanged", async () => {
+    handler = await loadHandlerWithAttachments([]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const body = bodyTextSeenByResolver();
+    expect(body).toBe(EMAIL_ROW.body_text);
+    expect(body).not.toContain("--- ATTACHMENTS ---");
+  });
+
+  it("Test 4: multiple extracted attachments → texts joined with \\n\\n in row order", async () => {
+    handler = await loadHandlerWithAttachments([
+      {
+        attachment_id: "att-1",
+        extraction_status: "extracted",
+        extracted_text: "FIRST DOC",
+      },
+      {
+        attachment_id: "att-2",
+        extraction_status: "skipped_cap",
+        extracted_text: null,
+      },
+      {
+        attachment_id: "att-3",
+        extraction_status: "extracted",
+        extracted_text: "THIRD DOC",
+      },
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    expect(bodyTextSeenByResolver()).toBe(
+      `${EMAIL_ROW.body_text}\n\n--- ATTACHMENTS ---\nFIRST DOC\n\nTHIRD DOC`,
+    );
   });
 });
