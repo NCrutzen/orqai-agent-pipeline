@@ -33,6 +33,7 @@ import { classifierPromotionCron } from "@/lib/inngest/functions/classifier-prom
 import { classifierScreenWorker } from "@/lib/inngest/functions/classifier-screen-worker";
 import { classifierVerdictWorker } from "@/lib/inngest/functions/classifier-verdict-worker";
 import { stage2CustomerResolver } from "@/lib/inngest/functions/stage-2-customer-resolver";
+import { stage1_5AttachmentExtractor } from "@/lib/inngest/functions/stage-1_5-attachment-extractor";
 import { classifierInvoiceCopyHandler } from "@/lib/inngest/functions/classifier-invoice-copy-handler";
 import { stage0SafetyWorker } from "@/lib/inngest/functions/stage-0-safety-worker";
 import { stage0Backfill } from "@/lib/inngest/functions/stage-0-backfill";
@@ -94,6 +95,7 @@ export const { GET, POST, PUT } = serve({
     classifierPromotionCron,
     classifierScreenWorker,
     classifierVerdictWorker,
+    stage1_5AttachmentExtractor,
     stage2CustomerResolver,
     classifierInvoiceCopyHandler,
     stage0SafetyWorker,
