@@ -34,13 +34,14 @@ export const DEFAULT_THEMES: Theme[] = [
     label: "Brandveiligheid",
     omschrijving:
       "Brandveiligheid algemeen: brandpreventie, brandmeldinstallaties, noodverlichting, " +
-      "brandveiligheidsadvies en -inspecties.",
+      "vluchtwegaanduiding, brandveiligheidsadvies en -inspecties.",
   },
   {
-    label: "Ontruiming",
+    label: "Ontruiming & noodplannen",
     omschrijving:
       "Ontruimingsoefeningen, ontruimingsplannen, evacuatie, vluchtwegen, " +
-      "ontruimingsinstallaties.",
+      "ontruimingsinstallaties, bedrijfsnoodplannen, calamiteitenplannen, " +
+      "noodplannen en crisisbeheersing.",
   },
   {
     label: "EHBO / AED",
