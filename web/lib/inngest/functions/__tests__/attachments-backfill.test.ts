@@ -158,7 +158,7 @@ beforeEach(async () => {
   loadSwarmNoiseCategoriesMock.mockResolvedValue(NOISE_CATEGORIES);
   resolveVerdictsMock.mockResolvedValue(new Map());
   listAttachmentsMock.mockResolvedValue([]);
-  extractEmailAttachmentsMock.mockResolvedValue({ extracted: 0, failed: 0, source_gone: 0 });
+  extractEmailAttachmentsMock.mockResolvedValue({ extracted: 0, failed: 0, skipped: 0, source_gone: 0 });
   const mod = await import("../attachments-backfill");
   handler = (mod.attachmentsBackfill as unknown as { handler: typeof handler }).handler;
 });
@@ -268,6 +268,47 @@ describe("attachments-backfill worker", () => {
     expect(extractEmailAttachmentsMock).toHaveBeenCalledTimes(1);
     const callArg = extractEmailAttachmentsMock.mock.calls[0][0] as { emailId: string };
     expect(callArg.emailId).toBe("e1");
+  });
+
+  it("WR-06 — limit:0 is treated as 'no limit', NOT an empty corpus", async () => {
+    const corpus = [
+      { id: "e1", source_id: "g1", mailbox: "verkoop@smeba.nl" },
+      { id: "e2", source_id: "g2", mailbox: "verkoop@smeba.nl" },
+    ];
+    const { admin } = makeAdmin({ corpus });
+    createAdminClientMock.mockReturnValue(admin);
+
+    const step = makeStep();
+    const res = (await handler({
+      event: { data: { dry_run: true, limit: 0 } },
+      step,
+    })) as Record<string, number>;
+
+    // Previously slice(0, 0) → mails_scanned:0 ("nothing to backfill"). Now the
+    // non-positive limit is ignored and the full corpus is scanned.
+    expect(res.mails_scanned).toBe(2);
+  });
+
+  it("WR-07 — helper's `skipped` count is threaded into the summary (not folded into failed)", async () => {
+    const { admin } = makeAdmin({
+      corpus: [{ id: "e1", source_id: "g1", mailbox: "verkoop@smeba.nl" }],
+    });
+    createAdminClientMock.mockReturnValue(admin);
+    listAttachmentsMock.mockResolvedValue([
+      { id: "a1", name: "x.docx", contentType: "application/vnd...", size: 1, isInline: false, "@odata.type": FILE_ATTACHMENT },
+    ]);
+    extractEmailAttachmentsMock.mockResolvedValue({
+      extracted: 0,
+      failed: 0,
+      skipped: 1,
+      source_gone: 0,
+    });
+
+    const step = makeStep();
+    const res = (await handler({ event: { data: {} }, step })) as Record<string, number>;
+
+    expect(res.skipped).toBe(1);
+    expect(res.failed).toBe(0);
   });
 
   it("test 6 — batching: bounded batches with an inter-batch delay step", async () => {

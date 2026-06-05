@@ -116,8 +116,14 @@ export const attachmentsBackfill = inngest.createFunction(
   async ({ event, step }) => {
     const data = (event?.data as BackfillEventData | undefined) ?? {};
     const dryRun = data.dry_run === true;
+    // Review WR-06 — treat a non-positive limit as "no limit". `limit: 0` is a
+    // falsy-but-valid number that previously yielded slice(0, 0) = empty corpus,
+    // making the run report mails_scanned:0 ("nothing to backfill") instead of
+    // surfacing the operator's footgun. Only a strictly-positive number caps.
     const limit =
-      typeof data.limit === "number" ? data.limit : Number.POSITIVE_INFINITY;
+      typeof data.limit === "number" && data.limit > 0
+        ? data.limit
+        : Number.POSITIVE_INFINITY;
     const batchSize =
       typeof data.batch_size === "number" && data.batch_size > 0
         ? data.batch_size
