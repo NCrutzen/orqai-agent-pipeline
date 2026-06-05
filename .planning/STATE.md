@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
-stopped_at: 116-01 complete — Task 3 remote-apply checkpoint pending
-last_updated: "2026-06-05T07:20:00.654Z"
+stopped_at: Completed 116-04-PLAN.md
+last_updated: "2026-06-05T07:28:51.847Z"
 last_activity: 2026-06-05
 progress:
   total_phases: 10
   completed_phases: 6
   total_plans: 41
-  completed_plans: 31
+  completed_plans: 32
   percent: 60
 ---
 
@@ -63,7 +63,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 116 (attachment-ingest-uniform-cross-swarm) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 
 **Phase 112 outcome (zelfde dag):**
@@ -168,6 +168,7 @@ Last activity: 2026-06-05
 | Phase 116 P01 | 8m | 2 tasks | 2 files |
 | Phase 116 P02 | 6m | 3 tasks | 5 files |
 | Phase 116 P03 | 9min | 2 tasks | 5 files |
+| Phase 116 P04 | 6m | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -279,6 +280,8 @@ Last activity: 2026-06-05
 - [Phase ?]: Phase 116-01: generic email_attachments table + private bucket + RLS; swarms.attachment_config switches (capture/extract + caps + stage2_dispatch_event) seeded sales=both-on debtor=capture-only (D-13). Migrations committed; remote-apply + check:supabase gated to checkpoint.
 - [Phase ?]: Phase 116-02: Graph attachment helpers via single graphFetch boundary (zod-validated) + pure swarm-agnostic extract.ts (unpdf text-layer first, Orq Router vision fallback, fail-soft coded statuses, caps); no swarm literal, no direct LLM key; 12 tests green
 - [Phase ?]: Phase 116-03: registry-gated swarm-agnostic captureAttachmentMetadata wired into both ingest routes; debtor capture via Plan-01 registry row (D-13 proof), zero debtor-specific code; metadata-only at ingest (D-05), fail-soft, idempotent on (email_id,attachment_id); AttachmentConfig typed on SwarmRow; suite 2491 green.
+- [Phase ?]: 116-04: extraction funnel step is registry-keyed (extract switch gates; stage2_dispatch_event names the downstream event, no code literal); verdict worker untouched
+- [Phase ?]: 116-04: shared extractEmailAttachments helper owns the download/store/extract/update loop so Plan 06 backfill reuses one implementation (no drift)
 
 ### Blockers/Concerns
 
@@ -311,8 +314,8 @@ Last activity: 2026-06-05
 
 ## Session Continuity
 
-Last session: 2026-06-05T07:19:50.483Z
-Stopped at: 116-01 complete — Task 3 remote-apply checkpoint pending
+Last session: 2026-06-05T07:28:51.673Z
+Stopped at: Completed 116-04-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
 

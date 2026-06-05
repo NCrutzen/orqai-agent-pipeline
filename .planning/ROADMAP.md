@@ -454,7 +454,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 116-03-PLAN.md — Registry-gated metadata capture in sales + debtor ingest routes (ATTACH-01) [wave 2]
-- [ ] 116-04-PLAN.md — Stage-1.5 extraction funnel-step worker + registry dispatch rewire (ATTACH-02) [wave 2]
+- [x] 116-04-PLAN.md — Stage-1.5 extraction funnel-step worker + registry dispatch rewire (ATTACH-02) [wave 2]
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -509,7 +509,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 3/6 plans executed
+**Plans:** 4/6 plans executed
 
 Plans:
 
