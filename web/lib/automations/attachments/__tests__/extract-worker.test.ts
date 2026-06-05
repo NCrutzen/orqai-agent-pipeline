@@ -134,7 +134,7 @@ describe("extractEmailAttachments", () => {
     expect(updates[0].patch.extraction_status).toBe("extracted");
     expect(updates[0].patch.storage_key).toBe("email-uuid-1/graph-att-1.pdf");
     expect(updates[0].eqValue).toBe("att-row-1");
-    expect(res).toEqual({ extracted: 1, failed: 0, source_gone: 0 });
+    expect(res).toEqual({ extracted: 1, failed: 0, skipped: 0, source_gone: 0 });
   });
 
   it("A2: extractAttachment returns extraction_failed → that row failed, OTHER rows still process (fail-soft)", async () => {
@@ -156,7 +156,7 @@ describe("extractEmailAttachments", () => {
     expect(updates).toHaveLength(2);
     expect(updates[0].patch.extraction_status).toBe("extraction_failed");
     expect(updates[1].patch.extraction_status).toBe("extracted");
-    expect(res).toEqual({ extracted: 1, failed: 1, source_gone: 0 });
+    expect(res).toEqual({ extracted: 1, failed: 1, skipped: 0, source_gone: 0 });
   });
 
   it("A3: Graph 404 on download → row source_gone, loop continues", async () => {
@@ -177,7 +177,7 @@ describe("extractEmailAttachments", () => {
 
     expect(updates[0].patch.extraction_status).toBe("source_gone");
     expect(updates[1].patch.extraction_status).toBe("extracted");
-    expect(res).toEqual({ extracted: 1, failed: 0, source_gone: 1 });
+    expect(res).toEqual({ extracted: 1, failed: 0, skipped: 0, source_gone: 1 });
   });
 
   it("A4: count is capped at caps.maxAttachmentsPerMail", async () => {
@@ -199,6 +199,30 @@ describe("extractEmailAttachments", () => {
     // Only 2 processed.
     expect(downloadAttachmentValueMock).toHaveBeenCalledTimes(2);
     expect(res.extracted).toBe(2);
+  });
+
+  it("WR-07: unsupported + skipped_cap count as `skipped`, NOT `failed`", async () => {
+    downloadAttachmentValueMock.mockResolvedValue(new ArrayBuffer(8));
+    extractAttachmentMock
+      .mockResolvedValueOnce({ status: "unsupported", text: "" })
+      .mockResolvedValueOnce({ status: "skipped_cap", text: "" })
+      .mockResolvedValueOnce({ status: "extraction_failed", text: "" })
+      .mockResolvedValueOnce({ status: "extracted", text: "ok" });
+    const { admin } = makeAdmin();
+
+    const res = await extractEmailAttachments({
+      admin,
+      ...BASE,
+      rows: [
+        pendingRow({ id: "r1", attachment_id: "a1" }),
+        pendingRow({ id: "r2", attachment_id: "a2" }),
+        pendingRow({ id: "r3", attachment_id: "a3" }),
+        pendingRow({ id: "r4", attachment_id: "a4" }),
+      ],
+    });
+
+    // unsupported + skipped_cap → skipped; only extraction_failed → failed.
+    expect(res).toEqual({ extracted: 1, failed: 1, skipped: 2, source_gone: 0 });
   });
 
   it("never returns extracted text (only ids/counts) — DoS guard T-116-11", async () => {

@@ -98,6 +98,9 @@ type Summary = {
   metadata_rows_written: number;
   extracted: number;
   failed: number;
+  // Review WR-07 — expected non-extraction (unsupported/skipped_cap), kept
+  // separate from genuine failures so the operator summary isn't inflated.
+  skipped: number;
   source_gone: number;
   dry_run: boolean;
 };
@@ -189,6 +192,7 @@ export const attachmentsBackfill = inngest.createFunction(
       metadata_rows_written: 0,
       extracted: 0,
       failed: 0,
+      skipped: 0,
       source_gone: 0,
       dry_run: dryRun,
     };
@@ -216,6 +220,7 @@ export const attachmentsBackfill = inngest.createFunction(
             metadata_rows_written: 0,
             extracted: 0,
             failed: 0,
+            skipped: 0,
             source_gone: 0,
           };
 
@@ -316,6 +321,7 @@ export const attachmentsBackfill = inngest.createFunction(
                 });
                 local.extracted += r.extracted;
                 local.failed += r.failed;
+                local.skipped += r.skipped;
                 local.source_gone += r.source_gone;
               }
             }
@@ -330,6 +336,7 @@ export const attachmentsBackfill = inngest.createFunction(
       summary.metadata_rows_written += batchResult.metadata_rows_written;
       summary.extracted += batchResult.extracted;
       summary.failed += batchResult.failed;
+      summary.skipped += batchResult.skipped;
       summary.source_gone += batchResult.source_gone;
 
       // Inter-batch delay — Graph rate-limit discipline (skip after last batch).

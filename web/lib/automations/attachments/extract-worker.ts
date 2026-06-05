@@ -51,7 +51,13 @@ export interface ExtractEmailAttachmentsInput {
 
 export interface ExtractEmailAttachmentsResult {
   extracted: number;
+  /** Genuine failures only: extraction_failed (corrupt/parse/render) + storage
+   *  errors. Review WR-07: does NOT include expected non-extraction outcomes. */
   failed: number;
+  /** Expected, non-error non-extraction: 'unsupported' (docx/xlsx) and
+   *  'skipped_cap' (deliberate cap, fail-soft-by-design). Kept SEPARATE from
+   *  `failed` so operator telemetry doesn't inflate the failure rate (WR-07). */
+  skipped: number;
   source_gone: number;
 }
 
@@ -98,6 +104,7 @@ export async function extractEmailAttachments(
   const result: ExtractEmailAttachmentsResult = {
     extracted: 0,
     failed: 0,
+    skipped: 0,
     source_gone: 0,
   };
 
@@ -149,8 +156,19 @@ export async function extractEmailAttachments(
         storage_key: key,
       });
 
-      if (extracted.status === "extracted") result.extracted += 1;
-      else result.failed += 1;
+      // Review WR-07 — count by CATEGORY. 'extracted' = success;
+      // 'unsupported'/'skipped_cap' = expected non-extraction (NOT a failure);
+      // 'extraction_failed' (and any other) = genuine failure.
+      if (extracted.status === "extracted") {
+        result.extracted += 1;
+      } else if (
+        extracted.status === "unsupported" ||
+        extracted.status === "skipped_cap"
+      ) {
+        result.skipped += 1;
+      } else {
+        result.failed += 1;
+      }
     } catch {
       // Any unexpected throw → fail-soft. The funnel must never stall (D-03).
       try {
