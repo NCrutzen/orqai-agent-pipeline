@@ -15,3 +15,12 @@ severity: go-live-blocker
 2. Apply `20260605c` to remote `mvqjhlxfvtqqubqgdvhz` (Management API or Supabase MCP; both migrations 20260605/20260605b are already applied).
 3. Verify: `SELECT swarm_dispatch FROM public.swarm_noise_categories WHERE swarm_type='sales-email' AND category_key='unknown'` → `sales-email/attachments.extract.requested`.
 4. Watch one live sales `unknown` mail route Stage 1 → extractor → Stage 2.
+
+## Also post-deploy: run the 116-06 corpus backfill (deferred checkpoint, user-approved 2026-06-05)
+
+The backfill worker (`attachments-backfill.ts`, trigger `sales-email/attachments.backfill.run`) is committed + registered but needs the deploy. Runbook:
+1. `inngest.send({ name: "sales-email/attachments.backfill.run", data: { dry_run: true, limit: 50 } })` → inspect `{ mails_scanned, attachments_found, metadata_rows_written: 0 }`.
+2. `{ limit: 50 }` live → `email_pipeline.email_attachments` gains rows; re-run `{ limit: 50 }` → no duplicates (idempotent).
+3. Confirm a Stage-1-survivor PDF mail got `extraction_status='extracted'` + non-empty `extracted_text`; a non-survivor got metadata only (D-12).
+4. Full backfill (no `limit`) → completes without unexpected fail-loud cap (40k hard-cap).
+5. Spot-check Bulk Review Stage 2 Read column (AttachmentList) for a backfilled email.

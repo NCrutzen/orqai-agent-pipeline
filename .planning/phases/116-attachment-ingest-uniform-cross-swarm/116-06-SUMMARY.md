@@ -100,7 +100,7 @@ The live run over the 1,273-mail corpus is a real-world read-only Graph operatio
 
 ## Checkpoint — Live Backfill Run (operator action required)
 
-**Status: DEFERRED to operator** (SC-4: executed OR deferred-with-rationale). Rationale: the run is a corpus-scale Graph operation; prior-wave instructions + Phase 112 write-discipline reserve production backfill triggering for the operator, not the executor. The worker, registration, and unit tests are complete and green.
+**Status: DEFERRAL APPROVED by user 2026-06-05** — checkpoint closed; the live run is tracked post-deploy in `.planning/todos/pending/2026-06-05-apply-20260605c-after-deploy.md` (alongside the 20260605c apply). Original rationale: the run is a corpus-scale Graph operation; prior-wave instructions + Phase 112 write-discipline reserve production backfill triggering for the operator, not the executor. The worker, registration, and unit tests are complete and green.
 
 **Operator runbook (gated, Phase 112 discipline):**
 1. Bounded DRY-RUN: `inngest.send({ name: "sales-email/attachments.backfill.run", data: { dry_run: true, limit: 50 } })`. Inspect `{ mails_scanned, attachments_found, metadata_rows_written: 0 }` — confirm some sales mails carry attachments (blind spot is real + now detectable).
