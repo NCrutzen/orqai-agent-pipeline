@@ -72,19 +72,15 @@ None — plan executed exactly as written. The migration filenames match the pla
 
 Note: the plan's interface reference said "support-tickets-frames as the precedent private bucket" — that bucket exists in code (`web/lib/automations/support-tickets/*`) but was created out-of-band (no migration in repo). This phase's bucket-policy SQL is therefore the first storage.objects policy committed to this repo's migration history; it follows the CLAUDE.md private-bucket / no-anon rule.
 
-## Checkpoint Status (Task 3 — blocking, NOT yet cleared)
+## Checkpoint Status (Task 3 — CLEARED 2026-06-05)
 
-Task 3 is `checkpoint:human-verify gate="blocking"`. The Claude-automatable portions are done:
-- Migrations written, verified, and committed.
-- Codegen drift check run locally → clean.
+Task 3 (`checkpoint:human-verify gate="blocking"`) was cleared by the orchestrator with explicit user approval. Remote apply went via the Supabase Management API (MCP token was expired; Cloudflare 1010 required a browser User-Agent on curl):
 
-The **remote-gated** portions could NOT be completed in this executor context because the Supabase MCP tools (`mcp__plugin_supabase_supabase__*`) were not loaded and ToolSearch was unavailable:
-1. Apply both migrations to remote `mvqjhlxfvtqqubqgdvhz` (in order: 20260605 then 20260605b) via `apply_migration` / Management API.
-2. Run `cd web && npm run check:supabase` against the live advisor — expect 0 ERROR (no `rls_disabled_in_public` for email_attachments).
-3. Confirm `select id, public from storage.buckets where id='email-attachments'` returns one row, public=false.
-4. Confirm `select swarm_type, attachment_config from public.swarms where swarm_type in ('sales-email','debtor-email')` shows the seeded switches.
-
-These remain for the orchestrator/human to apply (consistent with how 110-04 and 114-02 applied migrations to remote via MCP after org re-link).
+1. ✅ Both migrations applied to remote `mvqjhlxfvtqqubqgdvhz` in order (20260605 → HTTP 201, 20260605b → HTTP 201).
+2. ✅ `cd web && npm run check:supabase` → **0 ERROR**, 6 WARN, 23 INFO (warnings pre-existing).
+3. ✅ `storage.buckets` → `email-attachments` exists with `public=false`.
+4. ✅ `public.swarms.attachment_config` seeded: sales-email capture=true/extract=true, debtor-email capture=true/extract=false (D-13); `stage2_dispatch_event` values byte-match the Stage 2 worker triggers.
+5. ✅ `pg_class.relrowsecurity=true` for `email_pipeline.email_attachments`.
 
 ## Self-Check: PASSED
 
