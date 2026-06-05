@@ -284,6 +284,23 @@ export type Events = {
     };
   };
 
+  // Sales email swarm — Phase 116-04 attachment-extraction funnel step (D-01/D-02).
+  // The sales 'unknown' swarm_dispatch was rewired (migration 20260605c) from the
+  // Stage 2 event above to THIS event, so classifier-verdict-worker fires the
+  // stage-1_5-attachment-extractor instead of Stage 2 directly. The extractor
+  // runs registry-gated extraction over the captured 'pending' attachments, then
+  // re-emits the registry stage2_dispatch_event (the Stage 2 event above) — a
+  // transparent interposition. Same payload as the Stage 2 event it precedes.
+  "sales-email/attachments.extract.requested": {
+    data: {
+      automation_run_id: string;
+      swarm_type: string;
+      category_key: string;
+      message_id: string;
+      source_mailbox: string;
+    };
+  };
+
   // Debtor email swarm — invoice-copy handler (Phase 56-02 wave 3, swarm_dispatch
   // target for category_key='invoice_copy_request'). Resolves customer + fetches
   // PDF + creates iController draft via the Orq.ai copy-document body agent.
