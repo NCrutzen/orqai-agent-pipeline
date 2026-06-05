@@ -1320,16 +1320,19 @@ describe("Phase 116-05 — attachment text folded into body_text", () => {
 
     await handler({ event: buildEvent(), step: stepStub });
 
-    expect(bodyTextSeenByResolver()).toBe(
-      `${EMAIL_ROW.body_text}\n\n--- ATTACHMENTS ---\nOFFERTE SB-12345`,
-    );
+    // Review WR-01 — the fold-in now labels the region UNTRUSTED DATA so the
+    // downstream LLM treats it as reference text, not instructions.
+    const body = bodyTextSeenByResolver();
+    expect(body.startsWith(EMAIL_ROW.body_text)).toBe(true);
+    expect(body).toContain("ATTACHMENTS (UNTRUSTED DATA");
+    expect(body).toContain("OFFERTE SB-12345");
   });
 
   it("Test 2: attachment rows present but none extracted → body unchanged (no separator)", async () => {
     handler = await loadHandlerWithAttachments([
       {
         attachment_id: "att-1",
-        extraction_status: "needs_vision",
+        extraction_status: "skipped_cap",
         extracted_text: null,
       },
       {
@@ -1343,7 +1346,7 @@ describe("Phase 116-05 — attachment text folded into body_text", () => {
 
     const body = bodyTextSeenByResolver();
     expect(body).toBe(EMAIL_ROW.body_text);
-    expect(body).not.toContain("--- ATTACHMENTS ---");
+    expect(body).not.toContain("ATTACHMENTS");
   });
 
   it("Test 3: no attachment rows → body unchanged", async () => {
@@ -1377,8 +1380,10 @@ describe("Phase 116-05 — attachment text folded into body_text", () => {
 
     await handler({ event: buildEvent(), step: stepStub });
 
-    expect(bodyTextSeenByResolver()).toBe(
-      `${EMAIL_ROW.body_text}\n\n--- ATTACHMENTS ---\nFIRST DOC\n\nTHIRD DOC`,
-    );
+    // Joined in row order, under the UNTRUSTED-DATA label (WR-01).
+    const body = bodyTextSeenByResolver();
+    expect(body.startsWith(EMAIL_ROW.body_text)).toBe(true);
+    expect(body).toContain("ATTACHMENTS (UNTRUSTED DATA");
+    expect(body.indexOf("FIRST DOC")).toBeLessThan(body.indexOf("THIRD DOC"));
   });
 });
