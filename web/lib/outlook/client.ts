@@ -1,4 +1,5 @@
 import { createZapierSdk } from "@zapier/zapier-sdk";
+import { z } from "zod";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
@@ -384,6 +385,74 @@ export async function fetchConversationMessages(
     });
   }
   return priors;
+}
+
+/**
+ * Phase 116-02 (Task 1): attachment metadata + raw-bytes Graph helpers.
+ *
+ * Both route through the single `graphFetch` credential boundary (connection
+ * 56014785) + its built-in 504/socket retry — NEVER a second Graph client.
+ *
+ * `listAttachments` pulls metadata ONLY (`$select`, no `contentBytes`); the
+ * worker (Plan 04) decides which attachments to download. `@odata.type` lets
+ * the caller type-guard fileAttachment vs reference/itemAttachment (Pitfall 5
+ * / A4) — non-fileAttachment kinds carry no bytes and become `unsupported`.
+ */
+const attachmentMetaSchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  contentType: z.string().optional(),
+  size: z.number().optional(),
+  isInline: z.boolean().optional(),
+  "@odata.type": z.string().optional(),
+});
+
+export type OutlookAttachmentMeta = z.infer<typeof attachmentMetaSchema>;
+
+const listAttachmentsSchema = z.object({
+  value: z.array(attachmentMetaSchema),
+});
+
+/**
+ * List attachment metadata for a message. Metadata only — does NOT request
+ * `contentBytes` (the worker downloads raw bytes on demand via
+ * `downloadAttachmentValue`). Validates the Graph payload with zod at the
+ * function boundary before returning (V5 input validation).
+ */
+export async function listAttachments(
+  mailbox: string,
+  messageId: string,
+): Promise<OutlookAttachmentMeta[]> {
+  // `@odata.type` requested so the caller can type-guard fileAttachment vs
+  // reference/itemAttachment (Pitfall 5 / A4). Never request contentBytes here.
+  const fields = "id,name,contentType,size,isInline,@odata.type";
+  const res = await graphFetch(
+    `/users/${enc(mailbox)}/messages/${enc(messageId)}/attachments?$select=${fields}`,
+  );
+  if (!res.ok) {
+    throw new Error(`listAttachments ${res.status}: ${await res.text()}`);
+  }
+  const data = listAttachmentsSchema.parse(await res.json());
+  return data.value;
+}
+
+/**
+ * Download the raw bytes of a single attachment via Graph `/$value`. Returns
+ * an ArrayBuffer. Use `/$value` for raw bytes consistently (Pitfall 5 — do
+ * not mix with base64 `contentBytes`).
+ */
+export async function downloadAttachmentValue(
+  mailbox: string,
+  messageId: string,
+  attachmentId: string,
+): Promise<ArrayBuffer> {
+  const res = await graphFetch(
+    `/users/${enc(mailbox)}/messages/${enc(messageId)}/attachments/${enc(attachmentId)}/$value`,
+  );
+  if (!res.ok) {
+    throw new Error(`downloadAttachmentValue ${res.status}: ${await res.text()}`);
+  }
+  return res.arrayBuffer();
 }
 
 function stripHtml(html: string): string {
