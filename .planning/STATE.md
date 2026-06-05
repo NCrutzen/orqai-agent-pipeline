@@ -4,13 +4,13 @@ milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
 stopped_at: 116-01 complete — Task 3 remote-apply checkpoint pending
-last_updated: "2026-06-04T18:42:53.830Z"
-last_activity: 2026-06-04 -- Phase 116 execution started
+last_updated: "2026-06-05T07:09:23.172Z"
+last_activity: 2026-06-05
 progress:
   total_phases: 10
   completed_phases: 6
   total_plans: 41
-  completed_plans: 29
+  completed_plans: 30
   percent: 60
 ---
 
@@ -63,14 +63,14 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 116 (attachment-ingest-uniform-cross-swarm) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 116
+Plan: 2 of 6
+Status: Ready to execute
 
 **Phase 112 outcome (zelfde dag):**
 Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — COMPLETE (go-live verified 2026-06-04)
 Plan: 3 of 3
 Status: Sales Stage-1 Outlook archive LIVE (`stage_1_archive=false`, migration `sales_stage1_archive_golive`); backfill complete (67 archived / 38 sugar-skip / ~1650 queued predicted); loopback disabled + supplier_bank_change demoted after canary findings
-Last activity: 2026-06-04 -- Phase 116 execution started
+Last activity: 2026-06-05
 
 **Phase 112 incident (2026-06-04):** prod ran pre-110-04 code without the per-stage gate → loopback rule archived 141 real internal forwards since May 21. Emergency stop + full restore + gate-code deployed (PR #61) + canary bugfixes (PR #65: global canary cap, Graph-400 skip). Learning `52930d32`. Details: `phases/112-*/112-03-SUMMARY.md`.
 
@@ -166,6 +166,7 @@ Last activity: 2026-06-04 -- Phase 116 execution started
 | Phase 114 P07 | 12m | 2 tasks | 5 files |
 | 114 | 7 | - | - |
 | Phase 116 P01 | 8m | 2 tasks | 2 files |
+| Phase 116 P02 | 6m | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -275,6 +276,7 @@ Last activity: 2026-06-04 -- Phase 116 execution started
 - [Phase ?]: Phase 114-06: SC-1 blockers closed in the Stage 2 worker only — CR-01 generic brand_id from resolution_config.scope.brand_scope[0], CR-02 entity_brand inline-guarded to scalar code (object→.code), WR-01 nxt_database config-sourced. Debtor byte-neutral; no-engine-diff exit 0; suite 2461 green.
 - [Phase ?]: Phase 114-07: closed review warnings WR-02..WR-05 + IN-01 in sales lookups/adapter (postcode address-context gate + medium confidence per D-06 interim; order regex word-boundary-anchored; quoted-header-scoped sender; unresolved path surfaces attempted identifiers). ZERO engine/config/steps diff.
 - [Phase ?]: Phase 116-01: generic email_attachments table + private bucket + RLS; swarms.attachment_config switches (capture/extract + caps + stage2_dispatch_event) seeded sales=both-on debtor=capture-only (D-13). Migrations committed; remote-apply + check:supabase gated to checkpoint.
+- [Phase ?]: Phase 116-02: Graph attachment helpers via single graphFetch boundary (zod-validated) + pure swarm-agnostic extract.ts (unpdf text-layer first, Orq Router vision fallback, fail-soft coded statuses, caps); no swarm literal, no direct LLM key; 12 tests green
 
 ### Blockers/Concerns
 
@@ -307,10 +309,10 @@ Last activity: 2026-06-04 -- Phase 116 execution started
 
 ## Session Continuity
 
-Last session: 2026-06-04T18:42:53.797Z
+Last session: 2026-06-05T07:09:16.348Z
 Stopped at: 116-01 complete — Task 3 remote-apply checkpoint pending
 Resume with: `/gsd-execute-phase 65`
-Resume file: .planning/phases/116-attachment-ingest-uniform-cross-swarm/116-01-PLAN.md
+Resume file: None
 
 ## Deferred Items
 
