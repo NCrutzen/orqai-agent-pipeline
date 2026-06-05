@@ -16,16 +16,13 @@
 //   - operator-safe language (no internal field names in the badge labels)
 
 import type { ReactNode } from "react";
+import type { BulkReviewAttachment } from "@/lib/bulk-review/types";
 
-// Shared structural type — exported so the row hydrator + detail-pane consume
-// the SAME shape (Task 3 imports this).
-export interface AttachmentRow {
-  attachment_id: string;
-  filename: string | null;
-  content_type: string | null;
-  size_bytes: number | null;
-  extraction_status: string;
-}
+// Shared structural type. Aliased to the canonical BulkReviewAttachment (defined
+// in lib/bulk-review/types.ts) so the hydrator → BulkReviewRow → detail-pane
+// path and this component cannot drift. UI importing FROM lib/ is allowed; the
+// out-of-band guard only forbids lib/bulk-review importing from the UI tree.
+export type AttachmentRow = BulkReviewAttachment;
 
 function SectionLabel({ children }: { children: string }) {
   return (

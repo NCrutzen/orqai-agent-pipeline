@@ -28,6 +28,11 @@
 import type { BulkReviewRow } from "@/lib/bulk-review/types";
 import type { Entity } from "@/lib/automations/debtor-email/coordinator/entity.generated";
 import { ResolverChain, type ResolverChainCandidate } from "./resolver-chain";
+// Phase 116-05 (D-08) — attachment metadata + status sits in the Stage 2 Read
+// column alongside the resolver chain / email body (per-stage-content.md). This
+// is the post-rebuild /review path: row-strip-list → InlineExpandRow Stage 2
+// Read slot → Stage2Read. row.attachments is loaded by hydrateBulkReviewRow.
+import { AttachmentList } from "./attachment-list";
 
 interface Stage2ReadProps {
   row: BulkReviewRow;
@@ -230,20 +235,33 @@ function brandTokens(brand: Entity | string): {
 
 export function Stage2Read({ row }: Stage2ReadProps) {
   const slot = row.stage_2;
+  // Phase 116-05 (D-08) — attachments are an email property, not a Stage 2
+  // output, so they render regardless of whether Stage 2 has run.
+  const attachments = row.attachments ?? [];
 
   if (slot === null) {
     return (
-      <p
-        data-testid="stage-2-read-placeholder"
+      <div
+        data-testid="stage-2-read"
         style={{
-          fontSize: 13,
-          color: "var(--v7-fg-muted)",
-          lineHeight: 1.5,
-          margin: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--space-4)",
         }}
       >
-        Stage 2 has not yet run on this row.
-      </p>
+        <p
+          data-testid="stage-2-read-placeholder"
+          style={{
+            fontSize: 13,
+            color: "var(--v7-fg-muted)",
+            lineHeight: 1.5,
+            margin: 0,
+          }}
+        >
+          Stage 2 has not yet run on this row.
+        </p>
+        <AttachmentList attachments={attachments} />
+      </div>
     );
   }
 
@@ -406,6 +424,11 @@ export function Stage2Read({ row }: Stage2ReadProps) {
           />
         )}
       </div>
+
+      {/* Phase 116-05 (D-08) — attachment metadata + extraction status. Sits in
+       * the Stage 2 Read column below the resolver chain (per-stage-content.md).
+       * Empty list → AttachmentList's "No attachments" empty state. */}
+      <AttachmentList attachments={attachments} />
     </div>
   );
 }
