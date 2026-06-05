@@ -95,6 +95,11 @@ ${themaLijst}
 </themes>
 
 <constraints>
+- BEOORDEEL OP WAT ER WORDT INGEKOCHT (de opdracht/dienst), NIET op wie de
+  opdrachtgever is. De naam van de organisatie is irrelevant. Een aanbesteding van
+  een Brandweer, Veiligheidsregio of Defensie voor accountantsdiensten, IT,
+  personeel, schoonmaak of voertuigen is NIET relevant — alleen de inhoud van de
+  opdracht telt. Andersom telt een brand-/BHV-opdracht van een gewone gemeente WEL.
 - Match op betekenis, niet op letterlijke woorden. "Onderhoud brandbeveiliging"
   matcht op Blusmiddelen/Brandveiligheid ook zonder die exacte woorden.
 - Wees selectief maar mis geen duidelijke kans. Bij twijfel of iets écht binnen
