@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchMessageBody, getMessageMeta, fetchConversationMessages } from "@/lib/outlook";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { captureAttachmentMetadata } from "@/lib/automations/attachments/capture";
 import { inngest } from "@/lib/inngest/client";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { ICONTROLLER_MAILBOXES } from "@/lib/automations/debtor-email/mailboxes";
@@ -152,6 +153,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     bodyUniqueText: string;  // new bit only
     bodyHtml: string;
     rawJson: Record<string, unknown>;
+    hasAttachments: boolean;  // Phase 116-03 — drives registry-gated capture
   };
   try {
     const [meta, msgBody] = await Promise.all([
@@ -167,6 +169,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       bodyUniqueText: msgBody.bodyUniqueText,
       bodyHtml: msgBody.bodyHtml,
       rawJson: msgBody.rawJson,
+      // Phase 116-03 — both Graph calls request hasAttachments (114-03 D-14).
+      hasAttachments: meta.hasAttachments || msgBody.hasAttachments,
     };
   } catch (err) {
     const errText = String(err);
@@ -260,6 +264,24 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
         resolvedEmailId = inserted?.id ?? null;
       }
     }
+  }
+
+  // Phase 116-03 (D-13 proof): registry-gated attachment metadata capture.
+  // The ONLY attachment change debtor needs is this identical call — capture
+  // turns ON purely because the Plan-01 registry row set debtor
+  // attachment_config.capture=true (extract=false → rows seeded
+  // 'not_requested'). No debtor-specific logic; the helper is swarm-agnostic.
+  // The "debtor-email" literal is the route's legitimate per-swarm constant.
+  // Fail-soft → never breaks ingest. Metadata only (D-05).
+  if (resolvedEmailId) {
+    await captureAttachmentMetadata({
+      admin,
+      swarmType: "debtor-email",
+      mailbox: sourceMailbox,
+      messageId,
+      emailId: resolvedEmailId,
+      hasAttachments: msg.hasAttachments,
+    });
   }
 
   // Phase 83 D-04: ALWAYS fetch last 2 prior messages in the same conversation

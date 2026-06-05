@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inngest } from "@/lib/inngest/client";
 import { getMessageMeta, fetchMessageBody, fetchConversationMessages } from "@/lib/outlook";
+import { captureAttachmentMetadata } from "@/lib/automations/attachments/capture";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -226,6 +227,25 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
         emailId = inserted.id;
       }
     }
+  }
+
+  // Phase 116-03: registry-gated attachment metadata capture. Runs after the
+  // emails row is committed (emailId resolved) and before stage-0 so the
+  // metadata exists by the time Stage 1 runs. The shared helper reads the
+  // attachment_config.capture switch off the swarm registry row — the
+  // "sales-email" literal here is the route's legitimate per-swarm constant
+  // (this route file IS the sales ingest endpoint), NOT a branch in shared
+  // code. Metadata only — no binary, no extraction (D-05). The helper is
+  // fail-soft (returns { captured: 0 } on any error) so it never breaks ingest.
+  if (emailId) {
+    await captureAttachmentMetadata({
+      admin,
+      swarmType: "sales-email",
+      mailbox: sourceMailbox,
+      messageId,
+      emailId,
+      hasAttachments: meta.hasAttachments ?? false,
+    });
   }
 
   // Phase 83 D-04: ALWAYS fetch last 2 prior messages in the same conversation
