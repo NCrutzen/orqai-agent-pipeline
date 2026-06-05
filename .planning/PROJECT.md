@@ -206,4 +206,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-04 — Phase 114 complete (STAGE2-01/02 validated): sales Stage 2 reuses the v8.2 NXT resolver via per-swarm config, zero Engine changes, dry-run gated; gap-closure 114-06/07 verified passed. Next: Phase 113 (Stage 3 sales intent agent). Prior: 2026-06-02 V9.0 milestone start.*
+*Last updated: 2026-06-05 — Phase 116 complete: attachments are a first-class swarm-agnostic data source (registry-gated capture in both ingest routes, Stage-1.5 extraction funnel, Stage 2 adapter-side body_text fold-in, Bulk Review AttachmentList, gated corpus-backfill worker); go-live items (20260605c apply + backfill run) tracked post-deploy. Next: Phase 113 (Stage 3 sales intent agent). Prior: 2026-06-04 — Phase 114 complete (STAGE2-01/02 validated): sales Stage 2 reuses the v8.2 NXT resolver via per-swarm config, zero Engine changes, dry-run gated; gap-closure 114-06/07 verified passed. Next: Phase 113 (Stage 3 sales intent agent). Prior: 2026-06-02 V9.0 milestone start.*
