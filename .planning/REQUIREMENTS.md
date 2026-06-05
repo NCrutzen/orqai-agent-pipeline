@@ -61,7 +61,7 @@ Requirements for V9.0. Each maps to a roadmap phase (110+).
 
 Defined at Phase 116 planning from the 4 roadmap success criteria + CONTEXT.md decisions (D-01..D-13). Folds in todo `2026-06-04-sales-ingest-attachments-gap.md`.
 
-- [ ] **ATTACH-05**: A generic, swarm-agnostic `email_pipeline.email_attachments` table (metadata + extraction status + extracted text + storage key) + a private Supabase Storage bucket + RLS (service_role FOR ALL, authenticated FOR SELECT, no anon) + two registry switches on `public.swarms.attachment_config` (`capture`, `extract`) with global caps — sales=both-on, debtor=capture-only (D-13). Migration + codegen-drift-free, mirroring the Phase 114 D-12 generic `resolution_audit` precedent.
+- [x] **ATTACH-05**: A generic, swarm-agnostic `email_pipeline.email_attachments` table (metadata + extraction status + extracted text + storage key) + a private Supabase Storage bucket + RLS (service_role FOR ALL, authenticated FOR SELECT, no anon) + two registry switches on `public.swarms.attachment_config` (`capture`, `extract`) with global caps — sales=both-on, debtor=capture-only (D-13). Migration + codegen-drift-free, mirroring the Phase 114 D-12 generic `resolution_audit` precedent.
 - [x] **ATTACH-01** (SC-1): Ingest writes attachment metadata for new mail in every onboarded swarm via one shared swarm-agnostic helper, gated by the registry `capture` switch — no per-swarm branch. Debtor capture works purely via the registry row (D-13). Metadata only at ingest (D-05).
 - [x] **ATTACH-02** (SC-2): Content extraction (PDF text-layer via `unpdf`, Orq.ai Router vision fallback for scans/images) is a registry-keyed funnel step between the Stage 1 verdict and the Stage 2 request (D-01/D-02) — zero swarm-specific branches in shared workers (SWARM-02 holds); fail-soft per attachment (D-03); extract switch OFF passes through unchanged.
 - [x] **ATTACH-03** (SC-3): Stage 2 consumes attachment-derived identifiers as an additional adapter-side body-source (concatenated into `body_text`, never a new engine field) with the no-engine-diff guard still green (STAGE2-01 holds).
@@ -112,7 +112,7 @@ Which phases cover which requirements. Populated by the roadmapper.
 | STAGE2-01 | Phase 114 | Complete |
 | STAGE2-02 | Phase 114 | Complete |
 | SUGAR-01 | Phase 115 | Pending |
-| ATTACH-05 | Phase 116 | Pending |
+| ATTACH-05 | Phase 116 | Complete |
 | ATTACH-01 | Phase 116 | Complete |
 | ATTACH-02 | Phase 116 | Complete |
 | ATTACH-03 | Phase 116 | Complete |
