@@ -4,13 +4,13 @@ milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
 stopped_at: 116-01 complete — Task 3 remote-apply checkpoint pending
-last_updated: "2026-06-05T07:09:23.172Z"
+last_updated: "2026-06-05T07:20:00.654Z"
 last_activity: 2026-06-05
 progress:
   total_phases: 10
   completed_phases: 6
   total_plans: 41
-  completed_plans: 30
+  completed_plans: 31
   percent: 60
 ---
 
@@ -63,7 +63,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 116 (attachment-ingest-uniform-cross-swarm) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 
 **Phase 112 outcome (zelfde dag):**
@@ -167,6 +167,7 @@ Last activity: 2026-06-05
 | 114 | 7 | - | - |
 | Phase 116 P01 | 8m | 2 tasks | 2 files |
 | Phase 116 P02 | 6m | 3 tasks | 5 files |
+| Phase 116 P03 | 9min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -277,6 +278,7 @@ Last activity: 2026-06-05
 - [Phase ?]: Phase 114-07: closed review warnings WR-02..WR-05 + IN-01 in sales lookups/adapter (postcode address-context gate + medium confidence per D-06 interim; order regex word-boundary-anchored; quoted-header-scoped sender; unresolved path surfaces attempted identifiers). ZERO engine/config/steps diff.
 - [Phase ?]: Phase 116-01: generic email_attachments table + private bucket + RLS; swarms.attachment_config switches (capture/extract + caps + stage2_dispatch_event) seeded sales=both-on debtor=capture-only (D-13). Migrations committed; remote-apply + check:supabase gated to checkpoint.
 - [Phase ?]: Phase 116-02: Graph attachment helpers via single graphFetch boundary (zod-validated) + pure swarm-agnostic extract.ts (unpdf text-layer first, Orq Router vision fallback, fail-soft coded statuses, caps); no swarm literal, no direct LLM key; 12 tests green
+- [Phase ?]: Phase 116-03: registry-gated swarm-agnostic captureAttachmentMetadata wired into both ingest routes; debtor capture via Plan-01 registry row (D-13 proof), zero debtor-specific code; metadata-only at ingest (D-05), fail-soft, idempotent on (email_id,attachment_id); AttachmentConfig typed on SwarmRow; suite 2491 green.
 
 ### Blockers/Concerns
 
@@ -309,7 +311,7 @@ Last activity: 2026-06-05
 
 ## Session Continuity
 
-Last session: 2026-06-05T07:09:16.348Z
+Last session: 2026-06-05T07:19:50.483Z
 Stopped at: 116-01 complete — Task 3 remote-apply checkpoint pending
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
