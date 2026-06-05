@@ -7,6 +7,19 @@
 
 import type { Classification, Match } from "./classify";
 
+/**
+ * Maakt een nette NL-datum (DD-MM-JJJJ) van wat Zapier ook aanlevert.
+ * Pakt het datumdeel uit een ISO-tijdstempel (bijv. "2026-06-05T02:27:05Z")
+ * en draait het om naar Nederlandse notatie. Lukt parsen niet, dan onveranderd.
+ */
+function formatDate(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const m = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  return trimmed;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -36,7 +49,7 @@ export function buildDigest(
   opts: { date?: string } = {}
 ): Digest {
   const { matches, total_scanned } = classification;
-  const date = opts.date ?? "";
+  const date = formatDate(opts.date ?? "");
   const dateLabel = date ? ` ${date}` : "";
 
   const subject =
