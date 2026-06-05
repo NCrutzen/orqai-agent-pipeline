@@ -1539,7 +1539,7 @@ describe("hydrateBulkReviewRow", () => {
           filename: null,
           content_type: null,
           size_bytes: null,
-          extraction_status: "needs_vision",
+          extraction_status: "skipped_cap",
         },
       ],
     });
@@ -1562,7 +1562,7 @@ describe("hydrateBulkReviewRow", () => {
     });
     // Null metadata falls through; status preserved.
     expect(att[1]!.filename).toBeNull();
-    expect(att[1]!.extraction_status).toBe("needs_vision");
+    expect(att[1]!.extraction_status).toBe("skipped_cap");
   });
 
   it("Test attachments-2: no attachment rows → row.attachments === []", async () => {

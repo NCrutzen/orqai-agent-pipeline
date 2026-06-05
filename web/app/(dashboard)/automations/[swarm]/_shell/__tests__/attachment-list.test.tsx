@@ -18,9 +18,9 @@ afterEach(() => {
   cleanup();
 });
 
+// Review WR-02 — 'needs_vision' removed (vision runs inline, no deferred queue).
 const ALL_STATUSES = [
   "extracted",
-  "needs_vision",
   "extraction_failed",
   "skipped_cap",
   "unsupported",
@@ -44,7 +44,7 @@ describe("_shell/attachment-list (Phase 116-05)", () => {
         filename: "logo.png",
         content_type: "image/png",
         size_bytes: 2048, // 2.0 KB
-        extraction_status: "needs_vision",
+        extraction_status: "pending",
       },
     ];
 

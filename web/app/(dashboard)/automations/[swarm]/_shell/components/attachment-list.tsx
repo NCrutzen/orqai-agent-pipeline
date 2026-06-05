@@ -56,9 +56,12 @@ function formatSize(bytes: number | null): string {
 // treatment rather than crashing (free-text column — values may evolve).
 type BadgeTone = "success" | "progress" | "warning" | "muted";
 
+// Phase 116 review WR-02: `needs_vision` removed. Vision runs INLINE inside the
+// extractor (no deferred queue exists), so the extractor only ever persists
+// extracted / extraction_failed / skipped_cap / unsupported / source_gone — the
+// "Awaiting image read" badge was unreachable and the status was a dead contract.
 const STATUS_META: Record<string, { label: string; tone: BadgeTone }> = {
   extracted: { label: "Text extracted", tone: "success" },
-  needs_vision: { label: "Awaiting image read", tone: "progress" },
   pending: { label: "Queued", tone: "progress" },
   extraction_failed: { label: "Extraction failed", tone: "warning" },
   skipped_cap: { label: "Skipped (too large)", tone: "warning" },
