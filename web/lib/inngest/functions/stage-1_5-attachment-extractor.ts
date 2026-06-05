@@ -114,11 +114,22 @@ export const stage1_5AttachmentExtractor = inngest.createFunction(
       );
     }
 
-    // ---- 3. Registry-gated extraction (pass-through when OFF / no rows) -----
+    // ---- 3. Extraction — the PENDING ROWS are authoritative (review WR-03) --
+    // `loadSwarm` is a 60s TTL cache. Capture seeds extraction_status='pending'
+    // from the extract switch READ AT INGEST TIME; this worker runs later in a
+    // possibly-different lambda with a possibly-stale cache. If the cached
+    // `extract` flag is stale-false right after an operator flips the switch,
+    // gating on it would skip the already-seeded 'pending' rows, stranding them
+    // at 'pending' forever (no sweeper re-queues them). So the existence of
+    // 'pending' rows — which ALREADY encodes the capture-time extract=true
+    // decision — drives extraction, NOT the cached switch. (extract=false at
+    // capture seeds 'not_requested', so no 'pending' rows exist → pure
+    // pass-through; the cached flag is only an informational fallback.)
     const extractOn = context.swarmRow?.attachment_config?.extract === true;
     const caps = context.swarmRow?.attachment_config?.caps ?? {};
+    const hasPending = context.pendingRows.length > 0;
 
-    if (extractOn && context.emailId && context.pendingRows.length > 0) {
+    if (context.emailId && hasPending) {
       try {
         const emailId = context.emailId;
         const pendingRows = context.pendingRows;
@@ -162,6 +173,6 @@ export const stage1_5AttachmentExtractor = inngest.createFunction(
       });
     });
 
-    return { ok: true, downstreamEvent };
+    return { ok: true, downstreamEvent, extractOn, processedPending: hasPending };
   },
 );

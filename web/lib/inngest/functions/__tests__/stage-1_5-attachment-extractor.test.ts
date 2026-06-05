@@ -121,7 +121,7 @@ describe("stage-1_5-attachment-extractor", () => {
     inngestSend.mockResolvedValue({ ids: ["evt"] });
     loadSwarmMock.mockReset();
     extractEmailAttachmentsMock.mockReset();
-    extractEmailAttachmentsMock.mockResolvedValue({ extracted: 1, failed: 0, source_gone: 0 });
+    extractEmailAttachmentsMock.mockResolvedValue({ extracted: 1, failed: 0, skipped: 0, source_gone: 0 });
     createAdminClientMock.mockReset();
     vi.resetModules();
     const mod = await import("../stage-1_5-attachment-extractor");
@@ -130,7 +130,13 @@ describe("stage-1_5-attachment-extractor", () => {
     ).handler;
   });
 
-  it("Test 1: extract OFF → emits the registry Stage 2 event immediately, helper called 0 times", async () => {
+  it("Test 1 (WR-03): cached extract=false but PENDING rows present → STILL extracts (pending rows are authoritative)", async () => {
+    // Review WR-03: capture seeds 'pending' from the extract switch read at
+    // INGEST time. If an operator flips extract OFF after ingest, this worker's
+    // 60s-cached registry read can be stale-false. Gating on the cached flag
+    // would strand the already-seeded 'pending' rows forever. The pending rows
+    // ALREADY encode the capture-time extract=true decision, so they drive
+    // extraction regardless of the (possibly stale) cached switch.
     loadSwarmMock.mockResolvedValue({
       ...SALES_SWARM,
       attachment_config: { ...SALES_SWARM.attachment_config, extract: false },
@@ -138,6 +144,25 @@ describe("stage-1_5-attachment-extractor", () => {
     createAdminClientMock.mockReturnValue(
       makeAdmin({ pendingRows: [{ id: "r1", attachment_id: "a1" }] }),
     );
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    expect(extractEmailAttachmentsMock).toHaveBeenCalledTimes(1);
+    expect(inngestSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "sales-email/stage-2.customer-resolve.requested",
+      }),
+    );
+  });
+
+  it("Test 1b: extract OFF AND no pending rows → pure pass-through, helper called 0 times", async () => {
+    // extract=false at capture seeds 'not_requested' (no pending rows), so this
+    // is the genuine OFF path: nothing to extract, Stage 2 emitted immediately.
+    loadSwarmMock.mockResolvedValue({
+      ...SALES_SWARM,
+      attachment_config: { ...SALES_SWARM.attachment_config, extract: false },
+    });
+    createAdminClientMock.mockReturnValue(makeAdmin({ pendingRows: [] }));
 
     await handler({ event: buildEvent(), step: stepStub });
 
