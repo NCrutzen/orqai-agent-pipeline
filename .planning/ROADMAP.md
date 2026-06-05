@@ -458,7 +458,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 116-05-PLAN.md — Stage 2 adapter-side body_text concat (STAGE2-01-safe) + Bulk Review detail-pane attachment display (ATTACH-03, ATTACH-06) [wave 3]
+- [x] 116-05-PLAN.md — Stage 2 adapter-side body_text concat (STAGE2-01-safe) + Bulk Review detail-pane attachment display (ATTACH-03, ATTACH-06) [wave 3]
 - [ ] 116-06-PLAN.md — Gated corpus backfill worker (metadata all / extraction survivors-only) (ATTACH-04) [wave 3]
 
 ---
@@ -509,7 +509,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 4/6 plans executed
+**Plans:** 5/6 plans executed
 
 Plans:
 

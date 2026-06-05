@@ -4,13 +4,13 @@ milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
 stopped_at: Completed 116-04-PLAN.md
-last_updated: "2026-06-05T07:28:51.847Z"
+last_updated: "2026-06-05T07:46:20.143Z"
 last_activity: 2026-06-05
 progress:
   total_phases: 10
   completed_phases: 6
   total_plans: 41
-  completed_plans: 32
+  completed_plans: 33
   percent: 60
 ---
 
@@ -63,7 +63,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 116 (attachment-ingest-uniform-cross-swarm) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 
 **Phase 112 outcome (zelfde dag):**
@@ -169,6 +169,7 @@ Last activity: 2026-06-05
 | Phase 116 P02 | 6m | 3 tasks | 5 files |
 | Phase 116 P03 | 9min | 2 tasks | 5 files |
 | Phase 116 P04 | 6m | 3 tasks | 7 files |
+| Phase 116 P05 | 12m | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -282,6 +283,7 @@ Last activity: 2026-06-05
 - [Phase ?]: Phase 116-03: registry-gated swarm-agnostic captureAttachmentMetadata wired into both ingest routes; debtor capture via Plan-01 registry row (D-13 proof), zero debtor-specific code; metadata-only at ingest (D-05), fail-soft, idempotent on (email_id,attachment_id); AttachmentConfig typed on SwarmRow; suite 2491 green.
 - [Phase ?]: 116-04: extraction funnel step is registry-keyed (extract switch gates; stage2_dispatch_event names the downstream event, no code literal); verdict worker untouched
 - [Phase ?]: 116-04: shared extractEmailAttachments helper owns the download/store/extract/update loop so Plan 06 backfill reuses one implementation (no drift)
+- [Phase ?]: Phase 116-05: attachment text folded into Stage 2 body_text (STAGE2-01-safe, engine pristine); AttachmentList in Stage 2 Read column on /review via hydrateBulkReviewRow.attachments; metadata+status only, no preview/download (D-08). Plan data-path corrected: /review uses InlineExpandRow→Stage2Read, not UnifiedDetailPane.
 
 ### Blockers/Concerns
 
@@ -314,7 +316,7 @@ Last activity: 2026-06-05
 
 ## Session Continuity
 
-Last session: 2026-06-05T07:28:51.673Z
+Last session: 2026-06-05T07:45:47.826Z
 Stopped at: Completed 116-04-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
