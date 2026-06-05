@@ -66,7 +66,7 @@ Defined at Phase 116 planning from the 4 roadmap success criteria + CONTEXT.md d
 - [x] **ATTACH-02** (SC-2): Content extraction (PDF text-layer via `unpdf`, Orq.ai Router vision fallback for scans/images) is a registry-keyed funnel step between the Stage 1 verdict and the Stage 2 request (D-01/D-02) — zero swarm-specific branches in shared workers (SWARM-02 holds); fail-soft per attachment (D-03); extract switch OFF passes through unchanged.
 - [x] **ATTACH-03** (SC-3): Stage 2 consumes attachment-derived identifiers as an additional adapter-side body-source (concatenated into `body_text`, never a new engine field) with the no-engine-diff guard still green (STAGE2-01 holds).
 - [x] **ATTACH-06**: Bulk Review detail pane shows per-attachment metadata + extraction status in the rebuilt stage-keyed shell, following the bulk-review-flow-ux design contract (D-08). No preview/download UI.
-- [ ] **ATTACH-04** (SC-4): Backfill over the existing corpus via Graph `source_id` message-ids — metadata for ALL mails (closing the `has_attachments=false` blind spot), content extraction for the Stage-1-survivor slice only (D-12); fail-loud hard cap, batched, idempotent, `source_gone` fail-soft. Executed or explicitly deferred-with-rationale.
+- [x] **ATTACH-04** (SC-4): Backfill over the existing corpus via Graph `source_id` message-ids — metadata for ALL mails (closing the `has_attachments=false` blind spot), content extraction for the Stage-1-survivor slice only (D-12); fail-loud hard cap, batched, idempotent, `source_gone` fail-soft. Executed or explicitly deferred-with-rationale.
 
 ## v2 / Deferred Requirements
 
@@ -117,7 +117,7 @@ Which phases cover which requirements. Populated by the roadmapper.
 | ATTACH-02 | Phase 116 | Complete |
 | ATTACH-03 | Phase 116 | Complete |
 | ATTACH-06 | Phase 116 | Complete |
-| ATTACH-04 | Phase 116 | Pending |
+| ATTACH-04 | Phase 116 | Complete |
 
 **Coverage:**
 

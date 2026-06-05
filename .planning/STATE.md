@@ -4,14 +4,14 @@ milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
 stopped_at: Completed 116-04-PLAN.md
-last_updated: "2026-06-05T07:46:20.143Z"
+last_updated: "2026-06-05T07:55:37.160Z"
 last_activity: 2026-06-05
 progress:
   total_phases: 10
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 41
-  completed_plans: 33
-  percent: 60
+  completed_plans: 34
+  percent: 70
 ---
 
 # Project State
@@ -63,7 +63,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 116 (attachment-ingest-uniform-cross-swarm) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 
 **Phase 112 outcome (zelfde dag):**
@@ -170,6 +170,7 @@ Last activity: 2026-06-05
 | Phase 116 P03 | 9min | 2 tasks | 5 files |
 | Phase 116 P04 | 6m | 3 tasks | 7 files |
 | Phase 116 P05 | 12m | 3 tasks | 9 files |
+| Phase 116 P06 | 5m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -284,6 +285,7 @@ Last activity: 2026-06-05
 - [Phase ?]: 116-04: extraction funnel step is registry-keyed (extract switch gates; stage2_dispatch_event names the downstream event, no code literal); verdict worker untouched
 - [Phase ?]: 116-04: shared extractEmailAttachments helper owns the download/store/extract/update loop so Plan 06 backfill reuses one implementation (no drift)
 - [Phase ?]: Phase 116-05: attachment text folded into Stage 2 body_text (STAGE2-01-safe, engine pristine); AttachmentList in Stage 2 Read column on /review via hydrateBulkReviewRow.attachments; metadata+status only, no preview/download (D-08). Plan data-path corrected: /review uses InlineExpandRow→Stage2Read, not UnifiedDetailPane.
+- [Phase ?]: Phase 116-06: gated corpus attachment backfill worker (sales-email/attachments.backfill.run) — metadata for ALL mails (closes has_attachments=false blind spot, SC-4); extraction ONLY for Stage-1-survivors (disposition != auto, reusing Phase 112 classifyDisposition) via the SHARED Plan 04 extractEmailAttachments helper; fail-loud 40k cap + bounded batches + 404->source_gone fail-soft + idempotent upsert; live 1273-mail run DEFERRED to operator checkpoint.
 
 ### Blockers/Concerns
 
@@ -316,7 +318,7 @@ Last activity: 2026-06-05
 
 ## Session Continuity
 
-Last session: 2026-06-05T07:45:47.826Z
+Last session: 2026-06-05T07:55:20.052Z
 Stopped at: Completed 116-04-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
