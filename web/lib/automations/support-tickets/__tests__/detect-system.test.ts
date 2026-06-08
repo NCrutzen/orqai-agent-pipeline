@@ -100,7 +100,7 @@ describe("detectSoftwareSystem — Plan 02-05 Task 1", () => {
     expect(orqHandler.create).not.toHaveBeenCalled();
   });
 
-  it("Test 2: clear NXT match → status='detected', cost_cents > 0", async () => {
+  it("Test 2: clear NXT match → status='detected', cost_cents > 0, uses camelCase responseFormat.jsonSchema API", async () => {
     setOrqChat({
       content: JSON.stringify({
         system_key: "nxt",
@@ -124,20 +124,24 @@ describe("detectSoftwareSystem — Plan 02-05 Task 1", () => {
     expect(result.reasoning).toContain("NXT");
 
     expect(orqHandler.create).toHaveBeenCalledTimes(1);
+    // Orq SDK uses camelCase field names — responseFormat (not response_format),
+    // jsonSchema (not json_schema). Snake_case keys are silently dropped by the
+    // SDK's outbound Zod schema, causing the model to receive no constraint.
+    // This assertion verifies the fix is correct end-to-end.
     const reqBody = orqHandler.create.mock.calls[0][0] as {
       model: string;
-      response_format: {
+      responseFormat: {
         type: string;
-        json_schema: {
+        jsonSchema: {
           strict: boolean;
           schema: { properties: Record<string, { anyOf?: unknown[] }> };
         };
       };
     };
     expect(reqBody.model).toMatch(/claude-sonnet-4-5/);
-    expect(reqBody.response_format.type).toBe("json_schema");
-    expect(reqBody.response_format.json_schema.strict).toBe(true);
-    const schemaProps = reqBody.response_format.json_schema.schema.properties;
+    expect(reqBody.responseFormat.type).toBe("json_schema");
+    expect(reqBody.responseFormat.jsonSchema.strict).toBe(true);
+    const schemaProps = reqBody.responseFormat.jsonSchema.schema.properties;
     expect(schemaProps.system_key.anyOf).toEqual([
       { type: "string" },
       { type: "null" },
@@ -220,5 +224,29 @@ describe("detectSoftwareSystem — Plan 02-05 Task 1", () => {
         env: ENV,
       }),
     ).rejects.toMatchObject({ code: "response_schema_invalid" });
+  });
+
+  it("Test 7: LLM wraps JSON in markdown code fences → stripped and parsed correctly", async () => {
+    // Defensive guard: models occasionally return ```json ... ``` despite
+    // responseFormat enforcement. The stripMarkdownCodeFences function handles this.
+    setOrqChat({
+      content: "```json\n" + JSON.stringify({
+        system_key: "nxt",
+        confidence: "medium",
+        reasoning: "fence-wrapped output",
+      }) + "\n```",
+    });
+    const { storage } = buildSupabaseMock();
+    const { detectSoftwareSystem } = await import("../detect-system");
+    const result = await detectSoftwareSystem({
+      transcript: "NXT is down",
+      frameUrls: [],
+      registryRows: REGISTRY,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase: { storage } as any,
+      env: ENV,
+    });
+    expect(result.system_key).toBe("nxt");
+    expect(result.status).toBe("detected");
   });
 });
