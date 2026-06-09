@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
     "@napi-rs/keyring",
     "cross-keychain",
     "@zapier/zapier-sdk-cli-login",
+    // Phase 116 attachment extraction: unpdf lazy-loads the @napi-rs/canvas
+    // native binding for renderPageAsImage (scanned-PDF rasterisation). The
+    // .node binding is a non-ECMAScript asset Turbopack cannot place in an ESM
+    // chunk — externalise so it is require()'d at runtime in the Node server.
+    "@napi-rs/canvas",
+    "unpdf",
   ],
 
   // Phase 56.7-03 (D-07). Forward operator bookmarks pointed at the old

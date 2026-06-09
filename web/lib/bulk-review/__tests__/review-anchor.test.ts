@@ -43,10 +43,10 @@ function seedSalesEvidence(admin: ReturnType<typeof createSupabaseAdminMock>) {
       {
         id: "pe-stage3",
         stage: 3,
-        decision: "general_inquiry",
+        decision: "quote_request",
         confidence: 0.9,
         decision_details: {
-          ranked: [{ intent: "general_inquiry", confidence: "high" }],
+          ranked: [{ intent: "quote_request", confidence: "high" }],
           language: "nl",
           urgency: "normal",
         },
@@ -68,7 +68,7 @@ function seedSalesEvidence(admin: ReturnType<typeof createSupabaseAdminMock>) {
         human_verdict: null,
         tool_outputs: {
           intent_first_pass: {
-            ranked: [{ intent: "general_inquiry", confidence: "high" }],
+            ranked: [{ intent: "quote_request", confidence: "high" }],
           },
         },
       },
@@ -106,7 +106,7 @@ describe("D-01 review anchor — email_id anchor for a non-debtor swarm (RED unt
 
     // Stage 0-3 evidence comes from pipeline_events / agent_runs.
     expect(row!.stage_3).not.toBeNull();
-    expect(row!.stage_3!.top_intent).toBe("general_inquiry");
+    expect(row!.stage_3!.top_intent).toBe("quote_request");
 
     // Debtor-only override slots are null for a non-debtor swarm (no
     // email_labels row to source them from).
