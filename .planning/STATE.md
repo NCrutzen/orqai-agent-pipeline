@@ -4,13 +4,13 @@ milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
 stopped_at: Completed 116-04-PLAN.md
-last_updated: "2026-06-09T05:45:40.877Z"
+last_updated: "2026-06-09T05:58:01.219Z"
 last_activity: 2026-06-09
 progress:
   total_phases: 10
   completed_phases: 7
   total_plans: 46
-  completed_plans: 35
+  completed_plans: 36
   percent: 70
 ---
 
@@ -63,7 +63,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 113 (stage-3-sales-intent-agent-greenfield) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 
 **Phase 112 outcome (zelfde dag):**
@@ -173,6 +173,7 @@ Last activity: 2026-06-09
 | Phase 116 P06 | 5m | 2 tasks | 4 files |
 | 116 | 6 | - | - |
 | Phase 113 P01 | 11m | 3 tasks | 5 files |
+| Phase 113 P02 | 9m | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -288,6 +289,8 @@ Last activity: 2026-06-09
 - [Phase ?]: 116-04: shared extractEmailAttachments helper owns the download/store/extract/update loop so Plan 06 backfill reuses one implementation (no drift)
 - [Phase ?]: Phase 116-05: attachment text folded into Stage 2 body_text (STAGE2-01-safe, engine pristine); AttachmentList in Stage 2 Read column on /review via hydrateBulkReviewRow.attachments; metadata+status only, no preview/download (D-08). Plan data-path corrected: /review uses InlineExpandRow→Stage2Read, not UnifiedDetailPane.
 - [Phase ?]: Phase 116-06: gated corpus attachment backfill worker (sales-email/attachments.backfill.run) — metadata for ALL mails (closes has_attachments=false blind spot, SC-4); extraction ONLY for Stage-1-survivors (disposition != auto, reusing Phase 112 classifyDisposition) via the SHARED Plan 04 extractEmailAttachments helper; fail-loud 40k cap + bounded batches + 404->source_gone fail-soft + idempotent upsert; live 1273-mail run DEFERRED to operator checkpoint.
+- [Phase ?]: Phase 113-02: Q1 seam resolved — shared Stage 3 coordinator dispatches per-swarm via registry agent key + swarm-keyed schema map, single parameterized invoke, zero literal swarm branch, dispatcher byte-unchanged, debtor byte-neutral.
+- [Phase ?]: Phase 113-02: sales retro reconstruct-input folds extracted attachment text into the body byte-comparable to live Stage 2 (exact UNTRUSTED delimiter, Pitfall 4); sales carries no brand entity into Stage 3.
 
 ### Blockers/Concerns
 
@@ -320,7 +323,7 @@ Last activity: 2026-06-09
 
 ## Session Continuity
 
-Last session: 2026-06-09T05:45:28.769Z
+Last session: 2026-06-09T05:57:30.907Z
 Stopped at: Completed 116-04-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
