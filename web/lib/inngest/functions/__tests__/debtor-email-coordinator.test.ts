@@ -132,7 +132,20 @@ const loadSwarmIntentsMock = vi.fn(
     defaultIntentRow("address_change"),
   ],
 );
+// Phase 113 Plan 02 — the coordinator now reads the per-swarm Stage 3 agent key
+// from swarms.stage3_coordinator_agent_key via loadSwarm. Default mock returns
+// the debtor row so the existing debtor regression assertions stay byte-neutral
+// (debtor-intent-agent key + debtor schema). Tests that exercise a different
+// swarm override loadSwarm per-test.
+const loadSwarmMock = vi.fn(
+  async (_supabase: unknown, swarmType: string) => ({
+    swarm_type: swarmType,
+    stage3_coordinator_agent_key: "debtor-intent-agent",
+  }),
+);
 vi.mock("@/lib/swarms/registry", () => ({
+  loadSwarm: (...args: unknown[]) =>
+    (loadSwarmMock as unknown as (...a: unknown[]) => unknown)(...args),
   loadSwarmNoiseCategories: (...args: unknown[]) => loadCategoriesMock(...args),
   loadSwarmIntents: (...args: unknown[]) =>
     (loadSwarmIntentsMock as unknown as (...a: unknown[]) => unknown)(...args),
