@@ -47,7 +47,7 @@ Requirements for V9.0. Each maps to a roadmap phase (110+).
 
 - [x] **STAGE3-01**: A sales-specific Stage 3 intent agent (new Orq `sales-intent-agent`, registered in `orq_agents`) is built; `swarm_intents` rows seeded; `swarms.stage3_coordinator_agent_key` set. Dispatch runs through the existing registry-driven Stage 3 dispatcher — no code edits to the shared dispatcher.
 - [x] **STAGE3-02**: Sales intent vocabulary is seeded from the 827-email live corpus + the Phase 86 open-set discovery surface (emerges from data + operator promotion, never hand-curated by Claude or engineer — honors the locked 2026-05-19 principle).
-- [ ] **STAGE3-03**: After the Stage 1 flip, every sales email leaving Stage 1 reaches a Stage 3 verdict; intents with no Stage 4 handler land in the Kanban human-lane (Phase 76) with a clear reason — zero silent dead-letters.
+- [x] **STAGE3-03**: After the Stage 1 flip, every sales email leaving Stage 1 reaches a Stage 3 verdict; intents with no Stage 4 handler land in the Kanban human-lane (Phase 76) with a clear reason — zero silent dead-letters.
 
 ### SugarCRM Decommission (dead code only — live path already off Sugar)
 
@@ -108,7 +108,7 @@ Which phases cover which requirements. Populated by the roadmapper.
 | CLEANUP-02 | Phase 112 | Pending |
 | STAGE3-01 | Phase 113 | Complete |
 | STAGE3-02 | Phase 113 | Complete |
-| STAGE3-03 | Phase 113 | Pending |
+| STAGE3-03 | Phase 113 | Complete |
 | STAGE2-01 | Phase 114 | Complete |
 | STAGE2-02 | Phase 114 | Complete |
 | SUGAR-01 | Phase 115 | Pending |

@@ -4,13 +4,13 @@ milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
 stopped_at: Completed 116-04-PLAN.md
-last_updated: "2026-06-09T06:10:25.533Z"
+last_updated: "2026-06-09T09:58:02.606Z"
 last_activity: 2026-06-09
 progress:
   total_phases: 10
   completed_phases: 7
   total_plans: 46
-  completed_plans: 37
+  completed_plans: 38
   percent: 70
 ---
 
@@ -63,8 +63,8 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 113 (stage-3-sales-intent-agent-greenfield) — EXECUTING
-Plan: 3 of 5
-Status: Plan 113-03 CHECKPOINT-BLOCKED — Task 1 (retro-classify side-channel + bounded bootstrap bypass) complete + committed (`e9cbb3fe`); Task 2 automated portion (manage-sales-intent-agent.ts, list_models-validated) complete + committed (`48974e66`). Awaiting operator: (1) create sales-intent-agent SHELL + json_schema in Orq Studio (D-13 Studio-only), (2) run bootstrap retro (`sales-email/retro-classify.requested`, bootstrap:true, recent Outlook window), (3) promote `intent_proposal_clusters` to ~80% coverage (D-02), (4) record `promoted_intents` yaml in 113-03-SUMMARY. Resume signal: "agent created".
+Plan: 4 of 5
+Status: Ready to execute
 
 **Phase 112 outcome (zelfde dag):**
 Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — COMPLETE (go-live verified 2026-06-04)
@@ -176,6 +176,7 @@ Last activity: 2026-06-09
 | Phase 113 P02 | 9m | 3 tasks | 9 files |
 | Phase 113 P03 | 8m | 2 tasks | 6 files |
 | Phase 113 P03 | 8m | 2 tasks | 6 files |
+| Phase 113 P04 | 7m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -294,6 +295,7 @@ Last activity: 2026-06-09
 - [Phase ?]: Phase 113-02: Q1 seam resolved — shared Stage 3 coordinator dispatches per-swarm via registry agent key + swarm-keyed schema map, single parameterized invoke, zero literal swarm branch, dispatcher byte-unchanged, debtor byte-neutral.
 - [Phase ?]: Phase 113-02: sales retro reconstruct-input folds extracted attachment text into the body byte-comparable to live Stage 2 (exact UNTRUSTED delimiter, Pitfall 4); sales carries no brand entity into Stage 3.
 - [Phase 113-03]: sales Stage 3 retro-classify side-channel built (mirrors debtor Phase 87 6 locks — writes ONLY stage_3_retro_runs, invokeSalesIntentAgent cache-bypass, replay-safe run_id). Bounded bootstrap bypass of the R-04 cluster gate: honored ONLY when sales swarm_intents===0 (the empty-cluster chicken-and-egg first pass), THROWS if bootstrap=true after seeding (T-113-11), rows tagged run_type via ranked_intents._meta JSONB sibling (no migration). No Stage-3 baseline (sales aggregate-baseline is Stage-1-shaped). manage-sales-intent-agent.ts: list_models-validated create→PATCH→get-verify (D-13); validated live — all 4 catalog ids present (matched by BARE model_id; /v2/models drops the provider prefix). Agent is a SHELL in Plan 03 (--finalize gated on non-empty enum → Plan 04 post seed+codegen). CHECKPOINT-BLOCKED on the Studio json_schema + bootstrap retro + operator cluster promotion; promoted_intents PENDING in 113-03-SUMMARY (Plan 04 has a DB-fallback).
+- [Phase ?]: [Phase 113-04]: 12 operator-promoted sales intents + mandatory 'other' residual seeded into swarm_intents (20260609b, Management API HTTP 201, all placeholder); codegen regenerated intent.generated.ts (sales-email=13); sales-intent-agent json_schema intent enum re-PATCHed to 13 (get_agent verified). 3-way invariant closed; hard-separation + other-routes guards green; check:supabase 0 ERROR; dispatcher untouched.
 
 ### Blockers/Concerns
 
@@ -327,7 +329,7 @@ Last activity: 2026-06-09
 
 ## Session Continuity
 
-Last session: 2026-06-09T06:10:25.509Z
+Last session: 2026-06-09T09:57:34.202Z
 Stopped at: Completed 116-04-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None
