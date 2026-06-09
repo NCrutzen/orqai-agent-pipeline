@@ -267,9 +267,12 @@ async function createPatchVerify(intentEnum: readonly string[]): Promise<void> {
           max_tokens: MAX_TOKENS,
           response_format: responseFormat,
         },
+        // Fallback chain + retry live under `model` (verified against the live
+        // debtor-intent-agent: model.fallback_models + model.retry). A ROOT-level
+        // `fallback_models` is silently dropped by PATCH (get_agent shows null).
+        fallback_models: FALLBACK_MODELS,
+        retry: { count: 1, on_codes: [500, 502, 503, 504] },
       },
-      // Fallback chain lives at agent ROOT level (Phase 65-02 — nested no-ops).
-      fallback_models: FALLBACK_MODELS,
     }),
   });
   if (patched.status >= 300) {
