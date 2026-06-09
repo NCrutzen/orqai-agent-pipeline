@@ -38,6 +38,7 @@
  */
 
 import { config as loadDotenv } from "dotenv";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   SALES_CONFIDENCE,
@@ -54,6 +55,24 @@ const ORQ_API = "https://api.orq.ai/v2";
 const ORQ_API_KEY = process.env.ORQ_API_KEY?.replace(/^"|"$/g, "");
 
 const AGENT_KEY = "sales-intent-agent";
+
+// Target project for the create. `path` is the Orq field that places the agent
+// in a project folder; project_id is sent too in case the workspace key honors
+// it. WITHOUT these the create lands in the workspace Default project.
+// "Smeba sales mails" = where smeba-sales-* agents already live.
+const PROJECT_PATH = "Smeba sales mails";
+const PROJECT_ID = "019d9648-7c0d-7000-be9b-4df59d73443f";
+const AGENT_ROLE = "Sales Email Intent Classifier";
+
+// Studio instructions (system layer). Versioned next to this script; the leading
+// HTML-comment maintainer note is stripped before upload.
+function loadInstructions(): string {
+  const raw = readFileSync(
+    resolve(__dirname, "sales-intent-agent.instructions.md"),
+    "utf8",
+  );
+  return raw.replace(/^<!--[\s\S]*?-->\s*/, "").trim();
+}
 
 // CLAUDE.md catalog (list_models-validated below). Haiku 4.5 high-volume
 // classifier default + the standard fallback chain.
@@ -206,15 +225,23 @@ async function createPatchVerify(intentEnum: readonly string[]): Promise<void> {
   const responseFormat = buildResponseFormat(intentEnum);
 
   // 2. create_agent with the BARE primary model id (create drops
-  //    response_format — cba7352b).
-  console.log(`→ create_agent ${AGENT_KEY} (bare model id)…`);
+  //    response_format — cba7352b). The v2 /agents endpoint REQUIRES
+  //    key+role+instructions+path+settings; omitting any throws a ZodError.
+  //    `path` (+ project_id) targets the "Smeba sales mails" project — without
+  //    it the agent lands in the workspace Default project.
+  console.log(`→ create_agent ${AGENT_KEY} (bare model id, project="${PROJECT_PATH}")…`);
   const created = await orqFetch("/agents", {
     method: "POST",
     body: JSON.stringify({
       key: AGENT_KEY,
       model: PRIMARY_MODEL,
+      role: AGENT_ROLE,
+      instructions: loadInstructions(),
+      path: PROJECT_PATH,
+      project_id: PROJECT_ID,
       description:
         "Phase 113 — sales Stage 3 ranked-intent classifier (verkoop@smeba.nl).",
+      settings: { max_iterations: 1, max_execution_time: 15, max_cost: 0 },
     }),
   });
   if (created.status >= 300 && created.status !== 409) {
@@ -255,15 +282,30 @@ async function createPatchVerify(intentEnum: readonly string[]): Promise<void> {
   const agent = got.json as {
     id?: string;
     key?: string;
+    path?: string;
+    project_id?: string;
     model?: { id?: string; parameters?: { response_format?: unknown } };
   };
   console.log(`✓ agent persisted: id=${agent.id ?? "?"} key=${agent.key ?? AGENT_KEY}`);
   console.log(`  model.id = ${agent.model?.id ?? "(missing!)"}`);
+  console.log(`  path = ${agent.path ?? "(none)"}`);
+  const projectOk = agent.project_id === PROJECT_ID;
+  console.log(
+    `  project_id = ${agent.project_id ?? "(none)"} ${
+      projectOk ? "✓ Smeba sales mails" : `✗ EXPECTED ${PROJECT_ID} — move it in Studio`
+    }`,
+  );
   console.log(
     `  response_format persisted = ${
       agent.model?.parameters?.response_format ? "YES" : "NO (re-check PATCH)"
     }`,
   );
+  if (!projectOk) {
+    console.warn(
+      "⚠ Agent did NOT land in the Smeba sales mails project. The workspace key " +
+        "may ignore project_id on create — move the agent to the project in Studio.",
+    );
+  }
 }
 
 async function main(): Promise<void> {
