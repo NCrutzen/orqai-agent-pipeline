@@ -153,3 +153,32 @@ None beyond the planned `<threat_model>`. T-113-04 (retro leak into live pipelin
 ## Self-Check: PASSED
 
 All 4 created files exist; both task commits present in git history; new tests + sibling regression green; tsc clean; the management script live-validated against the Orq catalog.
+
+## Bootstrap Discovery Run + Promoted Vocabulary (operator checkpoint resolved 2026-06-09)
+
+**Run:** `sales-email/retro-classify.requested` bootstrap=true, window [2026-06-02, 2026-06-10), sample_limit 300 (cap raised so the truncation guard does not bias the 7-day ~215-mail corpus). Executed against a local Inngest dev server (the function is not yet deployed to production Cloud). COMPLETED — 215 mails classified into `stage_3_retro_runs` (side-channel isolated), 195 (90%) carrying an `intent_proposal`, 138 distinct labels.
+
+**Surface note:** bootstrap proposals live in `stage_3_retro_runs.intent_proposal` (NOT `intent_proposal_clusters` — that view reads `pipeline_events`, which the side-channel retro never writes). Promotion for this first pass is driven off the `stage_3_retro_runs` aggregation. Learning `a6ec4fb3`.
+
+**Prereq fix applied (operator-approved):** `20260609_email_attachments_grants_fix.sql` — `GRANT ALL→service_role` + `SELECT→authenticated` on `email_pipeline.email_attachments` (the 20260605 creating migration added the RLS policy but omitted the grant; service_role hit 42501 in reconstructInput). Applied to remote.
+
+**Operator promotion decisions (Nick, 2026-06-09):** quote lifecycle kept granular (request/acceptance/rejection separate); `product_question` promoted despite low volume (avoid catch-all over-collapse); internal-vs-external NOT promoted as separate intents (folds into billing_dispute/complaint/order_status; intern/extern is an axis, not an intent). Hard-separation verified — none collide with the 13 sales `swarm_noise_categories` keys.
+
+```yaml
+promoted_intents:
+  - quote_request
+  - quote_acceptance
+  - quote_rejection
+  - purchase_order
+  - order_status
+  - service_request
+  - billing_dispute
+  - documentation_request
+  - complaint
+  - contract
+  - portal_access
+  - product_question
+  # plus the mandatory `other` residual (STAGE3-03 dead-letter guard) — seeded by Plan 04
+```
+
+Coverage: these 12 + `other` map ~80% of the 215-mail bootstrap corpus. This block is the deterministic seed for Plan 113-04.
