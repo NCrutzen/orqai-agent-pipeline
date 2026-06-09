@@ -16,6 +16,13 @@
 // Cost: numeric(10,4) precision (matches pipeline_events.cost_cents). Read
 // from response.usage when present; else estimate from token counts at Sonnet
 // 4.5 pricing ($3/M input, $15/M output as of 2026-05).
+//
+// IMPORTANT: The Orq SDK's CreateChatCompletionRequestBody uses camelCase field
+// names (responseFormat, jsonSchema), NOT the OpenAI-style snake_case
+// (response_format, json_schema). Using snake_case causes silent field drop:
+// the SDK's Zod outbound schema ignores unknown keys, so the model receives no
+// response_format and defaults to unstructured text (may be markdown-wrapped).
+// Always pass responseFormat.jsonSchema through the SDK's typed interface.
 
 import { z } from "zod";
 import {
@@ -126,6 +133,22 @@ async function signFrame(
   }
 }
 
+/**
+ * Strip markdown code fences from an LLM response string.
+ *
+ * Models occasionally wrap JSON in triple-backtick code fences (```json ... ```)
+ * despite response_format enforcement. This is a defensive parse layer: it strips
+ * the fences before JSON.parse so a misbehaving model doesn't break the pipeline.
+ * The primary fix is using the Orq SDK's camelCase responseFormat.jsonSchema API
+ * (see file header), but this guard ensures resilience for any future regression.
+ */
+function stripMarkdownCodeFences(raw: string): string {
+  const trimmed = raw.trim();
+  // Match ```json ... ``` or ``` ... ``` (with optional language tag)
+  const fenced = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+  return fenced ? fenced[1].trim() : trimmed;
+}
+
 export async function detectSoftwareSystem(
   args: DetectSystemArgs,
 ): Promise<DetectSystemResult> {
@@ -164,9 +187,16 @@ export async function detectSoftwareSystem(
     userContent.push({ type: "image_url", image_url: { url } });
   }
 
+  // IMPORTANT: use the Orq SDK's camelCase field names.
+  // - responseFormat (NOT response_format)
+  // - jsonSchema (NOT json_schema)
+  // The SDK's outbound Zod schema drops unknown (snake_case) keys silently,
+  // so using OpenAI-style snake_case here causes the model to receive no
+  // response_format constraint and fall back to unstructured markdown output.
+  // See: @orq-ai/node CreateChatCompletionRequestBody (lib/models/operations).
   const responseFormat = {
-    type: "json_schema",
-    json_schema: {
+    type: "json_schema" as const,
+    jsonSchema: {
       name: "support_system_detect_v1",
       strict: true,
       schema: {
@@ -189,7 +219,7 @@ export async function detectSoftwareSystem(
       { role: "system", content: buildSystemPrompt(args.registryRows) },
       { role: "user", content: userContent },
     ],
-    response_format: responseFormat,
+    responseFormat,
     metadata: { user_id: "support-tickets-stage-2" },
   };
 
@@ -210,9 +240,12 @@ export async function detectSoftwareSystem(
   }
 
   const rawContent = json.choices?.[0]?.message?.content ?? "";
+  // Strip markdown code fences: a defensive guard against models that wrap JSON
+  // in ```json ... ``` despite responseFormat enforcement (see stripMarkdownCodeFences).
+  const strippedContent = stripMarkdownCodeFences(rawContent);
   let parsedJson: unknown;
   try {
-    parsedJson = JSON.parse(rawContent);
+    parsedJson = JSON.parse(strippedContent);
   } catch {
     throw new DetectSystemError("response_schema_invalid", {
       message: `LLM content is not valid JSON: ${rawContent.slice(0, 120)}`,
