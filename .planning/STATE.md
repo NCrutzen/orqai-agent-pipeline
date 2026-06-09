@@ -63,8 +63,8 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 113 (stage-3-sales-intent-agent-greenfield) — EXECUTING
-Plan: 4 of 5
-Status: Ready to execute
+Plan: 5 of 5 (113-05 code complete; CHECKPOINT-BLOCKED at Task 3 operator go-live)
+Status: Awaiting operator go-live (apply 20260609c + dry-run review + flip sales stage_3_routing→false)
 
 **Phase 112 outcome (zelfde dag):**
 Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — COMPLETE (go-live verified 2026-06-04)
@@ -296,6 +296,7 @@ Last activity: 2026-06-09
 - [Phase ?]: Phase 113-02: sales retro reconstruct-input folds extracted attachment text into the body byte-comparable to live Stage 2 (exact UNTRUSTED delimiter, Pitfall 4); sales carries no brand entity into Stage 3.
 - [Phase 113-03]: sales Stage 3 retro-classify side-channel built (mirrors debtor Phase 87 6 locks — writes ONLY stage_3_retro_runs, invokeSalesIntentAgent cache-bypass, replay-safe run_id). Bounded bootstrap bypass of the R-04 cluster gate: honored ONLY when sales swarm_intents===0 (the empty-cluster chicken-and-egg first pass), THROWS if bootstrap=true after seeding (T-113-11), rows tagged run_type via ranked_intents._meta JSONB sibling (no migration). No Stage-3 baseline (sales aggregate-baseline is Stage-1-shaped). manage-sales-intent-agent.ts: list_models-validated create→PATCH→get-verify (D-13); validated live — all 4 catalog ids present (matched by BARE model_id; /v2/models drops the provider prefix). Agent is a SHELL in Plan 03 (--finalize gated on non-empty enum → Plan 04 post seed+codegen). CHECKPOINT-BLOCKED on the Studio json_schema + bootstrap retro + operator cluster promotion; promoted_intents PENDING in 113-03-SUMMARY (Plan 04 has a DB-fallback).
 - [Phase ?]: [Phase 113-04]: 12 operator-promoted sales intents + mandatory 'other' residual seeded into swarm_intents (20260609b, Management API HTTP 201, all placeholder); codegen regenerated intent.generated.ts (sales-email=13); sales-intent-agent json_schema intent enum re-PATCHed to 13 (get_agent verified). 3-way invariant closed; hard-separation + other-routes guards green; check:supabase 0 ERROR; dispatcher untouched.
+- [Phase 113-05]: swarm-agnostic Stage-3 ROUTING gate landed in the SHARED coordinator BETWEEN persist-ranked and flip/emit — registry-driven, fail-closed, no swarm literal. DEDICATED dry_run_config.stage_3_routing key (NOT stage_3_labeling reuse — debtor's predicted-emit fires today while stage_3_labeling=true, so reuse would regress debtor; T-113-10). GATED → persist verdict + decision_details.routing_held=true marker, withhold predicted-emit (decision='predicted_held'); OPEN → emit as today. Migration 20260609c seeds debtor=false(open)/sales=true(gated) — NOT YET APPLIED. Dead-letter reconciliation smoke (sales-stage3-deadletter-check.ts, pure fn + Supabase main, exit 1 on gap; held verdict counted terminal-visible) + 7 fixture tests. Bulk Review retry PROVEN to accept swarm_type='sales-email' (replayKanbanRow same-intent fires registry sales handler_event). 18 plan tests + 298 inngest suite green; dispatcher byte-unchanged (git-diff guard); tsc 0; check:supabase 0 ERROR. CHECKPOINT-BLOCKED on Task 3 operator go-live (apply 20260609c + dry-run review + flip). Commits c433d1d8, a318a5cd.
 
 ### Blockers/Concerns
 
@@ -303,6 +304,7 @@ Last activity: 2026-06-09
 - Supabase Management API token expired -- Phase 50 migration apply blocked (seed update also needs this or Studio access)
 - **Phase 110 / Plan 110-04 Task 4 UNBLOCKED + APPLIED (2026-06-03)**: the 3 `20260603*` migrations are now applied to remote `mvqjhlxfvtqqubqgdvhz` via Supabase MCP `apply_migration` (after re-linking the MCP OAuth to the Agent-Workforce org `oavpdqisdpzxqttgdgpt`). Verified live: sales `entity_brand=['smeba']` + `stage3_coordinator_agent_key='sales-intent-agent'` + all dry_run flags blocked + `swarm_intents=0`/`side_effects=[]` (inert); **debtor `dry_run_config.stage_1_cleanup=false` (LIVE preserved)**. `entity.generated.ts` regenerated + committed (`c774f989`). RLS advisor green (0 ERROR). Outstanding: per-mailbox `pipeline_health_snapshots` row for `verkoop@smeba.nl` populates on next monitor cron tick; Task 5 human governance checkpoint awaiting operator "approved".
 - Supabase Realtime plan limits need verification (carry forward from Phase 49)
+- **Phase 113-05 Task 3 CHECKPOINT (blocking-human) — the STAGE3-03 go-live:** operator must, IN ORDER: (1) **apply migration `20260609c` to remote BEFORE/atomic-with the coordinator code deploy** — the routing gate is FAIL-CLOSED and live `swarms.dry_run_config` currently has NO `stage_3_routing` key, so a code-only deploy would HOLD debtor's live predicted-emit. 20260609c sets debtor=false (open, preserves live emit) + sales=true (gated). (2) dry-run observation: trigger live sales Stage 3, verdicts persist + surface in Bulk Review while routing held; run `cd web && npx tsx scripts/eval/sales-stage3-deadletter-check.ts <since> <until>` → gap=0. (3) review ~100 sales verdicts (ranked intents + entity_relationship; Zod-failure row shows raw output + working retry; axis-3 overrides recordable). (4) on green-light, FLIP sales `stage_3_routing`→false → coordinator emits `sales-email/predicted` → dispatcher opens Kanban routing (reversible by re-gating, D-09). (5) record green-light + sample size in UAT. Resume: "go-live approved". Details: `phases/113-*/113-05-SUMMARY.md`.
 - **Phase 113-03 Task 2 CHECKPOINT (blocking-human):** operator must (1) create the `sales-intent-agent` SHELL + json_schema in Orq Studio (run `cd web && npx tsx scripts/orq/manage-sales-intent-agent.ts` to print the schema; Studio → Tools → Add → JSON Schema, then Model parameters → Response Format = it; confirm the Model dropdown is non-empty), (2) trigger `sales-email/retro-classify.requested` with `bootstrap:true` + a recent Outlook since/until (NOT a full SugarCRM sweep) and confirm `stage_3_retro_runs` gains rows tagged `run_type='bootstrap'` + sales `intent_proposal_clusters` is non-empty, (3) promote clusters to ~80% coverage (D-02), (4) record the `promoted_intents` yaml in `113-03-SUMMARY.md`. Resume signal: "agent created". (Plan 04 falls back to reading promoted clusters from the DB if the yaml stays empty.)
 
 ### Outstanding Verification (Deferred)
@@ -329,10 +331,10 @@ Last activity: 2026-06-09
 
 ## Session Continuity
 
-Last session: 2026-06-09T09:57:34.202Z
-Stopped at: Completed 116-04-PLAN.md
-Resume with: `/gsd-execute-phase 65`
-Resume file: None
+Last session: 2026-06-09T12:13:00.000Z
+Stopped at: 113-05-PLAN.md code complete (Tasks 1+2 committed); CHECKPOINT-BLOCKED at Task 3 operator go-live (apply 20260609c + dry-run review + routing flip)
+Resume with: operator completes Task 3 (resume signal "go-live approved"), then `/gsd-execute-phase 115`
+Resume file: .planning/phases/113-stage-3-sales-intent-agent-greenfield/113-05-SUMMARY.md
 
 ## Deferred Items
 

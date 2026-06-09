@@ -281,7 +281,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 112. Outlook Cleanup + Backfill | 3/3 | Complete   | 2026-06-04 |
 | 112.5 Outlook Behavior Tracking | 4/4 | Complete (activatie uitgesteld) | 2026-06-04 |
 | 114. Stage 2 Resolver Reuse *(executes before 113)* | 7/7 | Complete    | 2026-06-04 |
-| 113. Stage 3 Sales Intent Agent | 4/5 | In Progress|  |
+| 113. Stage 3 Sales Intent Agent | 5/5 | In Progress (113-05 code complete; Task 3 operator go-live checkpoint) |  |
 | 115. SugarCRM Dead-Code Decommission | 0/TBD | Not started | - |
 
 ---
