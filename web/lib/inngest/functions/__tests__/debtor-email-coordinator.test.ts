@@ -141,6 +141,12 @@ const loadSwarmMock = vi.fn(
   async (_supabase: unknown, swarmType: string) => ({
     swarm_type: swarmType,
     stage3_coordinator_agent_key: "debtor-intent-agent",
+    // Phase 113 Plan 05 — debtor is seeded dry_run_config.stage_3_routing=false
+    // (OPEN), so its predicted-emit fires every run exactly as today. The
+    // coordinator's new routing gate is fail-closed, so the default debtor row
+    // MUST carry the seeded OPEN flag for the existing emit-regression
+    // assertions to reflect production reality (migration 20260609c).
+    dry_run_config: { stage_3_routing: false },
   }),
 );
 vi.mock("@/lib/swarms/registry", () => ({

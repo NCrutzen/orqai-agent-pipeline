@@ -34,6 +34,14 @@ import { assembleInput } from "@/lib/automations/debtor-email/coordinator/assemb
 // by the coordinator, so the coordinator carries zero sales import/literal.
 import { intentSchemaForSwarm } from "@/lib/automations/debtor-email/coordinator/intent-schema-registry";
 import { loadSwarm } from "@/lib/swarms/registry";
+// Phase 113 Plan 05 (D-08 / D-09) — the swarm-agnostic Stage-3 ROUTING gate.
+// Read BEFORE the predicted-emit; when gated, persist the verdict (already done
+// by persist-ranked) but withhold flip-status-predicted + emit-predicted so the
+// dispatcher never fires (routing held in dry-run observation). Registry-driven,
+// fail-closed, NO swarm-name literal. Seeded debtor=open (live emit preserved) /
+// sales=gated. The dispatcher (stage-3-dispatcher.ts) is NEVER edited — the hold
+// is achieved by the coordinator withholding the emit, the classifier-owned seam.
+import { isStage3RoutingGated } from "@/lib/pipeline-gating/dry-run-gate";
 import {
   createRun,
   findCachedOutput,
@@ -422,6 +430,54 @@ export const debtorEmailCoordinator = inngest.createFunction(
           triggered_by: "pipeline",
         });
       });
+
+      // ---- 4.5) Stage-3 ROUTING gate (Phase 113 Plan 05, D-08 / D-09) -------
+      // Swarm-agnostic, registry-driven, fail-closed. Sits BETWEEN persist-ranked
+      // (the verdict is already on coordinator_runs + pipeline_events → visible in
+      // Bulk Review) and flip-status-predicted / emit-predicted. When ROUTING is
+      // GATED for this swarm (dry_run_config.stage_3_routing=true), the
+      // predicted-emit is WITHHELD so the Stage 3.5 dispatcher never fires and
+      // Kanban routing is held — D-08 dry-run observation. The verdict stays
+      // visible; routing is the only thing held. When OPEN (false), the
+      // flip+emit run exactly as before (debtor's live path — seeded false).
+      //
+      // CRITICAL debtor-neutrality (T-113-10): this reads the DEDICATED
+      // `stage_3_routing` key (NOT stage_3_labeling). debtor is seeded
+      // stage_3_routing=false → OPEN → its predicted-emit fires every run,
+      // byte-identical to today. NO `if (swarm_type === ...)` branch — the gate
+      // is purely a registry read keyed by the derived swarm_type. The shared
+      // dispatcher is untouched: the hold is achieved by the coordinator
+      // (the per-swarm classifier dispatch point) withholding the emit.
+      //
+      // Held-state marker: when held we stamp coordinator_runs.decision_details
+      // .routing_held=true so the dead-letter reconciliation (Plan 05 Task 2)
+      // counts a HELD verdict as a TERMINAL, visible state — never a dead-letter.
+      const routingGated = await step.run("load-stage3-routing-gate", async () => {
+        const swarmRow = await loadSwarm(supabase, swarm_type);
+        return isStage3RoutingGated(swarmRow);
+      });
+
+      if (routingGated) {
+        // GATED — persist the held-state marker and SKIP flip+emit. The verdict
+        // is already visible (persist-ranked). The dispatcher never fires.
+        await step.run("mark-routing-held", async () => {
+          const { error } = await supabase
+            .from("coordinator_runs")
+            .update({
+              decision_details: { routing_held: true },
+              completed_at: new Date().toISOString(),
+            })
+            .eq("run_id", run_id);
+          if (error) throw new Error(`mark-routing-held: ${error.message}`);
+        });
+        // Terminal, visible, NON-dead-letter outcome. agent_runs stays in
+        // 'classifying' on purpose: the predicted-emit is the flip's only
+        // consumer, and holding it means routing is held — Bulk Review reads
+        // coordinator_runs.ranked_intents for the verdict regardless of the
+        // agent_runs status. A green-light flip (stage_3_routing→false) lets
+        // subsequent runs flip+emit normally (reversible per D-09).
+        return { run_id, email_id, decision: "predicted_held" as const };
+      }
 
       // ---- 5) Flip agent_runs.status: classifying → predicted -------------
       // First-class observable state per docs/agentic-pipeline/stage-3-coordinator.md.

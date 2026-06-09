@@ -33,6 +33,19 @@ export interface DryRunConfig {
   stage_1_cleanup?: boolean;
   stage_2_resolution?: boolean;
   stage_3_labeling?: boolean;
+  // Phase 113 Plan 05 (D-08 / D-09) — the Stage-3 ROUTING gate, distinct from
+  // stage_3_labeling. This flag governs whether the coordinator emits
+  // `<swarm>/predicted` (→ the Stage 3.5 dispatcher → Kanban routing) AFTER the
+  // verdict is persisted (so the verdict is ALWAYS visible in Bulk Review even
+  // when routing is held). It is NOT stage_3_labeling: labeling is a
+  // downstream Stage-2/3 iController side-effect (debtor: gated), whereas
+  // routing is the predicted-emit (debtor: LIVE today). Reusing
+  // stage_3_labeling here would silently START holding debtor's predicted emit
+  // — a regression. So this is a dedicated key, seeded debtor=false (OPEN,
+  // preserves today's emit) / sales=true (GATED, dry-run observation first).
+  // Convention is identical: TRUE = gated/held, FALSE = open/live, MISSING =
+  // fail-closed (gated).
+  stage_3_routing?: boolean;
   stage_4_handlers?: Record<string, boolean>;
 }
 
@@ -50,6 +63,23 @@ export function isStageBlocked(
   stage: "stage_1_archive" | "stage_1_cleanup" | "stage_2_resolution" | "stage_3_labeling",
 ): boolean {
   return swarm?.dry_run_config?.[stage] ?? true;
+}
+
+/**
+ * Phase 113 Plan 05 (D-08 / D-09). True when Stage-3 ROUTING is HELD (dry-run
+ * observation) for this swarm — i.e. the coordinator must persist the verdict
+ * but WITHHOLD the `<swarm>/predicted` emit so the Stage 3.5 dispatcher never
+ * fires and Kanban routing is held.
+ *
+ * Swarm-agnostic + fail-closed: a missing swarm / config / flag → held (true).
+ * Reads the DEDICATED `stage_3_routing` key, NOT `stage_3_labeling` — see the
+ * DryRunConfig comment for why conflating them would regress debtor's live
+ * predicted-emit. Seeded debtor=false (OPEN) / sales=true (GATED).
+ */
+export function isStage3RoutingGated(
+  swarm: SwarmLikeForGate | null | undefined,
+): boolean {
+  return swarm?.dry_run_config?.stage_3_routing ?? true;
 }
 
 /**
