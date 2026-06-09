@@ -4,13 +4,13 @@ milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
 stopped_at: Completed 116-04-PLAN.md
-last_updated: "2026-06-05T08:41:34.056Z"
-last_activity: 2026-06-05
+last_updated: "2026-06-09T05:45:40.877Z"
+last_activity: 2026-06-09
 progress:
   total_phases: 10
   completed_phases: 7
-  total_plans: 41
-  completed_plans: 34
+  total_plans: 46
+  completed_plans: 35
   percent: 70
 ---
 
@@ -57,20 +57,20 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 116 — attachment-ingest-uniform-cross-swarm
+**Current focus:** Phase 113 — stage-3-sales-intent-agent-greenfield
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 116
-Plan: Not started
+Phase: 113 (stage-3-sales-intent-agent-greenfield) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
 
 **Phase 112 outcome (zelfde dag):**
 Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — COMPLETE (go-live verified 2026-06-04)
 Plan: 3 of 3
 Status: Sales Stage-1 Outlook archive LIVE (`stage_1_archive=false`, migration `sales_stage1_archive_golive`); backfill complete (67 archived / 38 sugar-skip / ~1650 queued predicted); loopback disabled + supplier_bank_change demoted after canary findings
-Last activity: 2026-06-05
+Last activity: 2026-06-09
 
 **Phase 112 incident (2026-06-04):** prod ran pre-110-04 code without the per-stage gate → loopback rule archived 141 real internal forwards since May 21. Emergency stop + full restore + gate-code deployed (PR #61) + canary bugfixes (PR #65: global canary cap, Graph-400 skip). Learning `52930d32`. Details: `phases/112-*/112-03-SUMMARY.md`.
 
@@ -172,6 +172,7 @@ Last activity: 2026-06-05
 | Phase 116 P05 | 12m | 3 tasks | 9 files |
 | Phase 116 P06 | 5m | 2 tasks | 4 files |
 | 116 | 6 | - | - |
+| Phase 113 P01 | 11m | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -319,7 +320,7 @@ Last activity: 2026-06-05
 
 ## Session Continuity
 
-Last session: 2026-06-05T07:55:20.052Z
+Last session: 2026-06-09T05:45:28.769Z
 Stopped at: Completed 116-04-PLAN.md
 Resume with: `/gsd-execute-phase 65`
 Resume file: None

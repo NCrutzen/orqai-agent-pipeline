@@ -281,7 +281,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 112. Outlook Cleanup + Backfill | 3/3 | Complete   | 2026-06-04 |
 | 112.5 Outlook Behavior Tracking | 4/4 | Complete (activatie uitgesteld) | 2026-06-04 |
 | 114. Stage 2 Resolver Reuse *(executes before 113)* | 7/7 | Complete    | 2026-06-04 |
-| 113. Stage 3 Sales Intent Agent | 0/TBD | Not started | - |
+| 113. Stage 3 Sales Intent Agent | 1/5 | In Progress|  |
 | 115. SugarCRM Dead-Code Decommission | 0/TBD | Not started | - |
 
 ---
@@ -391,11 +391,13 @@ Plans:
   3. After the Stage 1 flip, every sales email leaving Stage 1 reaches a Stage 3 verdict; intents with no Stage 4 handler land in the Kanban human-lane (Phase 76) with a clear reason — zero silent dead-letters (STAGE3-03).
 
 **Plans**: 5 plans (3 waves of parallelism collapsed to 5 sequential-ish waves by file/data deps)
-- [ ] 113-01-PLAN.md — Sales Stage 3 output contract: salesIntentOutputSchema (V3 shape + nullable entity_relationship), sales invoke-intent wrapper, shared nullable axis [STAGE3-01]
+
+- [x] 113-01-PLAN.md — Sales Stage 3 output contract: salesIntentOutputSchema (V3 shape + nullable entity_relationship), sales invoke-intent wrapper, shared nullable axis [STAGE3-01]
 - [ ] 113-02-PLAN.md — Q1 seam: parameterize the shared coordinator's agent-key dispatch (debtor-neutral) + sales assemble-input + retro reconstruct with attachment folding [STAGE3-01, STAGE3-02]
 - [ ] 113-03-PLAN.md — Sales Stage 3 retro-classify side-channel (vocabulary discovery) + scripted Orq sales-intent-agent create→PATCH→verify + Studio json_schema [STAGE3-02]
 - [ ] 113-04-PLAN.md — Atomic seed migration (operator-promoted intents + mandatory 'other') + codegen + agent enum finalize + remote apply [STAGE3-02, STAGE3-03]
 - [ ] 113-05-PLAN.md — Swarm-agnostic Kanban dry-run gate + dead-letter reconciliation smoke + operator dry-run review & reversible go-live flip [STAGE3-03]
+
 **UI hint**: yes
 
 ### Phase 114: Stage 2 Resolver Reuse — cross-swarm generality proof
@@ -514,7 +516,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 6/6 plans complete
+**Plans:** 1/5 plans executed
 
 Plans:
 
