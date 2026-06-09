@@ -69,7 +69,9 @@
         },
         "intent_version": {
           "type": "string",
-          "const": "2026-06-05.v1"
+          "enum": [
+            "2026-06-05.v1"
+          ]
         },
         "intent_proposal": {
           "anyOf": [

@@ -151,7 +151,10 @@ function buildResponseFormat(intentEnum: readonly string[]) {
       },
       language: { type: "string", enum: [...SALES_LANGUAGE] },
       urgency: { type: "string", enum: [...SALES_URGENCY] },
-      intent_version: { type: "string", const: SALES_INTENT_VERSION },
+      // Single-value literal MUST be `enum: [value]`, NOT `const` — OpenAI/Orq
+      // strict json_schema validation rejects `const` (the live debtor-intent-agent
+      // uses enum-with-one-value: {"type":"string","enum":["2026-05-19.v3"]}).
+      intent_version: { type: "string", enum: [SALES_INTENT_VERSION] },
       // Nullable → anyOf, never ["string","null"] (3970bad9).
       intent_proposal: {
         anyOf: [
