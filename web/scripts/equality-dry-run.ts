@@ -311,7 +311,11 @@ async function main() {
   const { data: labels, error: labelErr } = await admin
     .schema("debtor")
     .from("email_labels")
-    .select("email_id, customer_account_id, source_mailbox, conversation_id")
+    // created_at = this resolve's processing time, the "as-of" bound for
+    // point-in-time-faithful thread_inheritance replay (90-07 triage).
+    .select(
+      "email_id, customer_account_id, source_mailbox, conversation_id, created_at",
+    )
     .not("customer_account_id", "is", null)
     .in("status", ["labeled", "dry_run"]);
   if (labelErr) {
@@ -323,6 +327,7 @@ async function main() {
     customer_account_id: string;
     source_mailbox: string | null;
     conversation_id: string | null;
+    created_at: string | null;
   }>;
   console.log(`**Currently-correct resolves:** ${labelRows.length}\n`);
 
@@ -333,6 +338,7 @@ async function main() {
   let compared = 0;
   let skippedNoEmail = 0;
   let skippedNoSettings = 0;
+  let skippedFutureSibling = 0;
   for (const label of labelRows) {
     const { data: email, error: emailErr } = await admin
       .schema("email_pipeline")
@@ -392,6 +398,42 @@ async function main() {
       resolverPath,
       resolutionConfig,
     );
+
+    // Point-in-time-faithful replay (90-07 thread_inheritance triage). The engine's
+    // thread_inheritance inherits the MOST-RECENT label on the conversation with NO
+    // "before this email" bound (thread-inheritance.ts:35 — a 1:1 verbatim port of
+    // legacy Layer 1, so it can never regress vs legacy by construction). Replaying a
+    // historical email against the CURRENT email_labels state lets it inherit a SIBLING
+    // resolved AFTER this email — which never existed at live processing time. That is a
+    // replay artifact, NOT a regression: if the inherited prior label is not strictly
+    // older than this resolve, skip the row instead of false-failing the gate.
+    if (result.method === "thread_inheritance" && label.created_at) {
+      const priorId =
+        result.inputs.kind === "thread_inheritance"
+          ? result.inputs.prior_email_label_id
+          : null;
+      if (priorId) {
+        const { data: priorLabel } = await admin
+          .schema("debtor")
+          .from("email_labels")
+          .select("created_at")
+          .eq("id", priorId)
+          .maybeSingle();
+        const priorCreatedAt = (priorLabel as { created_at: string } | null)
+          ?.created_at;
+        // ISO-8601 +00 timestamps compare lexicographically in chronological order.
+        if (priorCreatedAt && priorCreatedAt >= label.created_at) {
+          skippedFutureSibling++;
+          console.log(
+            `SKIP (future-sibling replay artifact) email_id=${row.email_id} ` +
+              `inherited=${result.customer_account_id} (sibling resolved at ${priorCreatedAt} ` +
+              `>= this resolve at ${label.created_at}); not a regression.`,
+          );
+          continue;
+        }
+      }
+    }
+
     compared++;
     if (result.customer_account_id !== row.stored_customer_account_id) {
       regressions++;
@@ -405,7 +447,8 @@ async function main() {
   console.log(`\n**Compared:** ${compared}`);
   console.log(
     `**Skipped (no email row):** ${skippedNoEmail}  ` +
-      `**Skipped (no NXT settings — thread-inheritance-only mailbox):** ${skippedNoSettings}`,
+      `**Skipped (no NXT settings — thread-inheritance-only mailbox):** ${skippedNoSettings}  ` +
+      `**Skipped (future-sibling replay artifact):** ${skippedFutureSibling}`,
   );
   console.log(`**Regressions:** ${regressions}`);
   if (regressions > 0) {
