@@ -71,15 +71,10 @@ import { TENANT_DOMAINS_BY_SWARM } from "@/lib/automations/debtor-email/coordina
 // Phase 83 Plan 06 (D-09) — hard cap on the Stage 3 assembled input.
 const STAGE_3_INPUT_CAP_CHARS = 8000;
 
-// Inngest's typed `inngest.send` rejects dynamic event names because the
-// `<swarm_type>/predicted` event name is composed at runtime from the derived
-// swarm_type. Cast through unknown — same pattern as classifier-verdict-worker.ts
-// and stage-3-dispatcher.ts. CLAUDE.md / Phase 65 dae6276: never alias
-// inngest.send (loses `this`-binding); call via this cast each time.
-type DynamicSend = (payload: {
-  name: string;
-  data: Record<string, unknown>;
-}) => Promise<unknown>;
+// Stage 3 now emits the canonical typed `pipeline/predicted` event (a literal
+// key in Events), so `inngest.send` is called directly — no dynamic-name cast
+// needed. CLAUDE.md / Phase 65 dae6276: never alias inngest.send (loses
+// `this`-binding); always call inngest.send(...) inline.
 
 export const debtorEmailCoordinator = inngest.createFunction(
   {
@@ -93,35 +88,22 @@ export const debtorEmailCoordinator = inngest.createFunction(
   },
   // Phase 110 Plan 03 — wildcard trigger, mirroring stage-3-dispatcher.ts:51.
   // Fan-in from every swarm's Stage 2 producer (`<swarm>/coordinator.requested`).
-  // The debtor producer still emits `debtor-email/coordinator.requested`; under
-  // the wildcard that SAME event still matches — no producer change needed.
-  // Cast through unknown because the wildcard string is not a literal key in
-  // Events (same shape as the dispatcher's `*/predicted`).
-  { event: "*/coordinator.requested" } as unknown as {
-    event: keyof import("@/lib/inngest/events").Events;
-  },
+  // Canonical cross-swarm fan-in. Inngest matches event names EXACTLY — the
+  // former `*/coordinator.requested` glob never matched `<swarm>/coordinator.
+  // requested`, so the coordinator silently received ZERO events (debtor + sales
+  // Stage 3 dead since the glob shipped). Every ranked-intent swarm's Stage 2
+  // producer now emits the single `pipeline/coordinator.requested` event with
+  // `swarm_type` in the payload; a new swarm needs no change here.
+  { event: "pipeline/coordinator.requested" },
   async ({ event, step }) => {
-    // Phase 110 Plan 03 — the wildcard trigger (`*/coordinator.requested`)
-    // widens `event.data` to the full Events union, so the concrete
-    // coordinator-payload fields (subject/body_text/sender_email/…) no longer
-    // narrow. Cast once to the declared `<swarm>/coordinator.requested` shape
-    // (extended with the optional `swarm_type` the sales producer threads in
-    // Phase 113). Mirrors stage-3-dispatcher.ts, which casts event.data to a
-    // concrete shape immediately after the wildcard trigger. The debtor
-    // producer is the only coordinator.requested producer today; sales emits
-    // the SAME shape + swarm_type, entity:null — both covered here.
-    const email = event.data as unknown as
-      (import("@/lib/inngest/events").Events["debtor-email/coordinator.requested"]["data"] & {
-        swarm_type?: string;
-      });
+    // The canonical event carries the coordinator payload + a REQUIRED
+    // swarm_type (the routing discriminator). No event-name fallback: the
+    // shared event name ("pipeline/...") is no longer swarm-bearing.
+    const email = event.data;
     const { email_id } = email;
-    // Phase 110 Plan 03 (SWARM-02) — derive swarm_type from the event payload,
-    // falling back to the event-name prefix (`debtor-email/coordinator.requested`
-    // → `debtor-email`). Mirrors stage-3-dispatcher.ts:67-70. Deterministic
-    // (pure function of the event) so it is safe to derive OUTSIDE step.run.
-    // Source of truth: event.data.swarm_type.
-    const eventName = (event as unknown as { name: string }).name;
-    const swarm_type = email.swarm_type ?? eventName.split("/")[0];
+    // swarm_type is authoritative from the payload (SWARM-02 — data-driven, not
+    // a literal branch). Deterministic, safe to derive outside step.run.
+    const swarm_type = email.swarm_type;
     // Phase 110 Plan 03 — tenant domains keyed by the DERIVED swarm_type, with
     // a fail-closed empty default (T-110-07): an unknown swarm_type yields an
     // empty domain list rather than throwing. Spread to a fresh mutable
@@ -493,13 +475,13 @@ export const debtorEmailCoordinator = inngest.createFunction(
         if (error) throw new Error(`flip-status-predicted: ${error.message}`);
       });
 
-      // ---- 6) Emit `<swarm_type>/predicted` for the Stage 3.5 dispatcher --
-      // Cross-swarm contract: the dispatcher subscribes to `*/predicted` and
-      // routes via swarm_intents.handler_status. Zero hardcoded swarm names on
-      // the dispatcher side — swarm_type is part of the payload.
+      // ---- 6) Emit canonical `pipeline/predicted` for the Stage 3.5 dispatcher
+      // Cross-swarm contract: the dispatcher subscribes to the single
+      // `pipeline/predicted` event and routes via swarm_intents.handler_status,
+      // reading swarm_type from the payload (the event name is swarm-agnostic).
       await step.run("emit-predicted", async () => {
-        await (inngest.send as unknown as DynamicSend)({
-          name: `${swarm_type}/predicted`,
+        await inngest.send({
+          name: "pipeline/predicted",
           data: {
             swarm_type,
             run_id,

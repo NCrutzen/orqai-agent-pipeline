@@ -166,8 +166,9 @@ vi.mock("@/lib/automations/runs/emit", () => ({
 function buildEvent(overrides: Record<string, unknown> = {}) {
   return {
     id: "evt-test",
-    name: "debtor-email/coordinator.requested",
+    name: "pipeline/coordinator.requested",
     data: {
+      swarm_type: (overrides.swarm_type as string) ?? "debtor-email",
       email_id: "email-1",
       graph_message_id: "graph-1",
       subject: "Kopie factuur",
@@ -940,7 +941,7 @@ describe("Phase 80: Stage 3 classifier emits predicted (no inline dispatch)", ()
     await handler({ event: buildEvent(), step: stepStub });
 
     const predictedEmit = inngestSend.mock.calls.find(
-      (c) => (c[0] as { name: string }).name === "debtor-email/predicted",
+      (c) => (c[0] as { name: string }).name === "pipeline/predicted",
     );
     expect(predictedEmit).toBeDefined();
     const payload = (predictedEmit![0] as { data: Record<string, unknown> }).data;
@@ -1089,18 +1090,19 @@ describe("D-07/D-09: swarm_type generalization parity (debtor unchanged)", () =>
     expect((ev!.row as { stage?: number }).stage).toBe(3);
   });
 
-  it("(3) emitted event name equals 'debtor-email/predicted'", async () => {
+  it("(3) emitted event name equals canonical 'pipeline/predicted' with swarm_type in payload", async () => {
     seedHappyPath();
     await handler({ event: buildEvent(), step: tracedStep });
 
     const predictedEmit = inngestSend.mock.calls.find(
-      (c) => (c[0] as { name: string }).name === "debtor-email/predicted",
+      (c) => (c[0] as { name: string }).name === "pipeline/predicted",
     );
     expect(predictedEmit).toBeDefined();
-    // Exact string — Plan 03 composes this from event.data.swarm_type; for
-    // debtor it MUST still produce this literal.
+    // The event name is now the swarm-agnostic canonical `pipeline/predicted`
+    // (the `*/predicted` glob never matched in Inngest); the swarm discriminator
+    // lives in the payload so the dispatcher routes on data.swarm_type.
     expect((predictedEmit![0] as { name: string }).name).toBe(
-      "debtor-email/predicted",
+      "pipeline/predicted",
     );
     const payload = (predictedEmit![0] as { data: Record<string, unknown> })
       .data;
@@ -1124,7 +1126,7 @@ describe("D-07/D-09: swarm_type generalization parity (debtor unchanged)", () =>
     await handler({ event: buildEvent({ entity: null }), step: tracedStep });
 
     const predictedEmit = inngestSend.mock.calls.find(
-      (c) => (c[0] as { name: string }).name === "debtor-email/predicted",
+      (c) => (c[0] as { name: string }).name === "pipeline/predicted",
     );
     expect(predictedEmit).toBeDefined();
     const payload = (predictedEmit![0] as { data: Record<string, unknown> })

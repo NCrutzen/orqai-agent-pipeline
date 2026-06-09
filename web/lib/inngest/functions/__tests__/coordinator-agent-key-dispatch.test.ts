@@ -144,8 +144,9 @@ const stepStub = {
 function buildEvent(overrides: Record<string, unknown> = {}) {
   return {
     id: "evt-test",
-    name: `${(overrides.swarm_type as string) ?? "debtor-email"}/coordinator.requested`,
+    name: "pipeline/coordinator.requested",
     data: {
+      swarm_type: (overrides.swarm_type as string) ?? "debtor-email",
       email_id: "email-1",
       subject: "Kopie factuur",
       body_text: "Mag ik een kopie?",

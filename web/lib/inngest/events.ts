@@ -516,6 +516,57 @@ export type Events = {
     };
   };
 
+  // Canonical CROSS-SWARM Stage 2→3 hand-off (replaces the unsupported
+  // `*/coordinator.requested` glob). Every ranked-intent swarm's Stage 2
+  // producer emits THIS one event with `swarm_type` in the payload; the shared
+  // coordinator triggers on it and derives the swarm from `data.swarm_type`
+  // (NOT the event name). A new ranked-intent swarm needs ZERO coordinator /
+  // trigger / events.ts changes — it just emits this same event. Swarms with a
+  // divergent Stage-3 contract (e.g. support-tickets: ticket-completeness +
+  // clarification) keep their own event + coordinator.
+  "pipeline/coordinator.requested": {
+    data: {
+      swarm_type: string; // REQUIRED — the routing discriminator (no event-name fallback)
+      email_id: string;
+      automation_run_id?: string;
+      run_id?: string;
+      budget_run_id?: string;
+      agent_run_id?: string;
+      entity?: string | null;
+      entity_brand?: string | null;
+      context_version?: number;
+      subject: string;
+      body_text: string;
+      sender_email: string;
+      sender_domain?: string;
+      mailbox: string;
+      received_at: string;
+      graph_message_id?: string;
+      customer_id?: string | null;
+      customer_account_id?: string | null;
+      customer_name?: string | null;
+    };
+  };
+
+  // Canonical CROSS-SWARM Stage 3→3.5 hand-off (replaces the unsupported
+  // `*/predicted` glob). The shared coordinator emits this with `swarm_type`
+  // in the payload; the Stage 3.5 dispatcher triggers on it and derives the
+  // swarm from `data.swarm_type`.
+  "pipeline/predicted": {
+    data: {
+      swarm_type: string; // REQUIRED
+      email_id: string;
+      run_id?: string;
+      agent_run_id?: string;
+      automation_run_id?: string | null;
+      budget_run_id?: string | null;
+      ranked: Array<{ intent: string; confidence: string }>;
+      language?: string;
+      urgency?: string;
+      entity?: unknown;
+    };
+  };
+
   // Phase 67 (D-01, D-02, R-02) — Stage 2 side-effect: iController DOM tagging.
   // Emitted by classifier-label-resolver after the coordinator emit, gated on
   //   result.customer_account_id !== null

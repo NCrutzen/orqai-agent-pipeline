@@ -47,27 +47,16 @@ export const stage3Dispatcher = inngest.createFunction(
     retries: 0,
     concurrency: [{ key: "event.data.run_id", limit: 1 }],
   },
-  // Wildcard trigger — fan-in from every swarm's classifier.
-  { event: "*/predicted" } as unknown as {
-    event: keyof import("@/lib/inngest/events").Events;
-  },
+  // Canonical cross-swarm fan-in. Inngest matches event names EXACTLY — the
+  // former `*/predicted` glob never matched `<swarm>/predicted`. Every swarm's
+  // coordinator now emits the single `pipeline/predicted` event with swarm_type
+  // in the payload.
+  { event: "pipeline/predicted" },
   async ({ event, step }) => {
-    const data = (event as unknown as { data: Record<string, unknown> }).data as {
-      swarm_type?: string;
-      run_id: string;
-      agent_run_id: string;
-      email_id: string;
-      automation_run_id: string | null;
-      budget_run_id: string | null;
-      ranked: Array<{ intent: string; confidence: string }>;
-      language?: string;
-      urgency?: string;
-      entity?: unknown;
-    };
-    // Derive swarm_type from payload; fall back to event-name prefix
-    // (`debtor-email/predicted` → `debtor-email`). Never hardcoded.
-    const eventName = (event as unknown as { name: string }).name;
-    const swarm_type = data.swarm_type ?? eventName.split("/")[0];
+    const data = event.data;
+    // swarm_type is authoritative from the payload (the event name is
+    // swarm-agnostic — no event-name fallback). Never hardcoded.
+    const swarm_type = data.swarm_type;
     const {
       run_id,
       agent_run_id,

@@ -120,7 +120,7 @@ const SALES_INTENTS = [
 ];
 
 const EVENT = {
-  name: "sales-email/predicted",
+  name: "pipeline/predicted",
   data: {
     swarm_type: "sales-email",
     run_id: "run-1",
