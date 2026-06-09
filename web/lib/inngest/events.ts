@@ -880,6 +880,30 @@ export type Events = {
       archive_reference_keys?: string[];
     };
   };
+  // Phase 113 Plan 03 (D-01, STAGE3-02) — one-shot Stage-3 intent retro-
+  // classification trigger for the sales-email swarm. Re-runs the sales intent
+  // agent over the post-Stage-1 corpus into stage_3_retro_runs (the discovery
+  // surface the operator promotes a data-driven vocabulary from). Side-Channel
+  // Isolation: handler writes ONLY to stage_3_retro_runs; never to
+  // automation_runs / agent_runs / pipeline_events / coordinator_runs; emits no
+  // downstream events. The `bootstrap` flag bypasses the R-04 cluster
+  // precondition gate ONLY when sales swarm_intents is empty (the legitimate
+  // empty-vocabulary first pass); a bootstrap call after seeding THROWS.
+  "sales-email/retro-classify.requested": {
+    data: {
+      swarm_type: "sales-email";
+      since: string;
+      until: string;
+      sample_limit?: number;
+      run_id?: string;
+      // Phase 113 — bounded bootstrap bypass of the cluster precondition gate.
+      // Honored ONLY when sales swarm_intents count === 0 (the empty-cluster
+      // chicken-and-egg first discovery pass). bootstrap=true after the
+      // vocabulary is seeded REFUSES (throws). Rows written under a bootstrap
+      // run are tagged run_type='bootstrap' in the ranked_intents JSONB.
+      bootstrap?: boolean;
+    };
+  };
   // Phase 112 Plan 01 (CLEANUP-02) — one-shot Stage-1 noise BACKFILL sweeper
   // for the sales-email swarm. Ships INERT: mode defaults to 'report' (zero
   // Graph writes, zero pipeline_events/automation_runs inserts). 'canary' caps
