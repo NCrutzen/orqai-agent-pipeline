@@ -242,7 +242,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 ---
 
-### V9.0 Sales-Email Canonical Pipeline — Outlook-driven (Phases 110–115) — ACTIVE (re-sequenced 2026-06-02; was V10.0)
+### V9.0 Sales-Email Canonical Pipeline — Outlook-driven (Phases 110–117) — ACTIVE (re-sequenced 2026-06-02; was V10.0)
 
 **Milestone goal:** `verkoop@smeba.nl` runs the full canonical 5-stage funnel end-to-end with an operator-usable Bulk Review trace — the actual "second swarm validation" v8.0 promised, and the first cross-swarm reuse of the v8.2 NXT resolver. **NOT "move to Outlook"** (ingest already live, 827 emails/30d, Sugar→Outlook cutover done 2026-05-06): the delta is finish Stage 1 + add Stage 2/3 + Bulk Review + clean up dead Sugar code.
 
@@ -271,8 +271,9 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 - [x] **Phase 112.5: Outlook Behavior Tracking (passive review signals)** (completed 2026-06-04; activatie uitgesteld tot Sugar cut-over — runbook docs/swarm-behavior-tracking.md) — volg gebruikersgedrag in verkoop@smeba.nl via Graph delta-sync (reply / move-to-afgehandeld / self-archive / restore-from-archive / category-edit) en destilleer daaruit approve/reject/correctie-signalen per `pipeline_event`, zodat Outlook de de-facto review-surface wordt voor sales en Bulk Review doorschuift naar operator-console. Eerste deliverable: folder-conventie-analyse (afgehandeld-vs-Archief consistentie) als kalibratie van de signaalkwaliteit.
 - [x] **Phase 114: Stage 2 Resolver Reuse — cross-swarm generality proof** *(re-sequenced 2026-06-04: executes BEFORE 113)* — sales Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config with zero Engine code changes; the debtor-only self-auth tier degrades to a no-op for sales. (completed 2026-06-04)
 - [x] **Phase 116: Attachment Ingest (uniform cross-swarm)** *(added 2026-06-04; re-sequenced same day: executes BEFORE 113 — the 113 retro batch-resolve + intent discovery must see attachment data)* — capture attachment metadata + on-demand content extraction (PDF text first) as a registry-configured, swarm-agnostic data source feeding Stage 2 resolution, Stage 3 intent signals, and future Stage 4 handlers; sales onboards first, other swarms opt in via registry row only. (completed 2026-06-05)
-- [ ] **Phase 113: Stage 3 Sales Intent Agent (greenfield)** *(re-sequenced 2026-06-04: executes AFTER 114 — intent seeding consumes the customer-resolved corpus; AND AFTER 116 — discovery/batch-resolve consume attachment data)* — build a sales-specific Orq intent agent + seed `swarm_intents` from the live corpus so every sales email leaving Stage 1 reaches a Stage 3 verdict, with handler-less intents landing in the Kanban human-lane.
+- [x] **Phase 113: Stage 3 Sales Intent Agent (greenfield)** *(re-sequenced 2026-06-04: executes AFTER 114 — intent seeding consumes the customer-resolved corpus; AND AFTER 116 — discovery/batch-resolve consume attachment data)* — build a sales-specific Orq intent agent + seed `swarm_intents` from the live corpus so every sales email leaving Stage 1 reaches a Stage 3 verdict, with handler-less intents landing in the Kanban human-lane. (code complete + merged PR #73 2026-06-09; live agent + 12 promoted intents seeded; sales Stage 3 in DRY-RUN observation, go-live = operator green-light flip of `stage_3_routing`)
 - [ ] **Phase 115: SugarCRM Dead-Code Decommission** — remove the now-dead SugarCRM source code and stale registry notes after confirming no live path depends on it. ⚠ Pre-removal: the deferred "Sugar sent-replies harvest" idea (see 113-CONTEXT deferred) must be secured before or independent of this decommission.
+- [ ] **Phase 117: Outlook Intent Categories — generic cross-swarm correction loop** *(added 2026-06-09)* — write each swarm's Stage 3 top-1 intent verdict back to the source email in Outlook as a native `AI:`-prefixed category via Microsoft Graph, so end-users correct it in place (change/remove); the Phase 112.5 Graph-delta tracker observes the edit and turns it into a free labelled human-correction signal feeding eval/calibration + the V10.0 Promotion Recommender. **Swarm-agnostic by design — every Outlook-backed swarm (debtor-email, sales-email, info-routing, future) uses it; a second swarm onboards via a registry row only, zero per-swarm code.** Registry-gated + per-stage dry-run flag (reuses Phase 112 gated-write infra), enabled per swarm after operator green-light.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -467,6 +468,31 @@ Plans:
 
 - [x] 116-05-PLAN.md — Stage 2 adapter-side body_text concat (STAGE2-01-safe) + Bulk Review detail-pane attachment display (ATTACH-03, ATTACH-06) [wave 3]
 - [x] 116-06-PLAN.md — Gated corpus backfill worker (metadata all / extraction survivors-only) (ATTACH-04) [wave 3]
+
+### Phase 117: Outlook Intent Categories — generic cross-swarm correction loop
+
+*(Added 2026-06-09. Depends on Phase 113 (a Stage 3 intent verdict to write), Phase 112.5 (Graph delta tracking that observes the correction), Phase 112 (gated Outlook/Graph write infra).)*
+
+**Goal**: Close the human-correction loop where the end-users already work — Outlook — for **any** swarm running on an Outlook mailbox. After Stage 3 produces a verdict, a swarm-agnostic worker writes the top-1 intent back onto the source message as a native Outlook **category** (`AI:` prefix, e.g. `AI: quote_request`) via Microsoft Graph. Inside-sales / debtor / info operators see the label in their normal Outlook view and correct it by changing or removing the category — no extra UI. The existing Phase 112.5 passive Graph delta-sync observes that category change and distils it into a labelled correction signal per `pipeline_event`, feeding eval/calibration and the V10.0 Promotion Recommender at zero marginal operator effort. **This is NOT a sales feature** — generality is the headline acceptance criterion: it ships swarm-agnostic, gated and configured purely via the `swarms` registry, and onboarding a second Outlook swarm is a registry row with zero per-swarm code (SWARM-02 architecture gate).
+
+**Design decisions to settle in discuss/plan:**
+  1. **Category convention** — `AI:` prefix so the 112.5 delta-detection can tell AI-written labels from user-authored Outlook categories. Decide: top-1 intent only, or an optional confidence suffix (`AI: quote_request (low)`).
+  2. **Delta semantics** — category *removed* = "wrong / not applicable"; *changed to another `AI:` value* = a direct labelled correction ("should be X"); *changed to a non-`AI:` category* = ambiguous (define handling). The 112.5 signal-derive layer learns to classify these.
+  3. **Gated production Graph write** — category write-back runs through the Phase 112 gated-write infra behind a per-stage dry-run flag, per-swarm opt-in, enabled only after operator green-light. ⚠ For sales specifically: respect the Sugar cut-over / Power Automate sweep dependency before writing to `verkoop@`.
+  4. **Idempotency / churn** — re-running Stage 3 (or replay) must not thrash categories; write only on verdict change, and never clobber a user-authored correction (the delta ledger is the source of truth for "operator already touched this").
+
+**Depends on**: Phase 113 (Stage 3 verdict), Phase 112.5 (Graph delta behavior-tracking + signal-derive), Phase 112 (gated Graph write + backfill patterns).
+**Depends on (external/cross-track)**: none hard. Sales activation waits on the same go-live gate as Phase 113; debtor / info-routing adopt via registry row only.
+**Requirements**: OUTLOOK-CAT-01..05 (to be defined at planning from the success criteria below).
+**Success Criteria** (what must be TRUE):
+
+  1. A swarm-agnostic worker writes the Stage 3 top-1 intent as an `AI:`-prefixed Outlook category on the source message for every onboarded swarm — zero `if swarm==='…'` branches in the shared worker (SWARM-02 holds).
+  2. Enablement is registry-driven + dry-run-gated per swarm; the write is a no-op until the swarm is opted in AND its dry-run flag is flipped after operator green-light.
+  3. An operator changing or removing the category in Outlook is captured by the Phase 112.5 delta-sync and persisted as a labelled correction signal tied to the originating `pipeline_event`.
+  4. **Cross-swarm generality proof:** a second Outlook swarm is enabled end-to-end (verdict→category→correction signal) by adding a registry row only — no code change.
+  5. Writes are idempotent and never clobber an operator-authored correction; replay/re-run does not churn categories.
+
+**Plans**: TBD
 
 ---
 
