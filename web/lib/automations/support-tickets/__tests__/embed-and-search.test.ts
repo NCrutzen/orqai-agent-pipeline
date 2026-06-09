@@ -106,6 +106,24 @@ describe("embedAndSearchSimilar — Plan 02-05 Task 2", () => {
     expect(result.cost_cents).toBeGreaterThan(0);
   });
 
+  it("Test 2b: empty text (no transcript) → short-circuits, NO embed/RPC call, similar=[], cost 0", async () => {
+    const { supabase, rpcCalls } = buildSupabaseMock({ rpcRows: [rowFixture(1)] });
+    const { embedAndSearchSimilar } = await import("../embed-and-search");
+    for (const text of ["", "   ", "\n\t "]) {
+      const result = await embedAndSearchSimilar({
+        text,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        supabase: supabase as any,
+        env: ENV,
+        topK: 5,
+      });
+      expect(result.similar).toEqual([]);
+      expect(result.cost_cents).toBe(0);
+    }
+    // Guard returns before any embedding or RPC call.
+    expect(rpcCalls.length).toBe(0);
+  });
+
   it("Test 3: topK clamp — topK=20 → clamped to MAX_TOP_K (=10); default topK=5", async () => {
     setOrqEmbedding({ dim: 1536 });
     const { supabase, rpcCalls } = buildSupabaseMock({ rpcRows: [] });

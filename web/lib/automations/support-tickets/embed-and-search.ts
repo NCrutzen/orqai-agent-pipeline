@@ -83,6 +83,17 @@ export async function embedAndSearchSimilar(
   }
   const topK = clampTopK(args.topK);
 
+  // ---- (0) Empty-text guard — "empty path is happy path" ----
+  // A submission with no transcript (e.g. no video, or transcription skipped)
+  // yields empty text. The Orq embeddings API rejects empty input with HTTP 400
+  // ("input must be a non-empty string..."), which previously crashed Stage 2.
+  // There is nothing to search on without text, so short-circuit to an empty
+  // result set (cost 0) — same contract the caller already handles for an empty
+  // embeddings table.
+  if (args.text.trim().length === 0) {
+    return { similar: [], cost_cents: 0 };
+  }
+
   // ---- (1) Generate embedding via @orq-ai/node SDK ----
   // (Mirrors smeba/search-kb/route.ts pattern. Lazy dynamic import keeps unit
   // tests fast — the SDK ships its own fetch + auth + retry plumbing.)
