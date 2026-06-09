@@ -184,7 +184,9 @@ Last activity: 2026-06-09
 
 ### Roadmap Evolution
 
-**V9.0 Sales-Email (Outlook) roadmap created 2026-06-02 — Phases 110–115 (coarse granularity, 14/14 reqs mapped, 0 unmapped). Runs parallel with v8.2 debtor (phases 90–95, separate workspace).**
+**V9.0 Sales-Email (Outlook) roadmap created 2026-06-02 — Phases 110–117 (coarse granularity). Runs parallel with v8.2 debtor (phases 90–95, separate workspace).**
+
+- Phase 117 added (2026-06-09): Outlook Intent Categories — generic cross-swarm correction loop. Write each swarm's Stage 3 top-1 intent back to the source Outlook message as an `AI:`-prefixed native category via Graph; operators correct it in place; Phase 112.5 Graph-delta tracking turns the edit into a labelled human-correction signal (feeds eval/calibration + V10.0 Promotion Recommender). Swarm-agnostic by design — every Outlook-backed swarm uses it, second swarm onboards via a registry row only (SWARM-02). Registry-gated + per-stage dry-run flag (reuses Phase 112 gated-write infra). Depends on 113 + 112.5 + 112.
 
 - Phase 110 added: Visibility Foundation — sales-email Bulk Review usable (REVIEW-01) + enrich the Stage-0/1 `swarms` shell to full-funnel config via migration+codegen (SWARM-01) + assert zero per-swarm branches in shared workers (SWARM-02 architecture gate) + confirm Outlook ingest health & disposition legacy `source='sugarcrm'` rows (VERIFY-01). Observe before auto-acting. First V9.0 phase; depends on nothing (baseline Outlook ingest + Stage 0/1 live).
 - Phase 111 added: Stage 1 Noise Expansion + Calibration — flip safe core categories (auto-reply, OOO×2) manual_review→categorize_archive behind the shadow→promote gate, keep payment_admittance+unknown in review (STAGE1-01); mine the 827+ corpus for new sales noise rules + re-validate the 8 inherited AP rules incl. gating own_outbound_invoice_loopback (STAGE1-02). Depends on 110.
