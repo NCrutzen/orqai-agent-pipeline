@@ -43,6 +43,12 @@ import type { FeedbackReadBack } from "@/lib/automations/debtor-email/feedback/t
 // Reuses the Plan 06 component built in isolation; here we wire the path map
 // through detail-pane and render the strip inside the Stage 1 audit expander.
 import { StageScreenshotStrip } from "@/components/automations/bulk-review/audit/StageScreenshotStrip";
+// Phase 116-05 (D-08) — attachment metadata + status rendered inside the Stage 2
+// audit expander (mirrors the Stage 1 screenshot-strip channel above).
+import {
+  AttachmentList,
+  type AttachmentRow,
+} from "./components/attachment-list";
 
 // PipelineTimelineEvent currently lives in stage-1/page.tsx (exported). Plan
 // 06 will lift it to _shell/_lib/ when the unified shell becomes the single
@@ -168,6 +174,15 @@ export interface UnifiedDetailPaneProps {
    *  strip's empty state ("No screenshots available"). Swarms without an
    *  iController side-effect simply omit the prop. */
   screenshotPathsByEmailId?: Record<string, { before: string | null; after: string | null }>;
+  /** Phase 116-05 (D-08) — per-email attachment metadata (filename / type /
+   *  size + extraction status) keyed on the row's email_id. The row hydrator
+   *  loads `BulkReviewRow.attachments`; inline-expand-row builds this map and
+   *  passes it through. Detail-pane renders <AttachmentList> INSIDE the Stage 2
+   *  audit expander (mirrors the Phase 82.8-07 screenshot-strip pattern at
+   *  Stage 1). Missing / empty entries render AttachmentList's "No attachments"
+   *  empty state, so it is always safe to mount. Metadata + status only — no
+   *  preview, no download (T-116-17 / D-08 scope). */
+  attachmentsByEmailId?: Record<string, AttachmentRow[]>;
 }
 
 // ---- Component -----------------------------------------------------------
@@ -189,6 +204,7 @@ export function UnifiedDetailPane({
   feedbackMap,
   visibleRowIds,
   screenshotPathsByEmailId,
+  attachmentsByEmailId,
 }: UnifiedDetailPaneProps) {
   // Empty state — RESEARCH §Empty State unified copy (Stage 3/4 wording).
   if (!row) {
@@ -225,6 +241,7 @@ export function UnifiedDetailPane({
       feedbackMap={feedbackMap}
       visibleRowIds={visibleRowIds}
       screenshotPathsByEmailId={screenshotPathsByEmailId}
+      attachmentsByEmailId={attachmentsByEmailId}
     />
   );
 }
@@ -248,6 +265,7 @@ function DetailPaneInner({
   feedbackMap,
   visibleRowIds,
   screenshotPathsByEmailId,
+  attachmentsByEmailId,
 }: UnifiedDetailPaneProps & { row: Row }) {
   // Track dirty axes. Stays {} on mount — the operator opts into override
   // for a stage by clicking that stage's inline "override stage" link
@@ -401,8 +419,33 @@ function DetailPaneInner({
         {stripNode}
       </Fragment>
     );
+
+    // Phase 116-05 (D-08) — append the attachment metadata/status list INSIDE
+    // the Stage 2 audit expander. Same direct-prop channel as the Stage 1
+    // screenshot strip: `attachmentsByEmailId` is read straight off the row's
+    // email_id; we do NOT route it through build-stage-audit-map.ts. Empty /
+    // missing entries render AttachmentList's "No attachments" empty state, so
+    // it is always safe to mount. Attachments sit alongside "Email body ·
+    // identifiers highlighted" in the Stage 2 Read column per per-stage-content.
+    const attachmentsForRow = attachmentsByEmailId?.[row.id] ?? [];
+    const attachmentsNode = (
+      <AttachmentList attachments={attachmentsForRow} />
+    );
+    const existingStage2 = merged[2] as ReactNode | undefined;
+    merged[2] = (
+      <Fragment>
+        {existingStage2 ?? null}
+        {attachmentsNode}
+      </Fragment>
+    );
     return merged;
-  }, [stageAudit, timeline, screenshotPathsByEmailId, row.id]);
+  }, [
+    stageAudit,
+    timeline,
+    screenshotPathsByEmailId,
+    attachmentsByEmailId,
+    row.id,
+  ]);
 
   // Build the 5-cell StageData[] array. Order matters — [0,1,2,3,4] as const.
   const stagesData: StageData[] = useMemo(() => {

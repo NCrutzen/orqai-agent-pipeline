@@ -27,6 +27,21 @@ import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { invokeIntentAgent } from "@/lib/automations/debtor-email/coordinator/invoke-intent";
 import { assembleInput } from "@/lib/automations/debtor-email/coordinator/assemble-input";
+// Phase 113 Plan 02 (Q1 seam) — the per-swarm Stage 3 OUTPUT-schema lookup.
+// This is the swarm-agnostic map that replaces a literal swarm branch: the
+// coordinator names NO swarm — it looks the schema up by the derived
+// swarm_type key. The sales schema is imported by THIS registry file, never
+// by the coordinator, so the coordinator carries zero sales import/literal.
+import { intentSchemaForSwarm } from "@/lib/automations/debtor-email/coordinator/intent-schema-registry";
+import { loadSwarm } from "@/lib/swarms/registry";
+// Phase 113 Plan 05 (D-08 / D-09) — the swarm-agnostic Stage-3 ROUTING gate.
+// Read BEFORE the predicted-emit; when gated, persist the verdict (already done
+// by persist-ranked) but withhold flip-status-predicted + emit-predicted so the
+// dispatcher never fires (routing held in dry-run observation). Registry-driven,
+// fail-closed, NO swarm-name literal. Seeded debtor=open (live emit preserved) /
+// sales=gated. The dispatcher (stage-3-dispatcher.ts) is NEVER edited — the hold
+// is achieved by the coordinator withholding the emit, the classifier-owned seam.
+import { isStage3RoutingGated } from "@/lib/pipeline-gating/dry-run-gate";
 import {
   createRun,
   findCachedOutput,
@@ -135,6 +150,28 @@ export const debtorEmailCoordinator = inngest.createFunction(
     const sender_domain = email.sender_domain ?? "";
     const inngest_run_id = event.id ?? `local-${email_id}`;
     const supabase = createAdminClient();
+
+    // ---- Phase 113 Plan 02 (Q1 seam) — per-swarm Stage 3 dispatch -----------
+    // Resolve the per-swarm Orq agent KEY from the DB registry
+    // (swarms.stage3_coordinator_agent_key) and the per-swarm output SCHEMA from
+    // the swarm-keyed map. Both are looked up by the DERIVED swarm_type — the
+    // coordinator names NO swarm. This realizes the per-swarm classifier
+    // dispatch as a registry + map lookup (Phase 110 D-07), NOT a dispatcher
+    // edit and NOT a literal `if (swarm_type === ...)` branch. Debtor is
+    // byte-neutral: its registry key is "debtor-intent-agent" (or the fail-safe
+    // default) and its schema is the V2/V3 tolerant union — identical to the
+    // pre-parameterization invoke. A third swarm onboards with a schema-map
+    // entry + a registry row and ZERO coordinator edits.
+    const stage3AgentKey = await step.run("load-swarm-agent-key", async () => {
+      const swarmRow = await loadSwarm(supabase, swarm_type);
+      // Fail-safe to the debtor agent when the registry row is missing or the
+      // key column is null — a misconfiguration must not cross-dispatch.
+      return swarmRow?.stage3_coordinator_agent_key ?? "debtor-intent-agent";
+    });
+    // Pure lookup (no DB) — resolve OUTSIDE step.run. Fail-safe to the debtor
+    // schema for an unknown/misconfigured swarm_type (the codegen invariant
+    // guarantees sales always has an entry post-Plan-03).
+    const stage3Schema = intentSchemaForSwarm(swarm_type);
 
     // CLAUDE.md / Inngest pitfall: any non-deterministic value used inside
     // step.run side-effects (DB writes keyed on it) MUST be generated inside
@@ -252,18 +289,26 @@ export const debtorEmailCoordinator = inngest.createFunction(
           // same email_id (manual replay scripts, upstream redelivery) leave
           // the new agent_runs row with intent=null + tool_outputs={}.
           const output: IntentAgentOutputV2 | IntentAgentOutputV3 = cachedFirst
-            ?? (await invokeIntentAgent({
-              email_id,
-              inngest_run_id,
-              subject: email.subject,
-              body_text: email.body_text,
-              assembled_input: assembled.text,
-              sender_email: email.sender_email,
-              sender_domain,
-              mailbox: email.mailbox,
-              entity,
-              received_at: email.received_at,
-            })).output;
+            ?? (await invokeIntentAgent(
+              {
+                email_id,
+                inngest_run_id,
+                subject: email.subject,
+                body_text: email.body_text,
+                assembled_input: assembled.text,
+                sender_email: email.sender_email,
+                sender_domain,
+                mailbox: email.mailbox,
+                entity,
+                received_at: email.received_at,
+              },
+              // Phase 113 Plan 02 (Q1 seam) — the SINGLE parameterized invoke.
+              // Per-swarm agent key (from the DB registry) + per-swarm output
+              // schema (from the swarm-keyed map). For debtor these resolve to
+              // "debtor-intent-agent" + the V2/V3 union — byte-neutral. Sales
+              // dispatches through THIS same call with no second code path.
+              { agent_key: stage3AgentKey, schema: stage3Schema },
+            )).output;
 
           // mergeToolOutputs requires JsonValue. The IntentAgentOutputV2 shape
           // is JSON-serialisable by construction (zod-validated literals +
@@ -370,12 +415,69 @@ export const debtorEmailCoordinator = inngest.createFunction(
               intent_proposal: output.intent_proposal,
               proposal_reason: output.proposal_reason,
             }),
+            // Phase 113 Plan 02 (Q1 seam) — additive, swarm-agnostic axis.
+            // The sales schema sets entity_relationship; the debtor schema
+            // lacks the field so it reads `undefined` and is omitted. No schema
+            // migration, no swarm name — a pure `!= null` guard on JSONB.
+            ...((output as { entity_relationship?: unknown }).entity_relationship !=
+              null && {
+              entity_relationship: (output as { entity_relationship?: unknown })
+                .entity_relationship,
+            }),
           },
           agent_run_id,
           automation_run_id: automation_run_id ?? null,
           triggered_by: "pipeline",
         });
       });
+
+      // ---- 4.5) Stage-3 ROUTING gate (Phase 113 Plan 05, D-08 / D-09) -------
+      // Swarm-agnostic, registry-driven, fail-closed. Sits BETWEEN persist-ranked
+      // (the verdict is already on coordinator_runs + pipeline_events → visible in
+      // Bulk Review) and flip-status-predicted / emit-predicted. When ROUTING is
+      // GATED for this swarm (dry_run_config.stage_3_routing=true), the
+      // predicted-emit is WITHHELD so the Stage 3.5 dispatcher never fires and
+      // Kanban routing is held — D-08 dry-run observation. The verdict stays
+      // visible; routing is the only thing held. When OPEN (false), the
+      // flip+emit run exactly as before (debtor's live path — seeded false).
+      //
+      // CRITICAL debtor-neutrality (T-113-10): this reads the DEDICATED
+      // `stage_3_routing` key (NOT stage_3_labeling). debtor is seeded
+      // stage_3_routing=false → OPEN → its predicted-emit fires every run,
+      // byte-identical to today. NO `if (swarm_type === ...)` branch — the gate
+      // is purely a registry read keyed by the derived swarm_type. The shared
+      // dispatcher is untouched: the hold is achieved by the coordinator
+      // (the per-swarm classifier dispatch point) withholding the emit.
+      //
+      // Held-state marker: when held we stamp coordinator_runs.decision_details
+      // .routing_held=true so the dead-letter reconciliation (Plan 05 Task 2)
+      // counts a HELD verdict as a TERMINAL, visible state — never a dead-letter.
+      const routingGated = await step.run("load-stage3-routing-gate", async () => {
+        const swarmRow = await loadSwarm(supabase, swarm_type);
+        return isStage3RoutingGated(swarmRow);
+      });
+
+      if (routingGated) {
+        // GATED — persist the held-state marker and SKIP flip+emit. The verdict
+        // is already visible (persist-ranked). The dispatcher never fires.
+        await step.run("mark-routing-held", async () => {
+          const { error } = await supabase
+            .from("coordinator_runs")
+            .update({
+              decision_details: { routing_held: true },
+              completed_at: new Date().toISOString(),
+            })
+            .eq("run_id", run_id);
+          if (error) throw new Error(`mark-routing-held: ${error.message}`);
+        });
+        // Terminal, visible, NON-dead-letter outcome. agent_runs stays in
+        // 'classifying' on purpose: the predicted-emit is the flip's only
+        // consumer, and holding it means routing is held — Bulk Review reads
+        // coordinator_runs.ranked_intents for the verdict regardless of the
+        // agent_runs status. A green-light flip (stage_3_routing→false) lets
+        // subsequent runs flip+emit normally (reversible per D-09).
+        return { run_id, email_id, decision: "predicted_held" as const };
+      }
 
       // ---- 5) Flip agent_runs.status: classifying → predicted -------------
       // First-class observable state per docs/agentic-pipeline/stage-3-coordinator.md.

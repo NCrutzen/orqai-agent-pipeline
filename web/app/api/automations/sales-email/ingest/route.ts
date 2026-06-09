@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inngest } from "@/lib/inngest/client";
 import { getMessageMeta, fetchMessageBody, fetchConversationMessages } from "@/lib/outlook";
+import { captureAttachmentMetadata } from "@/lib/automations/attachments/capture";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
   const isoNow = new Date().toISOString();
 
   // 1) Fetch authoritative subject/body/from from Graph (via Zapier SDK).
-  let meta: { subject: string; from: string; fromName: string; receivedAt: string };
+  let meta: { subject: string; from: string; fromName: string; receivedAt: string; hasAttachments: boolean };
   let msg: {
     bodyText: string;        // full thread (Phase 83 D-01)
     bodyUniqueText: string;  // new bit only
@@ -113,9 +114,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
     ]);
     meta = {
       subject: m.subject,
-      from: m.from,
-      fromName: m.fromName,
+      // Phase 114-03 (D-14): getMessageMeta already applies the from→sender
+      // fallback; the fetchMessageBody value is a second fallback in case the
+      // two Graph calls disagree (one omits `from`/`sender` the other carries).
+      from: m.from || b.from,
+      fromName: m.fromName || b.fromName,
       receivedAt: m.receivedAt,
+      // hasAttachments from either call (both now request it).
+      hasAttachments: m.hasAttachments || b.hasAttachments,
     };
     msg = {
       bodyText: b.bodyText,
@@ -185,6 +191,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
           conversation_id: conversationId || null,
           sender_email: meta.from || null,
           sender_name: meta.fromName || null,
+          // Phase 114-03 (D-14): capture attachment presence for new mail
+          // (was never written → false on all rows). Stage 2 uses attachments
+          // as a hard resolution signal (PO/offertenummer on letterhead).
+          has_attachments: meta.hasAttachments ?? false,
           received_at: meta.receivedAt || isoNow,
           direction: "inbound",
           internet_message_id: messageId,
@@ -217,6 +227,25 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
         emailId = inserted.id;
       }
     }
+  }
+
+  // Phase 116-03: registry-gated attachment metadata capture. Runs after the
+  // emails row is committed (emailId resolved) and before stage-0 so the
+  // metadata exists by the time Stage 1 runs. The shared helper reads the
+  // attachment_config.capture switch off the swarm registry row — the
+  // "sales-email" literal here is the route's legitimate per-swarm constant
+  // (this route file IS the sales ingest endpoint), NOT a branch in shared
+  // code. Metadata only — no binary, no extraction (D-05). The helper is
+  // fail-soft (returns { captured: 0 } on any error) so it never breaks ingest.
+  if (emailId) {
+    await captureAttachmentMetadata({
+      admin,
+      swarmType: "sales-email",
+      mailbox: sourceMailbox,
+      messageId,
+      emailId,
+      hasAttachments: meta.hasAttachments ?? false,
+    });
   }
 
   // Phase 83 D-04: ALWAYS fetch last 2 prior messages in the same conversation

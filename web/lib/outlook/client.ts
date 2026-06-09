@@ -1,4 +1,5 @@
 import { createZapierSdk } from "@zapier/zapier-sdk";
+import { z } from "zod";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
@@ -178,8 +179,12 @@ export async function listInboxMessages(
 export async function getMessageMeta(
   mailbox: string,
   messageId: string,
-): Promise<{ subject: string; from: string; fromName: string; receivedAt: string; categories: string[] }> {
-  const fields = "id,subject,from,receivedDateTime,categories";
+): Promise<{ subject: string; from: string; fromName: string; receivedAt: string; categories: string[]; hasAttachments: boolean }> {
+  // Phase 114-03 (D-14): add `sender` (fallback for empty `from`) +
+  // `hasAttachments`. Graph omits `from` on some message classes (drafts,
+  // certain delegated/shared-mailbox sends); `sender` is the verified
+  // submitting account and recovers the address in those cases.
+  const fields = "id,subject,from,sender,receivedDateTime,categories,hasAttachments";
   const res = await graphFetch(
     `/users/${enc(mailbox)}/messages/${enc(messageId)}?$select=${fields}`,
   );
@@ -188,16 +193,24 @@ export async function getMessageMeta(
   }
   const data = (await res.json()) as {
     subject?: string;
-    from?: { emailAddress: { address: string; name?: string } };
+    from?: { emailAddress: { address?: string; name?: string } };
+    sender?: { emailAddress: { address?: string; name?: string } };
     receivedDateTime?: string;
     categories?: string[];
+    hasAttachments?: boolean;
   };
+  // Prefer `from`; fall back to `sender` when `from` is empty/absent.
+  const fromAddr = data.from?.emailAddress?.address ?? "";
+  const senderAddr = data.sender?.emailAddress?.address ?? "";
+  const fromName = data.from?.emailAddress?.name ?? "";
+  const senderName = data.sender?.emailAddress?.name ?? "";
   return {
     subject: data.subject ?? "",
-    from: data.from?.emailAddress.address ?? "",
-    fromName: data.from?.emailAddress.name ?? "",
+    from: fromAddr || senderAddr,
+    fromName: fromName || senderName,
     receivedAt: data.receivedDateTime ?? "",
     categories: data.categories ?? [],
+    hasAttachments: data.hasAttachments ?? false,
   };
 }
 
@@ -223,6 +236,15 @@ export interface FetchedMessageBody {
   bodyHtml: string;
   /** Graph's reported contentType for body. */
   bodyType: "text" | "html";
+  /**
+   * Phase 114-03 (D-14): sender address with `from`→`sender` fallback.
+   * Empty string only when Graph omits both `from` and `sender`.
+   */
+  from: string;
+  /** Display name paired with `from` (sender-name fallback). */
+  fromName: string;
+  /** Phase 114-03 (D-14): Graph `hasAttachments` — attachment presence signal. */
+  hasAttachments: boolean;
   /** Verbatim Graph message envelope JSON. Recovery path for retro-extraction (D-02). */
   rawJson: Record<string, unknown>;
 }
@@ -243,8 +265,11 @@ export async function fetchMessageBody(
   mailbox: string,
   messageId: string,
 ): Promise<FetchedMessageBody> {
+  // Phase 114-03 (D-14): add `sender` (fallback for empty `from`) +
+  // `hasAttachments` so a single Graph call surfaces a robust sender + the
+  // attachment-presence signal alongside the body.
   const fields =
-    "body,uniqueBody,internetMessageId,conversationId,from,toRecipients,ccRecipients";
+    "body,uniqueBody,internetMessageId,conversationId,from,sender,hasAttachments,toRecipients,ccRecipients";
   const res = await graphFetch(
     `/users/${enc(mailbox)}/messages/${enc(messageId)}?$select=${fields}`,
   );
@@ -254,6 +279,9 @@ export async function fetchMessageBody(
   const data = (await res.json()) as {
     body?: { contentType?: "text" | "html"; content?: string };
     uniqueBody?: { contentType?: "text" | "html"; content?: string };
+    from?: { emailAddress: { address?: string; name?: string } };
+    sender?: { emailAddress: { address?: string; name?: string } };
+    hasAttachments?: boolean;
     [k: string]: unknown;
   };
 
@@ -273,11 +301,20 @@ export async function fetchMessageBody(
     : "";
   const bodyHtml = bodyType === "html" ? bodyContent : "";
 
+  // Phase 114-03 (D-14): prefer `from`, fall back to `sender`.
+  const fromAddr = data.from?.emailAddress?.address ?? "";
+  const senderAddr = data.sender?.emailAddress?.address ?? "";
+  const fromName = data.from?.emailAddress?.name ?? "";
+  const senderName = data.sender?.emailAddress?.name ?? "";
+
   return {
     bodyText,
     bodyUniqueText,
     bodyHtml,
     bodyType,
+    from: fromAddr || senderAddr,
+    fromName: fromName || senderName,
+    hasAttachments: data.hasAttachments ?? false,
     rawJson: data as Record<string, unknown>,
   };
 }
@@ -348,6 +385,74 @@ export async function fetchConversationMessages(
     });
   }
   return priors;
+}
+
+/**
+ * Phase 116-02 (Task 1): attachment metadata + raw-bytes Graph helpers.
+ *
+ * Both route through the single `graphFetch` credential boundary (connection
+ * 56014785) + its built-in 504/socket retry — NEVER a second Graph client.
+ *
+ * `listAttachments` pulls metadata ONLY (`$select`, no `contentBytes`); the
+ * worker (Plan 04) decides which attachments to download. `@odata.type` lets
+ * the caller type-guard fileAttachment vs reference/itemAttachment (Pitfall 5
+ * / A4) — non-fileAttachment kinds carry no bytes and become `unsupported`.
+ */
+const attachmentMetaSchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  contentType: z.string().optional(),
+  size: z.number().optional(),
+  isInline: z.boolean().optional(),
+  "@odata.type": z.string().optional(),
+});
+
+export type OutlookAttachmentMeta = z.infer<typeof attachmentMetaSchema>;
+
+const listAttachmentsSchema = z.object({
+  value: z.array(attachmentMetaSchema),
+});
+
+/**
+ * List attachment metadata for a message. Metadata only — does NOT request
+ * `contentBytes` (the worker downloads raw bytes on demand via
+ * `downloadAttachmentValue`). Validates the Graph payload with zod at the
+ * function boundary before returning (V5 input validation).
+ */
+export async function listAttachments(
+  mailbox: string,
+  messageId: string,
+): Promise<OutlookAttachmentMeta[]> {
+  // `@odata.type` requested so the caller can type-guard fileAttachment vs
+  // reference/itemAttachment (Pitfall 5 / A4). Never request contentBytes here.
+  const fields = "id,name,contentType,size,isInline,@odata.type";
+  const res = await graphFetch(
+    `/users/${enc(mailbox)}/messages/${enc(messageId)}/attachments?$select=${fields}`,
+  );
+  if (!res.ok) {
+    throw new Error(`listAttachments ${res.status}: ${await res.text()}`);
+  }
+  const data = listAttachmentsSchema.parse(await res.json());
+  return data.value;
+}
+
+/**
+ * Download the raw bytes of a single attachment via Graph `/$value`. Returns
+ * an ArrayBuffer. Use `/$value` for raw bytes consistently (Pitfall 5 — do
+ * not mix with base64 `contentBytes`).
+ */
+export async function downloadAttachmentValue(
+  mailbox: string,
+  messageId: string,
+  attachmentId: string,
+): Promise<ArrayBuffer> {
+  const res = await graphFetch(
+    `/users/${enc(mailbox)}/messages/${enc(messageId)}/attachments/${enc(attachmentId)}/$value`,
+  );
+  if (!res.ok) {
+    throw new Error(`downloadAttachmentValue ${res.status}: ${await res.text()}`);
+  }
+  return res.arrayBuffer();
 }
 
 function stripHtml(html: string): string {

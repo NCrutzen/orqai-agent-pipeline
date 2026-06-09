@@ -6,6 +6,7 @@
 
 export const SWARM_INTENTS_BY_SWARM = {
   "debtor-email": ["address_change", "contract_inquiry", "copy_document_request", "credit_request", "general_inquiry", "invoice_copy_request", "other", "payment_dispute", "peppol_request"],
+  "sales-email": ["billing_dispute", "complaint", "contract", "documentation_request", "order_status", "other", "portal_access", "product_question", "purchase_order", "quote_acceptance", "quote_rejection", "quote_request", "service_request"],
   "support-tickets": ["clarification-needed", "clickup-escalate", "duplicate", "info-answer", "vendor-draft"],
 } as const;
 

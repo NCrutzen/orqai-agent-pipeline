@@ -40,14 +40,14 @@ Requirements for V9.0. Each maps to a roadmap phase (110+).
 
 ### Stage 2 — Resolver Reuse (cross-track dependency: v8.2 RESL-01/02/03)
 
-- [ ] **STAGE2-01**: Sales-email Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config (`stage2_entity_resolver` + `resolution_config`, the RESL-03 dynamic-dispatch seam) — **zero Engine code changes** (the cross-swarm generality proof). Sequenced to land as the v8.2 seam lands; interleaves with, does not block, the rest of V9.0.
-- [ ] **STAGE2-02**: The debtor-only self-auth resolution tier degrades to a no-op for sales (designed acceptance test); customer-less prospects fall through to Stage 3 without blocking.
+- [x] **STAGE2-01**: Sales-email Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config (`stage2_entity_resolver` + `resolution_config`, the RESL-03 dynamic-dispatch seam) — **zero Engine code changes** (the cross-swarm generality proof). Sequenced to land as the v8.2 seam lands; interleaves with, does not block, the rest of V9.0.
+- [x] **STAGE2-02**: The debtor-only self-auth resolution tier degrades to a no-op for sales (designed acceptance test); customer-less prospects fall through to Stage 3 without blocking.
 
 ### Stage 3 — Sales Intent Agent (greenfield)
 
-- [ ] **STAGE3-01**: A sales-specific Stage 3 intent agent (new Orq `sales-intent-agent`, registered in `orq_agents`) is built; `swarm_intents` rows seeded; `swarms.stage3_coordinator_agent_key` set. Dispatch runs through the existing registry-driven Stage 3 dispatcher — no code edits to the shared dispatcher.
-- [ ] **STAGE3-02**: Sales intent vocabulary is seeded from the 827-email live corpus + the Phase 86 open-set discovery surface (emerges from data + operator promotion, never hand-curated by Claude or engineer — honors the locked 2026-05-19 principle).
-- [ ] **STAGE3-03**: After the Stage 1 flip, every sales email leaving Stage 1 reaches a Stage 3 verdict; intents with no Stage 4 handler land in the Kanban human-lane (Phase 76) with a clear reason — zero silent dead-letters.
+- [x] **STAGE3-01**: A sales-specific Stage 3 intent agent (new Orq `sales-intent-agent`, registered in `orq_agents`) is built; `swarm_intents` rows seeded; `swarms.stage3_coordinator_agent_key` set. Dispatch runs through the existing registry-driven Stage 3 dispatcher — no code edits to the shared dispatcher.
+- [x] **STAGE3-02**: Sales intent vocabulary is seeded from the 827-email live corpus + the Phase 86 open-set discovery surface (emerges from data + operator promotion, never hand-curated by Claude or engineer — honors the locked 2026-05-19 principle).
+- [x] **STAGE3-03**: After the Stage 1 flip, every sales email leaving Stage 1 reaches a Stage 3 verdict; intents with no Stage 4 handler land in the Kanban human-lane (Phase 76) with a clear reason — zero silent dead-letters.
 
 ### SugarCRM Decommission (dead code only — live path already off Sugar)
 
@@ -56,6 +56,17 @@ Requirements for V9.0. Each maps to a roadmap phase (110+).
 ### Cutover Verification (lightweight)
 
 - [ ] **VERIFY-01**: The live Zapier trigger for sales is confirmed Outlook-based (not a residual SugarCRM poll), ingest health (~33/day) is monitored for `verkoop@smeba.nl` in the pipeline-health monitor, and any stuck/legacy `source='sugarcrm'` rows are dispositioned.
+
+### Attachment Ingest — uniform cross-swarm data source (Phase 116, added 2026-06-04)
+
+Defined at Phase 116 planning from the 4 roadmap success criteria + CONTEXT.md decisions (D-01..D-13). Folds in todo `2026-06-04-sales-ingest-attachments-gap.md`.
+
+- [x] **ATTACH-05**: A generic, swarm-agnostic `email_pipeline.email_attachments` table (metadata + extraction status + extracted text + storage key) + a private Supabase Storage bucket + RLS (service_role FOR ALL, authenticated FOR SELECT, no anon) + two registry switches on `public.swarms.attachment_config` (`capture`, `extract`) with global caps — sales=both-on, debtor=capture-only (D-13). Migration + codegen-drift-free, mirroring the Phase 114 D-12 generic `resolution_audit` precedent.
+- [x] **ATTACH-01** (SC-1): Ingest writes attachment metadata for new mail in every onboarded swarm via one shared swarm-agnostic helper, gated by the registry `capture` switch — no per-swarm branch. Debtor capture works purely via the registry row (D-13). Metadata only at ingest (D-05).
+- [x] **ATTACH-02** (SC-2): Content extraction (PDF text-layer via `unpdf`, Orq.ai Router vision fallback for scans/images) is a registry-keyed funnel step between the Stage 1 verdict and the Stage 2 request (D-01/D-02) — zero swarm-specific branches in shared workers (SWARM-02 holds); fail-soft per attachment (D-03); extract switch OFF passes through unchanged.
+- [x] **ATTACH-03** (SC-3): Stage 2 consumes attachment-derived identifiers as an additional adapter-side body-source (concatenated into `body_text`, never a new engine field) with the no-engine-diff guard still green (STAGE2-01 holds).
+- [x] **ATTACH-06**: Bulk Review detail pane shows per-attachment metadata + extraction status in the rebuilt stage-keyed shell, following the bulk-review-flow-ux design contract (D-08). No preview/download UI.
+- [x] **ATTACH-04** (SC-4): Backfill over the existing corpus via Graph `source_id` message-ids — metadata for ALL mails (closing the `has_attachments=false` blind spot), content extraction for the Stage-1-survivor slice only (D-12); fail-loud hard cap, batched, idempotent, `source_gone` fail-soft. Executed or explicitly deferred-with-rationale.
 
 ## v2 / Deferred Requirements
 
@@ -95,18 +106,27 @@ Which phases cover which requirements. Populated by the roadmapper.
 | STAGE1-02 | Phase 111 | Pending |
 | CLEANUP-01 | Phase 112 | Pending |
 | CLEANUP-02 | Phase 112 | Pending |
-| STAGE3-01 | Phase 113 | Pending |
-| STAGE3-02 | Phase 113 | Pending |
-| STAGE3-03 | Phase 113 | Pending |
-| STAGE2-01 | Phase 114 | Pending |
-| STAGE2-02 | Phase 114 | Pending |
+| STAGE3-01 | Phase 113 | Complete |
+| STAGE3-02 | Phase 113 | Complete |
+| STAGE3-03 | Phase 113 | Complete |
+| STAGE2-01 | Phase 114 | Complete |
+| STAGE2-02 | Phase 114 | Complete |
 | SUGAR-01 | Phase 115 | Pending |
+| ATTACH-05 | Phase 116 | Complete |
+| ATTACH-01 | Phase 116 | Complete |
+| ATTACH-02 | Phase 116 | Complete |
+| ATTACH-03 | Phase 116 | Complete |
+| ATTACH-06 | Phase 116 | Complete |
+| ATTACH-04 | Phase 116 | Complete |
 
 **Coverage:**
-- v1 requirements: 14 total
-- Mapped to phases: 14 (Phases 110–115)
+
+- v1 requirements: 14 total (V9.0 sales pipeline)
+- Phase 116 attachment requirements: 6 (ATTACH-01..06), added 2026-06-04
+- Mapped to phases: 20 (Phases 110–116)
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-02 — V9.0 Sales-Email (Outlook), scoped against verified production state.*
 *Last updated: 2026-06-02 — traceability populated by roadmapper (14/14 mapped to Phases 110–115).*
+*Updated: 2026-06-04 — Phase 116 added ATTACH-01..06 (attachment ingest); 20/20 mapped to Phases 110–116.*

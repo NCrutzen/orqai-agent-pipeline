@@ -333,6 +333,21 @@ export interface BulkReviewOverrideCapture {
   axis_3_event_ids: string[]; // pipeline_events.id list, oldest-first
 }
 
+// Phase 116-05 (D-08). Per-attachment metadata + extraction status surfaced in
+// the Stage 2 Read column of the detail pane (attachments sit alongside "Email
+// body · identifiers highlighted" per per-stage-content.md). Structural mirror
+// of _shell/components/attachment-list.tsx `AttachmentRow` — RE-DECLARED here,
+// not imported, per the bulk-review out-of-band guard (bulk-review must not
+// import from the UI _shell/ tree; both shapes must stay identical). Metadata +
+// status ONLY — no document bytes, no download URL (T-116-17 / D-08 scope).
+export interface BulkReviewAttachment {
+  attachment_id: string;
+  filename: string | null;
+  content_type: string | null;
+  size_bytes: number | null;
+  extraction_status: string;
+}
+
 export interface BulkReviewRow {
   // Stable join key — Bulk Review ↔ Kanban use the SAME id (P1-D-05).
   email_label_id: string;
@@ -346,6 +361,14 @@ export interface BulkReviewRow {
   stage_3p5: BulkReviewStage3p5Slot | null; // null when dispatcher did not fire
   stage_4: BulkReviewStage4Slot | null; // null when no handler ran
   overrides: BulkReviewOverrideCapture;
+  // Phase 116-05 (D-08). Stage-2-relevant attachment metadata loaded by the row
+  // hydrator from email_pipeline.email_attachments keyed on the anchor email id.
+  // The hydrator ALWAYS projects an array (empty when the email has no
+  // attachments OR the swarm has not enabled capture). Optional (`?`) only so
+  // the many pre-existing BulkReviewRow fixtures that predate this slot stay
+  // assignable without churn; consumers treat absent === [] (`row.attachments ??
+  // []`). Debtor rows are [] until debtor extract is enabled (swarm-agnostic).
+  attachments?: BulkReviewAttachment[];
 }
 
 // Discriminated-union for the write-helper (Plan 02). Lifted here so

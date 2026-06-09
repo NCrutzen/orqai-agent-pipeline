@@ -1,0 +1,123 @@
+{
+  "generated_at": "2026-06-04T15:02:07.551Z",
+  "mailbox": "verkoop@smeba.nl",
+  "direction": "inbound",
+  "note": "Plan 04 reads `kinds` (sorted highest-frequency first) as the data-driven input to resolution_config.precedence. PITFALL 4: any sender_match-dependent resolution rate uses rows_with_sender_email as the denominator; null-sender rows are excluded input, not NXT-misses.",
+  "denominators": {
+    "total_inbound_rows": 1282,
+    "rows_with_sender_email": 928,
+    "excluded_null_sender_rows": 354,
+    "null_sender_pct_of_total": 27.6
+  },
+  "sender_composition": {
+    "external_business": 621,
+    "freemail": 26,
+    "own_tenant_forwards": 281,
+    "external_business_pct_of_with_sender": 66.9,
+    "freemail_pct_of_with_sender": 2.8,
+    "own_tenant_pct_of_with_sender": 30.3
+  },
+  "attachments": {
+    "rows_with_attachments": 0,
+    "pct_of_total": 0,
+    "note": "has_attachments was never captured before Phase 114-03 (false on all rows). Expect 0 until the ingest fix backfills / new mail arrives."
+  },
+  "kinds": [
+    {
+      "key": "postcode_site",
+      "description": "NL postcode → NXT Site (installation address) → account (D-05, CTO-confirmed)",
+      "status": "confirmed",
+      "sender_dependent": false,
+      "pattern": "\\b[1-9][0-9]{3}\\s?[A-Za-z]{2}\\b",
+      "pattern_flags": "",
+      "count": 706,
+      "pct_of_total": 55.1,
+      "count_with_sender": 706,
+      "pct_of_with_sender": 76.1
+    },
+    {
+      "key": "offertenummer_sb",
+      "description": "Offertenummer SB-format (Offerte SB014967) → quote → account",
+      "status": "confirmed",
+      "sender_dependent": false,
+      "pattern": "\\bSB\\d{5,6}\\b",
+      "pattern_flags": "i",
+      "count": 284,
+      "pct_of_total": 22.2,
+      "count_with_sender": 284,
+      "pct_of_with_sender": 30.6
+    },
+    {
+      "key": "case_ref",
+      "description": "Case reference ([CASE:752400]) — thread-routing token, corroborating signal",
+      "status": "candidate",
+      "sender_dependent": false,
+      "pattern": "CASE:\\s?\\d{4,7}",
+      "pattern_flags": "i",
+      "count": 227,
+      "pct_of_total": 17.7,
+      "count_with_sender": 227,
+      "pct_of_with_sender": 24.5
+    },
+    {
+      "key": "factuurnummer",
+      "description": "NXT invoice number (17|25|30|32|33 + 6 digits) → paying customer (reuses debtor layer 3)",
+      "status": "confirmed",
+      "sender_dependent": false,
+      "pattern": "\\b(?:17|25|30|32|33)\\d{6}\\b",
+      "pattern_flags": "",
+      "count": 84,
+      "pct_of_total": 6.6,
+      "count_with_sender": 84,
+      "pct_of_with_sender": 9.1
+    },
+    {
+      "key": "ordernummer",
+      "description": "Generic order number (ordernummer 12345 / order: 67890) → order → account",
+      "status": "candidate",
+      "sender_dependent": false,
+      "pattern": "order[a-z]*\\s*[:#]?\\s*\\d{4,8}",
+      "pattern_flags": "i",
+      "count": 58,
+      "pct_of_total": 4.5,
+      "count_with_sender": 58,
+      "pct_of_with_sender": 6.3
+    },
+    {
+      "key": "offertenummer_smeq",
+      "description": "Quote SMEQ/SMEB-format (Smeq 97891 / SMEQ98082) → quote → account",
+      "status": "confirmed",
+      "sender_dependent": false,
+      "pattern": "\\bSME[QB]\\s?\\d{4,6}\\b",
+      "pattern_flags": "i",
+      "count": 46,
+      "pct_of_total": 3.6,
+      "count_with_sender": 46,
+      "pct_of_with_sender": 5
+    },
+    {
+      "key": "werkordernummer",
+      "description": "Werkorder/order ref (werkorder 1634448) → order → account",
+      "status": "confirmed",
+      "sender_dependent": false,
+      "pattern": "werkorder\\s*\\d{5,8}",
+      "pattern_flags": "i",
+      "count": 40,
+      "pct_of_total": 3.1,
+      "count_with_sender": 40,
+      "pct_of_with_sender": 4.3
+    },
+    {
+      "key": "klant_debiteurnummer",
+      "description": "Customer/debtor number (klantnummer 1234 / debiteurnummer 56789) → account",
+      "status": "candidate",
+      "sender_dependent": false,
+      "pattern": "(?:klant|debiteur)[a-z]*\\s*[:#]?\\s*\\d{3,8}",
+      "pattern_flags": "i",
+      "count": 7,
+      "pct_of_total": 0.5,
+      "count_with_sender": 7,
+      "pct_of_with_sender": 0.8
+    }
+  ]
+}

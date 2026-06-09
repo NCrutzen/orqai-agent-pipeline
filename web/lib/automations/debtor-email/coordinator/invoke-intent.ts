@@ -1,3 +1,4 @@
+import type { ZodTypeAny } from "zod";
 import {
   // Phase 65 D-12 — v2 ranked-intent schema. v1 import retained for the
   // Plan 65-05 backfill regression comparator; Phase 66 deletes v1.
@@ -12,7 +13,12 @@ import {
 } from "./types";
 
 const ORQ_ENDPOINT = "https://api.orq.ai/v2/agents";
-const AGENT_KEY = "debtor-intent-agent";
+// Phase 113 Plan 02 (Q1 seam) — the agent key is no longer a module-level
+// constant baked into the URL. It is a per-call value defaulting to the debtor
+// agent, so existing debtor callers (passing no options) get the IDENTICAL URL
+// — byte-neutral. The shared coordinator overrides it with the per-swarm key
+// read from swarms.stage3_coordinator_agent_key.
+const DEFAULT_AGENT_KEY = "debtor-intent-agent";
 const TIMEOUT_MS = 45_000;
 
 export type InvokeIntentInput = {
@@ -42,6 +48,22 @@ export type InvokeIntentOptions = {
    * per-invocation model override plumbing rather than a prompt variable.
    */
   modelOverride?: string;
+  /**
+   * Phase 113 Plan 02 (Q1 seam) — per-call Orq agent key. Defaults to
+   * `debtor-intent-agent`. The shared coordinator passes the per-swarm key it
+   * reads from `swarms.stage3_coordinator_agent_key`, so a third swarm dispatches
+   * through THIS same function with zero new code path. Omitting it preserves
+   * the debtor URL byte-for-byte.
+   */
+  agent_key?: string;
+  /**
+   * Phase 113 Plan 02 (Q1 seam) — per-call output Zod gate. Defaults to the
+   * debtor V2/V3 discriminated gate (sniffs intent_version). The shared
+   * coordinator supplies the per-swarm schema from INTENT_SCHEMA_BY_SWARM so the
+   * sales output validates against salesIntentOutputSchema. Omitting it preserves
+   * the debtor validation byte-for-byte.
+   */
+  schema?: ZodTypeAny;
 };
 
 /**
@@ -58,6 +80,11 @@ export type InvokeIntentUsage = {
 
 export type InvokeIntentResult = {
   // Phase 85 D-07 — discriminated union; narrow via `output.intent_version`.
+  // Phase 113 Plan 02: when a per-swarm `schema` is supplied via options, the
+  // validated output is that schema's type (e.g. SalesIntentOutput). The shared
+  // coordinator casts the value to the swarm's known shape after the call —
+  // every Stage 3 schema carries `ranked`, so the persist/hoist path is
+  // swarm-agnostic. The default debtor path is unchanged (V2|V3 union).
   output: IntentAgentOutputV2 | IntentAgentOutputV3;
   raw: string;
   usage?: InvokeIntentUsage;
@@ -157,7 +184,12 @@ export async function invokeIntentAgent(
     configuration: { blocking: true, variables },
   };
 
-  const res = await fetch(`${ORQ_ENDPOINT}/${AGENT_KEY}/responses`, {
+  // Phase 113 Plan 02 (Q1 seam) — per-call agent key, defaulting to the debtor
+  // agent. Default path produces the IDENTICAL URL as the pre-parameterization
+  // module constant — debtor byte-neutral.
+  const agentKey = options.agent_key ?? DEFAULT_AGENT_KEY;
+
+  const res = await fetch(`${ORQ_ENDPOINT}/${agentKey}/responses`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -207,16 +239,23 @@ export async function invokeIntentAgent(
     throw e;
   }
 
+  // Phase 113 Plan 02 (Q1 seam) — per-call output gate. When `options.schema`
+  // is supplied (the shared coordinator passes the per-swarm schema from
+  // INTENT_SCHEMA_BY_SWARM), validate against it directly. When omitted (every
+  // existing debtor caller) fall back to the debtor V2/V3 discriminated gate
+  // below — byte-identical to the pre-parameterization behaviour.
+  //
   // Phase 85 (D-07) — tolerant Zod gate. Sniff intent_version BEFORE
   // safeParse so the error message points at the schema for the version the
   // agent actually returned. Single discriminator site — downstream consumers
   // narrow via `if (output.intent_version === INTENT_VERSION_V3)`.
   // V1 outputs still fail this gate (no matching literal in either branch).
   const version = (parsed as { intent_version?: unknown })?.intent_version;
-  const schema =
+  const debtorDefaultSchema =
     version === INTENT_VERSION_V3
       ? intentAgentOutputSchemaV3
       : intentAgentOutputSchemaV2;
+  const schema = options.schema ?? debtorDefaultSchema;
   const validated = schema.safeParse(parsed);
   if (!validated.success) {
     const e = new Error(
@@ -240,7 +279,16 @@ export async function invokeIntentAgent(
         }
       : undefined;
 
-  return { output: validated.data, raw, usage };
+  // Phase 113 Plan 02: `validated.data` is the per-call schema's inferred type
+  // (the debtor V2/V3 union by default, or the supplied per-swarm schema's
+  // output). Cast to the declared union on the result; the shared coordinator
+  // re-casts to the swarm's known shape. Every Stage 3 schema carries `ranked`,
+  // so the downstream persist/hoist path stays swarm-agnostic.
+  return {
+    output: validated.data as IntentAgentOutputV2 | IntentAgentOutputV3,
+    raw,
+    usage,
+  };
 }
 
 // Silence unused-import lint for the retained v1 schema (kept for Plan 65-05).

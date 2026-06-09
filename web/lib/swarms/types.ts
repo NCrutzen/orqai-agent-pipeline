@@ -78,6 +78,41 @@ export interface SwarmRow {
   dry_run_config?:
     | import("../pipeline-gating/dry-run-gate").DryRunConfig
     | null;
+  // Phase 114 (RESL-03) — per-swarm Stage 2 resolution config (free-form jsonb,
+  // NO codegen). Source of truth: public.swarms.resolution_config. Read by the
+  // Stage 2 worker: when present (+ stage2_entity_resolver set), the worker
+  // dispatches via loadStage2Resolver and writes the generic
+  // email_pipeline.resolution_audit table. When null (legacy debtor row), the
+  // worker keeps its resolveDebtor + debtor.email_labels path (behaviour-neutral).
+  // Optional in TS so pre-Phase-114 fixtures and rows pulled before the seed
+  // remain assignable. Typed loosely (the canonical shape lives in
+  // web/lib/agentic-pipeline/resolve/config.ts as ResolutionConfig).
+  resolution_config?: Record<string, unknown> | null;
+  // Phase 116 (D-04) — per-swarm attachment ingest/extraction switches + caps.
+  // Source of truth: public.swarms.attachment_config (jsonb NOT NULL DEFAULT
+  // '{}'). Flag polarity: TRUE = ON. `capture` gates the ingest-time metadata
+  // write (Plan 03); `extract` gates the post-Stage-1 content extraction (Plan
+  // 04); `caps` carries global byte/page/char limits; `stage2_dispatch_event`
+  // is the registry-derived Stage 2 trigger emitted after extraction. Read via
+  // a swarm-agnostic switch (NO === 'sales'/'debtor' — SWARM-02). Optional in
+  // TS so pre-Phase-116 fixtures and rows pulled before the ALTER remain
+  // assignable; a missing/empty object reads as capture-off + extract-off.
+  attachment_config?: AttachmentConfig | null;
+}
+
+// Phase 116 (D-04) — shape of public.swarms.attachment_config jsonb. All
+// fields optional: a missing key reads as OFF / absent. `caps` keys are global
+// guardrails (Plan 01 seed); free-form so adding a cap needs no codegen.
+export interface AttachmentConfig {
+  capture?: boolean;
+  extract?: boolean;
+  stage2_dispatch_event?: string;
+  caps?: {
+    max_size_bytes?: number;
+    max_attachments_per_mail?: number;
+    max_vision_pages?: number;
+    max_extracted_chars?: number;
+  };
 }
 
 // Phase 68 — one row in public.swarm_intents. Composite PK (swarm_type, intent_key).

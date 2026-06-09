@@ -33,6 +33,8 @@ import { classifierPromotionCron } from "@/lib/inngest/functions/classifier-prom
 import { classifierScreenWorker } from "@/lib/inngest/functions/classifier-screen-worker";
 import { classifierVerdictWorker } from "@/lib/inngest/functions/classifier-verdict-worker";
 import { stage2CustomerResolver } from "@/lib/inngest/functions/stage-2-customer-resolver";
+import { stage1_5AttachmentExtractor } from "@/lib/inngest/functions/stage-1_5-attachment-extractor";
+import { attachmentsBackfill } from "@/lib/inngest/functions/attachments-backfill";
 import { classifierInvoiceCopyHandler } from "@/lib/inngest/functions/classifier-invoice-copy-handler";
 import { stage0SafetyWorker } from "@/lib/inngest/functions/stage-0-safety-worker";
 import { stage0Backfill } from "@/lib/inngest/functions/stage-0-backfill";
@@ -51,6 +53,7 @@ import { debtorEmailOverrideHandler } from "@/lib/inngest/functions/debtor-email
 import { patternsRecommenderCron } from "@/lib/inngest/functions/promotion-recommender-cron";
 import { debtorEmailStage3RetroClassify } from "@/lib/inngest/functions/debtor-email-stage-3-retro-classify";
 import { salesEmailStage1RetroClassify } from "@/lib/inngest/functions/sales-email-stage-1-retro-classify";
+import { salesEmailStage3RetroClassify } from "@/lib/inngest/functions/sales-email-stage-3-retro-classify";
 import { salesEmailStage1Backfill } from "@/lib/inngest/functions/sales-email-stage-1-backfill";
 import { salesEmailFolderConvention } from "@/lib/inngest/functions/sales-email-folder-convention";
 import { swarmBehaviorSync } from "@/lib/inngest/functions/swarm-behavior-sync";
@@ -94,6 +97,8 @@ export const { GET, POST, PUT } = serve({
     classifierPromotionCron,
     classifierScreenWorker,
     classifierVerdictWorker,
+    stage1_5AttachmentExtractor,
+    attachmentsBackfill,
     stage2CustomerResolver,
     classifierInvoiceCopyHandler,
     stage0SafetyWorker,
@@ -111,6 +116,7 @@ export const { GET, POST, PUT } = serve({
     patternsRecommenderCron,
     debtorEmailStage3RetroClassify,
     salesEmailStage1RetroClassify,
+    salesEmailStage3RetroClassify,
     salesEmailStage1Backfill,
     salesEmailFolderConvention,
     swarmBehaviorSync,

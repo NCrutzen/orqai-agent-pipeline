@@ -269,6 +269,57 @@ export type Events = {
     };
   };
 
+  // Sales email swarm — Stage 2 customer-resolver (Phase 114-04, Pitfall 6).
+  // Same payload as the debtor event; emitted by classifier-verdict-worker for
+  // the sales 'unknown' bucket (swarm_dispatch seeded in migration 20260604b).
+  // The stage-2-customer-resolver worker listens on BOTH this and the debtor
+  // event (trigger array) and routes by registry data (resolution_config).
+  "sales-email/stage-2.customer-resolve.requested": {
+    data: {
+      automation_run_id: string;
+      swarm_type: string;
+      category_key: string;
+      message_id: string;
+      source_mailbox: string;
+    };
+  };
+
+  // Sales email swarm — Phase 116-04 attachment-extraction funnel step (D-01/D-02).
+  // The sales 'unknown' swarm_dispatch was rewired (migration 20260605c) from the
+  // Stage 2 event above to THIS event, so classifier-verdict-worker fires the
+  // stage-1_5-attachment-extractor instead of Stage 2 directly. The extractor
+  // runs registry-gated extraction over the captured 'pending' attachments, then
+  // re-emits the registry stage2_dispatch_event (the Stage 2 event above) — a
+  // transparent interposition. Same payload as the Stage 2 event it precedes.
+  "sales-email/attachments.extract.requested": {
+    data: {
+      automation_run_id: string;
+      swarm_type: string;
+      category_key: string;
+      message_id: string;
+      source_mailbox: string;
+    };
+  };
+
+  // Sales email swarm — Phase 116-06 attachment-metadata BACKFILL (SC-4 /
+  // ATTACH-04). Manual trigger only (CLAUDE.md cron-disable pattern). Iterates
+  // the already-ingested corpus by source_id, writes attachment metadata rows
+  // for ALL mails (closes the has_attachments=false blind spot), and runs
+  // content extraction ONLY for the Stage-1-survivor slice (D-12) via the shared
+  // Plan 04 extractEmailAttachments helper. dry_run=true → counts only, writes
+  // nothing. Fail-loud hard cap + bounded batches + 404→source_gone fail-soft.
+  "sales-email/attachments.backfill.run": {
+    data: {
+      dry_run?: boolean;
+      limit?: number;
+      batch_size?: number;
+      cap?: number;
+      since?: string;
+      until?: string;
+      mailbox?: string;
+    };
+  };
+
   // Debtor email swarm — invoice-copy handler (Phase 56-02 wave 3, swarm_dispatch
   // target for category_key='invoice_copy_request'). Resolves customer + fetches
   // PDF + creates iController draft via the Orq.ai copy-document body agent.
@@ -827,6 +878,30 @@ export type Events = {
       // the harness falls back to the LIVE action map and stamps that choice
       // in the run output so the evidence is still interpretable.
       archive_reference_keys?: string[];
+    };
+  };
+  // Phase 113 Plan 03 (D-01, STAGE3-02) — one-shot Stage-3 intent retro-
+  // classification trigger for the sales-email swarm. Re-runs the sales intent
+  // agent over the post-Stage-1 corpus into stage_3_retro_runs (the discovery
+  // surface the operator promotes a data-driven vocabulary from). Side-Channel
+  // Isolation: handler writes ONLY to stage_3_retro_runs; never to
+  // automation_runs / agent_runs / pipeline_events / coordinator_runs; emits no
+  // downstream events. The `bootstrap` flag bypasses the R-04 cluster
+  // precondition gate ONLY when sales swarm_intents is empty (the legitimate
+  // empty-vocabulary first pass); a bootstrap call after seeding THROWS.
+  "sales-email/retro-classify.requested": {
+    data: {
+      swarm_type: "sales-email";
+      since: string;
+      until: string;
+      sample_limit?: number;
+      run_id?: string;
+      // Phase 113 — bounded bootstrap bypass of the cluster precondition gate.
+      // Honored ONLY when sales swarm_intents count === 0 (the empty-cluster
+      // chicken-and-egg first discovery pass). bootstrap=true after the
+      // vocabulary is seeded REFUSES (throws). Rows written under a bootstrap
+      // run are tagged run_type='bootstrap' in the ranked_intents JSONB.
+      bootstrap?: boolean;
     };
   };
   // Phase 112 Plan 01 (CLEANUP-02) — one-shot Stage-1 noise BACKFILL sweeper

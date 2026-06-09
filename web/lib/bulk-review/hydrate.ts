@@ -284,6 +284,44 @@ export async function hydrateBulkReviewRow(
     ? (runsRes.data as AgentRunRow[])
     : [];
 
+  // (3b) Phase 116-05 (D-08) — per-email attachment metadata, keyed on the same
+  //      anchor email_id. Read via the authenticated FOR SELECT policy (Plan
+  //      01). Metadata + extraction status ONLY — no document bytes / no
+  //      download (T-116-17). Swarm-agnostic: a swarm without capture (or a mail
+  //      with no attachments) yields []. A query error is non-fatal (mirrors the
+  //      enrichment-miss handling above) → [] so the row still hydrates.
+  let attachments: BulkReviewRow["attachments"] = [];
+  if (anchorEmailId) {
+    const attachmentsRes = await admin
+      .schema("email_pipeline")
+      .from("email_attachments")
+      .select(
+        "attachment_id, filename, content_type, size_bytes, extraction_status",
+      )
+      .eq("email_id", anchorEmailId);
+    if (attachmentsRes.error) {
+      console.warn(
+        `[hydrate] email_pipeline.email_attachments query failed for id=${anchorEmailId}: ${attachmentsRes.error.message}`,
+      );
+    } else if (Array.isArray(attachmentsRes.data)) {
+      attachments = (
+        attachmentsRes.data as Array<{
+          attachment_id: string;
+          filename: string | null;
+          content_type: string | null;
+          size_bytes: number | null;
+          extraction_status: string | null;
+        }>
+      ).map((a) => ({
+        attachment_id: a.attachment_id,
+        filename: a.filename ?? null,
+        content_type: a.content_type ?? null,
+        size_bytes: a.size_bytes ?? null,
+        extraction_status: a.extraction_status ?? "pending",
+      }));
+    }
+  }
+
   // (4) Registry hydration. 60s TTL inside each loader (D-06) — calling
   //     these inside hydrate is the supported pattern (P1-D-02).
   const [noiseCats, intents, brands] = await Promise.all([
@@ -700,5 +738,7 @@ export async function hydrateBulkReviewRow(
     stage_3p5,
     stage_4,
     overrides,
+    // Phase 116-05 (D-08) — Stage-2 attachment metadata loaded at step (3b).
+    attachments,
   };
 }

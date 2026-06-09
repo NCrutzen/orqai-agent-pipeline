@@ -29,6 +29,20 @@ vi.mock("@/lib/automations/debtor-email/resolve-debtor", () => ({
   resolveDebtor: (...args: unknown[]) => resolveDebtorMock(...args),
 }));
 
+// ---- Phase 114-06 — loadStage2Resolver mock (generic / sales path) --------
+// The generic (sales) Stage 2 path dispatches via loadStage2Resolver(path) and
+// calls module.resolveEntity(args, config). Mocking it lets the test observe
+// the args (CR-01: brand_id must be 'SB', not null) without hitting NXT. The
+// resolveEntity spy is reset per-test; tests push their own implementation.
+const resolveEntityMock = vi.fn();
+const loadStage2ResolverMock = vi.fn(async () => ({
+  resolveEntity: resolveEntityMock,
+}));
+vi.mock("@/lib/swarms/dynamic", () => ({
+  loadStage2Resolver: (...args: unknown[]) =>
+    (loadStage2ResolverMock as unknown as (...a: unknown[]) => unknown)(...args),
+}));
+
 // ---- side-effects registry mock -----------------------------------------
 // Phase 68 swap (SWRM-04): label-resolver routes the icontroller-tag emit
 // through evaluateSideEffects(stage2_match_live). Mirror the production
@@ -91,10 +105,18 @@ const SETTINGS_ROW = {
 function makeAdminMock(overrides?: {
   settings?: typeof SETTINGS_ROW | null;
   insertedLabelId?: string;
+  // Phase 116-05 — attachment rows returned for the email_pipeline
+  // .email_attachments load inside the load-email step.
+  attachmentRows?: Array<{
+    attachment_id: string;
+    extraction_status: string;
+    extracted_text: string | null;
+  }>;
 }) {
   // Per-table builders — only need shapes used by the function.
   const settingsRow = overrides?.settings === undefined ? SETTINGS_ROW : overrides.settings;
   const insertedLabelId = overrides?.insertedLabelId ?? "label-uuid-stub";
+  const attachmentRows = overrides?.attachmentRows ?? [];
 
   // Phase 70 — capture cross-table inserts so dual-write assertions can
   // distinguish email_labels from pipeline_events.
@@ -136,7 +158,10 @@ function makeAdminMock(overrides?: {
       emailsOrFilters.push(filter);
       return b;
     });
-    b.maybeSingle = vi.fn(async () => ({ data: EMAIL_ROW, error: null }));
+    // Return a FRESH copy so the worker's in-place body_text mutation
+    // (Phase 116-05 attachment fold) does not leak into the shared EMAIL_ROW
+    // constant across handler runs.
+    b.maybeSingle = vi.fn(async () => ({ data: { ...EMAIL_ROW }, error: null }));
     return b;
   }
   function labelingSettingsBuilder() {
@@ -157,6 +182,13 @@ function makeAdminMock(overrides?: {
     from: vi.fn((table: string) => {
       if (schemaName === "email_pipeline" && table === "emails") {
         return emailsBuilder();
+      }
+      if (schemaName === "email_pipeline" && table === "email_attachments") {
+        // .select(...).eq("email_id", id) → awaited directly ({ data, error }).
+        const b: Record<string, unknown> = {};
+        b.select = vi.fn(() => b);
+        b.eq = vi.fn(async () => ({ data: attachmentRows, error: null }));
+        return b;
       }
       if (schemaName === "debtor" && table === "labeling_settings") {
         return labelingSettingsBuilder();
@@ -1033,5 +1065,325 @@ describe("Phase 04.1 — steps trace", () => {
     expect((dd.steps as unknown[]).length).toBe(4);
     expect(dd.winner).toBeNull();
     expect(dd.failure_reason).toBe("nxt timeout");
+  });
+});
+
+// Phase 114-06 — gap closure. The generic (sales) Stage 2 path. Proves:
+//   CR-01: a non-null brand_id ('SB', from resolution_config.scope.brand_scope)
+//          reaches resolver.resolveEntity — sender_match + factuur_match become
+//          reachable (they were permanently dead with the always-null debtor
+//          labeling_settings brand_id).
+//   CR-02: entity_brand is normalized to a scalar code for BOTH registry shapes
+//          (string-array ['SB'] and object-array [{code:'SB'}]) on the Stage 2→3
+//          coordinator.requested hand-off — never '[object Object]', never an object.
+describe("sales generic path — gap closure (Phase 114-06)", () => {
+  const SALES_EMAIL_ROW = {
+    id: "sales-email-uuid-1",
+    conversation_id: "sales-conv-1",
+    subject: "Offerte aanvraag",
+    body_text: "Graag een offerte",
+    sender_email: "prospect@bedrijf.nl",
+    mailbox: "verkoop@smeba.nl",
+  };
+
+  // Sales swarm gate carrying the registry data that drives usesGenericPath.
+  // entity_brand shape is parameterized per-test.
+  function makeSalesAdminMock(entityBrand: unknown) {
+    const auditInserts: Array<Record<string, unknown>> = [];
+    const automationRunUpdateEq = vi.fn(async () => ({ data: null, error: null }));
+    const automationRunUpdate = vi.fn(() => ({ eq: automationRunUpdateEq }));
+
+    function emailsBuilder() {
+      const b: Record<string, unknown> = {};
+      b.select = vi.fn(() => b);
+      b.eq = vi.fn(() => b);
+      b.or = vi.fn(() => b);
+      b.maybeSingle = vi.fn(async () => ({ data: SALES_EMAIL_ROW, error: null }));
+      return b;
+    }
+    function labelingSettingsBuilder() {
+      // No labeling_settings row exists for verkoop@smeba.nl — this is the
+      // root cause CR-01 fixes (brand_id was always null on this path).
+      const b: Record<string, unknown> = {};
+      b.select = vi.fn(() => b);
+      b.eq = vi.fn(() => b);
+      b.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
+      return b;
+    }
+    function resolutionAuditBuilder() {
+      return {
+        insert: vi.fn(async (row: Record<string, unknown>) => {
+          auditInserts.push(row);
+          return { error: null };
+        }),
+      };
+    }
+
+    const schemaImpl = (schemaName: string) => ({
+      from: vi.fn((table: string) => {
+        if (schemaName === "email_pipeline" && table === "emails") {
+          return emailsBuilder();
+        }
+        if (schemaName === "email_pipeline" && table === "resolution_audit") {
+          return resolutionAuditBuilder();
+        }
+        if (schemaName === "debtor" && table === "labeling_settings") {
+          return labelingSettingsBuilder();
+        }
+        const b: Record<string, unknown> = {};
+        b.select = vi.fn(() => b);
+        b.eq = vi.fn(() => b);
+        b.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
+        return b;
+      }),
+    });
+
+    function swarmsBuilder() {
+      const b: Record<string, unknown> = {};
+      b.select = vi.fn(() => b);
+      b.eq = vi.fn(() => b);
+      b.maybeSingle = vi.fn(async () => ({
+        data: {
+          swarm_type: "sales-email",
+          enabled: true,
+          stage2_entity_resolver:
+            "@/lib/automations/sales-email/resolve-customer",
+          entity_brand: entityBrand,
+          resolution_config: {
+            version: "2026-06-04.v1",
+            source: { kind: "nxt", resolver_tool_id: "nxt.rest_proxy" },
+            scope: {
+              environment_id: "BX",
+              brand_mode: "tiebreaker",
+              brand_scope: ["SB"],
+            },
+            precedence: ["sender_match", "offerte_match", "factuur_match"],
+          },
+          dry_run_config: {
+            stage_2_resolution: true,
+            stage_3_labeling: true,
+          },
+        },
+        error: null,
+      }));
+      return b;
+    }
+
+    const pipelineEventsInsert = vi.fn(async () => ({ data: null, error: null }));
+    const fromImpl = (table: string) => {
+      if (table === "automation_runs") return { update: automationRunUpdate };
+      if (table === "pipeline_events") return { insert: pipelineEventsInsert };
+      if (table === "swarms") return swarmsBuilder();
+      return { update: vi.fn(() => ({ eq: vi.fn(async () => ({})) })) };
+    };
+
+    return {
+      schema: vi.fn(schemaImpl),
+      from: vi.fn(fromImpl),
+      __captures: { auditInserts },
+    };
+  }
+
+  function buildSalesEvent() {
+    return {
+      id: "evt-sales-test",
+      name: "sales-email/stage-2.customer-resolve.requested",
+      data: {
+        automation_run_id: "sales-ar-1",
+        message_id: "sales-msg-1",
+        source_mailbox: "verkoop@smeba.nl",
+        category_key: "unknown",
+        swarm_type: "sales-email",
+      },
+    };
+  }
+
+  async function loadSalesHandler(entityBrand: unknown) {
+    vi.clearAllMocks();
+    adminMock = makeSalesAdminMock(entityBrand) as unknown as typeof adminMock;
+    resolveDebtorMock.mockReset();
+    resolveEntityMock.mockReset();
+    loadStage2ResolverMock.mockClear();
+    loadStage2ResolverMock.mockResolvedValue({ resolveEntity: resolveEntityMock });
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../stage-2-customer-resolver");
+    return (mod.stage2CustomerResolver as unknown as {
+      handler: (ctx: unknown) => Promise<unknown>;
+    }).handler;
+  }
+
+  const UNRESOLVED_RESULT = {
+    method: "unresolved",
+    customer_account_id: null,
+    customer_name: null,
+    confidence: "none",
+    inputs: { kind: "unresolved", sender_email: null, matched_identifiers: [] },
+  };
+
+  it("Test A (CR-01): non-null brand_id 'SB' from config reaches resolveEntity", async () => {
+    const handler = await loadSalesHandler(["SB"]);
+    resolveEntityMock.mockResolvedValueOnce(UNRESOLVED_RESULT);
+
+    await handler({ event: buildSalesEvent(), step: stepStub });
+
+    expect(resolveEntityMock).toHaveBeenCalledTimes(1);
+    const args = resolveEntityMock.mock.calls[0][0] as { brand_id: unknown };
+    expect(args.brand_id).toBe("SB");
+    expect(args.brand_id).not.toBeNull();
+  });
+
+  it("Test B (CR-02 string shape): entity_brand ['SB'] → coordinator.requested entity_brand === 'SB'", async () => {
+    const handler = await loadSalesHandler(["SB"]);
+    resolveEntityMock.mockResolvedValueOnce(UNRESOLVED_RESULT);
+
+    await handler({ event: buildSalesEvent(), step: stepStub });
+
+    const emit = inngestSend.mock.calls.find((c) =>
+      (c[0] as { name: string }).name.endsWith("/coordinator.requested"),
+    );
+    expect(emit).toBeDefined();
+    const data = (emit![0] as { data: Record<string, unknown> }).data;
+    expect(data.entity_brand).toBe("SB");
+    expect(typeof data.entity_brand).toBe("string");
+    expect(data.entity).toBe("SB");
+  });
+
+  it("Test C (CR-02 object shape): entity_brand [{code:'SB'}] → coordinator.requested entity_brand === 'SB' (never '[object Object]')", async () => {
+    const handler = await loadSalesHandler([{ code: "SB", display_name: "Smeba" }]);
+    resolveEntityMock.mockResolvedValueOnce(UNRESOLVED_RESULT);
+
+    await handler({ event: buildSalesEvent(), step: stepStub });
+
+    const emit = inngestSend.mock.calls.find((c) =>
+      (c[0] as { name: string }).name.endsWith("/coordinator.requested"),
+    );
+    expect(emit).toBeDefined();
+    const data = (emit![0] as { data: Record<string, unknown> }).data;
+    expect(data.entity_brand).toBe("SB");
+    expect(typeof data.entity_brand).toBe("string");
+    expect(data.entity_brand).not.toBe("[object Object]");
+  });
+});
+
+// Phase 116-05 Task 1 (TDD) — extracted attachment text is folded into the
+// body_text passed to the resolver (STAGE2-01-safe: engine signature unchanged,
+// attachment text is *just more body text*, D-11). We observe via the
+// resolveDebtor spy (legacy debtor path) — the load-email step mutates
+// emailRow.body_text in place, so every resolveEntity/resolveDebtor call site
+// sees the combined value. Debtor having no `extracted` rows is the zero-diff
+// case (tests 2 + 3).
+describe("Phase 116-05 — attachment text folded into body_text", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  async function loadHandlerWithAttachments(
+    attachmentRows: Array<{
+      attachment_id: string;
+      extraction_status: string;
+      extracted_text: string | null;
+    }>,
+  ): Promise<typeof handler> {
+    vi.clearAllMocks();
+    adminMock = makeAdminMock({ attachmentRows });
+    resolveDebtorMock.mockReset();
+    resolveDebtorMock.mockResolvedValue({
+      method: "unresolved",
+      customer_account_id: null,
+      customer_name: null,
+      confidence: "none",
+      inputs: { kind: "unresolved", sender_email: null, matched_identifiers: [] },
+    });
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../stage-2-customer-resolver");
+    return (mod.stage2CustomerResolver as unknown as {
+      handler: typeof handler;
+    }).handler;
+  }
+
+  function bodyTextSeenByResolver(): string {
+    expect(resolveDebtorMock).toHaveBeenCalled();
+    const arg = resolveDebtorMock.mock.calls[0]![0] as { body_text: string };
+    return arg.body_text;
+  }
+
+  it("Test 1: one extracted attachment → body = original + separator + attachment text", async () => {
+    handler = await loadHandlerWithAttachments([
+      {
+        attachment_id: "att-1",
+        extraction_status: "extracted",
+        extracted_text: "OFFERTE SB-12345",
+      },
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    // Review WR-01 — the fold-in now labels the region UNTRUSTED DATA so the
+    // downstream LLM treats it as reference text, not instructions.
+    const body = bodyTextSeenByResolver();
+    expect(body.startsWith(EMAIL_ROW.body_text)).toBe(true);
+    expect(body).toContain("ATTACHMENTS (UNTRUSTED DATA");
+    expect(body).toContain("OFFERTE SB-12345");
+  });
+
+  it("Test 2: attachment rows present but none extracted → body unchanged (no separator)", async () => {
+    handler = await loadHandlerWithAttachments([
+      {
+        attachment_id: "att-1",
+        extraction_status: "skipped_cap",
+        extracted_text: null,
+      },
+      {
+        attachment_id: "att-2",
+        extraction_status: "extraction_failed",
+        extracted_text: null,
+      },
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const body = bodyTextSeenByResolver();
+    expect(body).toBe(EMAIL_ROW.body_text);
+    expect(body).not.toContain("ATTACHMENTS");
+  });
+
+  it("Test 3: no attachment rows → body unchanged", async () => {
+    handler = await loadHandlerWithAttachments([]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const body = bodyTextSeenByResolver();
+    expect(body).toBe(EMAIL_ROW.body_text);
+    expect(body).not.toContain("--- ATTACHMENTS ---");
+  });
+
+  it("Test 4: multiple extracted attachments → texts joined with \\n\\n in row order", async () => {
+    handler = await loadHandlerWithAttachments([
+      {
+        attachment_id: "att-1",
+        extraction_status: "extracted",
+        extracted_text: "FIRST DOC",
+      },
+      {
+        attachment_id: "att-2",
+        extraction_status: "skipped_cap",
+        extracted_text: null,
+      },
+      {
+        attachment_id: "att-3",
+        extraction_status: "extracted",
+        extracted_text: "THIRD DOC",
+      },
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    // Joined in row order, under the UNTRUSTED-DATA label (WR-01).
+    const body = bodyTextSeenByResolver();
+    expect(body.startsWith(EMAIL_ROW.body_text)).toBe(true);
+    expect(body).toContain("ATTACHMENTS (UNTRUSTED DATA");
+    expect(body.indexOf("FIRST DOC")).toBeLessThan(body.indexOf("THIRD DOC"));
   });
 });

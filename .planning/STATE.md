@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
-stopped_at: Phase 112 complete — sales Stage-1 archive LIVE
-last_updated: "2026-06-04T09:05:00.000Z"
-last_activity: 2026-06-04 -- Phase 112 complete (go-live flip applied after incident + canary)
+stopped_at: Completed 116-04-PLAN.md
+last_updated: "2026-06-09T09:58:02.606Z"
+last_activity: 2026-06-09
 progress:
-  total_phases: 8
-  completed_phases: 4
-  total_plans: 24
-  completed_plans: 17
-  percent: 50
+  total_phases: 10
+  completed_phases: 7
+  total_plans: 46
+  completed_plans: 38
+  percent: 70
 ---
 
 # Project State
@@ -57,15 +57,20 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 112 COMPLETE → next Phase 113 (Stage 3 Sales Intent Agent)
+**Current focus:** Phase 113 — stage-3-sales-intent-agent-greenfield
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
+Phase: 113 (stage-3-sales-intent-agent-greenfield) — EXECUTING
+Plan: 5 of 5 (113-05 code complete; CHECKPOINT-BLOCKED at Task 3 operator go-live)
+Status: Awaiting operator go-live (apply 20260609c + dry-run review + flip sales stage_3_routing→false)
+
+**Phase 112 outcome (zelfde dag):**
 Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — COMPLETE (go-live verified 2026-06-04)
 Plan: 3 of 3
 Status: Sales Stage-1 Outlook archive LIVE (`stage_1_archive=false`, migration `sales_stage1_archive_golive`); backfill complete (67 archived / 38 sugar-skip / ~1650 queued predicted); loopback disabled + supplier_bank_change demoted after canary findings
-Last activity: 2026-06-04 -- Phase 112 complete
+Last activity: 2026-06-09
 
 **Phase 112 incident (2026-06-04):** prod ran pre-110-04 code without the per-stage gate → loopback rule archived 141 real internal forwards since May 21. Emergency stop + full restore + gate-code deployed (PR #61) + canary bugfixes (PR #65: global canary cap, Graph-400 skip). Learning `52930d32`. Details: `phases/112-*/112-03-SUMMARY.md`.
 
@@ -77,7 +82,7 @@ Last activity: 2026-06-04 -- Phase 112 complete
 
 **Velocity:**
 
-- Total plans completed: 22
+- Total plans completed: 35
 - Average duration: --
 - Total execution time: 0 hours
 
@@ -153,6 +158,25 @@ Last activity: 2026-06-04 -- Phase 112 complete
 | Phase 82.7.1 P02 | 4m | 1 tasks | 1 files |
 | Phase 82.7.1 P05 | 5m | 2 tasks | 1 files |
 | 88 | 4 | - | - |
+| Phase 114 P01 | 5min | 3 tasks | 15 files |
+| Phase 114 P02 | 25m | 3 tasks | 3 files |
+| Phase 114 P03 | 7m | 4 tasks | 5 files |
+| Phase 114 P05 | 15m | 3 tasks | 4 files |
+| Phase 114 P06 | 4m | 2 tasks | 2 files |
+| Phase 114 P07 | 12m | 2 tasks | 5 files |
+| 114 | 7 | - | - |
+| Phase 116 P01 | 8m | 2 tasks | 2 files |
+| Phase 116 P02 | 6m | 3 tasks | 5 files |
+| Phase 116 P03 | 9min | 2 tasks | 5 files |
+| Phase 116 P04 | 6m | 3 tasks | 7 files |
+| Phase 116 P05 | 12m | 3 tasks | 9 files |
+| Phase 116 P06 | 5m | 2 tasks | 4 files |
+| 116 | 6 | - | - |
+| Phase 113 P01 | 11m | 3 tasks | 5 files |
+| Phase 113 P02 | 9m | 3 tasks | 9 files |
+| Phase 113 P03 | 8m | 2 tasks | 6 files |
+| Phase 113 P03 | 8m | 2 tasks | 6 files |
+| Phase 113 P04 | 7m | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -169,6 +193,7 @@ Last activity: 2026-06-04 -- Phase 112 complete
 - Phase 114 added: Stage 2 Resolver Reuse — cross-swarm generality proof. Sales Stage 2 reuses the v8.2 NXT resolver via per-swarm config (stage2_entity_resolver + resolution_config, the RESL-03 seam) with ZERO Engine code changes (STAGE2-01); debtor-only self-auth tier degrades to no-op + customer-less prospects fall through to Stage 3 (STAGE2-02). **External/cross-track dep: v8.2 RESL-01/02/03 — sequenced to land AS the seam lands; interleaves, does not block the rest of V9.0.** Depends on 110.
 - Phase 115 added: SugarCRM Dead-Code Decommission — remove sales-email-analyzer/ (incl. fetch-sugarcrm-emails.ts), /api/automations/smeba/sugarcrm-search + …/write-analysis, stale zapier_tools Sugar note, after confirming no live path depends on it (SUGAR-01). Independent cleanup — last or parallel.
 - V9.0 dependency graph: 110 ──> {111 ──> 112, 113, 114(∥v8.2 RESL seam)}; 115 independent. Stage 4 handlers OUT (V11.0). Numbering starts at 110 to band above v8.2's 90–95 (separate workspace) and avoid cross-workspace collision.
+- Phase 116 added (2026-06-04): Attachment Ingest — uniform cross-swarm attachment data source. Capture attachment metadata + on-demand content extraction (PDF text first) as a registry-configured, swarm-agnostic source for Stage 2 resolution (adapter-side body-source, no engine diffs — STAGE2-01 holds), Stage 3 intent signals, and future Stage 4 handlers (V11.0). Sales onboards first; debtor/info@ opt in via registry row only (SWARM-02 gate). Folds in todo 2026-06-04-sales-ingest-attachments-gap.md incl. backfill decision over the 1,273-mail corpus.
 
 - Phase 60 added: Debtor email — close the whitelist-gate loop (data-driven AUTO_ACTION_RULES with Wilson-CI auto-promotion cron + queue-driven Bulk Review UI reading automation_runs status=predicted directly)
 - Phase 61 added: Restore lost bulk-review UX (60-05 regression fix) — horizontal overflow, email-body expander, per-row notes, rule-hint dropdown / per-item override on top of the new tree-driven shell
@@ -190,6 +215,7 @@ Last activity: 2026-06-04 -- Phase 112 complete
 
 ### Decisions
 
+- **[2026-06-04, operator] V9.0 re-sequenced: Phase 114 (Stage 2 resolver reuse) executes BEFORE Phase 113 (Stage 3 intent agent).** Data-grond: verkoop@-corpus (1.273 inbound) is uitzonderlijk klant-resolvebaar — 32% "offerte" in subject, 27% nummer-referenties, 75% business-domeinen (2% freemail), ≥44% extern-domein overlap met debiteuren@-senders (ondergrens). Runtime is toch Stage 2→3 (context-shape contract); customer-resolved corpus verrijkt de intent-seeding (STAGE3-02) met een klant-vs-prospect-as. Consequentie: v8.2 RESL-01/02/03 seam-dep staat nu op het kritieke pad — 114-discuss moet eerst seam-status vaststellen (seam NIET geland in deze workspace; alleen registry-kolommen, `resolution_config` = inert placeholder). Twee ingest-gaten als 114-prereq vastgelegd (todos 2026-06-04: attachments-gap + sender-email-gap).
 - V7.0 uses parallel CSS namespace (--v7-*) to coexist with existing shadcn tokens
 - Azure AD must use OAuth (not SAML) to auto-link existing email/password accounts
 - Single Supabase Realtime subscription per swarm view, not per component
@@ -252,6 +278,25 @@ Last activity: 2026-06-04 -- Phase 112 complete
 - Plan 82.5-05: Footer override branch is dispatch-only (no double-write); approve branch is canonical Promise.all writer for verdict=confirm
 - OptionZDetailPane forwards feedbackMap (Stage 0/2 parity) via shared UnifiedDetailPane pass-through; hard-separation preserved
 - R8 covered by runnable Playwright spec — no .md fallback
+- [Phase ?]: Phase 114-01: v8.2 RESL-03 resolver seam transplanted verbatim (generic resolveEntity engine + loadStage2Resolver dispatch + debtor config+adapter refactor + donor test suite); donor seam suite green (port-equivalence + dispatch pass); D-03 dormant honored (Stage 2 worker un-rewired). Cross-track: workspace/v8.2-resolution-recall must rebase after enabler merge (D-02).
+- [Phase ?]: Phase 114-02: generic email_pipeline.resolution_audit table (swarm-agnostic, RLS service_role+authenticated SELECT) applied to remote; stage_2_resolution fail-closed gate key live; D-13 read surface unblocked. Task 3 checkpoint cleared via Management API apply.
+- [Phase 114-04]: Sales onboards to Stage 2 via config + ONE dispatch line + a sales lookup adapter (offerte/order/Sites via nxtRequest, factuur+sender reuse debtor D-11) — ZERO edits to engine.ts/config.ts/resolve/steps/* (STAGE2-01 generality proof in action). Real resolution_config live on remote (mvqjhlxfvtqqubqgdvhz, Management API HTTP 201): precedence ["sender_match","offerte_match","postcode_site_match","factuur_match","order_match"] (data-driven D-04, case_ref excluded — corroborating-only), auto_safe_kinds:[] (STAGE2-02 no-op), llm_tiebreaker:false. dry_run_config.stage_2_resolution=true (fail-closed). Sales Stage 2 swarm_dispatch event 'sales-email/stage-2.customer-resolve.requested' seeded (Pitfall 6); worker registry-driven (loadStage2Resolver + generic resolution_audit write + second Inngest trigger), debtor behaviour-neutral. check:supabase 0 ERROR. **Checkpoint decisions (operator):** (1) migration applied to remote; (2) D-06 multi-match corroboration DEFERRED to fast-follow (tripwire todo `2026-06-04-d06-corroboration-fast-follow.md` — corroboration ENGINE change must land BEFORE the no-Engine-diff gate is final; Plan 05 Task 3 asserts it exists).
+- [Phase ?]: Phase 114-03: ingest hardened (from→sender fallback + has_attachments, swarm-agnostic); D-14 fix-forward only; D-04 mining report committed (postcode 55%/offerte_sb 22%/case_ref 18%/factuur 7%, total=1282 with_sender=928 null=354) — Plan 04 precedence input, Pitfall-4 corrected.
+- [Phase ?]: Phase 114-05: STAGE2-01 locked via scripts/no-engine-diff-check.sh (byte-equality engine/config/steps vs donor; single sales dispatch line allowed; PROVISIONAL until D-06 corroboration fast-follow). STAGE2-02 locked via self-auth-noop + unresolved-fallthrough acceptance tests. D-02 v8.2 rebase note left.
+- [Phase ?]: Phase 114-06: SC-1 blockers closed in the Stage 2 worker only — CR-01 generic brand_id from resolution_config.scope.brand_scope[0], CR-02 entity_brand inline-guarded to scalar code (object→.code), WR-01 nxt_database config-sourced. Debtor byte-neutral; no-engine-diff exit 0; suite 2461 green.
+- [Phase ?]: Phase 114-07: closed review warnings WR-02..WR-05 + IN-01 in sales lookups/adapter (postcode address-context gate + medium confidence per D-06 interim; order regex word-boundary-anchored; quoted-header-scoped sender; unresolved path surfaces attempted identifiers). ZERO engine/config/steps diff.
+- [Phase ?]: Phase 116-01: generic email_attachments table + private bucket + RLS; swarms.attachment_config switches (capture/extract + caps + stage2_dispatch_event) seeded sales=both-on debtor=capture-only (D-13). Migrations committed; remote-apply + check:supabase gated to checkpoint.
+- [Phase ?]: Phase 116-02: Graph attachment helpers via single graphFetch boundary (zod-validated) + pure swarm-agnostic extract.ts (unpdf text-layer first, Orq Router vision fallback, fail-soft coded statuses, caps); no swarm literal, no direct LLM key; 12 tests green
+- [Phase ?]: Phase 116-03: registry-gated swarm-agnostic captureAttachmentMetadata wired into both ingest routes; debtor capture via Plan-01 registry row (D-13 proof), zero debtor-specific code; metadata-only at ingest (D-05), fail-soft, idempotent on (email_id,attachment_id); AttachmentConfig typed on SwarmRow; suite 2491 green.
+- [Phase ?]: 116-04: extraction funnel step is registry-keyed (extract switch gates; stage2_dispatch_event names the downstream event, no code literal); verdict worker untouched
+- [Phase ?]: 116-04: shared extractEmailAttachments helper owns the download/store/extract/update loop so Plan 06 backfill reuses one implementation (no drift)
+- [Phase ?]: Phase 116-05: attachment text folded into Stage 2 body_text (STAGE2-01-safe, engine pristine); AttachmentList in Stage 2 Read column on /review via hydrateBulkReviewRow.attachments; metadata+status only, no preview/download (D-08). Plan data-path corrected: /review uses InlineExpandRow→Stage2Read, not UnifiedDetailPane.
+- [Phase ?]: Phase 116-06: gated corpus attachment backfill worker (sales-email/attachments.backfill.run) — metadata for ALL mails (closes has_attachments=false blind spot, SC-4); extraction ONLY for Stage-1-survivors (disposition != auto, reusing Phase 112 classifyDisposition) via the SHARED Plan 04 extractEmailAttachments helper; fail-loud 40k cap + bounded batches + 404->source_gone fail-soft + idempotent upsert; live 1273-mail run DEFERRED to operator checkpoint.
+- [Phase ?]: Phase 113-02: Q1 seam resolved — shared Stage 3 coordinator dispatches per-swarm via registry agent key + swarm-keyed schema map, single parameterized invoke, zero literal swarm branch, dispatcher byte-unchanged, debtor byte-neutral.
+- [Phase ?]: Phase 113-02: sales retro reconstruct-input folds extracted attachment text into the body byte-comparable to live Stage 2 (exact UNTRUSTED delimiter, Pitfall 4); sales carries no brand entity into Stage 3.
+- [Phase 113-03]: sales Stage 3 retro-classify side-channel built (mirrors debtor Phase 87 6 locks — writes ONLY stage_3_retro_runs, invokeSalesIntentAgent cache-bypass, replay-safe run_id). Bounded bootstrap bypass of the R-04 cluster gate: honored ONLY when sales swarm_intents===0 (the empty-cluster chicken-and-egg first pass), THROWS if bootstrap=true after seeding (T-113-11), rows tagged run_type via ranked_intents._meta JSONB sibling (no migration). No Stage-3 baseline (sales aggregate-baseline is Stage-1-shaped). manage-sales-intent-agent.ts: list_models-validated create→PATCH→get-verify (D-13); validated live — all 4 catalog ids present (matched by BARE model_id; /v2/models drops the provider prefix). Agent is a SHELL in Plan 03 (--finalize gated on non-empty enum → Plan 04 post seed+codegen). CHECKPOINT-BLOCKED on the Studio json_schema + bootstrap retro + operator cluster promotion; promoted_intents PENDING in 113-03-SUMMARY (Plan 04 has a DB-fallback).
+- [Phase ?]: [Phase 113-04]: 12 operator-promoted sales intents + mandatory 'other' residual seeded into swarm_intents (20260609b, Management API HTTP 201, all placeholder); codegen regenerated intent.generated.ts (sales-email=13); sales-intent-agent json_schema intent enum re-PATCHed to 13 (get_agent verified). 3-way invariant closed; hard-separation + other-routes guards green; check:supabase 0 ERROR; dispatcher untouched.
+- [Phase 113-05]: swarm-agnostic Stage-3 ROUTING gate landed in the SHARED coordinator BETWEEN persist-ranked and flip/emit — registry-driven, fail-closed, no swarm literal. DEDICATED dry_run_config.stage_3_routing key (NOT stage_3_labeling reuse — debtor's predicted-emit fires today while stage_3_labeling=true, so reuse would regress debtor; T-113-10). GATED → persist verdict + decision_details.routing_held=true marker, withhold predicted-emit (decision='predicted_held'); OPEN → emit as today. Migration 20260609c seeds debtor=false(open)/sales=true(gated) — NOT YET APPLIED. Dead-letter reconciliation smoke (sales-stage3-deadletter-check.ts, pure fn + Supabase main, exit 1 on gap; held verdict counted terminal-visible) + 7 fixture tests. Bulk Review retry PROVEN to accept swarm_type='sales-email' (replayKanbanRow same-intent fires registry sales handler_event). 18 plan tests + 298 inngest suite green; dispatcher byte-unchanged (git-diff guard); tsc 0; check:supabase 0 ERROR. CHECKPOINT-BLOCKED on Task 3 operator go-live (apply 20260609c + dry-run review + flip). Commits c433d1d8, a318a5cd.
 
 ### Blockers/Concerns
 
@@ -259,6 +304,8 @@ Last activity: 2026-06-04 -- Phase 112 complete
 - Supabase Management API token expired -- Phase 50 migration apply blocked (seed update also needs this or Studio access)
 - **Phase 110 / Plan 110-04 Task 4 UNBLOCKED + APPLIED (2026-06-03)**: the 3 `20260603*` migrations are now applied to remote `mvqjhlxfvtqqubqgdvhz` via Supabase MCP `apply_migration` (after re-linking the MCP OAuth to the Agent-Workforce org `oavpdqisdpzxqttgdgpt`). Verified live: sales `entity_brand=['smeba']` + `stage3_coordinator_agent_key='sales-intent-agent'` + all dry_run flags blocked + `swarm_intents=0`/`side_effects=[]` (inert); **debtor `dry_run_config.stage_1_cleanup=false` (LIVE preserved)**. `entity.generated.ts` regenerated + committed (`c774f989`). RLS advisor green (0 ERROR). Outstanding: per-mailbox `pipeline_health_snapshots` row for `verkoop@smeba.nl` populates on next monitor cron tick; Task 5 human governance checkpoint awaiting operator "approved".
 - Supabase Realtime plan limits need verification (carry forward from Phase 49)
+- **Phase 113-05 Task 3 CHECKPOINT (blocking-human) — the STAGE3-03 go-live:** operator must, IN ORDER: (1) **apply migration `20260609c` to remote BEFORE/atomic-with the coordinator code deploy** — the routing gate is FAIL-CLOSED and live `swarms.dry_run_config` currently has NO `stage_3_routing` key, so a code-only deploy would HOLD debtor's live predicted-emit. 20260609c sets debtor=false (open, preserves live emit) + sales=true (gated). (2) dry-run observation: trigger live sales Stage 3, verdicts persist + surface in Bulk Review while routing held; run `cd web && npx tsx scripts/eval/sales-stage3-deadletter-check.ts <since> <until>` → gap=0. (3) review ~100 sales verdicts (ranked intents + entity_relationship; Zod-failure row shows raw output + working retry; axis-3 overrides recordable). (4) on green-light, FLIP sales `stage_3_routing`→false → coordinator emits `sales-email/predicted` → dispatcher opens Kanban routing (reversible by re-gating, D-09). (5) record green-light + sample size in UAT. Resume: "go-live approved". Details: `phases/113-*/113-05-SUMMARY.md`.
+- **Phase 113-03 Task 2 CHECKPOINT (blocking-human):** operator must (1) create the `sales-intent-agent` SHELL + json_schema in Orq Studio (run `cd web && npx tsx scripts/orq/manage-sales-intent-agent.ts` to print the schema; Studio → Tools → Add → JSON Schema, then Model parameters → Response Format = it; confirm the Model dropdown is non-empty), (2) trigger `sales-email/retro-classify.requested` with `bootstrap:true` + a recent Outlook since/until (NOT a full SugarCRM sweep) and confirm `stage_3_retro_runs` gains rows tagged `run_type='bootstrap'` + sales `intent_proposal_clusters` is non-empty, (3) promote clusters to ~80% coverage (D-02), (4) record the `promoted_intents` yaml in `113-03-SUMMARY.md`. Resume signal: "agent created". (Plan 04 falls back to reading promoted clusters from the DB if the yaml stays empty.)
 
 ### Outstanding Verification (Deferred)
 
@@ -284,10 +331,10 @@ Last activity: 2026-06-04 -- Phase 112 complete
 
 ## Session Continuity
 
-Last session: 2026-06-03T12:22:08.413Z
-Stopped at: Phase 112 context gathered
-Resume with: `/gsd-execute-phase 65`
-Resume file: .planning/phases/112-outlook-cleanup-backfill-gated-production-writes/112-CONTEXT.md
+Last session: 2026-06-09T12:13:00.000Z
+Stopped at: 113-05-PLAN.md code complete (Tasks 1+2 committed); CHECKPOINT-BLOCKED at Task 3 operator go-live (apply 20260609c + dry-run review + routing flip)
+Resume with: operator completes Task 3 (resume signal "go-live approved"), then `/gsd-execute-phase 115`
+Resume file: .planning/phases/113-stage-3-sales-intent-agent-greenfield/113-05-SUMMARY.md
 
 ## Deferred Items
 

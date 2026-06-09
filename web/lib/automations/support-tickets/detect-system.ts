@@ -25,6 +25,10 @@
 // Always pass responseFormat.jsonSchema through the SDK's typed interface.
 
 import { z } from "zod";
+import {
+  orqRouterChat,
+  OrqRouterUnavailableError,
+} from "@/lib/automations/orq-router";
 
 const MODEL_ID = "anthropic/claude-sonnet-4-5-20250929" as const;
 const TIMEOUT_MS = 45_000;
@@ -219,29 +223,19 @@ export async function detectSoftwareSystem(
     metadata: { user_id: "support-tickets-stage-2" },
   };
 
-  // Use @orq-ai/node SDK for chat completions (raw HTTP to /v2/router/chat/completions
-  // returns 404 — SDK uses different URL routing internally).
+  // Route via the shared Orq.ai Router helper (review WR-04) — the SDK surface
+  // is resolved in ONE place, and a Router-unavailable signal is distinguished
+  // from a per-request failure so a systemic outage is observable.
   let json: {
     choices?: Array<{ message?: { content?: string } }>;
     usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
   try {
-    const { Orq } = await import("@orq-ai/node");
-    const orq = new Orq({ apiKey });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const router = (orq as any).router;
-    const completionFn =
-      router?.chatCompletions?.create ??
-      router?.chat?.completions?.create ??
-      router?.completions?.create;
-    if (typeof completionFn !== "function") {
-      throw new DetectSystemError("orq_sdk_router_method_missing", {
-        message: "Could not locate router chat completions method on Orq SDK",
-      });
-    }
-    json = await completionFn.call(router?.chatCompletions ?? router?.chat?.completions ?? router?.completions, body);
+    json = await orqRouterChat({ apiKey, body });
   } catch (cause) {
-    if (cause instanceof DetectSystemError) throw cause;
+    if (cause instanceof OrqRouterUnavailableError) {
+      throw new DetectSystemError("orq_sdk_router_method_missing", { cause });
+    }
     throw new DetectSystemError("orq_request_failed", { cause });
   }
 

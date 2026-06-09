@@ -23,6 +23,11 @@ interface FixtureOpts {
   // `coordinatorRunError: true` to simulate a query error.
   coordinatorRunsRow?: Record<string, unknown> | null;
   coordinatorRunsError?: boolean;
+  // Phase 116-05 (D-08) — rows returned for the email_pipeline
+  // .email_attachments load (keyed on the anchor email_id). `undefined` ⇒
+  // empty; pass `attachmentsError: true` to simulate a non-fatal query error.
+  attachments?: Array<Record<string, unknown>>;
+  attachmentsError?: boolean;
 }
 
 interface Harness {
@@ -71,6 +76,13 @@ function makeAdmin(opts: FixtureOpts): Harness {
       return makeBuilder({
         data: opts.coordinatorRunsRow ?? null,
         error: opts.coordinatorRunsError ? { message: "boom" } : null,
+      });
+    }
+    if (table === "email_attachments") {
+      // Phase 116-05 (D-08) — email_pipeline.email_attachments load.
+      return makeBuilder({
+        data: opts.attachmentsError ? null : opts.attachments ?? [],
+        error: opts.attachmentsError ? { message: "boom" } : null,
       });
     }
     return makeBuilder({ data: null, error: null });
@@ -1503,5 +1515,90 @@ describe("hydrateBulkReviewRow", () => {
     expect(top.sub_type).toBeNull();
     expect(top.document_reference).toBeNull();
     expect(top.confidence_label).toBe("low");
+  });
+
+  // Phase 116-05 (D-08) — attachments slot populated from
+  // email_pipeline.email_attachments keyed on the anchor email_id.
+  it("Test attachments-1: populates row.attachments from the email_attachments SELECT", async () => {
+    const { admin, fromCalls } = makeAdmin({
+      emailLabel: BASE_LABEL,
+      pipelineEvents: [],
+      agentRuns: [],
+      noiseCategories: NOISE_CATS,
+      swarmIntents: INTENTS,
+      attachments: [
+        {
+          attachment_id: "att-1",
+          filename: "offerte.pdf",
+          content_type: "application/pdf",
+          size_bytes: 1258291,
+          extraction_status: "extracted",
+        },
+        {
+          attachment_id: "att-2",
+          filename: null,
+          content_type: null,
+          size_bytes: null,
+          extraction_status: "skipped_cap",
+        },
+      ],
+    });
+
+    const row = await hydrateBulkReviewRow(admin, {
+      email_label_id: LABEL_ID,
+      swarm_type: SWARM,
+    });
+
+    expect(row).not.toBeNull();
+    expect(fromCalls).toContain("public.email_attachments");
+    const att = row!.attachments ?? [];
+    expect(att).toHaveLength(2);
+    expect(att[0]).toEqual({
+      attachment_id: "att-1",
+      filename: "offerte.pdf",
+      content_type: "application/pdf",
+      size_bytes: 1258291,
+      extraction_status: "extracted",
+    });
+    // Null metadata falls through; status preserved.
+    expect(att[1]!.filename).toBeNull();
+    expect(att[1]!.extraction_status).toBe("skipped_cap");
+  });
+
+  it("Test attachments-2: no attachment rows → row.attachments === []", async () => {
+    const { admin } = makeAdmin({
+      emailLabel: BASE_LABEL,
+      pipelineEvents: [],
+      agentRuns: [],
+      noiseCategories: NOISE_CATS,
+      swarmIntents: INTENTS,
+      attachments: [],
+    });
+
+    const row = await hydrateBulkReviewRow(admin, {
+      email_label_id: LABEL_ID,
+      swarm_type: SWARM,
+    });
+
+    expect(row!.attachments).toEqual([]);
+  });
+
+  it("Test attachments-3: a query error is non-fatal → row still hydrates with attachments === []", async () => {
+    const { admin } = makeAdmin({
+      emailLabel: BASE_LABEL,
+      pipelineEvents: [],
+      agentRuns: [],
+      noiseCategories: NOISE_CATS,
+      swarmIntents: INTENTS,
+      attachmentsError: true,
+    });
+
+    const row = await hydrateBulkReviewRow(admin, {
+      email_label_id: LABEL_ID,
+      swarm_type: SWARM,
+    });
+
+    expect(row).not.toBeNull();
+    expect(row!.attachments).toEqual([]);
   });
 });
