@@ -1387,3 +1387,178 @@ describe("Phase 116-05 — attachment text folded into body_text", () => {
     expect(body.indexOf("FIRST DOC")).toBeLessThan(body.indexOf("THIRD DOC"));
   });
 });
+
+// Phase 90-07 — debtor generic-path brand fallback (2026-06-09 regression).
+// Live incident: debtor ran the generic engine (resolution_config present) but
+// resolved 0% because the worker sourced brand ONLY from config.scope.brand_scope
+// (null for debtor — multi-brand-PER-MAILBOX; brands live in labeling_settings).
+// brand_id null → engine disables every brand-scoped rung (sender_match /
+// identifier_match). Fix: usesGenericPath ? (genericBrandId ?? brandId) : brandId
+// — fall back to the per-mailbox labeling_settings brand. Learning 07d402a0.
+describe("debtor generic path — Phase 90-07 brand fallback (regression)", () => {
+  const DEBTOR_BERKI_ROW = {
+    id: "debtor-berki-uuid-1",
+    conversation_id: "berki-conv-1",
+    subject: "Factuur 17008891",
+    body_text: "Zie bijgaand",
+    sender_email: "facturen@dehaardstee.nl",
+    mailbox: "debiteuren@berki.nl",
+  };
+
+  function makeDebtorGenericAdminMock() {
+    const auditInserts: Array<Record<string, unknown>> = [];
+    const automationRunUpdateEq = vi.fn(async () => ({ data: null, error: null }));
+    const automationRunUpdate = vi.fn(() => ({ eq: automationRunUpdateEq }));
+
+    function emailsBuilder() {
+      const b: Record<string, unknown> = {};
+      b.select = vi.fn(() => b);
+      b.eq = vi.fn(() => b);
+      b.or = vi.fn(() => b);
+      b.maybeSingle = vi.fn(async () => ({ data: DEBTOR_BERKI_ROW, error: null }));
+      return b;
+    }
+    function labelingSettingsBuilder() {
+      // Berki labeling_settings: per-mailbox brand_id 'BB' — the value the
+      // generic path must fall back to (config.scope.brand_scope is null).
+      const b: Record<string, unknown> = {};
+      b.select = vi.fn(() => b);
+      b.eq = vi.fn(() => b);
+      b.maybeSingle = vi.fn(async () => ({
+        data: {
+          dry_run: true,
+          nxt_database: "nxt",
+          brand_id: "BB",
+          entity: "berki",
+          icontroller_company: "berki",
+        },
+        error: null,
+      }));
+      return b;
+    }
+    function resolutionAuditBuilder() {
+      return {
+        insert: vi.fn(async (row: Record<string, unknown>) => {
+          auditInserts.push(row);
+          return { error: null };
+        }),
+      };
+    }
+    const schemaImpl = (schemaName: string) => ({
+      from: vi.fn((table: string) => {
+        if (schemaName === "email_pipeline" && table === "emails") {
+          return emailsBuilder();
+        }
+        if (schemaName === "email_pipeline" && table === "resolution_audit") {
+          return resolutionAuditBuilder();
+        }
+        if (schemaName === "debtor" && table === "labeling_settings") {
+          return labelingSettingsBuilder();
+        }
+        const b: Record<string, unknown> = {};
+        b.select = vi.fn(() => b);
+        b.eq = vi.fn(() => b);
+        b.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
+        return b;
+      }),
+    });
+    function swarmsBuilder() {
+      const b: Record<string, unknown> = {};
+      b.select = vi.fn(() => b);
+      b.eq = vi.fn(() => b);
+      b.maybeSingle = vi.fn(async () => ({
+        data: {
+          swarm_type: "debtor-email",
+          enabled: true,
+          stage2_entity_resolver:
+            "@/lib/automations/debtor-email/resolve-debtor",
+          entity_brand: ["BB"],
+          resolution_config: {
+            version: "p0",
+            source: { kind: "nxt" },
+            // brand_scope NULL — the exact prod shape that triggered the 0% bug.
+            scope: {
+              environment_id: "BX",
+              brand_mode: "tiebreaker",
+              brand_scope: null,
+            },
+            precedence: [
+              "thread_inheritance",
+              "sender_match",
+              "identifier_match",
+            ],
+          },
+          dry_run_config: {
+            stage_2_resolution: true,
+            stage_3_labeling: true,
+          },
+        },
+        error: null,
+      }));
+      return b;
+    }
+    const pipelineEventsInsert = vi.fn(async () => ({ data: null, error: null }));
+    const fromImpl = (table: string) => {
+      if (table === "automation_runs") return { update: automationRunUpdate };
+      if (table === "pipeline_events") return { insert: pipelineEventsInsert };
+      if (table === "swarms") return swarmsBuilder();
+      return { update: vi.fn(() => ({ eq: vi.fn(async () => ({})) })) };
+    };
+    return {
+      schema: vi.fn(schemaImpl),
+      from: vi.fn(fromImpl),
+      __captures: { auditInserts },
+    };
+  }
+
+  function buildBerkiEvent() {
+    return {
+      id: "evt-debtor-berki",
+      name: "debtor-email/stage-2.customer-resolve.requested",
+      data: {
+        automation_run_id: "debtor-ar-1",
+        message_id: "debtor-msg-1",
+        source_mailbox: "debiteuren@berki.nl",
+        category_key: "unknown",
+        swarm_type: "debtor-email",
+      },
+    };
+  }
+
+  async function loadDebtorGenericHandler() {
+    vi.clearAllMocks();
+    adminMock = makeDebtorGenericAdminMock() as unknown as typeof adminMock;
+    resolveDebtorMock.mockReset();
+    resolveEntityMock.mockReset();
+    loadStage2ResolverMock.mockClear();
+    loadStage2ResolverMock.mockResolvedValue({ resolveEntity: resolveEntityMock });
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../stage-2-customer-resolver");
+    return (mod.stage2CustomerResolver as unknown as {
+      handler: (ctx: unknown) => Promise<unknown>;
+    }).handler;
+  }
+
+  const UNRESOLVED_RESULT = {
+    method: "unresolved",
+    customer_account_id: null,
+    customer_name: null,
+    confidence: "none",
+    inputs: { kind: "unresolved", sender_email: null, matched_identifiers: [] },
+  };
+
+  it("usesGenericPath + config.brand_scope null → resolveEntity receives the per-mailbox labeling_settings brand_id ('BB'), never null", async () => {
+    const handler = await loadDebtorGenericHandler();
+    resolveEntityMock.mockResolvedValueOnce(UNRESOLVED_RESULT);
+
+    await handler({ event: buildBerkiEvent(), step: stepStub });
+
+    // The fix: fall back to labeling_settings brandId when config gives no brand.
+    expect(resolveEntityMock).toHaveBeenCalledTimes(1);
+    const args = resolveEntityMock.mock.calls[0][0] as { brand_id: unknown };
+    expect(args.brand_id).toBe("BB");
+    expect(args.brand_id).not.toBeNull();
+  });
+});

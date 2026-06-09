@@ -190,17 +190,23 @@ export const stage2CustomerResolver = inngest.createFunction(
     // The generic Stage 2 audit write is fail-closed gated.
     const stage2Blocked = isStageBlocked(swarmGate, "stage_2_resolution");
 
-    // Phase 114-06 (CR-01) — generic-path brand_id. For the legacy debtor path
-    // brand_id comes from debtor.labeling_settings (settingsRow.brand_id). For
-    // the generic (sales) path NO labeling_settings row exists for the sales
-    // mailbox, so settingsRow.brand_id is always null → sender_match +
-    // factuur_match (both brand-scoped) were permanently dead. Source the brand
-    // from the swarm's resolution_config.scope.brand_scope[0] instead (sales
-    // seed: ['SB']). effectiveBrandId is what reaches resolveEntity.
+    // Phase 114-06 (CR-01) — generic-path brand_id. Sales has NO
+    // debtor.labeling_settings row, so settingsRow.brand_id is null for it →
+    // its brand must come from resolution_config.scope.brand_scope[0] (seed
+    // ['SB']). But DEBTOR is multi-brand-PER-MAILBOX (FI/BB/SN/SS/SF/SB) and its
+    // config.scope.brand_scope is null (per-mailbox brands live in
+    // labeling_settings, which IS loaded above as brandId). Phase 90-07 fix
+    // (2026-06-09 regression): when usesGenericPath, prefer the config brand but
+    // FALL BACK to the per-mailbox labeling_settings brandId — otherwise every
+    // brand-scoped rung (sender_match + identifier_match) is silently disabled
+    // for debtor (brand_id null → engine.ts "NXT lookups disabled"), which
+    // produced a live 0% debtor resolve rate. Learning 07d402a0-9631-4033-9b31-e409866fcd8b.
     const genericBrandId =
       (resolutionConfig as { scope?: { brand_scope?: string[] } } | null)?.scope
         ?.brand_scope?.[0] ?? null;
-    const effectiveBrandId = usesGenericPath ? genericBrandId : brandId;
+    const effectiveBrandId = usesGenericPath
+      ? genericBrandId ?? brandId
+      : brandId;
 
     // Phase 114-06 (WR-01) — generic-path nxt_database. The seeded sales config
     // has no `nxt_database` key today (scope.environment_id 'BX' is NOT a db
