@@ -28,6 +28,30 @@ describe("PipelineStageContext v1", () => {
     expect(() => pipelineStageContextSchema.parse(ctx)).not.toThrow();
   });
 
+  it("accepts a prior ticket whose submitted_at uses Postgres '+00:00' offset (not just 'Z')", () => {
+    const priorOffset = {
+      id: "11111111-1111-4111-8111-111111111111",
+      submission_id: "22222222-2222-4222-8222-222222222222",
+      user_chosen_type: "bug",
+      proposed_system: null,
+      final_intent: null,
+      clickup_status: null,
+      submitted_at: "2026-06-09T10:55:00.123456+00:00", // real Postgres timestamptz form
+      transcript_excerpt: null,
+    };
+    const ctx = {
+      ...emptyPipelineStageContext(),
+      prior_tickets_same_user: [priorOffset],
+    };
+    expect(pipelineStageContextSchema.safeParse(ctx).success).toBe(true);
+    // 'Z' form still accepted too
+    const ctxZ = {
+      ...emptyPipelineStageContext(),
+      prior_tickets_same_user: [{ ...priorOffset, submitted_at: "2026-06-09T10:55:00.000Z" }],
+    };
+    expect(pipelineStageContextSchema.safeParse(ctxZ).success).toBe(true);
+  });
+
   it("rejects context_version='2026-05-26.v0' (Zod literal mismatch)", () => {
     const bad = { ...emptyPipelineStageContext(), context_version: "2026-05-26.v0" };
     const parsed = pipelineStageContextSchema.safeParse(bad);

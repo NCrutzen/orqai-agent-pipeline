@@ -45,7 +45,12 @@ export const priorTicketSummarySchema = z.object({
   proposed_system: z.string().nullable(),
   final_intent: z.string().nullable(),
   clickup_status: z.string().nullable(),
-  submitted_at: z.string().datetime(),
+  // Accept timezone-offset form (e.g. "...+00:00") in addition to "...Z".
+  // prior_tickets_same_user is populated straight from Postgres timestamptz,
+  // which serialises as "+00:00" — a valid ISO-8601 datetime that the default
+  // (Z-only) .datetime() rejects. Real submissions with prior tickets would
+  // otherwise fail Stage 3 context validation (stage2_context_invalid).
+  submitted_at: z.string().datetime({ offset: true }),
   transcript_excerpt: z.string().nullable(),
 });
 export type PriorTicketSummary = z.infer<typeof priorTicketSummarySchema>;
