@@ -208,7 +208,7 @@ describe("stage-3-dispatcher", () => {
 
     const { step, callOrder } = makeStep();
     await getHandler()({
-      event: { name: "debtor-email/predicted", data: baseEventData },
+      event: { name: "pipeline/predicted", data: baseEventData },
       step,
     });
 
@@ -249,7 +249,7 @@ describe("stage-3-dispatcher", () => {
 
     const { step } = makeStep();
     await getHandler()({
-      event: { name: "debtor-email/predicted", data: baseEventData },
+      event: { name: "pipeline/predicted", data: baseEventData },
       step,
     });
 
@@ -268,9 +268,9 @@ describe("stage-3-dispatcher", () => {
     expect(flipUpdate).toBeUndefined();
   });
 
-  it("wildcard routes sales-email/predicted via event.name discrimination", async () => {
-    // Cross-swarm: dispatcher infers swarm_type from event.name (or payload)
-    // — never from a hardcoded constant. must_have #6 (cross-swarm).
+  it("routes sales via canonical pipeline/predicted + payload swarm_type discrimination", async () => {
+    // Cross-swarm: dispatcher reads swarm_type from the payload (canonical
+    // `pipeline/predicted` event name is swarm-agnostic). must_have #6.
     loadSwarmIntentsMock.mockResolvedValueOnce([
       registeredRow(
         "lead_qualification",
@@ -287,7 +287,7 @@ describe("stage-3-dispatcher", () => {
 
     const { step } = makeStep();
     await getHandler()({
-      event: { name: "sales-email/predicted", data: salesEvent },
+      event: { name: "pipeline/predicted", data: salesEvent },
       step,
     });
 
@@ -315,7 +315,7 @@ describe("stage-3-dispatcher", () => {
 
     const { step } = makeStep();
     await getHandler()({
-      event: { name: "debtor-email/predicted", data: baseEventData },
+      event: { name: "pipeline/predicted", data: baseEventData },
       step,
     });
 
@@ -339,7 +339,7 @@ describe("stage-3-dispatcher", () => {
     agentRunsStatusSingle = { data: { status: "predicted" }, error: null };
     const first = makeStep();
     await getHandler()({
-      event: { name: "debtor-email/predicted", data: baseEventData },
+      event: { name: "pipeline/predicted", data: baseEventData },
       step: first.step,
     });
 
@@ -351,7 +351,7 @@ describe("stage-3-dispatcher", () => {
     };
     const second = makeStep();
     await getHandler()({
-      event: { name: "debtor-email/predicted", data: baseEventData },
+      event: { name: "pipeline/predicted", data: baseEventData },
       step: second.step,
     });
 

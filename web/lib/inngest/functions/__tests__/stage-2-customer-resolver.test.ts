@@ -311,8 +311,9 @@ describe("stage-2-customer-resolver — Phase 66 D-03 emit", () => {
 
     expect(inngestSend).toHaveBeenCalledWith(
       expect.objectContaining({
-        name: "debtor-email/coordinator.requested",
+        name: "pipeline/coordinator.requested",
         data: expect.objectContaining({
+          swarm_type: "debtor-email",
           email_id: expect.any(String),
           automation_run_id: expect.any(String),
           customer_account_id: expect.anything(),
@@ -329,8 +330,7 @@ describe("stage-2-customer-resolver — Phase 66 D-03 emit", () => {
     // flow through (not just type-shaped).
     const emitCall = inngestSend.mock.calls.find(
       (c) =>
-        (c[0] as { name: string }).name ===
-        "debtor-email/coordinator.requested",
+        (c[0] as { name: string }).name === "pipeline/coordinator.requested",
     );
     expect(emitCall).toBeDefined();
     const data = (emitCall![0] as { data: Record<string, unknown> }).data;

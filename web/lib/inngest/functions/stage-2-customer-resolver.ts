@@ -425,11 +425,15 @@ export const stage2CustomerResolver = inngest.createFunction(
       // Stage 2 → Stage 3 hand-off for BOTH resolved + unresolved (STAGE2-02).
       // PipelineStageContext: customer_id string|null (null = resolved-but-no-
       // match, legal), entity_brand from registry, context_version:1. The event
-      // name is the swarm's own coordinator event (stage-named convention).
+      // Canonical cross-swarm event (`pipeline/coordinator.requested`) carrying
+      // swarm_type in the payload — the shared coordinator routes on
+      // data.swarm_type, not the event name. Replaces the per-swarm
+      // `<swarm>/coordinator.requested` name (the `*/` glob never matched).
       await step.run("emit-coordinator", async () =>
-        (inngest.send as unknown as SendFn)({
-          name: `${swarm_type ?? "unknown"}/coordinator.requested`,
+        inngest.send({
+          name: "pipeline/coordinator.requested",
           data: {
+            swarm_type: swarm_type ?? "unknown",
             email_id: emailRow.id,
             automation_run_id,
             entity: entityBrand,
@@ -610,9 +614,10 @@ export const stage2CustomerResolver = inngest.createFunction(
     // event payload becomes downstream coordinator state. Inline cast on
     // `inngest.send` per CLAUDE.md commit dae6276 — NEVER destructure.
     await step.run("emit-coordinator", async () =>
-      (inngest.send as unknown as SendFn)({
-        name: "debtor-email/coordinator.requested",
+      inngest.send({
+        name: "pipeline/coordinator.requested",
         data: {
+          swarm_type: swarm_type ?? "debtor-email",
           email_id: emailRow.id,
           automation_run_id,
           entity: settingsRow?.entity ?? null,
