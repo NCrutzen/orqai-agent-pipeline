@@ -1427,7 +1427,9 @@ describe("debtor generic path — Phase 90-07 brand fallback (regression)", () =
       b.maybeSingle = vi.fn(async () => ({
         data: {
           dry_run: true,
-          nxt_database: "nxt",
+          // The value the LIVE resolver Zap recognizes; config.source has no
+          // nxt_database, so the generic path MUST fall back to this (90-07).
+          nxt_database: "nxt_benelux_prod",
           brand_id: "BB",
           entity: "berki",
           icontroller_company: "berki",
@@ -1560,5 +1562,20 @@ describe("debtor generic path — Phase 90-07 brand fallback (regression)", () =
     const args = resolveEntityMock.mock.calls[0][0] as { brand_id: unknown };
     expect(args.brand_id).toBe("BB");
     expect(args.brand_id).not.toBeNull();
+  });
+
+  it("usesGenericPath + config.source has no nxt_database → resolveEntity receives the per-mailbox labeling_settings nxt_database ('nxt_benelux_prod'), NOT the 'nxt' literal", async () => {
+    const handler = await loadDebtorGenericHandler();
+    resolveEntityMock.mockResolvedValueOnce(UNRESOLVED_RESULT);
+
+    await handler({ event: buildBerkiEvent(), step: stepStub });
+
+    // 90-07 nxt_database fix (symmetric with the brand_id fix): the live resolver
+    // Zap only recognizes 'nxt_benelux_prod'; the config-default 'nxt' broke every
+    // NXT lookup on the generic path. Must fall back to labeling_settings.
+    expect(resolveEntityMock).toHaveBeenCalledTimes(1);
+    const args = resolveEntityMock.mock.calls[0][0] as { nxt_database: unknown };
+    expect(args.nxt_database).toBe("nxt_benelux_prod");
+    expect(args.nxt_database).not.toBe("nxt");
   });
 });

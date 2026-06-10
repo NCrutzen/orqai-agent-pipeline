@@ -208,17 +208,25 @@ export const stage2CustomerResolver = inngest.createFunction(
       ? genericBrandId ?? brandId
       : brandId;
 
-    // Phase 114-06 (WR-01) — generic-path nxt_database. The seeded sales config
-    // has no `nxt_database` key today (scope.environment_id 'BX' is NOT a db
-    // handle). Source it from config.source.nxt_database when present; the
-    // literal "nxt" remains the documented default ONLY when that key is absent,
-    // justified because every currently-onboarded NXT swarm shares the single
-    // "nxt" database handle (config-sourced first, magic-string last).
+    // Phase 114-06 (WR-01) + Phase 90-07 (2026-06-10) — generic-path nxt_database.
+    // Source order: config.source.nxt_database (explicit, future-proof) →
+    // per-mailbox labeling_settings.nxt_database (the value the LIVE resolver Zap
+    // actually recognizes) → "nxt" literal (last resort). This MIRRORS the 90-07
+    // brand_id fix (genericBrandId ?? brandId): debtor's resolution_config carries
+    // RESL-16 future-shape (scope.environment_id='BX', no source.nxt_database), but
+    // the existing P0 NXT tools + live Zap require the legacy per-mailbox handle
+    // ('nxt_benelux_prod'), which lives in labeling_settings. Without the
+    // `?? nxtDatabase` fallback the generic path passed "nxt" → every NXT lookup
+    // insert was rejected by the debtor.nxt_lookup_requests CHECK constraint →
+    // silent 0% resolve on the generic path (learning a841a391). Sales has no
+    // labeling_settings row → nxtDatabase is null → falls through to "nxt"
+    // (unchanged for sales). The "nxt" literal is retired as the live default once
+    // the RESL-16 consolidation lands the Zap/substrate on environment_id (P1).
     const genericNxtDatabase =
       (resolutionConfig as { source?: { nxt_database?: string } } | null)?.source
         ?.nxt_database ?? null;
     const effectiveNxtDatabase = usesGenericPath
-      ? genericNxtDatabase ?? "nxt"
+      ? genericNxtDatabase ?? nxtDatabase ?? "nxt"
       : nxtDatabase;
 
     // Phase 114-06 (CR-02) — entity_brand type guard. swarms.entity_brand is
