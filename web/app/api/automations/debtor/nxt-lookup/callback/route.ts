@@ -70,7 +70,8 @@ export async function POST(request: NextRequest) {
   // Zapier wraps SQL step output as either:
   //   { rows: [...] }                                 (object)
   //   [{ rows: [...], _zap_search_was_found_status }] (array of step wrappers)
-  // Recursively unwrap any object whose only meaningful key is `rows`.
+  //   [{ count, results: [{ rows: [...] }] }]         (Find Multiple Rows action output)
+  // Recursively unwrap any object whose meaningful key is `rows` or `results`.
   // Drop Zapier-internal keys that leak into individual rows.
   const ZAPIER_INTERNAL_KEYS = new Set([
     "_zap_search_was_found_status",
@@ -89,6 +90,8 @@ export async function POST(request: NextRequest) {
     if (val && typeof val === "object") {
       const obj = val as Record<string, unknown>;
       if (Array.isArray(obj.rows)) return flattenRows(obj.rows);
+      // Find Multiple Rows wraps the rows in `results` (alongside a `count`).
+      if (Array.isArray(obj.results)) return flattenRows(obj.results);
       return [stripZapInternals(obj)];
     }
     return [];

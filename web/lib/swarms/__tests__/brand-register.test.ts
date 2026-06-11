@@ -68,6 +68,7 @@ function swarmRowWith(entityBrand: unknown): SwarmRow {
     canonical_context_shape: null,
     entity_brand: entityBrand as SwarmRow["entity_brand"],
     tenant_domains: [],
+    resolution_config: null,
   };
 }
 

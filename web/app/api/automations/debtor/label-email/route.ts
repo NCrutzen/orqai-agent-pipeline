@@ -287,6 +287,9 @@ function buildReason(
       return result.reason
         ? `LLM tiebreaker (${result.candidates_considered ?? 0} candidates): ${result.reason}`
         : `LLM tiebreaker (${result.candidates_considered ?? 0} candidates)`;
+    case "self_auth":
+      // Phase 91 (RESL-07) — high-precision self-auth AUTO tier.
+      return "matched via self-auth identifier (customer/site number in the email body)";
     case "unresolved":
       if (!ctx.brandIdSet)
         return "no thread inheritance and brand_id not configured (NXT lookups skipped)";

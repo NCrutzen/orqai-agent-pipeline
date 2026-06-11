@@ -28,6 +28,7 @@ import type { ResolutionConfig } from "./config";
 import { runThreadInheritance } from "./steps/thread-inheritance";
 import { runSenderMatch, type LlmTiebreak } from "./steps/sender-match";
 import { runIdentifierMatch } from "./steps/identifier-match";
+import { runSelfAuthMatch, type SelfAuthConfig } from "./steps/self-auth-match";
 
 // The engine consumes only `precedence` (the ordered step list) +
 // `auto_safe_kinds` (self-auth-no-op) + `llm_tiebreaker`. Require just those
@@ -37,11 +38,30 @@ import { runIdentifierMatch } from "./steps/identifier-match";
 // resolve_candidates proc / blocklist loader, not by the in-process precedence
 // runner in P0. Extra fields on the passed object are tolerated.
 export type EngineConfig = Pick<ResolutionConfig, "precedence"> &
-  Partial<Pick<ResolutionConfig, "auto_safe_kinds" | "llm_tiebreaker">>;
+  Partial<Pick<ResolutionConfig, "auto_safe_kinds" | "llm_tiebreaker">> & {
+    // Phase 91 — the self_auth / number back-search steps read
+    // scope.environment_id (D-01 strip) + scope.brand_scope (prefix-family
+    // tiebreaker). Typed structurally (NOT Pick<ResolutionConfig,"scope">) so
+    // BOTH the full ResolutionScope (debtorP0Config / the registry adapter) AND
+    // a minimal inline config assign — the known scope props are spelled out
+    // (brand_mode/brand_scope_by_mailbox optional) instead of an index signature,
+    // so the real ResolutionScope (which has no index signature) stays assignable.
+    // Optional so a config with no scope at all is assignable; the self_auth
+    // branch guards on its presence before consulting the substrate.
+    scope?: {
+      environment_id: string;
+      brand_scope?: string[] | null;
+      brand_mode?: string;
+      brand_scope_by_mailbox?: Record<string, string[]>;
+    };
+  };
 
 // ─── LOCKED public contract (ported verbatim from resolve-debtor.ts:33-104) ──
 
 export type ResolveMethod =
+  // Phase 91 (RESL-07) — high-precision self-auth AUTO tier (D-10 outranks
+  // thread_inheritance). Resolves to the DIRECT customer (D-04).
+  | "self_auth"
   | "thread_inheritance"
   | "sender_match"
   | "identifier_match"
@@ -57,6 +77,11 @@ export interface ResolveArgs {
   from_email: string | null;
   subject: string;
   body_text: string;
+  // Phase 91 (RESL-06 / D-05) — per-mailbox brand scope (the widened brand
+  // tiebreaker the worker derives from config.scope.brand_scope_by_mailbox). The
+  // P0 ported steps ignore it; the P1 self_auth / identifier steps pass it to the
+  // resolve_candidates proc as the @brand_scope tiebreaker.
+  brand_scope?: string[];
 }
 
 // Phase 82.9 (D-03) — richer candidate shape for Stage 2 audit panel.
@@ -71,6 +96,14 @@ export type Candidate = {
 // Phase 82.9 (D-01) — discriminated union; `kind` mirrors the outer `method`
 // so illegal combinations are caught at compile time.
 export type Stage2Inputs =
+  | {
+      // Phase 91 (RESL-07) — self-auth AUTO tier inputs. Carries the matched
+      // self-auth identifier(s) + the single resolved candidate (the audit panel
+      // renders these like identifier_match). DIRECT party, no rollup (D-04).
+      kind: "self_auth";
+      matched_identifiers: string[];
+      candidates: Candidate[];
+    }
   | {
       kind: "thread_inheritance";
       prior_email_label_id: string;
@@ -110,6 +143,13 @@ export interface ResolveResult {
   confidence: Confidence;
   reason?: string;
   candidates_considered?: number;
+  // Phase 91 (D-02) — the environment_id qualifier carried ALONGSIDE the numeric
+  // customer_account_id (which has its env prefix stripped, D-01). Preserved so a
+  // future (environment_id, customer_account_id) key needs no migration; id_org
+  // repeats across environments, only the composite is globally unique. Sourced
+  // from config.scope.environment_id (NOT a debtor literal — D-08). Set on the
+  // high-precision AUTO tier (self_auth / number back-search); optional elsewhere.
+  environment_id?: string;
   // Phase 82.9 — discriminated via `inputs.kind === method`.
   inputs: Stage2Inputs;
 }
@@ -133,10 +173,11 @@ export async function resolveEntity(
   args: ResolveArgs,
   config: EngineConfig,
 ): Promise<ResolveResult> {
-  // RESL-03 self-auth-no-op: empty/absent auto_safe_kinds → zero self-auth
-  // candidates. P0 debtor has no self-auth step; the precedence steps below run
-  // unchanged. (No crash on an empty array — it is simply not consulted.)
-  void (config.auto_safe_kinds ?? []);
+  // Phase 91 (RESL-03 → RESL-07): config.auto_safe_kinds is no longer a void
+  // no-op. When the precedence stack includes "self_auth", runSelfAuthMatch reads
+  // auto_safe_kinds to gate which self-auth kinds it extracts; an empty/absent
+  // array means zero self-auth candidates (the RESL-03 no-op is preserved INSIDE
+  // the step — it consults nothing and returns null, never crashing).
 
   // The verbatim multi-candidate escalation (resolve-debtor.ts:301-406),
   // shared by the sender + identifier steps so the tiebreak logic lives once.
@@ -148,14 +189,32 @@ export async function resolveEntity(
   let lastMatchedIdentifiers: string[] = [];
 
   for (const stepName of config.precedence) {
-    if (stepName === "thread_inheritance") {
+    if (stepName === "self_auth") {
+      // Phase 91 (RESL-07 / D-10) — high-precision AUTO tier. Fails CLOSED to
+      // null (SUGGEST) on any ambiguity, so a precedence with self_auth FIRST
+      // does not strand thread_inheritance: a no-signal email returns null here
+      // and falls through to the lower-precedence steps. config.scope may be
+      // absent on a minimal config → the step no-ops (returns null) in that case.
+      const result = config.scope
+        ? await runSelfAuthMatch(args, config as SelfAuthConfig)
+        : null;
+      if (result) return result;
+    } else if (stepName === "thread_inheritance") {
       const result = await runThreadInheritance(args);
       if (result) return result;
     } else if (stepName === "sender_match") {
       const result = await runSenderMatch(args, llmTiebreak);
       if (result) return result;
     } else if (stepName === "identifier_match") {
-      const outcome = await runIdentifierMatch(args, llmTiebreak);
+      // Phase 91 (RESL-08) — pass config only when scope is present so the
+      // number back-search AUTO pre-pass can read environment_id/brand_scope/
+      // auto_safe_kinds. Absent scope → the legacy invoice path runs unchanged
+      // (P0 behaviour-neutral).
+      const outcome = await runIdentifierMatch(
+        args,
+        llmTiebreak,
+        config.scope ? (config as SelfAuthConfig) : undefined,
+      );
       lastMatchedIdentifiers = outcome.matched_identifiers;
       if (outcome.result) return outcome.result;
     }

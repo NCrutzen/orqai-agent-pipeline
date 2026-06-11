@@ -107,6 +107,7 @@ const sampleSwarm = (swarm_type: string): SwarmRow => ({
   canonical_context_shape: null,
   entity_brand: null,
   tenant_domains: [],
+  resolution_config: null,
 });
 
 const sampleCategory = (

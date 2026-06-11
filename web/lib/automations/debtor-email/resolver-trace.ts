@@ -208,6 +208,34 @@ export function buildResolverTrace(result: ResolveResult): ResolverTrace {
       };
     }
 
+    case "self_auth": {
+      // Phase 91 (RESL-07) — high-precision self-auth AUTO tier resolves to a
+      // DIRECT customer via the matched self-auth identifier(s). Renders like
+      // identifier_match (the "identifier" step picked) for the audit panel.
+      const matched =
+        result.inputs.kind === "self_auth"
+          ? result.inputs.matched_identifiers
+          : [];
+      return {
+        steps: [
+          emptyStep("thread", 1, "miss"),
+          emptyStep("sender_map", 2, "miss"),
+          {
+            step: "identifier",
+            idx: 3,
+            status: "matched",
+            confidence: numericConf(result.confidence),
+            detail: {
+              matched_identifiers: matched,
+              candidates_considered: result.candidates_considered ?? null,
+            },
+          },
+          emptyStep("llm_tiebreaker", 4, "not_run"),
+        ],
+        winner: 3,
+      };
+    }
+
     case "unresolved": {
       const senderEmail =
         result.inputs.kind === "unresolved"

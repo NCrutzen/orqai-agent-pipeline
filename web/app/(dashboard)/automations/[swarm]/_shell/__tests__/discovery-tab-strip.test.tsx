@@ -42,6 +42,7 @@ const baseSwarm: SwarmRow = {
   canonical_context_shape: null,
   entity_brand: null,
   tenant_domains: [],
+  resolution_config: null,
 };
 
 describe("deriveDiscoveryTabs", () => {

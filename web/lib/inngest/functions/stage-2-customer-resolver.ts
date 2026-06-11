@@ -285,6 +285,21 @@ export const stage2CustomerResolver = inngest.createFunction(
                 },
               };
             } else {
+              // Phase 91 (D-05 / RESL-06) — per-mailbox brand_scope widening
+              // (e.g. Berki BB+IN) from resolution_config.scope.brand_scope_by_mailbox,
+              // falling back to the effective single brand. Passed to the engine so
+              // the resolve_candidates proc gets the right @brand_scope tiebreaker.
+              // Forward-compat: the P0 ported steps ignore it (behaviour-neutral);
+              // the P1 self_auth / number-back-search AUTO steps consume it.
+              const brandScope =
+                (
+                  resolutionConfig as {
+                    scope?: {
+                      brand_scope_by_mailbox?: Record<string, string[]>;
+                    };
+                  } | null
+                )?.scope?.brand_scope_by_mailbox?.[source_mailbox] ??
+                (effectiveBrandId ? [effectiveBrandId] : []);
               result = await resolver.resolveEntity(
                 {
                   // Phase 114-06 — config-sourced generic-path context (CR-01 /
@@ -297,6 +312,7 @@ export const stage2CustomerResolver = inngest.createFunction(
                   from_email: emailRow.sender_email ?? null,
                   subject: emailRow.subject ?? "",
                   body_text: emailRow.body_text ?? "",
+                  brand_scope: brandScope,
                 },
                 resolutionConfig as EngineConfig,
               );
@@ -802,6 +818,9 @@ function buildReason(
       return result.reason
         ? `LLM tiebreaker (${result.candidates_considered ?? 0} candidates): ${result.reason}`
         : `LLM tiebreaker (${result.candidates_considered ?? 0} candidates)`;
+    case "self_auth":
+      // Phase 91 (RESL-07) — high-precision self-auth AUTO tier.
+      return "matched via self-auth identifier (customer/site number in the email body)";
     case "unresolved":
       if (!ctx.brandIdSet)
         return "no thread inheritance and brand_id not configured (NXT lookups skipped)";

@@ -86,15 +86,31 @@ export interface ResolutionConfig {
   scope: ResolutionScope;
   /**
    * D-02: the precedence stack AS DATA so P1 can flip it without a code change.
-   * P0 = today's order ["thread_inheritance","sender_match","identifier_match"]
-   * — do NOT flip (the self-auth/invoice-outrank inversion is P1 / RESL-14).
+   * P0 = today's order ["thread_inheritance","sender_match","identifier_match"].
+   *
+   * Phase 91 (D-10 — RESL-14) INVERSION, applied as LIVE-ROW DATA (no code
+   * change — the engine already iterates this array). The debtor-email live row
+   * becomes:
+   *   ["self_auth","identifier_match","sender_match","thread_inheritance"]
+   * so the high-precision AUTO tier OUTRANKS thread inheritance. The interface
+   * does not change for ordering; only the swarms.resolution_config.precedence
+   * jsonb value flips (Plan 91-05 / the dispatch flip owns the live edit).
+   * thread_inheritance is NOT stranded: self_auth/identifier fail CLOSED to null
+   * on any ambiguity, so a no-signal email still reaches thread_inheritance.
    */
   precedence: string[];
   /**
-   * Self-auth tier kinds eligible for AUTO (debtor-specific). EMPTY in P0 — the
-   * engine must produce zero self-auth candidates and NOT crash when this is []
-   * (the only generality assertion P0 makes — RESL-03 self-auth-no-op test).
-   * P1 adds aanmaning/klantnummer/werkbon.
+   * Self-auth tier kinds eligible for AUTO. EMPTY in P0 (the RESL-03
+   * self-auth-no-op: the engine must produce zero self-auth candidates and NOT
+   * crash when this is []).
+   *
+   * Phase 91 (RESL-07) — the debtor-email live row populates this with the
+   * self-auth substrate kinds the runSelfAuthMatch step gates on (the aanmaning
+   * klantnummer + werkbon site stamps), e.g. ["customer_no","site_no"]. The step
+   * extracts self-auth ids, then keeps only matches whose identifier_kind is in
+   * this set before the single-distinct-party AUTO gate. A future SugarCRM-shaped
+   * swarm with no self-auth stamps leaves this [] and the step no-ops (D-08:
+   * swarm-agnostic — no debtor literals in the engine/step).
    */
   auto_safe_kinds: string[];
   /** D-03 — which resolution_blocklists rows to apply. */

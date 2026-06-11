@@ -35,6 +35,7 @@ const baseSwarm = (sideEffects: unknown[]): SwarmRow => ({
   canonical_context_shape: null,
   entity_brand: ["smeba"],
   tenant_domains: [],
+  resolution_config: null,
 });
 
 const icontrollerTagDescriptor = {

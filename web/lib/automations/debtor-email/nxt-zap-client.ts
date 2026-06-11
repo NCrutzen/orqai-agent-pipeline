@@ -88,7 +88,10 @@ async function loadTool(tool_id: string): Promise<ZapierToolRow> {
 export type NxtToolId =
   | "nxt.contact_lookup"
   | "nxt.identifier_lookup"
-  | "nxt.candidate_details";
+  | "nxt.candidate_details"
+  // Phase 90 (RESL-01/RESL-03) — per-email candidate read against the
+  // materialized zapier.dbo resolve_candidates index (Layer-A projection).
+  | "nxt.resolve_candidates";
 
 export type ContactLookupInput = {
   nxt_database: string;
@@ -104,6 +107,20 @@ export type CandidateDetailsInput = {
   nxt_database: string;
   brand_id: string;
   customer_ids: string[];
+};
+// Phase 90 (RESL-01) — input for the per-email resolve_candidates read. The
+// proc scopes by `environment_id` (HARD filter) + a brand tiebreaker (brand_scope),
+// never a hard brand pre-filter (§0.10 A11). `identifiers` carries the extracted
+// invoice/klantnummer/etc. seeds; the proc returns the whole candidate set.
+// Phase 91: environment_id travels FROM the swarm config (scope.environment_id)
+// THROUGH the payload TO the proc — so a UK/IE swarm scopes to UK/IE with no Zap
+// or proc change. It is NOT hardcoded 'BX' anywhere on the live path.
+export type ResolveCandidatesInput = {
+  nxt_database: string;
+  brand_id: string;
+  environment_id: string;
+  identifiers: string[];
+  brand_scope?: string[];
 };
 
 const BRAND_ID_RE = /^[A-Z]{2}$/;
@@ -148,20 +165,49 @@ const CandidateDetailMatchSchema = z.object({
   recent_invoices: z.array(z.string()).max(5).optional().default([]),
 });
 
+// Phase 90 (RESL-01 / D-09) — the Layer-A projection row returned by the
+// zapier.dbo resolve_candidates stored proc. The proc applies environment_id
+// (hard) + brand tiebreaker server-side and returns the WHOLE candidate set +
+// `is_unique_in_scope` (the engine applies precedence + the AUTO/SUGGEST gate;
+// the proc is candidates-not-verdict). Zod discipline mirrors IdentifierMatch:
+// string|number → .transform(String); nullable → .nullable().optional().
+const ResolveCandidateMatchSchema = z.object({
+  identifier_kind: z.string(),
+  identifier_value_norm: z.union([z.string(), z.number()]).transform(String),
+  party_id: z.union([z.string(), z.number()]).transform(String),
+  party_name: z.string(),
+  scope_key: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
+  brand_id: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
+  parent_party_id: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
+  // D-04 (Phase 91-03, LOCKED PAIR with 03-resolve-candidates.sql) — the
+  // materialized TRUE top-level customer for the D-04 number-search rollup. The
+  // seed/refresh walks the multi-level parent chain (the proc cannot); NULL = the
+  // party is already a root. Same Zod discipline: string|number → String, nullable.
+  root_party_id: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
+  // D-09 — the proc's uniqueness verdict within the requested scope. Drives the
+  // engine's single-vs-ambiguous decision without a second round-trip.
+  is_unique_in_scope: z.boolean(),
+  precedence: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
+  status: z.string().nullable().optional(),
+});
+
 const ResponseSchemaByTool = {
   "nxt.contact_lookup": z.object({ matches: z.array(ContactMatchSchema) }),
   "nxt.identifier_lookup": z.object({ matches: z.array(IdentifierMatchSchema) }),
   "nxt.candidate_details": z.object({ matches: z.array(CandidateDetailMatchSchema) }),
+  "nxt.resolve_candidates": z.object({ matches: z.array(ResolveCandidateMatchSchema) }),
 } as const;
 
 export type ContactMatch = z.infer<typeof ContactMatchSchema>;
 export type IdentifierMatch = z.infer<typeof IdentifierMatchSchema>;
 export type CandidateDetail = z.infer<typeof CandidateDetailMatchSchema>;
+export type ResolveCandidateMatch = z.infer<typeof ResolveCandidateMatchSchema>;
 
 const LookupKindByTool: Record<NxtToolId, string> = {
   "nxt.contact_lookup": "sender_to_account",
   "nxt.identifier_lookup": "identifier_to_account",
   "nxt.candidate_details": "candidate_details",
+  "nxt.resolve_candidates": "resolve_candidates",
 };
 
 type LookupRequestRow = {
@@ -191,7 +237,9 @@ export async function callNxtTool<T extends NxtToolId>(
       ? IdentifierLookupInput
       : T extends "nxt.candidate_details"
         ? CandidateDetailsInput
-        : never,
+        : T extends "nxt.resolve_candidates"
+          ? ResolveCandidatesInput
+          : never,
   intent: string,
 ): Promise<z.infer<(typeof ResponseSchemaByTool)[T]>> {
   const tool = await loadTool(tool_id);
@@ -401,3 +449,10 @@ export const lookupIdentifierToAccount = (input: IdentifierLookupInput, intent: 
 
 export const lookupCandidateDetails = (input: CandidateDetailsInput, intent: string) =>
   callNxtTool("nxt.candidate_details", input, intent);
+
+// Phase 90 (RESL-01 / RESL-03) — per-email read of the materialized
+// resolve_candidates index on the SAME async-callback path. requestId is
+// generated inside callNxtTool (replay-safe). The zapier_tools row (Plan 02)
+// grants allowed_for_intents so the default-deny allowlist permits this tool.
+export const lookupResolveCandidates = (input: ResolveCandidatesInput, intent: string) =>
+  callNxtTool("nxt.resolve_candidates", input, intent);
