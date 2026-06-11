@@ -21,6 +21,9 @@ const requestSchema = z.object({
   // Minstens één van deze moet gevuld zijn; html heeft de voorkeur (rijker).
   html: z.string().optional(),
   text: z.string().optional(),
+  // Outlook levert de platte-tekst soms onder `bodyPreview` i.p.v. `text` —
+  // meenemen als extra fallback zodat een gemapte body niet stilletjes leeg is.
+  bodyPreview: z.string().optional(),
   subject: z.string().optional(),
   date: z.string().optional(),
   // Optionele override van de thema's (anders DEFAULT_THEMES).
@@ -66,12 +69,28 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const emailBody = parsed.data.html?.trim() || parsed.data.text?.trim() || "";
+  const emailBody =
+    parsed.data.html?.trim() ||
+    parsed.data.text?.trim() ||
+    parsed.data.bodyPreview?.trim() ||
+    "";
   if (!emailBody) {
-    return NextResponse.json(
-      { ok: false, error: "Geen mail-inhoud meegegeven (html of text vereist)" },
-      { status: 400 }
+    // Lege mail-inhoud = niets te classificeren. We geven bewust GEEN 400 terug:
+    // dat liet Zapier de stap als "error" rapporteren (dagelijkse foutmail).
+    // In plaats daarvan een geldige respons met match_count 0 — de bestaande
+    // Zap-filter (`match_count > 0`) stopt de flow dan netjes vanzelf.
+    console.warn(
+      "[abk-tender-filter] lege mail-inhoud ontvangen (html/text/bodyPreview leeg) — niets te classificeren"
     );
+    return NextResponse.json({
+      ok: true,
+      match_count: 0,
+      total_scanned: 0,
+      subject: "",
+      html: "",
+      text: "",
+      note: "Geen mail-inhoud meegegeven — niets geclassificeerd.",
+    });
   }
 
   // --- Classificeren + digest ---

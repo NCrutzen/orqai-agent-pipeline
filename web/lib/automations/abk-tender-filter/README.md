@@ -66,8 +66,15 @@ Vereiste env vars (al aanwezig in Vercel/`.env.local`):
 2. **Action** — Webhooks by Zapier → *POST*
    - URL: `https://<agent-workforce-domein>/api/automations/abk-tender-filter`
    - Payload type: `json`
-   - Data: `html` = de HTML-body van de mail, `date` = de mail-datum (optioneel)
+   - Data:
+     - `html` = de **Body** (HTML-versie) van de mail
+     - `text` = de **Body Preview** / Body Plain (fallback als HTML leeg is)
+     - `date` = de mail-datum (optioneel)
    - Headers: `x-webhook-secret` = waarde van `AUTOMATION_WEBHOOK_SECRET`
+   - ⚠️ Map **zowel `html` als `text`**. Outlook levert niet altijd een HTML-body;
+     dan zorgt `text` dat de body alsnog meekomt. Het endpoint pakt `html` → `text`
+     → `bodyPreview` in die volgorde. Bij een echt lege mail geeft het endpoint
+     `match_count: 0` terug (geen fout meer), zodat de Zap netjes stopt op de filter.
 3. **Filter** — Only continue if… `match_count` (uit stap 2) > `0`.
 4. **Action** — Microsoft Outlook → *Send Email*
    - To: `Albert.Dias.Dullois.cb@moyneroberts.com`
