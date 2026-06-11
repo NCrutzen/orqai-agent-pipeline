@@ -30,8 +30,6 @@ const WAIT_TIMEOUT_MS = 20_000; // Tight enough to avoid label-email blocking; r
 // even on 0 matches. If Zap halts on miss the wait still bounds at 20s.
 const REGISTRY_CACHE_TTL_MS = 60_000;
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
-
 type ZapierToolRow = {
   tool_id: string;
   backend: string;
@@ -253,6 +251,12 @@ export async function callNxtTool<T extends NxtToolId>(
     throw new ToolNotAllowedForIntentError(tool_id, intent);
   }
 
+  // Read at call-time, NOT module-init: scripts (precision-dry-run.ts) call
+  // loadEnvLocal() AFTER their static imports have already evaluated this module,
+  // so a module-level `const APP_URL = process.env...` would capture undefined and
+  // throw on the first call even when .env.local has it. The deployed worker is
+  // unaffected (env is present at runtime either way).
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
   if (!APP_URL) {
     throw new Error("NEXT_PUBLIC_APP_URL is not set — cannot build callback_url");
   }
