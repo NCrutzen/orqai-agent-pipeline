@@ -383,9 +383,11 @@ async function waitForLookupRequest(
     let settled = false;
     let channel: RealtimeChannel | null = null;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let pollId: ReturnType<typeof setInterval> | null = null;
 
     const cleanup = () => {
       if (timeoutId) clearTimeout(timeoutId);
+      if (pollId) clearInterval(pollId);
       if (channel) admin.removeChannel(channel).catch(() => null);
     };
 
@@ -449,6 +451,33 @@ async function waitForLookupRequest(
       });
 
     timeoutId = setTimeout(() => finish({ kind: "ok", value: null }), timeoutMs);
+
+    // Polling backstop. Realtime is the low-latency primary, but a missed
+    // `postgres_changes` UPDATE (flaky WebSocket, table not in the realtime
+    // publication, or a standalone Node/script client where realtime never
+    // delivers) would otherwise hang the full timeout even though the Zap
+    // callback has already set status='complete' in ~8s. The poll guarantees
+    // the wait resolves within one interval of the row actually completing —
+    // hardening BOTH the live label path (a missed event = a missed resolution)
+    // and build-time instruments (precision-dry-run). Cheap: ~1 SELECT/2s while
+    // a single lookup is in flight.
+    const poll = async () => {
+      if (settled) return;
+      const { data } = await admin
+        .schema("debtor")
+        .from("nxt_lookup_requests")
+        .select("id, status, result, error")
+        .eq("id", requestId)
+        .maybeSingle();
+      if (settled || !data) return;
+      const row = data as LookupRequestRow;
+      if (row.status === "complete") {
+        finish({ kind: "ok", value: row.result ?? {} });
+      } else if (row.status === "failed") {
+        finish({ kind: "err", error: new Error(row.error ?? "nxt lookup failed") });
+      }
+    };
+    pollId = setInterval(() => void poll(), 2000);
   });
 }
 
