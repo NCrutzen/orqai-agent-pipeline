@@ -112,6 +112,7 @@ loadEnvLocal();
 // path (path alias `@/` configured in web/tsconfig.json; tsx honours it).
 import { loadStage2Resolver } from "@/lib/swarms/dynamic";
 import { selectBodyText } from "@/lib/agentic-pipeline/resolve/body-source";
+import { extractSelfAuthCandidates } from "@/lib/automations/debtor-email/extract-self-auth";
 import type {
   ResolveArgs,
   ResolveResult,
@@ -287,6 +288,19 @@ async function main() {
   const sampleFlagIdx = argv.indexOf("--sample");
   const samplePath =
     sampleFlagIdx >= 0 ? argv[sampleFlagIdx + 1] : undefined;
+  // --limit N: probe-only cap on the unresolved population (NOT for the binding
+  // gate run — only to gauge the AUTO/resolve rate over a small slice cheaply).
+  const limitFlagIdx = argv.indexOf("--limit");
+  const limit =
+    limitFlagIdx >= 0 ? parseInt(argv[limitFlagIdx + 1] ?? "", 10) : undefined;
+  // --p1-probe: in-memory override of the live config to the P1 AUTO shape so the
+  // probe can gauge the AUTO tier's recall WITHOUT mutating the live swarms row
+  // (the live precedence-flip is the separate post-verdict step). Read-only.
+  const p1Probe = argv.includes("--p1-probe");
+  // --self-auth-only: process ONLY emails that yield a self-auth candidate, so
+  // every Zap call exercises the self_auth tier (focused confirmation of self-auth
+  // recall without re-running the whole population).
+  const selfAuthOnly = argv.includes("--self-auth-only");
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -374,6 +388,33 @@ async function main() {
       "swarms.resolution_config is NULL for debtor-email — the engine needs config.precedence",
     );
   }
+  // --p1-probe: override the live (P0) config to the P1 AUTO shape IN MEMORY ONLY
+  // (no DB write — the live swarms row is untouched). Lets the probe exercise the
+  // self_auth + number back-search AUTO tiers to gauge recall before the live flip.
+  if (p1Probe) {
+    resolutionConfig.precedence = [
+      "self_auth",
+      "identifier_match",
+      "sender_match",
+      "thread_inheritance",
+    ];
+    resolutionConfig.auto_safe_kinds = [
+      "customer_no",
+      "site_no",
+      "invoice_no",
+      "po_no",
+      "order_no",
+      "job_no",
+      "quote_no",
+      "previous_customer_id",
+    ];
+    console.log(
+      "**⚠️ --p1-probe ACTIVE:** in-memory P1 config override (precedence + " +
+        "auto_safe_kinds). The live swarms.resolution_config row is UNCHANGED " +
+        "(read-only). Measures the AUTO tier's recall before the live flip.\n",
+    );
+  }
+
   console.log(`**Dispatch pointer (under test):** ${resolverPath}`);
   console.log(
     `**resolution_config precedence:** ${JSON.stringify(resolutionConfig.precedence)}`,
@@ -434,6 +475,16 @@ async function main() {
   }>;
   console.log(`**Currently-unresolved population:** ${labelRows.length}\n`);
 
+  // --limit probe cap: process only the first N of the unresolved population.
+  const workRows =
+    limit && limit > 0 ? labelRows.slice(0, limit) : labelRows;
+  if (limit && limit > 0) {
+    console.log(
+      `**⚠️ --limit ACTIVE (probe, NOT the binding gate):** processing first ` +
+        `${workRows.length} of ${labelRows.length} unresolved rows.\n`,
+    );
+  }
+
   // Counters — overall + per AUTO kind + per identifier_kind strata.
   let processed = 0;
   let skippedNoEmail = 0;
@@ -446,7 +497,7 @@ async function main() {
   // the emitted AUTO sample (for --emit-sample → hand-grading).
   const emitted: EmittedSample[] = [];
 
-  for (const label of labelRows) {
+  for (const label of workRows) {
     const { data: email, error: emailErr } = await admin
       .schema("email_pipeline")
       .from("emails")
@@ -473,6 +524,18 @@ async function main() {
     if (!e) {
       skippedNoEmail++;
       continue;
+    }
+
+    if (selfAuthOnly) {
+      const sa = extractSelfAuthCandidates(
+        e.subject,
+        selectBodyText(
+          e.source ?? null,
+          e.body_full_text ?? null,
+          e.body_text ?? null,
+        ),
+      );
+      if (sa.candidates.length === 0) continue; // not a self-auth email — skip
     }
 
     const mailboxKey = label.source_mailbox ?? "";

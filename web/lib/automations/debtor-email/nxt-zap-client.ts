@@ -25,9 +25,16 @@ import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const ZAP_POST_TIMEOUT_MS = 10_000; // POST→Zap ack only; the Zap itself is async.
-const WAIT_TIMEOUT_MS = 20_000; // Tight enough to avoid label-email blocking; relies on
-// Zapier's Find Multiple Rows configured with success_on_miss=true so callbacks fire
-// even on 0 matches. If Zap halts on miss the wait still bounds at 20s.
+// Tight enough to avoid label-email blocking; relies on Zapier's Find Multiple Rows
+// configured with success_on_miss=true so callbacks fire even on 0 matches. The
+// resolve_candidates Zap (Find Multiple Rows + Code) averages ~8.5s with a tail
+// past 20s — the live label path keeps 20s to stay responsive, but build-time
+// instruments (precision-dry-run) can raise it via NXT_LOOKUP_WAIT_MS so slow
+// round-trips don't read as false timeouts.
+const WAIT_TIMEOUT_MS = (() => {
+  const raw = parseInt(process.env.NXT_LOOKUP_WAIT_MS ?? "", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : 20_000;
+})();
 const REGISTRY_CACHE_TTL_MS = 60_000;
 
 type ZapierToolRow = {
