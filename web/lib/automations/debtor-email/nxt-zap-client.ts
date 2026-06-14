@@ -373,11 +373,25 @@ export async function callNxtTool<T extends NxtToolId>(
  * Wait for a debtor.nxt_lookup_requests row to leave 'pending'.
  * Mirrors waitForFetchRequest in fetch-document.ts.
  */
+// Poll-only mode (NXT_LOOKUP_POLL_ONLY): skip the realtime subscription entirely
+// and reuse ONE shared client for polling. Realtime opens a WebSocket channel per
+// wait; at build-time scale (a full-population replay fires thousands of sequential
+// lookups across several Zaps) the per-call client + channel churn exhausts the
+// client layer and even the poll SELECT starts to hang → false 60s timeouts even
+// though the Zap completed in ~8s. Scripts set NXT_LOOKUP_POLL_ONLY=1; the live
+// label path leaves it unset and keeps realtime (low-latency) + the poll backstop.
+let _sharedPollClient: ReturnType<typeof createAdminClient> | null = null;
+function sharedPollClient() {
+  if (!_sharedPollClient) _sharedPollClient = createAdminClient();
+  return _sharedPollClient;
+}
+
 async function waitForLookupRequest(
   requestId: string,
   timeoutMs: number,
 ): Promise<{ matches?: unknown } | null> {
-  const admin = createAdminClient();
+  const pollOnly = !!process.env.NXT_LOOKUP_POLL_ONLY;
+  const admin = pollOnly ? sharedPollClient() : createAdminClient();
 
   return new Promise<{ matches?: unknown } | null>((resolve, reject) => {
     let settled = false;
@@ -403,7 +417,10 @@ async function waitForLookupRequest(
       else reject(outcome.error);
     };
 
-    channel = admin
+    // Realtime primary (live path only). In poll-only mode this whole chained
+    // statement is skipped — the `if` guards the entire assignment.
+    if (!pollOnly)
+      channel = admin
       .channel(`nxt_lookup_req:${requestId}`)
       .on(
         "postgres_changes",
@@ -477,7 +494,7 @@ async function waitForLookupRequest(
         finish({ kind: "err", error: new Error(row.error ?? "nxt lookup failed") });
       }
     };
-    pollId = setInterval(() => void poll(), 2000);
+    pollId = setInterval(() => void poll(), pollOnly ? 1000 : 2000);
   });
 }
 
