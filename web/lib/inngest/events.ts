@@ -567,6 +567,25 @@ export type Events = {
     };
   };
 
+  // Phase 117 Plan 02 (OUTLOOK-CAT-01..05, D-2) — swarm-agnostic intent→Outlook
+  // category WRITE request. Emitted by the SHARED coordinator on EVERY Stage-3
+  // verdict that carries a top-1 intent (both the OPEN and the routing-GATED/held
+  // path — the category WRITE gate `stage_3_intent_label` is independent of the
+  // routing gate). Carries `swarm_type` as the only discriminator (data, not a
+  // literal). Consumed by the shared `stage3IntentLabelWorker`, which writes
+  // `AI: <intent_key>` onto the source Outlook message behind isStageBlocked(
+  // swarm, "stage_3_intent_label") — idempotent + never-clobbering. A second
+  // Outlook swarm emits THIS same event through the same code path (generality).
+  "pipeline/intent-label.requested": {
+    data: {
+      swarm_type: string; // REQUIRED — the routing discriminator (no event-name fallback)
+      email_id: string;
+      intent_key: string; // Stage-3 ranked[0].intent
+      source_mailbox?: string | null;
+      run_id?: string;
+    };
+  };
+
   // Phase 67 (D-01, D-02, R-02) — Stage 2 side-effect: iController DOM tagging.
   // Emitted by classifier-label-resolver after the coordinator emit, gated on
   //   result.customer_account_id !== null

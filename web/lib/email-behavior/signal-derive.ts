@@ -28,6 +28,7 @@
  */
 
 import type { Transition, TransitionKind } from "./transition-extract";
+import { AI_CATEGORY_PREFIX } from "@/lib/outlook/intent-category";
 
 /** De verdicts die een ReviewSignal kan dragen. */
 export type SignalVerdict =
@@ -93,6 +94,29 @@ export interface DeriveInput {
   weights?: SignalWeights;
 }
 
+/**
+ * Phase 112.5-05 (SC-2 / OUTLOOK-BEHAV-05) — AI-prefix-aware should-be-intent
+ * extractie voor een `category_edited` transitie. De transitie draagt de NIEUWE
+ * categorie-set; Phase 117 schrijft de voorspelde intent terug als precies één
+ * `AI: <intent_key>` label (web/lib/outlook/intent-category.ts).
+ *
+ * Drie operator-edit-vormen, één verdict (`reclassify`), gediscrimineerd via
+ * deze category_key:
+ *   - removed AI: label (set leeg of alleen non-AI)      -> null   (was-wrong)
+ *   - changed-to-een-ander AI: label (['AI: order_status']) -> 'order_status' (should-be-X)
+ *   - changed-to-een non-AI user-label (['Belangrijk'])  -> null   (ambiguous)
+ *
+ * Defensief bij historische dubbel-writes (meerdere AI: entries): neem het
+ * EERSTE AI: label zoals het in de set verschijnt (stabiel, sorteer-onafhankelijk).
+ * Geen DB, geen clock — puur.
+ */
+function intentKeyFromCategories(categories: string[] | undefined): string | null {
+  if (!categories) return null;
+  const aiEntry = categories.find((c) => c.startsWith(AI_CATEGORY_PREFIX));
+  if (aiEntry === undefined) return null; // removed-label OF changed-to-non-AI = ambiguous
+  return aiEntry.slice(AI_CATEGORY_PREFIX.length);
+}
+
 /** Bepaal het email_id dat een transitie draagt (replied -> matched inbound). */
 function emailIdForTransition(
   tr: Transition,
@@ -115,6 +139,10 @@ function verdictFor(
     case "restored_from_archive":
       return hasLedgerHit ? "correctie_false_positive" : "restore_other";
     case "category_edited":
+      // Phase 112.5-05: één verdict voor alle drie de operator-edit-vormen
+      // (removed / changed-to-AI / changed-to-non-AI). De should-be-intent
+      // discriminator zit in category_key (intentKeyFromCategories), NIET in een
+      // nieuw verdict-lid — de SignalVerdict union blijft stabiel.
       return "reclassify";
     case "moved_to_afgehandeld":
       return "approve_handled";
@@ -147,9 +175,13 @@ export function deriveSignals(input: DeriveInput): ReviewSignal[] {
     const verdict = verdictFor(tr, hasLedgerHit, weights);
     if (verdict === null) continue;
 
+    // Phase 112.5-05: category_key draagt de should-be-intent (AI-prefix-aware),
+    // niet langer de ruwe eerste categorie. Verdict blijft 'reclassify' (zie
+    // verdictFor) — de drie edit-vormen delen één verdict, gediscrimineerd door
+    // deze category_key. Niet-category transities -> null.
     const categoryKey =
       tr.kind === "category_edited"
-        ? (tr.categories?.[0] ?? null)
+        ? intentKeyFromCategories(tr.categories)
         : null;
 
     out.push({

@@ -13,6 +13,7 @@
 // engine/adapter runs INSIDE the worker's step.run).
 
 import { nxtRequest } from "@/lib/automations/nxt-zapier/nxt-client";
+import { pickMatchingCustomer } from "./_match";
 
 // Data-driven regex shapes (Plan 03 mining report `kinds[].pattern`).
 const OFFERTE_SB = /\bSB\d{5,6}\b/gi;
@@ -76,30 +77,11 @@ export async function lookupOfferteToAccount(
       );
       return null;
     });
-    const match = pickCustomer(res?.data);
+    // FAIL-CLOSED: only accept a quote row that actually references THIS
+    // offertenummer (spike 011 — the old content[0] pick returned the same
+    // customer for every search). A non-matching response → null (safe miss).
+    const match = pickMatchingCustomer(res?.data, offerteNumber);
     if (match) return { ...match, matched_identifier: offerteNumber };
   }
   return null;
-}
-
-/** Tolerant extraction of a customer id/name from a NXT quote-search response. */
-function pickCustomer(
-  data: unknown,
-): { customer_account_id: string; customer_name: string | null } | null {
-  if (!data || typeof data !== "object") return null;
-  // Accept either a bare object or a {content:[...]} / array envelope.
-  const row = Array.isArray(data)
-    ? (data[0] as Record<string, unknown> | undefined)
-    : Array.isArray((data as Record<string, unknown>).content)
-      ? ((data as Record<string, unknown>).content as unknown[])[0]
-      : (data as Record<string, unknown>);
-  if (!row || typeof row !== "object") return null;
-  const r = row as Record<string, unknown>;
-  const id = r.customerId ?? r.customer_id ?? r.accountId ?? null;
-  if (id === null || id === undefined) return null;
-  const name = r.customerName ?? r.customer_name ?? r.name ?? null;
-  return {
-    customer_account_id: String(id),
-    customer_name: name === null || name === undefined ? null : String(name),
-  };
 }

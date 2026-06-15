@@ -12,6 +12,7 @@
 
 import { nxtRequest } from "@/lib/automations/nxt-zapier/nxt-client";
 import type { SalesCustomerMatch } from "./offerte";
+import { pickMatchingCustomer } from "./_match";
 
 // WR-03 (Phase 114-07): leading \b so a mid-word "order" (e.g. "herorder",
 // "wederorder") no longer matches — only a token that STARTS with "order".
@@ -58,28 +59,10 @@ export async function lookupOrderToAccount(
       );
       return null;
     });
-    const match = pickCustomer(res?.data);
+    // FAIL-CLOSED match (spike 011): only a row that references THIS order
+    // number resolves; non-matching response → null (safe miss).
+    const match = pickMatchingCustomer(res?.data, orderNumber);
     if (match) return { ...match, matched_identifier: orderNumber };
   }
   return null;
-}
-
-function pickCustomer(
-  data: unknown,
-): { customer_account_id: string; customer_name: string | null } | null {
-  if (!data || typeof data !== "object") return null;
-  const row = Array.isArray(data)
-    ? (data[0] as Record<string, unknown> | undefined)
-    : Array.isArray((data as Record<string, unknown>).content)
-      ? ((data as Record<string, unknown>).content as unknown[])[0]
-      : (data as Record<string, unknown>);
-  if (!row || typeof row !== "object") return null;
-  const r = row as Record<string, unknown>;
-  const id = r.customerId ?? r.customer_id ?? r.accountId ?? null;
-  if (id === null || id === undefined) return null;
-  const name = r.customerName ?? r.customer_name ?? r.name ?? null;
-  return {
-    customer_account_id: String(id),
-    customer_name: name === null || name === undefined ? null : String(name),
-  };
 }

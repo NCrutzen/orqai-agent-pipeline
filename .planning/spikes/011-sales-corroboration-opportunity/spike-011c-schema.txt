@@ -1,0 +1,61 @@
+◇ injected env (14) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+
+=== Spike 011c — NXT search schema probe (LIVE prod, read-only) ===
+Sampled real terms → offerte=SB014098 order=1633526 postcode=7543BK
+
+
+#### /api/quotes/search ####
+  [REAL] status=200 ok=true
+
+  ── quotes REAL  searchTerm="SB014098" ──
+     container={content:[]}  rows=20
+     row[0] keys: id, brandId, customerId, customerName, siteId, siteName, siteCity, sitePostcode, status, reference, netQuoteValue, type, name, relatedJobId, salesRep, createdOn, validUntilDate, closedDate, sentOn
+     fields matching the term: (NONE — term not echoed → searchTerm may be ignored)
+     candidate customer-id fields: customerId
+     distinct customerId across 20 rows: 15
+  [BOGUS] status=200 ok=true
+
+  ── quotes BOGUS  searchTerm="ZZ999999" ──
+     container={content:[]}  rows=20
+     row[0] keys: id, brandId, customerId, customerName, siteId, siteName, siteCity, sitePostcode, status, reference, netQuoteValue, type, name, relatedJobId, salesRep, createdOn, validUntilDate, closedDate, sentOn
+     fields matching the term: (NONE — term not echoed → searchTerm may be ignored)
+     candidate customer-id fields: customerId
+     distinct customerId across 20 rows: 15
+
+#### /api/orders/search ####
+  [REAL] status=200 ok=true
+
+  ── orders REAL  searchTerm="1633526" ──
+     container=array  rows=20
+     row[0] keys: internalId, planWindowEnd, ticket, order, customerName, brand
+     fields matching the term: (NONE — term not echoed → searchTerm may be ignored)
+     candidate customer-id fields: (none obvious — keys above)
+     distinct customerId across 20 rows: 0
+  [BOGUS] status=200 ok=true
+
+  ── orders BOGUS  searchTerm="ZZ999999" ──
+     container=array  rows=20
+     row[0] keys: internalId, planWindowEnd, ticket, order, customerName, brand
+     fields matching the term: (NONE — term not echoed → searchTerm may be ignored)
+     candidate customer-id fields: (none obvious — keys above)
+     distinct customerId across 20 rows: 0
+
+#### /api/sites/search ####
+  [REAL] status=405 ok=false
+
+  ── sites REAL  searchTerm="7543BK" ──
+     container=bare object  rows=1
+     row[0] keys: type, status, path, message
+     fields matching the term: (NONE — term not echoed → searchTerm may be ignored)
+     candidate customer-id fields: (none obvious — keys above)
+     distinct customerId across 1 rows: 0
+  [BOGUS] status=405 ok=false
+
+  ── sites BOGUS  searchTerm="9999ZZ" ──
+     container=bare object  rows=1
+     row[0] keys: type, status, path, message
+     fields matching the term: (NONE — term not echoed → searchTerm may be ignored)
+     candidate customer-id fields: (none obvious — keys above)
+     distinct customerId across 1 rows: 0
+

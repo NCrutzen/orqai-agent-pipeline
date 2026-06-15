@@ -13,6 +13,7 @@
 
 import { nxtRequest } from "@/lib/automations/nxt-zapier/nxt-client";
 import type { SalesCustomerMatch } from "./offerte";
+import { pickMatchingCustomer } from "./_match";
 
 // NL postcode (1234 AB). Data-driven shape from the mining report.
 const POSTCODE = /\b[1-9][0-9]{3}\s?[A-Za-z]{2}\b/g;
@@ -82,7 +83,9 @@ export async function lookupPostcodeToAccount(
       );
       return null;
     });
-    const match = pickCustomer(res?.data);
+    // FAIL-CLOSED match (spike 011): only a Site row whose address actually
+    // carries THIS postcode resolves; non-matching response → null (safe miss).
+    const match = pickMatchingCustomer(res?.data, postcode);
     // WR-02 (Phase 114-07): a postcode maps to potentially MULTIPLE Sites, so
     // even a hit is only corroborating-strength → confidence:"medium", not
     // "high". The adapter honors this via SalesCustomerMatch.confidence. Full
@@ -94,29 +97,4 @@ export async function lookupPostcodeToAccount(
       return { ...match, matched_identifier: postcode, confidence: "medium" };
   }
   return null;
-}
-
-/**
- * Pull the owning customer off a NXT Site-search response. A Site row carries
- * the customer it belongs to (customerId), which is the account we resolve to.
- */
-function pickCustomer(
-  data: unknown,
-): { customer_account_id: string; customer_name: string | null } | null {
-  if (!data || typeof data !== "object") return null;
-  const row = Array.isArray(data)
-    ? (data[0] as Record<string, unknown> | undefined)
-    : Array.isArray((data as Record<string, unknown>).content)
-      ? ((data as Record<string, unknown>).content as unknown[])[0]
-      : (data as Record<string, unknown>);
-  if (!row || typeof row !== "object") return null;
-  const r = row as Record<string, unknown>;
-  // A Site → its owning customer. Accept the common NXT field shapes.
-  const id = r.customerId ?? r.customer_id ?? r.accountId ?? null;
-  if (id === null || id === undefined) return null;
-  const name = r.customerName ?? r.customer_name ?? r.name ?? null;
-  return {
-    customer_account_id: String(id),
-    customer_name: name === null || name === undefined ? null : String(name),
-  };
 }

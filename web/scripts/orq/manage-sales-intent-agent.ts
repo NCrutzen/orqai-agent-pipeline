@@ -143,10 +143,14 @@ function buildResponseFormat(intentEnum: readonly string[]) {
       "entity_relationship",
     ],
     properties: {
+      // NO maxItems — Bedrock's Anthropic structured-output rejects it for
+      // arrays with 400 "property 'maxItems' is not supported", which silently
+      // failed the primary Haiku on EVERY call and routed all live verdicts
+      // through the gpt-4.1-mini fallback (trace 2026-06-11). The 1-5 bound is
+      // enforced by the prompt + the Zod gate (salesIntentOutputSchema .max(5)).
       ranked: {
         type: "array",
         minItems: 1,
-        maxItems: 5,
         items: rankedEntry,
       },
       language: { type: "string", enum: [...SALES_LANGUAGE] },

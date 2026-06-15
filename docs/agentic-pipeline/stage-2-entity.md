@@ -52,6 +52,16 @@ The combination drives which NXT database the SQL lookups hit. Phase 68 (SWRM-01
 
 NXT SQL only flows through the Zapier SDK on a whitelisted IP -- never direct AWS / direct DB. NXT-S3 document fetches go through the same SDK path for the same reason: one credential boundary, one auth path. See [`../zapier-patterns.md`](../zapier-patterns.md). This document does not duplicate that content; the implementation reads the patterns doc directly.
 
+## Resolution Transport Rule (LOCKED -- 2026-06-15)
+
+**The Customer Resolver resolves identifiers -> customer via the SQL lookup tables, never via NXT REST.** This is the single, generic, reliable resolution route for ALL swarms (debtor, sales, and every future swarm).
+
+- **Canonical substrate:** `zapier.dbo.resolver_index` (+ `resolver_customer`, watermark in `resolver_watermark`) -- the materialised back-search projection populated from `nxt`. One indexed row per `(identifier_kind, identifier_value_norm, scope_key) -> party_id`, carrying `is_unique_in_scope` + `precedence`. Columns: `swarm_source, environment_id, scope_key, identifier_kind, identifier_value_norm, party_id, party_name, parent_party_id, root_party_id, is_unique_in_scope, precedence, status, modified_on, source_ref`.
+- **Transport:** the `nxt.resolve_candidates` Zapier tool (registry `public.zapier_tools`), same async-callback path the debtor `nxt.identifier_lookup` / `nxt.invoice_fetch` lookups use. One call returns the whole candidate set for an identifier -> this is also the substrate for D-06 multi-signal corroboration.
+- **Extend the tables, do NOT add REST.** If a resolution signal is missing or weak, grow `resolver_index` (add/extend the `identifier_kind` rows and the MERGE that populates them from `nxt`). Never reach for a bespoke `nxtRequest`/`/api/*/search` call or a per-swarm REST endpoint to "fill the gap" -- that path is unreliable and not generic.
+- **NXT REST (`nxtRequest`, `/api/*`) is NOT a resolution path.** It is reserved for order-entry **writes** (`create-sales-order`), order-entry **UI lookups** (`/api/nxt/lookup/*`), and the operator's **manual** Stage-2 customer-search widget (which uses the proven `POST /api/customers`). The automatic pipeline resolver must not call it.
+- **Why this rule exists (spike 011, 2026-06-15):** the sales offerte/order/postcode lookups were built on `nxtRequest` -> `/api/quotes/search`, which **ignores `searchTerm`** and returns a default list -> every offerte resolved to the same customer (`512887`), a confident false positive. The `resolver_index` back-search returns the correct customer (offerte `SB014098` -> `quote_no` `14098` -> `BX228895` Bever B.V., unique in scope `SB`). See `.planning/spikes/011-sales-corroboration-opportunity/` and `.planning/todos/pending/2026-06-15-sales-offerte-lookup-false-positive.md`.
+
 ## Cross-Swarm Pluggability
 
 A SugarCRM-backed sales swarm (Phase 73) plugs in by implementing the same `PipelineStageContext` output shape with a different backend resolver: thread lookup hits SugarCRM activities, sender map points at SugarCRM contacts, identifier extraction parses sales references rather than NXT invoice numbers, the tiebreaker LLM is the same pattern with a different prompt. The contract is backend-agnostic by design (D-04, D-06) so Stage 3 cannot tell which backend produced the row.

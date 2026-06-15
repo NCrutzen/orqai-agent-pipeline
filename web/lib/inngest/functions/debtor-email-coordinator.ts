@@ -413,6 +413,35 @@ export const debtorEmailCoordinator = inngest.createFunction(
         });
       });
 
+      // ---- 4.25) Stage-3 intent-label emit (Phase 117 Plan 02, D-2) --------
+      // Swarm-agnostic: emit `pipeline/intent-label.requested` carrying the
+      // top-1 intent so the shared intent-label worker can write `AI: <intent>`
+      // back onto the source Outlook message (behind its OWN dedicated
+      // stage_3_intent_label gate, independent of the routing gate below). The
+      // emit fires on BOTH the routing-GATED/held path AND the OPEN path — a
+      // held-routing verdict can still be labelled if the swarm opted into
+      // labelling. Skipped only when there is no top-1 intent (nothing to
+      // label). NO `if (swarm_type === ...)` branch: swarm_type + intent_key are
+      // pure data. CLAUDE.md/Phase 65: inngest.send called inline (no alias),
+      // inside step.run (replay-safe — the payload carries no non-deterministic
+      // id we generate here; run_id is already resolved deterministically).
+      const topIntent = output.ranked[0]?.intent;
+      async function emitIntentLabel() {
+        if (!topIntent) return;
+        await step.run("emit-intent-label", async () => {
+          await inngest.send({
+            name: "pipeline/intent-label.requested",
+            data: {
+              swarm_type,
+              email_id,
+              intent_key: topIntent,
+              source_mailbox: email.mailbox ?? null,
+              run_id,
+            },
+          });
+        });
+      }
+
       // ---- 4.5) Stage-3 ROUTING gate (Phase 113 Plan 05, D-08 / D-09) -------
       // Swarm-agnostic, registry-driven, fail-closed. Sits BETWEEN persist-ranked
       // (the verdict is already on coordinator_runs + pipeline_events → visible in
@@ -452,6 +481,11 @@ export const debtorEmailCoordinator = inngest.createFunction(
             .eq("run_id", run_id);
           if (error) throw new Error(`mark-routing-held: ${error.message}`);
         });
+        // Phase 117: still emit the intent-label request — the category WRITE
+        // gate (stage_3_intent_label) is independent of the routing gate, so a
+        // held-routing verdict can still be labelled (the worker no-ops if the
+        // swarm's label gate is also GATED). Fires before the held return.
+        await emitIntentLabel();
         // Terminal, visible, NON-dead-letter outcome. agent_runs stays in
         // 'classifying' on purpose: the predicted-emit is the flip's only
         // consumer, and holding it means routing is held — Bulk Review reads
@@ -496,6 +530,10 @@ export const debtorEmailCoordinator = inngest.createFunction(
           },
         });
       });
+
+      // Phase 117: ADDITIVE intent-label emit on the OPEN path, right after the
+      // existing emit-predicted (which is byte-unchanged above).
+      await emitIntentLabel();
 
       return { run_id, email_id, decision: "predicted" as const };
     } catch (err) {

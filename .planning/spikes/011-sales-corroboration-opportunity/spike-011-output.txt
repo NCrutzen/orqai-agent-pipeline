@@ -1,0 +1,62 @@
+◇ injected env (14) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+
+=== Spike 011 — sales corroboration OPPORTUNITY (read-only) ===
+Mailbox: verkoop@smeba.nl  |  inbound rows: 1509
+Date range: 2026-04-15 → 2026-06-14
+
+--- Signal presence rate (of 1509 inbound) ---
+  offerte          383  25.4%
+  order             34  2.3%
+  postcode         477  31.6%
+  factuur           60  4.0%
+  corp_domain      734  48.6%
+  freemail          39  2.6%
+  own_domain       382  25.3%  (internal forward → D-07 quoted-sender)
+  on_behalf_of      27  1.8%  (probe-only heuristic)
+  body_present    1117  74.0%
+
+--- Identifier-kind count per email (offerte/order/postcode/factuur) ---
+  0  kind(s):   852  56.5%
+  1  kind(s):   374  24.8%
+  2  kind(s):   269  17.8%
+  3  kind(s):    14  0.9%
+  4+ kind(s):     0  0.0%
+
+--- Pairwise co-occurrence (emails carrying BOTH) ---
+  offerte + order                     8  0.5%
+  offerte + postcode                248  16.4%
+  offerte + factuur                  13  0.9%
+  offerte + corp_domain             324  21.5%
+  order + postcode                   17  1.1%
+  order + factuur                     1  0.1%
+  order + corp_domain                21  1.4%
+  postcode + factuur                 24  1.6%
+  postcode + corp_domain            432  28.6%
+  factuur + corp_domain              39  2.6%
+
+--- OPPORTUNITY METRICS (the deliverable) ---
+  A  ≥1 identifier present                657  43.5%
+  B  ≥2 identifier KINDS (id×id corrob)   283  18.8%
+  C  corp_domain ∩ ≥1 identifier          560  37.1%   (spike 008/009 disambiguation case)
+  D  on_behalf_of (intermediary)           27  1.8%   (domain match unsafe)
+
+  Corroboration SURFACE (B ∪ C)         39.8%  ← share of sales mail where a 2nd signal can corroborate
+
+--- Sample ≥2-identifier emails (eyeball) ---
+   [offerte+postcode+corp] Re: Offerte SB014098 n.a.v. bezoek monteur op locatie: 625345 - Bever Utrecht
+   [offerte+postcode] Herinnering offerte SB012839 n.a.v. bezoek monteur op locatie: 479530 - 811 Gamma Bouwmark
+   [offerte+postcode] Herinnering offerte SB012839 n.a.v. bezoek monteur op locatie: 479530 - 811 Gamma Bouwmark
+   [offerte+postcode+corp] RE: Herinnering offerte SB013721 n.a.v. bezoek monteur op locatie: 527260 - HSK Den Haag B
+   [offerte+postcode+corp] Re: Betreft: Betreft: [CASE:731729] FW:  Stichting De Waalboog  Lenstsehof Theo Dobbestraa
+   [offerte+postcode+corp] Automatisch antwoord: Herinnering offerte SB013297 n.a.v. bezoek monteur op locatie: 47245
+   [offerte+postcode+corp] Re: Offerte SB014377 n.a.v. bezoek monteur op locatie: 450541 - VvE Kantoren Pletterenburg
+   [offerte+postcode+corp] Re: Offerte SB014387 n.a.v. bezoek monteur op locatie: 518152 - IGM holding BV
+   [offerte+postcode+corp] Re: Offerte SB014395 n.a.v. bezoek monteur op locatie: 451280 - VvE kantoren Pletterenburg
+   [offerte+postcode+corp] Re: Offerte SB014409 n.a.v. bezoek monteur op locatie: 471627 - IGM Holding
+   [offerte+postcode+corp] Re: Offerte SB014461 n.a.v. bezoek monteur op locatie: 451276 - SUE | Cloud Native Solutio
+   [offerte+postcode] Re: Herinnering offerte SB013306 n.a.v. bezoek monteur op locatie: 496856 - Farida's
+   [offerte+postcode+corp] Re: Offerte SB014464 n.a.v. bezoek monteur op locatie: 451269 - SUE | Cloud Native Solutio
+   [offerte+postcode+corp] Re: Offerte SB014467 n.a.v. bezoek monteur op locatie: 451248 - Centrale gedeeltes pand nr
+   [offerte+postcode+corp] Re: Offerte SB014474 n.a.v. bezoek monteur op locatie: 451267 - SUE | Cloud Native Solutio
+

@@ -1,0 +1,5 @@
+# Runtime artifacts from live-NXT Phase B — contain raw prod customer account ids
+# (NXT customer data must not be copied into the repo). Reproduce by re-running
+# web/scripts/spike-011b-sales-resolution-lift.ts.
+spike-011b-cache.json
+spike-011b-output.txt

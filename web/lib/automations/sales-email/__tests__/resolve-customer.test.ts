@@ -79,11 +79,12 @@ beforeEach(() => {
 
 describe("Phase 114-04: sales resolve-customer adapter", () => {
   it("offerte hit → candidate with the mapped customer_account_id", async () => {
-    // nxtRequest returns a customer for the offerte lookup (SB-format number).
+    // nxtRequest returns a quote row that REFERENCES the searched offerte number
+    // (spike 011 fix: the response must echo the identifier, else it's a safe miss).
     nxtRequestMock.mockResolvedValue({
       status: 200,
       ok: true,
-      data: { customerId: 991234, customerName: "Klant BV" },
+      data: { reference: "SB014967", customerId: 991234, customerName: "Klant BV" },
     });
 
     const result = await resolveEntity(
@@ -201,10 +202,12 @@ describe("Phase 114-07 Task 1: postcode address-context gate (WR-02)", () => {
   });
 
   it("resolves a postcode match at confidence:medium (not high) — D-06 interim", async () => {
+    // The Site row carries the searched postcode in its address (spike 011 fix:
+    // a Site only resolves when it actually references THIS postcode).
     nxtRequestMock.mockResolvedValue({
       status: 200,
       ok: true,
-      data: { customerId: 778899, customerName: "Site BV" },
+      data: { postcode: "1234 AB", customerId: 778899, customerName: "Site BV" },
     });
 
     const result = await resolveEntity(

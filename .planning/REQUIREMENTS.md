@@ -118,6 +118,11 @@ Which phases cover which requirements. Populated by the roadmapper.
 | ATTACH-03 | Phase 116 | Complete |
 | ATTACH-06 | Phase 116 | Complete |
 | ATTACH-04 | Phase 116 | Complete |
+| OUTLOOK-CAT-01 | Phase 117 | Complete |
+| OUTLOOK-CAT-02 | Phase 117 | Complete |
+| OUTLOOK-CAT-03 | Phase 117 | Complete (code; 112.5 baseline read-contract delivered + documented — signal side is a separate phase) |
+| OUTLOOK-CAT-04 | Phase 117 | Complete (worker has zero swarm literals + second-swarm test — onboarding = registry row only) |
+| OUTLOOK-CAT-05 | Phase 117 | Complete |
 
 **Coverage:**
 
@@ -130,3 +135,5 @@ Which phases cover which requirements. Populated by the roadmapper.
 *Requirements defined: 2026-06-02 — V9.0 Sales-Email (Outlook), scoped against verified production state.*
 *Last updated: 2026-06-02 — traceability populated by roadmapper (14/14 mapped to Phases 110–115).*
 *Updated: 2026-06-04 — Phase 116 added ATTACH-01..06 (attachment ingest); 20/20 mapped to Phases 110–116.*
+*Updated: 2026-06-15 — Phase 117 added OUTLOOK-CAT-01..05 (Outlook intent categories); 25/25 mapped to Phases 110–117.*
+*Updated: 2026-06-15 — Phase 117-02 code-complete: OUTLOOK-CAT-01..05 all Complete (code). Production migration-apply + operator green-light flip pending the Task 4 [BLOCKING] checkpoint (does not gate the requirement code deliverable).*

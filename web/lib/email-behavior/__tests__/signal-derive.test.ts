@@ -69,7 +69,9 @@ describe("deriveSignals — restore ledger-join (Pitfall 5)", () => {
 });
 
 describe("deriveSignals — category & approve-achtige verdicts", () => {
-  it("Test 3: category_edited -> reclassify met category_key uit de transitie", () => {
+  it("Test 3: category_edited met een non-AI user-label -> reclassify + category_key null (ambiguous)", () => {
+    // Phase 112.5-05: een non-AI gebruiker-label is GEEN machine-parseable
+    // should-be-intent -> we leggen de correctie vast maar category_key=null.
     const out = deriveSignals(
       baseInput([
         t({ kind: "category_edited", immutable_id: "e3", categories: ["Klacht"] }),
@@ -77,7 +79,79 @@ describe("deriveSignals — category & approve-achtige verdicts", () => {
     );
     expect(out).toHaveLength(1);
     expect(out[0].verdict).toBe("reclassify");
-    expect(out[0].category_key).toBe("Klacht");
+    expect(out[0].category_key).toBe(null);
+  });
+
+  // ---- Phase 112.5-05: AI-prefix-aware category_edited verdict (SC-2) -------
+  it("Test 3a: removed AI: label (categories []) -> reclassify + category_key null", () => {
+    const out = deriveSignals(
+      baseInput([
+        t({ kind: "category_edited", immutable_id: "e3a", categories: [] }),
+      ]),
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].verdict).toBe("reclassify");
+    expect(out[0].category_key).toBe(null);
+  });
+
+  it("Test 3b: changed-to-another-AI: (['AI: order_status']) -> reclassify + category_key 'order_status'", () => {
+    const out = deriveSignals(
+      baseInput([
+        t({
+          kind: "category_edited",
+          immutable_id: "e3b",
+          categories: ["AI: order_status"],
+        }),
+      ]),
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].verdict).toBe("reclassify");
+    expect(out[0].category_key).toBe("order_status");
+  });
+
+  it("Test 3c: changed-to-non-AI met ≥1 user-label (['Belangrijk']) -> reclassify + null", () => {
+    const out = deriveSignals(
+      baseInput([
+        t({
+          kind: "category_edited",
+          immutable_id: "e3c",
+          categories: ["Belangrijk"],
+        }),
+      ]),
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].verdict).toBe("reclassify");
+    expect(out[0].category_key).toBe(null);
+  });
+
+  it("Test 3d: mixed set (['Belangrijk','AI: quote_request']) -> reclassify + first AI: intent 'quote_request'", () => {
+    const out = deriveSignals(
+      baseInput([
+        t({
+          kind: "category_edited",
+          immutable_id: "e3d",
+          categories: ["Belangrijk", "AI: quote_request"],
+        }),
+      ]),
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].verdict).toBe("reclassify");
+    expect(out[0].category_key).toBe("quote_request");
+  });
+
+  it("Test 3e: meerdere AI: entries -> FIRST AI: entry's intent_key (defensive double-write)", () => {
+    const out = deriveSignals(
+      baseInput([
+        t({
+          kind: "category_edited",
+          immutable_id: "e3e",
+          categories: ["AI: payment_dispute", "AI: order_status"],
+        }),
+      ]),
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].verdict).toBe("reclassify");
+    expect(out[0].category_key).toBe("payment_dispute");
   });
 
   it("Test 4: moved_to_afgehandeld -> approve_handled", () => {

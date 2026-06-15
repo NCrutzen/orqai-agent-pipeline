@@ -86,6 +86,13 @@ type DBState = {
   }>;
   // pipeline_events stage-4 ledger
   ledger: Array<{ email_id: string; swarm_type: string; stage: number }>;
+  // public.swarm_written_categories baseline (Phase 117): per-message last AI:
+  // category our system wrote, keyed by email_id, scoped by swarm_type.
+  writtenCategories: Array<{
+    email_id: string;
+    swarm_type: string;
+    ai_category: string | null;
+  }>;
   // written rows
   transitions: Array<Record<string, unknown>>;
   signals: Array<Record<string, unknown>>;
@@ -139,6 +146,13 @@ function makeQuery(table: string) {
     if (table === "pipeline_events") {
       const rows = applyFilters(db.ledger as never).map((r) => ({
         email_id: (r as { email_id: string }).email_id,
+      }));
+      return { data: rows, error: null };
+    }
+    if (table === "swarm_written_categories") {
+      const rows = applyFilters(db.writtenCategories as never).map((r) => ({
+        email_id: (r as { email_id: string }).email_id,
+        ai_category: (r as { ai_category: string | null }).ai_category,
       }));
       return { data: rows, error: null };
     }
@@ -329,6 +343,7 @@ beforeEach(() => {
     tokens: new Map(),
     emails: [],
     ledger: [],
+    writtenCategories: [],
     transitions: [],
     signals: [],
     throw23505OnNextSignalInsert: false,
@@ -596,6 +611,137 @@ type PerSwarmLike = {
   bootstrapped_folders: number;
   skipped_sugar: number;
 };
+
+// ---- Phase 112.5-05: prevCategories seeded from swarm_written_categories -----
+//
+// The worker now SELECTs public.swarm_written_categories (Phase 117 baseline) for
+// the resolved email_ids, scoped by swarm_type, and seeds prevCategories keyed by
+// immutable_id. An operator edit of the AI: intent category on an in-inbox message
+// fires category_edited -> reclassify in swarm_review_signals.
+//
+// Helper: stage an in-place category edit on a resolved inbox email whose new
+// categories differ from the seeded baseline. The message must stay in the same
+// (inbox) folder so it is NOT a move — only the category set changes.
+function seedCategoryEditScenario(opts: {
+  immutableId: string;
+  emailId: string;
+  baselineAiCategory: string | null; // the swarm_written_categories row (null = no baseline)
+  newCategories: string[]; // the operator's edited categories on the delta event
+}) {
+  seedFolderMap();
+  db.tokens.set("F-inbox", { delta_link: "PREV-inbox", bootstrapped: true });
+  db.tokens.set("F-archive", { delta_link: "PREV-archive", bootstrapped: true });
+  db.emails = [
+    {
+      id: opts.emailId,
+      source_id: opts.immutableId,
+      conversation_id: null,
+      mailbox: MAILBOX,
+      source: "outlook",
+    },
+  ];
+  if (opts.baselineAiCategory !== null) {
+    db.writtenCategories = [
+      {
+        email_id: opts.emailId,
+        swarm_type: "sales-email",
+        ai_category: opts.baselineAiCategory,
+      },
+    ];
+  }
+
+  const tree = routeGraph({ inboxHasChildren: false });
+  graphFetchMock.mockImplementation(async (url: string) => {
+    if (/F-inbox\/messages\/delta/.test(url) || url === "PREV-inbox") {
+      return jsonResponse({
+        value: [
+          {
+            id: opts.immutableId,
+            parentFolderId: "F-inbox",
+            categories: opts.newCategories,
+          },
+        ],
+        "@odata.deltaLink": "DELTA-inbox",
+      });
+    }
+    if (/F-archive\/messages\/delta/.test(url) || url === "PREV-archive") {
+      return jsonResponse({ value: [], "@odata.deltaLink": "DELTA-archive" });
+    }
+    return tree(url);
+  });
+}
+
+describe("swarmBehaviorSync — category_edited via swarm_written_categories baseline (Phase 112.5-05)", () => {
+  it("7: operator changes AI: quote_request -> AI: order_status => reclassify, category_key 'order_status', swarm_type 'sales-email'", async () => {
+    seedCategoryEditScenario({
+      immutableId: "m-edit",
+      emailId: "e-edit",
+      baselineAiCategory: "AI: quote_request",
+      newCategories: ["AI: order_status"],
+    });
+
+    await getHandler()({ event: { data: {} }, step: makeStep() });
+
+    const reclassify = db.signals.filter((s) => s.verdict === "reclassify");
+    expect(reclassify).toHaveLength(1);
+    expect(reclassify[0].category_key).toBe("order_status");
+    expect(reclassify[0].swarm_type).toBe("sales-email");
+    expect(reclassify[0].email_id).toBe("e-edit");
+  });
+
+  it("8: operator removes the AI: label (categories []) => reclassify, category_key null", async () => {
+    seedCategoryEditScenario({
+      immutableId: "m-rm",
+      emailId: "e-rm",
+      baselineAiCategory: "AI: quote_request",
+      newCategories: [],
+    });
+
+    await getHandler()({ event: { data: {} }, step: makeStep() });
+
+    const reclassify = db.signals.filter((s) => s.verdict === "reclassify");
+    expect(reclassify).toHaveLength(1);
+    expect(reclassify[0].category_key).toBe(null);
+    expect(reclassify[0].email_id).toBe("e-rm");
+  });
+
+  it("9: NO baseline row => NO category_edited signal (fail-safe — dormant default preserved)", async () => {
+    seedCategoryEditScenario({
+      immutableId: "m-nobase",
+      emailId: "e-nobase",
+      baselineAiCategory: null, // no swarm_written_categories row
+      newCategories: ["AI: order_status"],
+    });
+
+    await getHandler()({ event: { data: {} }, step: makeStep() });
+
+    expect(db.signals.filter((s) => s.verdict === "reclassify")).toHaveLength(0);
+  });
+
+  it("10: re-ticking the same operator edit => no second reclassify row (23505 no-op)", async () => {
+    seedCategoryEditScenario({
+      immutableId: "m-idem",
+      emailId: "e-idem",
+      baselineAiCategory: "AI: quote_request",
+      newCategories: ["AI: order_status"],
+    });
+
+    await getHandler()({ event: { data: {} }, step: makeStep() });
+    const afterFirst = db.signals.filter(
+      (s) => s.verdict === "reclassify",
+    ).length;
+    expect(afterFirst).toBe(1);
+
+    // Force the next signal insert to raise 23505 (duplicate) — must be swallowed.
+    db.throw23505OnNextSignalInsert = true;
+    await expect(
+      getHandler()({ event: { data: {} }, step: makeStep() }),
+    ).resolves.toBeTruthy();
+    expect(db.signals.filter((s) => s.verdict === "reclassify").length).toBe(
+      afterFirst,
+    );
+  });
+});
 
 describe("swarmBehaviorSync — bootstrap-correlatie (gap-fix 2026-06-04)", () => {
   it("6: pending left_to_untracked + nieuw-ontdekte afgehandeld-jaarmap -> moved_to_afgehandeld + approve_handled", async () => {

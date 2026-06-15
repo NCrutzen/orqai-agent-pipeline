@@ -115,7 +115,24 @@ type PerSwarmCounts = {
   by_verdict: Record<string, number>;
   bootstrapped_folders: number;
   skipped_sugar: number;
+  /**
+   * Debug-telemetrie (debug graph-delta-missing-moves, 2026-06-11): MOVE-soort
+   * transities die WEL gedetecteerd zijn maar geskipt omdat hun immutable_id
+   * geen email_id-match had (mail nooit door ingest gegaan). Zonder dit veld
+   * verdwijnt een legitieme move op een niet-ingeste mail spoorloos in de
+   * skipped_sugar-teller — wat een live-proef onmogelijk te debuggen maakte.
+   * Alleen move-soorten (geen read_aged/category noise) om ruis te beperken.
+   */
+  skipped_moves: { immutable_id: string; kind: string; from_bucket: string | null; to_bucket: string | null }[];
 };
+
+/** Move-soort transities (geen in-place noise) — voor skipped-move-telemetrie. */
+const MOVE_KINDS = new Set([
+  "moved_to_afgehandeld",
+  "self_archived",
+  "restored_from_archive",
+  "left_to_untracked",
+]);
 
 const isUniqueViolation = (err: unknown): boolean => {
   const code = (err as { code?: string } | null)?.code;
@@ -366,6 +383,9 @@ export const swarmBehaviorSync = inngest.createFunction(
           let transitionsWritten = 0;
           let signalsWritten = 0;
           let skippedSugar = 0;
+          // Debug-telemetrie: move-soort transities die geskipt zijn wegens
+          // ontbrekende email_id (mail nooit ge-ingest). Zie PerSwarmCounts.
+          const skippedMoves: PerSwarmCounts["skipped_moves"] = [];
 
           if (nonBootstrapEvents.length === 0 && bootstrapCorrections.length === 0) {
             return {
@@ -373,6 +393,7 @@ export const swarmBehaviorSync = inngest.createFunction(
               signalsWritten,
               byVerdict,
               skippedSugar,
+              skippedMoves,
             };
           }
 
@@ -395,6 +416,10 @@ export const swarmBehaviorSync = inngest.createFunction(
             ]),
           );
           const lastKnownBucket = new Map<string, string>();
+          // prevCategories is SEEDED below (step 5a) from the Phase 117
+          // swarm_written_categories baseline — keyed by immutable_id. prevIsRead
+          // stays empty: read_aged remains dormant (explicitly OUT of Phase
+          // 112.5-05 scope; no per-id read snapshot persisted yet).
           const prevCategories = new Map<string, string[]>();
           const prevIsRead = new Map<string, boolean>();
 
@@ -434,6 +459,42 @@ export const swarmBehaviorSync = inngest.createFunction(
               conversation_id: string | null;
             }[]) {
               if (row.source_id) immutableToEmailId.set(row.source_id, row.id);
+            }
+          }
+
+          // (5a) Phase 112.5-05 (SC-2 / OUTLOOK-BEHAV-05) — seed prevCategories
+          // from the Phase 117 baseline (public.swarm_written_categories: the last
+          // `AI: <intent_key>` our system wrote per email_id). extractTransitions
+          // expects prevCategories keyed by IMMUTABLE_ID, so we invert
+          // immutableToEmailId (email_id -> immutable_id) for the resolved set and
+          // look the baseline up by email_id, scoped to THIS swarm_type (never a
+          // literal — two swarms observing the same message read their own baseline
+          // only). A message with NO baseline row is absent from prevCategories ->
+          // extractTransitions emits NO category_edited for it (fail-safe: the
+          // dormant default is preserved for un-labelled mail). Read-only SELECT on
+          // the Phase-117-owned table (admin/service_role); chunked .in to stay
+          // under the header cap. Replay-safe: this load is inside the same
+          // derive-and-write step.run as the rest of the IO.
+          const emailIdToImmutable = new Map<string, string>();
+          for (const [imm, eid] of immutableToEmailId) {
+            emailIdToImmutable.set(eid, imm);
+          }
+          const resolvedEmailIds = Array.from(immutableToEmailId.values());
+          for (let i = 0; i < resolvedEmailIds.length; i += ID_CHUNK) {
+            const chunk = resolvedEmailIds.slice(i, i + ID_CHUNK);
+            if (chunk.length === 0) continue;
+            const { data: baselineRows } = await admin
+              .from("swarm_written_categories")
+              .select("email_id, ai_category")
+              .eq("swarm_type", swarmType)
+              .in("email_id", chunk);
+            for (const row of (baselineRows ?? []) as {
+              email_id: string;
+              ai_category: string | null;
+            }[]) {
+              if (!row.ai_category) continue;
+              const imm = emailIdToImmutable.get(row.email_id);
+              if (imm) prevCategories.set(imm, [row.ai_category]);
             }
           }
 
@@ -507,6 +568,7 @@ export const swarmBehaviorSync = inngest.createFunction(
               signalsWritten,
               byVerdict,
               skippedSugar,
+              skippedMoves,
             };
           }
 
@@ -524,6 +586,17 @@ export const swarmBehaviorSync = inngest.createFunction(
                 : emailIdOf(tr.immutable_id);
             if (!emailId) {
               skippedSugar += 1;
+              // Debug-telemetrie: een MOVE-soort transitie die we wél zagen maar
+              // niet konden toeschrijven (geen email_id) mag niet spoorloos in
+              // skipped_sugar verdwijnen — dat maakte de live-proef ondebugbaar.
+              if (MOVE_KINDS.has(tr.kind)) {
+                skippedMoves.push({
+                  immutable_id: tr.immutable_id,
+                  kind: tr.kind,
+                  from_bucket: tr.from_bucket,
+                  to_bucket: tr.to_bucket,
+                });
+              }
               continue;
             }
             try {
@@ -607,7 +680,7 @@ export const swarmBehaviorSync = inngest.createFunction(
             }
           }
 
-          return { transitionsWritten, signalsWritten, byVerdict, skippedSugar };
+          return { transitionsWritten, signalsWritten, byVerdict, skippedSugar, skippedMoves };
         },
       );
 
@@ -619,6 +692,7 @@ export const swarmBehaviorSync = inngest.createFunction(
         by_verdict: counts.byVerdict,
         bootstrapped_folders: bootstrappedFolders,
         skipped_sugar: counts.skippedSugar,
+        skipped_moves: counts.skippedMoves,
       });
     }
 

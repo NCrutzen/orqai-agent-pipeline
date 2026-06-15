@@ -145,3 +145,20 @@ None beyond the planned `<threat_model>`. T-113-08 (dead-letter / verdict-swallo
 
 - `c433d1d8` feat(113-05): swarm-agnostic Stage-3 routing gate in coordinator (dispatcher untouched)
 - `a318a5cd` feat(113-05): sales Bulk Review retry proof + dead-letter reconciliation smoke
+
+## Checkpoint Addendum (2026-06-11) — twee pre-review defecten gevonden + gefixt
+
+Task-3 stap 1 (migration `20260609c`) bleek al toegepast en de dry-run liep sinds 2026-06-09 (39 held verdicts, gap-loos). De **dry-run review zelf** legde echter twee defecten bloot die alle 39 verdicts onbruikbaar maakten; beide zijn gefixt vóór de operator-review kan starten:
+
+1. **Bootstrap-prompt nooit vervangen (Plan-04 gemiste stap).** De live `sales-intent-agent` draaide nog de discovery-prompt (`<bootstrap_mode>`: "ranked[0].intent MUST be `other`") terwijl Plan 04 alleen de json_schema enum finaliseerde. Gevolg: 39/39 verdicts top-1 `other`, echte intent alleen in reasoning. Fix: agent v2.0.0 met de promoted closed-list prompt (13 intents + disambiguatie + few-shots), repo-bron `web/scripts/orq/sales-intent-agent.instructions.md` (commit `d30e206a`). Learning `96464ef4`: de agent-instructions zijn een 4e enum-surface naast de 3-way invariant.
+2. **`maxItems` op de `ranked` array → primary 400 → silent fallback.** Anthropic structured output (direct én Bedrock) ondersteunt `maxItems` niet voor arrays; de primary Haiku faalde op élke call en alle verdicts kwamen van de `gpt-4.1-mini` fallback. Fix: agent v2.0.1 zonder `maxItems` (commit `cbfcb786`); de 1–5 bound blijft via prompt + Zod-gate. **`debtor-intent-agent` heeft hetzelfde defect** (primary Sonnet-direct 400't, draait op Bedrock-Sonnet fallback) — geparkeerd als `.planning/todos/pending/2026-06-11-debtor-intent-agent-maxitems-bedrock-fallback.md` omdat debtor-routing live/ungated is.
+
+**Gevolg voor Task 3:** de 39 pre-fix verdicts tellen NIET als review-materiaal. De dry-run observatie (stap 3–4) herstart effectief per 2026-06-11; verse verdicts moeten een verdeling over de 13 intents tonen vóór de stap-5 flip.
+
+### Addendum-update (2026-06-11, later die ochtend) — derde defect: agent_runs intent CHECK-constraint
+
+De eerste twee post-fix live runs (07:19 + 07:27 UTC) legden een DERDE blocker bloot: `agent_runs_intent_check` bevat alleen de 8 debtor-intents + `other`. De nieuwe echte sales-verdicts (`billing_dispute`, `quote_request`) schenden de constraint → de classify-intent hoist (`updateRun → agent_runs.intent`) faalt → Inngest crash-loopt het step → `persist-ranked` wordt nooit bereikt → `coordinator_runs.ranked_intents` blijft `[]` (verdict zit wél in `agent_runs.tool_outputs.intent_first_pass`). Onzichtbaar zolang de bootstrap-prompt alles `other` gaf. Dit is een 5e enum-surface naast de 3-way invariant + agent-instructions.
+
+**Fix klaargezet:** `supabase/migrations/20260611_phase113_agent_runs_intent_check_sales.sql` (widen naar de unie debtor 8 + sales 12 + `other`). **APPLIED 2026-06-11 09:06 UTC met expliciete operator-autorisatie (Nick: "Akkoord en voer uit").** Constraint geverifieerd: unie debtor 8 + sales 12 + `other`. Na apply: de twee vastgelopen runs (emails `1673c305…`, `857de8a3…`) herstellen via Inngest step-retry of handmatige re-dispatch; daarna pas begint de bruikbare dry-run observatie.
+
+**Bonus-observatie (pre-existing, niet nieuw):** het `create-agent-run` pad van de coordinator maakt voor sales-emails een `agent_runs` rij met `swarm_type='debtor-email'` aan (zichtbaar op alle sales-runs, ook 06-10) — labeling-bug in `createRun` default, geen functionele blocker maar vervuilt per-swarm telemetrie. Apart op te pakken.

@@ -1,0 +1,28 @@
+◇ injected env (14) from .env.local // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+=== Spike 011d — NXT endpoint discovery (LIVE prod, read-only) ===
+terms: offerte=SB014098 order=1633526 postcode=7543BK
+
+#### QUOTES (resolve offerte → customerId) ####
+  HTTP 500           POST /api/quotes  {"searchTerm":"SB014098"}  → rows=1 match=0 keys[timestamp,status,error,message,path]
+  unfiltered-list    POST /api/quotes/search  {"searchTerm":"SB014098","size":200}  → rows=20 match=0 keys[id,brandId,customerId,customerName,siteId,siteName]
+  unfiltered-list    POST /api/quotes/search  {"reference":"SB014098"}  → rows=20 match=0 keys[id,brandId,customerId,customerName,siteId,siteName]
+  unfiltered-list    POST /api/quotes/search  {"searchText":"SB014098"}  → rows=20 match=0 keys[id,brandId,customerId,customerName,siteId,siteName]
+  HTTP 400           GET /api/quotes/search?searchTerm=SB014098    → rows=1 match=0 keys[type,title,status,detail,path,message]
+  HTTP 405           GET /api/quotes?reference=SB014098    → rows=1 match=0 keys[type,status,path,message]
+
+#### ORDERS (resolve order → customer; note: 011c row had NO customerId) ####
+  HTTP 500           POST /api/orders  {"searchTerm":"1633526"}  → rows=1 match=0 keys[type,title,status,detail,path,message]
+  unfiltered-list    POST /api/orders/search  {"searchText":"1633526"}  → rows=20 match=0 keys[internalId,planWindowEnd,ticket,order,customerName,brand]
+  empty              GET /api/orders/search?searchTerm=1633526    → rows=0 match=0 keys[—]
+
+#### SITES (resolve postcode → customerId; proven /api/sites is by customerId) ####
+  empty              POST /api/sites  {"searchTerm":"7543BK"}  → rows=0 match=0 keys[—]
+  empty              POST /api/sites  {"postcode":"7543BK"}  → rows=0 match=0 keys[—]
+  HTTP 405           GET /api/sites?postcode=7543BK    → rows=1 match=0 keys[type,status,path,message]
+  HTTP 400           GET /api/sites/search?searchTerm=7543BK    → rows=1 match=0 keys[type,title,status,detail,path,message]
+
+★ = a variant that returned a SMALL set containing the searched identifier (the real filter).
+If a ★ winner exists, re-confirm with a bogus term before wiring it into the lookup.
+

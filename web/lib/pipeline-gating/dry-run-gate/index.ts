@@ -46,6 +46,17 @@ export interface DryRunConfig {
   // Convention is identical: TRUE = gated/held, FALSE = open/live, MISSING =
   // fail-closed (gated).
   stage_3_routing?: boolean;
+  // Phase 117 Plan 01 (D-3) — the Outlook AI:-category WRITE gate, distinct from
+  // stage_3_labeling AND stage_3_routing. This flag governs whether the
+  // swarm-agnostic intent-label worker (Plan 02) writes the Stage-3 top-1 intent
+  // back onto the source message as a native `AI:` Outlook category via Graph. It
+  // is NOT stage_3_labeling (iController labeling side-effect) and NOT
+  // stage_3_routing (the predicted-emit) — reusing either would regress those
+  // independent side effects. Seeded GATED (true) for BOTH debtor-email and
+  // sales-email; the write is a no-op until an operator green-lights and flips it.
+  // Convention identical: TRUE = gated/dry-run, FALSE = live, MISSING =
+  // fail-closed (gated).
+  stage_3_intent_label?: boolean;
   stage_4_handlers?: Record<string, boolean>;
 }
 
@@ -60,7 +71,12 @@ export interface SwarmLikeForGate {
  */
 export function isStageBlocked(
   swarm: SwarmLikeForGate | null | undefined,
-  stage: "stage_1_archive" | "stage_1_cleanup" | "stage_2_resolution" | "stage_3_labeling",
+  stage:
+    | "stage_1_archive"
+    | "stage_1_cleanup"
+    | "stage_2_resolution"
+    | "stage_3_labeling"
+    | "stage_3_intent_label",
 ): boolean {
   return swarm?.dry_run_config?.[stage] ?? true;
 }
@@ -100,7 +116,12 @@ export function isHandlerBlocked(
  */
 export function resolveStageDryRun(
   swarm: SwarmLikeForGate | null | undefined,
-  stage: "stage_1_archive" | "stage_1_cleanup" | "stage_2_resolution" | "stage_3_labeling",
+  stage:
+    | "stage_1_archive"
+    | "stage_1_cleanup"
+    | "stage_2_resolution"
+    | "stage_3_labeling"
+    | "stage_3_intent_label",
 ): boolean {
   return isStageBlocked(swarm, stage);
 }
