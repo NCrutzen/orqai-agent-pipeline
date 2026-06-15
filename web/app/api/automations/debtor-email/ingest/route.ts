@@ -172,10 +172,6 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       // Phase 116-03 — both Graph calls request hasAttachments (114-03 D-14).
       hasAttachments: meta.hasAttachments || msgBody.hasAttachments,
     };
-    // [DIAG-915] TEMP diagnostic — remove after the attachment-capture gap is found.
-    console.log(
-      `[DIAG-915-ROUTE] msg=${messageId} meta.hasAttachments=${meta.hasAttachments} msgBody.hasAttachments=${msgBody.hasAttachments} combined=${msg.hasAttachments}`,
-    );
   } catch (err) {
     const errText = String(err);
     const is404 = /\b404\b/.test(errText);
@@ -286,6 +282,30 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       emailId: resolvedEmailId,
       hasAttachments: msg.hasAttachments,
     });
+    // Ingest-moment Graph indexing race: a freshly-arrived attachment is often
+    // not yet indexed here, so msg.hasAttachments is false and the capture above
+    // seeds nothing — even for real PDFs (Graph reports true minutes later). When
+    // the flag is false, schedule a delayed re-capture that waits for Graph to
+    // index and retries (idempotent). When it is already true, the capture above
+    // succeeded — no retry needed. Fail-soft: a missed retry must never break ingest.
+    if (!msg.hasAttachments) {
+      try {
+        await (inngest.send as unknown as SendFn)({
+          name: "pipeline/attachments.capture.retry",
+          data: {
+            swarm_type: "debtor-email",
+            mailbox: sourceMailbox,
+            message_id: messageId,
+            email_id: resolvedEmailId,
+          },
+        });
+      } catch (err) {
+        console.error(
+          `[debtor-email/ingest] capture-retry emit failed for ${messageId}:`,
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
   }
 
   // Phase 83 D-04: ALWAYS fetch last 2 prior messages in the same conversation

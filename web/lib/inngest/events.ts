@@ -320,6 +320,22 @@ export type Events = {
     };
   };
 
+  // Cross-swarm — DELAYED attachment re-capture. Fixes the ingest-moment Graph
+  // indexing race: a freshly-arrived attachment is often not yet indexed when the
+  // ingest route runs (seconds after arrival), so getMessageMeta.hasAttachments is
+  // false and ingest-time captureAttachmentMetadata seeds nothing. The ingest route
+  // emits this event when hasAttachments was false; the handler sleeps for Graph to
+  // index, re-fetches the (now-correct) flag, and re-runs capture (idempotent
+  // upsert on email_id,attachment_id). swarm_type in payload (swarm-agnostic).
+  "pipeline/attachments.capture.retry": {
+    data: {
+      swarm_type: string;
+      mailbox: string;
+      message_id: string;
+      email_id: string;
+    };
+  };
+
   // Debtor email swarm — invoice-copy handler (Phase 56-02 wave 3, swarm_dispatch
   // target for category_key='invoice_copy_request'). Resolves customer + fetches
   // PDF + creates iController draft via the Orq.ai copy-document body agent.

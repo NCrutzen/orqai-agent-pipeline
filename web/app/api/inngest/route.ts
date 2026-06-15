@@ -35,6 +35,7 @@ import { classifierVerdictWorker } from "@/lib/inngest/functions/classifier-verd
 import { stage2CustomerResolver } from "@/lib/inngest/functions/stage-2-customer-resolver";
 import { stage1_5AttachmentExtractor } from "@/lib/inngest/functions/stage-1_5-attachment-extractor";
 import { attachmentsBackfill } from "@/lib/inngest/functions/attachments-backfill";
+import { attachmentsCaptureRetry } from "@/lib/inngest/functions/attachments-capture-retry";
 import { classifierInvoiceCopyHandler } from "@/lib/inngest/functions/classifier-invoice-copy-handler";
 import { stage0SafetyWorker } from "@/lib/inngest/functions/stage-0-safety-worker";
 import { stage0Backfill } from "@/lib/inngest/functions/stage-0-backfill";
@@ -100,6 +101,7 @@ export const { GET, POST, PUT } = serve({
     classifierVerdictWorker,
     stage1_5AttachmentExtractor,
     attachmentsBackfill,
+    attachmentsCaptureRetry,
     stage2CustomerResolver,
     classifierInvoiceCopyHandler,
     stage0SafetyWorker,
