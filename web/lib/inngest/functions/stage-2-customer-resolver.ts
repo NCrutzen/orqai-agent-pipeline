@@ -96,7 +96,7 @@ export const stage2CustomerResolver = inngest.createFunction(
           const { data: attachmentRows } = await admin
             .schema("email_pipeline")
             .from("email_attachments")
-            .select("attachment_id, extraction_status, extracted_text")
+            .select("attachment_id, filename, extraction_status, extracted_text")
             .eq("email_id", data.id);
           const attachmentText = (attachmentRows ?? [])
             .filter(
@@ -104,7 +104,14 @@ export const stage2CustomerResolver = inngest.createFunction(
                 a.extraction_status === "extracted" && a.extracted_text,
             )
             .map(
-              (a: { extracted_text?: string }) => a.extracted_text as string,
+              // Filename FIRST, then extracted text: identifiers are very often
+              // in the filename itself (e.g. "17008876-invoice.pdf") — the
+              // dominant case in the 2026-06-15 debtor probe — so a weak or
+              // empty PDF text layer must not drop the filename-borne id.
+              (a: { filename?: string; extracted_text?: string }) =>
+                a.filename
+                  ? `${a.filename}\n${a.extracted_text as string}`
+                  : (a.extracted_text as string),
             )
             .join("\n\n");
           if (attachmentText) {
