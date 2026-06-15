@@ -65,6 +65,27 @@ export async function captureAttachmentMetadata(
     `[DIAG-915-CAPTURE] entry swarm=${swarmType} msg=${messageId} captureOn=${captureOn} extractOn=${extractOn} hasAttachments=${hasAttachments}`,
   );
 
+  // [DIAG-915 HINGE] TEMP — decides fix B vs A/C. When capture is ON but Graph's
+  // hasAttachments flag is false (the suspected ingest-moment indexing race),
+  // probe listAttachments ANYWAY (read-only — no rows seeded, behavior unchanged)
+  // to learn whether the /attachments collection lags the flag too. If the probe
+  // returns >=1 file for a known-PDF mail → the LIST does NOT lag → Option B
+  // (drop the hasAttachments gate) fixes it. If it also returns 0 → the list lags
+  // too → need Option A/C (delayed re-capture). Remove with the other DIAG lines.
+  if (captureOn && !hasAttachments) {
+    try {
+      const probe = await listAttachments(mailbox, messageId);
+      console.log(
+        `[DIAG-915-HINGE] msg=${messageId} flag=false listAttachments=${probe.length} ` +
+          `types=${JSON.stringify(probe.map((a) => ({ t: a["@odata.type"], inline: a.isInline, name: a.name })))}`,
+      );
+    } catch (e) {
+      console.log(
+        `[DIAG-915-HINGE] msg=${messageId} flag=false listAttachments=ERROR ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
   // 2) Gate: capture off OR no attachments → nothing to do.
   if (!captureOn || !hasAttachments) {
     return { captured: 0 };
