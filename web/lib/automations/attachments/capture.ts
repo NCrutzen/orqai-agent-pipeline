@@ -60,6 +60,11 @@ export async function captureAttachmentMetadata(
   const captureOn = swarmRow?.attachment_config?.capture === true;
   const extractOn = swarmRow?.attachment_config?.extract === true;
 
+  // [DIAG-915] TEMP diagnostic — remove after the attachment-capture gap is found.
+  console.log(
+    `[DIAG-915-CAPTURE] entry swarm=${swarmType} msg=${messageId} captureOn=${captureOn} extractOn=${extractOn} hasAttachments=${hasAttachments}`,
+  );
+
   // 2) Gate: capture off OR no attachments → nothing to do.
   if (!captureOn || !hasAttachments) {
     return { captured: 0 };
@@ -76,6 +81,12 @@ export async function captureAttachmentMetadata(
       (a) =>
         a.isInline !== true &&
         a["@odata.type"] === FILE_ATTACHMENT_ODATA_TYPE,
+    );
+
+    // [DIAG-915] TEMP diagnostic — remove after the attachment-capture gap is found.
+    console.log(
+      `[DIAG-915-CAPTURE] listed msg=${messageId} atts=${atts.length} kept=${kept.length} ` +
+        `types=${JSON.stringify(atts.map((a) => ({ t: a["@odata.type"], inline: a.isInline, name: a.name })))}`,
     );
 
     if (kept.length === 0) {

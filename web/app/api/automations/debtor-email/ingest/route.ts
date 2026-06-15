@@ -172,6 +172,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
       // Phase 116-03 — both Graph calls request hasAttachments (114-03 D-14).
       hasAttachments: meta.hasAttachments || msgBody.hasAttachments,
     };
+    // [DIAG-915] TEMP diagnostic — remove after the attachment-capture gap is found.
+    console.log(
+      `[DIAG-915-ROUTE] msg=${messageId} meta.hasAttachments=${meta.hasAttachments} msgBody.hasAttachments=${msgBody.hasAttachments} combined=${msg.hasAttachments}`,
+    );
   } catch (err) {
     const errText = String(err);
     const is404 = /\b404\b/.test(errText);
