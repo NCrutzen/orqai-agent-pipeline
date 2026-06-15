@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
-status: ready_to_plan
-stopped_at: Phase 113 complete (5/5) — ready to discuss Phase 114
-last_updated: 2026-06-15T13:55:06.972Z
-last_activity: 2026-06-15 -- Phase 112.5 Plan 05 complete (category_edited live via Phase 117 baseline)
+status: Awaiting next milestone
+stopped_at: 112.5-05-PLAN.md COMPLETE (Tasks 1-2 committed 3cf15049/dd3447c3) — category_edited reclassify signal activated via the Phase 117 swarm_written_categories baseline; SC-2 / OUTLOOK-BEHAV-05 met. Phase 112.5 all 5 plans complete.
+last_updated: "2026-06-15T14:30:47.802Z"
+last_activity: 2026-06-15 — Milestone V9.0 completed and archived
 progress:
   total_phases: 9
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 37
-  completed_plans: 75
-  percent: 78
+  completed_plans: 37
+  percent: 89
 ---
 
 # Project State
@@ -62,21 +62,10 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: 114
-Plan: Not started
-Status: Ready to plan
-
-**Phase 112 outcome (zelfde dag):**
-Phase: 112 (outlook-cleanup-backfill-gated-production-writes) — COMPLETE (go-live verified 2026-06-04)
-Plan: 3 of 3
-Status: Sales Stage-1 Outlook archive LIVE (`stage_1_archive=false`, migration `sales_stage1_archive_golive`); backfill complete (67 archived / 38 sugar-skip / ~1650 queued predicted); loopback disabled + supplier_bank_change demoted after canary findings
-Last activity: 2026-06-15
-
-**Phase 112 incident (2026-06-04):** prod ran pre-110-04 code without the per-stage gate → loopback rule archived 141 real internal forwards since May 21. Emergency stop + full restore + gate-code deployed (PR #61) + canary bugfixes (PR #65: global canary cap, Graph-400 skip). Learning `52930d32`. Details: `phases/112-*/112-03-SUMMARY.md`.
-
-**Phase 111 outcome:** Stage 1 noise calibration for sales-email. Both migrations applied live (3 safe keys → categorize_archive, INERT behind the Plan-01 verdict-worker gate until Phase 112; stage_1_retro_runs table). The two CRITICAL architecture gaps closed swarm-agnostically (verdict-worker dry-run gate + Wilson promotion gate generalized — 0 per-swarm branches). Stage-1 retro harness + operator-gated cluster-mining discovery shipped (no auto-INSERT). own_outbound_invoice_loopback left test-first (data-driven). Live: check:supabase 0 ERROR, codegen no-drift, 313 tests green.
-
-**Carry-forward from v8.1 (closed 2026-06-01):** the loopback false-archive incident (Phase 84 `own_outbound_invoice_loopback`) was code-mitigated (#58/#59, migration `20260530_disable_own_outbound_loopback.sql`); the 27-email Stage-3 recovery re-dispatch (list in `87-LOOPBACK-RECOVERY.md`) is operator follow-up, tracked outside this milestone.
+Phase: Milestone V9.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-06-15 — Milestone V9.0 completed and archived
 
 ## Performance Metrics
 
@@ -370,4 +359,4 @@ See .planning/milestones/v7.0-* archive files for full milestone state.
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd:new-milestone
+- Start the next milestone with /gsd-new-milestone

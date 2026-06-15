@@ -1,5 +1,24 @@
 # Milestones
 
+## V9.0 Sales-Email Canonical Pipeline — Outlook-driven (Shipped: 2026-06-15)
+
+**Phases completed:** 9 phases (110-117 + 112.5), 38 plans, 56+ tasks. **Audit:** `tech_debt` (no functional blockers; verification-admin debt + 1 telemetry fix landed). **Archive:** `milestones/V9.0-ROADMAP.md` · `milestones/V9.0-REQUIREMENTS.md` · `milestones/V9.0-MILESTONE-AUDIT.md`.
+
+**Key accomplishments:**
+
+1. **`verkoop@smeba.nl` taken end-to-end on the canonical 5-stage funnel** — Outlook ingest → Stage 0/1/2/3, live in production. SugarCRM fully deprecated (source cut over 2026-05-06; dead analyzer/source code decommissioned in Phase 115).
+2. **Stage 3 sales intent agent (greenfield, 113)** — sales Orq intent agent + 13 operator-promoted `swarm_intents`; every sales email leaving Stage 1 reaches a Stage 3 verdict; routing live to the Kanban human-lane (handler-less intents, zero silent dead-letters).
+3. **Cross-swarm Stage 2 resolver reuse (114)** — sales resolves customers by reusing the v8.2 NXT resolver via per-swarm config with **zero Engine code changes** (the generality proof); debtor self-auth tier degrades to a no-op.
+4. **Outlook intent-category correction loop (117 + 112.5)** — system writes `AI: <intent>` categories back to Outlook; operator edits/moves are observed via Graph delta-sync and distilled into labelled approve/reclassify review signals — the no-form ground-truth feed for V10.0 self-learning. Proven live end-to-end (write 12:46, correction signal 12:51 on 2026-06-15).
+5. **Uniform cross-swarm attachment ingest (116)** — registry-configured metadata capture + on-demand text extraction feeding Stage 2/3; a second swarm opts in via one registry row.
+6. **SWARM-02 invariant held** — zero `if swarm==='sales-email'` branches in shared workers; all variance lives in registry data (`dry_run_config`, `swarm_intents`, `behavior_tracking_config`, `attachment_config`).
+
+**Go-live state (registry, prod):** sales `stage_1_archive`, `stage_3_intent_label`, `stage_3_routing` = LIVE; `stage_2_resolution` observe-only (fast-follow, non-blocking).
+
+**Known deferred items at close:** 29 open artifacts (audit-open) — overwhelmingly the project-wide parking-lot already acknowledged at v8.1 close (see STATE.md `## Deferred Items`). V9.0-specific: 4 phases lack a formal VERIFICATION.md (110/112/113/117 — completed via SUMMARY + integration-verified live), 116 HUMAN-UAT open items, and the Sugar sent-replies harvest (pending todo `2026-06-15-sugar-sent-replies-harvest`). Full detail: `milestones/V9.0-MILESTONE-AUDIT.md`.
+
+---
+
 ## v8.1 Validation + Visibility (Shipped: 2026-06-01)
 
 **Phases:** 8 in-scope (83 body-ingestion · 84 Stage-1 noise rules · 85 Stage-3 prompt v3 · 86 open-set discovery · 87 retro baseline · 88 review-surface cleanup · 88.1 Inngest stage-naming · 88.2 Tier-2 CI cleanup).
