@@ -272,7 +272,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 - [x] **Phase 114: Stage 2 Resolver Reuse — cross-swarm generality proof** *(re-sequenced 2026-06-04: executes BEFORE 113)* — sales Stage 2 resolves customers by reusing the v8.2 NXT resolver via per-swarm config with zero Engine code changes; the debtor-only self-auth tier degrades to a no-op for sales. (completed 2026-06-04)
 - [x] **Phase 116: Attachment Ingest (uniform cross-swarm)** *(added 2026-06-04; re-sequenced same day: executes BEFORE 113 — the 113 retro batch-resolve + intent discovery must see attachment data)* — capture attachment metadata + on-demand content extraction (PDF text first) as a registry-configured, swarm-agnostic data source feeding Stage 2 resolution, Stage 3 intent signals, and future Stage 4 handlers; sales onboards first, other swarms opt in via registry row only. (completed 2026-06-05)
 - [x] **Phase 113: Stage 3 Sales Intent Agent (greenfield)** *(re-sequenced 2026-06-04: executes AFTER 114 — intent seeding consumes the customer-resolved corpus; AND AFTER 116 — discovery/batch-resolve consume attachment data)* — build a sales-specific Orq intent agent + seed `swarm_intents` from the live corpus so every sales email leaving Stage 1 reaches a Stage 3 verdict, with handler-less intents landing in the Kanban human-lane. (code complete + merged PR #73 2026-06-09; live agent + 12 promoted intents seeded; sales Stage 3 in DRY-RUN observation, go-live = operator green-light flip of `stage_3_routing`)
-- [ ] **Phase 115: SugarCRM Dead-Code Decommission** — remove the now-dead SugarCRM source code and stale registry notes after confirming no live path depends on it. ⚠ Pre-removal: the deferred "Sugar sent-replies harvest" idea (see 113-CONTEXT deferred) must be secured before or independent of this decommission.
+- [x] **Phase 115: SugarCRM Dead-Code Decommission** — remove the now-dead SugarCRM source code and stale registry notes after confirming no live path depends on it. ⚠ Pre-removal: the deferred "Sugar sent-replies harvest" idea (see 113-CONTEXT deferred) must be secured before or independent of this decommission. (completed 2026-06-15 ad-hoc — removed `web/lib/automations/sales-email-analyzer/` + `web/app/api/automations/smeba/{sugarcrm-search,write-analysis}`; zero live importers, tsc clean, 28/28 sugar-data tests green. Live `source='sugarcrm'` data-readers untouched; zapier_tools had no Sugar row. Harvest precondition secured as pending todo `2026-06-15-sugar-sent-replies-harvest`.)
 - [x] **Phase 117: Outlook Intent Categories — generic cross-swarm correction loop** *(added 2026-06-09)* — write each swarm's Stage 3 top-1 intent verdict back to the source email in Outlook as a native `AI:`-prefixed category via Microsoft Graph, so end-users correct it in place (change/remove); the Phase 112.5 Graph-delta tracker observes the edit and turns it into a free labelled human-correction signal feeding eval/calibration + the V10.0 Promotion Recommender. **Swarm-agnostic by design — every Outlook-backed swarm (debtor-email, sales-email, info-routing, future) uses it; a second swarm onboards via a registry row only, zero per-swarm code.** Registry-gated + per-stage dry-run flag (reuses Phase 112 gated-write infra), enabled per swarm after operator green-light. (completed 2026-06-15)
 
 | Phase | Plans Complete | Status | Completed |
@@ -282,8 +282,8 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 112. Outlook Cleanup + Backfill | 3/3 | Complete   | 2026-06-04 |
 | 112.5 Outlook Behavior Tracking | 5/5 | Complete    | 2026-06-15 |
 | 114. Stage 2 Resolver Reuse *(executes before 113)* | 7/7 | Complete    | 2026-06-04 |
-| 113. Stage 3 Sales Intent Agent | 5/5 | In Progress (113-05 code complete; Task 3 operator go-live checkpoint) |  |
-| 115. SugarCRM Dead-Code Decommission | 0/TBD | Not started | - |
+| 113. Stage 3 Sales Intent Agent | 5/5 | Complete    | 2026-06-15 |
+| 115. SugarCRM Dead-Code Decommission | 1/1 | Complete (ad-hoc) | 2026-06-15 |
 | 117. Outlook Intent Categories | 2/2 | Complete   | 2026-06-15 |
 
 ---
@@ -399,7 +399,7 @@ Plans:
 - [x] 113-02-PLAN.md — Q1 seam: parameterize the shared coordinator's agent-key dispatch (debtor-neutral) + sales assemble-input + retro reconstruct with attachment folding [STAGE3-01, STAGE3-02]
 - [x] 113-03-PLAN.md — Sales Stage 3 retro-classify side-channel (vocabulary discovery) + scripted Orq sales-intent-agent create→PATCH→verify + Studio json_schema [STAGE3-02]
 - [x] 113-04-PLAN.md — Atomic seed migration (operator-promoted intents + mandatory 'other') + codegen + agent enum finalize + remote apply [STAGE3-02, STAGE3-03]
-- [ ] 113-05-PLAN.md — Swarm-agnostic Kanban dry-run gate + dead-letter reconciliation smoke + operator dry-run review & reversible go-live flip [STAGE3-03]
+- [x] 113-05-PLAN.md — Swarm-agnostic Kanban dry-run gate + dead-letter reconciliation smoke + operator dry-run review & reversible go-live flip [STAGE3-03]
 
 **UI hint**: yes
 

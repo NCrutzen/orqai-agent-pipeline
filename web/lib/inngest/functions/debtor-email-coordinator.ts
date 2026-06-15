@@ -172,7 +172,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
     // ---- 1) Resolve agent_run_id (caller-provided OR create a fresh row) ----
     const agent_run_id = await step.run("create-agent-run", async () => {
       if (email.agent_run_id) return email.agent_run_id;
-      return createRun(supabase, { email_id, inngest_run_id, entity });
+      return createRun(supabase, { swarm_type, email_id, inngest_run_id, entity });
     });
 
     // ---- 2) Insert coordinator_runs row early -------------------------------

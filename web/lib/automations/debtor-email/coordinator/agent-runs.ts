@@ -10,6 +10,7 @@ type JsonValue =
   | { [k: string]: JsonValue };
 
 export type CreateRunInput = {
+  swarm_type: string;
   email_id: string;
   inngest_run_id: string;
   entity: Entity;
@@ -24,7 +25,11 @@ export async function createRun(
   const { data, error } = await supabase
     .from("agent_runs")
     .insert({
-      swarm_type: "debtor-email",
+      // Phase 113 WARNING-1 fix: swarm_type is authoritative from the caller
+      // (SWARM-02 — data-driven, never hardcoded). A previously hardcoded
+      // "debtor-email" mislabelled every sales agent_runs row and made the
+      // sales dead-letter reconciliation's agent_runs source return zero.
+      swarm_type: input.swarm_type,
       email_id: input.email_id,
       inngest_run_id: input.inngest_run_id,
       entity: input.entity,

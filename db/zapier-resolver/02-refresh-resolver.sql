@@ -45,53 +45,53 @@ BEGIN
 
   /* ======================================================================== *
      0) root_party_id (D-04) — resolve the TRUE top-level customer for EVERY BX
-        customer via a recursive parent-chain CTE. parent_id is composite
-        ("BX477375") and references customer.id within the SAME environment_id;
-        NULL/self = root. ~12.2% of BX customers are parented and the chain can
-        be deeper than one level — the proc cannot walk a chain, so the resolved
+        customer. parent_id is composite ("BX477375") and references customer.id
+        within the SAME environment_id; NULL/self = root. ~12.2% of BX customers
+        are parented and the chain can be deeper than one level, so the resolved
         root is materialized here and joined into the number-kind MERGE blocks.
 
         This is computed over the FULL BX customer set (NOT delta-keyed): a row's
         root can change when an ANCESTOR is re-parented without the row itself
-        being touched, so the delta watermark is insufficient for the chain. The
-        set is ~74.5k rows — cheap to walk once per refresh.
+        being touched, so the delta watermark is insufficient for the chain.
+
+        PERF (2026-06-15): the original recursive CTE over the ~74.5k BX set did
+        NOT fit inside the Zapier 30s SQL action limit — it timed out on EVERY
+        run, so the proc had not completed since 2026-06-11 13:00 (watermark
+        stuck). Replaced with a set-based UNROLLED self-join (the optimizer hash-
+        joins the small set per level instead of row-by-row recursion): the same
+        74,538-row result returns well inside 30s, live-probed.
+
+        DEPTH: unrolled to 12 levels. Live probe 2026-06-15 confirmed ZERO BX
+        chains remain unterminated past depth 12 (the deepest real chain is well
+        under 12), so 12 fully covers the estate with margin. root_party_id =
+        COALESCE of the deepest non-NULL ancestor id down to self — identical
+        semantics to the recursive "deepest cur" pick. Each join's
+        `cN.parent_id <> cN.id` guards a self-parent loop; an out-of-BX or NULL
+        parent terminates the chain (LEFT JOIN yields NULL and COALESCE stops).
+        If a future re-parenting ever creates a chain deeper than 12, extend the
+        unroll (add c13, c14, … and the matching COALESCE slots).
      ======================================================================== */
   IF OBJECT_ID('tempdb..#cust_root') IS NOT NULL DROP TABLE #cust_root;
 
-  ;WITH chain AS (
-    /* anchor: every BX customer, starting at itself */
-    SELECT CAST(c.id AS varchar(24))        AS id,
-           CAST(c.parent_id AS varchar(24)) AS parent_id,
-           CAST(c.id AS varchar(24))        AS cur,        -- cursor walking up the chain
-           0                                AS depth
-    FROM nxt.dbo.customer AS c
-    WHERE c.environment_id = 'BX'
-    UNION ALL
-    /* recurse: replace cur with its parent, staying within BX */
-    SELECT ch.id, CAST(p.parent_id AS varchar(24)) AS parent_id,
-           CAST(p.id AS varchar(24)) AS cur, ch.depth + 1
-    FROM chain AS ch
-    JOIN nxt.dbo.customer AS p
-      ON p.id = ch.parent_id AND p.environment_id = 'BX'
-    WHERE ch.parent_id IS NOT NULL
-      AND ch.parent_id <> ch.cur          -- self-parent = root (guard self-loop)
-      AND ch.depth < 32                   -- cycle guard (re-parenting loops can't blow the stack)
-  )
-  SELECT id,
-         /* the root is the `cur` at the deepest walked level for this id. Pack
-            (depth, cur) into one string with ZERO-PADDED depth so a plain MAX()
-            picks the deepest row lexically (depth 2 < 10 numerically AND as
-            '02' < '10' lexically), then unpack the cur after the '|'. */
-         CAST(
-           SUBSTRING(
-             MAX(RIGHT('00' + CAST(depth AS varchar(2)), 2) + '|' + cur),
-             4, 24
-           ) AS varchar(24)
-         ) AS root_party_id
+  SELECT
+    CAST(c0.id AS varchar(24)) AS id,
+    CAST(COALESCE(c12.id, c11.id, c10.id, c9.id, c8.id, c7.id, c6.id,
+                  c5.id, c4.id, c3.id, c2.id, c1.id, c0.id) AS varchar(24)) AS root_party_id
   INTO #cust_root
-  FROM chain
-  GROUP BY id
-  OPTION (MAXRECURSION 32);
+  FROM nxt.dbo.customer AS c0
+  LEFT JOIN nxt.dbo.customer AS c1  ON c1.id  = c0.parent_id  AND c1.environment_id  = 'BX' AND c0.parent_id  <> c0.id
+  LEFT JOIN nxt.dbo.customer AS c2  ON c2.id  = c1.parent_id  AND c2.environment_id  = 'BX' AND c1.parent_id  <> c1.id
+  LEFT JOIN nxt.dbo.customer AS c3  ON c3.id  = c2.parent_id  AND c3.environment_id  = 'BX' AND c2.parent_id  <> c2.id
+  LEFT JOIN nxt.dbo.customer AS c4  ON c4.id  = c3.parent_id  AND c4.environment_id  = 'BX' AND c3.parent_id  <> c3.id
+  LEFT JOIN nxt.dbo.customer AS c5  ON c5.id  = c4.parent_id  AND c5.environment_id  = 'BX' AND c4.parent_id  <> c4.id
+  LEFT JOIN nxt.dbo.customer AS c6  ON c6.id  = c5.parent_id  AND c6.environment_id  = 'BX' AND c5.parent_id  <> c5.id
+  LEFT JOIN nxt.dbo.customer AS c7  ON c7.id  = c6.parent_id  AND c7.environment_id  = 'BX' AND c6.parent_id  <> c6.id
+  LEFT JOIN nxt.dbo.customer AS c8  ON c8.id  = c7.parent_id  AND c8.environment_id  = 'BX' AND c7.parent_id  <> c7.id
+  LEFT JOIN nxt.dbo.customer AS c9  ON c9.id  = c8.parent_id  AND c9.environment_id  = 'BX' AND c8.parent_id  <> c8.id
+  LEFT JOIN nxt.dbo.customer AS c10 ON c10.id = c9.parent_id  AND c10.environment_id = 'BX' AND c9.parent_id  <> c9.id
+  LEFT JOIN nxt.dbo.customer AS c11 ON c11.id = c10.parent_id AND c11.environment_id = 'BX' AND c10.parent_id <> c10.id
+  LEFT JOIN nxt.dbo.customer AS c12 ON c12.id = c11.parent_id AND c12.environment_id = 'BX' AND c11.parent_id <> c11.id
+  WHERE c0.environment_id = 'BX';
 
   CREATE UNIQUE CLUSTERED INDEX IX_cust_root ON #cust_root (id);
 
