@@ -98,6 +98,17 @@ export interface SwarmRow {
   // TS so pre-Phase-116 fixtures and rows pulled before the ALTER remain
   // assignable; a missing/empty object reads as capture-off + extract-off.
   attachment_config?: AttachmentConfig | null;
+  // Phase 130 WR-03 (REQ-6) — SHARED, swarm-agnostic Stage-1 block-rule
+  // adoption pool: the set of shared block-rule keys this swarm has opted
+  // into. Source of truth: public.swarms.stage1_shared_block_rules (text[]
+  // NOT NULL DEFAULT '{}'). Reaches swarmRow via loadSwarm's select("*") —
+  // same text[]-via-select("*") path as tenant_domains; NO codegen. The
+  // classifier-screen-worker gates the actionable-token carve-out with
+  // `?.includes('actionable_token')` (a swarm-agnostic membership check, NOT
+  // a swarm_type literal). Optional in TS so pre-migration fixtures and rows
+  // pulled before the ALTER remain assignable; a missing/empty array reads as
+  // no adoption = behaviour-neutral.
+  stage1_shared_block_rules?: string[];
 }
 
 // Phase 116 (D-04) — shape of public.swarms.attachment_config jsonb. All

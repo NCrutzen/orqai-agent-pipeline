@@ -16,7 +16,7 @@ import { describe, it, expect } from "vitest";
 import {
   hasActionableToken,
   ACTIONABLE_TOKEN_REGEX,
-} from "@/lib/info-routing/actionable-tokens";
+} from "@/lib/stage-1/actionable-tokens";
 
 const ACTIONABLE_TOKENS = [
   "offerte",
