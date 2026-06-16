@@ -119,14 +119,15 @@ describe("extractAttachment — PDF text-layer", () => {
     // Each page is rendered to a PNG data URL (NEVER a raw application/pdf URL).
     expect(renderPageAsImageMock).toHaveBeenCalledTimes(2);
     expect(orqRouterChatMock).toHaveBeenCalledTimes(1);
-    // The vision body carries image_url parts whose URLs are PNG data URLs.
+    // The vision body carries image parts whose URLs are PNG data URLs. NOTE:
+    // the Orq SDK field is camelCase `imageUrl` (snake_case is rejected).
     const body = orqRouterChatMock.mock.calls[0][0].body as {
-      messages: Array<{ content: Array<{ type: string; image_url?: { url: string } }> }>;
+      messages: Array<{ content: Array<{ type: string; imageUrl?: { url: string } }> }>;
     };
     const imageParts = body.messages[0].content.filter((c) => c.type === "image_url");
     expect(imageParts).toHaveLength(2);
     for (const part of imageParts) {
-      expect(part.image_url?.url.startsWith("data:image/png")).toBe(true);
+      expect(part.imageUrl?.url.startsWith("data:image/png")).toBe(true);
     }
     expect(out.status).toBe("extracted");
     expect(unwrap(out.text)).toBe("Transcribed scanned quote text");
@@ -161,10 +162,10 @@ describe("extractAttachment — image vision path", () => {
     expect(orqRouterChatMock).toHaveBeenCalledTimes(1);
     // The image is sent as a genuine image/jpeg data URL.
     const body = orqRouterChatMock.mock.calls[0][0].body as {
-      messages: Array<{ content: Array<{ type: string; image_url?: { url: string } }> }>;
+      messages: Array<{ content: Array<{ type: string; imageUrl?: { url: string } }> }>;
     };
     const imageParts = body.messages[0].content.filter((c) => c.type === "image_url");
-    expect(imageParts[0].image_url?.url.startsWith("data:image/jpeg")).toBe(true);
+    expect(imageParts[0].imageUrl?.url.startsWith("data:image/jpeg")).toBe(true);
     expect(out.status).toBe("extracted");
     expect(unwrap(out.text)).toBe("Text visible in the JPG");
   });
