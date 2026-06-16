@@ -261,7 +261,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 130. info@ noise-recalibration | 0/? | Planning | — |
+| 130. info@ noise-recalibration | 0/3 | Planning | — |
 | 131. Destination taxonomy + router | — | Pending | — |
 | 132. Forward + Bulk Review | — | Pending | — |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
@@ -330,6 +330,13 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
   3. Instrumented before/after shows the info@ "unknown" pool's true-noise share dropping ~50%→<20% per live mailbox (NOISE-03).
   4. Zero false-archive of actionable mail: an actionable-token carve-out (offerte/order/inkooporder/factuur/keuring/storing) + word-boundary matching is in place and verified on a sample (NOISE-04).
   5. Rules apply across info@smeba.nl + info@fire-control.nl with brand/mailbox awareness; dormant info@ boxes untouched (NOISE-05).
+
+**Plans**: 3 plans (2 waves — Wave 0 BLOCKING telemetry unblock, then Wave 1 parallel seeds + measurement)
+Plans:
+
+- [ ] 130-01-PLAN.md — Wave 0 [BLOCKING]: widen agent_runs swarm_type CHECK to include info-routing + live-INSERT smoke (unblocks all shadow telemetry) (NOISE-02)
+- [ ] 130-02-PLAN.md — Wave 1: seed 6 info-routing swarm_noise_categories + paired classifier_rules candidates (shadow) + actionable-token carve-out boundary test (NOISE-01, NOISE-04, NOISE-05)
+- [ ] 130-03-PLAN.md — Wave 1: per-mailbox unknown-pool composition view (security_invoker) + worker-category test + labelled-sample noise-baseline script + classifier-promotion-cron gate verify (NOISE-02, NOISE-03)
 
 ---
 
