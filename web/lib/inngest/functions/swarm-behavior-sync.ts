@@ -92,6 +92,10 @@ type EnabledSwarm = {
 /** The shape of behavior_tracking_config we read off the swarms row. */
 type BehaviorTrackingConfig = {
   enabled?: boolean | string;
+  // Phase 118: a swarm can observe MULTIPLE mailboxes. `mailboxes` is preferred;
+  // the singular `mailbox` is kept as a backward-compatible fallback for any
+  // un-migrated row (read order: cfg.mailboxes ?? (cfg.mailbox ? [cfg.mailbox] : [])).
+  mailboxes?: string[];
   mailbox?: string;
   weights?: SignalWeights;
 };
@@ -193,19 +197,27 @@ export const swarmBehaviorSync = inngest.createFunction(
       const { data: rows, error } = await q;
       if (error) throw new Error(`load-enabled-swarms failed: ${error.message}`);
 
+      // Phase 118: flatten to one EnabledSwarm per (swarm × mailbox) pair. Read
+      // order is LOCKED — prefer cfg.mailboxes, fall back to the singular
+      // cfg.mailbox (backward-compat for un-migrated rows). A row whose resolved
+      // mailbox list is empty is skipped (same semantics as today's "enabled
+      // swarm with no mailbox can't be polled"). Weights are shared across a
+      // swarm's mailboxes (LOCKED — no per-mailbox weighting).
       const out: EnabledSwarm[] = [];
       for (const row of (rows ?? []) as {
         swarm_type: string;
         behavior_tracking_config: BehaviorTrackingConfig | null;
       }[]) {
         const cfg = row.behavior_tracking_config ?? {};
-        const mailbox = cfg.mailbox;
-        if (!mailbox) continue; // an enabled swarm with no mailbox can't be polled
-        out.push({
-          swarm_type: row.swarm_type,
-          mailbox,
-          weights: cfg.weights,
-        });
+        const mailboxes = cfg.mailboxes ?? (cfg.mailbox ? [cfg.mailbox] : []);
+        if (mailboxes.length === 0) continue;
+        for (const mailbox of mailboxes) {
+          out.push({
+            swarm_type: row.swarm_type,
+            mailbox,
+            weights: cfg.weights,
+          });
+        }
       }
       return out;
     });
@@ -225,7 +237,7 @@ export const swarmBehaviorSync = inngest.createFunction(
       // "afgehandeld/2026" year-folder invisible: a drag into it produced zero
       // transitions. New year-folders are an annual ritual; discovery must be
       // continuous, not bootstrap-only.
-      await step.run(`refresh-folder-map-${swarmType}`, async () => {
+      await step.run(`refresh-folder-map-${swarmType}-${mailbox}`, async () => {
         const admin = createAdminClient();
         const existing = await loadFolderMap(admin, mailbox);
 
@@ -251,7 +263,7 @@ export const swarmBehaviorSync = inngest.createFunction(
 
       // The folders to poll for this swarm (tracked=true).
       const tracked = await step.run(
-        `tracked-folders-${swarmType}`,
+        `tracked-folders-${swarmType}-${mailbox}`,
         async () => {
           const admin = createAdminClient();
           return getTrackedFolders(admin, mailbox);
@@ -276,7 +288,7 @@ export const swarmBehaviorSync = inngest.createFunction(
       for (const folder of tracked) {
         const folderId = folder.folder_id;
         const folderResult = await step.run(
-          `delta-${swarmType}-${folderId}`,
+          `delta-${swarmType}-${mailbox}-${folderId}`,
           async () => {
             const admin = createAdminClient();
 
@@ -376,7 +388,7 @@ export const swarmBehaviorSync = inngest.createFunction(
 
       // (5-6) Derive transitions + signals and write them idempotently.
       const counts = await step.run(
-        `derive-and-write-${swarmType}`,
+        `derive-and-write-${swarmType}-${mailbox}`,
         async () => {
           const admin = createAdminClient();
           const byVerdict: Record<string, number> = {};

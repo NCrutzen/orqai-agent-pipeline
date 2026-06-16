@@ -63,6 +63,7 @@ type DBState = {
     behavior_tracking_config: {
       enabled: boolean;
       mailbox?: string;
+      mailboxes?: string[];
       weights?: unknown;
     };
   }>;
@@ -740,6 +741,111 @@ describe("swarmBehaviorSync — category_edited via swarm_written_categories bas
     expect(db.signals.filter((s) => s.verdict === "reclassify").length).toBe(
       afterFirst,
     );
+  });
+});
+
+describe("swarmBehaviorSync — multi-mailbox iteration (Phase 118)", () => {
+  const A = "a@smeba.nl";
+  const B = "b@smeba.nl";
+
+  // A fresh folder-map per mailbox so the worker resolves folders (graph tree)
+  // and we can observe which mailboxes are touched via the /users/<mailbox>/ URL.
+  function routeForMailboxes(): {
+    fetch: (url: string) => Response;
+    polled: Set<string>;
+  } {
+    const polled = new Set<string>();
+    const tree = routeGraph({ inboxHasChildren: false });
+    const fetch = (url: string): Response => {
+      const m = url.match(/users\/([^/]+)\//);
+      if (m) polled.add(decodeURIComponent(m[1]));
+      if (/messages\/delta/.test(url) || /^PREV-/.test(url)) {
+        return jsonResponse({ value: [], "@odata.deltaLink": "DELTA-empty" });
+      }
+      return tree(url);
+    };
+    return { fetch, polled };
+  }
+
+  it("11: a swarm with mailboxes:[A,B] polls BOTH mailboxes, one results[] entry each", async () => {
+    db.swarms = [
+      {
+        swarm_type: "sales-email",
+        behavior_tracking_config: { enabled: true, mailboxes: [A, B] },
+      },
+    ];
+    db.folderMap = [];
+    db.tokens = new Map();
+
+    const { fetch, polled } = routeForMailboxes();
+    graphFetchMock.mockImplementation(async (url: string) => fetch(url));
+
+    const ret = await getHandler()({ event: { data: {} }, step: makeStep() });
+
+    // one results[] entry per mailbox
+    expect(ret.swarms_processed).toBe(2);
+    const mailboxes = (ret.results as Array<{ mailbox: string }>).map(
+      (r) => r.mailbox,
+    );
+    expect(mailboxes).toContain(A);
+    expect(mailboxes).toContain(B);
+    expect(mailboxes).toHaveLength(2);
+
+    // both mailboxes were actually touched on Graph
+    expect(polled.has(A)).toBe(true);
+    expect(polled.has(B)).toBe(true);
+  });
+
+  it("12: step.run ids are unique across mailboxes A and B (no memoization collision)", async () => {
+    db.swarms = [
+      {
+        swarm_type: "sales-email",
+        behavior_tracking_config: { enabled: true, mailboxes: [A, B] },
+      },
+    ];
+    db.folderMap = [];
+    db.tokens = new Map();
+
+    const { fetch } = routeForMailboxes();
+    graphFetchMock.mockImplementation(async (url: string) => fetch(url));
+
+    const step = makeStep();
+    await getHandler()({ event: { data: {} }, step });
+
+    const ids = step.calls.map((c) => c.id);
+    // every recorded step id is unique (a duplicate would silently memoize)
+    expect(new Set(ids).size).toBe(ids.length);
+
+    // the four loop-body ids appear once per mailbox (mailbox-suffixed)
+    for (const mb of [A, B]) {
+      expect(ids).toContain(`refresh-folder-map-sales-email-${mb}`);
+      expect(ids).toContain(`tracked-folders-sales-email-${mb}`);
+      expect(ids).toContain(`derive-and-write-sales-email-${mb}`);
+    }
+    // top-level run/tick ids stay singular (exactly one each)
+    expect(ids.filter((id) => id === "resolve-run-id")).toHaveLength(1);
+    expect(ids.filter((id) => id === "resolve-tick-iso")).toHaveLength(1);
+  });
+
+  it("13: singular fallback — a row with only mailbox:'X' polls exactly as today (one entry)", async () => {
+    const X = "x@smeba.nl";
+    db.swarms = [
+      {
+        swarm_type: "sales-email",
+        behavior_tracking_config: { enabled: true, mailbox: X },
+      },
+    ];
+    db.folderMap = [];
+    db.tokens = new Map();
+
+    const { fetch, polled } = routeForMailboxes();
+    graphFetchMock.mockImplementation(async (url: string) => fetch(url));
+
+    const ret = await getHandler()({ event: { data: {} }, step: makeStep() });
+
+    expect(ret.swarms_processed).toBe(1);
+    expect((ret.results as Array<{ mailbox: string }>)[0].mailbox).toBe(X);
+    expect(polled.has(X)).toBe(true);
   });
 });
 

@@ -62,10 +62,10 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: Milestone V9.0 complete
-Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-06-15 — Milestone V9.0 completed and archived
+Phase: 118 — Multi-mailbox behavior-sync (1/1 plans complete)
+Plan: 118-01-PLAN.md COMPLETE
+Status: Phase 118 plan complete — awaiting phase verification + merge
+Last activity: 2026-06-16 — Phase 118 Plan 01 complete; sales-email migrated live to mailboxes[]
 
 ## Performance Metrics
 
@@ -177,6 +177,8 @@ Last activity: 2026-06-15 — Milestone V9.0 completed and archived
 | Phase 48 P01 | 3min | 2 tasks | 9 files |
 
 ### Roadmap Evolution
+
+- Phase 118 added (2026-06-16): Multi-mailbox behavior-sync — extend Phase 112.5 `swarm-behavior-sync.ts` to observe MULTIPLE mailboxes per swarm row (`behavior_tracking_config.mailboxes: string[]` with singular `mailbox` fallback), so debtor-email's ~5 debiteuren mailboxes can feed the Outlook correction loop. Step 1 (enabler) of the debtor intent-labeling rollout; step 2 (flip `stage_3_intent_label` gate + enable `behavior_tracking_config` for debtor across all mailboxes) follows post-merge. Workspace: `multi-mailbox-behavior-sync`.
 
 **V9.0 Sales-Email (Outlook) roadmap created 2026-06-02 — Phases 110–117 (coarse granularity). Runs parallel with v8.2 debtor (phases 90–95, separate workspace).**
 
@@ -295,6 +297,7 @@ Last activity: 2026-06-15 — Milestone V9.0 completed and archived
 - [Phase 113-05]: swarm-agnostic Stage-3 ROUTING gate landed in the SHARED coordinator BETWEEN persist-ranked and flip/emit — registry-driven, fail-closed, no swarm literal. DEDICATED dry_run_config.stage_3_routing key (NOT stage_3_labeling reuse — debtor's predicted-emit fires today while stage_3_labeling=true, so reuse would regress debtor; T-113-10). GATED → persist verdict + decision_details.routing_held=true marker, withhold predicted-emit (decision='predicted_held'); OPEN → emit as today. Migration 20260609c seeds debtor=false(open)/sales=true(gated) — NOT YET APPLIED. Dead-letter reconciliation smoke (sales-stage3-deadletter-check.ts, pure fn + Supabase main, exit 1 on gap; held verdict counted terminal-visible) + 7 fixture tests. Bulk Review retry PROVEN to accept swarm_type='sales-email' (replayKanbanRow same-intent fires registry sales handler_event). 18 plan tests + 298 inngest suite green; dispatcher byte-unchanged (git-diff guard); tsc 0; check:supabase 0 ERROR. CHECKPOINT-BLOCKED on Task 3 operator go-live (apply 20260609c + dry-run review + flip). Commits c433d1d8, a318a5cd.
 - [Phase 112.5-05]: activated the dormant `category_edited` signal by feeding the Phase 117 baseline into the behaviour-sync worker. (1) signal-derive: new pure `intentKeyFromCategories` (first AI:-prefixed entry, prefix-stripped, else null) replaces the flat `categories[0]` derivation — removed-label/changed-to-non-AI → category_key null (ambiguous), changed-to-another-AI → should-be-intent; all three share verdict `reclassify` (SignalVerdict union BYTE-UNCHANGED, no new member). (2) worker: seeds `prevCategories` (keyed by immutable_id) from a swarm_type-scoped `swarm_written_categories` SELECT inside the existing derive-and-write step.run (replay-safe), inverting immutableToEmailId; fail-safe on no-baseline (absent id → no transition, dormant default preserved); idempotent via existing dedupe_key 23505 no-op; `prevIsRead` stays empty (read_aged still dormant); ZERO per-swarm branches. 13 signal-derive + 10 behavior-sync tests green (4 new category tests), full email-behavior 56/56, tsc 0. Commits 3cf15049/dd3447c3. SC-2 / OUTLOOK-BEHAV-05 met. Code correct independent of 117 live data (0 signals when baseline empty); sales stays registry-paused (behavior_tracking_config.enabled=false) until Sugar cut-over.
 - [Phase 117-02]: wired the Plan 01 primitives into the live pipeline — swarm-agnostic pipeline/intent-label.requested event emitted by the SHARED coordinator on every Stage-3 verdict-with-top-intent (BOTH the routing-GATED/held path AND the OPEN path; the category WRITE gate stage_3_intent_label is independent of the routing gate), additive to debtor's emit-predicted (byte-unchanged). New registered stage3IntentLabelWorker writes AI:<intent_key> onto the source Outlook message behind isStageBlocked(swarm,"stage_3_intent_label") — fail-closed no-op when GATED (both swarms seeded GATED), idempotent (write-on-change via readWrittenCategory), never-clobber (skip on 112.5 category_edited transition / review-signal), strip-stale (mergeIntentCategory full-array PATCH). ZERO swarm_type literals (SWARM-02 grep 0). docs/swarm-behavior-tracking.md documents the swarm_written_categories 112.5 prevCategories baseline read-contract (D-5; signal side OUT of 117). 34 tests green, tsc 0. Commits a6fd913b/4e4c949e/cbb4ec97. Task 4 [BLOCKING] migration-apply HALTED for operator — NOT applied to prod.
+- [Phase 118-01]: swarm-behavior-sync.ts now observes MULTIPLE mailboxes per swarm row. BehaviorTrackingConfig gains `mailboxes?: string[]` (kept `mailbox?: string`); `load-enabled-swarms` flattens each enabled swarm row to one EnabledSwarm per (swarm x mailbox) via the LOCKED read order `cfg.mailboxes ?? (cfg.mailbox ? [cfg.mailbox] : [])` (empty → skip), weights shared per swarm. All four loop-body step.run ids (refresh-folder-map / tracked-folders / delta / derive-and-write) embed the raw mailbox segment so cross-mailbox Inngest memoization can't collide (no hash, no non-deterministic source); top-level resolve-run-id / resolve-tick-iso stay singular; concurrency:1 preserved (sequential per-mailbox). DATA-only idempotent jsonb migration `20260616_phase118_sales_mailboxes_array.sql` (BEGIN…COMMIT, minus-key drop of singular 'mailbox' + jsonb_set enabled + jsonb_build_array; no DDL/RLS) **APPLIED to prod by operator via Supabase MCP** — live-verified sales-email `behavior_tracking_config={"enabled":true,"mailboxes":["verkoop@smeba.nl"]}` (singular key gone), debtor-email unchanged `{"enabled":false}`. vitest 13/13 (incl. 112.5 regression + 3 new: multi-mailbox iteration / step-id uniqueness / singular fallback), tsc 0, codegen no drift, check:supabase 0 ERROR/6 WARN/23 INFO. Hard-separation respected (no swarm_noise_categories/swarm_intents touch). Commits 32d0b26d/45467745/f7946e6e. **Step 2 (debtor enablement — flip stage_3_intent_label=false + set debtor behavior_tracking_config mailboxes[] across its 5 debiteuren mailboxes) is post-merge, OUT OF SCOPE.**
 - [Phase ?]: [Phase 117-01]: shipped pure AI: ${intent_key} mapper (strip-stale merge, D-1), DEDICATED fail-closed stage_3_intent_label gate key (D-3), email_id-keyed swarm_written_categories store (D-4/D-5). Migration 20260615 (RLS service_role+authenticated SELECT, no anon; stage_3_intent_label=true GATED both swarms via jsonb ||) WRITTEN not applied — Plan 02 [BLOCKING] applies + check:supabase. 23 tests green, tsc 0. Commits c3baae1e/be18115e/05c1b2ab.
 
 ### Blockers/Concerns
@@ -337,9 +340,9 @@ Last activity: 2026-06-15 — Milestone V9.0 completed and archived
 
 ## Session Continuity
 
-Last session: 2026-06-15T11:02:22.000Z
-Stopped at: 112.5-05-PLAN.md COMPLETE (Tasks 1-2 committed 3cf15049/dd3447c3) — category_edited reclassify signal activated via the Phase 117 swarm_written_categories baseline; SC-2 / OUTLOOK-BEHAV-05 met. Phase 112.5 all 5 plans complete.
-Resume with: phase 112.5 transition/close (all plans done); sales behaviour-tracking re-enables on Sugar cut-over (registry UPDATE, no deploy)
+Last session: 2026-06-16T00:00:00.000Z
+Stopped at: 118-01-PLAN.md COMPLETE (Tasks 1/2/4 committed 32d0b26d/45467745/f7946e6e; Task 3 [BLOCKING] prod-apply checkpoint APPROVED + APPLIED by operator) — swarm-behavior-sync.ts multi-mailbox iteration live; sales-email migrated to mailboxes[] form on prod.
+Resume with: Phase 118 verification + merge; then step 2 (debtor enablement — flip stage_3_intent_label=false + set debtor behavior_tracking_config mailboxes[] over its 5 debiteuren mailboxes), post-merge operator-gated.
 Resume file: None
 
 ## Deferred Items
