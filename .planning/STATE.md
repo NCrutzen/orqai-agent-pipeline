@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
-stopped_at: 130-01-PLAN.md CHECKPOINT-BLOCKED at Task 3 (Tasks 1-2 committed abccc8d8/f2606cdf) — agent_runs_swarm_type_check widen migration written + smoke test written; the production migration apply is a blocking-human checkpoint.
-last_updated: "2026-06-16T12:08:48.734Z"
+stopped_at: 130-03-PLAN.md CHECKPOINT-BLOCKED at Task 4 (Tasks 1-3 committed 0aacaf28/07121981/268865de)
+last_updated: "2026-06-16T12:19:03.912Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 12
   completed_phases: 9
   total_plans: 52
-  completed_plans: 44
+  completed_plans: 45
   percent: 75
 ---
 
@@ -63,7 +63,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 130 (info-stage-1-noise-recalibration-v9-7-p0) — EXECUTING
-Plan: 2 of 3 (CHECKPOINT-BLOCKED at Task 3 — operator migration apply)
+Plan: 3 of 3 (CHECKPOINT-BLOCKED at Task 4 — operator migration apply + BEFORE baseline)
 Status: Ready to execute
 Last activity: 2026-06-16
 
@@ -172,6 +172,7 @@ Last activity: 2026-06-16
 | 112.5 | 5 | - | - |
 | 113 | 5 | - | - |
 | Phase 130 P02 | 12m | 3 tasks | 5 files |
+| Phase 130 P03 | 6m | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -298,6 +299,7 @@ Last activity: 2026-06-16
 - [Phase 117-02]: wired the Plan 01 primitives into the live pipeline — swarm-agnostic pipeline/intent-label.requested event emitted by the SHARED coordinator on every Stage-3 verdict-with-top-intent (BOTH the routing-GATED/held path AND the OPEN path; the category WRITE gate stage_3_intent_label is independent of the routing gate), additive to debtor's emit-predicted (byte-unchanged). New registered stage3IntentLabelWorker writes AI:<intent_key> onto the source Outlook message behind isStageBlocked(swarm,"stage_3_intent_label") — fail-closed no-op when GATED (both swarms seeded GATED), idempotent (write-on-change via readWrittenCategory), never-clobber (skip on 112.5 category_edited transition / review-signal), strip-stale (mergeIntentCategory full-array PATCH). ZERO swarm_type literals (SWARM-02 grep 0). docs/swarm-behavior-tracking.md documents the swarm_written_categories 112.5 prevCategories baseline read-contract (D-5; signal side OUT of 117). 34 tests green, tsc 0. Commits a6fd913b/4e4c949e/cbb4ec97. Task 4 [BLOCKING] migration-apply HALTED for operator — NOT applied to prod.
 - [Phase ?]: [Phase 117-01]: shipped pure AI: ${intent_key} mapper (strip-stale merge, D-1), DEDICATED fail-closed stage_3_intent_label gate key (D-3), email_id-keyed swarm_written_categories store (D-4/D-5). Migration 20260615 (RLS service_role+authenticated SELECT, no anon; stage_3_intent_label=true GATED both swarms via jsonb ||) WRITTEN not applied — Plan 02 [BLOCKING] applies + check:supabase. 23 tests green, tsc 0. Commits c3baae1e/be18115e/05c1b2ab.
 - [Phase ?]: [Phase 130-02]: six info-routing noise classes registered as paired swarm_noise_categories + classifier_rules(agent_intent,candidate) seeds (20260616b/20260616c) — zero per-swarm branch (SWARM-02); shadow-only, promotion via classifier-promotion-cron Wilson-CI. NOISE-04 carve-out as production pure predicate hasActionableToken (web/lib/info-routing/actionable-tokens.ts): storing start-boundary, factuur full-boundary, ReDoS-safe; 30/30 boundary test. Migrations NOT yet applied to remote (operator checkpoint). Commits acb6d787/c487c2c6/b0730d97.
+- [Phase ?]: [Phase 130-03]: NOISE-03 measurement substrate — public.info_unknown_pool_composition security_invoker view (per-mailbox Stage-1 distribution over pipeline_events, no time window) + hermetic worker test proving the 6 info-routing categories reach the stage-1-category-classifier closed list (NOISE-01) + per-mailbox labelled-sample baseline (mulberry32 seeded sampling + Wilson-CI, MANUAL human labelling, arg-guarded before createAdminClient). NOISE-02 gate = classifier-promotion-cron (swarm-agnostic Wilson-CI, shadow until CLASSIFIER_CRON_MUTATE=true), NOT labeling-flip-cron. Commits 0aacaf28/07121981/268865de. Task 4 checkpoint-blocked: operator applies 20260616b/c/d + captures BEFORE baseline.
 
 ### Blockers/Concerns
 
@@ -310,6 +312,7 @@ Last activity: 2026-06-16
 - **Phase 113-05 Task 3 CHECKPOINT (blocking-human) — the STAGE3-03 go-live:** operator must, IN ORDER: (1) **apply migration `20260609c` to remote BEFORE/atomic-with the coordinator code deploy** — the routing gate is FAIL-CLOSED and live `swarms.dry_run_config` currently has NO `stage_3_routing` key, so a code-only deploy would HOLD debtor's live predicted-emit. 20260609c sets debtor=false (open, preserves live emit) + sales=true (gated). (2) dry-run observation: trigger live sales Stage 3, verdicts persist + surface in Bulk Review while routing held; run `cd web && npx tsx scripts/eval/sales-stage3-deadletter-check.ts <since> <until>` → gap=0. (3) review ~100 sales verdicts (ranked intents + entity_relationship; Zod-failure row shows raw output + working retry; axis-3 overrides recordable). (4) on green-light, FLIP sales `stage_3_routing`→false → coordinator emits `sales-email/predicted` → dispatcher opens Kanban routing (reversible by re-gating, D-09). (5) record green-light + sample size in UAT. Resume: "go-live approved". Details: `phases/113-*/113-05-SUMMARY.md`.
 - **Phase 113-03 Task 2 CHECKPOINT (blocking-human):** operator must (1) create the `sales-intent-agent` SHELL + json_schema in Orq Studio (run `cd web && npx tsx scripts/orq/manage-sales-intent-agent.ts` to print the schema; Studio → Tools → Add → JSON Schema, then Model parameters → Response Format = it; confirm the Model dropdown is non-empty), (2) trigger `sales-email/retro-classify.requested` with `bootstrap:true` + a recent Outlook since/until (NOT a full SugarCRM sweep) and confirm `stage_3_retro_runs` gains rows tagged `run_type='bootstrap'` + sales `intent_proposal_clusters` is non-empty, (3) promote clusters to ~80% coverage (D-02), (4) record the `promoted_intents` yaml in `113-03-SUMMARY.md`. Resume signal: "agent created". (Plan 04 falls back to reading promoted clusters from the DB if the yaml stays empty.)
 - Phase 130-02 CHECKPOINT (operator) — apply registry-seed migrations to remote (mvqjhlxfvtqqubqgdvhz) IN ORDER via Supabase MCP apply_migration: (1) 20260616b_phase130_info_routing_noise_categories.sql then (2) 20260616c_phase130_info_routing_classifier_rules_seed.sql; (3) npm run check:supabase → 0 ERROR; (4) confirm 6 swarm_noise_categories + 6 paired classifier_rules(candidate) rows for info-routing. Until applied the stage-1-category-classifier has no info-routing categories — seeds inert. Resume signal: 'seeds applied'. Details: phases/130-*/130-02-SUMMARY.md.
+- Phase 130-03 Task 4 CHECKPOINT (blocking-human) — operator applies migrations to remote (mvqjhlxfvtqqubqgdvhz) via Supabase MCP apply_migration IN ORDER: 20260616b (noise categories) -> 20260616c (classifier_rules candidates) -> 20260616d (info_unknown_pool_composition view); Plan-01 20260616 CHECK-widen already live. Then: npm run check:supabase -> 0 ERROR; cd web && npm run codegen && git diff --exit-code -> no drift; confirm select from info_unknown_pool_composition returns smeba+fire-control rows + 6 info-routing classifier_rules(candidate) + 6 swarm_noise_categories; trigger one live info-routing unknown email -> agent_runs swarm_type=info-routing + rule_key=llm:{cat}:{conf} lands (no 23514); run baseline script (sample->human-label->compute) to capture BEFORE true-noise fraction per mailbox. Promotion stays SHADOW (do NOT flip CLASSIFIER_CRON_MUTATE). Resume signal: 'migrations applied + baseline captured'. Details: phases/130-*/130-03-SUMMARY.md.
 
 ### Quick Tasks Completed
 
@@ -341,8 +344,8 @@ Last activity: 2026-06-16
 
 ## Session Continuity
 
-Last session: 2026-06-16T12:08:01.128Z
-Stopped at: 130-01-PLAN.md CHECKPOINT-BLOCKED at Task 3 (Tasks 1-2 committed abccc8d8/f2606cdf) — agent_runs_swarm_type_check widen migration written + smoke test written; the production migration apply is a blocking-human checkpoint.
+Last session: 2026-06-16T12:18:49.796Z
+Stopped at: 130-03-PLAN.md CHECKPOINT-BLOCKED at Task 4 (Tasks 1-3 committed 0aacaf28/07121981/268865de)
 Resume with: operator applies 20260616_phase130 migration to remote + runs check:supabase + the info-routing INSERT smoke; resume signal "migration applied". Then Plan 02/03 of Phase 130.
 Resume file: None
 

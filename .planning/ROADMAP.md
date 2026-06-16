@@ -253,7 +253,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 **Sequencing principle:** clean the denominator first (P0 noise-recalibration) → then the router (P1) → then forward + review surface (P2) → NL-config + verkoop→order (P3) → ambient-loop (P4). Critical path P0→P1→P2.
 
-- [ ] **Phase 130 (P0): info@ Stage-1 noise-recalibration** — close the ~50% latent-noise leak in the info@ "unknown" pool by registering new `classifier_rules` candidates (cold-sales/SEO, newsletters, auto-dealer spam, job applications, survey invites) through the existing Wilson-CI shadow→promote gate; the noise share of the pool drops ~50%→<20%, giving the router a clean denominator. **← current**
+- [x] **Phase 130 (P0): info@ Stage-1 noise-recalibration** — close the ~50% latent-noise leak in the info@ "unknown" pool by registering new `classifier_rules` candidates (cold-sales/SEO, newsletters, auto-dealer spam, job applications, survey invites) through the existing Wilson-CI shadow→promote gate; the noise share of the pool drops ~50%→<20%, giving the router a clean denominator. **← current** (completed 2026-06-16)
 - [ ] **Phase 131 (P1): Destination taxonomy + Stage-3 router** — freeze the 6-7 destination buckets + verified mailboxes; build the `info-routing-coordinator` Orq agent classifying on destination + destination registry (no Stage 2).
 - [ ] **Phase 132 (P2): Forward side-effect + Bulk Review** — Stage-4 Outlook-forward (idempotent, dry-run-gated, brand-aware) + category stamp-back; info-routing Bulk Review surface.
 - [ ] **Phase 133 (P3): NL routing-config + verkoop→order** — staff NL → routing rules (human-approved); verkoop@→order@ routing for `quote_acceptance`/`order_status`.
@@ -261,7 +261,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 130. info@ noise-recalibration | 2/3 | In Progress|  |
+| 130. info@ noise-recalibration | 3/3 | Complete   | 2026-06-16 |
 | 131. Destination taxonomy + router | — | Pending | — |
 | 132. Forward + Bulk Review | — | Pending | — |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
@@ -336,7 +336,7 @@ Plans:
 
 - [x] 130-01-PLAN.md — Wave 0 [BLOCKING]: widen agent_runs swarm_type CHECK to include info-routing + live-INSERT smoke (unblocks all shadow telemetry) (NOISE-02) — Tasks 1-3 complete; migration applied to remote 2026-06-16 (CHECK now 5-value union; live info-routing INSERT roundtrip proven, 0 telemetry pollution)
 - [x] 130-02-PLAN.md — Wave 1: seed 6 info-routing swarm_noise_categories + paired classifier_rules candidates (shadow) + actionable-token carve-out boundary test (NOISE-01, NOISE-04, NOISE-05)
-- [ ] 130-03-PLAN.md — Wave 1: per-mailbox unknown-pool composition view (security_invoker) + worker-category test + labelled-sample noise-baseline script + classifier-promotion-cron gate verify (NOISE-02, NOISE-03)
+- [x] 130-03-PLAN.md — Wave 1: per-mailbox unknown-pool composition view (security_invoker) + worker-category test + labelled-sample noise-baseline script + classifier-promotion-cron gate verify (NOISE-02, NOISE-03)
 
 ---
 
@@ -599,7 +599,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 
