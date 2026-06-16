@@ -261,7 +261,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 130. info@ noise-recalibration | 3/3 | Complete   | 2026-06-16 |
+| 130. info@ noise-recalibration | 4/4 | Complete   | 2026-06-16 |
 | 131. Destination taxonomy + router | — | Pending | — |
 | 132. Forward + Bulk Review | — | Pending | — |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
@@ -599,7 +599,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 3/3 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
 

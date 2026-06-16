@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
-status: executing
+status: verifying
 stopped_at: 130-03-PLAN.md CHECKPOINT-BLOCKED at Task 4 (Tasks 1-3 committed 0aacaf28/07121981/268865de)
-last_updated: "2026-06-16T12:19:03.912Z"
+last_updated: "2026-06-16T13:12:11.916Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 12
-  completed_phases: 9
-  total_plans: 52
-  completed_plans: 45
-  percent: 75
+  completed_phases: 10
+  total_plans: 53
+  completed_plans: 46
+  percent: 83
 ---
 
 # Project State
@@ -64,7 +64,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 Phase: 130 (info-stage-1-noise-recalibration-v9-7-p0) — EXECUTING
 Plan: 3 of 3 (CHECKPOINT-BLOCKED at Task 4 — operator migration apply + BEFORE baseline)
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-16
 
 ## Performance Metrics
@@ -173,6 +173,7 @@ Last activity: 2026-06-16
 | 113 | 5 | - | - |
 | Phase 130 P02 | 12m | 3 tasks | 5 files |
 | Phase 130 P03 | 6m | 3 tasks | 4 files |
+| Phase 130 P04 | 6m | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -300,6 +301,7 @@ Last activity: 2026-06-16
 - [Phase ?]: [Phase 117-01]: shipped pure AI: ${intent_key} mapper (strip-stale merge, D-1), DEDICATED fail-closed stage_3_intent_label gate key (D-3), email_id-keyed swarm_written_categories store (D-4/D-5). Migration 20260615 (RLS service_role+authenticated SELECT, no anon; stage_3_intent_label=true GATED both swarms via jsonb ||) WRITTEN not applied — Plan 02 [BLOCKING] applies + check:supabase. 23 tests green, tsc 0. Commits c3baae1e/be18115e/05c1b2ab.
 - [Phase ?]: [Phase 130-02]: six info-routing noise classes registered as paired swarm_noise_categories + classifier_rules(agent_intent,candidate) seeds (20260616b/20260616c) — zero per-swarm branch (SWARM-02); shadow-only, promotion via classifier-promotion-cron Wilson-CI. NOISE-04 carve-out as production pure predicate hasActionableToken (web/lib/info-routing/actionable-tokens.ts): storing start-boundary, factuur full-boundary, ReDoS-safe; 30/30 boundary test. Migrations NOT yet applied to remote (operator checkpoint). Commits acb6d787/c487c2c6/b0730d97.
 - [Phase ?]: [Phase 130-03]: NOISE-03 measurement substrate — public.info_unknown_pool_composition security_invoker view (per-mailbox Stage-1 distribution over pipeline_events, no time window) + hermetic worker test proving the 6 info-routing categories reach the stage-1-category-classifier closed list (NOISE-01) + per-mailbox labelled-sample baseline (mulberry32 seeded sampling + Wilson-CI, MANUAL human labelling, arg-guarded before createAdminClient). NOISE-02 gate = classifier-promotion-cron (swarm-agnostic Wilson-CI, shadow until CLASSIFIER_CRON_MUTATE=true), NOT labeling-flip-cron. Commits 0aacaf28/07121981/268865de. Task 4 checkpoint-blocked: operator applies 20260616b/c/d + captures BEFORE baseline.
+- [Phase ?]: [Phase 130-04]: NOISE-03 measurement-tooling gap closure (WR-01/WR-02) — pure wilsonCiUpper (95% upper bound, +radius, clamp to 1, n=0->0; symmetry-verified pin 0.668) + wilson_ci_hi surfaced per mailbox in computeNoiseFractions, enabling the AFTER assertion wilson_ci_hi < 0.20; sample scaffold now reads real subject/sender from email_pipeline.emails by email_id (CHUNK=200, sender_email) instead of never-set dd.subject/dd.from (non-circular labelling, Pitfall 5), unresolved ids degrade to null. WR-03 out of scope. No migrations/seeds touched. 24/24 tests green, tsc clean. Commits 04b1fb39/0db9f9fd/b70991d2.
 
 ### Blockers/Concerns
 
@@ -344,7 +346,7 @@ Last activity: 2026-06-16
 
 ## Session Continuity
 
-Last session: 2026-06-16T12:18:49.796Z
+Last session: 2026-06-16T13:11:41.484Z
 Stopped at: 130-03-PLAN.md CHECKPOINT-BLOCKED at Task 4 (Tasks 1-3 committed 0aacaf28/07121981/268865de)
 Resume with: operator applies 20260616_phase130 migration to remote + runs check:supabase + the info-routing INSERT smoke; resume signal "migration applied". Then Plan 02/03 of Phase 130.
 Resume file: None
