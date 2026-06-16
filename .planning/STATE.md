@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
-status: Defining requirements
-stopped_at: Phase 120 context gathered
-last_updated: "2026-06-16T11:28:04.749Z"
-last_activity: 2026-06-16 — Milestone V9.5 started
+status: Ready to execute
+stopped_at: Phase 120 planned — 4 plans, plan-check PASS (0 blockers), W1/W2/W3 hardened
+last_updated: "2026-06-16T14:30:00.000Z"
+last_activity: 2026-06-16 — Phase 120 planning closed; ready for /gsd:execute-phase 120
 progress:
   total_phases: 14
   completed_phases: 9
