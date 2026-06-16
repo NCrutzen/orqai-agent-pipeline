@@ -628,6 +628,7 @@ function seedCategoryEditScenario(opts: {
   emailId: string;
   baselineAiCategory: string | null; // the swarm_written_categories row (null = no baseline)
   newCategories: string[]; // the operator's edited categories on the delta event
+  source?: string; // ingest source tag on the email row (default 'outlook')
 }) {
   seedFolderMap();
   db.tokens.set("F-inbox", { delta_link: "PREV-inbox", bootstrapped: true });
@@ -638,7 +639,7 @@ function seedCategoryEditScenario(opts: {
       source_id: opts.immutableId,
       conversation_id: null,
       mailbox: MAILBOX,
-      source: "outlook",
+      source: opts.source ?? "outlook",
     },
   ];
   if (opts.baselineAiCategory !== null) {
@@ -741,6 +742,27 @@ describe("swarmBehaviorSync — category_edited via swarm_written_categories bas
     expect(db.signals.filter((s) => s.verdict === "reclassify").length).toBe(
       afterFirst,
     );
+  });
+
+  it("14: a zapier-debtor-ingest row resolves + fires category_edited (widened source filter)", async () => {
+    // The debtor-email ingest tags rows source='zapier-debtor-ingest' (sales is
+    // 'outlook'). Both store the Outlook messageId as source_id, so the
+    // immutable_id->email_id match works once the source filter accepts both.
+    // Pre-fix (.eq("source","outlook")) this row never resolved -> 0 signals (RED).
+    seedCategoryEditScenario({
+      immutableId: "m-zap",
+      emailId: "e-zap",
+      baselineAiCategory: "AI: quote_request",
+      newCategories: ["AI: order_status"],
+      source: "zapier-debtor-ingest",
+    });
+
+    await getHandler()({ event: { data: {} }, step: makeStep() });
+
+    const reclassify = db.signals.filter((s) => s.verdict === "reclassify");
+    expect(reclassify).toHaveLength(1);
+    expect(reclassify[0].email_id).toBe("e-zap");
+    expect(reclassify[0].category_key).toBe("order_status");
   });
 });
 

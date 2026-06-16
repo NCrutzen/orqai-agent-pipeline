@@ -34,7 +34,7 @@
 //       bucketOf via loadFolderMap, resolve last-known bucket / prev categories
 //       / prev read-state per immutable id from prior transitions, mint ONE tick
 //       iso, extractTransitions, map immutable id -> email_id via
-//       email_pipeline.emails (source_id -> id, source='outlook' AND this
+//       email_pipeline.emails (source_id -> id, source IN tracked-sources AND this
 //       mailbox; Sugar ids never match -> skip), do the swarm_type-scoped
 //       ledger join on pipeline_events stage=4, deriveSignals.
 //   (6) idempotent inserts into swarm_email_transitions + swarm_review_signals
@@ -74,6 +74,16 @@ import {
 const DELTA_PREFER = 'IdType="ImmutableId", odata.maxpagesize=100';
 // PostgREST .in() chunk — keep the URL under the ~16KB header limit.
 const ID_CHUNK = 150;
+
+// email_pipeline.emails.source tags whose rows the immutable_id->email_id match
+// accepts. Both the sales-email ingest ('outlook') and the debtor-email ingest
+// ('zapier-debtor-ingest') are Zapier->Graph routes that store the Outlook
+// messageId as source_id, so the immutable-id match works identically for both;
+// only the arbitrary source string differed, which previously excluded debtor
+// (its native-Outlook 'outlook' rows stopped 2026-04-22; live debtor mail is
+// 'zapier-debtor-ingest'). Mailbox + source_id already scope the match, so
+// widening the source set cannot cross-attribute between swarms.
+const TRACKED_INGEST_SOURCES = ["outlook", "zapier-debtor-ingest"] as const;
 
 // Cron schedule for the trigger arg (defined here, not inside any block comment).
 const CRON_BUSINESS_HOURS = "TZ=Europe/Amsterdam */5 6-19 * * 1-5";
@@ -452,9 +462,10 @@ export const swarmBehaviorSync = inngest.createFunction(
             }
           }
 
-          // immutable_id (Graph source_id) -> email_id, source='outlook' AND
-          // this mailbox only. Sugar rows carry a Sugar-UUID source_id and never
-          // match -> skipped (T-112.5-13). Chunked .in to stay under header cap.
+          // immutable_id (Graph source_id) -> email_id, scoped to the tracked
+          // ingest sources (outlook + zapier-debtor-ingest) AND this mailbox.
+          // Sugar rows carry a Sugar-UUID source_id and never match -> skipped
+          // (T-112.5-13). Chunked .in to stay under header cap.
           const immutableToEmailId = new Map<string, string>();
           for (let i = 0; i < immutableIds.length; i += ID_CHUNK) {
             const chunk = immutableIds.slice(i, i + ID_CHUNK);
@@ -462,7 +473,7 @@ export const swarmBehaviorSync = inngest.createFunction(
               .schema("email_pipeline")
               .from("emails")
               .select("id, source_id, conversation_id")
-              .eq("source", "outlook")
+              .in("source", [...TRACKED_INGEST_SOURCES])
               .eq("mailbox", mailbox)
               .in("source_id", chunk);
             for (const row of (emailRows ?? []) as {
@@ -511,14 +522,16 @@ export const swarmBehaviorSync = inngest.createFunction(
           }
 
           // conversationId -> inbound email_id for reply-matching. Built from the
-          // resolved outlook rows (best-effort; reply only fires on a match).
+          // resolved rows (best-effort; reply only fires on a match). Same source
+          // set as the immutable-id match so debtor (zapier-debtor-ingest) rows
+          // are not silently excluded here.
           const conversationToEmailId = new Map<string, string>();
           {
             const { data: convRows } = await admin
               .schema("email_pipeline")
               .from("emails")
               .select("id, conversation_id")
-              .eq("source", "outlook")
+              .in("source", [...TRACKED_INGEST_SOURCES])
               .eq("mailbox", mailbox)
               .in(
                 "id",
@@ -590,7 +603,7 @@ export const swarmBehaviorSync = inngest.createFunction(
             immutableToEmailId.get(immutableId) ?? "";
 
           // Idempotent transition inserts. Skip transitions whose immutable id
-          // has no source='outlook' match (Sugar-skip) — they carry no email_id.
+          // has no tracked-source match (Sugar-skip) — they carry no email_id.
           for (const tr of transitions) {
             const emailId =
               tr.kind === "replied" && tr.matched_email_id
