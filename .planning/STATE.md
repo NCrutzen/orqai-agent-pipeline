@@ -1,16 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: V9.5
-milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope
-status: planning
-last_updated: "2026-06-16T10:49:17.088Z"
-last_activity: 2026-06-16
+milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
+status: Defining requirements
+stopped_at: Phase 120 context gathered
+last_updated: "2026-06-16T11:28:04.749Z"
+last_activity: 2026-06-16 — Milestone V9.5 started
 progress:
-  total_phases: 0
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 14
+  completed_phases: 9
+  total_plans: 49
+  completed_plans: 42
+  percent: 64
 ---
 
 # Project State
@@ -336,10 +337,10 @@ Last activity: 2026-06-16 — Milestone V9.5 started
 
 ## Session Continuity
 
-Last session: 2026-06-15T11:02:22.000Z
-Stopped at: 112.5-05-PLAN.md COMPLETE (Tasks 1-2 committed 3cf15049/dd3447c3) — category_edited reclassify signal activated via the Phase 117 swarm_written_categories baseline; SC-2 / OUTLOOK-BEHAV-05 met. Phase 112.5 all 5 plans complete.
+Last session: 2026-06-16T11:28:04.728Z
+Stopped at: Phase 120 context gathered
 Resume with: phase 112.5 transition/close (all plans done); sales behaviour-tracking re-enables on Sugar cut-over (registry UPDATE, no deploy)
-Resume file: None
+Resume file: .planning/phases/120-d-06-multi-signal-corroboration-engine-generic-cross-swarm/120-CONTEXT.md
 
 ## Deferred Items
 
