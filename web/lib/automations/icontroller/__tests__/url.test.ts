@@ -25,13 +25,13 @@ describe("buildIcontrollerMessageUrl", () => {
     ).toBe("https://walkerfire.icontroller.eu/messages/index/mailbox/4");
   });
 
-  it("sicli-noord production produces mailbox/15", () => {
+  it("fire-control production produces mailbox/12", () => {
     expect(
       buildIcontrollerMessageUrl({
-        source_mailbox: "debiteuren@sicli-noord.nl",
+        source_mailbox: "administratie@fire-control.nl",
         env: "production",
       }),
-    ).toBe("https://walkerfire.icontroller.eu/messages/index/mailbox/15");
+    ).toBe("https://walkerfire.icontroller.eu/messages/index/mailbox/12");
   });
 
   it("berki production produces mailbox/171", () => {
