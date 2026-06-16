@@ -60,7 +60,11 @@
  * labelled.json shape: { "rows": [{ "id": "<pipeline_event_id>", "mailbox_entity": "smeba", "label": "noise" | "routable" }, ...] }
  */
 
-import { wilsonCiLower, PROMOTE_N_MIN } from "@/lib/classifier/wilson";
+import {
+  wilsonCiLower,
+  wilsonCiUpper,
+  PROMOTE_N_MIN,
+} from "@/lib/classifier/wilson";
 
 const SWARM = "info-routing";
 const DEFAULT_N = 80;
@@ -152,14 +156,17 @@ export interface NoiseFraction {
   routable: number;
   noise_fraction: number; // point estimate noise/n
   wilson_ci_lo: number; // 95% lower bound on the noise fraction
+  wilson_ci_hi: number; // 95% upper bound on the noise fraction
   under_min_n: boolean; // true when n < PROMOTE_N_MIN (CI uninformative)
 }
 
 /**
- * Compute the true-noise fraction + Wilson 95% lower bound PER mailbox from a
- * set of human labels. `under_min_n` flags mailboxes whose sample is below the
- * promotion-grade minimum (PROMOTE_N_MIN) — their CI is too wide to trust as a
- * before/after delta on its own. Pure.
+ * Compute the true-noise fraction + BOTH Wilson 95% bounds (lo and hi) PER
+ * mailbox from a set of human labels. NOISE-03's AFTER assertion uses
+ * `wilson_ci_hi < 0.20` (the upper bound below threshold is the rigorous proof
+ * the noise share dropped under 20%). `under_min_n` flags mailboxes whose
+ * sample is below the promotion-grade minimum (PROMOTE_N_MIN) — their CI is too
+ * wide to trust as a before/after delta on its own. Pure.
  */
 export function computeNoiseFractions(rows: LabelledRow[]): NoiseFraction[] {
   const byMailbox = new Map<string, LabelledRow[]>();
@@ -181,6 +188,7 @@ export function computeNoiseFractions(rows: LabelledRow[]): NoiseFraction[] {
       routable,
       noise_fraction: n === 0 ? 0 : noise / n,
       wilson_ci_lo: wilsonCiLower(n, noise),
+      wilson_ci_hi: wilsonCiUpper(n, noise),
       under_min_n: n < PROMOTE_N_MIN,
     });
   }

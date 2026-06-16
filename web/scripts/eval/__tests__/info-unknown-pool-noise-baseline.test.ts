@@ -84,6 +84,12 @@ describe("computeNoiseFractions — per-mailbox fraction + Wilson CI", () => {
     expect(f.noise_fraction).toBeCloseTo(0.5, 5);
     expect(f.wilson_ci_lo).toBeGreaterThan(0);
     expect(f.wilson_ci_lo).toBeLessThan(0.5);
+    // WR-02 part B: wilson_ci_hi present, >= lo, and (15/30 case) in (0.5, 1)
+    // and strictly above the point estimate.
+    expect(f.wilson_ci_hi).toBeGreaterThanOrEqual(f.wilson_ci_lo);
+    expect(f.wilson_ci_hi).toBeGreaterThan(f.noise_fraction);
+    expect(f.wilson_ci_hi).toBeGreaterThan(0.5);
+    expect(f.wilson_ci_hi).toBeLessThan(1);
     expect(f.under_min_n).toBe(false);
   });
 
