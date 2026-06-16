@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: V9.0
-milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
-status: Awaiting next milestone
-stopped_at: 112.5-05-PLAN.md COMPLETE (Tasks 1-2 committed 3cf15049/dd3447c3) — category_edited reclassify signal activated via the Phase 117 swarm_written_categories baseline; SC-2 / OUTLOOK-BEHAV-05 met. Phase 112.5 all 5 plans complete.
-last_updated: "2026-06-15T14:30:47.802Z"
-last_activity: 2026-06-15 — Milestone V9.0 completed and archived
+milestone: V9.5
+milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope
+status: planning
+last_updated: "2026-06-16T10:49:17.088Z"
+last_activity: 2026-06-16
 progress:
-  total_phases: 9
-  completed_phases: 8
-  total_plans: 37
-  completed_plans: 37
-  percent: 89
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -62,10 +61,10 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: Milestone V9.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-06-15 — Milestone V9.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-06-16 — Milestone V9.5 started
 
 ## Performance Metrics
 
