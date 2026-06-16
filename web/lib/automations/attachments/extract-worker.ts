@@ -163,7 +163,10 @@ export async function extractEmailAttachments(
         result.extracted += 1;
       } else if (
         extracted.status === "unsupported" ||
-        extracted.status === "skipped_cap"
+        extracted.status === "skipped_cap" ||
+        // no_text = supported file with nothing legible to read (logo/blank
+        // scan). Expected non-extraction, NOT a failure (WR-07 telemetry).
+        extracted.status === "no_text"
       ) {
         result.skipped += 1;
       } else {

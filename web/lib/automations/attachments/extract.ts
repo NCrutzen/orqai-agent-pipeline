@@ -51,6 +51,53 @@ const PDF_RENDER_SCALE = 2.0;
 const PDF_CONTENT_TYPE = "application/pdf";
 const IMAGE_CONTENT_TYPES = new Set(["image/jpeg", "image/png"]);
 
+// Generic MIME types senders use when they don't set a real one. When we get
+// one of these we can't trust it — fall back to the filename extension to find
+// the real type (recovers PDFs/images that arrived as octet-stream and were
+// otherwise mis-coded 'unsupported').
+const GENERIC_CONTENT_TYPES = new Set([
+  "",
+  "application/octet-stream",
+  "binary/octet-stream",
+  "application/binary",
+  "application/download",
+  "application/force-download",
+]);
+
+// Filename extension → canonical extractable content type.
+const EXT_TO_CONTENT_TYPE: Record<string, string> = {
+  pdf: PDF_CONTENT_TYPE,
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+};
+
+/**
+ * Resolve the EFFECTIVE content type for extraction routing. Two corrections
+ * over the raw Graph value:
+ *   1. Alias normalisation: `image/jpg` (a common but non-standard MIME) →
+ *      `image/jpeg` so the image path matches.
+ *   2. Generic-type recovery: when the MIME is generic/empty, infer the real
+ *      type from the filename extension. Senders frequently ship real PDFs and
+ *      images as `application/octet-stream`; without this they fell through to
+ *      `unsupported` (12 of the first backfill's 26 'unsupported' rows).
+ * Anything we can't map (xlsx, zip, dwg, …) passes through unchanged → the
+ * caller's `unsupported` branch handles it.
+ */
+export function resolveContentType(
+  contentType: string | undefined,
+  filename: string | undefined,
+): string {
+  const norm = (contentType ?? "").toLowerCase().split(";")[0].trim();
+  if (norm === "image/jpg") return "image/jpeg";
+  if (norm === PDF_CONTENT_TYPE || IMAGE_CONTENT_TYPES.has(norm)) return norm;
+  if (GENERIC_CONTENT_TYPES.has(norm) && filename) {
+    const ext = filename.toLowerCase().split(".").pop() ?? "";
+    if (EXT_TO_CONTENT_TYPE[ext]) return EXT_TO_CONTENT_TYPE[ext];
+  }
+  return norm;
+}
+
 // Marker wrapping untrusted, model-extracted attachment text. Downstream prompts
 // (and the Stage 2 fold-in) treat everything between these fences as DATA, never
 // instructions (review WR-01).
@@ -77,7 +124,12 @@ export type ExtractionStatus =
   | "extracted"
   | "extraction_failed"
   | "skipped_cap"
-  | "unsupported";
+  | "unsupported"
+  // A supported file that simply carries no extractable text — a scanned/photo
+  // with no legible characters, or (most often) a signature logo/banner image
+  // that slipped the inline filter. Distinct from extraction_failed: nothing
+  // BROKE, there was just nothing to read. Keeps the failure rate honest.
+  | "no_text";
 
 export interface AttachmentCaps {
   /** Max raw bytes before we even download/parse (DoS guard). */
@@ -115,7 +167,9 @@ export async function extractAttachment(
     return { status: "skipped_cap", text: "" };
   }
 
-  const ct = (contentType ?? "").toLowerCase().split(";")[0].trim();
+  // Resolve the effective type: normalise image/jpg and recover real PDFs/
+  // images that arrived as a generic MIME (octet-stream) via the filename.
+  const ct = resolveContentType(contentType, input.filename);
 
   let text: string;
 
@@ -267,7 +321,9 @@ async function runVision(
     });
     const transcribed = json.choices?.[0]?.message?.content ?? "";
     if (transcribed.trim().length === 0) {
-      return { status: "extraction_failed", text: "" };
+      // The model ran fine but found no legible text — a logo/banner image or a
+      // blank scan. Nothing broke, so this is 'no_text', not a failure.
+      return { status: "no_text", text: "" };
     }
     return { status: "extracted", text: transcribed };
   } catch (err) {

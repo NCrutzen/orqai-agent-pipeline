@@ -279,6 +279,83 @@ describe("extractAttachment — prompt-injection posture (WR-01)", () => {
   });
 });
 
+describe("extractAttachment — content-type recovery (backfill-2 fixes)", () => {
+  it("image/jpg alias routes to the image vision path (not unsupported)", async () => {
+    orqRouterChatMock.mockResolvedValue(visionText("text in jpg"));
+    const out = await extractAttachment({
+      bytes: pdfBytes(),
+      contentType: "image/jpg",
+      filename: "scan.jpg",
+      caps: CAPS,
+    });
+    expect(out.status).toBe("extracted");
+    expect(orqRouterChatMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("octet-stream + .pdf filename routes to the PDF text-layer path", async () => {
+    extractTextMock.mockResolvedValue({ text: "Invoice 17008849" });
+    const out = await extractAttachment({
+      bytes: pdfBytes(),
+      contentType: "application/octet-stream",
+      filename: "Document 2578182.pdf",
+      caps: CAPS,
+    });
+    expect(out.status).toBe("extracted");
+    expect(unwrap(out.text)).toContain("Invoice 17008849");
+    expect(extractTextMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("octet-stream + .jpeg filename routes to the image vision path", async () => {
+    orqRouterChatMock.mockResolvedValue(visionText("photo text"));
+    const out = await extractAttachment({
+      bytes: pdfBytes(),
+      contentType: "application/octet-stream",
+      filename: "photo.jpeg",
+      caps: CAPS,
+    });
+    expect(out.status).toBe("extracted");
+    expect(orqRouterChatMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("octet-stream with a non-extractable extension stays unsupported", async () => {
+    const out = await extractAttachment({
+      bytes: pdfBytes(),
+      contentType: "application/octet-stream",
+      filename: "drawing.dwg",
+      caps: CAPS,
+    });
+    expect(out.status).toBe("unsupported");
+    expect(extractTextMock).not.toHaveBeenCalled();
+    expect(orqRouterChatMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("extractAttachment — no_text (empty vision is not a failure)", () => {
+  it("image whose vision transcription is empty → no_text, not extraction_failed", async () => {
+    orqRouterChatMock.mockResolvedValue(visionText("   \n  "));
+    const out = await extractAttachment({
+      bytes: pdfBytes(),
+      contentType: "image/png",
+      filename: "logo.png",
+      caps: CAPS,
+    });
+    expect(out.status).toBe("no_text");
+    expect(out.text).toBe("");
+  });
+
+  it("scanned PDF whose vision transcription is empty → no_text", async () => {
+    extractTextMock.mockResolvedValue({ text: "  " });
+    getDocumentProxyMock.mockResolvedValue({ numPages: 1 });
+    orqRouterChatMock.mockResolvedValue(visionText(""));
+    const out = await extractAttachment({
+      bytes: pdfBytes(),
+      contentType: "application/pdf",
+      caps: CAPS,
+    });
+    expect(out.status).toBe("no_text");
+  });
+});
+
 describe("AttachmentExtractError", () => {
   it("carries a code field (FrameExtractError shape)", () => {
     const err = new AttachmentExtractError("extraction_failed", { message: "boom" });
