@@ -34,6 +34,7 @@
 
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recordWorkerFailure } from "@/lib/inngest/on-worker-failure";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { regexScreen } from "@/lib/stage-0/regex-screen";
@@ -76,7 +77,25 @@ type DownstreamEmit =
   | null;
 
 export const stage0SafetyWorker = inngest.createFunction(
-  { id: "stage-0/safety-worker", retries: 0 },
+  {
+    id: "stage-0/safety-worker",
+    // retries:3 (was 0) — handoff-resilience fix (2026-06-16). A transient
+    // throw (Orq timeout on the injection verdict, DB write) must not silently
+    // drop the email at the very first gate. Budget-breach is NOT a throw — it
+    // RETURNS a verdict that emits pipeline/budget_breached — so retries don't
+    // amplify a breach. The Orq client already retries internally; the only
+    // extra cost is re-running a thrown safety-LLM call up to 3×. All side
+    // effects are in step.run, so retries replay safely.
+    retries: 3,
+    onFailure: async ({ error, event }) => {
+      await recordWorkerFailure({
+        stage: 0,
+        stageLabel: "stage-0-safety-worker",
+        event,
+        error,
+      });
+    },
+  },
   { event: "stage-0/email.received" },
   async ({ event, step }) => {
     const data = event.data as {

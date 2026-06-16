@@ -38,6 +38,7 @@
 
 import { z } from "zod";
 import { inngest } from "@/lib/inngest/client";
+import { recordWorkerFailure } from "@/lib/inngest/on-worker-failure";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSwarm, loadSwarmNoiseCategories } from "@/lib/swarms/registry";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
@@ -111,7 +112,23 @@ interface DebtorLabelingSettings {
 }
 
 export const classifierScreenWorker = inngest.createFunction(
-  { id: "classifier/screen-worker", retries: 0 },
+  {
+    id: "classifier/screen-worker",
+    // retries:3 (was 0) — handoff-resilience fix (2026-06-16). The LLM 2nd-pass
+    // (stage-1-category-classifier) and the verdict emit can throw transiently;
+    // retries:0 dropped the email at Stage 1. Steps are memoized (the
+    // randomUUID id is generated inside step.run("llm-call")), so retries replay
+    // safely; a terminal failure surfaces via onFailure below.
+    retries: 3,
+    onFailure: async ({ error, event }) => {
+      await recordWorkerFailure({
+        stage: 1,
+        stageLabel: "classifier-screen-worker",
+        event,
+        error,
+      });
+    },
+  },
   { event: "classifier/screen.requested" },
   async ({ event, step }) => {
     const {

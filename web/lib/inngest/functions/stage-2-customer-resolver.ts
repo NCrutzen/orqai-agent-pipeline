@@ -10,13 +10,18 @@
 // Renamed in Phase 88.1 — old function id + event name in runbook. Pure
 // rename, no behavior change.
 //
-// retries: 0 — same rationale as the verdict-worker. NXT-Zap timeouts
-// are surfaced as automation_runs.status='failed' so the kanban queue
-// retry button is the recovery path; no cascading retries that would
-// block the next event.
+// retries: 3 (was 0) — handoff-resilience fix (2026-06-16). This was the
+// Stage 2→3 drop: the worker recorded its Stage-2 pipeline_event then threw
+// (NXT-Zap timeout, the emails .or() lookup statement-timeout, or the
+// emit-coordinator send) BEFORE `emit-coordinator`, so the coordinator was
+// never triggered (confirmed: coordinator_runs had no row for the stalled
+// emails). Steps are idempotent and run_id is event-derived, so retries replay
+// safely; terminal failures surface via onFailure in addition to the existing
+// automation_runs.status='failed' kanban path.
 
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recordWorkerFailure } from "@/lib/inngest/on-worker-failure";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { numericConfidence } from "@/lib/pipeline-events/types";
@@ -46,7 +51,18 @@ import type { EngineConfig } from "@/lib/agentic-pipeline/resolve/engine";
 type SendFn = (p: { name: string; data: Record<string, unknown> }) => Promise<unknown>;
 
 export const stage2CustomerResolver = inngest.createFunction(
-  { id: "stage-2-customer-resolver", retries: 0 },
+  {
+    id: "stage-2-customer-resolver",
+    retries: 3,
+    onFailure: async ({ error, event }) => {
+      await recordWorkerFailure({
+        stage: 2,
+        stageLabel: "stage-2-customer-resolver",
+        event,
+        error,
+      });
+    },
+  },
   // Phase 114-04 (Pitfall 6) — the worker now listens for BOTH the debtor and
   // the sales Stage 2 request events (Inngest accepts a trigger array; mirrors
   // the Stage 3 dispatcher precedent, STATE Phase 80-03). The sales event name

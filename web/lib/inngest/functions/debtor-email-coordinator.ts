@@ -24,6 +24,7 @@
 // concurrency: entity-key 4 + run_id-key 1.
 
 import { inngest } from "@/lib/inngest/client";
+import { recordWorkerFailure } from "@/lib/inngest/on-worker-failure";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { invokeIntentAgent } from "@/lib/automations/debtor-email/coordinator/invoke-intent";
 import { assembleInput } from "@/lib/automations/debtor-email/coordinator/assemble-input";
@@ -80,11 +81,29 @@ export const debtorEmailCoordinator = inngest.createFunction(
   {
     id: "automations/debtor-email-coordinator",
     name: "Debtor Email Coordinator (Stage 3)",
-    retries: 0,
+    // retries:3 (was 0) — handoff-resilience fix (2026-06-16). A transient
+    // throw (Orq intent-agent timeout, load-context DB read, emit-predicted /
+    // emit-intent-label send) left an orphan intent=null agent_run and never
+    // advanced to Stage 3.5/4. run_id is generated inside
+    // step.run("resolve-run-id") and coordinator_runs/agent_runs writes are
+    // keyed on it, so retries replay safely. Terminal failures surface via
+    // onFailure. NOTE: a DETERMINISTIC schema-mismatch throw (e.g. the debtor
+    // intent-agent returning an out-of-enum sub_type) will exhaust all retries
+    // and then surface via onFailure — see the open follow-up to fail-soft the
+    // intent-agent parse to a review lane rather than throw.
+    retries: 3,
     concurrency: [
       { key: "event.data.entity", limit: 4 },
       { key: "event.data.run_id", limit: 1 },
     ],
+    onFailure: async ({ error, event }) => {
+      await recordWorkerFailure({
+        stage: 3,
+        stageLabel: "debtor-email-coordinator",
+        event,
+        error,
+      });
+    },
   },
   // Phase 110 Plan 03 — wildcard trigger, mirroring stage-3-dispatcher.ts:51.
   // Fan-in from every swarm's Stage 2 producer (`<swarm>/coordinator.requested`).
