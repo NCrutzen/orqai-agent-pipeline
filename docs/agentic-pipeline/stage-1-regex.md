@@ -113,6 +113,15 @@ Axis 1 of the override model is the override surface for this stage. Operators c
 
 Axis 1 signals feed the regex-rule promotion hook: a candidate rule accumulates the per-rule binomial sample, and the Wilson-CI gate (thresholds in code, deliberately not in this RFC) flips the rule from candidate to live once the lower bound clears. See [`./graduated-automation.md#hook-taxonomy`](./graduated-automation.md#hook-taxonomy). Phase 56's sender-mapping promotion is the working precedent.
 
+## Actionable-Token Carve-Out (NOISE-04, info-routing)
+
+The info-routing "unknown" pool is **mixed**: several high-frequency senders are genuinely *routable* (fire-control inspecties/ontruimingsplattegronden, klant-PO's/orders/openstaande posten, finance retour-facturen) and must never be archived as noise — even from a noisy-looking sender domain. A leak-fix that eats routable mail is worse than the leak. For the info-routing LLM noise categories (Phase 130), the **actionable-token carve-out** is enforced on two layers:
+
+- **(a) Agent category definitions** — the `stage-1-category-classifier` category definitions instruct: *never classify as noise if the subject or body mentions an actionable signal* (offerte / order / inkooporder / factuur / aanmaning / keuring / ontruiming / storing / werkbon). This is the first-line, content-aware carve-out.
+- **(b) Wilson-CI shadow backstop** — even if (a) slips, a false-archive surfaces as an operator reject in Bulk Review → the rule's `agree` count drops → its Wilson CI-lower bound never clears 0.92 → the candidate **never promotes**. The shadow gate (`status='candidate'` until `classifier-promotion-cron` with `CLASSIFIER_CRON_MUTATE=true`) means no info-routing noise rule auto-archives until it has earned operator-verified precision.
+
+The programmatic backstop is the pure predicate `hasActionableToken(text)` in `web/lib/info-routing/actionable-tokens.ts` (bounded, word-boundary-anchored, ReDoS-safe). Word-boundary semantics are deliberate: `storing` is start-boundary-only (matches the routable compounds `storingsmelding`/`storingsdienst`), while `factuur` is full-boundary (does **not** match `factuurloos` — the carve-out protects standalone tokens, not compounds). Pinned by `web/__tests__/stage-1/info-routing-actionable-carveout.test.ts`.
+
 ## Implementation Patterns (link out)
 
 - [`../zapier-patterns.md`](../zapier-patterns.md) -- registry-driven routing, `zapier_tools` shape that the same one-row-per-thing pattern applies to elsewhere in the funnel.
