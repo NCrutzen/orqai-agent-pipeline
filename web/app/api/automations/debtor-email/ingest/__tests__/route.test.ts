@@ -167,10 +167,18 @@ describe("POST /api/automations/debtor-email/ingest — D-A thin ingest", () => 
     expect(ar.topic).toBeNull();
     expect((ar.result as Record<string, unknown>).stage).toBe("stage_0_safety_pending");
 
-    // Stage 0 event fired with full passthrough payload.
-    expect(sendCalls).toHaveLength(1);
-    expect(sendCalls[0].name).toBe("stage-0/email.received");
-    const data = sendCalls[0].data;
+    // Stage 0 event fired with full passthrough payload. PR #96: this mock's
+    // getMessageMeta omits hasAttachments (falsy), so the route ALSO emits a
+    // delayed pipeline/attachments.capture.retry. Stage 0 still dispatches
+    // unconditionally — assert the Stage 0 call specifically, not call count.
+    const stage0Calls = sendCalls.filter(
+      (c) => c.name === "stage-0/email.received",
+    );
+    expect(stage0Calls).toHaveLength(1);
+    expect(sendCalls.map((c) => c.name)).toContain(
+      "pipeline/attachments.capture.retry",
+    );
+    const data = stage0Calls[0].data;
     expect(data.automation_run_id).toBe("ar-stage0");
     expect(data.email_id).toBe("email-uuid-1");
     expect(data.swarm_type).toBe("debtor-email");

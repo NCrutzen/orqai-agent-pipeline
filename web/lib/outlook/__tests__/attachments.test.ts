@@ -85,6 +85,9 @@ describe("listAttachments", () => {
     // metadata projection, NEVER contentBytes
     expect(lastRequestedUrl).toContain("$select=");
     expect(lastRequestedUrl).not.toContain("contentBytes");
+    // Graph 400s if @odata.type is in $select — it is returned by default, so it
+    // must NOT be selected (regression guard: selecting it broke every capture).
+    expect(lastRequestedUrl).not.toContain("@odata.type");
   });
 
   it("throws on a non-OK response with the status in the message", async () => {

@@ -423,9 +423,14 @@ export async function listAttachments(
   mailbox: string,
   messageId: string,
 ): Promise<OutlookAttachmentMeta[]> {
-  // `@odata.type` requested so the caller can type-guard fileAttachment vs
-  // reference/itemAttachment (Pitfall 5 / A4). Never request contentBytes here.
-  const fields = "id,name,contentType,size,isInline,@odata.type";
+  // Graph REJECTS `@odata.type` inside `$select` (400 "Term '@odata.type' is not
+  // valid in a $select or $expand expression") — and it is returned by default
+  // on every polymorphic attachment entry regardless, so the caller can still
+  // type-guard fileAttachment vs reference/itemAttachment (Pitfall 5 / A4)
+  // without selecting it. Selecting it threw for EVERY message, which the
+  // fail-soft capture catch turned into a silent captured:0 (email_attachments
+  // stayed empty). Never request contentBytes here.
+  const fields = "id,name,contentType,size,isInline";
   const res = await graphFetch(
     `/users/${enc(mailbox)}/messages/${enc(messageId)}/attachments?$select=${fields}`,
   );
