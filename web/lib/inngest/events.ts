@@ -320,6 +320,25 @@ export type Events = {
     };
   };
 
+  // Debtor email swarm — attachment-metadata + extraction BACKFILL (V9.5 baseline
+  // lever). Sibling of sales-email/attachments.backfill.run, debtor-scoped: loops
+  // the debtor mailboxes, captures metadata for Stage-1 SURVIVORS (mail with a
+  // debtor.email_labels row → reached Stage 2), and extracts attachment text via
+  // the shared Plan 04 helper. Seeds the corpus the live Stage-1.5 extractor could
+  // not (capture was globally broken until the listAttachments @odata.type fix).
+  // Manual trigger only (CLAUDE.md cron-disable). dry_run=true → counts only.
+  "debtor-email/attachments.backfill.run": {
+    data: {
+      dry_run?: boolean;
+      limit?: number;
+      batch_size?: number;
+      cap?: number;
+      since?: string;
+      until?: string;
+      mailboxes?: string[];
+    };
+  };
+
   // Cross-swarm — DELAYED attachment re-capture. Fixes the ingest-moment Graph
   // indexing race: a freshly-arrived attachment is often not yet indexed when the
   // ingest route runs (seconds after arrival), so getMessageMeta.hasAttachments is
