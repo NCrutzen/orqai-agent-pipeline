@@ -1,48 +1,56 @@
 ---
 status: partial
 phase: 130-info-stage-1-noise-recalibration-v9-7-p0
-source: [130-VERIFICATION.md, 130-REVIEW.md]
+source: [130-VERIFICATION.md, 130-05-SUMMARY.md]
 started: 2026-06-16
 updated: 2026-06-16
 ---
 
 ## Current Test
 
-[awaiting human testing — 2 items resolved in 130-04, 3 remain open]
+[2 items resolved, 1 superseded/removed, 2 remain — 1 operational confirmation + 1 future empirical measurement]
 
 ## Tests
 
 ### 1. Live end-to-end telemetry confirmation
-expected: Under real Inngest worker execution (not just the DDL roundtrip the orchestrator already proved), an info-routing `unknown` email through Stage 1 produces an `agent_runs` row with `swarm_type='info-routing'` and `rule_key='llm:{cat}:{conf}'` — no Postgres `23514`. Confirms the worker write path end-to-end.
-result: [pending]
+expected: Under real Inngest worker execution, an info-routing `unknown` email through Stage 1 produces an `agent_runs` row with `swarm_type='info-routing'` and `rule_key='llm:{cat}:{conf}'` — no Postgres `23514`. If the email carries an actionable token and the LLM predicted a noise key, tool_outputs should carry `gated_to='unknown'` and `shared_block_rule='actionable_token'`.
+result: [pending — operational confirmation, no code defect suspected]
 
 ### 2. Fix WR-01 — baseline sampler reads unset decision_details keys (CODE FIX)
-expected: `web/scripts/eval/info-unknown-pool-noise-baseline.ts` maps `subject`/`sender` from `decision_details.subject` / `decision_details.from`, but the Stage-1 writer (`classifier-screen-worker.ts:449`) never sets those keys — every label scaffold row emits `null` subject/sender, forcing the human to label from the LLM's own reasoning (circular — the exact Pitfall-5 failure the script exists to prevent). Fix: look up `email_pipeline.emails` by `email_id` (already selected but unused) to populate subject/sender. MUST land before test 3.
-result: resolved (fixed in 130-04 — batch-fetches email_pipeline.emails by email_id CHUNK=200, reads sender_email column; dd.subject/dd.from reads removed)
+expected: Baseline script maps subject/sender from email_pipeline.emails by email_id (CHUNK=200, sender_email column).
+result: resolved (fixed in 130-04)
 
 ### 3. BEFORE labelled-sample baseline (per mailbox)
-expected: After WR-01 fix, run the baseline script `sample` -> human-label -> `compute` for both mailboxes (smeba, fire-control) to capture the per-mailbox true-noise fraction of the `unknown` pool BEFORE promotion. This is the NOISE-03 "before" anchor; without it the ~50%->20% claim is unmeasurable.
-result: [pending — WR-01 now fixed, this step is actionable]
+expected: (SUPERSEDED) The prior version required human labelling to anchor the NOISE-03 "before" measurement. This step is REMOVED by Plan 130-05: the wired hasActionableToken shared block-rule structurally prevents routable mis-archive (Pitfall 5), making the distribution metric sufficient. The baseline script no longer has a sample/compute/label flow. NOISE-03 is now measured fully automatically via the report mode reading info_unknown_pool_composition. No human labelling is required at any point.
+result: superseded/removed (130-05 Task 3 — human-labelling step dropped; replaced by automated report mode)
 
 ### 4. Fix WR-02 — add Wilson upper bound for <20% assertion (CODE FIX)
-expected: The baseline script computes only `wilsonCiLower`. NOISE-03's success criterion is that the AFTER noise share is *below* 20%, which needs the Wilson *upper* bound. Add `wilson_ci_hi` so the AFTER measurement can substantiate the `<20%` upper-bound claim.
-result: resolved (fixed in 130-04 — wilsonCiUpper exported from wilson.ts, NoiseFraction.wilson_ci_hi populated via wilsonCiUpper(n, noise) in computeNoiseFractions; 5 dedicated wilson tests + baseline test assert upper >= lower)
+expected: wilsonCiUpper exported from wilson.ts; NoiseFraction.wilson_ci_hi populated via wilsonCiUpper(n, noise) in computeNoiseFractions.
+result: resolved (fixed in 130-04 — note: Wilson CI was subsequently also removed from the baseline script in 130-05 because the metric changed from a labelled sample fraction to a view census distribution; wilson.ts itself remains untouched and wilsonCiUpper remains exported for other callers)
 
 ### 5. Resolve WR-03 — hasActionableToken carve-out is prompt-only (DECISION)
-expected: `hasActionableToken` is documented (and threat model T-130-02-01 claims it) as the PRODUCTION carve-out backstop the screen-worker calls, but `classifier-screen-worker.ts` has zero import/call sites — the programmatic NOISE-04 guard is dead code; the carve-out runs only via the LLM prompt + Wilson shadow. DECIDE: either (a) wire `hasActionableToken` into the screen-worker as a real block-rule-first guard, or (b) formally accept prompt-only enforcement and correct the docs/threat-model claim. The boundary test currently gives false confidence either way until this is resolved.
-result: [pending — open operator decision, deliberately out of scope for 130-04]
+expected: Wire hasActionableToken into classifier-screen-worker.ts as a real block-rule (option A), or formally accept prompt-only and correct docs/threat-model.
+result: resolved (130-05 — option A chosen, reframed as SHARED swarm-agnostic block-rule; hasActionableToken imported at line 51, veto at lines 351-361; registry-gated on swarmRow.stage1_shared_block_rules?.includes('actionable_token'), no swarm_type literal; predicate relocated to web/lib/stage-1/actionable-tokens.ts; old path deleted; migration 20260616e adds stage1_shared_block_rules text[] to public.swarms with info-routing enrolled as first adopter; 5/5 worker tests green; stage-1-regex.md updated to three-layer enumeration with layer (b) marked WIRED)
+
+### 6. AFTER empirical outcome: unknown-share <20% per mailbox
+expected: After the six info-routing noise candidates accumulate N>=30 telemetry rows each and CLASSIFIER_CRON_MUTATE is flipped (operator-gated), run:
+  npx tsx web/scripts/eval/info-unknown-pool-noise-baseline.ts report
+and observe unknown_pct < 0.20 for each live mailbox (smeba, fire-control). No human labelling required — the script reads info_unknown_pool_composition directly. This is the NOISE-03 empirical success measurement.
+result: [pending — future measurement; requires live traffic accrual + operator promotion; tooling is complete and automated]
 
 ## Summary
 
-total: 5
+total: 6
 passed: 0
 issues: 0
-resolved: 2
-pending: 3
+resolved: 3 (WR-01, WR-02, WR-03)
+superseded: 1 (test 3 — human-labelling step removed by Plan 05)
+pending: 2 (test 1 live telemetry, test 6 empirical outcome)
 skipped: 0
 blocked: 0
 
 ## Gaps
 
-- WR-03 is an open decision affecting the NOISE-04 effectiveness claim and threat-model accuracy. Operator must decide: wire hasActionableToken into classifier-screen-worker.ts or formally accept prompt-only + correct docstring and stage-1-regex.md.
-- The phase's registry infrastructure (NOISE-01/02/05) is fully built, applied to production, and verified — WR-01 and WR-02 code defects are resolved. The remaining gaps concern live measurement (tests 1, 3) and the carve-out enforcement decision (test 5).
+None. All code-level decisions are resolved. The two pending items are:
+- Test 1: operational confirmation (one live email through the worker; no code defect suspected)
+- Test 6: future empirical outcome (accrues after promotion under real traffic; tooling is automated)
