@@ -11,7 +11,11 @@
  *                       `unknown`-decision info-routing Stage-1 emails PER
  *                       mailbox (smeba, fire-control) over a [since, until)
  *                       window, and emit subject/sender/snippet for a human to
- *                       label as `noise` or `routable`.
+ *                       label as `noise` or `routable`. Subject + sender are
+ *                       fetched from `email_pipeline.emails` (by `email_id`),
+ *                       NOT from `decision_details` — the Stage-1 writer never
+ *                       sets subject/from there (WR-01), so labelling reads the
+ *                       email itself, never the LLM's own reasoning (Pitfall 5).
  *   PHASE B (compute):  feed the human labels back (JSON: row-id → label) and
  *                       compute the true-noise fraction + a Wilson 95% CI per
  *                       mailbox.
@@ -332,22 +336,74 @@ async function main(): Promise<void> {
       throw new Error(`pool query: ${poolRes.error.message}`);
     }
 
-    const candidates: SampleCandidate[] = (poolRes.data ?? []).map(
-      (r: { id: string; decision_details: Record<string, unknown> | null }) => {
-        const dd = r.decision_details ?? {};
-        return {
-          id: r.id,
-          mailbox_entity:
-            typeof dd.entity === "string" ? (dd.entity as string) : null,
-          subject: typeof dd.subject === "string" ? (dd.subject as string) : null,
-          sender: typeof dd.from === "string" ? (dd.from as string) : null,
-          snippet:
-            typeof dd.llm_reasoning === "string"
-              ? (dd.llm_reasoning as string)
-              : null,
-        };
-      },
+    type PoolRow = {
+      id: string;
+      decision_details: Record<string, unknown> | null;
+      email_id: string | null;
+    };
+    const poolRows = (poolRes.data ?? []) as PoolRow[];
+
+    // WR-01: subject/sender come from email_pipeline.emails (by email_id), NOT
+    // from decision_details — the Stage-1 writer never sets dd.subject/dd.from
+    // (see classifier-screen-worker.ts:449-471), so reading them yields null
+    // and forces circular labelling from the LLM's own reasoning (Pitfall 5).
+    const emailIds = Array.from(
+      new Set(
+        poolRows
+          .map((r) => r.email_id)
+          .filter((id): id is string => typeof id === "string"),
+      ),
     );
+
+    const emailMeta = new Map<
+      string,
+      { subject: string | null; sender: string | null }
+    >();
+    const CHUNK = 200;
+    for (let i = 0; i < emailIds.length; i += CHUNK) {
+      const chunk = emailIds.slice(i, i + CHUNK);
+      const { data, error } = await admin
+        .schema("email_pipeline")
+        .from("emails")
+        .select("id, subject, sender_email, mailbox")
+        .in("id", chunk);
+      if (error) {
+        // Non-fatal (mirror composition-view warning style): degrade to null
+        // subject/sender rather than throwing — the sample must still emit.
+        // eslint-disable-next-line no-console
+        console.error(
+          `warning: email_pipeline.emails read failed (${error.message}) — continuing with null subject/sender`,
+        );
+        break;
+      }
+      for (const e of (data ?? []) as Array<{
+        id: string;
+        subject: string | null;
+        sender_email: string | null;
+      }>) {
+        emailMeta.set(e.id, {
+          subject: e.subject ?? null,
+          sender: e.sender_email ?? null,
+        });
+      }
+    }
+
+    const candidates: SampleCandidate[] = poolRows.map((r) => {
+      const dd = r.decision_details ?? {};
+      const meta =
+        r.email_id != null ? emailMeta.get(r.email_id) : undefined;
+      return {
+        id: r.id,
+        mailbox_entity:
+          typeof dd.entity === "string" ? (dd.entity as string) : null,
+        subject: meta?.subject ?? null,
+        sender: meta?.sender ?? null,
+        snippet:
+          typeof dd.llm_reasoning === "string"
+            ? (dd.llm_reasoning as string)
+            : null,
+      };
+    });
 
     const sample = samplePerMailbox(candidates, n, seed);
 
