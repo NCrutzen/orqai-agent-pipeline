@@ -261,7 +261,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 130. info@ noise-recalibration | 0/3 | Planning | — |
+| 130. info@ noise-recalibration | 0/3 | Executing (01 checkpoint-blocked @ Task 3) | — |
 | 131. Destination taxonomy + router | — | Pending | — |
 | 132. Forward + Bulk Review | — | Pending | — |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
@@ -334,7 +334,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 **Plans**: 3 plans (2 waves — Wave 0 BLOCKING telemetry unblock, then Wave 1 parallel seeds + measurement)
 Plans:
 
-- [ ] 130-01-PLAN.md — Wave 0 [BLOCKING]: widen agent_runs swarm_type CHECK to include info-routing + live-INSERT smoke (unblocks all shadow telemetry) (NOISE-02)
+- [~] 130-01-PLAN.md — Wave 0 [BLOCKING]: widen agent_runs swarm_type CHECK to include info-routing + live-INSERT smoke (unblocks all shadow telemetry) (NOISE-02) — Tasks 1-2 committed (abccc8d8/f2606cdf); Task 3 blocking-human migration-apply checkpoint
 - [ ] 130-02-PLAN.md — Wave 1: seed 6 info-routing swarm_noise_categories + paired classifier_rules candidates (shadow) + actionable-token carve-out boundary test (NOISE-01, NOISE-04, NOISE-05)
 - [ ] 130-03-PLAN.md — Wave 1: per-mailbox unknown-pool composition view (security_invoker) + worker-category test + labelled-sample noise-baseline script + classifier-promotion-cron gate verify (NOISE-02, NOISE-03)
 

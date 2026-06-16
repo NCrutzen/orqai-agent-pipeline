@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
-status: Awaiting next milestone
+status: executing
 stopped_at: 112.5-05-PLAN.md COMPLETE (Tasks 1-2 committed 3cf15049/dd3447c3) — category_edited reclassify signal activated via the Phase 117 swarm_written_categories baseline; SC-2 / OUTLOOK-BEHAV-05 met. Phase 112.5 all 5 plans complete.
-last_updated: "2026-06-15T14:30:47.802Z"
-last_activity: 2026-06-15 — Milestone V9.0 completed and archived
+last_updated: "2026-06-16T11:42:32.272Z"
+last_activity: 2026-06-16 -- Phase 130 Plan 01 executed (Tasks 1-2 committed abccc8d8/f2606cdf); Task 3 blocking-human checkpoint (migration apply)
 progress:
-  total_phases: 9
-  completed_phases: 8
-  total_plans: 37
-  completed_plans: 37
-  percent: 89
+  total_phases: 12
+  completed_phases: 9
+  total_plans: 52
+  completed_plans: 42
+  percent: 75
 ---
 
 # Project State
@@ -57,15 +57,15 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 114 — stage 2 resolver reuse cross swarm generality proof
+**Current focus:** Phase 130 — info-stage-1-noise-recalibration-v9-7-p0
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: Milestone V9.0 complete
-Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-06-15 — Milestone V9.0 completed and archived
+Phase: 130 (info-stage-1-noise-recalibration-v9-7-p0) — EXECUTING
+Plan: 1 of 3 (CHECKPOINT-BLOCKED at Task 3 — operator migration apply)
+Status: Executing Phase 130 — Plan 01 Tasks 1-2 done, awaiting "migration applied"
+Last activity: 2026-06-16 -- Phase 130 Plan 01 Tasks 1-2 committed; Task 3 blocking-human checkpoint
 
 ## Performance Metrics
 
@@ -299,6 +299,7 @@ Last activity: 2026-06-15 — Milestone V9.0 completed and archived
 
 ### Blockers/Concerns
 
+- **Phase 130-01 Task 3 CHECKPOINT (blocking-human) — the migration apply:** operator must (1) apply `supabase/migrations/20260616_phase130_agent_runs_swarm_type_check_info_routing.sql` to remote (`mvqjhlxfvtqqubqgdvhz`) via Supabase MCP `apply_migration` — drop+re-add `agent_runs_swarm_type_check` widening the value list to the union `'debtor-email','sales-email','planning','order-entry','info-routing'`; (2) `npm run check:supabase` → 0 ERROR; (3) `cd web && npx vitest run __tests__/migrations/agent-runs-info-routing-insert.test.ts` → PASS (info-routing INSERT now succeeds; previously 23514; requires `web` deps installed); (4) optionally confirm a live `agent_runs` info-routing INSERT succeeds + roll back. **Until applied, every info-routing agent_runs INSERT (classifier-screen-worker Step 3) throws 23514, classifier_rule_telemetry stays empty, and the Wilson-CI promotion gate is starved — all of Phase 130 is INERT.** Resume signal: "migration applied". Details: `phases/130-*/130-01-SUMMARY.md`.
 - Azure AD tenant setup has organizational dependencies (IT admin access)
 - Supabase Management API token expired -- Phase 50 migration apply blocked (seed update also needs this or Studio access)
 - **Phase 110 / Plan 110-04 Task 4 UNBLOCKED + APPLIED (2026-06-03)**: the 3 `20260603*` migrations are now applied to remote `mvqjhlxfvtqqubqgdvhz` via Supabase MCP `apply_migration` (after re-linking the MCP OAuth to the Agent-Workforce org `oavpdqisdpzxqttgdgpt`). Verified live: sales `entity_brand=['smeba']` + `stage3_coordinator_agent_key='sales-intent-agent'` + all dry_run flags blocked + `swarm_intents=0`/`side_effects=[]` (inert); **debtor `dry_run_config.stage_1_cleanup=false` (LIVE preserved)**. `entity.generated.ts` regenerated + committed (`c774f989`). RLS advisor green (0 ERROR). Outstanding: per-mailbox `pipeline_health_snapshots` row for `verkoop@smeba.nl` populates on next monitor cron tick; Task 5 human governance checkpoint awaiting operator "approved".
@@ -337,10 +338,10 @@ Last activity: 2026-06-15 — Milestone V9.0 completed and archived
 
 ## Session Continuity
 
-Last session: 2026-06-15T11:02:22.000Z
-Stopped at: 112.5-05-PLAN.md COMPLETE (Tasks 1-2 committed 3cf15049/dd3447c3) — category_edited reclassify signal activated via the Phase 117 swarm_written_categories baseline; SC-2 / OUTLOOK-BEHAV-05 met. Phase 112.5 all 5 plans complete.
-Resume with: phase 112.5 transition/close (all plans done); sales behaviour-tracking re-enables on Sugar cut-over (registry UPDATE, no deploy)
-Resume file: None
+Last session: 2026-06-16T11:45:06.000Z
+Stopped at: 130-01-PLAN.md CHECKPOINT-BLOCKED at Task 3 (Tasks 1-2 committed abccc8d8/f2606cdf) — agent_runs_swarm_type_check widen migration written + smoke test written; the production migration apply is a blocking-human checkpoint.
+Resume with: operator applies 20260616_phase130 migration to remote + runs check:supabase + the info-routing INSERT smoke; resume signal "migration applied". Then Plan 02/03 of Phase 130.
+Resume file: .planning/phases/130-info-stage-1-noise-recalibration-v9-7-p0/130-01-PLAN.md
 
 ## Deferred Items
 
