@@ -91,7 +91,13 @@ Bounded literal-keyword alternation — no unbounded `.*`/`.+` (ReDoS-safe, T-13
 
 None — no new network endpoint, auth path, or trust-boundary surface beyond the registered noise classes (which are shadow-gated).
 
-## Awaiting Operator — Production Migration Apply (checkpoint)
+## Checkpoint RESOLVED — Seeds APPLIED (2026-06-16, orchestrator)
+
+Operator authorized "Yes, I apply all 3 via MCP". `20260616b` (categories) then `20260616c` (paired rules) applied via Supabase MCP `apply_migration` (`{success:true}` each). Verified live: 6 info-routing `swarm_noise_categories` rows (display_order 70-75), 6 paired `classifier_rules` candidates (all `kind='agent_intent'`, `status='candidate'`). `npm run check:supabase` PASS (0 ERROR); `npm run codegen` no drift. Plan 03's worker-test proves the 6 keys reach the `stage-1-category-classifier` call-time closed list. Promotion stays SHADOW (`CLASSIFIER_CRON_MUTATE` not flipped). Plan 130-02 fully complete.
+
+---
+
+## Awaiting Operator — Production Migration Apply (checkpoint) — ✅ RESOLVED above
 
 The two seed migrations are written and committed but **NOT applied to the production remote** (`mvqjhlxfvtqqubqgdvhz`). Per the sequential-executor checkpoint contract, production registry writes are operator-authorized. To activate:
 

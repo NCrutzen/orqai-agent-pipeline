@@ -3,7 +3,7 @@ phase: 130-info-stage-1-noise-recalibration-v9-7-p0
 plan: 03
 subsystem: info-routing / Stage-1 noise measurement
 tags: [info-routing, stage-1, noise, pipeline_events, measurement, wilson-ci, promotion]
-status: checkpoint-blocked
+status: complete
 requires:
   - "130-01 agent_runs swarm_type CHECK widen (info-routing) — APPLIED to remote (Wave 0)"
   - "130-02 registry seeds 20260616b/c (6 noise categories + classifier_rules candidates) — committed, NOT yet applied"
@@ -97,6 +97,20 @@ Task 4 is a production-write checkpoint. Per the executor contract, production m
 7. Promotion stays SHADOW — do NOT flip `CLASSIFIER_CRON_MUTATE`. Keep shadow until N>=30 and CI-lo>=0.92 per rule AND the carve-out is sample-verified.
 
 **Resume signal:** "migrations applied + baseline captured".
+
+## CHECKPOINT RESOLVED (Task 4 — 2026-06-16, orchestrator-applied)
+
+Operator authorized "Yes, I apply all 3 via MCP". Executed by the execute-phase orchestrator:
+1. **Applied IN ORDER** via `apply_migration`: `20260616b` (noise categories) → `20260616c` (classifier_rules candidates) → `20260616d` (composition view). All `{success:true}`.
+2. **check:supabase: PASS** (0 ERROR advisor lints; the `info_unknown_pool_composition` view is `security_invoker` so it is NOT flagged as a definer-rights view).
+3. **codegen: NO drift** (`npm run codegen && git diff --exit-code` clean — confirms noise keys are not codegen'd).
+4. **Row/view verified live:** `swarm_noise_categories` = 6 info-routing rows (display_order 70-75, alongside 6 pre-existing base classes); `classifier_rules` = 6 info-routing `candidate` rows, all `kind='agent_intent'`; `info_unknown_pool_composition` returns 10 per-mailbox composition rows.
+
+**Remaining as HUMAN-VERIFICATION items** (genuinely operator/human, cannot be automated by the orchestrator — surfaced for phase verification):
+- **(Task-4 step 5) Live-email telemetry confirmation** — trigger one live info-routing *unknown* email through Stage 1 and confirm an `agent_runs` row with `swarm_type='info-routing'` + `rule_key='llm:{cat}:{conf}'` lands (no `23514`). The CHECK + INSERT path is proven (130-01 live roundtrip); this confirms the end-to-end worker write under real traffic.
+- **(Task-4 step 6) BEFORE labelled-sample baseline** — run `info-unknown-pool-noise-baseline.ts` (`sample` → human-label → `compute`) to capture the per-mailbox true-noise fraction. Requires human labelling.
+
+Promotion remains **SHADOW** — `CLASSIFIER_CRON_MUTATE` was NOT flipped. Candidates promote only via `classifier-promotion-cron` Wilson-CI (N≥30, CI-lo≥0.92) once telemetry accumulates.
 
 ## Self-Check: PASSED
 - Files: all 4 created files FOUND.
