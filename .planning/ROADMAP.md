@@ -261,7 +261,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 130. info@ noise-recalibration | 0/3 | Executing (01 checkpoint-blocked @ Task 3) | — |
+| 130. info@ noise-recalibration | 1/3 | In Progress|  |
 | 131. Destination taxonomy + router | — | Pending | — |
 | 132. Forward + Bulk Review | — | Pending | — |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
@@ -334,7 +334,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 **Plans**: 3 plans (2 waves — Wave 0 BLOCKING telemetry unblock, then Wave 1 parallel seeds + measurement)
 Plans:
 
-- [~] 130-01-PLAN.md — Wave 0 [BLOCKING]: widen agent_runs swarm_type CHECK to include info-routing + live-INSERT smoke (unblocks all shadow telemetry) (NOISE-02) — Tasks 1-2 committed (abccc8d8/f2606cdf); Task 3 blocking-human migration-apply checkpoint
+- [x] 130-01-PLAN.md — Wave 0 [BLOCKING]: widen agent_runs swarm_type CHECK to include info-routing + live-INSERT smoke (unblocks all shadow telemetry) (NOISE-02) — Tasks 1-3 complete; migration applied to remote 2026-06-16 (CHECK now 5-value union; live info-routing INSERT roundtrip proven, 0 telemetry pollution)
 - [ ] 130-02-PLAN.md — Wave 1: seed 6 info-routing swarm_noise_categories + paired classifier_rules candidates (shadow) + actionable-token carve-out boundary test (NOISE-01, NOISE-04, NOISE-05)
 - [ ] 130-03-PLAN.md — Wave 1: per-mailbox unknown-pool composition view (security_invoker) + worker-category test + labelled-sample noise-baseline script + classifier-promotion-cron gate verify (NOISE-02, NOISE-03)
 
@@ -528,6 +528,7 @@ Plans:
 **Goal**: Close the human-correction loop where the end-users already work — Outlook — for **any** swarm running on an Outlook mailbox. After Stage 3 produces a verdict, a swarm-agnostic worker writes the top-1 intent back onto the source message as a native Outlook **category** (`AI:` prefix, e.g. `AI: quote_request`) via Microsoft Graph. Inside-sales / debtor / info operators see the label in their normal Outlook view and correct it by changing or removing the category — no extra UI. The existing Phase 112.5 passive Graph delta-sync observes that category change and distils it into a labelled correction signal per `pipeline_event`, feeding eval/calibration and the V10.0 Promotion Recommender at zero marginal operator effort. **This is NOT a sales feature** — generality is the headline acceptance criterion: it ships swarm-agnostic, gated and configured purely via the `swarms` registry, and onboarding a second Outlook swarm is a registry row with zero per-swarm code (SWARM-02 architecture gate).
 
 **Design decisions to settle in discuss/plan:**
+
   1. **Category convention** — `AI:` prefix so the 112.5 delta-detection can tell AI-written labels from user-authored Outlook categories. Decide: top-1 intent only, or an optional confidence suffix (`AI: quote_request (low)`).
   2. **Delta semantics** — category *removed* = "wrong / not applicable"; *changed to another `AI:` value* = a direct labelled correction ("should be X"); *changed to a non-`AI:` category* = ambiguous (define handling). The 112.5 signal-derive layer learns to classify these.
   3. **Gated production Graph write** — category write-back runs through the Phase 112 gated-write infra behind a per-stage dry-run flag, per-swarm opt-in, enabled only after operator green-light. ⚠ For sales specifically: respect the Sugar cut-over / Power Automate sweep dependency before writing to `verkoop@`.
@@ -598,7 +599,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 4/5 plans executed
+**Plans:** 1/3 plans executed
 
 Plans:
 

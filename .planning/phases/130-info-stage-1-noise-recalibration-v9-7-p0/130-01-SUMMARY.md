@@ -3,7 +3,7 @@ phase: 130-info-stage-1-noise-recalibration-v9-7-p0
 plan: 01
 subsystem: stage-1-noise-telemetry
 tags: [info-routing, stage-1, noise, classifier_rules, agent_runs, telemetry]
-status: checkpoint-blocked
+status: complete
 requires:
   - "public.agent_runs (20260428) — the cross-swarm telemetry table whose CHECK blocks info-routing"
 provides:
@@ -59,6 +59,15 @@ Operator must, IN ORDER:
 4. Optionally confirm live: a direct `agent_runs` INSERT with `swarm_type='info-routing'` returns success, then roll it back.
 
 Resume signal: "migration applied".
+
+## Checkpoint RESOLVED (Task 3 — 2026-06-16, orchestrator-applied)
+
+Operator authorized "I apply it now via MCP". Executed by the execute-phase orchestrator:
+1. **Applied** — `apply_migration` (name `20260616_phase130_agent_runs_swarm_type_check_info_routing`) to remote `mvqjhlxfvtqqubqgdvhz`. Pre-state confirmed the 4-value CHECK; post-state `pg_get_constraintdef` now reads the 5-value union including `'info-routing'`.
+2. **Advisors** — `get_advisors(security)` returned 0 new ERROR-level lints attributable to the change (CHECK-widen has no RLS impact; only pre-existing INFO/WARN lints remain).
+3. **Vitest smoke** — NOT runnable locally (`web/node_modules` absent; package install out of scope). Proven equivalently via a **live INSERT roundtrip**: an `agent_runs` row with `swarm_type='info-routing'` INSERTed with **no `23514`** (previously rejected), then DELETEd. Post-cleanup `count(*) where swarm_type='info-routing'` = 0 — no telemetry pollution.
+
+Stage-1 shadow telemetry for the info-routing swarm is now unblocked. Wave 1 (130-02, 130-03) cleared to execute.
 
 ## Self-Check: PASSED
 
