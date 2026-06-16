@@ -69,9 +69,9 @@ Wave 0 covers all MISSING references: the smoke test (`__tests__/migrations/agen
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Baseline true-noise labelling of "unknown" pool sample | NOISE-03 | Human judgement of noise-vs-routable on a per-mailbox sample | Run `info-unknown-pool-noise-baseline.ts` to draw the seeded sample; label each row noise-vs-routable; feed labels back; script computes the true-noise fraction + Wilson CI per mailbox, before AND after promotion. |
-| Migration apply + live telemetry confirm | NOISE-02 | Supabase MCP apply_migration is operator-gated; live Stage-1 trigger needs production traffic | Checkpoints 130-01-03 and 130-03-04: apply migrations in order, run check:supabase, trigger one live info-routing unknown email, confirm an agent_runs row lands (no 23514). |
-| Carve-out sample-verification before promotion | NOISE-04 | Human review of a shadow-telemetry sample before flipping CLASSIFIER_CRON_MUTATE | Review shadow `classifier_rule_evaluations` + a labelled sample; confirm zero actionable false-archives before any promotion. |
+| ~~Baseline true-noise labelling of "unknown" pool sample~~ **REMOVED 2026-06-16 (Plan 130-05)** | NOISE-03 | ~~Human judgement~~ — no longer manual | **SUPERSEDED:** the human-labelling step is removed. NOISE-03 is now the automated per-mailbox unknown-share from `info_unknown_pool_composition` (`info-unknown-pool-noise-baseline.ts report`), justified by the wired carve-out (layer b) preventing routable mis-archive. No human action. |
+| Migration apply + live telemetry confirm | NOISE-02 | Supabase MCP apply_migration is operator-gated; live Stage-1 trigger needs production traffic | Checkpoints 130-01-03 and 130-03-04: apply migrations in order, run check:supabase, trigger one live info-routing unknown email, confirm an agent_runs row lands (no 23514). Plus 130-05: apply `20260616e` (swarms.stage1_shared_block_rules). |
+| ~~Carve-out sample-verification before promotion~~ **NOW WIRED (Plan 130-05)** | NOISE-04 | Programmatic, not manual | **SUPERSEDED:** `hasActionableToken` is now wired into `classifier-screen-worker.ts` as a real upstream block-rule (T-130-02-01 mitigation real). Pinned by `classifier-screen-worker.actionable-carveout.test.ts`. Human shadow-review remains optional/advisory, not a gate. |
 
 ---
 

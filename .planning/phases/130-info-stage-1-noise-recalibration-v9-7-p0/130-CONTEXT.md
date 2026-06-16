@@ -41,10 +41,10 @@ The five leaking noise classes, with observed recurring senders/signatures:
 ### Safety (LOCKED — NOISE-04)
 - Hard **actionable-token carve-out**: never noise-reclass when the email carries an offerte / order / inkooporder / factuur / aanmaning / keuring / ontruiming / storing / werkbon signal (subject or body), even if the sender looks noisy.
 - **Word-boundary** matching on all new regex rules (v8.2 RESL-08 lesson: unguarded id/keyword regex over-matches).
-- The carve-out is verified on a sample before any promotion.
+- The carve-out is verified on a sample before any promotion. **[SUPERSEDED 2026-06-16 — operator decision (WR-03 option A), Plan 130-05]:** the carve-out is no longer "verified on a sample" as a prompt-only convention — it is now a **wired programmatic block-rule** in `classifier-screen-worker.ts` (a swarm-agnostic shared Stage-1 rule adopted via `swarms.stage1_shared_block_rules`; info-routing is the first adopter). It forces any actionable-token noise verdict back to `unknown` before archive. See `docs/agentic-pipeline/stage-1-regex.md` §Actionable-Token Carve-Out layer (b).
 
 ### Measurement (LOCKED — NOISE-03)
-- Instrument the info@ "unknown" pool true-noise share before/after, **per live mailbox**. Target: ~50% → <20%. Use the existing `pipeline_events` Stage-1 decision telemetry; a labelled sample establishes the baseline true-noise fraction.
+- Instrument the info@ "unknown" pool true-noise share before/after, **per live mailbox**. Target: ~50% → <20%. Use the existing `pipeline_events` Stage-1 decision telemetry; ~~a labelled sample establishes the baseline true-noise fraction.~~ **[SUPERSEDED 2026-06-16 — operator decision, Plan 130-05]:** the human-labelled true-noise fraction (sample → label → compute → Wilson CI) is **removed**. NOISE-03 is now measured as the **automated per-mailbox unknown-share from `public.info_unknown_pool_composition`** (zero manual labelling), justified because the now-wired carve-out (layer b) structurally prevents the routable mis-archive (Pitfall 5) that originally mandated labelling. Reporter: `web/scripts/eval/info-unknown-pool-noise-baseline.ts` (`report` mode).
 
 ### Claude's Discretion
 - Exact regex vs LLM-category split per noise class (regex for stable sender/domain patterns like securitas/impexcompany; LLM Pass-2 for fuzzy cold-sales/newsletter language).

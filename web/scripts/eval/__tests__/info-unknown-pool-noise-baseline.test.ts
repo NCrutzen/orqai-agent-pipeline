@@ -1,154 +1,69 @@
 /**
- * Phase 130 Plan 03 Task 3 — unit tests for the PURE half of the NOISE-03
- * baseline script (sampling + fraction+Wilson-CI). IO (Supabase, fs) is never
- * touched here — these import only the exported pure functions, proving the
- * pure/IO split required by the plan's acceptance criteria.
+ * Phase 130 Plan 05 Task 3 — unit tests for the re-scoped NOISE-03 baseline.
+ *
+ * The metric is now computed PURELY from the info_unknown_pool_composition view
+ * distribution — ZERO human labelling, no sampling, no Wilson CI. These tests
+ * import only the exported pure function `computeUnknownShare`; IO (Supabase) is
+ * never touched.
  */
 
 import { describe, it, expect } from "vitest";
 import {
-  mulberry32,
-  samplePerMailbox,
-  computeNoiseFractions,
-  compareFractions,
-  parseLabelledRows,
-  type SampleCandidate,
-  type LabelledRow,
+  computeUnknownShare,
+  type CompositionRow,
 } from "../info-unknown-pool-noise-baseline";
 
-function candidate(id: string, mailbox: string): SampleCandidate {
-  return { id, mailbox_entity: mailbox, subject: id, sender: null, snippet: null };
-}
-
-describe("mulberry32 — deterministic PRNG", () => {
-  it("same seed → same sequence", () => {
-    const a = mulberry32(42);
-    const b = mulberry32(42);
-    expect([a(), a(), a()]).toEqual([b(), b(), b()]);
-  });
-  it("different seed → different sequence", () => {
-    const a = mulberry32(1);
-    const b = mulberry32(2);
-    expect(a()).not.toBe(b());
-  });
-});
-
-describe("samplePerMailbox", () => {
-  const pool: SampleCandidate[] = [
-    ...Array.from({ length: 10 }, (_, i) => candidate(`s${i}`, "smeba")),
-    ...Array.from({ length: 5 }, (_, i) => candidate(`f${i}`, "fire-control")),
-  ];
-
-  it("samples up to n per mailbox, capped at group size", () => {
-    const out = samplePerMailbox(pool, 4, 130);
-    expect(out["smeba"]).toHaveLength(4);
-    expect(out["fire-control"]).toHaveLength(4);
-  });
-
-  it("caps at pool size when n exceeds it", () => {
-    const out = samplePerMailbox(pool, 100, 130);
-    expect(out["smeba"]).toHaveLength(10);
-    expect(out["fire-control"]).toHaveLength(5);
-  });
-
-  it("is deterministic for a fixed seed (same draw on re-run)", () => {
-    const a = samplePerMailbox(pool, 3, 7);
-    const b = samplePerMailbox(pool, 3, 7);
-    expect(a["smeba"].map((c) => c.id)).toEqual(b["smeba"].map((c) => c.id));
-  });
-
-  it("groups null mailbox under (null)", () => {
-    const out = samplePerMailbox(
-      [{ id: "x", mailbox_entity: null, subject: null, sender: null, snippet: null }],
-      5,
-      1,
-    );
-    expect(out["(null)"]).toHaveLength(1);
-  });
-});
-
-describe("computeNoiseFractions — per-mailbox fraction + Wilson CI", () => {
-  it("computes noise fraction and CI lower bound per mailbox", () => {
-    const rows: LabelledRow[] = [
-      ...Array.from({ length: 30 }, (_, i): LabelledRow => ({
-        id: `s${i}`,
-        mailbox_entity: "smeba",
-        label: i < 15 ? "noise" : "routable",
-      })),
+describe("computeUnknownShare — per-mailbox unknown-share from the view", () => {
+  it("reports per-mailbox unknown_pct, unknown_n and total_n", () => {
+    const rows: CompositionRow[] = [
+      { mailbox_entity: "smeba", decision: "unknown", n: 60, pct: 60 },
+      { mailbox_entity: "smeba", decision: "cold_sales_outreach", n: 30, pct: 30 },
+      { mailbox_entity: "smeba", decision: "payment_admittance", n: 10, pct: 10 },
     ];
-    const [f] = computeNoiseFractions(rows);
-    expect(f.mailbox_entity).toBe("smeba");
-    expect(f.n).toBe(30);
-    expect(f.noise).toBe(15);
-    expect(f.routable).toBe(15);
-    expect(f.noise_fraction).toBeCloseTo(0.5, 5);
-    expect(f.wilson_ci_lo).toBeGreaterThan(0);
-    expect(f.wilson_ci_lo).toBeLessThan(0.5);
-    // WR-02 part B: wilson_ci_hi present, >= lo, and (15/30 case) in (0.5, 1)
-    // and strictly above the point estimate.
-    expect(f.wilson_ci_hi).toBeGreaterThanOrEqual(f.wilson_ci_lo);
-    expect(f.wilson_ci_hi).toBeGreaterThan(f.noise_fraction);
-    expect(f.wilson_ci_hi).toBeGreaterThan(0.5);
-    expect(f.wilson_ci_hi).toBeLessThan(1);
-    expect(f.under_min_n).toBe(false);
+    const [s] = computeUnknownShare(rows);
+    expect(s.mailbox_entity).toBe("smeba");
+    expect(s.unknown_pct).toBe(60);
+    expect(s.unknown_n).toBe(60);
+    expect(s.total_n).toBe(100);
   });
 
-  it("flags under_min_n when sample below promotion minimum (30)", () => {
-    const rows: LabelledRow[] = [
-      { id: "a", mailbox_entity: "fire-control", label: "noise" },
-      { id: "b", mailbox_entity: "fire-control", label: "routable" },
+  it("aggregates the six info-routing noise classes into noise_class_pct", () => {
+    const rows: CompositionRow[] = [
+      { mailbox_entity: "smeba", decision: "unknown", n: 40, pct: 40 },
+      { mailbox_entity: "smeba", decision: "cold_sales_outreach", n: 20, pct: 20 },
+      { mailbox_entity: "smeba", decision: "marketing_newsletter", n: 15, pct: 15 },
+      { mailbox_entity: "smeba", decision: "auto_dealer_spam", n: 25, pct: 25 },
     ];
-    const [f] = computeNoiseFractions(rows);
-    expect(f.under_min_n).toBe(true);
-  });
-});
-
-describe("compareFractions — BEFORE vs AFTER delta", () => {
-  it("computes positive delta when noise share drops", () => {
-    const before = computeNoiseFractions(
-      Array.from({ length: 10 }, (_, i): LabelledRow => ({
-        id: `b${i}`,
-        mailbox_entity: "smeba",
-        label: i < 5 ? "noise" : "routable", // 50%
-      })),
-    );
-    const after = computeNoiseFractions(
-      Array.from({ length: 10 }, (_, i): LabelledRow => ({
-        id: `a${i}`,
-        mailbox_entity: "smeba",
-        label: i < 1 ? "noise" : "routable", // 10%
-      })),
-    );
-    const [cmp] = compareFractions(before, after);
-    expect(cmp.mailbox_entity).toBe("smeba");
-    expect(cmp.noise_fraction_delta).toBeCloseTo(0.4, 5);
+    const [s] = computeUnknownShare(rows);
+    // 20 + 15 + 25 = 60 (payment_admittance / non-noise-class excluded).
+    expect(s.noise_class_pct).toBe(60);
   });
 
-  it("null delta when a mailbox is missing on one side", () => {
-    const before = computeNoiseFractions([
-      { id: "b", mailbox_entity: "smeba", label: "noise" },
-    ]);
-    const [cmp] = compareFractions(before, []);
-    expect(cmp.noise_fraction_delta).toBeNull();
-  });
-});
-
-describe("parseLabelledRows — shape validation", () => {
-  it("parses a valid labelled file", () => {
-    const rows = parseLabelledRows({
-      rows: [{ id: "x", mailbox_entity: "smeba", label: "noise" }],
-    });
-    expect(rows).toHaveLength(1);
-    expect(rows[0].label).toBe("noise");
+  it("splits multiple mailboxes and sorts them", () => {
+    const rows: CompositionRow[] = [
+      { mailbox_entity: "smeba", decision: "unknown", n: 50, pct: 50 },
+      { mailbox_entity: "smeba", decision: "cold_sales_outreach", n: 50, pct: 50 },
+      { mailbox_entity: "fire-control", decision: "unknown", n: 80, pct: 80 },
+      { mailbox_entity: "fire-control", decision: "marketing_newsletter", n: 20, pct: 20 },
+    ];
+    const out = computeUnknownShare(rows);
+    expect(out.map((s) => s.mailbox_entity)).toEqual(["fire-control", "smeba"]);
+    expect(out[0].unknown_pct).toBe(80);
+    expect(out[1].unknown_pct).toBe(50);
   });
 
-  it("throws on a bad label", () => {
-    expect(() =>
-      parseLabelledRows({ rows: [{ id: "x", label: "TODO_noise_or_routable" }] }),
-    ).toThrow(/label must be/);
+  it("groups a null mailbox under (null) and defaults missing unknown to 0", () => {
+    const rows: CompositionRow[] = [
+      { mailbox_entity: null, decision: "cold_sales_outreach", n: 10, pct: 100 },
+    ];
+    const [s] = computeUnknownShare(rows);
+    expect(s.mailbox_entity).toBe("(null)");
+    expect(s.unknown_pct).toBe(0);
+    expect(s.unknown_n).toBe(0);
+    expect(s.total_n).toBe(10);
   });
 
-  it("throws when rows is missing", () => {
-    expect(() => parseLabelledRows({})).toThrow(/must be/);
+  it("returns an empty array for empty input", () => {
+    expect(computeUnknownShare([])).toEqual([]);
   });
 });
