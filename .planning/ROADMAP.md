@@ -243,6 +243,32 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 ---
 
+### V9.7 Routing Swarm Go-Live — Departmental Routing (Phases 130–134) — ACTIVE (defined 2026-06-16)
+
+**Milestone goal:** `info@` (smeba + fire-control) actionable mail is classified on *destination* by a Stage-3 router and forwarded to the right departmental mailbox without a human; staff curate routing rules via natural language; verkoop@→order@ is the first cross-mailbox sales routing. No customer-facing content generation (that is the draft-reply track, deferred). Full rationale + data: `MILESTONES.md` (V9.7) + `docs/routing-swarm-milestone-charter.md`.
+
+**Data baseline (live 30d, 2026-06-16):** info-routing already ingests + runs Stage 0/1 but routes nothing (`stage2_entity_resolver`/`stage3_coordinator_agent_key` = null). info@smeba.nl 1.073/mo, info@fire-control.nl 219/mo. The ~663/mo "unknown" pool is ~50% latent noise + ~50% (~300/mo) routable into 6-7 finite destinations. Verified destination mailboxes (actively send): `order@`/`verkoop@` (3 brands), `planning@smeba.nl`, `storing.smeba@smeba.nl`, `opleidingen@fire-control.nl`, `crediteuren@smeba.nl`, `hrm@smeba.nl`.
+
+**Hard constraints:** registry changes ship as `supabase/migrations/` + `npm run codegen` committed atomically — never hand-edit `*.generated.ts`; **zero `if swarm_type==='info-routing'` branches** in shared workers (SWARM-02) — destinations + routing rules are registry data; routing needs **no Stage 2** (decoupled from V9.5); first concrete consumer of the V10.0 ambient learning-loop.
+
+**Sequencing principle:** clean the denominator first (P0 noise-recalibration) → then the router (P1) → then forward + review surface (P2) → NL-config + verkoop→order (P3) → ambient-loop (P4). Critical path P0→P1→P2.
+
+- [ ] **Phase 130 (P0): info@ Stage-1 noise-recalibration** — close the ~50% latent-noise leak in the info@ "unknown" pool by registering new `classifier_rules` candidates (cold-sales/SEO, newsletters, auto-dealer spam, job applications, survey invites) through the existing Wilson-CI shadow→promote gate; the noise share of the pool drops ~50%→<20%, giving the router a clean denominator. **← current**
+- [ ] **Phase 131 (P1): Destination taxonomy + Stage-3 router** — freeze the 6-7 destination buckets + verified mailboxes; build the `info-routing-coordinator` Orq agent classifying on destination + destination registry (no Stage 2).
+- [ ] **Phase 132 (P2): Forward side-effect + Bulk Review** — Stage-4 Outlook-forward (idempotent, dry-run-gated, brand-aware) + category stamp-back; info-routing Bulk Review surface.
+- [ ] **Phase 133 (P3): NL routing-config + verkoop→order** — staff NL → routing rules (human-approved); verkoop@→order@ routing for `quote_acceptance`/`order_status`.
+- [ ] **Phase 134 (P4): Ambient-loop coupling** — clicked-away/moved mail → `correction_event` → V10.0 loop tunes routing rules.
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 130. info@ noise-recalibration | 0/? | Planning | — |
+| 131. Destination taxonomy + router | — | Pending | — |
+| 132. Forward + Bulk Review | — | Pending | — |
+| 133. NL routing-config + verkoop→order | — | Pending | — |
+| 134. Ambient-loop coupling | — | Pending | — |
+
+---
+
 ### V9.0 Sales-Email Canonical Pipeline — Outlook-driven (Phases 110–117) — ACTIVE (re-sequenced 2026-06-02; was V10.0)
 
 **Milestone goal:** `verkoop@smeba.nl` runs the full canonical 5-stage funnel end-to-end with an operator-usable Bulk Review trace — the actual "second swarm validation" v8.0 promised, and the first cross-swarm reuse of the v8.2 NXT resolver. **NOT "move to Outlook"** (ingest already live, 827 emails/30d, Sugar→Outlook cutover done 2026-05-06): the delta is finish Stage 1 + add Stage 2/3 + Bulk Review + clean up dead Sugar code.
@@ -290,6 +316,22 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 ---
 
 ## Phase Details
+
+### Phase 130: info@ Stage-1 noise-recalibration (V9.7 P0)
+
+**Goal**: Close the ~50% latent-noise leak in the info-routing "unknown" pool (info@smeba.nl + info@fire-control.nl) by registering new Stage-1 `classifier_rules` candidates — cold-sales/SEO outreach, marketing newsletters, auto-dealer/vehicle spam, unsolicited job applications, survey/feedback invites — that flow through the existing Wilson-CI shadow→promote gate. Outcome: the noise share of the "unknown" pool drops ~50%→<20%, giving the V9.7 router (Phase 131) a clean denominator. Registry-data only; no per-swarm code.
+**Depends on**: info-routing swarm Stage 0/1 (live) + `info_routing_mailbox_settings` (exists) + the v8.0/v8.1 `classifier_rules` + Wilson-CI shadow→promote infra (live). First V9.7 phase.
+**Depends on (external/cross-track)**: none. **No dependency on V9.5** (no Stage 2).
+**Requirements**: NOISE-01, NOISE-02, NOISE-03, NOISE-04, NOISE-05
+**Success Criteria** (what must be TRUE):
+
+  1. New `classifier_rules` candidates exist (as registry rows, no per-swarm branch) covering the five leaking noise classes, with shadow telemetry accumulating (NOISE-01, NOISE-02).
+  2. Candidates promote to acting noise rules only via the existing Wilson-CI confidence gate — no blind auto-archive (NOISE-02).
+  3. Instrumented before/after shows the info@ "unknown" pool's true-noise share dropping ~50%→<20% per live mailbox (NOISE-03).
+  4. Zero false-archive of actionable mail: an actionable-token carve-out (offerte/order/inkooporder/factuur/keuring/storing) + word-boundary matching is in place and verified on a sample (NOISE-04).
+  5. Rules apply across info@smeba.nl + info@fire-control.nl with brand/mailbox awareness; dormant info@ boxes untouched (NOISE-05).
+
+---
 
 ### Phase 110: Visibility Foundation — Bulk Review + swarm-row enrichment + ingest verify
 
