@@ -73,3 +73,63 @@ Note: rows #16/#19/#28/#29/#86 carry PDF attachments whose text/filename the liv
 `extractInvoiceCandidates(subject, body_text)` over the combined body. So the *extraction
 mechanism* for these rows is present — the open question (Task 2) is whether resolution then
 lands the correct customer.
+
+---
+
+## Task 2 — current resolution outcome per fixture row
+
+### 2a. Why the live debtor fixture re-run is not executed here (Task-2 gate)
+
+The 120-04 correctness-gate harness (`web/scripts/eval/resolver-correctness-gate.ts`) drives
+each fixture row through `resolveEntity(args, debtorP0Config)`. Two facts make a fresh run
+both unavailable and unapproved-outward here:
+
+1. **`debtorP0Config.auto_safe_kinds: []`** (resolve-debtor.ts:77). The high-precision number
+   back-search AUTO pre-pass (`identifier-match.ts:78`) only runs when
+   `auto_safe_kinds.length > 0`, so debtor **falls to the legacy** `nxt.identifier_lookup`
+   (Layer 3) + `nxt.contact_lookup` (sender) Zaps — confirmed in `RERUN-FINDINGS.md`
+   (`nxt_lookup_requests.tool_id = nxt.contact_lookup / nxt.identifier_lookup`, NOT
+   `nxt.resolve_candidates`). A debtor replay therefore (a) makes **outward live NXT/Zapier
+   calls** (Zap `uv5ju6h`), and (b) does **not** exercise the generic `resolve_candidates`
+   substrate or the number-tier corroboration this phase cares about.
+2. **No `web/.env.local`** in this workspace (no `DEBTOR_FETCH_WEBHOOK_SECRET`); the
+   async-callback Zap could not post back even if invoked.
+
+Per the plan's Task-2 gate ("do not hit live NXT/Zapier silently; prefer recorded data + flag
+the gap"), **no outward call was made.** Outcomes below are taken from the recorded
+`RERUN-FINDINGS.md` (the 120-04 run) + the operator eval `FINDINGS.md`.
+
+**Cross-phase dependency (recorded 2026-06-17, commit 8aba2d9f):** a meaningful debtor
+fixture re-run is blocked until **Phase 123** (debtor → `resolve_candidates`, retire
+`contact_lookup`/`identifier_lookup`; todo `2026-06-17-unify-stage2-on-resolve-candidates.md`).
+Sales already resolves via `resolve_candidates`, but there is no sales eval corpus.
+
+### 2b. Recorded resolution outcome per row
+
+Legend: outcome from operator eval (baseline) + the mechanism analysis (Task 1) + the recorded
+120-04 run where a row was replayed. "Live-lookup pending" = correct outcome cannot be asserted
+without the Phase-123 live `resolve_candidates` path.
+
+| Row | Baseline verdict / conf | Gold id reaches body? | Resolves correctly today? | Evidence / note |
+|-----|--------------------------|------------------------|----------------------------|-----------------|
+| #16 | Nee (sender-match wrong) | Yes (PDF folded) | **Likely yes via fold** — klantnr now in body → self-auth tier; **live-lookup pending** to confirm customer number | fold present; gold = klantnr (92% tier) |
+| #19 | Nee (A∩B) | Yes (multi-PDF folded) | **Pending** — factuur→klantnr chain; multi-PDF may yield ≥2 candidates → corroboration/SUGGESTIE; live-lookup pending | A∩B; needs resolve_candidates rollup |
+| #24 | Nee (A∩B) | **No (xlsx unsupported)** | **No** — zero text folded; cannot resolve from attachment at all | EXTRACTION-GAP + one-mail→many design |
+| #28 | Nee | Yes (PDF folded) | **Likely yes via fold**; live-lookup pending | klantnr in PDF |
+| #29 | Nee | Yes (PDF folded) | **Likely yes via fold**; live-lookup pending | klantnr in PDF |
+| #86 | Nee (thread/sender chosen) | Yes (subject factuur + PDF) | **Likely yes** — subject factuur read by engine today + PDF folded; precedence/corroboration should promote factuur; live-lookup pending | C∩D; brand half →122 |
+| #83 | Twijfel/Nee (sender/thread chosen) | Yes (subject factuur) | **Pending** — factuur is in subject and IS extracted (`identifier-match.ts:84`); precedence "factuur > sender" is a self-auth/120 ranking property, not a 121 change; live-lookup pending | bucket D precedence |
+| #85 | **Nee — confident-wrong AUTO** | Partly (subject factuur) | **Mixed** — factuur extractable; the WRONG-brand half is out of 121 (→122). 120 demotes the confident-wrong AUTO (recorded direction) | C∩D; named confident-wrong row |
+| #15 | Twijfel | **No (nothing captured)** | **No** — CAPTURE-GAP, not extraction; nothing to resolve from | →116 capture lever |
+
+**What WAS verified live (recorded, RERUN-FINDINGS.md):** the corroboration scorer is
+unit-proven; row #2 (confident-wrong AUTO) replayed live → `unresolved` → demoted below the
+AUTO lane (intended direction); the sales path resolves via `resolve_candidates`
+(`SB014098 → quote_no → BX228895 Bever`); no-engine-diff guard PASSES (FINAL STAGE2-01).
+
+**Rows already correct via fold + 120 (regression-guard candidates):** #16, #28, #29, #86 —
+the PDF-borne klantnr/factuur is folded and feeds the self-auth (gold) tier, which the eval
+rates ~92-97%. These are *expected to pass once debtor is on `resolve_candidates` (Phase 123)*
+and become **regression-guard rows**, not build work. (Their correctness is "live-lookup
+pending" only because debtor's legacy transport can't be cleanly scored here — the mechanism
+is in place.)
