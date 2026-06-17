@@ -254,7 +254,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 **Sequencing principle:** clean the denominator first (P0 noise-recalibration) → then the router (P1) → then forward + review surface (P2) → NL-config + verkoop→order (P3) → ambient-loop (P4). Critical path P0→P1→P2.
 
 - [x] **Phase 130 (P0): info@ Stage-1 noise-recalibration** — close the ~50% latent-noise leak in the info@ "unknown" pool by registering new `classifier_rules` candidates (cold-sales/SEO, newsletters, auto-dealer spam, job applications, survey invites) through the existing Wilson-CI shadow→promote gate; the noise share of the pool drops ~50%→<20%, giving the router a clean denominator. **← current** (completed 2026-06-16)
-- [ ] **Phase 131 (P1): Destination taxonomy + Stage-3 router** — freeze the 6-7 destination buckets + verified mailboxes; build the `info-routing-coordinator` Orq agent classifying on destination + destination registry (no Stage 2).
+- [x] **Phase 131 (P1): Destination taxonomy + Stage-3 router** — freeze the 6-7 destination buckets + verified mailboxes; build the `info-routing-coordinator` Orq agent classifying on destination + destination registry (no Stage 2). (completed 2026-06-17)
 - [ ] **Phase 132 (P2): Forward side-effect + Bulk Review** — Stage-4 Outlook-forward (idempotent, dry-run-gated, brand-aware) + category stamp-back; info-routing Bulk Review surface.
 - [ ] **Phase 133 (P3): NL routing-config + verkoop→order** — staff NL → routing rules (human-approved); verkoop@→order@ routing for `quote_acceptance`/`order_status`.
 - [ ] **Phase 134 (P4): Ambient-loop coupling** — clicked-away/moved mail → `correction_event` → V10.0 loop tunes routing rules.
@@ -262,7 +262,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
-| 131. Destination taxonomy + router | 4/5 | In Progress|  |
+| 131. Destination taxonomy + router | 5/5 | Complete   | 2026-06-17 |
 | 132. Forward + Bulk Review | — | Pending | — |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
 | 134. Ambient-loop coupling | — | Pending | — |
@@ -372,7 +372,7 @@ Plans:
 **Wave 4** *(blocked on Wave 3; 04 ∥ 05)*
 
 - [x] 131-04-PLAN.md — Two-layer duplicate-delivery guard (raw_json recipients + normalized message-id) wired into the verdict (ROUTE-05)
-- [ ] 131-05-PLAN.md — Shadow precision harness (verdict vs human-actual Outlook category, ≥85% gate, graded_n false-success guard) (ROUTE-08)
+- [x] 131-05-PLAN.md — Shadow precision harness (verdict vs human-actual Outlook category, ≥85% gate, graded_n false-success guard) (ROUTE-08)
 
 ---
 

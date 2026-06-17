@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
-status: executing
-stopped_at: "Phase 131-02 COMPLETE — all 3 tasks done; info-routing-coordinator agent (01KVA6BAVS6QWJBHQVENB74R8S, Haiku-EU + 3 fallbacks, strict json_schema persisted) built via Orq MCP + 20260617d orq_agents row applied to remote (mvqjhlxfvtqqubqgdvhz) + live-verified (enabled info-routing row, 8-bucket enum, anyOf-nullable brand); check:supabase 0 ERROR; schema test 11/11 green"
-last_updated: "2026-06-17T07:38:00.780Z"
+status: verifying
+stopped_at: Phase 131-05 COMPLETE — ROUTE-08 shadow precision harness built + unit-tested (9/9 green); false-success graded_n guard refuses below MIN_GRADED_N; live run prerequisite-gated outside 131. Phase 131 complete (5/5 plans).
+last_updated: "2026-06-17T07:44:01.698Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 11
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 47
-  completed_plans: 46
-  percent: 82
+  completed_plans: 47
+  percent: 91
 ---
 
 # Project State
@@ -64,7 +64,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 Phase: 131 (destination-taxonomy-stage-3-router-v9-7-p1) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-17
 
 ## Performance Metrics
@@ -176,6 +176,7 @@ Last activity: 2026-06-17
 | Phase 130 P04 | 6m | 3 tasks | 4 files |
 | Phase 131 P131-03 | 9min | 3 tasks | 9 files |
 | Phase 131 P131-04 | 7min | 2 tasks | 3 files |
+| Phase 131 P131-05 | 3min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -306,6 +307,7 @@ Last activity: 2026-06-17
 - [Phase ?]: [Phase 130-04]: NOISE-03 measurement-tooling gap closure (WR-01/WR-02) — pure wilsonCiUpper (95% upper bound, +radius, clamp to 1, n=0->0; symmetry-verified pin 0.668) + wilson_ci_hi surfaced per mailbox in computeNoiseFractions, enabling the AFTER assertion wilson_ci_hi < 0.20; sample scaffold now reads real subject/sender from email_pipeline.emails by email_id (CHUNK=200, sender_email) instead of never-set dd.subject/dd.from (non-circular labelling, Pitfall 5), unresolved ids degrade to null. WR-03 out of scope. No migrations/seeds touched. 24/24 tests green, tsc clean. Commits 04b1fb39/0db9f9fd/b70991d2.
 - [Phase 131-02]: ROUTE-03 — info-routing-coordinator Orq agent built + registered + live-verified. Closed-list Zod gate (coordinator-schema.ts, 11 tests) collapses any invalid/empty agent output to a frozen UNROUTED_OUTCOME without throwing; the agent's bucket enum and the Zod enum BOTH single-source the codegen'd DESTINATION_KEYS_BY_SWARM['info-routing'] (the Orq response_format const is exported from the schema module and IMPORTED by the build script — agent-vs-validator drift is structurally impossible). Agent 01KVA6BAVS6QWJBHQVENB74R8S (project Default/Agents, v1.1.1): list_models-validated Haiku-EU primary + 3 fallbacks (openai/gpt-4o-mini, google-ai/gemini-2.5-flash, mistral/mistral-large-2411) + retry; strict json_schema response_format (8-bucket enum, anyOf-nullable brand) PATCHed + get_agent-verified persisted; default Web Search/Web Scraper tools stripped (tools:[]). Migration 20260617d orq_agents row (agent_key='info-routing-coordinator', swarm_type='info-routing', enabled, timeout_ms=90000) APPLIED to remote + live-verified; check:supabase 0 ERROR. **Deviation:** agent built via Orq MCP not the REST manage script (ORQ_API_KEY lacked scope for GET/verify endpoints + v2 create required a `path`); manage script path-fixed for future use + real orqai_id backfilled. Commits 10481efb/d5814f21/3491896c/681f38f4.
 - [Phase ?]: [Phase 131-03] Stage-3 routing capability wired into the generic coordinator: additive routingDestinations.length>0 block invokes info-routing-coordinator, builds the 6-field verdict (buildRoutingVerdict, unrouted gate), persists decision_details.routing + TELE-01 in one replay-safe step.run, routes through the existing held gate (ROUTE-07 no-forward). Routing swarms skip the intent ranked-list path (capability-gated, no swarm literal); debtor/sales byte-neutral. dedup defaults routable (Plan 04 seam). Commits 49306024/ad164444/1c55b154/333416a1.
+- [Phase ?]: ROUTE-08 shadow harness refuses a pass/fail below MIN_GRADED_N (50) — false-100% guard while delta-sync-on-info@ is absent; live run prerequisite-gated outside 131
 
 ### Blockers/Concerns
 
@@ -351,8 +353,8 @@ Last activity: 2026-06-17
 
 ## Session Continuity
 
-Last session: 2026-06-17T07:37:56.112Z
-Stopped at: Phase 131-02 COMPLETE — all 3 tasks done; info-routing-coordinator agent (01KVA6BAVS6QWJBHQVENB74R8S, Haiku-EU + 3 fallbacks, strict json_schema persisted) built via Orq MCP + 20260617d orq_agents row applied to remote (mvqjhlxfvtqqubqgdvhz) + live-verified (enabled info-routing row, 8-bucket enum, anyOf-nullable brand); check:supabase 0 ERROR; schema test 11/11 green
+Last session: 2026-06-17T07:44:01.686Z
+Stopped at: Phase 131-05 COMPLETE — ROUTE-08 shadow precision harness built + unit-tested (9/9 green); false-success graded_n guard refuses below MIN_GRADED_N; live run prerequisite-gated outside 131. Phase 131 complete (5/5 plans).
 Resume with: execute Plan 131-03 (Wave 3). ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding.
 Resume file: None
 
