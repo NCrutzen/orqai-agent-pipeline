@@ -1,5 +1,17 @@
 #!/usr/bin/env tsx
 /**
+ * ⚠️ RETIRED (Phase 123-03, 2026-06-17) — historical measurement spike.
+ *
+ * Phase 120's sales-corroboration spike work is DONE; its findings are baked into
+ * the live corroboration engine. This file is kept for provenance only. Its
+ * `--with-zapier` sender/factuur path used the two legacy per-kind Zapier lookup
+ * tools, which were DELETED in Phase 123-03 (both swarms now resolve via the
+ * single generic `nxt.resolve_candidates`). The legacy imports
+ * + their usages have been removed so the file still type-checks; the script no
+ * longer offers the `--with-zapier` sender/factuur signals. Do not extend — if a
+ * fresh resolution-lift measurement is needed, write it against
+ * `lookupResolveCandidates` / the resolve engine steps.
+ *
  * Spike 011 — Phase B: sales resolution-LIFT measurement (LIVE NXT).
  *
  * ⚠️ HITS LIVE NXT PROD. The identifier lookups call `nxtRequest("production", ...)`
@@ -35,7 +47,6 @@ import { lookupOfferteToAccount } from "@/lib/automations/sales-email/lookups/of
 import { extractOrderCandidates, lookupOrderToAccount } from "@/lib/automations/sales-email/lookups/order";
 import { extractPostcodeCandidates, lookupPostcodeToAccount } from "@/lib/automations/sales-email/lookups/sites";
 import { extractInvoiceCandidates } from "@/lib/automations/debtor-email/extract-invoices";
-import { lookupSenderToAccount, lookupIdentifierToAccount } from "@/lib/automations/debtor-email/nxt-zap-client";
 
 // ---- args ----
 const argv = process.argv.slice(2);
@@ -131,24 +142,13 @@ async function resolveSignals(r: Row): Promise<SignalResult> {
     out.postcode = hit?.customer_account_id ?? null;
   }
 
-  // --- Zapier transport (sender + factuur) — opt-in ---
-  if (WITH_ZAPIER) {
-    if (!isOwn(r.sender_email) && r.sender_email) {
-      const res = await lookupSenderToAccount(
-        { nxt_database: NXT_DATABASE, brand_id: BRAND_ID, sender_email: r.sender_email }, "unknown",
-      ).catch(() => ({ matches: [] as Array<{ top_level_customer_id: string }> }));
-      const ids = Array.from(new Set(res.matches.map((m) => m.top_level_customer_id)));
-      out.sender = ids.length === 1 ? ids[0] : null; // ambiguous → unresolved (iteration-1 rule)
-    }
-    const inv = extractInvoiceCandidates(s, b).candidates;
-    if (inv.length > 0) {
-      const res = await lookupIdentifierToAccount(
-        { nxt_database: NXT_DATABASE, brand_id: BRAND_ID, invoice_numbers: inv }, "unknown",
-      ).catch(() => ({ matches: [] as Array<{ top_level_customer_id: string }> }));
-      const ids = Array.from(new Set(res.matches.map((m) => m.top_level_customer_id)));
-      out.factuur = ids.length === 1 ? ids[0] : null;
-    }
-  }
+  // --- Zapier sender + factuur transport: RETIRED (Phase 123-03) ---
+  // The two legacy per-kind Zapier lookup tools that backed the
+  // --with-zapier sender + factuur signals were deleted in Phase 123-03. This
+  // measurement spike is historical, so the path is dropped rather than rewired.
+  // The flag is still parsed (back-compat) but is now a no-op.
+  void WITH_ZAPIER;
+  void isOwn;
   return out;
 }
 
