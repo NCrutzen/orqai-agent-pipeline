@@ -376,6 +376,25 @@ Plans:
 
 ---
 
+### Phase 132: Forward side-effect + Bulk Review (V9.7 P2)
+
+**Goal**: Turn the persisted Stage-3 destination verdict from Phase 131 into a real Stage-4 side-effect: forward each routable info@ email to its resolved departmental mailbox (idempotent, dry-run-gated, brand-aware), stamp the routing outcome back as an Outlook category (the V10 ambient-loop signal), and stand up the info-routing Bulk Review surface so operators can see/verify routing decisions before and after release. `algemeen` (no-forward / stays in info@) and `unrouted` verdicts never forward. No NL routing-config UI and no verkoop@→order@ routing here — those are Phase 133.
+**Depends on**: Phase 131 (the persisted destination verdict + the held no-forward gate that this phase releases) + the info-routing swarm Stage 0/1 live + the verified destination mailboxes (charter §2).
+**Depends on (external/cross-track)**: Outlook Graph forward + category-write capability on the info@ mailboxes. (`algemeen@smeba.nl` non-existence already dispositioned 2026-06-17 — `algemeen` is a no-forward outcome.)
+**Requirements**: provisional — locked by `132-SPEC.md` (run `/gsd:spec-phase 132` or capture during planning).
+**Success Criteria** (what must be TRUE — provisional, SPEC.md refines):
+
+  1. A routable destination verdict triggers an idempotent Outlook forward to the resolved target mailbox; re-runs never double-forward (Phase 131 two-layer dedup guard honored).
+  2. Forwarding is dry-run-gated (observe → release) and brand-aware (info@smeba can forward to fire-control/berki mailboxes; `env_id='BX'` hard filter respected).
+  3. `algemeen` (no-forward/stays) and `unrouted` verdicts never forward — they stay in info@ / go to human triage.
+  4. The routing outcome is stamped back as an Outlook category on the source mail (the V10 ambient-loop signal).
+  5. An info-routing Bulk Review surface shows each email's destination verdict + forward status for operator verification.
+  6. Registry-driven (SWARM-02): zero `if swarm_type==='info-routing'` branches in the shared Stage-4 / dispatcher path.
+
+**Plans**: TBD (created by `/gsd:plan-phase 132`)
+
+---
+
 ### Phase 110: Visibility Foundation — Bulk Review + swarm-row enrichment + ingest verify
 
 **Goal**: The sales operator can actually see and follow `verkoop@smeba.nl` emails end-to-end in Bulk Review before any phase auto-acts, and the `sales-email` `swarms` row is upgraded from a Stage-0/1 shell to a full-funnel registry config — the foundation every later phase reads from.
