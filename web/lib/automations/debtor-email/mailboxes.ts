@@ -8,12 +8,13 @@
 export const ICONTROLLER_MAILBOXES = {
   "debiteuren@smeba.nl": 4,
   "debiteuren@berki.nl": 171,
-  "debiteuren@sicli-noord.nl": 15,
-  "debiteuren@sicli-sud.nl": 16,
-  "debiteuren@smeba-fire.nl": 5,
   // Phase 74 — operator-confirmed 2026-05-06 for Friday rollout.
   "debiteuren@smeba-fire.be": 5,
   "administratie@fire-control.nl": 12,
+  // Removed 2026-06-16: sicli-noord (.nl id 15) + sicli-sud (.nl id 16) — sicli
+  // pulled from the debtor swarm (no current ingest; labeling_settings rows
+  // deleted) until re-added with the verified live address. The stale
+  // smeba-fire.nl=5 dupe was dropped too (live mailbox is smeba-fire.be=5).
 } as const;
 
 export type SourceMailbox = keyof typeof ICONTROLLER_MAILBOXES;

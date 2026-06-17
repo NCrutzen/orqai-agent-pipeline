@@ -19,6 +19,7 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 | **v8.2** | Stage 2 Resolution Recall — debtor track (SQL-native NXT resolver) · _parallel with V9.0_ | **Defined / next** |
 | **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) · _parallel with v8.2_ | **Shipped 2026-06-15** _(was V10.0)_ |
 | **V9.5** | Stage-2 resolver correctness — corroboration (D-06) + attachment-borne IDs + cross-brand scope · _grounded by the 100-email operator eval (64% baseline); finalizes V9.0 STAGE2-01; before V10.0_ | **Defined 2026-06-16** |
+| **V9.7** | Routing Swarm go-live — info@ + verkoop@→order@ departmental routing · _data-grounded (live mailbox/volume analysis); first ambient-loop consumer; decoupled from V9.5; sequenced after V9.5, before V10.0_ | **Defined 2026-06-16** |
 | **V10.0** | Promotion Recommender + Learning Inbox + reply-tracing (self-learning) | **Defined** _(was V9.0)_ |
 | **V11.0** | Intent-prioritised handlers | **Defined** |
 
@@ -286,6 +287,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 113. Stage 3 Sales Intent Agent | 5/5 | Complete    | 2026-06-15 |
 | 115. SugarCRM Dead-Code Decommission | 1/1 | Complete (ad-hoc) | 2026-06-15 |
 | 117. Outlook Intent Categories | 2/2 | Complete   | 2026-06-15 |
+| 118. Multi-mailbox behavior-sync *(step 1 of debtor intent-labeling rollout)* | 1/1 | Complete   | 2026-06-16 |
 
 ---
 
@@ -479,6 +481,7 @@ Plans:
 **Goal**: Close the human-correction loop where the end-users already work — Outlook — for **any** swarm running on an Outlook mailbox. After Stage 3 produces a verdict, a swarm-agnostic worker writes the top-1 intent back onto the source message as a native Outlook **category** (`AI:` prefix, e.g. `AI: quote_request`) via Microsoft Graph. Inside-sales / debtor / info operators see the label in their normal Outlook view and correct it by changing or removing the category — no extra UI. The existing Phase 112.5 passive Graph delta-sync observes that category change and distils it into a labelled correction signal per `pipeline_event`, feeding eval/calibration and the V10.0 Promotion Recommender at zero marginal operator effort. **This is NOT a sales feature** — generality is the headline acceptance criterion: it ships swarm-agnostic, gated and configured purely via the `swarms` registry, and onboarding a second Outlook swarm is a registry row with zero per-swarm code (SWARM-02 architecture gate).
 
 **Design decisions to settle in discuss/plan:**
+
   1. **Category convention** — `AI:` prefix so the 112.5 delta-detection can tell AI-written labels from user-authored Outlook categories. Decide: top-1 intent only, or an optional confidence suffix (`AI: quote_request (low)`).
   2. **Delta semantics** — category *removed* = "wrong / not applicable"; *changed to another `AI:` value* = a direct labelled correction ("should be X"); *changed to a non-`AI:` category* = ambiguous (define handling). The 112.5 signal-derive layer learns to classify these.
   3. **Gated production Graph write** — category write-back runs through the Phase 112 gated-write infra behind a per-stage dry-run flag, per-swarm opt-in, enabled only after operator green-light. ⚠ For sales specifically: respect the Sugar cut-over / Power Automate sweep dependency before writing to `verkoop@`.
@@ -619,6 +622,29 @@ T2 synthesis on captured `email_feedback`, Learning Inbox tab on Bulk Review, da
 ### V11.0 Intent-Prioritised Handlers — DEFINED
 
 Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler-scaffolding template; dispatch via `swarm_intents.handler_event` registry. Depends on V9.0 (sales second-swarm intent volume) + V10.0 (operator-promoted intent definitions).
+
+### Phase 118: Multi-mailbox behavior-sync — extend Phase 112.5 swarm-behavior-sync.ts to observe multiple mailboxes per swarm row (behavior_tracking_config.mailboxes string[] with singular fallback) so debtor-email's ~5 debiteuren mailboxes can feed the Outlook correction loop
+
+**Goal:** swarm-behavior-sync.ts observes MULTIPLE mailboxes per swarm row (behavior_tracking_config.mailboxes string[] with a backward-compatible singular-mailbox fallback), and sales-email is migrated to the mailboxes[] form to live-validate the new read-path before debtor enablement.
+**Requirements**: none registered (must_haves derived from goal + 118-CONTEXT.md)
+**Depends on:** Phase 117
+**Plans:** 1 plan
+
+Plans:
+
+- [ ] 118-01-PLAN.md — Multi-mailbox iteration in swarm-behavior-sync.ts (flatten to one EnabledSwarm per (swarm x mailbox), per-mailbox step ids) + DATA-only sales mailboxes[] migration ([BLOCKING] prod apply) + tests + runbook update
+
+### Phase 119: Behavior-sync per-mailbox isolation — make swarm-behavior-sync.ts fault-isolate and fairly budget each (swarm x mailbox) so one heavy/failing mailbox cannot starve or abort the whole delta-sync tick (regression: enabling debtor multi-mailbox observe froze sales observe)
+
+**Goal:** swarm-behavior-sync.ts fault-isolates and fairly budgets each (swarm x mailbox): the cron becomes a thin orchestrator that fans out one `swarm/behavior-sync.mailbox` event per enabled (swarm x mailbox), and a per-mailbox worker processes exactly one mailbox per invocation — so one heavy/failing mailbox can no longer abort or starve the others (fixes the 2026-06-16 regression where enabling debtor multi-mailbox observe froze sales observe). Per-mailbox terminal failures become visible telemetry; replay-safety + TRACKED_INGEST_SOURCES + 23505 idempotent inserts preserved.
+**Requirements**: none registered (must_haves derived from goal + 119-CONTEXT.md)
+**Depends on:** Phase 118
+**Plans:** 2/2 plans complete
+
+Plans:
+
+- [x] 119-01-PLAN.md — Split swarm-behavior-sync.ts into a fan-out cron orchestrator + per-mailbox worker (concurrency: per-mailbox key + global ceiling), wire visible per-mailbox failure telemetry, register the worker, update the runbook (Wave 1)
+- [x] 119-02-PLAN.md — Retarget the existing behavior-sync vitest harness to the orchestrator/worker split + add the fan-out coverage / fault-isolation / non-starvation regression tests encoding the 2026-06-16 freeze (Wave 2)
 
 ---
 

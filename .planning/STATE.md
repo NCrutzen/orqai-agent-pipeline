@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
-status: milestone_complete
-stopped_at: Milestone complete (Phase 123 was final phase)
-last_updated: 2026-06-17T13:17:50.506Z
-last_activity: 2026-06-17 -- Phase 123 Plan 02 closed (sales rewire)
+status: executing
+stopped_at: Phase 120 (corroboration engine; STAGE2-01 FINAL) + Phase 123 (unify Stage-2 on resolve_candidates; legacy lookups retired) complete + merged to main (PR #111). Phase 119 (behavior-sync per-mailbox isolation) also live on main (#110). Next in V9.5: Phase 121 (attachment-borne IDs) / 122 (cross-brand scope).
+last_updated: 2026-06-17
+last_activity: 2026-06-17 -- Phase 120 + 123 merged to main (PR #111)
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 83
-  percent: 25
+  completed_plans: 8
+  percent: 50
 ---
 
 # Project State
@@ -62,9 +62,21 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: 123 of 4 (unify-stage-2-on-resolve-candidates-retire-legacy-lookup-too)
-Plan: Not started
-Status: Milestone complete
+Phase: V9.5 — 120 + 123 COMPLETE (merged to main, PR #111)
+Plan: 120 (corroboration engine) ✅ · 123 (resolve_candidates unification, legacy lookups retired) ✅ · 121 (attachment-borne IDs) / 122 (cross-brand scope) — not yet planned
+Status: V9.5 in progress — 120 + 123 landed; 121/122 remaining. 121 workspace prepped (`workspace/phase-121-attachment-borne-ids`) — bucket-A acceptance gated on the `candidate_details` clean-eval follow-up.
+
+### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
+
+SHIPPED + MERGED to main: Phase 118 (PR #104); #107 widened the delta-sync source filter to `source IN ('outlook','zapier-debtor-ingest')`; #108 pruned stale sicli/.nl entries; **Phase 119 per-mailbox fan-out isolation (PR #110)**; **Phase 120 + 123 — resolver corroboration + resolve_candidates unification, legacy lookups retired (PR #111)**.
+
+LIVE production config (in Supabase `public.swarms` — shared across machines, NOT in git):
+
+- debtor-email: `dry_run_config.stage_3_intent_label=false` (AI: labels LIVE). `behavior_tracking_config={enabled:true, mailboxes:[debiteuren@smeba.nl, administratie@fire-control.nl, debiteuren@smeba-fire.be, debiteuren@berki.nl]}` — observe **RE-ENABLED 2026-06-17** after the Phase 119 fan-out fix; all 4 mailboxes tick independently, sales unaffected (verified live).
+- sales-email: labels live + `behavior_tracking_config={enabled:true, mailboxes:["verkoop@smeba.nl"]}`.
+- `debtor.labeling_settings` = 4 rows. Sicli (noord+sud) rows DELETED 2026-06-16 (re-add later with verified address).
+
+RESOLVED: the 2026-06-16 regression (debtor multi-mailbox observe starved + froze sales) is fixed by Phase 119 per-mailbox fan-out isolation; debtor observe re-enabled + verified live 2026-06-17.
 Last activity: 2026-06-17
 
 ## Performance Metrics
@@ -180,6 +192,8 @@ Last activity: 2026-06-17
 | Phase 48 P01 | 3min | 2 tasks | 9 files |
 
 ### Roadmap Evolution
+
+- Phase 118 added (2026-06-16): Multi-mailbox behavior-sync — extend Phase 112.5 `swarm-behavior-sync.ts` to observe MULTIPLE mailboxes per swarm row (`behavior_tracking_config.mailboxes: string[]` with singular `mailbox` fallback), so debtor-email's ~5 debiteuren mailboxes can feed the Outlook correction loop. Step 1 (enabler) of the debtor intent-labeling rollout; step 2 (flip `stage_3_intent_label` gate + enable `behavior_tracking_config` for debtor across all mailboxes) follows post-merge. Workspace: `multi-mailbox-behavior-sync`.
 
 **V9.0 Sales-Email (Outlook) roadmap created 2026-06-02 — Phases 110–117 (coarse granularity). Runs parallel with v8.2 debtor (phases 90–95, separate workspace).**
 
@@ -301,6 +315,7 @@ Last activity: 2026-06-17
 - [Phase 113-05]: swarm-agnostic Stage-3 ROUTING gate landed in the SHARED coordinator BETWEEN persist-ranked and flip/emit — registry-driven, fail-closed, no swarm literal. DEDICATED dry_run_config.stage_3_routing key (NOT stage_3_labeling reuse — debtor's predicted-emit fires today while stage_3_labeling=true, so reuse would regress debtor; T-113-10). GATED → persist verdict + decision_details.routing_held=true marker, withhold predicted-emit (decision='predicted_held'); OPEN → emit as today. Migration 20260609c seeds debtor=false(open)/sales=true(gated) — NOT YET APPLIED. Dead-letter reconciliation smoke (sales-stage3-deadletter-check.ts, pure fn + Supabase main, exit 1 on gap; held verdict counted terminal-visible) + 7 fixture tests. Bulk Review retry PROVEN to accept swarm_type='sales-email' (replayKanbanRow same-intent fires registry sales handler_event). 18 plan tests + 298 inngest suite green; dispatcher byte-unchanged (git-diff guard); tsc 0; check:supabase 0 ERROR. CHECKPOINT-BLOCKED on Task 3 operator go-live (apply 20260609c + dry-run review + flip). Commits c433d1d8, a318a5cd.
 - [Phase 112.5-05]: activated the dormant `category_edited` signal by feeding the Phase 117 baseline into the behaviour-sync worker. (1) signal-derive: new pure `intentKeyFromCategories` (first AI:-prefixed entry, prefix-stripped, else null) replaces the flat `categories[0]` derivation — removed-label/changed-to-non-AI → category_key null (ambiguous), changed-to-another-AI → should-be-intent; all three share verdict `reclassify` (SignalVerdict union BYTE-UNCHANGED, no new member). (2) worker: seeds `prevCategories` (keyed by immutable_id) from a swarm_type-scoped `swarm_written_categories` SELECT inside the existing derive-and-write step.run (replay-safe), inverting immutableToEmailId; fail-safe on no-baseline (absent id → no transition, dormant default preserved); idempotent via existing dedupe_key 23505 no-op; `prevIsRead` stays empty (read_aged still dormant); ZERO per-swarm branches. 13 signal-derive + 10 behavior-sync tests green (4 new category tests), full email-behavior 56/56, tsc 0. Commits 3cf15049/dd3447c3. SC-2 / OUTLOOK-BEHAV-05 met. Code correct independent of 117 live data (0 signals when baseline empty); sales stays registry-paused (behavior_tracking_config.enabled=false) until Sugar cut-over.
 - [Phase 117-02]: wired the Plan 01 primitives into the live pipeline — swarm-agnostic pipeline/intent-label.requested event emitted by the SHARED coordinator on every Stage-3 verdict-with-top-intent (BOTH the routing-GATED/held path AND the OPEN path; the category WRITE gate stage_3_intent_label is independent of the routing gate), additive to debtor's emit-predicted (byte-unchanged). New registered stage3IntentLabelWorker writes AI:<intent_key> onto the source Outlook message behind isStageBlocked(swarm,"stage_3_intent_label") — fail-closed no-op when GATED (both swarms seeded GATED), idempotent (write-on-change via readWrittenCategory), never-clobber (skip on 112.5 category_edited transition / review-signal), strip-stale (mergeIntentCategory full-array PATCH). ZERO swarm_type literals (SWARM-02 grep 0). docs/swarm-behavior-tracking.md documents the swarm_written_categories 112.5 prevCategories baseline read-contract (D-5; signal side OUT of 117). 34 tests green, tsc 0. Commits a6fd913b/4e4c949e/cbb4ec97. Task 4 [BLOCKING] migration-apply HALTED for operator — NOT applied to prod.
+- [Phase 118-01]: swarm-behavior-sync.ts now observes MULTIPLE mailboxes per swarm row. BehaviorTrackingConfig gains `mailboxes?: string[]` (kept `mailbox?: string`); `load-enabled-swarms` flattens each enabled swarm row to one EnabledSwarm per (swarm x mailbox) via the LOCKED read order `cfg.mailboxes ?? (cfg.mailbox ? [cfg.mailbox] : [])` (empty → skip), weights shared per swarm. All four loop-body step.run ids (refresh-folder-map / tracked-folders / delta / derive-and-write) embed the raw mailbox segment so cross-mailbox Inngest memoization can't collide (no hash, no non-deterministic source); top-level resolve-run-id / resolve-tick-iso stay singular; concurrency:1 preserved (sequential per-mailbox). DATA-only idempotent jsonb migration `20260616_phase118_sales_mailboxes_array.sql` (BEGIN…COMMIT, minus-key drop of singular 'mailbox' + jsonb_set enabled + jsonb_build_array; no DDL/RLS) **APPLIED to prod by operator via Supabase MCP** — live-verified sales-email `behavior_tracking_config={"enabled":true,"mailboxes":["verkoop@smeba.nl"]}` (singular key gone), debtor-email unchanged `{"enabled":false}`. vitest 13/13 (incl. 112.5 regression + 3 new: multi-mailbox iteration / step-id uniqueness / singular fallback), tsc 0, codegen no drift, check:supabase 0 ERROR/6 WARN/23 INFO. Hard-separation respected (no swarm_noise_categories/swarm_intents touch). Commits 32d0b26d/45467745/f7946e6e. **Step 2 (debtor enablement — flip stage_3_intent_label=false + set debtor behavior_tracking_config mailboxes[] across its 5 debiteuren mailboxes) is post-merge, OUT OF SCOPE.**
 - [Phase ?]: [Phase 117-01]: shipped pure AI: ${intent_key} mapper (strip-stale merge, D-1), DEDICATED fail-closed stage_3_intent_label gate key (D-3), email_id-keyed swarm_written_categories store (D-4/D-5). Migration 20260615 (RLS service_role+authenticated SELECT, no anon; stage_3_intent_label=true GATED both swarms via jsonb ||) WRITTEN not applied — Plan 02 [BLOCKING] applies + check:supabase. 23 tests green, tsc 0. Commits c3baae1e/be18115e/05c1b2ab.
 - [Phase 123-03]: Deleted nxt.contact_lookup + nxt.identifier_lookup ENTIRELY from nxt-zap-client.ts (lookupSenderToAccount/lookupIdentifierToAccount wrappers, ContactLookupInput/IdentifierLookupInput, ContactMatchSchema/IdentifierMatchSchema + type exports, ResponseSchemaByTool + LookupKindByTool entries, NxtToolId literals, callNxtTool overload branches). NxtToolId = candidate_details | resolve_candidates. Spike 011b RETIRED-with-note (Phase 120 work done); 2 remaining test files rewired to resolve_candidates. RESL-UNIFY-04 atomicity: repo grep 0, tsc 0, full vitest 2732 passed. DB half (2 zapier_tools rows + CHECK widen-back) is Plan 04. Commits 2e5fd6ce/7044341c/991e4a63.
 - **[Phase 123-04] Task 2 DELETE-only prod deviation (operator-approved, T-123-10):** pre-flight count of legacy nxt_lookup_requests rows = 1171 (>0), so the narrowed CHECK re-add would fail → applied ONLY `DELETE FROM public.zapier_tools WHERE tool_id IN ('nxt.contact_lookup','nxt.identifier_lookup')` to live mvqjhlxfvtqqubqgdvhz (apply_migration `retire_legacy_lookup_tools_delete_only_p123`); the 2 nxt_lookup_requests CHECK constraints stay WIDE. Verified: legacy tool_ids ABSENT, candidate_details+invoice_fetch+resolve_candidates PRESENT; check:supabase 0 ERROR. Widen-back deferred to todo `2026-06-17-widen-back-nxt-lookup-requests-checks.md` (prune inert rows first). Legacy tools now gone from code AND database (capability-before-removal complete).
@@ -346,9 +361,9 @@ Last activity: 2026-06-17
 
 ## Session Continuity
 
-Last session: 2026-06-17T11:25:47.769Z
-Stopped at: Phase 120 context gathered
-Resume with: phase 112.5 transition/close (all plans done); sales behaviour-tracking re-enables on Sugar cut-over (registry UPDATE, no deploy)
+Last session: 2026-06-17
+Stopped at: Phase 120 + 123 complete + merged to main (PR #111); debtor observe re-enabled + verified live; 121 workspace prepped.
+Resume with: V9.5 Phase 121 (attachment-borne IDs) — after the `candidate_details` clean-eval follow-up; then Phase 122 (cross-brand scope).
 Resume file: None
 
 ## Deferred Items

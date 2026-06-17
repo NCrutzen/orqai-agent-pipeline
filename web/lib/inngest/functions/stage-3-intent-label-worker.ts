@@ -30,6 +30,7 @@
 // surface as a returned decision, not a cascading retry.
 
 import { inngest } from "@/lib/inngest/client";
+import { recordWorkerFailure } from "@/lib/inngest/on-worker-failure";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSwarm } from "@/lib/swarms/registry";
 import { isStageBlocked } from "@/lib/pipeline-gating/dry-run-gate";
@@ -51,7 +52,25 @@ type LabelDecision =
   | "written";
 
 export const stage3IntentLabelWorker = inngest.createFunction(
-  { id: "stage-3-intent-label-worker", retries: 0 },
+  {
+    id: "stage-3-intent-label-worker",
+    // retries:3 (was 0) — handoff-resilience fix (2026-06-16). The Graph
+    // GET+PATCH is idempotent at the store/gate layer (mergeIntentCategory
+    // strips stale AI: labels before re-adding; the written-category store
+    // makes a repeat write a no-op), so a transient Graph throw can safely
+    // retry instead of silently failing to label. A terminal failure surfaces
+    // via onFailure. (Follow-up: write-category already soft-returns false on a
+    // non-2xx; a 429/5xx-only re-throw would let retries help those too.)
+    retries: 3,
+    onFailure: async ({ error, event }) => {
+      await recordWorkerFailure({
+        stage: 4,
+        stageLabel: "stage-3-intent-label-worker",
+        event,
+        error,
+      });
+    },
+  },
   { event: "pipeline/intent-label.requested" },
   async ({ event, step }) => {
     const { swarm_type, email_id, intent_key } = event.data;

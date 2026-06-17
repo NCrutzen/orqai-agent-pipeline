@@ -32,6 +32,7 @@
 
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recordWorkerFailure } from "@/lib/inngest/on-worker-failure";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { loadSwarmIntents } from "@/lib/swarms/registry";
 import { evaluateEscalationGate } from "@/lib/automations/debtor-email/coordinator/escalation-gate";
@@ -44,8 +45,22 @@ export const stage3Dispatcher = inngest.createFunction(
   {
     id: "automations/stage-3-dispatcher",
     name: "Stage 3.5 Dispatcher (cross-swarm)",
-    retries: 0,
+    // retries:3 (was 0) — handoff-resilience fix (2026-06-16). A transient
+    // throw (loadSwarmIntents DB read, the registry handler-event send) left
+    // the agent_run stuck at status='predicted' and never flipped to
+    // routed/dispatched (confirmed for Christophe, a Stage-3→4 stall). Steps
+    // are memoized so retries replay safely; terminal failures surface via
+    // onFailure.
+    retries: 3,
     concurrency: [{ key: "event.data.run_id", limit: 1 }],
+    onFailure: async ({ error, event }) => {
+      await recordWorkerFailure({
+        stage: 3,
+        stageLabel: "stage-3-dispatcher",
+        event,
+        error,
+      });
+    },
   },
   // Canonical cross-swarm fan-in. Inngest matches event names EXACTLY — the
   // former `*/predicted` glob never matched `<swarm>/predicted`. Every swarm's
