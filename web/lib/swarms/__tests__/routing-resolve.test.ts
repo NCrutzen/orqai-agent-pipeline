@@ -151,3 +151,56 @@ describe("Phase 131 ROUTE-02: resolveRoutingDestination (pure)", () => {
     expect(resolveRoutingDestination(rows, "unrouted", "smeba")).toBeNull();
   });
 });
+
+// BUG 1 (CR-02) — the agent emits brand:null for single-tenant/no-brand mail
+// (algemeen, sollicitaties, inspecties, storingen, opleidingen) but every seeded
+// row has a NON-NULL brand. A strict (key && brand===brand) match collapses these
+// to unrouted. The resolver must fall back to the SOLE row when a bucket has
+// exactly one row (the brand guess is irrelevant — only one mailbox), while
+// keeping cross-tenant exact-match safety (order_entry/verkoop have multiple rows
+// → a null brand stays ambiguous → unrouted).
+describe("Phase 131 BUG 1 (CR-02): null-brand single-tenant fallback", () => {
+  // Mirrors the verified live seed: single row per single-tenant bucket, multiple
+  // rows for the cross-tenant buckets (order_entry, verkoop), unrouted sentinel.
+  const seed = [
+    dest("algemeen", "smeba", "algemeen@smeba.nl"),
+    dest("inspecties", "smeba", "inspecties@smeba.nl"),
+    dest("opleidingen", "fire-control", "opleidingen@fire-control.nl"),
+    dest("sollicitaties", "smeba", "hrm@smeba.nl"),
+    dest("storingen", "smeba", "storingen@smeba.nl"),
+    dest("order_entry", "smeba", "order@smeba.nl"),
+    dest("order_entry", "fire-control", "order@fire-control.nl"),
+    dest("order_entry", "berki", "order@berki.nl"),
+    dest("verkoop", "smeba", "verkoop@smeba.nl"),
+    dest("verkoop", "fire-control", "verkoop@fire-control.nl"),
+    dest("verkoop", "berki", "verkoop@berki.nl"),
+    dest("unrouted", "smeba", null),
+  ];
+
+  it("resolves a single-tenant bucket with brand=null to its sole mailbox", () => {
+    expect(resolveRoutingDestination(seed, "sollicitaties", null)).toBe("hrm@smeba.nl");
+    expect(resolveRoutingDestination(seed, "algemeen", null)).toBe("algemeen@smeba.nl");
+    expect(resolveRoutingDestination(seed, "inspecties", null)).toBe("inspecties@smeba.nl");
+    expect(resolveRoutingDestination(seed, "storingen", null)).toBe("storingen@smeba.nl");
+    expect(resolveRoutingDestination(seed, "opleidingen", null)).toBe("opleidingen@fire-control.nl");
+  });
+
+  it("keeps cross-tenant ambiguous: order_entry + brand=null → null (unrouted)", () => {
+    expect(resolveRoutingDestination(seed, "order_entry", null)).toBeNull();
+    expect(resolveRoutingDestination(seed, "verkoop", null)).toBeNull();
+  });
+
+  it("keeps exact-match winning for cross-tenant: order_entry + 'berki' → order@berki.nl", () => {
+    expect(resolveRoutingDestination(seed, "order_entry", "berki")).toBe("order@berki.nl");
+    expect(resolveRoutingDestination(seed, "verkoop", "fire-control")).toBe("verkoop@fire-control.nl");
+  });
+
+  it("returns null for a bucket with no rows at all", () => {
+    expect(resolveRoutingDestination(seed, "nonexistent", null)).toBeNull();
+    expect(resolveRoutingDestination(seed, "nonexistent", "smeba")).toBeNull();
+  });
+
+  it("single-tenant sentinel (sole row, NULL target) with brand=null → null", () => {
+    expect(resolveRoutingDestination(seed, "unrouted", null)).toBeNull();
+  });
+});
