@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
-stopped_at: Phase 131 context gathered
-last_updated: "2026-06-17T05:35:03.599Z"
-last_activity: 2026-06-17 -- Phase 131 planning complete
+stopped_at: Phase 131-01 Tasks 1-2 complete (registry + wiring + codegen, unit-tested); Task 3 blocking-human checkpoint pending operator migration apply
+last_updated: "2026-06-17T06:27:57.779Z"
+last_activity: 2026-06-17 -- Phase 131 execution started
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 47
-  completed_plans: 42
+  completed_plans: 43
   percent: 82
 ---
 
@@ -57,15 +57,15 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 130 — info-stage-1-noise-recalibration-v9-7-p0
+**Current focus:** Phase 131 — destination-taxonomy-stage-3-router-v9-7-p1
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 130 (info-stage-1-noise-recalibration-v9-7-p0) — EXECUTING
-Plan: 3 of 3 (CHECKPOINT-BLOCKED at Task 4 — operator migration apply + BEFORE baseline)
-Status: Ready to execute
-Last activity: 2026-06-17 -- Phase 131 planning complete
+Phase: 131 (destination-taxonomy-stage-3-router-v9-7-p1) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 131
+Last activity: 2026-06-17 -- Phase 131 execution started
 
 ## Performance Metrics
 
@@ -315,6 +315,7 @@ Last activity: 2026-06-17 -- Phase 131 planning complete
 - **Phase 113-03 Task 2 CHECKPOINT (blocking-human):** operator must (1) create the `sales-intent-agent` SHELL + json_schema in Orq Studio (run `cd web && npx tsx scripts/orq/manage-sales-intent-agent.ts` to print the schema; Studio → Tools → Add → JSON Schema, then Model parameters → Response Format = it; confirm the Model dropdown is non-empty), (2) trigger `sales-email/retro-classify.requested` with `bootstrap:true` + a recent Outlook since/until (NOT a full SugarCRM sweep) and confirm `stage_3_retro_runs` gains rows tagged `run_type='bootstrap'` + sales `intent_proposal_clusters` is non-empty, (3) promote clusters to ~80% coverage (D-02), (4) record the `promoted_intents` yaml in `113-03-SUMMARY.md`. Resume signal: "agent created". (Plan 04 falls back to reading promoted clusters from the DB if the yaml stays empty.)
 - Phase 130-02 CHECKPOINT (operator) — apply registry-seed migrations to remote (mvqjhlxfvtqqubqgdvhz) IN ORDER via Supabase MCP apply_migration: (1) 20260616b_phase130_info_routing_noise_categories.sql then (2) 20260616c_phase130_info_routing_classifier_rules_seed.sql; (3) npm run check:supabase → 0 ERROR; (4) confirm 6 swarm_noise_categories + 6 paired classifier_rules(candidate) rows for info-routing. Until applied the stage-1-category-classifier has no info-routing categories — seeds inert. Resume signal: 'seeds applied'. Details: phases/130-*/130-02-SUMMARY.md.
 - Phase 130-03 Task 4 CHECKPOINT (blocking-human) — operator applies migrations to remote (mvqjhlxfvtqqubqgdvhz) via Supabase MCP apply_migration IN ORDER: 20260616b (noise categories) -> 20260616c (classifier_rules candidates) -> 20260616d (info_unknown_pool_composition view); Plan-01 20260616 CHECK-widen already live. Then: npm run check:supabase -> 0 ERROR; cd web && npm run codegen && git diff --exit-code -> no drift; confirm select from info_unknown_pool_composition returns smeba+fire-control rows + 6 info-routing classifier_rules(candidate) + 6 swarm_noise_categories; trigger one live info-routing unknown email -> agent_runs swarm_type=info-routing + rule_key=llm:{cat}:{conf} lands (no 23514); run baseline script (sample->human-label->compute) to capture BEFORE true-noise fraction per mailbox. Promotion stays SHADOW (do NOT flip CLASSIFIER_CRON_MUTATE). Resume signal: 'migrations applied + baseline captured'. Details: phases/130-*/130-03-SUMMARY.md.
+- Phase 131-01 Task 3 CHECKPOINT (blocking-human): operator confirms bucket set + mailbox completeness (esp. unverified algemeen->algemeen@smeba.nl) + threshold 0.6, then applies 3 migrations to remote (mvqjhlxfvtqqubqgdvhz) IN ORDER 20260617 -> 20260617b -> 20260617c via Supabase MCP apply_migration; check:supabase 0 ERROR; confirm 12 routing_destinations rows + swarms agent key/stage_3_routing=true + unknown row swarm_dispatch=pipeline/coordinator.requested; codegen && git diff --exit-code clean. Until applied the router is INERT. Resume: 'migrations applied'. Details: phases/131-*/131-01-SUMMARY.md.
 
 ### Quick Tasks Completed
 
@@ -346,10 +347,10 @@ Last activity: 2026-06-17 -- Phase 131 planning complete
 
 ## Session Continuity
 
-Last session: 2026-06-17T04:38:48.571Z
-Stopped at: Phase 131 context gathered
+Last session: 2026-06-17T06:27:57.767Z
+Stopped at: Phase 131-01 Tasks 1-2 complete (registry + wiring + codegen, unit-tested); Task 3 blocking-human checkpoint pending operator migration apply
 Resume with: operator applies 20260616_phase130 migration to remote + runs check:supabase + the info-routing INSERT smoke; resume signal "migration applied". Then Plan 02/03 of Phase 130.
-Resume file: .planning/phases/131-destination-taxonomy-stage-3-router-v9-7-p1/131-CONTEXT.md
+Resume file: None
 
 ## Deferred Items
 
