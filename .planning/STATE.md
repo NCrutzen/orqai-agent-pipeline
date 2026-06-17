@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
-status: executing
+status: verifying
 stopped_at: Phase 120 context gathered
-last_updated: "2026-06-17T04:44:52.009Z"
-last_activity: 2026-06-17 -- Phase 120 execution started
+last_updated: "2026-06-17T19:05:31.307Z"
+last_activity: 2026-06-17
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 4
-  completed_plans: 0
-  percent: 0
+  completed_phases: 2
+  total_plans: 5
+  completed_plans: 5
+  percent: 67
 ---
 
 # Project State
@@ -57,15 +57,15 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 120 — d-06-multi-signal-corroboration-engine-generic-cross-swarm
+**Current focus:** Phase 121 — attachment-borne-identifier-extraction
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 120 (d-06-multi-signal-corroboration-engine-generic-cross-swarm) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 120
-Last activity: 2026-06-17 -- Phase 120 execution started
+Phase: 121 (attachment-borne-identifier-extraction) — EXECUTING
+Plan: 1 of 1
+Status: Phase complete — ready for verification
+Last activity: 2026-06-17
 
 ## Performance Metrics
 
@@ -171,6 +171,7 @@ Last activity: 2026-06-17 -- Phase 120 execution started
 | Phase 112.5 P05 | 5m | 2 tasks | 4 files |
 | 112.5 | 5 | - | - |
 | 113 | 5 | - | - |
+| Phase 121 P01 | 5min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -296,6 +297,7 @@ Last activity: 2026-06-17 -- Phase 120 execution started
 - [Phase 112.5-05]: activated the dormant `category_edited` signal by feeding the Phase 117 baseline into the behaviour-sync worker. (1) signal-derive: new pure `intentKeyFromCategories` (first AI:-prefixed entry, prefix-stripped, else null) replaces the flat `categories[0]` derivation — removed-label/changed-to-non-AI → category_key null (ambiguous), changed-to-another-AI → should-be-intent; all three share verdict `reclassify` (SignalVerdict union BYTE-UNCHANGED, no new member). (2) worker: seeds `prevCategories` (keyed by immutable_id) from a swarm_type-scoped `swarm_written_categories` SELECT inside the existing derive-and-write step.run (replay-safe), inverting immutableToEmailId; fail-safe on no-baseline (absent id → no transition, dormant default preserved); idempotent via existing dedupe_key 23505 no-op; `prevIsRead` stays empty (read_aged still dormant); ZERO per-swarm branches. 13 signal-derive + 10 behavior-sync tests green (4 new category tests), full email-behavior 56/56, tsc 0. Commits 3cf15049/dd3447c3. SC-2 / OUTLOOK-BEHAV-05 met. Code correct independent of 117 live data (0 signals when baseline empty); sales stays registry-paused (behavior_tracking_config.enabled=false) until Sugar cut-over.
 - [Phase 117-02]: wired the Plan 01 primitives into the live pipeline — swarm-agnostic pipeline/intent-label.requested event emitted by the SHARED coordinator on every Stage-3 verdict-with-top-intent (BOTH the routing-GATED/held path AND the OPEN path; the category WRITE gate stage_3_intent_label is independent of the routing gate), additive to debtor's emit-predicted (byte-unchanged). New registered stage3IntentLabelWorker writes AI:<intent_key> onto the source Outlook message behind isStageBlocked(swarm,"stage_3_intent_label") — fail-closed no-op when GATED (both swarms seeded GATED), idempotent (write-on-change via readWrittenCategory), never-clobber (skip on 112.5 category_edited transition / review-signal), strip-stale (mergeIntentCategory full-array PATCH). ZERO swarm_type literals (SWARM-02 grep 0). docs/swarm-behavior-tracking.md documents the swarm_written_categories 112.5 prevCategories baseline read-contract (D-5; signal side OUT of 117). 34 tests green, tsc 0. Commits a6fd913b/4e4c949e/cbb4ec97. Task 4 [BLOCKING] migration-apply HALTED for operator — NOT applied to prod.
 - [Phase ?]: [Phase 117-01]: shipped pure AI: ${intent_key} mapper (strip-stale merge, D-1), DEDICATED fail-closed stage_3_intent_label gate key (D-3), email_id-keyed swarm_written_categories store (D-4/D-5). Migration 20260615 (RLS service_role+authenticated SELECT, no anon; stage_3_intent_label=true GATED both swarms via jsonb ||) WRITTEN not applied — Plan 02 [BLOCKING] applies + check:supabase. 23 tests green, tsc 0. Commits c3baae1e/be18115e/05c1b2ab.
+- [Phase ?]: [Phase 121-01]: empirical baseline — only #24 (xlsx extraction + one-mail->many guard) is buildable-now residual; #16/#19/#28/#29/#86 regression-guard (gated on Phase 123), #83 precedence verify-only (engine byte-identical), #15->116, #85->122. Both swarms already capture=true/extract=true (ATID-03/04 met). No outward NXT/Zapier call.
 
 ### Blockers/Concerns
 
@@ -337,10 +339,10 @@ Last activity: 2026-06-17 -- Phase 120 execution started
 
 ## Session Continuity
 
-Last session: 2026-06-16T11:28:04.728Z
+Last session: 2026-06-17T19:05:10.562Z
 Stopped at: Phase 120 context gathered
 Resume with: phase 112.5 transition/close (all plans done); sales behaviour-tracking re-enables on Sugar cut-over (registry UPDATE, no deploy)
-Resume file: .planning/phases/120-d-06-multi-signal-corroboration-engine-generic-cross-swarm/120-CONTEXT.md
+Resume file: None
 
 ## Deferred Items
 
