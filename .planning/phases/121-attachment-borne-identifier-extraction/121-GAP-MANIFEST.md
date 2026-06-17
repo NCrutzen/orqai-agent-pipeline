@@ -133,3 +133,105 @@ rates ~92-97%. These are *expected to pass once debtor is on `resolve_candidates
 and become **regression-guard rows**, not build work. (Their correctness is "live-lookup
 pending" only because debtor's legacy transport can't be cleanly scored here — the mechanism
 is in place.)
+
+---
+
+## Task 3 — gap classification (exactly one class per row)
+
+Classes: `ALREADY-RESOLVES` (fold + 120 already fix it → regression-guard, not build) ·
+`EXTRACTION-GAP` (format/coverage, e.g. Excel) · `MANY-CUSTOMER` (one-mail→many, #24) ·
+`PRECEDENCE` (factuur < sender ordering) · `CAPTURE-GAP` (out of scope → Phase 116) ·
+`BRAND-SCOPE` (out of scope → Phase 122).
+
+| Row | Class | Rationale |
+|-----|-------|-----------|
+| #16 | **ALREADY-RESOLVES** | klantnr in PDF; PDF fold (116-05) puts it in body → self-auth/gold tier. Regression-guard. |
+| #28 | **ALREADY-RESOLVES** | klantnr in PDF; same fold path. Regression-guard. |
+| #29 | **ALREADY-RESOLVES** | klantnr in PDF; same fold path. Regression-guard. |
+| #86 | **ALREADY-RESOLVES** | subject factuur (engine reads subject) + PDF klantnr folded; gold tier. Brand sub-issue belongs to #85/122, not 121. Regression-guard. |
+| #19 | **ALREADY-RESOLVES** | factuur→klantnr across mailed-in PDFs; PDFs fold + 120 corroboration handles the ≥2-candidate case (resolve-or-demote). Regression-guard (verify under Phase 123). |
+| #83 | **PRECEDENCE** | factuur present in **subject**, already extracted (`identifier-match.ts:84`); the residual is the "factuur > sender" ranking. **NOT a 121 engine change** — it is a self-auth-tier / 120-corroboration ranking property (ATID-02 / STAGE2-01 keeps engine byte-identical). Tracked as precedence-verify, not build. |
+| #24 | **MANY-CUSTOMER** (∧ EXTRACTION-GAP) | one mail → 358 differing invoice customers in an **.xlsx**. Two coupled defects: (a) xlsx is `unsupported` so zero text is folded (extraction coverage), and (b) even with text, 358 differing ids must NOT auto-resolve to one customer (the genuine new design). Single primary class = **MANY-CUSTOMER**; the xlsx extraction is its prerequisite sub-task. |
+| #85 | **BRAND-SCOPE** (→ Phase 122) | customer under a different brand entity than the mailbox; subject-factuur half rides Phase 121 extraction (already present) but the resolving defect is cross-brand scope → 122. The confident-wrong AUTO is demoted by 120. |
+| #15 | **CAPTURE-GAP** (→ Phase 116) | nothing in body, no attachment surfaced — an attachment *capture* gap, not extraction. Out of 121. |
+
+**Coverage check:** all 9 enumerated rows classified into exactly one primary class (the 10th
+"row", #86, appears in both Bucket A and Bucket D of the eval but is a single fixture row,
+classified once as ALREADY-RESOLVES). No row is unclassified; no row carries two primary
+classes (the #24 EXTRACTION-GAP is recorded as a prerequisite sub-task of its MANY-CUSTOMER
+class, not a competing primary class).
+
+### Class tally
+
+| Class | Rows | Disposition |
+|-------|------|-------------|
+| ALREADY-RESOLVES | #16, #19, #28, #29, #86 (5) | regression-guard rows in Plan 121-03; NOT build |
+| MANY-CUSTOMER (+xlsx extraction) | #24 (1) | **build** — Plan 121-02 |
+| PRECEDENCE | #83 (1) | verify-only (self-auth/120 ranking, engine byte-identical); NOT new 121 build |
+| BRAND-SCOPE | #85 (1) | **out of 121** → Phase 122 |
+| CAPTURE-GAP | #15 (1) | **out of 121** → Phase 116 |
+
+---
+
+## Plans 121-02+ scope (derived ONLY from EXTRACTION-GAP + MANY-CUSTOMER)
+
+The build residual is a **single row class** — #24 — plus its xlsx-extraction prerequisite.
+Everything else is regression-guard, out-of-phase, or a ranking-verify with no engine change.
+
+### Plan 121-02 — build (adapter-side, engine byte-identical per ATID-02 / STAGE2-01)
+
+1. **Excel (.xlsx) text extraction** (EXTRACTION-GAP, #24 prerequisite): add an `.xlsx`/`.csv`
+   branch to `extract.ts` (e.g. SheetJS/`xlsx` already a dep → emit row text), keeping it a
+   PURE swarm-agnostic transform inside the existing `extractAttachment` shape; status
+   `extracted` on success. **No engine/config/steps edit** — extraction is adapter-side; the
+   fold (`stage-2-customer-resolver.ts`) is already not under the no-engine-diff guard.
+   *Proposed approach:* one new content-type branch → SheetJS `sheet_to_csv` per sheet,
+   capped by the existing `maxExtractedChars`.
+
+2. **One-mail→many-customers guard** (MANY-CUSTOMER, #24): folding 358 differing invoice ids
+   into one body must NOT auto-resolve to one customer. *Proposed approach:* when the collected
+   corroboration signals span **≥2 distinct roots with no agreeing majority**, the existing
+   `corroborate.ts` disagreement path already demotes below AUTO (capBelowAuto) — verify it
+   fires for the many-id case and surfaces as multi-candidate/SUGGESTIE rather than a single
+   AUTO. If a high count of distinct roots needs an explicit "too many to disambiguate →
+   human" outcome, add it **adapter-side** (resolver worker), not in the engine. This is the
+   genuine new design work the CONTEXT flagged (OQ-3).
+
+### Plan 121-03 — eval-grounded acceptance (regression-guard, gated on Phase 123)
+
+- ALREADY-RESOLVES rows (#16, #19, #28, #29, #86) become **regression-guard rows**: assert
+  they resolve correctly (gold tier) once debtor is on `resolve_candidates` (Phase 123), with
+  no gold-signal regression (Pitfall 5).
+- #83 PRECEDENCE: assert factuur-in-subject outranks sender-match (self-auth/120 ranking) — a
+  verify, not a build.
+- Acceptance runs through the 120-04 correctness-gate harness; **blocked until Phase 123**
+  (debtor → `resolve_candidates`). Recorded as the dependency above.
+
+### Out-of-phase routing
+
+- **#15 → Phase 116** (attachment *capture* lever; nothing surfaced to extract).
+- **#85 → Phase 122** (cross-brand-scope resolution; the resolving defect is scope, not
+  attachment extraction).
+
+---
+
+## Roadmap assumptions confirmed STALE
+
+1. **"Phase 121 must build the attachment-content fold."** STALE — the fold
+   (`stage-2-customer-resolver.ts:84-138`, 116-05/D-11) already folds attachment text +
+   filename into `body_text`, engine byte-identical. Confirmed live: both swarms
+   `capture=true, extract=true`.
+2. **"Phase 121 must enable attachment_config / sales opt-in."** STALE — sales AND debtor are
+   already opted in (ATID-03/ATID-04 effectively met; live-confirmed).
+3. **"Bucket D factuur-in-subject extraction is new 121 work."** STALE — the engine already
+   extracts factuur from the subject (`identifier-match.ts:84`); the residual (#83) is a
+   precedence/ranking property of the self-auth tier + 120 corroboration, not a 121 engine
+   change (and would violate ATID-02 if it were one).
+4. **"All 7 bucket-A rows need extraction build."** STALE — 5 of them (#16/#19/#28/#29/#86)
+   already have the extraction mechanism (PDF fold); only **#24 (.xlsx)** is a true
+   extraction-gap, and its primary defect is the one-mail→many-customers design, not raw
+   extraction.
+
+**Net buildable-now residual for Phase 121 = ONE row (#24):** xlsx extraction coverage +
+one-mail→many-customers guard. Everything else is regression-guard (gated on Phase 123),
+verify-only, or routed to Phase 116/122.
