@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
-status: completed
-stopped_at: Phase 120 context gathered
-last_updated: "2026-06-17T11:27:04.091Z"
+status: milestone_complete
+stopped_at: Milestone complete (Phase 123 was final phase)
+last_updated: 2026-06-17T13:17:50.506Z
 last_activity: 2026-06-17 -- Phase 123 Plan 02 closed (sales rewire)
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 83
   percent: 25
 ---
 
@@ -57,21 +57,21 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 123 — unify-stage-2-on-resolve-candidates-retire-legacy-lookup-too
+**Current focus:** Milestone complete
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 123 (unify-stage-2-on-resolve-candidates-retire-legacy-lookup-too) — EXECUTING (plan 4 of 4 COMPLETE; awaiting orchestrator phase verification/close)
-Plan: 4 of 4 — COMPLETE
-Status: Plan 04 CLOSED (3/3 tasks). Task 1 migration written+committed a161ccb1. Task 2 prod-applied DELETE-only (operator deviation): pre-flight = 1171 legacy nxt_lookup_requests rows (>0) → applied only DELETE FROM public.zapier_tools via apply_migration `retire_legacy_lookup_tools_delete_only_p123`; 2 CHECK constraints stay WIDE (widen-back deferred → todo 2026-06-17-widen-back-nxt-lookup-requests-checks.md). Verified: contact_lookup+identifier_lookup ABSENT, candidate_details+invoice_fetch+resolve_candidates PRESENT; check:supabase 0 ERROR. Task 3 eval ran+committed dcfd0409 (RERUN-FINDINGS.md), operator APPROVED-TO-CLOSE with absolute-% re-run DEFERRED: overall 18% (14/79) is a candidate_details stuck-callback transport artifact (26 req/0 results/pending) NOT a resolve_candidates regression (163/163 live); demotion-direction 4/4 + bucket-B 12/12 PASSED → todo 2026-06-17-candidate-details-callback-and-clean-eval-rerun.md.
-Last activity: 2026-06-17 -- Phase 123 Plan 04 closed (prod migration delete-only + correctness gate deferred-with-evidence)
+Phase: 123 of 4 (unify-stage-2-on-resolve-candidates-retire-legacy-lookup-too)
+Plan: Not started
+Status: Milestone complete
+Last activity: 2026-06-17
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 49
+- Total plans completed: 53
 - Average duration: --
 - Total execution time: 0 hours
 
@@ -173,6 +173,7 @@ Last activity: 2026-06-17 -- Phase 123 Plan 04 closed (prod migration delete-onl
 | 113 | 5 | - | - |
 | 120 | 4 | - | - |
 | Phase 123 P03 | ~10 minutes | 3 tasks | 5 files |
+| 123 | 4 | - | - |
 
 ## Accumulated Context
 
