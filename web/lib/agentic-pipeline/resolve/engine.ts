@@ -213,7 +213,14 @@ export async function resolveEntity(
         const result = await runThreadInheritance(args);
         if (result) return result;
       } else if (stepName === "sender_match") {
-        const result = await runSenderMatch(args, llmTiebreak);
+        // Phase 123 — sender_match resolves over resolve_candidates (email_domain/
+        // email_address). It reads scope.environment_id for the D-01 strip; pass
+        // config only when scope is present (absent scope → the step no-ops).
+        const result = await runSenderMatch(
+          args,
+          llmTiebreak,
+          config.scope ? (config as SelfAuthConfig) : undefined,
+        );
         if (result) return result;
       } else if (stepName === "identifier_match") {
         // Phase 91 (RESL-08) — pass config only when scope is present so the
@@ -292,7 +299,17 @@ export async function resolveEntity(
     } else if (stepName === "thread_inheritance") {
       pushSignal(await runThreadInheritance(args), i);
     } else if (stepName === "sender_match") {
-      pushSignal(await runSenderMatch(args, llmTiebreak), i);
+      // Phase 123 — see the no-corroboration loop above (resolve_candidates
+      // email_domain/email_address back-search; config passed only when scope
+      // present).
+      pushSignal(
+        await runSenderMatch(
+          args,
+          llmTiebreak,
+          config.scope ? (config as SelfAuthConfig) : undefined,
+        ),
+        i,
+      );
     } else if (stepName === "identifier_match") {
       const outcome = await runIdentifierMatch(
         args,
