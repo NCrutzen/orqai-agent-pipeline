@@ -56,14 +56,14 @@ completed: 2026-06-17
 
 # Phase 131 Plan 01: Routing registry + Stage-3 wiring Summary
 
-**`public.routing_destinations` brand-aware bucket→mailbox registry (RLS, frozen 8-key seed + unrouted sentinel), the load-bearing info-routing Stage-3 wiring (agent key + held routing gate + unknown→coordinator dispatch), and a single-source DestinationKey codegen — all unit-tested locally, NOT yet applied to remote (blocked on the Task 3 operator checkpoint).**
+**`public.routing_destinations` brand-aware bucket→mailbox registry (RLS, frozen 8-key seed + unrouted sentinel), the load-bearing info-routing Stage-3 wiring (agent key + held routing gate + unknown→coordinator dispatch), and a single-source DestinationKey codegen — all unit-tested, all 3 migrations APPLIED to remote and LIVE-VERIFIED (Task 3 checkpoint cleared).**
 
 ## Performance
 
 - **Duration:** ~7 min (autonomous portion; Task 3 checkpoint pending)
 - **Started:** 2026-06-17T06:19:20Z
 - **Completed (Tasks 1-2):** 2026-06-17T06:25:59Z
-- **Tasks:** 2 of 3 complete (Task 3 is a blocking-human checkpoint)
+- **Tasks:** 3 of 3 complete (Task 3 blocking-human checkpoint cleared — migrations applied + live-verified)
 - **Files modified:** 10
 
 ## Accomplishments
@@ -138,28 +138,34 @@ None — no new network endpoints, auth paths, or trust-boundary surface beyond 
 
 ## User Setup Required
 
-None for code. **Operator action required at the Task 3 blocking checkpoint** (see Next Phase Readiness) — confirm the bucket set + mailbox completeness + threshold, then apply the three migrations to remote.
+None remaining. The Task 3 operator checkpoint is cleared — bucket set + mailbox completeness + threshold confirmed, all three migrations applied to remote and live-verified. One Phase-132 carry-forward: verify the `algemeen` → `algemeen@smeba.nl` mapping before live forwarding (inert under the ROUTE-07 held gate in Phase 131).
+
+## Task 3 — Operator Checkpoint CLEARED (migrations applied + live-verified)
+
+The orchestrator applied all three migrations to remote (`mvqjhlxfvtqqubqgdvhz`) via Supabase MCP `apply_migration` IN ORDER (20260617 → 20260617b → 20260617c) and live-verified the registry + wiring:
+
+- **`public.routing_destinations`** — 12 info-routing rows present (matches the seed count exactly).
+- **`swarms` (info-routing)** — `stage3_coordinator_agent_key='info-routing-coordinator'`, `dry_run_config->>'stage_3_routing'='true'` (ROUTE-07 held / no-forward), `resolution_config->>'routing_unrouted_threshold'='0.6'`.
+- **`swarm_noise_categories` (info-routing, unknown)** — `action='swarm_dispatch'`, `swarm_dispatch='pipeline/coordinator.requested'` (the load-bearing wiring is live).
+- **Security advisors** — 0 ERROR-level lints; `routing_destinations` carries RLS + policy (not flagged).
+- **Codegen drift (post-apply)** — `cd web && npm run codegen && git diff --exit-code` is CLEAN. Codegen read the LIVE registry (12 destination rows — no PGRST205 pre-apply skip) and the committed `routing-destinations.generated.ts` matches live data exactly. The hand-written deterministic generated file is now proven against the applied registry.
+
+### ⚠️ PRE-PHASE-132 verification item (algemeen bucket)
+
+The `algemeen` bucket → `algemeen@smeba.nl` is **NOT** in charter §2's verified-mailbox table. The operator confirmed **KEEP for Phase 131** — it is inert under the ROUTE-07 no-forward gate (`stage_3_routing` held, so nothing is forwarded yet). **However, this (bucket×brand)→mailbox pair MUST be verified before Phase 132 enables live forwarding.** Carry this forward as a hard Phase-132 prerequisite: confirm or replace `algemeen@smeba.nl` against a real verified mailbox before any auto-forward side-effect goes live.
 
 ## Next Phase Readiness
 
-**BLOCKING CHECKPOINT (Task 3 — human-verify / blocking-human) — NOT yet applied to remote.**
+**Plan 131-01 COMPLETE — all 3 tasks done, migrations applied, registry + wiring + codegen live.**
 
-The operator must:
-1. Review the seed rows in `20260617_phase131_routing_destinations.sql` against `docs/routing-swarm-milestone-charter.md` §2 — confirm (a) the 8-key bucket set, (b) every (bucket×brand) row maps to a real verified mailbox, **especially confirm/replace `algemeen@smeba.nl`** (the one unverified pair), (c) unverified pairs are intentionally omitted (→ unrouted fallback).
-2. Confirm `routing_unrouted_threshold=0.6` (require ≥ medium) or specify a value.
-3. Apply the three migrations to remote (`mvqjhlxfvtqqubqgdvhz`) via Supabase MCP apply_migration IN ORDER: 20260617 → 20260617b → 20260617c.
-4. `npm run check:supabase` → expect 0 ERROR.
-5. Confirm: `routing_destinations` info-routing row count matches the seed (12 rows); `swarms` info-routing has `stage3_coordinator_agent_key='info-routing-coordinator'` + `dry_run_config->>'stage_3_routing'='true'`; `swarm_noise_categories` (info-routing, unknown) has `action='swarm_dispatch'` + `swarm_dispatch='pipeline/coordinator.requested'`.
-6. `cd web && npm run codegen && git diff --exit-code` → no drift after the live data exists (proves the hand-written generated file matches the registry).
+Wave B (Orq `info-routing-coordinator` agent) and Wave C (coordinator routing capability) are unblocked — they depend on this plan's registry + wiring + codegen'd enum, all of which are now landed and live-verified. Next plan: **131-02 (Wave 2)**.
 
-**Resume signal:** "migrations applied" (note any bucket-set / threshold / mailbox adjustments made).
-
-Wave B (Orq `info-routing-coordinator` agent) and Wave C (coordinator routing capability) depend on this plan's registry + wiring + codegen'd enum landing.
+**Phase-132 carry-forward:** verify the `algemeen` → `algemeen@smeba.nl` mapping (the one unverified pair) before live forwarding (see ⚠️ above).
 
 ## Self-Check: PASSED
 
-All 9 created/modified files verified present on disk; all 4 task commits (`4a537946`, `40855c12`, `6acc8e81`, `3843018a`) verified in git log.
+All 9 created/modified files verified present on disk; all 4 task commits (`4a537946`, `40855c12`, `6acc8e81`, `3843018a`) verified in git log. Task 3 checkpoint cleared: 3 migrations applied + live-verified (12 rows, agent key, held gate, dispatch flip); post-apply codegen drift check clean.
 
 ---
 *Phase: 131-destination-taxonomy-stage-3-router-v9-7-p1*
-*Completed (Tasks 1-2): 2026-06-17 — Task 3 checkpoint pending operator*
+*Completed: 2026-06-17 — all 3 tasks done, Task 3 operator checkpoint cleared (migrations applied + live-verified)*

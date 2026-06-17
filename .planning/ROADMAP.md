@@ -262,7 +262,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
-| 131. Destination taxonomy + router | — | Pending | — |
+| 131. Destination taxonomy + router | 1/5 | In Progress|  |
 | 132. Forward + Bulk Review | — | Pending | — |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
 | 134. Ambient-loop coupling | — | Pending | — |
@@ -359,7 +359,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 131-01-PLAN.md — Registry + wiring: routing_destinations table+RLS+seed, swarms stage-3 wiring (agent key + stage_3_routing held + threshold), unknown→swarm_dispatch flip, codegen (ROUTE-01, ROUTE-02)
+- [x] 131-01-PLAN.md — Registry + wiring: routing_destinations table+RLS+seed, swarms stage-3 wiring (agent key + stage_3_routing held + threshold), unknown→swarm_dispatch flip, codegen (ROUTE-01, ROUTE-02)
 
 **Wave 2** *(blocked on Wave 1)*
 
