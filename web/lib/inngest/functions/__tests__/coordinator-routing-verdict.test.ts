@@ -259,6 +259,50 @@ describe("Phase 131 Plan 03 — coordinator routing verdict (ROUTE-04)", () => {
     expect(res.decision).toBe("predicted_held");
   });
 
+  // BUG 2 (CR-01) — invokeOrqAgent THROWS on empty/non-JSON output text BEFORE
+  // returning raw. If that throw escapes the classify-routing step it bubbles to
+  // the outer catch → mark-failed → re-throw → a terminal coordinator FAILURE
+  // instead of an unrouted verdict (breaks ROUTE-04/ROUTE-06 never-crash).
+  it("invoke THROWS (empty output) → degrades to unrouted verdict, does NOT mark failed or throw", async () => {
+    loadRoutingDestinationsMock.mockResolvedValue(INFO_ROUTING_DESTINATIONS);
+    loadSwarmMock.mockResolvedValue({
+      swarm_type: "info-routing",
+      stage3_coordinator_agent_key: "info-routing-coordinator",
+      dry_run_config: { stage_3_routing: true },
+      resolution_config: { routing_unrouted_threshold: 0.6 },
+    });
+    // Simulate the real client.ts throw paths (empty output text / JSON.parse fail).
+    invokeOrqMock.mockRejectedValue(
+      new Error("Orq invoke info-routing-coordinator: empty output text"),
+    );
+
+    let res: { decision: string } | undefined;
+    await expect(
+      (async () => {
+        res = (await handler({ event: buildEvent(), step: stepStub })) as {
+          decision: string;
+        };
+      })(),
+    ).resolves.toBeUndefined();
+
+    // Degraded to an unrouted verdict — persisted + TELE-01 emitted.
+    const routing = decisionDetailsRouting();
+    expect(routing).toBeDefined();
+    expect(routing!.unrouted).toBe(true);
+    expect(routing!.bucket).toBe("unrouted");
+    expect(routing!.target_mailbox).toBeNull();
+    expect(emitPipelineEventMock).toHaveBeenCalledTimes(1);
+
+    // NEVER marked failed: no automation_runs status:'failed' update was recorded.
+    const failedUpdate = recordedUpdates.find(
+      (u) => (u as { status?: string }).status === "failed",
+    );
+    expect(failedUpdate).toBeUndefined();
+
+    // Held path reached as normal.
+    expect(res?.decision).toBe("predicted_held");
+  });
+
   it("debtor (no routing_destinations → []) is byte-neutral: routing skipped, intent path runs", async () => {
     loadRoutingDestinationsMock.mockResolvedValue([]); // debtor has no rows
     loadSwarmMock.mockResolvedValue({
