@@ -49,6 +49,10 @@ const ORQ_API_KEY = process.env.ORQ_API_KEY?.replace(/^"|"$/g, "");
 
 const AGENT_KEY = "info-routing-coordinator";
 const AGENT_ROLE = "Info Routing Stage 3 Destination Router";
+// Project path where the agent is stored. The v2 /agents endpoint REQUIRES a
+// `path` string (omitting it throws a ZodError: path expected string). The agent
+// works identically regardless of folder; movable in Studio later.
+const AGENT_PATH = "Default/Agents";
 
 // Studio instructions (system layer). Versioned next to this script; the leading
 // HTML-comment maintainer note is stripped before upload.
@@ -146,6 +150,7 @@ async function createPatchVerify(): Promise<void> {
       key: AGENT_KEY,
       model: PRIMARY_MODEL,
       role: AGENT_ROLE,
+      path: AGENT_PATH,
       instructions: loadInstructions(),
       description:
         "Phase 131 — info-routing Stage 3 destination router (info@smeba.nl).",

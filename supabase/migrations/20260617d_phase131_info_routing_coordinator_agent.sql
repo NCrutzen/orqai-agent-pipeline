@@ -35,7 +35,7 @@ insert into public.orq_agents
 values
   (
     'info-routing-coordinator',
-    'PLACEHOLDER_INFO_ROUTING_COORDINATOR_ID',
+    '01KVA6BAVS6QWJBHQVENB74R8S',
     'Stage 3 destination classifier for the info-routing swarm (info@smeba.nl). Routes a Stage-1-cleared actionable email onto a closed-list destination bucket (order_entry, verkoop, inspecties, storingen, opleidingen, sollicitaties, algemeen, or the unrouted sentinel) + brand (smeba | fire-control | berki | null) + categorical confidence. Chooses unrouted rather than guess when no destination clearly applies.',
     'info-routing',
     '2026-06-17.v1',
