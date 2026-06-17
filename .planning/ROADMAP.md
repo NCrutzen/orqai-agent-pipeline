@@ -527,7 +527,7 @@ Plans:
 - [x] **Phase 120: D-06 multi-signal corroboration engine (generic, cross-swarm)** *(added 2026-06-16)* — give the resolution engine a config-expressible corroboration capability so it COLLECTS candidate signals across precedence steps instead of short-circuiting on the first hit, and RAISES confidence when ≥N independent identifiers agree on the same `customer_account_id`; swarm-agnostic, no per-swarm branch (SWARM-02), re-seed `resolution_config` to opt in, then re-run the no-Engine-diff measurement to finalize V9.0 STAGE2-01. (completed 2026-06-17)
 - [ ] **Phase 121: Attachment-borne identifier extraction (corroboration signal source)** *(added 2026-06-16)* — parse identifiers (PO / offertenummer / invoice / order numbers) out of attachment **content** (PDF text first, per Phase 116) and feed them into Stage 2 resolution as first-class identifiers; adapter-side body-source (STAGE2-01-safe), registry-gated per swarm, no per-swarm code (SWARM-02).
 - [ ] **Phase 122: Cross-brand-scope customer resolution** *(added 2026-06-16, from the resolver eval)* — on an in-scope miss, fall back to a cross-brand back-search over `resolver_index` (unique hit resolves, non-unique degrades to suggestie) instead of returning nothing or a wrong-scope guess; swarm-agnostic, config-gated, zero per-swarm branch (SWARM-02).
-- [ ] **Phase 123: Unify Stage-2 on `resolve_candidates` + retire legacy lookup tools** *(added 2026-06-17, operator directive)* — move the debtor swarm (sender + invoice) onto the single generic `resolve_candidates` resolver (`resolver_index` already has `email_domain`/`email_address`/`invoice_no` kinds), and REMOVE `nxt.contact_lookup` + `nxt.identifier_lookup` entirely — from code (wrappers/types/schemas/steps/sales adapter/tests) AND the database (`zapier_tools` rows + `nxt_lookup_requests` CHECK constraints). One generic look-up, no dual-tool confusion (SWARM-02). **Carries the deferred Phase-120 debtor correctness gate as its acceptance eval** (sender resolution behavior changes on the dominant error source — must re-score the frozen 100-email fixture). Full inventory: `.planning/todos/pending/2026-06-17-unify-stage2-on-resolve-candidates.md`.
+- [x] **Phase 123: Unify Stage-2 on `resolve_candidates` + retire legacy lookup tools** *(added 2026-06-17, operator directive)* — move the debtor swarm (sender + invoice) onto the single generic `resolve_candidates` resolver (`resolver_index` already has `email_domain`/`email_address`/`invoice_no` kinds), and REMOVE `nxt.contact_lookup` + `nxt.identifier_lookup` entirely — from code (wrappers/types/schemas/steps/sales adapter/tests) AND the database (`zapier_tools` rows + `nxt_lookup_requests` CHECK constraints). One generic look-up, no dual-tool confusion (SWARM-02). **Carries the deferred Phase-120 debtor correctness gate as its acceptance eval** (sender resolution behavior changes on the dominant error source — must re-score the frozen 100-email fixture). Full inventory: `.planning/todos/pending/2026-06-17-unify-stage2-on-resolve-candidates.md`. (completed 2026-06-17)
 
 ### Phase 120: D-06 multi-signal corroboration engine (generic, cross-swarm)
 
@@ -572,11 +572,11 @@ The Customer Resolver must use ONE generic look-up — `nxt.resolve_candidates` 
   5. The two `public.zapier_tools` rows deleted + the `nxt_lookup_requests` CHECK constraints widened-back (prod migration).
   6. **Acceptance eval**: re-run the frozen 100-email fixture (`web/scripts/eval/resolver-correctness-gate.ts`) — sender behavior change on the dominant error source must not regress, and corroboration must now fire over the generic path. This is the carried-over Phase-120 debtor gate (`RERUN-FINDINGS.md` / `120-HUMAN-UAT.md`).
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 - [x] 123-01-PLAN.md — Debtor sender_match + invoice resolution onto resolve_candidates (wave 1; RESL-UNIFY-01/02/07; auto_safe_kinds reconciliation decision)
 - [x] 123-02-PLAN.md — Sales sender_match + factuur_match onto resolve_candidates (wave 1; RESL-UNIFY-03/07)
 - [x] 123-03-PLAN.md — Atomic removal of nxt.contact_lookup + nxt.identifier_lookup from code + tests (wave 2; RESL-UNIFY-04)
-- [ ] 123-04-PLAN.md — DB migration (delete rows + widen-back CHECK) + carried-over 100-email correctness gate (wave 3; RESL-UNIFY-05/06)
+- [x] 123-04-PLAN.md — DB migration (delete rows + widen-back CHECK) + carried-over 100-email correctness gate (wave 3; RESL-UNIFY-05/06)
 
 ### Phase 121: Attachment-borne identifier extraction (corroboration signal source)
 
