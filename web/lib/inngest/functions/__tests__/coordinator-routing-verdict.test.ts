@@ -92,13 +92,22 @@ vi.mock("@/lib/swarms/registry", () => ({
   loadRoutingDestinations: (...args: unknown[]) => loadRoutingDestinationsMock(...args),
   loadSwarmNoiseCategories: vi.fn().mockResolvedValue([]),
   loadSwarmIntents: vi.fn().mockResolvedValue([]),
+  // Phase 131 gap-closure framework sentinel — the verdict builder reads it.
+  UNROUTED_BUCKET: "unrouted",
   // The verdict builder imports resolveRoutingDestination from the registry —
-  // keep the REAL pure resolver so the (bucket×brand) match is exercised.
+  // keep the REAL pure resolver so the (bucket×brand) match is exercised. The
+  // resolver returns {matched, target_mailbox}: matched:false on no row,
+  // matched:true (target may be null) on an exact match.
   resolveRoutingDestination: (
     destinations: Array<{ destination_key: string; brand: string; target_mailbox: string | null }>,
     bucket: string,
     brand: string | null,
-  ) => destinations.find((d) => d.destination_key === bucket && d.brand === brand)?.target_mailbox ?? null,
+  ) => {
+    const row = destinations.find((d) => d.destination_key === bucket && d.brand === brand);
+    return row
+      ? { matched: true, target_mailbox: row.target_mailbox ?? null }
+      : { matched: false, target_mailbox: null };
+  },
 }));
 
 vi.mock("@/lib/automations/runs/emit", () => ({
