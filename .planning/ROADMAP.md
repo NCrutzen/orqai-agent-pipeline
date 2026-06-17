@@ -479,6 +479,7 @@ Plans:
 **Goal**: Close the human-correction loop where the end-users already work — Outlook — for **any** swarm running on an Outlook mailbox. After Stage 3 produces a verdict, a swarm-agnostic worker writes the top-1 intent back onto the source message as a native Outlook **category** (`AI:` prefix, e.g. `AI: quote_request`) via Microsoft Graph. Inside-sales / debtor / info operators see the label in their normal Outlook view and correct it by changing or removing the category — no extra UI. The existing Phase 112.5 passive Graph delta-sync observes that category change and distils it into a labelled correction signal per `pipeline_event`, feeding eval/calibration and the V10.0 Promotion Recommender at zero marginal operator effort. **This is NOT a sales feature** — generality is the headline acceptance criterion: it ships swarm-agnostic, gated and configured purely via the `swarms` registry, and onboarding a second Outlook swarm is a registry row with zero per-swarm code (SWARM-02 architecture gate).
 
 **Design decisions to settle in discuss/plan:**
+
   1. **Category convention** — `AI:` prefix so the 112.5 delta-detection can tell AI-written labels from user-authored Outlook categories. Decide: top-1 intent only, or an optional confidence suffix (`AI: quote_request (low)`).
   2. **Delta semantics** — category *removed* = "wrong / not applicable"; *changed to another `AI:` value* = a direct labelled correction ("should be X"); *changed to a non-`AI:` category* = ambiguous (define handling). The 112.5 signal-derive layer learns to classify these.
   3. **Gated production Graph write** — category write-back runs through the Phase 112 gated-write infra behind a per-stage dry-run flag, per-swarm opt-in, enabled only after operator green-light. ⚠ For sales specifically: respect the Sugar cut-over / Power Automate sweep dependency before writing to `verkoop@`.
@@ -514,12 +515,14 @@ Plans:
 **Operator-grounded requirements basis + acceptance baseline (added 2026-06-16):** a debiteurenbeheer colleague manually validated the resolver's customer match on **100 debtor emails** — `.planning/evals/2026-06-16-resolver-customer-eval/FINDINGS.md` (sheet alongside). Baseline = **64% correct (64 Ja / 25 Nee / 11 Twijfel)**, strongly bimodal: factuur/klantnummer methods ~95%, sender/e-maildomein **21%**; confidence is well-calibrated (AUTO 86% vs SUGGESTIE 13%). The 36 errors map onto exactly the V9.5 phases — bucket B sender-ambiguity (12) → Phase 120, bucket A answer-in-attachment (7) → Phase 121, bucket C wrong-brand-entity (9) → **Phase 122 (new)**, bucket D factuur-in-subject (3) → rides along in Phase 121 (extraction/precedence). **Acceptance:** re-run the resolver over the same frozen 100 after 120/121/122 land; target a material reduction of the 36 Nee+Twijfel (esp. eliminating the 4 confident-wrong AUTO and the now-known-answer A/C cases). This is a *correctness* gate that sits alongside (does not replace) the no-Engine-diff measurement. **Ground-truth note:** Exact customer numbers == NXT numbers, so the colleague's Exact cross-checks are valid NXT ground-truth.
 
 **Dependency graph:**
+
 ```
 120 (corroboration engine)  ──┐
                               ├──> re-run no-Engine-diff measurement (finalizes V9.0 STAGE2-01)
 121 (attachment-borne IDs)  ──┤   120 consumes 121's identifiers as corroboration signals; runs in parallel
 122 (cross-brand scope)     ──┘   independent scope_key fix; feeds the same re-run vs the 100-email baseline
 ```
+
 **External/cross-track:** consumes the `resolver_index` + `nxt.resolve_candidates` substrate (Phase 91, live for debtor). Sales must migrate its REST-proxy lookups onto the same SQL back-search to feed corroboration — see todo `2026-06-15-sales-offerte-lookup-false-positive.md` (the postcode schema gap + REST→SQL migration). Both swarms benefit.
 
 **Phases in this milestone** (detail sections below):
@@ -548,6 +551,7 @@ Give the resolution engine a config-expressible corroboration capability so it C
 **Plans:** 3/4 plans executed
 
 Plans:
+
 - [x] 120-01-PLAN.md *(wave 1)* — Engine capability: pure scoreCorroboration helper + CorroborationConfig field + config-gated collect-then-decide branch (CORR-01..04)
 - [x] 120-02-PLAN.md *(wave 2, ⊃ 01)* — Sales SWARM-02 reconciliation + REST→SQL transport switch (offerte/order/sites via resolver_index; shared helper) (CORR-04/05)
 - [x] 120-03-PLAN.md *(wave 3, ⊃ 01,02)* — Two resolution_config re-seeds (debtor + sales) + debtorP0Config lockstep + [BLOCKING] live Supabase apply (CORR-05)
@@ -570,11 +574,15 @@ Parse identifiers out of attachment **content** (PDF text first, per Phase 116's
   4. Sales onboards first (its offerte/PO traffic carries letterhead IDs); debtor/info opt in via registry row.
   5. **Rides along (eval bucket D, 3 rows):** factuurnummer present in the **subject line** is extracted and used, and factuur-match outranks sender-match in precedence — the gold ID must win over the weak prior when both are present. Same extraction-completeness theme as attachment-borne IDs; folded in here rather than a separate todo (operator, 2026-06-16).
 
-
 **Plans**: 3 plans (2 waves; 121-01 discovery DONE)
 Plans:
+**Wave 1**
+
 - [x] 121-01-PLAN.md — Wave 0: empirical baseline + gap manifest (discovery — DONE 2026-06-17)
 - [ ] 121-02-PLAN.md — Wave 1: close #24 — exceljs `.xlsx`/`.csv` extraction branch in `extract.ts` (adapter-side, engine byte-identical) + verify-first 358-root many-customer demotion + no-engine-diff gate (ATID-01/02/03/04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 121-03-PLAN.md — Wave 2: eval-grounded acceptance — xlsx fold test + verifiable-now suite; live debtor fixture re-run DEFERRED to Phase 123 (blocked, autonomous:false) (ATID-01/02/04)
 
 ### Phase 122: Cross-brand-scope customer resolution
