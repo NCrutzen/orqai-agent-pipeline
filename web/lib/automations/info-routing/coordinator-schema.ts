@@ -60,7 +60,10 @@ export type InfoRoutingAgentOutput = z.infer<typeof infoRoutingAgentOutputSchema
 
 export type AgentOutputParseResult =
   | { unrouted: false; value: InfoRoutingAgentOutput }
-  | { unrouted: true };
+  // `reason` is an OPTIONAL audit string (e.g. the invoke/parse error message,
+  // truncated) so a transport-failure unrouted is debuggable. buildRoutingVerdict
+  // only reads `.unrouted`, so the extra field is shape-compatible.
+  | { unrouted: true; reason?: string };
 
 // A frozen singleton so callers can identity-compare and so the marker is
 // immutable. The actual unrouted VERDICT (bucket='unrouted', mailbox=null, …)
@@ -75,6 +78,16 @@ export function parseAgentOutputOrUnrouted(raw: unknown): AgentOutputParseResult
     return UNROUTED_OUTCOME;
   }
   return { unrouted: false, value: result.data };
+}
+
+// BUG 2 (CR-01) — build an unrouted marker for a TRANSPORT failure (invoke or
+// JSON.parse THROWS inside invokeOrqAgent BEFORE it can return raw, e.g. empty
+// output text, non-JSON body, timeout). The coordinator's classify-routing step
+// wraps invoke+parse in try/catch and calls this on ANY thrown error so an
+// empty/non-JSON/timeout response degrades to unrouted (→ human triage) instead
+// of crashing the coordinator. The reason is carried for debuggability.
+export function unroutedFromError(reason: string): AgentOutputParseResult {
+  return { unrouted: true, reason: reason.slice(0, 200) };
 }
 
 // ---------------------------------------------------------------------------

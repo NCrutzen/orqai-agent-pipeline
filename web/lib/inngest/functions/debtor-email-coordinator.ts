@@ -50,7 +50,7 @@ import {
 // seeded stage_3_routing=true → the existing held path withholds the
 // predicted-emit. NO swarm_type literal — purely registry-gated.
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
-import { parseAgentOutputOrUnrouted } from "@/lib/automations/info-routing/coordinator-schema";
+import { parseAgentOutputOrUnrouted, unroutedFromError } from "@/lib/automations/info-routing/coordinator-schema";
 import { buildRoutingVerdict } from "@/lib/automations/info-routing/verdict";
 // Phase 131 Plan 04 (ROUTE-05) — the two-layer duplicate-delivery guard. Runs
 // after (bucket×brand)→target_mailbox resolution, inside step.run (the layer-b
@@ -254,14 +254,26 @@ export const debtorEmailCoordinator = inngest.createFunction(
         // e.g. info-routing-coordinator) and Zod-gate its output. Invalid/empty
         // output → unrouted marker (parseAgentOutputOrUnrouted never throws).
         const parsed = await step.run("classify-routing", async () => {
-          const { raw } = await invokeOrqAgent(stage3AgentKey, {
-            subject: email.subject ?? "",
-            body_text: email.body_text ?? "",
-            sender_email: email.sender_email ?? null,
-            sender_domain,
-            mailbox: email.mailbox ?? null,
-          });
-          return parseAgentOutputOrUnrouted(raw);
+          // BUG 2 (CR-01) — invokeOrqAgent THROWS on empty output text, non-JSON
+          // body, or timeout BEFORE returning raw; parseAgentOutputOrUnrouted only
+          // guards valid-JSON-but-schema-invalid. Wrap BOTH in try/catch so ANY
+          // transport/parse throw degrades to the SAME unrouted marker (→ human
+          // triage, the safe fallback) instead of escaping to the outer catch →
+          // mark-failed → terminal coordinator FAILURE. Preserves ROUTE-04/ROUTE-06
+          // "invalid/empty → unrouted, never crash." The valid path is unchanged.
+          try {
+            const { raw } = await invokeOrqAgent(stage3AgentKey, {
+              subject: email.subject ?? "",
+              body_text: email.body_text ?? "",
+              sender_email: email.sender_email ?? null,
+              sender_domain,
+              mailbox: email.mailbox ?? null,
+            });
+            return parseAgentOutputOrUnrouted(raw);
+          } catch (err) {
+            const reason = err instanceof Error ? err.message : String(err);
+            return unroutedFromError(reason);
+          }
         });
 
         // The unrouted threshold is a single swarm-level knob (Discretion 1):
