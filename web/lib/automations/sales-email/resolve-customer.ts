@@ -38,15 +38,23 @@ import {
   scoreCorroboration,
   type CorroborationSignal,
 } from "@/lib/agentic-pipeline/resolve/corroborate";
-// IN-01 (Phase 114-07): the two nxt-zap-client imports merged into one statement.
+// Phase 123-02: sender_match + factuur_match moved off the legacy per-kind
+// wrappers (lookupSenderToAccount / lookupIdentifierToAccount) onto the single
+// generic resolve_candidates substrate — the SAME transport the offerte/order
+// lookups already use. The legacy wrapper IMPORTS are gone (Plan 03 deletes the
+// definitions); production code no longer calls them.
 import {
-  lookupSenderToAccount,
-  lookupIdentifierToAccount,
+  lookupResolveCandidates,
+  type ResolveCandidateMatch,
 } from "@/lib/automations/debtor-email/nxt-zap-client";
 import { extractInvoiceCandidates } from "@/lib/automations/debtor-email/extract-invoices";
 import {
   lookupOfferteToAccount,
   extractOfferteCandidates,
+  SALES_ENVIRONMENT_ID,
+  SALES_BRAND_SCOPE,
+  SALES_SCOPE_KEY,
+  SALES_RESOLVE_INTENT,
   type SalesResolveCtx,
 } from "./lookups/offerte";
 import {
@@ -64,6 +72,13 @@ import {
 const SALES_TENANT_DOMAINS = ["smeba.nl"] as const;
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+/** Extract the bare domain (lowercased) from an email address, or null. */
+function domainOf(email: string): string | null {
+  const at = email.lastIndexOf("@");
+  if (at < 0 || at === email.length - 1) return null;
+  return email.slice(at + 1).toLowerCase();
+}
 
 /** True when an address belongs to one of the sales tenant domains. */
 function isOwnTenant(email: string | null): boolean {
@@ -168,37 +183,53 @@ export async function resolveEntity(
     switch (step) {
       case "sender_match": {
         if (!effectiveSender || !args.brand_id) return null;
-        const sender = await lookupSenderToAccount(
+        // Phase 123-02 — back-search the sender over resolve_candidates: pass BOTH
+        // the full lowercased address (email_address) and its bare domain
+        // (email_domain) as identifiers. The substrate tags each returned row with
+        // the kind it matched on; address is the stronger signal so we prefer it.
+        const addr = effectiveSender.toLowerCase();
+        const dom = domainOf(addr);
+        const identifiers = dom ? [addr, dom] : [addr];
+        const sender = await lookupResolveCandidates(
           {
             nxt_database: args.nxt_database,
             brand_id: args.brand_id,
-            sender_email: effectiveSender,
+            environment_id: SALES_ENVIRONMENT_ID,
+            identifiers,
+            brand_scope: [...SALES_BRAND_SCOPE],
           },
-          "unknown",
+          SALES_RESOLVE_INTENT,
         ).catch((err) => {
           console.warn(
             `[sales-resolve] sender_match failed, falling through: ${err instanceof Error ? err.message : err}`,
           );
-          return {
-            matches: [] as Array<{
-              top_level_customer_id: string;
-              top_level_customer_name: string;
-              status?: string | null;
-            }>,
-          };
+          return { matches: [] as ResolveCandidateMatch[] };
         });
-        const uniqueIds = Array.from(
-          new Set(sender.matches.map((m) => m.top_level_customer_id)),
+        // Keep only in-scope, unique-in-scope email rows; prefer email_address
+        // over email_domain when both resolve.
+        const senderRows = sender.matches.filter(
+          (m) =>
+            (m.identifier_kind === "email_address" ||
+              m.identifier_kind === "email_domain") &&
+            m.scope_key === SALES_SCOPE_KEY &&
+            m.is_unique_in_scope === true,
         );
-        // Precedence-only single-hit accept; ambiguous (≥2) → no signal (no LLM
-        // tiebreaker for sales — corroboration is the multi-signal path).
-        if (uniqueIds.length !== 1 || sender.matches.length < 1) return null;
-        const m = sender.matches[0];
+        const addressRows = senderRows.filter(
+          (m) => m.identifier_kind === "email_address",
+        );
+        const chosenRows = addressRows.length > 0 ? addressRows : senderRows;
+        const distinctParties = Array.from(
+          new Set(chosenRows.map((m) => m.party_id)),
+        );
+        // Single distinct party accepted; ambiguous (≥2) or none → no signal (no
+        // LLM tiebreaker for sales — corroboration is the multi-signal path).
+        if (distinctParties.length !== 1) return null;
+        const m = chosenRows.find((r) => r.party_id === distinctParties[0])!;
         return {
           result: {
             method: "sender_match",
-            customer_account_id: m.top_level_customer_id,
-            customer_name: m.top_level_customer_name,
+            customer_account_id: m.party_id,
+            customer_name: m.party_name,
             confidence: "high",
             candidates_considered: 1,
             inputs: {
@@ -206,8 +237,8 @@ export async function resolveEntity(
               sender_email: effectiveSender,
               candidates: [
                 {
-                  id: m.top_level_customer_id,
-                  name: m.top_level_customer_name,
+                  id: m.party_id,
+                  name: m.party_name,
                   contact_person: null,
                   recent_invoices: [],
                 },
@@ -215,13 +246,16 @@ export async function resolveEntity(
             },
           },
           signal: {
-            customer_account_id: m.top_level_customer_id,
+            customer_account_id: m.party_id,
+            // KEEP the "sender_domain" independence axis name so corroboration
+            // independence (D-05) is unchanged regardless of the resolver_index
+            // kind (email_address/email_domain) the back-search matched on.
             identifier_kind: "sender_domain",
             confidence: "high",
             method: "sender_match",
             precedence_index: precedenceIndex,
             status: m.status ?? null,
-            customer_name: m.top_level_customer_name,
+            customer_name: m.party_name,
           },
         };
       }
@@ -250,37 +284,50 @@ export async function resolveEntity(
       }
 
       case "factuur_match": {
-        // D-11 — reuse the debtor invoice lookup (Zapier-SQL) as-is.
+        // Phase 123-02 — invoice resolution over resolve_candidates (invoice_no
+        // back-search), mirroring the offerte/order lookups + the debtor invoice
+        // path (Plan 01). The extraction is unchanged (D-11 shared extractor).
         const extract = extractInvoiceCandidates(subject, body);
         if (extract.candidates.length === 0 || !args.brand_id) return null;
         seenIdentifiers.push(...extract.candidates);
-        const inv = await lookupIdentifierToAccount(
+        const inv = await lookupResolveCandidates(
           {
             nxt_database: args.nxt_database,
             brand_id: args.brand_id,
-            invoice_numbers: extract.candidates,
+            environment_id: SALES_ENVIRONMENT_ID,
+            identifiers: extract.candidates,
+            brand_scope: [...SALES_BRAND_SCOPE],
           },
-          "unknown",
+          SALES_RESOLVE_INTENT,
         ).catch((err) => {
           console.warn(
             `[sales-resolve] factuur_match failed, falling through: ${err instanceof Error ? err.message : err}`,
           );
-          return {
-            matches: [] as Array<{
-              top_level_customer_id: string;
-              status?: string | null;
-            }>,
-          };
+          return { matches: [] as ResolveCandidateMatch[] };
         });
-        const ids = Array.from(
-          new Set(inv.matches.map((m) => m.top_level_customer_id)),
+        // Only invoice_no rows in the SB scope that are unique-in-scope count.
+        // Roll up by root_party_id (D-04) so multiple invoices under one top-level
+        // customer collapse to a single party; ambiguous (≥2 distinct roots) or
+        // none → null (fail-closed).
+        const invoiceRows = inv.matches.filter(
+          (m) =>
+            m.identifier_kind === "invoice_no" &&
+            m.scope_key === SALES_SCOPE_KEY &&
+            m.is_unique_in_scope === true,
         );
-        if (ids.length !== 1) return null;
+        const distinctRoots = Array.from(
+          new Set(invoiceRows.map((m) => m.root_party_id ?? m.party_id)),
+        );
+        if (distinctRoots.length !== 1) return null;
+        const winner = invoiceRows.find(
+          (m) => (m.root_party_id ?? m.party_id) === distinctRoots[0],
+        )!;
+        const accountId = winner.root_party_id ?? winner.party_id;
         return {
           result: {
             method: "identifier_match",
-            customer_account_id: ids[0],
-            customer_name: null,
+            customer_account_id: accountId,
+            customer_name: winner.party_name ?? null,
             confidence: "high",
             candidates_considered: 1,
             inputs: {
@@ -288,8 +335,8 @@ export async function resolveEntity(
               matched_identifiers: extract.candidates,
               candidates: [
                 {
-                  id: ids[0],
-                  name: "",
+                  id: accountId,
+                  name: winner.party_name ?? "",
                   contact_person: null,
                   recent_invoices: extract.candidates,
                 },
@@ -297,13 +344,13 @@ export async function resolveEntity(
             },
           },
           signal: {
-            customer_account_id: ids[0],
+            customer_account_id: accountId,
             identifier_kind: "invoice_no",
             confidence: "high",
             method: "identifier_match",
             precedence_index: precedenceIndex,
-            status: inv.matches[0]?.status ?? null,
-            customer_name: null,
+            status: winner.status ?? null,
+            customer_name: winner.party_name ?? null,
           },
         };
       }
