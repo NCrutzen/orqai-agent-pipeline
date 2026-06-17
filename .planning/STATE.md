@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: verifying
-stopped_at: Phase 131-05 COMPLETE — ROUTE-08 shadow precision harness built + unit-tested (9/9 green); false-success graded_n guard refuses below MIN_GRADED_N; live run prerequisite-gated outside 131. Phase 131 complete (5/5 plans).
+stopped_at: Phase 131 GAP-CLOSURE COMPLETE — code-review blockers CR-01 + CR-02 and warning WR-05 fixed under TDD (atomic RED+GREEN commits). Full suite 2822 passed, tsc clean, codegen no drift. 131-REVIEW.md → resolved. WR-01/WR-02 out of scope. No requirements marked complete. Phase 131 complete (5/5 plans) + review-clean.
 last_updated: "2026-06-17T07:44:01.698Z"
 last_activity: 2026-06-17
 progress:
@@ -354,8 +354,8 @@ Last activity: 2026-06-17
 ## Session Continuity
 
 Last session: 2026-06-17T07:44:01.686Z
-Stopped at: Phase 131-05 COMPLETE — ROUTE-08 shadow precision harness built + unit-tested (9/9 green); false-success graded_n guard refuses below MIN_GRADED_N; live run prerequisite-gated outside 131. Phase 131 complete (5/5 plans).
-Resume with: execute Plan 131-03 (Wave 3). ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding.
+Stopped at: Phase 131 GAP-CLOSURE COMPLETE — code-review blockers CR-01 (never-throw broken on empty/non-JSON LLM output) + CR-02 (null-brand single-tenant buckets collapse to unrouted) and warning WR-05 (shadow harness selects non-existent column) all fixed under TDD (RED+GREEN, atomic commits). Full suite 2822 passed (was 2813; +9 gap tests), tsc clean, codegen no drift. 131-REVIEW.md status → resolved. WR-01 (pre-existing Phase 113) + WR-02 (non-trivial dedup reorder) intentionally out of scope. NO requirements marked complete.
+Resume with: Phase 131 verified clean. ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding; WR-02 dedup-below-threshold hardening optional future pass.
 Resume file: None
 
 ## Deferred Items

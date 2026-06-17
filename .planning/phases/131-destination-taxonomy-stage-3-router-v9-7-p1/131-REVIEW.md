@@ -22,7 +22,25 @@ findings:
   warning: 5
   info: 3
   total: 10
-status: issues_found
+status: resolved
+resolution:
+  resolved_at: 2026-06-17T00:00:00Z
+  branch: planning/v9.7-p0-noise
+  fixed:
+    - CR-01  # never-throw: classify-routing now catches invoke/parse throws → unrouted
+    - CR-02  # null-brand single-tenant buckets now resolve to their sole mailbox
+    - WR-05  # shadow harness no longer selects the non-existent human_outlook_category column
+  out_of_scope:
+    - WR-01  # pre-existing from Phase 113 (decision_details whole-object overwrite) — not fixed here
+    - WR-02  # dedup confidence-threshold skip is non-trivial; left to avoid regression (noted)
+  commits:
+    - 720fbf7f  # test(131-gap) CR-02 RED
+    - e99b665d  # fix(131-gap) CR-02 GREEN
+    - 6901fc47  # test(131-gap) CR-01 RED
+    - ab374480  # fix(131-gap) CR-01 GREEN
+    - ecea4cfe  # test(131-gap) WR-05 RED
+    - e55e3052  # fix(131-gap) WR-05 GREEN
+  suite: "2822 passed (was 2813); tsc clean; codegen no drift"
 ---
 
 # Phase 131: Code Review Report
@@ -68,6 +86,15 @@ However two BLOCKER-level defects break the phase's core guarantees:
 ## Critical Issues
 
 ### CR-01: ROUTE-03 never-throw guarantee broken — empty/non-JSON LLM output is a terminal failure, not unrouted
+
+> **✅ FIXED (2026-06-17, gap-closure):** `classify-routing` step.run now wraps
+> `invokeOrqAgent` + `parseAgentOutputOrUnrouted` in try/catch and returns
+> `unroutedFromError(msg)` (new export from `coordinator-schema.ts`) on ANY thrown
+> error. Empty/non-JSON/timeout invoke degrades to an unrouted verdict (→ human
+> triage) instead of bubbling to the outer catch → mark-failed → terminal failure.
+> RED+GREEN: commits `6901fc47` / `ab374480`. Test:
+> `coordinator-routing-verdict.test.ts` "invoke THROWS (empty output) → degrades to
+> unrouted, does NOT mark failed or throw".
 
 **File:** `web/lib/inngest/functions/debtor-email-coordinator.ts:256-265` (calling `web/lib/automations/orq-agents/client.ts:210-225`)
 **Issue:**
@@ -121,6 +148,16 @@ unrouted or should retain a retry path; at minimum the empty-text and
 JSON.parse cases must not be terminal.
 
 ### CR-02: brand-null verdicts for single-tenant buckets always collapse to unrouted (data/logic mismatch)
+
+> **✅ FIXED (2026-06-17, gap-closure):** `resolveRoutingDestination` now (1) tries
+> the exact `(bucket × brand)` match (cross-tenant safety preserved), (2) on no
+> exact match falls back to the SOLE row when the bucket has exactly one active row
+> (single-tenant: algemeen/sollicitaties/inspecties/storingen/opleidingen — the
+> brand guess is irrelevant with one mailbox), (3) returns null when multiple rows
+> exist with no exact brand match (order_entry/verkoop + brand=null stays ambiguous
+> → unrouted). RED+GREEN: commits `720fbf7f` / `e99b665d`. Test:
+> `routing-resolve.test.ts` "Phase 131 BUG 1 (CR-02): null-brand single-tenant
+> fallback".
 
 **File:** `web/lib/swarms/registry.ts:140-149`, seed `supabase/migrations/20260617_phase131_routing_destinations.sql:86-97`
 **Issue:**
@@ -255,6 +292,16 @@ fuzzy match is truly needed, escape `%`/`_` in `normalizedTarget`.
 
 ### WR-05: shadow harness reads `coordinator_runs.human_outlook_category` — a column that does not exist on coordinator_runs
 
+> **✅ FIXED (2026-06-17, gap-closure):** the report-mode select now uses the
+> exported `COORDINATOR_RUNS_SELECT = "decision_details"` (real columns only) and a
+> new exported `mapRowToShadow` helper that maps every row to `human_category=null`
+> (the human-actual category source is not yet wired — prerequisite outside Phase
+> 131) → `graded_n=0` → `insufficient_sample`, the intended behavior today. Report
+> mode no longer throws "column does not exist" before the false-success guard. A
+> clear comment marks where the delta-sync human-actual read gets wired. RED+GREEN:
+> commits `ecea4cfe` / `e55e3052`. Test: `info-routing-precision-shadow.test.ts`
+> "BUG 3 (WR-05): report-mode query selects only real columns".
+
 **File:** `web/scripts/eval/info-routing-precision-shadow.ts:242-248`
 **Issue:**
 The query selects `human_outlook_category` directly off `coordinator_runs`
@@ -314,6 +361,38 @@ or add a one-line comment noting the NOT NULL guarantee it relies on.
 
 ---
 
+## Gap-Closure Resolution (2026-06-17)
+
+The two blockers (CR-01, CR-02) and one warning (WR-05) — all three CONFIRMED
+real bugs that defeat the phase's core guarantees — were fixed under TDD on
+branch `planning/v9.7-p0-noise`. Each bug got a failing RED test reproducing it,
+then a GREEN fix, committed atomically.
+
+| Finding | Status | Fix summary | RED / GREEN |
+| ------- | ------ | ----------- | ----------- |
+| **CR-01** (blocker) | ✅ fixed | `classify-routing` catches any invoke/parse throw → unrouted marker (`unroutedFromError`); coordinator never crashes on empty/non-JSON output | `6901fc47` / `ab374480` |
+| **CR-02** (blocker) | ✅ fixed | `resolveRoutingDestination`: exact match → sole-row fallback for single-tenant null-brand → null for ambiguous multi-row | `720fbf7f` / `e99b665d` |
+| **WR-05** (warning) | ✅ fixed | shadow harness selects only real columns (`COORDINATOR_RUNS_SELECT`); `mapRowToShadow` → human_category=null → insufficient_sample; no more "column does not exist" | `ecea4cfe` / `e55e3052` |
+
+**Out of scope (per gap-closure brief, NOT fixed here):**
+
+- **WR-01** — `decision_details` whole-object overwrite on the gated-intent path
+  is PRE-EXISTING from Phase 113; explicitly out of scope for Phase 131.
+- **WR-02** — dedup target-mailbox resolution can run a layer-(b) DB read for a
+  below-confidence-threshold verdict that will end up unrouted. The
+  `parsed.unrouted` / no-target short-circuits are already present; skipping the
+  read for a *below-threshold-but-valid* parse requires reordering the threshold
+  check ahead of dedup, which is non-trivial and carries regression risk on a
+  working path. Left intentionally (the redundant read is conservative and never
+  blocks). Noted for a future hardening pass.
+
+**Suite after fixes:** `cd web && npm test` → 2822 passed (was 2813; +9 new gap
+tests), 0 failed. `tsc --noEmit` clean. `npm run codegen && git diff --exit-code`
+no drift. No requirements marked complete.
+
+---
+
 _Reviewed: 2026-06-17_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+_Gap-closure: 2026-06-17 (CR-01, CR-02, WR-05 resolved under TDD)_
