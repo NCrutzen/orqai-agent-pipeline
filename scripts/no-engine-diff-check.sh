@@ -31,7 +31,15 @@
 
 set -euo pipefail
 
-DONOR="${NO_ENGINE_DIFF_BASELINE:-origin/workspace/v8.2-resolution-recall}"
+# Phase 120-04 RE-BASELINE (FINAL STAGE2-01, supersedes the PROVISIONAL V9.0 result):
+# the donor is re-pointed from the pre-corroboration v8.2 branch to the post-120
+# commit (b831e3f6 — the tip carrying the corroboration-capable engine.ts/config.ts
+# + corroborate.ts + the sales dynamic.ts entry). Against the OLD v8.2 donor the
+# guard CORRECTLY failed mid-phase (engine.ts/config.ts legitimately gained the
+# corroboration capability — Pitfall 1). With the donor re-baselined, the guard
+# re-asserts: NO FURTHER per-swarm engine drift on top of the corroboration-capable
+# engine. Override seam preserved via NO_ENGINE_DIFF_BASELINE.
+DONOR="${NO_ENGINE_DIFF_BASELINE:-b831e3f63f17308ec8e1c78d10b3999377c998aa}"
 
 # Resolve repo root so the script works from any cwd.
 REPO_ROOT="$(git rev-parse --show-toplevel)"
