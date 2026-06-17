@@ -347,7 +347,7 @@ Plans:
 **Goal**: Build the **routing layer** of the canonical funnel for info-routing: freeze a fixed **destination taxonomy** (the ~6-7 routing buckets + their verified target mailboxes, brand-aware) as a **destination registry**, and stand up a Stage-3 `info-routing-coordinator` Orq agent that classifies each Stage-1-cleared actionable info@ email onto a **destination** (department/mailbox) instead of an intent. This gives every actionable email a destination verdict. Registry-driven (SWARM-02): destinations + routing rules are registry data, zero `if swarm_type==='info-routing'` branches. **No Stage 2** (routing needs no customer resolution). The actual Outlook **forward** side-effect, the NL routing-config UI, verkoop@→order@, and the Bulk Review surface are **later phases (132–133)** — 131 stops at a persisted destination verdict.
 **Depends on**: Phase 130 (clean info@ "unknown" denominator — noise recalibrated) + info-routing swarm Stage 0/1 live + the verified destination mailboxes (charter §2, 2026-06-16) + the existing Stage-3 coordinator pattern (`swarms.stage3_coordinator_agent_key` + `swarm_intents`-style registry from v8.0/v8.1).
 **Depends on (external/cross-track)**: none. **No dependency on V9.5** (no Stage 2 / no resolver). **No dependency on Phase 132** (forward) — 131 produces the verdict that 132 acts on.
-**Requirements**: ROUTE-01 … ROUTE-0N — **to be locked by `131-SPEC.md`** (`/gsd:spec-phase 131`). Source: V9.7 `REQUIREMENTS.md` P1 line + `docs/routing-swarm-milestone-charter.md` §2/§4/§5.
+**Requirements**: ROUTE-01, ROUTE-02, ROUTE-03, ROUTE-04, ROUTE-05, ROUTE-06, ROUTE-07, ROUTE-08 (locked by `131-SPEC.md`).
 **Success Criteria** (what must be TRUE — provisional, SPEC.md refines):
 
   1. A fixed destination taxonomy (~6-7 buckets) + verified target mailboxes is frozen as registry data (a destination registry), brand-aware (info@smeba can route to fire-control mailboxes; `env_id='BX'` hard filter respected).
@@ -355,7 +355,24 @@ Plans:
   3. Each routed email gets a persisted Stage-3 destination verdict (the input Phase 132's forward consumes). No forward/side-effect fires in this phase.
   4. Registry-driven: a new mailbox/destination is an INSERT, no code branch (SWARM-02). No Stage 2 invoked.
 
-**Plans**: TBD (run `/gsd:spec-phase 131` → `/gsd:discuss-phase 131` → `/gsd:plan-phase 131`)
+**Plans**: 5 plans (4 waves; A→B→C→(D∥E))
+Plans:
+**Wave 1**
+
+- [ ] 131-01-PLAN.md — Registry + wiring: routing_destinations table+RLS+seed, swarms stage-3 wiring (agent key + stage_3_routing held + threshold), unknown→swarm_dispatch flip, codegen (ROUTE-01, ROUTE-02)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 131-02-PLAN.md — Orq info-routing-coordinator agent (list_models→create→PATCH→get_agent, closed-list anyOf json_schema) + Zod validator (ROUTE-03)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 131-03-PLAN.md — Coordinator routing capability: 6-field verdict on coordinator_runs.decision_details.routing + TELE-01, unrouted gate, ROUTE-07 no-forward/no-Stage-2 gate (ROUTE-04, ROUTE-06, ROUTE-07)
+
+**Wave 4** *(blocked on Wave 3; 04 ∥ 05)*
+
+- [ ] 131-04-PLAN.md — Two-layer duplicate-delivery guard (raw_json recipients + normalized message-id) wired into the verdict (ROUTE-05)
+- [ ] 131-05-PLAN.md — Shadow precision harness (verdict vs human-actual Outlook category, ≥85% gate, graded_n false-success guard) (ROUTE-08)
 
 ---
 
