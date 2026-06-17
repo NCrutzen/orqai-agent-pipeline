@@ -33,7 +33,11 @@ import { assembleInput } from "@/lib/automations/debtor-email/coordinator/assemb
 // swarm_type key. The sales schema is imported by THIS registry file, never
 // by the coordinator, so the coordinator carries zero sales import/literal.
 import { intentSchemaForSwarm } from "@/lib/automations/debtor-email/coordinator/intent-schema-registry";
-import { loadSwarm, loadRoutingDestinations } from "@/lib/swarms/registry";
+import {
+  loadSwarm,
+  loadRoutingDestinations,
+  resolveRoutingDestination,
+} from "@/lib/swarms/registry";
 // Phase 131 Plan 03 (ROUTE-04 / ROUTE-06) — the registry-gated Stage-3 ROUTING
 // capability. Runs iff loadRoutingDestinations(swarm_type) returns rows
 // (info-routing today; debtor/sales get [] → block skipped → byte-neutral).
@@ -48,6 +52,17 @@ import { loadSwarm, loadRoutingDestinations } from "@/lib/swarms/registry";
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
 import { parseAgentOutputOrUnrouted } from "@/lib/automations/info-routing/coordinator-schema";
 import { buildRoutingVerdict } from "@/lib/automations/info-routing/verdict";
+// Phase 131 Plan 04 (ROUTE-05) — the two-layer duplicate-delivery guard. Runs
+// after (bucket×brand)→target_mailbox resolution, inside step.run (the layer-b
+// DB read must be replay-safe). Its { status, matched_layer } result feeds the
+// verdict's optional dedup arg so Phase 132 honors already_addressed (no
+// double-forward). Pure layer (a) To/CC + opportunistic layer (b) cross-mailbox
+// id match for ingested targets only (graceful skip + coverage-gap log otherwise).
+import {
+  checkDuplicateDelivery,
+  type DedupAdmin,
+  type RoutingDedup,
+} from "@/lib/automations/info-routing/dedup";
 // Phase 113 Plan 05 (D-08 / D-09) — the swarm-agnostic Stage-3 ROUTING gate.
 // Read BEFORE the predicted-emit; when gated, persist the verdict (already done
 // by persist-ranked) but withhold flip-status-predicted + emit-predicted so the
@@ -266,9 +281,74 @@ export const debtorEmailCoordinator = inngest.createFunction(
           },
         );
 
-        // Build the 6-field verdict. dedup defaults to routable here; Plan 04
-        // supplies the real two-layer dedup result via the optional arg.
-        const verdict = buildRoutingVerdict(parsed, routingDestinations, threshold);
+        // ---- Phase 131 Plan 04 (ROUTE-05) — two-layer duplicate-delivery
+        // guard. Resolve the target mailbox the SAME way buildRoutingVerdict
+        // does (so the dedup target matches the verdict's), then run the
+        // two-layer check inside step.run (the layer-b DB read must be
+        // replay-safe). The set of ingested target mailboxes is derived from the
+        // routing_destinations rows (RESEARCH A7 — order@ ingested today);
+        // non-ingested targets skip layer (b) gracefully. For an unrouted parse
+        // (no bucket/brand) the target resolves to null → dedup is a no-op
+        // routable, so we skip the DB read entirely. The result feeds the
+        // verdict's optional dedup arg → Phase 132 honors already_addressed.
+        const dedup: RoutingDedup = await step.run(
+          "check-duplicate-delivery",
+          async () => {
+            // unrouted parse → no target → routable (no read).
+            if (parsed.unrouted) {
+              return { status: "routable", matched_layer: null } as RoutingDedup;
+            }
+            const targetMailbox = resolveRoutingDestination(
+              routingDestinations,
+              parsed.value.bucket,
+              parsed.value.brand,
+            );
+            if (!targetMailbox) {
+              return { status: "routable", matched_layer: null } as RoutingDedup;
+            }
+            // The known-ingested target mailboxes: every non-null target_mailbox
+            // in the active routing_destinations is a candidate, but layer (b)
+            // only meaningfully covers ingested mailboxes (order@). We pass the
+            // full set; checkDuplicateDelivery logs a coverage gap + skips
+            // layer (b) for any target whose rows aren't actually ingested. The
+            // dedup helper is conservative — a coverage gap never blocks.
+            const ingestedTargetMailboxes = [
+              ...new Set(
+                routingDestinations
+                  .map((d) => d.target_mailbox)
+                  .filter((m): m is string => !!m),
+              ),
+            ];
+            // Read the source email's recipients + raw_json for layer (a) and
+            // the source message/conversation ids for layer (b). The flat
+            // `recipients` column is NULL for info-routing ingest rows — layer
+            // (a) reads raw_json (handled inside extractRecipientAddresses).
+            const { data: emailRow } = await supabase
+              .from("emails")
+              .select("recipients, raw_json")
+              .eq("id", email_id)
+              .maybeSingle();
+            return checkDuplicateDelivery({
+              emailRow: {
+                recipients:
+                  (emailRow as { recipients?: unknown } | null)?.recipients ?? null,
+                raw_json:
+                  (emailRow as { raw_json?: unknown } | null)?.raw_json ?? {},
+              },
+              targetMailbox,
+              admin: supabase as unknown as DedupAdmin,
+              ingestedTargetMailboxes,
+            });
+          },
+        );
+
+        // Build the 6-field verdict with the REAL two-layer dedup result.
+        const verdict = buildRoutingVerdict(
+          parsed,
+          routingDestinations,
+          threshold,
+          dedup,
+        );
 
         // Persist the verdict via the Stage-3 persistence path (D-02): update
         // coordinator_runs.decision_details.routing THEN emitPipelineEvent
