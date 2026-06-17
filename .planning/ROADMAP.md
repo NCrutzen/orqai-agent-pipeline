@@ -381,7 +381,7 @@ Plans:
 **Goal**: Turn the persisted Stage-3 destination verdict from Phase 131 into a real Stage-4 side-effect: forward each routable info@ email to its resolved departmental mailbox (idempotent, dry-run-gated, brand-aware), stamp the routing outcome back as an Outlook category (the V10 ambient-loop signal), and stand up the info-routing Bulk Review surface so operators can see/verify routing decisions before and after release. `algemeen` (no-forward / stays in info@) and `unrouted` verdicts never forward. No NL routing-config UI and no verkoop@→order@ routing here — those are Phase 133.
 **Depends on**: Phase 131 (the persisted destination verdict + the held no-forward gate that this phase releases) + the info-routing swarm Stage 0/1 live + the verified destination mailboxes (charter §2).
 **Depends on (external/cross-track)**: Outlook Graph forward + category-write capability on the info@ mailboxes. (`algemeen@smeba.nl` non-existence already dispositioned 2026-06-17 — `algemeen` is a no-forward outcome.)
-**Requirements**: provisional — locked by `132-SPEC.md` (run `/gsd:spec-phase 132` or capture during planning).
+**Requirements**: FWD-01, FWD-02, FWD-03, FWD-04, FWD-05, FWD-06, FWD-07, FWD-08, FWD-09, FWD-10 (provisional FWD-xx group derived during planning from success criteria 1-6 + 132-RESEARCH.md; a future `132-SPEC.md` may refine/rename).
 **Success Criteria** (what must be TRUE — provisional, SPEC.md refines):
 
   1. A routable destination verdict triggers an idempotent Outlook forward to the resolved target mailbox; re-runs never double-forward (Phase 131 two-layer dedup guard honored).
@@ -391,7 +391,20 @@ Plans:
   5. An info-routing Bulk Review surface shows each email's destination verdict + forward status for operator verification.
   6. Registry-driven (SWARM-02): zero `if swarm_type==='info-routing'` branches in the shared Stage-4 / dispatcher path.
 
-**Plans**: TBD (created by `/gsd:plan-phase 132`)
+**Plans**: 4 plans (3 waves)
+Plans:
+**Wave 1**
+
+- [ ] 132-01-PLAN.md — Wave 1: [BLOCKING] live Graph send-scope smoke + leaf primitives (forwardMessage 3-call helper, routing-category vocabulary, isForwardBucketReleased per-bucket gate, Wave-0 RED worker scaffold) (FWD-01, FWD-02, FWD-03, FWD-04, FWD-06, FWD-10)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 132-02-PLAN.md — Wave 2: Stage-4 forward worker + info_routing_forwards idempotency store + coordinator pipeline/forward.requested emit + SWARM-02 guard extension + migration (held-by-default seed + RLS table) (FWD-01, FWD-02, FWD-04, FWD-05, FWD-06, FWD-07, FWD-10)
+- [ ] 132-03-PLAN.md — Wave 2: info-routing Bulk Review surface (routing detail-pane + verdict/forward-status hydration + re-route / forward-now / don't-forward server actions) (FWD-08, FWD-09)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 132-04-PLAN.md — Wave 3: [BLOCKING] apply migration 20260617e to remote + codegen drift gate + check:supabase advisor + full suite (FWD-03, FWD-08)
 
 ---
 
