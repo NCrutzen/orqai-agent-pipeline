@@ -131,21 +131,42 @@ export async function loadRoutingDestinations(
   return value;
 }
 
-// Phase 131 (ROUTE-02) — pure (bucket × brand) → target_mailbox resolver. Picks
-// the row whose destination_key === bucket AND brand === brand (the brand-aware
-// cross-brand case: a fire-control mail received at info@smeba resolves to a
-// fire-control mailbox, never smeba). Returns null when no active row matches OR
-// the matched row has a NULL target_mailbox (the unrouted sentinel) — the caller
-// treats null as → unrouted.
+// Phase 131 (ROUTE-02) — pure (bucket × brand) → target_mailbox resolver.
+//
+// Resolution order (BUG 1 / CR-02):
+//   1. EXACT match (destination_key === bucket AND brand === brand). This is the
+//      cross-tenant safety case: a fire-control mail received at info@smeba
+//      resolves to the fire-control mailbox, never smeba.
+//   2. NO exact match → look at all active rows for the bucket. If EXACTLY ONE
+//      row exists (single-tenant bucket: algemeen, sollicitaties, inspecties,
+//      storingen, opleidingen), return its mailbox — the brand guess is
+//      irrelevant because there is only one mailbox. The info-routing-coordinator
+//      agent is instructed + few-shot-demonstrated to emit brand:null for these
+//      no-brand buckets, yet every seeded row carries a non-null brand, so a
+//      strict match would wrongly collapse them to unrouted.
+//   3. Multiple rows for the bucket and no exact brand match (e.g. order_entry /
+//      verkoop with brand=null) → genuinely ambiguous → null (unrouted is right).
+//
+// Returns null when no row resolves OR the resolved row has a NULL target_mailbox
+// (the unrouted sentinel) — the caller treats null as → unrouted.
 export function resolveRoutingDestination(
   destinations: RoutingDestinationRow[],
   bucket: string,
   brand: string | null,
 ): string | null {
-  const row = destinations.find(
+  // (1) exact (bucket × brand) match wins — preserves cross-tenant safety.
+  const exact = destinations.find(
     (d) => d.destination_key === bucket && d.brand === brand,
   );
-  return row?.target_mailbox ?? null;
+  if (exact) return exact.target_mailbox ?? null;
+
+  // (2) no exact match → single-tenant fallback: a bucket with exactly one
+  // active row has only one possible mailbox, so the brand guess is irrelevant.
+  const bucketRows = destinations.filter((d) => d.destination_key === bucket);
+  if (bucketRows.length === 1) return bucketRows[0].target_mailbox ?? null;
+
+  // (3) zero rows, or multiple rows with no exact brand match → ambiguous → null.
+  return null;
 }
 
 // Phase 68 — resolve an intent_key to its handler_event for a swarm_type.
