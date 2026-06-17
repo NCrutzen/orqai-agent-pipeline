@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
 status: executing
-stopped_at: Phase 131-01 COMPLETE — all 3 tasks done, 3 migrations applied to remote + live-verified, codegen drift clean; ready to execute Plan 131-02 (Wave 2)
-last_updated: "2026-06-17T06:40:51.438Z"
+stopped_at: Phase 131-02 COMPLETE — all 3 tasks done; info-routing-coordinator agent (01KVA6BAVS6QWJBHQVENB74R8S) built + 20260617d orq_agents row applied to remote + live-verified; check:supabase 0 ERROR; ready to execute Plan 131-03 (Wave 3)
+last_updated: "2026-06-17T09:15:00.000Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 47
-  completed_plans: 43
-  percent: 82
+  completed_plans: 44
+  percent: 84
 ---
 
 # Project State
@@ -63,9 +63,9 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 131 (destination-taxonomy-stage-3-router-v9-7-p1) — EXECUTING
-Plan: 2 of 5
-Status: Plan 131-01 complete (registry + wiring + codegen applied & live-verified) — ready to execute Plan 131-02 (Wave 2)
-Last activity: 2026-06-17 -- Phase 131-01 finalized (Task 3 checkpoint cleared)
+Plan: 3 of 5
+Status: Plan 131-02 complete (info-routing-coordinator agent built + orq_agents row 20260617d applied & live-verified) — ready to execute Plan 131-03 (Wave 3)
+Last activity: 2026-06-17 -- Phase 131-02 finalized (Task 3 Orq build + remote apply done)
 
 ## Performance Metrics
 
@@ -302,6 +302,7 @@ Last activity: 2026-06-17 -- Phase 131-01 finalized (Task 3 checkpoint cleared)
 - [Phase ?]: [Phase 130-02]: six info-routing noise classes registered as paired swarm_noise_categories + classifier_rules(agent_intent,candidate) seeds (20260616b/20260616c) — zero per-swarm branch (SWARM-02); shadow-only, promotion via classifier-promotion-cron Wilson-CI. NOISE-04 carve-out as production pure predicate hasActionableToken (web/lib/info-routing/actionable-tokens.ts): storing start-boundary, factuur full-boundary, ReDoS-safe; 30/30 boundary test. Migrations NOT yet applied to remote (operator checkpoint). Commits acb6d787/c487c2c6/b0730d97.
 - [Phase ?]: [Phase 130-03]: NOISE-03 measurement substrate — public.info_unknown_pool_composition security_invoker view (per-mailbox Stage-1 distribution over pipeline_events, no time window) + hermetic worker test proving the 6 info-routing categories reach the stage-1-category-classifier closed list (NOISE-01) + per-mailbox labelled-sample baseline (mulberry32 seeded sampling + Wilson-CI, MANUAL human labelling, arg-guarded before createAdminClient). NOISE-02 gate = classifier-promotion-cron (swarm-agnostic Wilson-CI, shadow until CLASSIFIER_CRON_MUTATE=true), NOT labeling-flip-cron. Commits 0aacaf28/07121981/268865de. Task 4 checkpoint-blocked: operator applies 20260616b/c/d + captures BEFORE baseline.
 - [Phase ?]: [Phase 130-04]: NOISE-03 measurement-tooling gap closure (WR-01/WR-02) — pure wilsonCiUpper (95% upper bound, +radius, clamp to 1, n=0->0; symmetry-verified pin 0.668) + wilson_ci_hi surfaced per mailbox in computeNoiseFractions, enabling the AFTER assertion wilson_ci_hi < 0.20; sample scaffold now reads real subject/sender from email_pipeline.emails by email_id (CHUNK=200, sender_email) instead of never-set dd.subject/dd.from (non-circular labelling, Pitfall 5), unresolved ids degrade to null. WR-03 out of scope. No migrations/seeds touched. 24/24 tests green, tsc clean. Commits 04b1fb39/0db9f9fd/b70991d2.
+- [Phase 131-02]: ROUTE-03 — info-routing-coordinator Orq agent built + registered + live-verified. Closed-list Zod gate (coordinator-schema.ts, 11 tests) collapses any invalid/empty agent output to a frozen UNROUTED_OUTCOME without throwing; the agent's bucket enum and the Zod enum BOTH single-source the codegen'd DESTINATION_KEYS_BY_SWARM['info-routing'] (the Orq response_format const is exported from the schema module and IMPORTED by the build script — agent-vs-validator drift is structurally impossible). Agent 01KVA6BAVS6QWJBHQVENB74R8S (project Default/Agents, v1.1.1): list_models-validated Haiku-EU primary + 3 fallbacks (openai/gpt-4o-mini, google-ai/gemini-2.5-flash, mistral/mistral-large-2411) + retry; strict json_schema response_format (8-bucket enum, anyOf-nullable brand) PATCHed + get_agent-verified persisted; default Web Search/Web Scraper tools stripped (tools:[]). Migration 20260617d orq_agents row (agent_key='info-routing-coordinator', swarm_type='info-routing', enabled, timeout_ms=90000) APPLIED to remote + live-verified; check:supabase 0 ERROR. **Deviation:** agent built via Orq MCP not the REST manage script (ORQ_API_KEY lacked scope for GET/verify endpoints + v2 create required a `path`); manage script path-fixed for future use + real orqai_id backfilled. Commits 10481efb/d5814f21/3491896c/681f38f4.
 
 ### Blockers/Concerns
 
@@ -347,9 +348,9 @@ Last activity: 2026-06-17 -- Phase 131-01 finalized (Task 3 checkpoint cleared)
 
 ## Session Continuity
 
-Last session: 2026-06-17T06:40:51.427Z
-Stopped at: Phase 131-01 COMPLETE — all 3 tasks done; 3 migrations (20260617/b/c) applied to remote (mvqjhlxfvtqqubqgdvhz) + live-verified (12 routing_destinations rows, info-routing agent key + stage_3_routing held + threshold 0.6, unknown row swarm_dispatch=pipeline/coordinator.requested); post-apply codegen drift clean
-Resume with: execute Plan 131-02 (Wave 2). ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding.
+Last session: 2026-06-17T09:15:00.000Z
+Stopped at: Phase 131-02 COMPLETE — all 3 tasks done; info-routing-coordinator agent (01KVA6BAVS6QWJBHQVENB74R8S, Haiku-EU + 3 fallbacks, strict json_schema persisted) built via Orq MCP + 20260617d orq_agents row applied to remote (mvqjhlxfvtqqubqgdvhz) + live-verified (enabled info-routing row, 8-bucket enum, anyOf-nullable brand); check:supabase 0 ERROR; schema test 11/11 green
+Resume with: execute Plan 131-03 (Wave 3). ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding.
 Resume file: None
 
 ## Deferred Items

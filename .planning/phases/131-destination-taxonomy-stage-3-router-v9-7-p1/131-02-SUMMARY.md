@@ -9,7 +9,7 @@ requires:
   - phase: 131-01
     provides: routing_destinations registry + DestinationKey codegen (DESTINATION_KEYS_BY_SWARM['info-routing']) + info-routing Stage-3 wiring (agent key set, stage_3_routing held, unknown→coordinator dispatch)
 provides:
-  - public.orq_agents row for info-routing-coordinator (swarm_type=info-routing, enabled, strict json_schema output_schema, anyOf nullable brand, codegen'd bucket enum) — migration written, apply DEFERRED to operator checkpoint
+  - public.orq_agents row for info-routing-coordinator (swarm_type=info-routing, enabled, strict json_schema output_schema, anyOf nullable brand, codegen'd bucket enum) — migration 20260617d APPLIED to remote + live-verified; orqai_id=01KVA6BAVS6QWJBHQVENB74R8S
   - list_models→create-bare→PATCH→get_agent build/verify script (manage-info-routing-coordinator.ts) + Studio json_schema printer
   - closed-list Zod validator (coordinator-schema.ts) — invalid/empty agent output → unrouted outcome, never throws
   - co-located strict Orq response_format json_schema (single-source enum consumed by the build script)
@@ -39,7 +39,7 @@ key-decisions:
 patterns-established:
   - "Co-located single-source response_format: schema module owns BOTH the Zod gate and the Orq json_schema const; the manage script imports the const rather than re-declaring the enum (prevents the classic agent-vs-validator enum drift)"
 
-requirements-completed: []
+requirements-completed: [ROUTE-03]
 
 # Metrics
 duration: 4min
@@ -48,12 +48,12 @@ completed: 2026-06-17
 
 # Phase 131 Plan 02: info-routing-coordinator agent + closed-list validator Summary
 
-**The `info-routing-coordinator` Orq agent registration (orq_agents row migration + list_models-first build/verify script + XML-tagged router prompt) and the closed-list Zod validator that collapses any invalid/empty agent output to the unrouted outcome without throwing — the agent's bucket enum and the Zod enum both single-sourced from the Plan-01 codegen. Tasks 1-2 done + committed; Task 3 (Orq build + Studio Response Format + remote migration apply) is a BLOCKING operator checkpoint, deferred to the orchestrator (MCP/Orq tools stripped from this session).**
+**The `info-routing-coordinator` Orq agent registration (orq_agents row migration + list_models-first build/verify script + XML-tagged router prompt) and the closed-list Zod validator that collapses any invalid/empty agent output to the unrouted outcome without throwing — the agent's bucket enum and the Zod enum both single-sourced from the Plan-01 codegen. ALL 3 tasks complete: the Orq agent (`01KVA6BAVS6QWJBHQVENB74R8S`, Haiku-EU primary + 3 list_models-validated fallbacks, strict json_schema response_format persisted via get_agent) is built + the `20260617d` orq_agents row is APPLIED to remote and live-verified (enabled info-routing row, 8-bucket enum, anyOf-nullable brand). ROUTE-03 met.**
 
 ## Performance
 
-- **Duration:** ~4 min (autonomous portion; Task 3 blocking-human checkpoint pending)
-- **Tasks:** 2 of 3 buildable tasks complete + committed; Task 3 is operator-only (Orq + remote apply)
+- **Duration:** ~4 min (autonomous portion) + operator/orchestrator Orq build + remote apply
+- **Tasks:** 3 of 3 complete + committed (Tasks 1-2 code; Task 3 Orq build + remote apply)
 - **Files created:** 5
 
 ## Accomplishments
@@ -68,6 +68,7 @@ completed: 2026-06-17
 1. **Task 1 RED: failing closed-list schema test** — `10481efb` (test)
 2. **Task 1 GREEN: coordinator-schema.ts + unrouted fallback** — `d5814f21` (feat)
 3. **Task 2: orq_agents row migration + list_models build script + instructions** — `3491896c` (feat)
+4. **Task 3: backfill real orqai_id + add missing project path to manage script** — `681f38f4` (fix)
 
 ## Files Created
 
@@ -95,38 +96,47 @@ completed: 2026-06-17
 - **Verification:** `npx tsc --noEmit` clean on both new info-routing files; schema test still 11/11 green.
 - **Committed in:** `3491896c` (Task 2 commit)
 
+**2. [Rule 3 - Blocking] Agent built via Orq MCP (not the REST manage script); script path-fixed for future use**
+- **Found during:** Task 3 (Orq build + verify)
+- **Issue:** The REST build path could not be driven end-to-end: the `ORQ_API_KEY` in scope lacked the scope needed for the GET/verify (`get_agent`) endpoints, and the v2 create endpoint required a `path` argument the `manage-info-routing-coordinator.ts` script did not supply. The list_models→create-bare→PATCH→get_agent sequence therefore ran via the Orq MCP tools instead of the REST script.
+- **Fix:** The agent (`01KVA6BAVS6QWJBHQVENB74R8S`, project `Default/Agents`, version 1.1.1) was created + configured via Orq MCP — list_models-validated Haiku-EU primary + 3 fallbacks (`openai/gpt-4o-mini`, `google-ai/gemini-2.5-flash`, `mistral/mistral-large-2411`) + retry; strict json_schema `response_format` PATCHed and verified persisted via get_agent (8-bucket enum, anyOf-nullable brand); default Web Search / Web Scraper tools stripped (`tools:[]`) to match the sibling classifiers. The manage script was repaired (missing project `path` added) so the REST path works for future re-provisioning. The real `orqai_id` was backfilled into `20260617d` (replacing the placeholder).
+- **Files modified:** web/scripts/orq/manage-info-routing-coordinator.ts, supabase/migrations/20260617d_phase131_info_routing_coordinator_agent.sql
+- **Verification:** get_agent shows persisted strict response_format; `20260617d` applied to remote + live-verified (orq_agents row `agent_key='info-routing-coordinator'`, `orqai_id='01KVA6BAVS6QWJBHQVENB74R8S'`, `swarm_type='info-routing'`, `enabled=true`, output_schema bucket enum = 8 keys, model_config primary = Haiku-EU); `check:supabase` → 0 ERROR.
+- **Committed in:** `681f38f4`
+
 ---
 
-**Total deviations:** 1 auto-fixed (blocking). No scope creep — the guard's runtime intent is preserved.
+**Total deviations:** 2 auto-fixed (blocking). No scope creep — Deviation 1 preserves the guard's runtime intent; Deviation 2 changes only the build *transport* (MCP vs REST), not the resulting agent contract.
 
 ## Known Stubs
 
-- **`orqai_id = 'PLACEHOLDER_INFO_ROUTING_COORDINATOR_ID'`** in `20260617d`. Intentional: the real Orq agent id is produced by the build script at the Task 3 operator checkpoint and filled in before the migration is applied to remote. ON CONFLICT DO UPDATE makes the post-fill re-apply idempotent. Resolved at Task 3 (this plan's blocking checkpoint), not deferred to a future plan.
+- **None.** The `orqai_id` placeholder was resolved at Task 3 — `20260617d` now carries the real id `01KVA6BAVS6QWJBHQVENB74R8S` (backfilled in `681f38f4`) and is applied to remote. ON CONFLICT DO UPDATE keeps re-apply idempotent.
 
 ## Threat Flags
 
 None — no new network endpoints or trust-boundary surface beyond the planned orq_agents row. T-131B-01/02/03 are mitigated as designed (closed-list Zod + strict json_schema enum; list_models-first model validation; anyOf nullable, 0 array-shorthand verified by grep).
 
-## Task 3 — BLOCKING OPERATOR CHECKPOINT (Orq build + remote apply) — PENDING
+## Task 3 — Orq build + remote apply — COMPLETE
 
-Tasks 1-2 are code-complete, committed, and locally verified. Task 3 requires Orq.ai + Supabase MCP operations that are NOT available in this executor session (stripped). Deferred to the orchestrator.
+The agent is built + the orq_agents row is applied to remote and live-verified. Built via Orq MCP rather than the REST manage script (see Deviation 2: ORQ_API_KEY scope + v2 `path` requirement; script repaired for future use).
 
-**Remaining remote operations (in order):**
+**Live agent:**
 
-1. **Run the build script:** `cd web && npx tsx scripts/orq/manage-info-routing-coordinator.ts --finalize`
-   - Validates every model id via list_models, creates the agent bare, PATCHes `model.parameters` incl. the strict `response_format`, `get_agent`-verifies persistence, and prints both the json_schema and the new agent id.
-2. **Studio JSON-schema Response Format:** Orq Studio → Tools → Add → JSON Schema → paste the printed schema (name `info-routing-coordinator`); then agent → Model parameters → Response Format dropdown = "JSON Schema" → select it. Confirm the Model dropdown is non-empty (validates model ids persisted).
-3. **Backfill orqai_id:** replace `PLACEHOLDER_INFO_ROUTING_COORDINATOR_ID` in `supabase/migrations/20260617d_phase131_info_routing_coordinator_agent.sql` with the real agent id from step 1.
-4. **Apply migration to remote** (`mvqjhlxfvtqqubqgdvhz`) via Supabase MCP `apply_migration`: `20260617d_phase131_info_routing_coordinator_agent`.
-5. **`npm run check:supabase`** → expect 0 ERROR.
-6. **Verify live:** `select agent_key, swarm_type, enabled from public.orq_agents where agent_key='info-routing-coordinator'` returns the enabled info-routing row; a one-shot `invokeOrqAgent('info-routing-coordinator', <sample>)` returns a parseable bucket+brand+confidence within the closed list.
+- **id:** `01KVA6BAVS6QWJBHQVENB74R8S` · project `Default/Agents` · version 1.1.1
+- **model:** Haiku-EU primary (`aws/eu.anthropic.claude-haiku-4-5-20251001-v1:0`) + 3 list_models-validated fallbacks (`openai/gpt-4o-mini`, `google-ai/gemini-2.5-flash`, `mistral/mistral-large-2411`) + retry
+- **response_format:** strict json_schema PATCHed and verified persisted via `get_agent` — 8-bucket enum, anyOf-nullable brand
+- **tools:** default Web Search / Web Scraper stripped (`tools:[]`) to match the sibling classifiers
 
-**Resume signal:** "agent created" (with the orqai_id recorded), or describe issues.
+**Applied registry row (`20260617d` on remote `mvqjhlxfvtqqubqgdvhz`, live-verified):**
+
+- `public.orq_agents` row `agent_key='info-routing-coordinator'`, `orqai_id='01KVA6BAVS6QWJBHQVENB74R8S'`, `swarm_type='info-routing'`, `enabled=true`
+- `output_schema` bucket enum = 8 keys; `model_config` primary = Haiku-EU
+- `check:supabase` → 0 ERROR (re-verified at finalization)
 
 ## Self-Check: PASSED
 
-All 5 created files verified present on disk; all 3 task commits (`10481efb`, `d5814f21`, `3491896c`) verified in git log. Schema test 11/11 green; tsc clean on both new info-routing files; acceptance grep gates pass (codegen import present, 0 array-shorthand in schema + migration, list_models present, ON CONFLICT DO UPDATE present, create-bare→PATCH→get_agent sequence present).
+All 5 created files verified present on disk; all 4 task commits (`10481efb`, `d5814f21`, `3491896c`, `681f38f4`) verified in git log. Schema test 11/11 green (re-run at finalization); `check:supabase` → 0 ERROR, 6 WARN, 23 INFO (no phase-attributable ERROR). Live orq_agents row + agent response_format confirmed by the orchestrator.
 
 ---
 *Phase: 131-destination-taxonomy-stage-3-router-v9-7-p1*
-*Completed (Tasks 1-2): 2026-06-17 — Task 3 blocking operator checkpoint pending (Orq build + remote apply, deferred to orchestrator)*
+*Completed: 2026-06-17 — all 3 tasks done; agent `01KVA6BAVS6QWJBHQVENB74R8S` live + `20260617d` applied to remote*

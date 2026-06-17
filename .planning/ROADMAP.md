@@ -262,7 +262,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
-| 131. Destination taxonomy + router | 1/5 | In Progress|  |
+| 131. Destination taxonomy + router | 2/5 | In Progress|  |
 | 132. Forward + Bulk Review | — | Pending | — |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
 | 134. Ambient-loop coupling | — | Pending | — |
@@ -363,7 +363,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 131-02-PLAN.md — Orq info-routing-coordinator agent (list_models→create→PATCH→get_agent, closed-list anyOf json_schema) + Zod validator (ROUTE-03)
+- [x] 131-02-PLAN.md — Orq info-routing-coordinator agent (list_models→create→PATCH→get_agent, closed-list anyOf json_schema) + Zod validator (ROUTE-03)
 
 **Wave 3** *(blocked on Wave 2)*
 
