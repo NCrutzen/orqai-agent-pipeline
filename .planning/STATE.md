@@ -64,8 +64,8 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 Phase: 123 (unify-stage-2-on-resolve-candidates-retire-legacy-lookup-too) — EXECUTING
 Plan: 4 of 4
-Status: Plan 03 complete — legacy nxt.contact_lookup + nxt.identifier_lookup DELETED from code (wrappers/types/schemas/literals/branches); spike-011b retired + 2 test files rewired; repo grep 0, tsc 0, full vitest green (2732 passed). DB half (2 zapier_tools rows + CHECK widen-back) remains for Plan 04.
-Last activity: 2026-06-17 -- Phase 123 Plan 03 closed (legacy code removal)
+Status: Plan 04 Task 1 complete (migration 20260617_retire_legacy_lookup_tools.sql written + committed a161ccb1). PAUSED at Task 2 [BLOCKING human-verify] — the prod DB apply (DELETE 2 zapier_tools rows + widen-back 2 nxt_lookup_requests CHECK constraints) is operator-gated; migration NOT applied, eval NOT run. Awaiting resume "migration applied". Task 3 (frozen 100-email eval re-run) follows. Plan stays OPEN.
+Last activity: 2026-06-17 -- Phase 123 Plan 04 Task 1 (retirement migration written); checkpoint pending
 
 ## Performance Metrics
 
