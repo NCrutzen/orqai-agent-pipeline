@@ -379,21 +379,24 @@ The `bucket` and `brand` enums are emitted by `gen-routing-destinations.ts` from
 | A6 | `pipeline/coordinator.requested` is the right entry event for info-routing's `unknown` dispatch | Architecture / Runtime Inventory | If a dedicated routing-entry event is preferred, the wiring target changes (still a `swarm_dispatch` string) |
 | A7 | order@smeba is the only meaningfully-ingested layer-(b) target | Pitfall 3, ROUTE-05 | Other target mailboxes → graceful skip + coverage-gap log (D-04 already accepts this) |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Exact frozen bucket set (6 vs 7 vs 8).**
+1. **Exact frozen bucket set (6 vs 7 vs 8).** — RESOLVED (gated to Plan 01 Task 3 operator checkpoint).
    - What we know: charter §2 lists Verkoop, Order-entry/PO, Fire-Control inspecties (planning@), Opleidingen/BHV, Storingen, Sollicitaties (hrm@), Algemeen/contactformulier; Debiteuren/crediteuren/aanbestedingen are deferred to later INSERT.
    - What's unclear: whether `aanbestedingen` and `debiteuren` are truly excluded from the v1 seed (SPEC says deferred).
    - Recommendation: seed the 7 actionable buckets + `unrouted` (8 keys); confirm with operator before the seed migration.
+   - **Resolution:** Default chosen (7 actionable + `unrouted`). The exact seed row set is confirmed by the operator at the **Plan 01 Task 3 blocking checkpoint** (operator reviews seed rows against charter §2 before the migration applies). No code path depends on the ambiguity remaining open.
 
-2. **Brand×bucket mailbox completeness.**
+2. **Brand×bucket mailbox completeness.** — RESOLVED (gated to Plan 01 Task 3 operator checkpoint).
    - What we know: charter §2 verified mailboxes exist per brand for order@/verkoop@ (×3 brands), but planning@/storing.smeba@/opleidingen@/hrm@ are listed for a single brand only.
    - What's unclear: do fire-control/berki inspecties/opleidingen route to the same smeba planning@/opleidingen@, or to brand-specific mailboxes?
    - Recommendation: seed only verified (bucket×brand) rows; rows with no verified mailbox → omit (agent's brand pick with no matching active row → `unrouted` fallback, which is correct behavior).
+   - **Resolution:** Default chosen (seed only verified (bucket×brand) rows; unverified pairs → no row → `unrouted` fallback). Completeness is confirmed at the **Plan 01 Task 3 operator checkpoint** against charter §2.
 
-3. **delta-sync-on-info@ + Outlook-category capture prerequisite status (blocks ROUTE-08 only).**
+3. **delta-sync-on-info@ + Outlook-category capture prerequisite status (blocks ROUTE-08 only).** — RESOLVED (out-of-scope by design; handled by Plan 05 `graded_n` guard).
    - What we know: 0/8000 sampled rows carry `raw_json.categories`; the prerequisite is explicitly OUTSIDE 131.
    - Recommendation: build + unit-test the harness in 131; gate the live measurement run on the prerequisite landing. Do NOT block the router build on it.
+   - **Resolution:** Confirmed out-of-scope. Plan 05 builds + unit-tests the harness with a `graded_n` false-success guard (refuses a verdict when too few rows are graded), so the absent prerequisite cannot produce a false pass. The live measurement run is deferred to after the delta-sync-on-info@ work lands.
 
 ## Environment Availability
 
