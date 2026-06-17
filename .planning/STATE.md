@@ -4,13 +4,13 @@ milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
 status: executing
 stopped_at: Phase 120 context gathered
-last_updated: "2026-06-17T09:50:56.204Z"
-last_activity: 2026-06-17 -- Phase 123 execution started
+last_updated: "2026-06-17T11:15:42.958Z"
+last_activity: 2026-06-17 -- Phase 123 Plan 02 closed (sales rewire)
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 8
-  completed_plans: 4
+  completed_plans: 6
   percent: 25
 ---
 
@@ -63,9 +63,9 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 123 (unify-stage-2-on-resolve-candidates-retire-legacy-lookup-too) — EXECUTING
-Plan: 2 of 4
-Status: Plan 01 complete — debtor sender + invoice paths on resolve_candidates
-Last activity: 2026-06-17 -- Phase 123 Plan 01 closed (Task 3 decision: Option A)
+Plan: 3 of 4
+Status: Plan 02 complete — sales sender + factuur paths on resolve_candidates (both swarms now off the legacy wrappers in production)
+Last activity: 2026-06-17 -- Phase 123 Plan 02 closed (sales rewire)
 
 ## Performance Metrics
 
@@ -212,6 +212,7 @@ Last activity: 2026-06-17 -- Phase 123 Plan 01 closed (Task 3 decision: Option A
 
 ### Decisions
 
+- **[Phase 123-02]** Sales `sender_match` (email_address/email_domain back-search, address-first) + `factuur_match` (invoice_no, root_party_id rollup) now resolve over the single generic `nxt.resolve_candidates` substrate; legacy `lookupSenderToAccount`/`lookupIdentifierToAccount` no longer called from sales production code or mocked in any sales test; corroboration signal axes (`sender_domain`/`invoice_no`) + fail-closed posture (is_unique_in_scope + scope_key + distinct-party/root !=1 → null, no LLM tiebreaker for sales) preserved; zero swarm-name runtime branch. Sales scope constants exported from `lookups/offerte.ts` and reused (single source of truth). tsc 0, sales suite 91 passed. Both swarms now off the legacy wrappers in production (capability-before-removal complete; Plan 03 deletes the defs/types/zapier_tools rows). Commits 341aa64e/b8d7838b.
 - **[Phase 123-01] Task 3 auto_safe_kinds reconciliation — operator selected Option A:** the debtor invoice path calls `resolve_candidates(invoice_no)` DIRECTLY in the NON-AUTO block, independent of `auto_safe_kinds` (live debtor stays `[]`). Preserves the live AUTO/SUGGEST risk posture, keeps the ≥2 → llmTiebreak escalation (fail-closed), and lets Plan 04's frozen 100-email eval score precisely the sender behavior change. Option B (debtor seed `auto_safe_kinds += invoice_no`, turning on the root-rollup AUTO tier) was REJECTED — not covered by the frozen eval. No debtor seed migration added. Corroboration engine (Phase 120) + brand_id-combined invoice search (Phase 122) remain out of scope.
 - **[Phase 123-01]** Debtor `sender_match` (email_domain/email_address back-search) + `identifier_match` (invoice_no, root_party_id rollup) both resolve over the single generic `nxt.resolve_candidates` substrate; legacy `lookupSenderToAccount`/`lookupIdentifierToAccount` no longer called from production steps or mocked in any resolve test; both engine.ts call sites pass config; ambiguity fails closed; SWARM-02 swarm-agnostic grep green. tsc 0, vitest 176 passed. Capability-before-removal — Plan 03 deletes the wrapper defs/types/zapier_tools rows. Commits 0284340a/c3871383/371a93f8.
 - **[2026-06-04, operator] V9.0 re-sequenced: Phase 114 (Stage 2 resolver reuse) executes BEFORE Phase 113 (Stage 3 intent agent).** Data-grond: verkoop@-corpus (1.273 inbound) is uitzonderlijk klant-resolvebaar — 32% "offerte" in subject, 27% nummer-referenties, 75% business-domeinen (2% freemail), ≥44% extern-domein overlap met debiteuren@-senders (ondergrens). Runtime is toch Stage 2→3 (context-shape contract); customer-resolved corpus verrijkt de intent-seeding (STAGE3-02) met een klant-vs-prospect-as. Consequentie: v8.2 RESL-01/02/03 seam-dep staat nu op het kritieke pad — 114-discuss moet eerst seam-status vaststellen (seam NIET geland in deze workspace; alleen registry-kolommen, `resolution_config` = inert placeholder). Twee ingest-gaten als 114-prereq vastgelegd (todos 2026-06-04: attachments-gap + sender-email-gap).

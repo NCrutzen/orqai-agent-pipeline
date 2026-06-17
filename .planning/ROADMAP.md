@@ -572,9 +572,9 @@ The Customer Resolver must use ONE generic look-up — `nxt.resolve_candidates` 
   5. The two `public.zapier_tools` rows deleted + the `nxt_lookup_requests` CHECK constraints widened-back (prod migration).
   6. **Acceptance eval**: re-run the frozen 100-email fixture (`web/scripts/eval/resolver-correctness-gate.ts`) — sender behavior change on the dominant error source must not regress, and corroboration must now fire over the generic path. This is the carried-over Phase-120 debtor gate (`RERUN-FINDINGS.md` / `120-HUMAN-UAT.md`).
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 - [x] 123-01-PLAN.md — Debtor sender_match + invoice resolution onto resolve_candidates (wave 1; RESL-UNIFY-01/02/07; auto_safe_kinds reconciliation decision)
-- [ ] 123-02-PLAN.md — Sales sender_match + factuur_match onto resolve_candidates (wave 1; RESL-UNIFY-03/07)
+- [x] 123-02-PLAN.md — Sales sender_match + factuur_match onto resolve_candidates (wave 1; RESL-UNIFY-03/07)
 - [ ] 123-03-PLAN.md — Atomic removal of nxt.contact_lookup + nxt.identifier_lookup from code + tests (wave 2; RESL-UNIFY-04)
 - [ ] 123-04-PLAN.md — DB migration (delete rows + widen-back CHECK) + carried-over 100-email correctness gate (wave 3; RESL-UNIFY-05/06)
 
