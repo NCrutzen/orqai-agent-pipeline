@@ -545,10 +545,10 @@ Give the resolution engine a config-expressible corroboration capability so it C
   4. Precedence ordering (incl. the §0.10-A5 inversion) and flat voting interact by an explicit, documented rule.
   5. The no-Engine-diff measurement is re-run post-landing and recorded as the FINAL STAGE2-01 acceptance — supersedes the PROVISIONAL V9.0 result.
 
-**Plans:** 4 plans, 4 sequential waves (planned 2026-06-16; plan-check PASS 0 blockers; W1/W2/W3 warnings hardened). Ready to execute.
+**Plans:** 1/4 plans executed
 
 Plans:
-- [ ] 120-01-PLAN.md *(wave 1)* — Engine capability: pure scoreCorroboration helper + CorroborationConfig field + config-gated collect-then-decide branch (CORR-01..04)
+- [x] 120-01-PLAN.md *(wave 1)* — Engine capability: pure scoreCorroboration helper + CorroborationConfig field + config-gated collect-then-decide branch (CORR-01..04)
 - [ ] 120-02-PLAN.md *(wave 2, ⊃ 01)* — Sales SWARM-02 reconciliation + REST→SQL transport switch (offerte/order/sites via resolver_index; shared helper) (CORR-04/05)
 - [ ] 120-03-PLAN.md *(wave 3, ⊃ 01,02)* — Two resolution_config re-seeds (debtor + sales) + debtorP0Config lockstep + [BLOCKING] live Supabase apply (CORR-05)
 - [ ] 120-04-PLAN.md *(wave 4, ⊃ 03)* — Correctness gate (frozen 100-email re-run) + FINAL no-engine-diff re-baseline → STAGE2-01 (CORR-05)
