@@ -262,7 +262,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
-| 131. Destination taxonomy + router | 2/5 | In Progress|  |
+| 131. Destination taxonomy + router | 3/5 | In Progress|  |
 | 132. Forward + Bulk Review | — | Pending | — |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
 | 134. Ambient-loop coupling | — | Pending | — |
@@ -367,7 +367,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 131-03-PLAN.md — Coordinator routing capability: 6-field verdict on coordinator_runs.decision_details.routing + TELE-01, unrouted gate, ROUTE-07 no-forward/no-Stage-2 gate (ROUTE-04, ROUTE-06, ROUTE-07)
+- [x] 131-03-PLAN.md — Coordinator routing capability: 6-field verdict on coordinator_runs.decision_details.routing + TELE-01, unrouted gate, ROUTE-07 no-forward/no-Stage-2 gate (ROUTE-04, ROUTE-06, ROUTE-07)
 
 **Wave 4** *(blocked on Wave 3; 04 ∥ 05)*
 
