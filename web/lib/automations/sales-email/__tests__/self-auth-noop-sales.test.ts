@@ -24,7 +24,7 @@ import { describe, it, expect, vi } from "vitest";
 // Self-contained chainable admin mock (donor vi.hoisted pattern — no module-top
 // const closure). Every chain method returns the proxy; single/maybeSingle/then
 // resolve to an empty hit so any thread_inheritance / prior-label lookup misses.
-const { adminMock, nxtRequestMock, lookupSenderMock, lookupIdentifierMock } =
+const { adminMock, nxtRequestMock, lookupResolveCandidatesMock } =
   vi.hoisted(() => {
     const empty = { data: null, error: null };
     const makeChain = (): unknown =>
@@ -50,8 +50,7 @@ const { adminMock, nxtRequestMock, lookupSenderMock, lookupIdentifierMock } =
     return {
       adminMock: admin,
       nxtRequestMock: vi.fn(),
-      lookupSenderMock: vi.fn(),
-      lookupIdentifierMock: vi.fn(),
+      lookupResolveCandidatesMock: vi.fn(),
     };
   });
 
@@ -65,9 +64,10 @@ vi.mock("@/lib/supabase/admin", () => ({
 vi.mock("@/lib/automations/nxt-zapier/nxt-client", () => ({
   nxtRequest: nxtRequestMock,
 }));
+// Phase 123-02: sender + factuur resolve over resolve_candidates (no legacy
+// per-kind wrappers). The self-auth no-op case yields no substrate match.
 vi.mock("@/lib/automations/debtor-email/nxt-zap-client", () => ({
-  lookupSenderToAccount: lookupSenderMock,
-  lookupIdentifierToAccount: lookupIdentifierMock,
+  lookupResolveCandidates: lookupResolveCandidatesMock,
 }));
 
 import { resolveEntity } from "../resolve-customer";
@@ -103,8 +103,7 @@ const selfAuthEmailArgs = {
 describe("Phase 114-05 STAGE2-02: sales self-auth tier degrades to a no-op", () => {
   it("auto_safe_kinds:[] → no self-auth candidate synthesized, no crash", async () => {
     nxtRequestMock.mockResolvedValue({ status: 200, ok: true, data: null });
-    lookupSenderMock.mockResolvedValue({ matches: [] });
-    lookupIdentifierMock.mockResolvedValue({ matches: [] });
+    lookupResolveCandidatesMock.mockResolvedValue({ matches: [] });
 
     const config = { ...salesConfig, auto_safe_kinds: [] };
 

@@ -18,6 +18,7 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 | **v8.1** | Validation + Visibility — body ingestion, Stage 1 noise rules, Stage 3 prompt v3, open-set discovery | **Shipped 2026-06-01** |
 | **v8.2** | Stage 2 Resolution Recall — debtor track (SQL-native NXT resolver) · _parallel with V9.0_ | **Defined / next** |
 | **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) · _parallel with v8.2_ | **Shipped 2026-06-15** _(was V10.0)_ |
+| **V9.5** | Stage-2 resolver correctness — corroboration (D-06) + attachment-borne IDs + cross-brand scope · _grounded by the 100-email operator eval (64% baseline); finalizes V9.0 STAGE2-01; before V10.0_ | **Defined 2026-06-16** |
 | **V9.7** | Routing Swarm go-live — info@ + verkoop@→order@ departmental routing · _data-grounded (live mailbox/volume analysis); first ambient-loop consumer; decoupled from V9.5; sequenced after V9.5, before V10.0_ | **Defined 2026-06-16** |
 | **V10.0** | Promotion Recommender + Learning Inbox + reply-tracing (self-learning) | **Defined** _(was V9.0)_ |
 | **V11.0** | Intent-prioritised handlers | **Defined** |
@@ -243,7 +244,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 ---
 
-### V9.0 Sales-Email Canonical Pipeline — Outlook-driven (Phases 110–117) — ACTIVE (re-sequenced 2026-06-02; was V10.0)
+### V9.0 Sales-Email Canonical Pipeline — Outlook-driven (Phases 110–117) — SHIPPED 2026-06-15 (re-sequenced 2026-06-02; was V10.0)
 
 **Milestone goal:** `verkoop@smeba.nl` runs the full canonical 5-stage funnel end-to-end with an operator-usable Bulk Review trace — the actual "second swarm validation" v8.0 promised, and the first cross-swarm reuse of the v8.2 NXT resolver. **NOT "move to Outlook"** (ingest already live, 827 emails/30d, Sugar→Outlook cutover done 2026-05-06): the delta is finish Stage 1 + add Stage 2/3 + Bulk Review + clean up dead Sugar code.
 
@@ -502,6 +503,115 @@ Plans:
 
 - [x] 117-01-PLAN.md — Wave 1: pure intent→category mapper (AI: prefix, strip-stale) + stage_3_intent_label dry-run gate key + swarm_written_categories RLS table/store helper + migration (written, not applied) [OUTLOOK-CAT-01,02,05]
 - [x] 117-02-PLAN.md — Wave 2: swarm-agnostic pipeline/intent-label.requested emit from shared coordinator + gated idempotent never-clobber intent-label worker + registration + 112.5 baseline coordination doc + [BLOCKING] migration apply [OUTLOOK-CAT-01,02,03,04,05]
+
+---
+
+### V9.5 Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE (activated 2026-06-16)
+
+**Why this milestone exists.** V9.0 shipped sales Stage 2 as **observe-only (fast-follow, non-blocking)** and its STAGE2-01 "zero-Engine-diff" generality proof is **PROVISIONAL** until multi-match corroboration (D-06) lands — corroboration is ENGINE work and *will* touch `engine.ts`, so the no-Engine-diff gate cannot be final before it ships (tripwire todo `2026-06-04-d06-corroboration-fast-follow.md`). D-06 is a LOCKED CTO requirement from Phase 114 CONTEXT ("multi matchen om de zekerheid te verhogen"), independently validated by spike 011 (~39.8% corroboration surface on sales mail) and independently re-derived by a second practitioner (2026-06-16). V9.5 is the dedicated home for that engine work + the attachment signal that feeds it, banded **120+** to stay clear of the archived V9.0 (110–117) and the parallel debtor v8.2 track (90–95) — avoiding the single-writer `.planning/` collision other active sessions (debtor-feedback, attachments) would otherwise hit (`docs/collaboration.md`).
+
+**Placement rationale (operator, 2026-06-16):** architecturally D-06 is resolver-substrate work (v8.2's domain), but v8.2 is the debtor track with an active parallel session; a fresh V9.5 band isolates this sales-resolver-adjacent fast-follow. **Sequenced BEFORE V10.0** — self-learning consumes clean Stage-2 resolution ("so corrections aren't dominated by un-resolved rows") and contains the data-driven-resolver-steps refactor that builds on the corroboration capability.
+
+**Milestone goal:** Stage 2 resolution raises confidence (and catches false positives) by corroborating **multiple independent identifier signals** — including identifiers parsed from attachment *content* — that agree on the same customer, replacing the per-step LLM tiebreaker for the agreeing-signals case, and by searching across brand scopes when the customer lives under a different entity than the mailbox. The generic, swarm-agnostic engine capability lands and makes the V9.0 STAGE2-01 no-Engine-diff gate legitimately final.
+
+**Operator-grounded requirements basis + acceptance baseline (added 2026-06-16):** a debiteurenbeheer colleague manually validated the resolver's customer match on **100 debtor emails** — `.planning/evals/2026-06-16-resolver-customer-eval/FINDINGS.md` (sheet alongside). Baseline = **64% correct (64 Ja / 25 Nee / 11 Twijfel)**, strongly bimodal: factuur/klantnummer methods ~95%, sender/e-maildomein **21%**; confidence is well-calibrated (AUTO 86% vs SUGGESTIE 13%). The 36 errors map onto exactly the V9.5 phases — bucket B sender-ambiguity (12) → Phase 120, bucket A answer-in-attachment (7) → Phase 121, bucket C wrong-brand-entity (9) → **Phase 122 (new)**, bucket D factuur-in-subject (3) → rides along in Phase 121 (extraction/precedence). **Acceptance:** re-run the resolver over the same frozen 100 after 120/121/122 land; target a material reduction of the 36 Nee+Twijfel (esp. eliminating the 4 confident-wrong AUTO and the now-known-answer A/C cases). This is a *correctness* gate that sits alongside (does not replace) the no-Engine-diff measurement. **Ground-truth note:** Exact customer numbers == NXT numbers, so the colleague's Exact cross-checks are valid NXT ground-truth.
+
+**Dependency graph:**
+```
+120 (corroboration engine)  ──┐
+                              ├──> re-run no-Engine-diff measurement (finalizes V9.0 STAGE2-01)
+121 (attachment-borne IDs)  ──┤   120 consumes 121's identifiers as corroboration signals; runs in parallel
+122 (cross-brand scope)     ──┘   independent scope_key fix; feeds the same re-run vs the 100-email baseline
+```
+**External/cross-track:** consumes the `resolver_index` + `nxt.resolve_candidates` substrate (Phase 91, live for debtor). Sales must migrate its REST-proxy lookups onto the same SQL back-search to feed corroboration — see todo `2026-06-15-sales-offerte-lookup-false-positive.md` (the postcode schema gap + REST→SQL migration). Both swarms benefit.
+
+**Phases in this milestone** (detail sections below):
+
+- [x] **Phase 120: D-06 multi-signal corroboration engine (generic, cross-swarm)** *(added 2026-06-16)* — give the resolution engine a config-expressible corroboration capability so it COLLECTS candidate signals across precedence steps instead of short-circuiting on the first hit, and RAISES confidence when ≥N independent identifiers agree on the same `customer_account_id`; swarm-agnostic, no per-swarm branch (SWARM-02), re-seed `resolution_config` to opt in, then re-run the no-Engine-diff measurement to finalize V9.0 STAGE2-01. (completed 2026-06-17)
+- [ ] **Phase 121: Attachment-borne identifier extraction (corroboration signal source)** *(added 2026-06-16)* — parse identifiers (PO / offertenummer / invoice / order numbers) out of attachment **content** (PDF text first, per Phase 116) and feed them into Stage 2 resolution as first-class identifiers; adapter-side body-source (STAGE2-01-safe), registry-gated per swarm, no per-swarm code (SWARM-02).
+- [ ] **Phase 122: Cross-brand-scope customer resolution** *(added 2026-06-16, from the resolver eval)* — on an in-scope miss, fall back to a cross-brand back-search over `resolver_index` (unique hit resolves, non-unique degrades to suggestie) instead of returning nothing or a wrong-scope guess; swarm-agnostic, config-gated, zero per-swarm branch (SWARM-02).
+- [x] **Phase 123: Unify Stage-2 on `resolve_candidates` + retire legacy lookup tools** *(added 2026-06-17, operator directive)* — move the debtor swarm (sender + invoice) onto the single generic `resolve_candidates` resolver (`resolver_index` already has `email_domain`/`email_address`/`invoice_no` kinds), and REMOVE `nxt.contact_lookup` + `nxt.identifier_lookup` entirely — from code (wrappers/types/schemas/steps/sales adapter/tests) AND the database (`zapier_tools` rows + `nxt_lookup_requests` CHECK constraints). One generic look-up, no dual-tool confusion (SWARM-02). **Carries the deferred Phase-120 debtor correctness gate as its acceptance eval** (sender resolution behavior changes on the dominant error source — must re-score the frozen 100-email fixture). Full inventory: `.planning/todos/pending/2026-06-17-unify-stage2-on-resolve-candidates.md`. (completed 2026-06-17)
+
+### Phase 120: D-06 multi-signal corroboration engine (generic, cross-swarm)
+
+*(added 2026-06-16)*
+
+Give the resolution engine a config-expressible corroboration capability so it COLLECTS candidate signals across precedence steps instead of short-circuiting on the first hit, and RAISES confidence when ≥N independent identifiers agree on the same `customer_account_id`. Swarm-agnostic, no per-swarm branch (SWARM-02). Replaces the per-step LLM tiebreaker for the agreeing-signals case (tools-first / LLM-last-resort, `stage-2-entity.md` §Anthropic Pattern Mapping). Re-seed `resolution_config` (debtor + sales) to opt in. Re-run the no-Engine-diff measurement after it lands → that result legitimately gates V9.0 STAGE2-01 as final.
+
+**Goal**: A confident wrong customer is the failure to avoid; multiple agreeing signals make resolution both more confident and more falsifiable, deterministically and without an LLM call. Today's precedence-ORDERED short-circuit and the flat collect-all-then-vote corroboration model must be reconciled explicitly in the `resolution_config.corroboration` design (not left implicit).
+
+**Depends on**: nothing within V9.5 (engine work stands alone). **External**: `resolver_index`/`resolve_candidates` substrate (Phase 91, live). Consumes Phase 121's identifiers when present, but does not block on them.
+**Requirements**: CORR-01..05 (defined at planning). Draft shape:
+
+  1. `resolution_config.corroboration: { min_signals, boost }` is read by the engine — NOT silently ignored (Pitfall 3 from the d06 todo).
+  2. Engine collects candidates across precedence steps; ≥N agreeing on one `customer_account_id` → confidence raised deterministically, no LLM call on the agreeing path.
+  3. Zero `if swarm==='…'` branches — corroboration is generic, opt-in per swarm via config (SWARM-02 holds).
+  4. Precedence ordering (incl. the §0.10-A5 inversion) and flat voting interact by an explicit, documented rule.
+  5. The no-Engine-diff measurement is re-run post-landing and recorded as the FINAL STAGE2-01 acceptance — supersedes the PROVISIONAL V9.0 result.
+
+**Plans:** 4/4 plans complete
+
+Plans:
+- [x] 120-01-PLAN.md *(wave 1)* — Engine capability: pure scoreCorroboration helper + CorroborationConfig field + config-gated collect-then-decide branch (CORR-01..04)
+- [x] 120-02-PLAN.md *(wave 2, ⊃ 01)* — Sales SWARM-02 reconciliation + REST→SQL transport switch (offerte/order/sites via resolver_index; shared helper) (CORR-04/05)
+- [x] 120-03-PLAN.md *(wave 3, ⊃ 01,02)* — Two resolution_config re-seeds (debtor + sales) + debtorP0Config lockstep + [BLOCKING] live Supabase apply (CORR-05)
+- [x] 120-04-PLAN.md *(wave 4, ⊃ 03)* — Correctness gate (frozen 100-email re-run) + FINAL no-engine-diff re-baseline → STAGE2-01 (CORR-05)
+
+### Phase 123: Unify Stage-2 on `resolve_candidates` + retire legacy lookup tools
+
+*(added 2026-06-17, operator directive)*
+
+The Customer Resolver must use ONE generic look-up — `nxt.resolve_candidates` (the `resolver_index` SQL substrate, Zap `43uuz1r`). Today the debtor swarm still resolves sender via the legacy `nxt.contact_lookup` and invoices via `nxt.identifier_lookup` (because live `debtorP0Config.auto_safe_kinds` is `[]`, the Phase-91 generic AUTO tier is off). The dual-tool split creates confusion and blocks a meaningful debtor corroboration eval. This phase migrates debtor (and the sales sender/factuur paths) fully onto `resolve_candidates` and DELETES the two legacy tools from code + database.
+
+**Goal**: One swarm-agnostic resolver. After this phase, `nxt.contact_lookup` and `nxt.identifier_lookup` do not exist anywhere (code or `zapier_tools`), and both swarms resolve every identifier kind (sender via `email_domain`/`email_address`, invoices via `invoice_no`, numbers via the existing back-search) through `resolve_candidates`.
+
+**Depends on**: Phase 120 (corroboration engine + sales on resolve_candidates — done). **External**: `resolver_index` substrate already carries `email_domain` (21,126) + `email_address` (31,138) + `invoice_no` (175,004) rows in scope SB (verified live 2026-06-17) — no proc change needed.
+
+**Requirements**: RESL-UNIFY-01..07 (defined at planning — see REQUIREMENTS.md). Mapping to draft shape:
+  1. Debtor `sender_match` resolves via `resolve_candidates` (`email_domain`/`email_address`), not `contact_lookup`.
+  2. Debtor `identifier_match` resolves invoices via `resolve_candidates` (`invoice_no`); the legacy `identifier_lookup` fallback is removed.
+  3. Sales sender_match + factuur_match likewise on `resolve_candidates`.
+  4. `nxt.contact_lookup` + `nxt.identifier_lookup` removed from `nxt-zap-client.ts` (wrappers/types/schemas/literals/branches), all step modules, the sales adapter, and ~11 test files.
+  5. The two `public.zapier_tools` rows deleted + the `nxt_lookup_requests` CHECK constraints widened-back (prod migration).
+  6. **Acceptance eval**: re-run the frozen 100-email fixture (`web/scripts/eval/resolver-correctness-gate.ts`) — sender behavior change on the dominant error source must not regress, and corroboration must now fire over the generic path. This is the carried-over Phase-120 debtor gate (`RERUN-FINDINGS.md` / `120-HUMAN-UAT.md`).
+
+**Plans:** 4/4 plans complete
+- [x] 123-01-PLAN.md — Debtor sender_match + invoice resolution onto resolve_candidates (wave 1; RESL-UNIFY-01/02/07; auto_safe_kinds reconciliation decision)
+- [x] 123-02-PLAN.md — Sales sender_match + factuur_match onto resolve_candidates (wave 1; RESL-UNIFY-03/07)
+- [x] 123-03-PLAN.md — Atomic removal of nxt.contact_lookup + nxt.identifier_lookup from code + tests (wave 2; RESL-UNIFY-04)
+- [x] 123-04-PLAN.md — DB migration (delete rows + widen-back CHECK) + carried-over 100-email correctness gate (wave 3; RESL-UNIFY-05/06)
+
+### Phase 121: Attachment-borne identifier extraction (corroboration signal source)
+
+*(added 2026-06-16)*
+
+Parse identifiers out of attachment **content** (PDF text first, per Phase 116's extraction pipeline) — PO / offertenummer / invoice / order numbers that live only on letterhead — and feed them into Stage 2 resolution as first-class identifiers. Broader than commit #90 (which folds only attachment *filename* into the Stage 2 body). Adapter-side body-source, engine stays byte-identical (STAGE2-01-safe); registry-gated per swarm (`attachment_config`), no per-swarm code (SWARM-02).
+
+**Goal**: The hardest identifier is often only in the attachment; surfacing it both lifts standalone recall and supplies the extra independent signals that make Phase 120's corroboration fire.
+
+**Depends on**: Phase 116 (attachment metadata capture + on-demand text extraction, shipped in V9.0). Pairs with Phase 120 (its output is a corroboration input).
+**Requirements**: ATID-01..04 (defined at planning). Draft shape:
+
+  1. Attachment-content extraction yields identifiers via the same extraction regexes/kinds the body uses — no attachment-specific identifier logic.
+  2. Extracted identifiers enter Stage 2 adapter-side; `engine.ts`/`config.ts`/`steps/*` byte-unchanged (no-Engine-diff guard green).
+  3. Registry-gated per swarm via `attachment_config`; a swarm opts in with a registry row, zero code (SWARM-02).
+  4. Sales onboards first (its offerte/PO traffic carries letterhead IDs); debtor/info opt in via registry row.
+  5. **Rides along (eval bucket D, 3 rows):** factuurnummer present in the **subject line** is extracted and used, and factuur-match outranks sender-match in precedence — the gold ID must win over the weak prior when both are present. Same extraction-completeness theme as attachment-borne IDs; folded in here rather than a separate todo (operator, 2026-06-16).
+
+### Phase 122: Cross-brand-scope customer resolution
+
+*(added 2026-06-16, from the resolver eval)*
+
+When the resolver's identifier (factuur / klantnummer / name) does not resolve within the mailbox's own brand `scope_key`, fall back to a **cross-brand back-search** over `resolver_index` instead of returning nothing or a wrong-scope guess. Surfaced by the 2026-06-16 debtor eval: 9/100 emails had the correct customer under a *different* brand entity than the mailbox (smeba-fire vs smeba-BB, berki) — the customer was resolvable (operator found it in Exact via factuur) but the single-scope search missed it. Swarm-agnostic, registry/config-expressible, zero per-swarm branch (SWARM-02).
+
+**Goal**: A mail in the wrong brand mailbox should still resolve to the right customer when the identifier is unambiguous cross-scope — and must NOT manufacture a new false positive (the cross-scope match must itself be unique, `is_unique_in_scope`-style, or it degrades to a suggestie). Distinguish "customer under another brand" (resolve it) from "wrong mailbox, needs re-routing" (operator signal) — these are different fixes; this phase owns the resolution half, not the ingest re-routing half.
+
+**Depends on**: nothing within V9.5 (uses the existing `resolver_index` substrate, Phase 91). Independent of 120/121; all three feed the same re-run vs the 100-email baseline.
+**Requirements**: XSCOPE-01..03 (defined at planning). Draft shape:
+
+  1. On in-scope miss, the engine performs a cross-scope `resolve_candidates` back-search; a unique cross-scope hit resolves, a non-unique one degrades to suggestie (no confident wrong-scope guess).
+  2. Cross-scope resolution is config-gated per swarm (opt-in), zero `if swarm==='…'` branch (SWARM-02 holds).
+  3. The 9 eval bucket-C rows resolve to the operator-confirmed customer (or are correctly demoted to suggestie when genuinely ambiguous) in the post-landing re-run.
 
 ---
 

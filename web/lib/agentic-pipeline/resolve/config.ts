@@ -117,4 +117,43 @@ export interface ResolutionConfig {
   blocklist_ref: ResolutionBlocklistRef;
   /** Whether the LLM tiebreaker (llm-tiebreaker.ts) runs over ambiguous candidate sets. */
   llm_tiebreaker: boolean;
+  /**
+   * Phase 120 (D-06 multi-signal corroboration). OPTIONAL — when ABSENT the
+   * engine runs today's first-hit short-circuit loop byte-identically (CORR-04,
+   * protects no-engine-diff for non-opted-in swarms). When PRESENT the engine
+   * collects every precedence step's candidate and scores deterministically via
+   * scoreCorroboration() — NO LLM call (D-03).
+   *
+   * This is FREE-FORM jsonb (NOT codegen'd) like the rest of resolution_config —
+   * the seed (Plan 03) is the only writer (operator-controlled, RLS-gated table).
+   */
+  corroboration?: CorroborationConfig;
+}
+
+/**
+ * Phase 120 (D-06) — the corroboration scoring policy. Read by scoreCorroboration()
+ * to decide boost / demote / lone-signal capping over the collected candidate set.
+ */
+export interface CorroborationConfig {
+  /**
+   * D-04 — the minimum number of DISTINCT identifier_kind signals (the D-05
+   * independence axis) agreeing on one customer required to BOOST to high.
+   * Default 2. NOTE: scoreCorroboration applies a `Math.max(2, min_signals)`
+   * FLOOR (T-120-03) so a malformed seed (min_signals=0) cannot make a lone
+   * signal "agree" with itself and auto-boost.
+   */
+  min_signals: number;
+  /**
+   * The confidence tier a corroborated (≥min_signals agreeing) candidate is
+   * boosted to. Default "high". Never raises a candidate ABOVE its agreement —
+   * the boost only applies when the agreement gate passes.
+   */
+  boost: "high" | "medium";
+  /**
+   * D-07 — identifier_kinds that are STRONG enough to keep their native high
+   * confidence when they are the LONE signal (e.g. "invoice_no", "customer_no").
+   * Any lone kind NOT in this set is capped below AUTO (high→medium). A lone
+   * sender/domain signal is deliberately omitted so it caps to medium.
+   */
+  auto_safe_alone_kinds?: string[];
 }

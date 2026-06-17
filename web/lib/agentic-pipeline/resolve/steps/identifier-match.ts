@@ -1,26 +1,25 @@
-// Phase 90 (P0 resolver substrate) — Step module: identifier_match.
+// Phase 90 → Phase 123 — Step module: identifier_match.
 //
-// 1:1 VERBATIM port of resolve-debtor.ts Layer 3 (:227-285). D-01/D-02.
+// Phase 123 (RESL-UNIFY-02): the invoice path now resolves over the SINGLE generic
+// nxt.resolve_candidates substrate (invoice_no kind). The legacy per-kind
+// identifier_lookup + candidate_details fallback wrappers are REMOVED —
+// extract-invoices seed → resolve_candidates(invoice_no) → ROOT
+// paying customer (root_party_id rollup, D-04). Single distinct root → high; >=2
+// distinct roots → LLM tiebreaker (preserves the P0 NON-AUTO escalation);
+// prefix-mismatch / lookup-error → SUGGEST. The invoice path works REGARDLESS of
+// auto_safe_kinds (option A, Plan 01 Task 3) so live debtor (auto_safe_kinds:[])
+// still resolves invoices.
 //
-// extract-invoices seed → invoice → paying customer. Same graceful per-layer
-// .catch(() => ({matches:[]})) fall-through as Layer 2. Multiple invoice rows
-// may resolve to the same top-level customer — dedupe by top_level_customer_id
-// before single-vs-ambiguous. Single-hit short-circuits; ≥2 escalates to the
-// LLM tiebreaker.
-//
-// NO extraction-guard hardening of any kind — the P1 precision guards
-// (RESL-14) are deliberately absent in P0; adding them now would dirty the
-// equality dry-run.
+// The Phase 91 runNumberBackSearchAuto AUTO pre-pass (gated on auto_safe_kinds) is
+// UNCHANGED — it already reads resolve_candidates; only the legacy NON-AUTO block
+// changed.
 //
 // The step also returns the extracted identifiers so the engine's `unresolved`
-// fallback can populate inputs.matched_identifiers byte-identically to the
-// legacy `invoices?.candidates ?? []` (resolve-debtor.ts:296).
+// fallback can populate inputs.matched_identifiers (the legacy
+// `invoices?.candidates ?? []` contract — unchanged).
 
 import {
-  lookupIdentifierToAccount,
-  lookupCandidateDetails,
   lookupResolveCandidates,
-  type CandidateDetail,
   type ResolveCandidateMatch,
 } from "@/lib/automations/debtor-email/nxt-zap-client";
 import { extractInvoiceCandidates } from "@/lib/automations/debtor-email/extract-invoices";
@@ -35,16 +34,6 @@ import type { SelfAuthConfig } from "./self-auth-match";
 // for the prefix-family tiebreaker, auto_safe_kinds for the eligible number kinds).
 // Swarm-agnostic (D-08): no debtor literals.
 export type IdentifierMatchConfig = SelfAuthConfig;
-
-// Phase 82.9 — `toCandidate` (ported verbatim from resolve-debtor.ts:107-114).
-function toCandidate(m: CandidateDetail): Candidate {
-  return {
-    id: m.id,
-    name: m.name,
-    contact_person: m.contact_person ?? null,
-    recent_invoices: m.recent_invoices ?? [],
-  };
-}
 
 export interface IdentifierMatchOutcome {
   /** A resolved result (single-hit or tiebreaker), or null to fall through. */
@@ -81,65 +70,89 @@ export async function runIdentifierMatch(
     // No AUTO → fall through to the legacy invoice path (non-AUTO tier).
   }
 
+  // Phase 123 (RESL-UNIFY-02, option A) — the invoice path now resolves over the
+  // SAME generic resolve_candidates substrate (invoice_no kind), INDEPENDENT of
+  // auto_safe_kinds (so live debtor with auto_safe_kinds:[] still resolves
+  // invoices). The legacy per-kind identifier_lookup + candidate_details fallback
+  // path is GONE — resolve_candidates carries party_name directly, so the single-hit
+  // detail fetch is unnecessary. The P0 risk posture is preserved: single distinct
+  // ROOT → high, >=2 distinct → llmTiebreak escalation, prefix-mismatch/error →
+  // SUGGEST. Swarm-agnostic (SWARM-02): no debtor literal.
   const invoices = extractInvoiceCandidates(args.subject, args.body_text);
   if (invoices.candidates.length > 0 && args.brand_id) {
-    const ids = await lookupIdentifierToAccount(
+    // Debtor always supplies scope; default envId to "BX" for the minimal-config
+    // case (a config without scope cannot strip the env prefix otherwise).
+    const envId = config?.scope.environment_id ?? "BX";
+    const res = await lookupResolveCandidates(
       {
         nxt_database: args.nxt_database,
         brand_id: args.brand_id,
-        invoice_numbers: invoices.candidates,
+        environment_id: envId,
+        identifiers: invoices.candidates,
+        brand_scope: args.brand_scope,
       },
       "unknown",
     ).catch((err) => {
       console.warn(
-        `[resolveDebtor] layer 3 (identifier) failed, falling through: ${err instanceof Error ? err.message : err}`,
+        `[resolve] identifier_match (invoice_no) failed, falling through: ${err instanceof Error ? err.message : err}`,
       );
-      return { matches: [] };
+      return { matches: [] as ResolveCandidateMatch[] };
     });
-    // Multiple invoice rows may resolve to the same top-level customer; dedupe.
-    const uniqueCustomerIds = Array.from(
-      new Set(ids.matches.map((m) => m.top_level_customer_id)),
+
+    // Only invoice_no rows with an auto-eligible status. Roll up to the ROOT
+    // (top-level billing) customer — root_party_id null = the party is already a
+    // root (D-04).
+    const inScope = res.matches.filter(
+      (m) => m.identifier_kind === "invoice_no" && isAutoEligibleStatus(m.status),
     );
-    if (uniqueCustomerIds.length === 1) {
-      // Single paying customer — fetch its name for the label.
-      const detail = await lookupCandidateDetails(
-        {
-          nxt_database: args.nxt_database,
-          brand_id: args.brand_id,
-          customer_ids: uniqueCustomerIds,
-        },
-        "unknown",
-      );
-      const m = detail.matches[0];
-      // Phase 82.9 — map to rich Candidate for the audit panel.
-      const richCandidate: Candidate = m
-        ? toCandidate(m)
-        : {
-            id: uniqueCustomerIds[0],
-            name: "",
-            contact_person: null,
-            recent_invoices: [],
-          };
+    const rootOf = (m: ResolveCandidateMatch) => m.root_party_id ?? m.party_id;
+    const distinctRoots = Array.from(new Set(inScope.map(rootOf)));
+
+    if (distinctRoots.length === 1) {
+      // Prefix-family gate against the mailbox brand scope.
+      const inScopeBrands = new Set<string>([
+        args.brand_id,
+        ...(args.brand_scope ?? []),
+      ]);
+      const winner = inScope.find((m) => rootOf(m) === distinctRoots[0])!;
+      if (
+        winner.brand_id != null &&
+        winner.brand_id !== "" &&
+        !inScopeBrands.has(winner.brand_id)
+      ) {
+        // Cross-brand / prefix mismatch → SUGGEST.
+        return { result: null, matched_identifiers: invoices.candidates };
+      }
+      const customer_account_id = stripEnvPrefix(distinctRoots[0], envId);
+      const candidate: Candidate = {
+        id: customer_account_id,
+        name: winner.party_name,
+        contact_person: null,
+        recent_invoices: [],
+      };
       return {
         result: {
           method: "identifier_match",
-          customer_account_id: uniqueCustomerIds[0],
-          customer_name: m?.name ?? null,
+          customer_account_id,
+          customer_name: winner.party_name,
           confidence: "high",
           candidates_considered: 1,
+          environment_id: envId,
           inputs: {
             kind: "identifier_match",
             matched_identifiers: invoices.candidates,
-            candidates: [richCandidate],
+            candidates: [candidate],
           },
         },
         matched_identifiers: invoices.candidates,
       };
     }
-    if (uniqueCustomerIds.length >= 2) {
-      // Phase 82.9 — identifier-driven tiebreak; pass matched identifiers.
+
+    if (distinctRoots.length >= 2) {
+      // >=2 distinct paying customers — identifier-driven tiebreak (preserves the
+      // P0 NON-AUTO >=2 → llmTiebreak behaviour; mirrors the legacy uniqueCustomerIds).
       return {
-        result: await llmTiebreak(uniqueCustomerIds, args, {
+        result: await llmTiebreak(distinctRoots, args, {
           sender_email: args.from_email,
           matched_identifiers: invoices.candidates,
         }),

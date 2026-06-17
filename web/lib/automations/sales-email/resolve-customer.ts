@@ -1,36 +1,32 @@
-// Phase 114-04 Task 1 — sales Stage 2 entity-resolution adapter (RESL-03 reuse).
+// Phase 114-04 / 120-02 — sales Stage 2 entity-resolution adapter (RESL-03 reuse).
 //
-// This is the cross-swarm generality proof in action (STAGE2-01): sales onboards
-// its Stage 2 resolver via per-swarm config + a sales-specific lookup adapter,
-// with ZERO changes to the resolution engine (engine.ts / config.ts / steps/*).
+// This is the cross-swarm generality proof in action (STAGE2-01 / SWARM-02): sales
+// onboards its Stage 2 resolver via per-swarm config + a sales-specific lookup
+// adapter, with ZERO changes to the resolution engine (engine.ts / config.ts /
+// steps/*) AND — Phase 120 — reuses the SAME pure scoreCorroboration helper as the
+// debtor engine, gated on config DATA (config.corroboration), never on swarm name.
 //
-// Shape (PATTERNS Pattern 3 option (b)): the adapter wires the NEW sales lookups
-// (offerte/order/Sites via nxtRequest, D-10) + reuses the debtor sender/factuur
-// lookups (D-11), runs them in `config.precedence` order, short-circuits on the
-// first customer_account_id, and falls through to the engine's canonical
-// `unresolved` ResolveResult (STAGE2-02 fall-through). It satisfies
-// Stage2ResolverModule (exports resolveEntity) so loadStage2Resolver can dispatch
-// to this module path from the registry.
+// Shape (PATTERNS Pattern 3 option (b)): the adapter wires the sales lookups
+// (offerte/order via the resolver_index SQL back-search — D-09; postcode→Site
+// paused until resolver_index indexes postcodes) + reuses the debtor sender/factuur
+// lookups (D-11), runs them in `config.precedence` order, and EITHER short-circuits
+// on the first hit (no corroboration) OR collects every step's signal and scores
+// them through scoreCorroboration (config.corroboration present). It satisfies
+// Stage2ResolverModule (exports resolveEntity).
 //
-// Why the adapter sources its own candidates rather than reusing the engine's
-// built-in steps: the engine's runSenderMatch/runIdentifierMatch are bound to the
-// DEBTOR Zapier-SQL lookups + invoice regex. Sales has different identifier kinds
-// (offerte/order/postcode-Site) that the engine intentionally does NOT know about
-// (it silently skips unknown precedence names — forward-compat). So the sales glue
-// lives HERE; the engine stays untouched. The `unresolved` fall-through is taken
-// verbatim from the engine's ResolveResult contract (the LOCKED public surface).
-//
-// Iteration 1 = PRECEDENCE-ONLY (no corroboration). The engine is precedence +
-// single-hit short-circuit; multi-match corroboration (D-06) is the fast-follow
-// surfaced at the Plan 04 Task 3 checkpoint — NOT added here (Pitfall 3: a
-// `corroborate` config field would be silently ignored by the engine).
+// SWARM-AGNOSTIC (CORR-04 / SWARM-02): there is NO per-swarm-name branch anywhere
+// (no swarm_type check, no hardcoded brand gate). The corroboration path is
+// selected by the presence of the `config.corroboration` field — exactly the same
+// gate the generic engine uses. The per-swarm parts are the LOOKUP files
+// (offerte/order/sites) and this adapter's candidate sourcing; the scoring logic
+// is the shared pure helper.
 //
 // Replay-safety (CLAUDE.md): this adapter runs INSIDE the worker's
 // step.run("resolve…"). It performs NO nested step.run and generates no
 // non-deterministic DB keys.
 //
-// D-07 (internal forwards, 23%): when the sender is an own-tenant domain, the
-// REAL customer sender is in the quoted body. We extract it and feed THAT to
+// D-07 (internal forwards, 23%): when the sender is an own-tenant domain, the REAL
+// customer sender is in the quoted body. We extract it and feed THAT to
 // sender_match — never filter internal forwards (locked principle).
 
 import {
@@ -38,15 +34,27 @@ import {
   type ResolveResult,
   type EngineConfig,
 } from "@/lib/agentic-pipeline/resolve/engine";
-// IN-01 (Phase 114-07): the two nxt-zap-client imports merged into one statement.
 import {
-  lookupSenderToAccount,
-  lookupIdentifierToAccount,
+  scoreCorroboration,
+  type CorroborationSignal,
+} from "@/lib/agentic-pipeline/resolve/corroborate";
+// Phase 123-02: sender_match + factuur_match moved off the two legacy per-kind
+// wrappers onto the single generic resolve_candidates substrate — the SAME
+// transport the offerte/order lookups already use. Phase 123-03 deleted the
+// legacy wrapper definitions entirely; production code no longer calls them.
+import {
+  lookupResolveCandidates,
+  type ResolveCandidateMatch,
 } from "@/lib/automations/debtor-email/nxt-zap-client";
 import { extractInvoiceCandidates } from "@/lib/automations/debtor-email/extract-invoices";
 import {
   lookupOfferteToAccount,
   extractOfferteCandidates,
+  SALES_ENVIRONMENT_ID,
+  SALES_BRAND_SCOPE,
+  SALES_SCOPE_KEY,
+  SALES_RESOLVE_INTENT,
+  type SalesResolveCtx,
 } from "./lookups/offerte";
 import {
   lookupOrderToAccount,
@@ -62,12 +70,14 @@ import {
 // the sender is one of these, D-07 quoted-sender extraction kicks in.
 const SALES_TENANT_DOMAINS = ["smeba.nl"] as const;
 
-// NXT env: prod by default (Stage 2 is a read; the proxy enforces read-only
-// prod). Kept a constant here rather than threaded through ResolveArgs so the
-// LOCKED ResolveArgs contract stays untouched.
-const NXT_ENV = "production" as const;
-
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+/** Extract the bare domain (lowercased) from an email address, or null. */
+function domainOf(email: string): string | null {
+  const at = email.lastIndexOf("@");
+  if (at < 0 || at === email.length - 1) return null;
+  return email.slice(at + 1).toLowerCase();
+}
 
 /** True when an address belongs to one of the sales tenant domains. */
 function isOwnTenant(email: string | null): boolean {
@@ -76,31 +86,21 @@ function isOwnTenant(email: string | null): boolean {
   return SALES_TENANT_DOMAINS.some((d) => lower.endsWith(`@${d}`));
 }
 
-// WR-05 (Phase 114-07): a quoted-header line that introduces the original
-// sender on an internal forward. We ONLY trust an address that appears in (or
-// just after) such a header — a bare address in a signature, cc list, or
-// disclaimer must NOT be treated as the sender (it would resolve a wrong
-// external party at confidence:"high").
+// WR-05 (Phase 114-07): a quoted-header line that introduces the original sender
+// on an internal forward. We ONLY trust an address that appears in (or just after)
+// such a header — a bare address in a signature, cc list, or disclaimer must NOT be
+// treated as the sender (it would resolve a wrong external party at "high").
 const QUOTED_HEADER_RE = /^\s*(van:|from:|verzonden namens\b|on\b.*\bwrote:)/i;
 
 /**
  * D-07 + WR-05 — pull the originating customer address out of the quoted-header
- * CONTEXT, not from anywhere in the body. On an internal forward the original
- * sender appears in a quoted header ("Van: klant@bv.nl"). We scan for the FIRST
- * quoted-header line and take the first non-own-tenant address from that line
- * and the few lines immediately following it. If NO quoted-header block is
- * present we return null — we do NOT fall back to a positional first-match guess
- * over the whole body (that let signature/cc/disclaimer addresses hijack
- * sender_match — WR-05). D-07 (internal forwards are still resolved) is
- * preserved: we resolve via the quoted header, just not via an arbitrary body
- * address.
+ * CONTEXT, not from anywhere in the body. If NO quoted-header block is present we
+ * return null — we do NOT fall back to a positional first-match guess (WR-05).
  */
 function extractQuotedSender(body: string): string | null {
   const lines = body.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     if (!QUOTED_HEADER_RE.test(lines[i])) continue;
-    // Found a quoted header — scan it + the next few lines for the first
-    // non-own-tenant address (the originating customer).
     const window = lines.slice(i, i + 5).join("\n");
     EMAIL_RE.lastIndex = 0;
     for (const m of window.matchAll(EMAIL_RE)) {
@@ -129,12 +129,23 @@ function unresolved(
 }
 
 /**
+ * One precedence step's outcome: the short-circuit ResolveResult AND the
+ * CorroborationSignal mapped from the same hit. Both paths (no-corr short-circuit /
+ * corroboration collect) consume this single source so they cannot diverge.
+ */
+interface StepHit {
+  result: ResolveResult;
+  signal: CorroborationSignal;
+}
+
+/**
  * Sales Stage 2 resolver. Satisfies Stage2ResolverModule.
  *
- * Runs the sales candidate sources in `config.precedence` order, short-circuits
- * on the first customer_account_id, else returns `unresolved` (prospect →
- * Stage 3, STAGE2-02). `auto_safe_kinds` is honored as a NO-OP for sales (it is
- * [] in the seed — no self-auth tier; STAGE2-02 part 1).
+ * No-corroboration config: runs the sales candidate sources in `config.precedence`
+ * order, short-circuits on the first customer_account_id, else `unresolved`
+ * (prospect → Stage 3, STAGE2-02). With `config.corroboration` present: collects a
+ * signal from EVERY step (no short-circuit) and returns scoreCorroboration's
+ * verdict. The branch is on config DATA — SWARM-02: no swarm-name check.
  */
 export async function resolveEntity(
   args: ResolveArgs,
@@ -153,148 +164,227 @@ export async function resolveEntity(
     ? extractQuotedSender(body)
     : (args.from_email ?? null);
 
+  // Resolution context for the resolver_index back-search lookups (offerte/order/
+  // sites). brand_id is required by the substrate; when absent those steps no-op.
+  const salesCtx: SalesResolveCtx | null = args.brand_id
+    ? { nxt_database: args.nxt_database, brand_id: args.brand_id }
+    : null;
+
   // Track identifiers seen across attempted steps so the unresolved fall-through
-  // mirrors the engine contract (matched_identifiers populated).
+  // (and the corroboration matchedIdentifiers) mirror the engine contract.
   const seenIdentifiers: string[] = [];
 
-  for (const step of config.precedence) {
+  /** Run a single precedence step, returning its hit (result + signal) or null. */
+  const runStep = async (
+    step: string,
+    precedenceIndex: number,
+  ): Promise<StepHit | null> => {
     switch (step) {
       case "sender_match": {
-        if (effectiveSender && args.brand_id) {
-          const sender = await lookupSenderToAccount(
-            {
-              nxt_database: args.nxt_database,
-              brand_id: args.brand_id,
-              sender_email: effectiveSender,
-            },
-            "unknown",
-          ).catch((err) => {
-            console.warn(
-              `[sales-resolve] sender_match failed, falling through: ${err instanceof Error ? err.message : err}`,
-            );
-            return { matches: [] as Array<{ top_level_customer_id: string; top_level_customer_name: string }> };
-          });
-          const uniqueIds = Array.from(
-            new Set(sender.matches.map((m) => m.top_level_customer_id)),
+        if (!effectiveSender || !args.brand_id) return null;
+        // Phase 123-02 — back-search the sender over resolve_candidates: pass BOTH
+        // the full lowercased address (email_address) and its bare domain
+        // (email_domain) as identifiers. The substrate tags each returned row with
+        // the kind it matched on; address is the stronger signal so we prefer it.
+        const addr = effectiveSender.toLowerCase();
+        const dom = domainOf(addr);
+        const identifiers = dom ? [addr, dom] : [addr];
+        const sender = await lookupResolveCandidates(
+          {
+            nxt_database: args.nxt_database,
+            brand_id: args.brand_id,
+            environment_id: SALES_ENVIRONMENT_ID,
+            identifiers,
+            brand_scope: [...SALES_BRAND_SCOPE],
+          },
+          SALES_RESOLVE_INTENT,
+        ).catch((err) => {
+          console.warn(
+            `[sales-resolve] sender_match failed, falling through: ${err instanceof Error ? err.message : err}`,
           );
-          // Iteration 1 precedence-only: accept a single-hit; ambiguous (≥2)
-          // falls through (no LLM tiebreaker for sales in iteration 1 — the
-          // config seeds llm_tiebreaker:false; corroboration is the D-06
-          // fast-follow).
-          if (uniqueIds.length === 1 && sender.matches.length >= 1) {
-            const m = sender.matches[0];
-            return {
-              method: "sender_match",
-              customer_account_id: m.top_level_customer_id,
-              customer_name: m.top_level_customer_name,
-              confidence: "high",
-              candidates_considered: 1,
-              inputs: {
-                kind: "sender_match",
-                sender_email: effectiveSender,
-                candidates: [
-                  {
-                    id: m.top_level_customer_id,
-                    name: m.top_level_customer_name,
-                    contact_person: null,
-                    recent_invoices: [],
-                  },
-                ],
-              },
-            };
-          }
-        }
-        break;
+          return { matches: [] as ResolveCandidateMatch[] };
+        });
+        // Keep only in-scope, unique-in-scope email rows; prefer email_address
+        // over email_domain when both resolve.
+        const senderRows = sender.matches.filter(
+          (m) =>
+            (m.identifier_kind === "email_address" ||
+              m.identifier_kind === "email_domain") &&
+            m.scope_key === SALES_SCOPE_KEY &&
+            m.is_unique_in_scope === true,
+        );
+        const addressRows = senderRows.filter(
+          (m) => m.identifier_kind === "email_address",
+        );
+        const chosenRows = addressRows.length > 0 ? addressRows : senderRows;
+        const distinctParties = Array.from(
+          new Set(chosenRows.map((m) => m.party_id)),
+        );
+        // Single distinct party accepted; ambiguous (≥2) or none → no signal (no
+        // LLM tiebreaker for sales — corroboration is the multi-signal path).
+        if (distinctParties.length !== 1) return null;
+        const m = chosenRows.find((r) => r.party_id === distinctParties[0])!;
+        return {
+          result: {
+            method: "sender_match",
+            customer_account_id: m.party_id,
+            customer_name: m.party_name,
+            confidence: "high",
+            candidates_considered: 1,
+            inputs: {
+              kind: "sender_match",
+              sender_email: effectiveSender,
+              candidates: [
+                {
+                  id: m.party_id,
+                  name: m.party_name,
+                  contact_person: null,
+                  recent_invoices: [],
+                },
+              ],
+            },
+          },
+          signal: {
+            customer_account_id: m.party_id,
+            // KEEP the "sender_domain" independence axis name so corroboration
+            // independence (D-05) is unchanged regardless of the resolver_index
+            // kind (email_address/email_domain) the back-search matched on.
+            identifier_kind: "sender_domain",
+            confidence: "high",
+            method: "sender_match",
+            precedence_index: precedenceIndex,
+            status: m.status ?? null,
+            customer_name: m.party_name,
+          },
+        };
       }
 
       case "offerte_match": {
-        // WR-04: record attempted identifiers at EXTRACTION time (before the
-        // lookup) so the unresolved fall-through carries what was tried, not
-        // only what matched.
+        // WR-04: record attempted identifiers at EXTRACTION time so the unresolved
+        // trail carries what was tried, not only what matched.
         seenIdentifiers.push(...extractOfferteCandidates(subject, body));
-        const hit = await lookupOfferteToAccount(NXT_ENV, subject, body);
-        if (hit) return identifierResult(hit, dedupe(seenIdentifiers));
-        break;
+        if (!salesCtx) return null;
+        const hit = await lookupOfferteToAccount(salesCtx, subject, body);
+        return hit ? identifierHit(hit, dedupe(seenIdentifiers), precedenceIndex) : null;
       }
 
       case "postcode_site_match": {
         seenIdentifiers.push(...extractPostcodeCandidates(subject, body));
-        const hit = await lookupPostcodeToAccount(NXT_ENV, subject, body);
-        if (hit) return identifierResult(hit, dedupe(seenIdentifiers));
-        break;
+        if (!salesCtx) return null;
+        const hit = await lookupPostcodeToAccount(salesCtx, subject, body);
+        return hit ? identifierHit(hit, dedupe(seenIdentifiers), precedenceIndex) : null;
       }
 
       case "order_match": {
         seenIdentifiers.push(...extractOrderCandidates(subject, body));
-        const hit = await lookupOrderToAccount(NXT_ENV, subject, body);
-        if (hit) return identifierResult(hit, dedupe(seenIdentifiers));
-        break;
+        if (!salesCtx) return null;
+        const hit = await lookupOrderToAccount(salesCtx, subject, body);
+        return hit ? identifierHit(hit, dedupe(seenIdentifiers), precedenceIndex) : null;
       }
 
       case "factuur_match": {
-        // D-11 — reuse the debtor invoice lookup (Zapier-SQL) as-is.
+        // Phase 123-02 — invoice resolution over resolve_candidates (invoice_no
+        // back-search), mirroring the offerte/order lookups + the debtor invoice
+        // path (Plan 01). The extraction is unchanged (D-11 shared extractor).
         const extract = extractInvoiceCandidates(subject, body);
-        if (extract.candidates.length > 0 && args.brand_id) {
-          seenIdentifiers.push(...extract.candidates);
-          const inv = await lookupIdentifierToAccount(
-            {
-              nxt_database: args.nxt_database,
-              brand_id: args.brand_id,
-              invoice_numbers: extract.candidates,
-            },
-            "unknown",
-          ).catch((err) => {
-            console.warn(
-              `[sales-resolve] factuur_match failed, falling through: ${err instanceof Error ? err.message : err}`,
-            );
-            return { matches: [] as Array<{ top_level_customer_id: string }> };
-          });
-          const ids = Array.from(
-            new Set(inv.matches.map((m) => m.top_level_customer_id)),
+        if (extract.candidates.length === 0 || !args.brand_id) return null;
+        seenIdentifiers.push(...extract.candidates);
+        const inv = await lookupResolveCandidates(
+          {
+            nxt_database: args.nxt_database,
+            brand_id: args.brand_id,
+            environment_id: SALES_ENVIRONMENT_ID,
+            identifiers: extract.candidates,
+            brand_scope: [...SALES_BRAND_SCOPE],
+          },
+          SALES_RESOLVE_INTENT,
+        ).catch((err) => {
+          console.warn(
+            `[sales-resolve] factuur_match failed, falling through: ${err instanceof Error ? err.message : err}`,
           );
-          if (ids.length === 1) {
-            return {
-              method: "identifier_match",
-              customer_account_id: ids[0],
-              customer_name: null,
-              confidence: "high",
-              candidates_considered: 1,
-              inputs: {
-                kind: "identifier_match",
-                matched_identifiers: extract.candidates,
-                candidates: [
-                  {
-                    id: ids[0],
-                    name: "",
-                    contact_person: null,
-                    recent_invoices: extract.candidates,
-                  },
-                ],
-              },
-            };
-          }
-        }
-        break;
+          return { matches: [] as ResolveCandidateMatch[] };
+        });
+        // Only invoice_no rows in the SB scope that are unique-in-scope count.
+        // Roll up by root_party_id (D-04) so multiple invoices under one top-level
+        // customer collapse to a single party; ambiguous (≥2 distinct roots) or
+        // none → null (fail-closed).
+        const invoiceRows = inv.matches.filter(
+          (m) =>
+            m.identifier_kind === "invoice_no" &&
+            m.scope_key === SALES_SCOPE_KEY &&
+            m.is_unique_in_scope === true,
+        );
+        const distinctRoots = Array.from(
+          new Set(invoiceRows.map((m) => m.root_party_id ?? m.party_id)),
+        );
+        if (distinctRoots.length !== 1) return null;
+        const winner = invoiceRows.find(
+          (m) => (m.root_party_id ?? m.party_id) === distinctRoots[0],
+        )!;
+        const accountId = winner.root_party_id ?? winner.party_id;
+        return {
+          result: {
+            method: "identifier_match",
+            customer_account_id: accountId,
+            customer_name: winner.party_name ?? null,
+            confidence: "high",
+            candidates_considered: 1,
+            inputs: {
+              kind: "identifier_match",
+              matched_identifiers: extract.candidates,
+              candidates: [
+                {
+                  id: accountId,
+                  name: winner.party_name ?? "",
+                  contact_person: null,
+                  recent_invoices: extract.candidates,
+                },
+              ],
+            },
+          },
+          signal: {
+            customer_account_id: accountId,
+            identifier_kind: "invoice_no",
+            confidence: "high",
+            method: "identifier_match",
+            precedence_index: precedenceIndex,
+            status: winner.status ?? null,
+            customer_name: winner.party_name ?? null,
+          },
+        };
       }
 
-      // Unknown precedence names are silently skipped (forward-compat, mirrors
-      // the engine). The engine's debtor-only step kinds (thread_inheritance)
-      // are not wired for sales in iteration 1.
+      // Unknown precedence names are silently skipped (forward-compat, mirrors the
+      // engine). The engine's debtor-only step kinds (thread_inheritance) are not
+      // wired for sales.
       default:
-        break;
+        return null;
     }
+  };
+
+  // No-corroboration path (config.corroboration ABSENT): behaviorally unchanged —
+  // first-hit short-circuit, else unresolved fall-through.
+  if (!config.corroboration) {
+    for (let i = 0; i < config.precedence.length; i++) {
+      const hit = await runStep(config.precedence[i], i);
+      if (hit) return hit.result;
+    }
+    return unresolved(effectiveSender, dedupe(seenIdentifiers));
   }
 
-  // STAGE2-02 fall-through: prospect / no resolvable signal → unresolved.
-  // WR-04: seenIdentifiers now carries every identifier the adapter ATTEMPTED
-  // (extracted-but-unmatched), so the unresolved audit trail is non-empty when
-  // identifiers were present. NOTE: the Stage 2 worker's catch-block
-  // `matched_identifiers: []` (WR-04 part 2) is effectively DEAD for sales —
-  // every lookup here `.catch`es to null and the adapter never throws, so the
-  // worker never enters that path for the sales swarm. The adapter-side trail
-  // is therefore the real fix; no worker change is needed (and the worker file
-  // is owned by plan 114-06).
-  return unresolved(effectiveSender, dedupe(seenIdentifiers));
+  // Corroboration path (config.corroboration PRESENT): collect a signal from EVERY
+  // step (no short-circuit), then score via the SHARED pure helper (SWARM-02).
+  const collected: CorroborationSignal[] = [];
+  for (let i = 0; i < config.precedence.length; i++) {
+    const hit = await runStep(config.precedence[i], i);
+    if (hit) collected.push(hit.signal);
+  }
+  return scoreCorroboration(
+    collected,
+    args,
+    config.corroboration,
+    dedupe(seenIdentifiers),
+  );
 }
 
 /** Order-preserving de-duplication for the attempted-identifier trail. */
@@ -302,36 +392,49 @@ function dedupe(ids: string[]): string[] {
   return Array.from(new Set(ids));
 }
 
-/** Map a SalesCustomerMatch-style hit to the LOCKED identifier_match result. */
-function identifierResult(
+/** Map a SalesCustomerMatch-style hit to a StepHit (result + corroboration signal). */
+function identifierHit(
   hit: {
     customer_account_id: string;
     customer_name: string | null;
     matched_identifier: string;
-    // WR-02 (Phase 114-07): per-lookup confidence. Absent ⇒ "high"
-    // (offerte/order are strong identifiers). postcode→Site self-downgrades to
-    // "medium" (corroborating-strength; D-06 fast-follow raises it later).
+    identifier_kind?: string;
+    status?: string | null;
     confidence?: "high" | "medium" | "low";
   },
   matchedIdentifiers: string[],
-): ResolveResult {
+  precedenceIndex: number,
+): StepHit {
+  const confidence = hit.confidence ?? "high";
   return {
-    method: "identifier_match",
-    customer_account_id: hit.customer_account_id,
-    customer_name: hit.customer_name,
-    confidence: hit.confidence ?? "high",
-    candidates_considered: 1,
-    inputs: {
-      kind: "identifier_match",
-      matched_identifiers: matchedIdentifiers,
-      candidates: [
-        {
-          id: hit.customer_account_id,
-          name: hit.customer_name ?? "",
-          contact_person: null,
-          recent_invoices: [],
-        },
-      ],
+    result: {
+      method: "identifier_match",
+      customer_account_id: hit.customer_account_id,
+      customer_name: hit.customer_name,
+      confidence,
+      candidates_considered: 1,
+      inputs: {
+        kind: "identifier_match",
+        matched_identifiers: matchedIdentifiers,
+        candidates: [
+          {
+            id: hit.customer_account_id,
+            name: hit.customer_name ?? "",
+            contact_person: null,
+            recent_invoices: [],
+          },
+        ],
+      },
+    },
+    signal: {
+      customer_account_id: hit.customer_account_id,
+      // The independence axis (D-05): the resolver_index kind the hit matched on.
+      identifier_kind: hit.identifier_kind ?? "identifier",
+      confidence,
+      method: "identifier_match",
+      precedence_index: precedenceIndex,
+      status: hit.status ?? null,
+      customer_name: hit.customer_name,
     },
   };
 }
