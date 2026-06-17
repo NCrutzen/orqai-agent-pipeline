@@ -1,7 +1,8 @@
 ---
 phase: 131-destination-taxonomy-stage-3-router-v9-7-p1
 verified: 2026-06-17T08:05:26Z
-status: human_needed
+status: passed
+human_items_resolved: 2026-06-17
 score: 8/8
 overrides_applied: 0
 deferred:
@@ -22,8 +23,13 @@ human_verification:
 **Phase Goal:** Freeze the destination bucket taxonomy (6-7 actionable buckets + unrouted sentinel) with verified mailboxes; build the info-routing-coordinator Orq agent that classifies a Stage-1-cleared actionable email onto a destination bucket + brand from a closed destination registry (no Stage 2); wire it into the generic Stage-3 coordinator with the ROUTE-07 no-forward held gate, a two-layer dedup guard, and the ROUTE-08 shadow precision harness.
 
 **Verified:** 2026-06-17T08:05:26Z
-**Status:** human_needed
+**Status:** passed (both human-verification items resolved 2026-06-17)
 **Re-verification:** No — initial verification
+
+> **Human-verification items resolved (2026-06-17, post-verification gap-closure):**
+> 1. `algemeen@smeba.nl` — operator confirmed the mailbox does NOT exist. Design corrected: `algemeen` is now a classified "no-forward / stays in info@" outcome (registry `target_mailbox=NULL` via migration `20260617e`, applied + live-verified; swarm-agnostic `UNROUTED_BUCKET` + `{matched,target_mailbox}` resolver, zero bucket literal). No dead-address risk.
+> 2. Orq Studio Response Format — operator configured it; `get_agent` confirms the strict `info_routing_destination` schema is live on primary + all 3 fallbacks (agent v1.1.4). Agent instructions also strengthened (read body; contactformulier can be `verkoop`; `algemeen` only as true rest) — repo file == live.
+> Full suite after gap-closure: 2825 passed, tsc clean, no codegen drift.
 
 ---
 
