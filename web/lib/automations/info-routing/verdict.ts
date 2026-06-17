@@ -27,7 +27,7 @@
 
 import type { AgentOutputParseResult } from "./coordinator-schema";
 import type { RoutingDestinationRow } from "../../swarms/types";
-import { resolveRoutingDestination } from "../../swarms/registry";
+import { resolveRoutingDestination, UNROUTED_BUCKET } from "../../swarms/registry";
 
 // Audit / future schema-evolution stamp. Bump on any verdict-shape change.
 export const ROUTING_VERSION = "2026-06-17.v1";
@@ -74,7 +74,7 @@ function unroutedVerdict(
   dedup: RoutingDedup,
 ): RoutingVerdict {
   return {
-    bucket: "unrouted",
+    bucket: UNROUTED_BUCKET,
     brand: null,
     target_mailbox: null,
     confidence,
@@ -107,24 +107,42 @@ export function buildRoutingVerdict(
 
   const { bucket, brand, confidence } = parsed.value;
 
-  // (2) below the confidence floor → unrouted (not a forced bucket).
+  // (2) the agent EXPLICITLY chose the framework triage sentinel → unrouted.
+  // Short-circuit BEFORE resolving so the `unrouted` registry row (a matched
+  // null-target row) is never consulted — explicit triage is "don't know", not
+  // a "classified, no forward" outcome.
+  if (bucket === UNROUTED_BUCKET) {
+    return unroutedVerdict(confidence, dedup);
+  }
+
+  // (3) below the confidence floor → unrouted (not a forced bucket).
   if (CONFIDENCE_NUMERIC[confidence] < threshold) {
     return unroutedVerdict(confidence, dedup);
   }
 
-  // (3) no active (bucket×brand) registry row → unrouted (no-match path).
-  // resolveRoutingDestination returns null when no active row matches OR the
-  // matched row has a NULL target_mailbox (the unrouted sentinel).
-  const targetMailbox = resolveRoutingDestination(destinations, bucket, brand);
-  if (targetMailbox === null) {
+  // (4) resolve (bucket×brand) against the registry. Three outcomes:
+  //   - NOT matched → unrouted (no active row; the agent's guess is unroutable).
+  //   - matched + target_mailbox === null → CLASSIFIED, NO FORWARD ("stays"):
+  //     keep the agent's bucket + brand, target null, unrouted=false. This is a
+  //     valid classification that simply does not forward (e.g. info-routing
+  //     `algemeen` — mail stays in info@). The Phase-132 forwarder skips a null
+  //     target. SWARM-AGNOSTIC: no bucket-name literal here — the behaviour is
+  //     driven purely by registry data (a matched row with a null target).
+  //   - matched + target_mailbox non-null → routable forward (unchanged).
+  const { matched, target_mailbox } = resolveRoutingDestination(
+    destinations,
+    bucket,
+    brand,
+  );
+  if (!matched) {
     return unroutedVerdict(confidence, dedup);
   }
 
-  // Routable verdict.
+  // Matched (target may be null for a no-forward "stays" bucket).
   return {
     bucket,
     brand,
-    target_mailbox: targetMailbox,
+    target_mailbox,
     confidence,
     dedup,
     unrouted: false,

@@ -131,7 +131,27 @@ export async function loadRoutingDestinations(
   return value;
 }
 
-// Phase 131 (ROUTE-02) — pure (bucket × brand) → target_mailbox resolver.
+// Phase 131 gap-closure — CROSS-SWARM framework sentinel for the "agent has no
+// destination / human triage" outcome. This is a FRAMEWORK bucket-key (like
+// null), NOT a swarm identity: any routing swarm may seed an `unrouted` row and
+// the verdict builder short-circuits on it. Referencing this constant is allowed
+// (it is not a `swarm_type` literal). Keep it in lockstep with the seeded
+// `unrouted` destination_key.
+export const UNROUTED_BUCKET = "unrouted";
+
+// Phase 131 gap-closure — the result of resolving a (bucket × brand) against the
+// registry. `matched` distinguishes "no active row matched" (matched:false →
+// unrouted / don't-know) from "a row matched but its target_mailbox is NULL"
+// (matched:true, target_mailbox:null → classified, no forward / "stays" — e.g.
+// the info-routing `algemeen` bucket once its mailbox is nulled). The caller
+// (buildRoutingVerdict) needs both bits to express the no-forward outcome
+// WITHOUT mislabeling it unrouted.
+export interface RoutingResolution {
+  matched: boolean;
+  target_mailbox: string | null;
+}
+
+// Phase 131 (ROUTE-02 + gap-closure) — pure (bucket × brand) → resolution.
 //
 // Resolution order (BUG 1 / CR-02):
 //   1. EXACT match (destination_key === bucket AND brand === brand). This is the
@@ -145,28 +165,33 @@ export async function loadRoutingDestinations(
 //      no-brand buckets, yet every seeded row carries a non-null brand, so a
 //      strict match would wrongly collapse them to unrouted.
 //   3. Multiple rows for the bucket and no exact brand match (e.g. order_entry /
-//      verkoop with brand=null) → genuinely ambiguous → null (unrouted is right).
+//      verkoop with brand=null) → genuinely ambiguous → matched:false.
 //
-// Returns null when no row resolves OR the resolved row has a NULL target_mailbox
-// (the unrouted sentinel) — the caller treats null as → unrouted.
+// Returns `{matched:false, target_mailbox:null}` when no row resolves. Returns
+// `{matched:true, target_mailbox}` when a row resolves — target_mailbox may be
+// null (a "classified, no forward / stays" bucket). The two cases are distinct:
+// the caller treats matched:false as unrouted, but matched:true + null target as
+// a valid no-forward classification.
 export function resolveRoutingDestination(
   destinations: RoutingDestinationRow[],
   bucket: string,
   brand: string | null,
-): string | null {
+): RoutingResolution {
   // (1) exact (bucket × brand) match wins — preserves cross-tenant safety.
   const exact = destinations.find(
     (d) => d.destination_key === bucket && d.brand === brand,
   );
-  if (exact) return exact.target_mailbox ?? null;
+  if (exact) return { matched: true, target_mailbox: exact.target_mailbox ?? null };
 
   // (2) no exact match → single-tenant fallback: a bucket with exactly one
   // active row has only one possible mailbox, so the brand guess is irrelevant.
   const bucketRows = destinations.filter((d) => d.destination_key === bucket);
-  if (bucketRows.length === 1) return bucketRows[0].target_mailbox ?? null;
+  if (bucketRows.length === 1) {
+    return { matched: true, target_mailbox: bucketRows[0].target_mailbox ?? null };
+  }
 
-  // (3) zero rows, or multiple rows with no exact brand match → ambiguous → null.
-  return null;
+  // (3) zero rows, or multiple rows with no exact brand match → ambiguous.
+  return { matched: false, target_mailbox: null };
 }
 
 // Phase 68 — resolve an intent_key to its handler_event for a swarm_type.

@@ -310,11 +310,13 @@ export const debtorEmailCoordinator = inngest.createFunction(
             if (parsed.unrouted) {
               return { status: "routable", matched_layer: null } as RoutingDedup;
             }
-            const targetMailbox = resolveRoutingDestination(
+            const { target_mailbox: targetMailbox } = resolveRoutingDestination(
               routingDestinations,
               parsed.value.bucket,
               parsed.value.brand,
             );
+            // No resolved mailbox (no-match OR a matched no-forward "stays"
+            // bucket like algemeen) → nothing to forward → dedup is a no-op.
             if (!targetMailbox) {
               return { status: "routable", matched_layer: null } as RoutingDedup;
             }
