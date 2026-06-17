@@ -17,7 +17,7 @@ import {
   lookupResolveCandidates,
   type ResolveCandidateMatch,
 } from "@/lib/automations/debtor-email/nxt-zap-client";
-import type { SalesCustomerMatch, SalesResolveCtx } from "./offerte";
+import { type SalesCustomerMatch, type SalesResolveCtx, SALES_RESOLVE_INTENT } from "./offerte";
 
 // Sales region + brand scope (sales-specific glue; shared engine stays agnostic).
 const SALES_ENVIRONMENT_ID = "BX";
@@ -82,7 +82,7 @@ export async function lookupOrderToAccount(
       identifiers,
       brand_scope: [...SALES_BRAND_SCOPE],
     },
-    "unknown",
+    SALES_RESOLVE_INTENT,
   ).catch((err) => {
     console.warn(
       `[sales-resolve] order back-search failed: ${err instanceof Error ? err.message : err}`,

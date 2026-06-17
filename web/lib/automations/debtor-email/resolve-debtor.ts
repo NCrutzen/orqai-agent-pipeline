@@ -77,6 +77,17 @@ export const debtorP0Config: ResolutionConfig = {
   auto_safe_kinds: [],
   blocklist_ref: { swarm_type: "debtor-email", include_shared: true },
   llm_tiebreaker: true,
+  // Phase 120-03 (W2, LOCKED): ONLY the `corroboration` sub-object is kept in
+  // lockstep with the live debtor seed (20260616a_debtor_corroboration_optin.sql).
+  // The `precedence` + `auto_safe_kinds` above stay the P0 order ON PURPOSE — this
+  // constant is the D-07 kill-switch revert target (see the header comment), NOT a
+  // full mirror of the live registry row. The lockstep test asserts ONLY
+  // `.corroboration`, never full deep-equality.
+  corroboration: {
+    min_signals: 2,
+    boost: "high",
+    auto_safe_alone_kinds: ["customer_no", "site_no", "invoice_no"],
+  },
 };
 
 /**

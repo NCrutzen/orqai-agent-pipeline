@@ -42,6 +42,12 @@ const SALES_ENVIRONMENT_ID = "BX";
 const SALES_BRAND_SCOPE = ["SB"] as const;
 const SALES_SCOPE_KEY = "SB";
 
+// Phase 120-03: the dedicated resolve_candidates allowlist intent for sales
+// resolution (default-deny `allowed_for_intents`, BUDG-02). Sales resolution is
+// allowlisted under its OWN intent for per-swarm auditability, not lumped with
+// debtor's 'unknown'. Seeded into public.zapier_tools by 20260616b.
+export const SALES_RESOLVE_INTENT = "sales_resolution";
+
 /** The per-email/per-tenant resolution context threaded from the adapter. */
 export interface SalesResolveCtx {
   nxt_database: string;
@@ -127,7 +133,7 @@ export async function lookupOfferteToAccount(
       identifiers,
       brand_scope: [...SALES_BRAND_SCOPE],
     },
-    "unknown",
+    SALES_RESOLVE_INTENT,
   ).catch((err) => {
     console.warn(
       `[sales-resolve] offerte back-search failed: ${err instanceof Error ? err.message : err}`,
