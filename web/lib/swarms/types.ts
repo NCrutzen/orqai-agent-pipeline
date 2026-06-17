@@ -143,6 +143,20 @@ export interface SwarmIntentRow {
   updated_at: string;
 }
 
+// Phase 131 (ROUTE-01 / D-01) — one row in public.routing_destinations, the
+// brand-aware destination registry for the Stage-3 router. One denormalized row
+// per (swarm_type, destination_key, brand). target_mailbox is NULL for the
+// `unrouted` sentinel. Mirrors the column projection the loader selects
+// (loadRoutingDestinations); the full DB row also carries id/created_at/
+// updated_at which the loader does not project.
+export interface RoutingDestinationRow {
+  destination_key: string; // the bucket (e.g. order_entry, verkoop, …, unrouted)
+  brand: string; // 'smeba' | 'fire-control' | 'berki'
+  target_mailbox: string | null; // NULL for the unrouted sentinel
+  outlook_category: string | null; // ROUTE-08 ground-truth label name
+  active: boolean;
+}
+
 // One row in public.swarm_noise_categories.
 export interface SwarmNoiseCategoryRow {
   swarm_type: string;
