@@ -116,17 +116,18 @@ async function resolveSignals(r: Row): Promise<SignalResult> {
   const s = r.subject ?? "", b = r.body_text ?? "";
   const out: SignalResult = {};
 
-  // --- nxtRequest transport (prod NXT REST) ---
+  // --- resolver_index SQL back-search transport (Phase 120-02) ---
+  const salesCtx = { nxt_database: NXT_DATABASE, brand_id: BRAND_ID };
   if (extractOfferteCandidates(s, b).length > 0) {
-    const hit = await lookupOfferteToAccount(NXT_ENV, s, b).catch(() => null);
+    const hit = await lookupOfferteToAccount(salesCtx, s, b).catch(() => null);
     out.offerte = hit?.customer_account_id ?? null;
   }
   if (extractOrderCandidates(s, b).length > 0) {
-    const hit = await lookupOrderToAccount(NXT_ENV, s, b).catch(() => null);
+    const hit = await lookupOrderToAccount(salesCtx, s, b).catch(() => null);
     out.order = hit?.customer_account_id ?? null;
   }
   if (extractPostcodeCandidates(s, b).length > 0) {
-    const hit = await lookupPostcodeToAccount(NXT_ENV, s, b).catch(() => null);
+    const hit = await lookupPostcodeToAccount(salesCtx, s, b).catch(() => null);
     out.postcode = hit?.customer_account_id ?? null;
   }
 

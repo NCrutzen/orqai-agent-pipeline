@@ -20,13 +20,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // nxtRequest is the D-10 transport for offerte/order/Sites. We spy on it to:
 //  (a) drive resolution outcomes, and
 //  (b) assert garbage identifiers never reach it (V5 input validation).
-const { nxtRequestMock, lookupSenderMock, lookupIdentifierMock } = vi.hoisted(
-  () => ({
-    nxtRequestMock: vi.fn(),
-    lookupSenderMock: vi.fn(),
-    lookupIdentifierMock: vi.fn(),
-  }),
-);
+// Phase 120-02: offerte/order/sites resolution moved from the nxtRequest REST
+// proxy to the resolver_index SQL back-search (lookupResolveCandidates). These
+// no-corr-path cases are updated to mock the new transport; the BEHAVIOR (first-hit
+// short-circuit, fail-closed, V5 gate) is unchanged.
+const {
+  nxtRequestMock,
+  lookupSenderMock,
+  lookupIdentifierMock,
+  lookupResolveCandidatesMock,
+} = vi.hoisted(() => ({
+  nxtRequestMock: vi.fn(),
+  lookupSenderMock: vi.fn(),
+  lookupIdentifierMock: vi.fn(),
+  lookupResolveCandidatesMock: vi.fn(),
+}));
 
 vi.mock("@/lib/automations/nxt-zapier/nxt-client", () => ({
   nxtRequest: nxtRequestMock,
@@ -35,6 +43,7 @@ vi.mock("@/lib/automations/nxt-zapier/nxt-client", () => ({
 vi.mock("@/lib/automations/debtor-email/nxt-zap-client", () => ({
   lookupSenderToAccount: lookupSenderMock,
   lookupIdentifierToAccount: lookupIdentifierMock,
+  lookupResolveCandidates: lookupResolveCandidatesMock,
 }));
 
 import { resolveEntity } from "../resolve-customer";
@@ -72,19 +81,21 @@ beforeEach(() => {
   nxtRequestMock.mockReset();
   lookupSenderMock.mockReset();
   lookupIdentifierMock.mockReset();
-  // Default: no sender/identifier match unless a test opts in.
+  lookupResolveCandidatesMock.mockReset();
+  // Default: no sender/identifier/back-search match unless a test opts in.
   lookupSenderMock.mockResolvedValue({ matches: [] });
   lookupIdentifierMock.mockResolvedValue({ matches: [] });
+  lookupResolveCandidatesMock.mockResolvedValue({ matches: [] });
 });
 
 describe("Phase 114-04: sales resolve-customer adapter", () => {
-  it("offerte hit → candidate with the mapped customer_account_id", async () => {
-    // nxtRequest returns a quote row that REFERENCES the searched offerte number
-    // (spike 011 fix: the response must echo the identifier, else it's a safe miss).
-    nxtRequestMock.mockResolvedValue({
-      status: 200,
-      ok: true,
-      data: { reference: "SB014967", customerId: 991234, customerName: "Klant BV" },
+  it("offerte hit → candidate with the mapped customer_account_id (resolver_index back-search)", async () => {
+    // The substrate returns a quote_no row for the normalized digits "14967"
+    // (SB014967 → strip prefix + leading zeros). is_unique_in_scope → resolves.
+    lookupResolveCandidatesMock.mockResolvedValue({
+      matches: [
+        { identifier_kind: "quote_no", identifier_value_norm: "14967", party_id: "991234", party_name: "Klant BV", scope_key: "SB", is_unique_in_scope: true, status: "active" },
+      ],
     });
 
     const result = await resolveEntity(
@@ -101,10 +112,12 @@ describe("Phase 114-04: sales resolve-customer adapter", () => {
     expect(result.customer_account_id).toBe("991234");
     expect(result.method).toBe("identifier_match");
     expect(result.inputs.kind).toBe(result.method);
-    // The offerte number must have been the search term passed to NXT.
-    expect(nxtRequestMock).toHaveBeenCalled();
-    const calledWith = JSON.stringify(nxtRequestMock.mock.calls);
-    expect(calledWith).toContain("SB014967");
+    // The normalized offerte digits must have been the search term passed to the
+    // substrate (NOT the REST proxy — spike 011 transport switch).
+    expect(lookupResolveCandidatesMock).toHaveBeenCalled();
+    const calledWith = JSON.stringify(lookupResolveCandidatesMock.mock.calls);
+    expect(calledWith).toContain("14967");
+    expect(nxtRequestMock).not.toHaveBeenCalled();
   });
 
   it("no resolvable identifier + no sender match → unresolved, customer_account_id:null (STAGE2-02 fall-through)", async () => {
@@ -161,7 +174,8 @@ describe("Phase 114-04: sales resolve-customer adapter", () => {
       salesConfig,
     );
 
-    // The format-validation gate must run BEFORE any nxtRequest call.
+    // The format-validation gate must run BEFORE any substrate call.
+    expect(lookupResolveCandidatesMock).not.toHaveBeenCalled();
     expect(nxtRequestMock).not.toHaveBeenCalled();
   });
 });
@@ -201,13 +215,14 @@ describe("Phase 114-07 Task 1: postcode address-context gate (WR-02)", () => {
     ).toEqual(["1234AB"]);
   });
 
-  it("resolves a postcode match at confidence:medium (not high) — D-06 interim", async () => {
-    // The Site row carries the searched postcode in its address (spike 011 fix:
-    // a Site only resolves when it actually references THIS postcode).
-    nxtRequestMock.mockResolvedValue({
-      status: 200,
-      ok: true,
-      data: { postcode: "1234 AB", customerId: 778899, customerName: "Site BV" },
+  it("resolves a postcode match at confidence:medium (not high) when a site kind row exists", async () => {
+    // Phase 120-02: postcode resolution moved to the resolver_index back-search.
+    // The path is paused live (no postcode kind in resolver_index yet) but
+    // self-enables when a site/postcode kind row exists — mocked here.
+    lookupResolveCandidatesMock.mockResolvedValue({
+      matches: [
+        { identifier_kind: "site_no", identifier_value_norm: "1234AB", party_id: "778899", party_name: "Site BV", scope_key: "SB", is_unique_in_scope: true, status: "active" },
+      ],
     });
 
     const result = await resolveEntity(
@@ -295,13 +310,9 @@ describe("Phase 114-07 Task 2: quoted-header-scoped sender (WR-05)", () => {
 
 describe("Phase 114-07 Task 2: unresolved path carries attempted identifiers (WR-04)", () => {
   it("surfaces extracted-but-unmatched identifiers on the unresolved fall-through", async () => {
-    // offerte/order extract candidates, but NXT resolves NONE → unresolved,
-    // yet the attempted-identifier trail must be non-empty.
-    nxtRequestMock.mockResolvedValue({
-      status: 200,
-      ok: true,
-      data: { content: [] }, // no customer on any search
-    });
+    // offerte/order extract candidates, but the substrate resolves NONE →
+    // unresolved, yet the attempted-identifier trail must be non-empty.
+    lookupResolveCandidatesMock.mockResolvedValue({ matches: [] });
 
     const result = await resolveEntity(
       {
