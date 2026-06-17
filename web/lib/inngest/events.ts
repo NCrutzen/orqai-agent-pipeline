@@ -1,6 +1,8 @@
 /**
  * Typed Inngest event definitions for the pipeline engine and infrastructure.
  */
+import type { SignalWeights } from "@/lib/email-behavior/signal-derive";
+
 export type Events = {
   "pipeline/run.started": {
     data: {
@@ -1046,6 +1048,16 @@ export type Events = {
   "swarm/behavior-sync.requested": {
     data: {
       swarm_type?: string;
+    };
+  };
+  // Phase 119: the orchestrator (swarm/behavior-sync) fans out ONE of these per
+  // enabled (swarm × mailbox); the per-mailbox worker (swarm/behavior-sync.mailbox)
+  // consumes exactly one. Lean ids-only payload (weights shared per swarm).
+  "swarm/behavior-sync.mailbox": {
+    data: {
+      swarm_type: string;
+      mailbox: string;
+      weights?: SignalWeights;
     };
   };
 };

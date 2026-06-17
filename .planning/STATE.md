@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: V9.0
 milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
-status: Awaiting next milestone
-stopped_at: 112.5-05-PLAN.md COMPLETE (Tasks 1-2 committed 3cf15049/dd3447c3) — category_edited reclassify signal activated via the Phase 117 swarm_written_categories baseline; SC-2 / OUTLOOK-BEHAV-05 met. Phase 112.5 all 5 plans complete.
-last_updated: "2026-06-15T14:30:47.802Z"
-last_activity: 2026-06-15 — Milestone V9.0 completed and archived
+status: completed
+stopped_at: 118-01-PLAN.md COMPLETE (Tasks 1/2/4 committed 32d0b26d/45467745/f7946e6e; Task 3 [BLOCKING] prod-apply checkpoint APPROVED + APPLIED by operator) — swarm-behavior-sync.ts multi-mailbox iteration live; sales-email migrated to mailboxes[] form on prod.
+last_updated: "2026-06-17T05:24:21.269Z"
+last_activity: 2026-06-17
 progress:
-  total_phases: 9
-  completed_phases: 8
-  total_plans: 37
-  completed_plans: 37
-  percent: 89
+  total_phases: 11
+  completed_phases: 9
+  total_plans: 49
+  completed_plans: 42
+  percent: 82
 ---
 
 # Project State
@@ -62,10 +62,24 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: 118 — Multi-mailbox behavior-sync (1/1 plans complete)
-Plan: 118-01-PLAN.md COMPLETE
-Status: Phase 118 plan complete — awaiting phase verification + merge
-Last activity: 2026-06-16 — Phase 118 Plan 01 complete; sales-email migrated live to mailboxes[]
+Phase: 119 — COMPLETE
+Plan: 119-01 (fan-out orchestrator + per-mailbox worker + telemetry), 119-02 (regression tests) — ready
+Status: Phase 119 complete
+Workspace/branch: `workspace/fix-behavior-sync-mailbox-isolation` (worktree at ~/gsd-workspaces/fix-behavior-sync-mailbox-isolation).
+
+### Cross-machine handoff (2026-06-16) — debtor intent-label rollout
+
+SHIPPED + MERGED to main (pushed): Phase 118 multi-mailbox behavior-sync (PR #104); #107 widened the delta-sync source filter to `source IN ('outlook','zapier-debtor-ingest')` (TRACKED_INGEST_SOURCES) so debtor (zapier-ingested) mail is observable; #108 pruned stale sicli/.nl entries from `mailboxes.ts` ICONTROLLER_MAILBOXES.
+
+LIVE production config (in Supabase `public.swarms` — shared across machines, NOT in git):
+
+- debtor-email: `dry_run_config.stage_3_intent_label=false` (AI: labels LIVE swarm-wide; effectively the 4 active mailboxes). `behavior_tracking_config={enabled:false}` (observe PARKED — see regression).
+- sales-email: labels live + `behavior_tracking_config={enabled:true, mailboxes:["verkoop@smeba.nl"]}`.
+- `debtor.labeling_settings` = 4 rows (smeba.nl, administratie@fire-control.nl, smeba-fire.be, berki.nl). Sicli (noord+sud) rows DELETED 2026-06-16 (dormant; re-add later with verified address — .nl/.be/facturations@ 3-way mismatch).
+
+REGRESSION (why 119 exists): enabling debtor multi-mailbox observe starved the single-run delta-sync and FROZE sales observe (verkoop@ stuck 12:25 → recovered 13:23 after disabling debtor observe). Phase 119 fixes it via per-mailbox fan-out isolation. AFTER 119 merges+deploys → re-enable debtor `behavior_tracking_config={enabled:true, mailboxes:[the 4]}`.
+
+Last activity: 2026-06-17
 
 ## Performance Metrics
 

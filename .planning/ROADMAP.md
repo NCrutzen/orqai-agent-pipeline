@@ -524,6 +524,18 @@ Plans:
 
 - [ ] 118-01-PLAN.md — Multi-mailbox iteration in swarm-behavior-sync.ts (flatten to one EnabledSwarm per (swarm x mailbox), per-mailbox step ids) + DATA-only sales mailboxes[] migration ([BLOCKING] prod apply) + tests + runbook update
 
+### Phase 119: Behavior-sync per-mailbox isolation — make swarm-behavior-sync.ts fault-isolate and fairly budget each (swarm x mailbox) so one heavy/failing mailbox cannot starve or abort the whole delta-sync tick (regression: enabling debtor multi-mailbox observe froze sales observe)
+
+**Goal:** swarm-behavior-sync.ts fault-isolates and fairly budgets each (swarm x mailbox): the cron becomes a thin orchestrator that fans out one `swarm/behavior-sync.mailbox` event per enabled (swarm x mailbox), and a per-mailbox worker processes exactly one mailbox per invocation — so one heavy/failing mailbox can no longer abort or starve the others (fixes the 2026-06-16 regression where enabling debtor multi-mailbox observe froze sales observe). Per-mailbox terminal failures become visible telemetry; replay-safety + TRACKED_INGEST_SOURCES + 23505 idempotent inserts preserved.
+**Requirements**: none registered (must_haves derived from goal + 119-CONTEXT.md)
+**Depends on:** Phase 118
+**Plans:** 2/2 plans complete
+
+Plans:
+
+- [x] 119-01-PLAN.md — Split swarm-behavior-sync.ts into a fan-out cron orchestrator + per-mailbox worker (concurrency: per-mailbox key + global ceiling), wire visible per-mailbox failure telemetry, register the worker, update the runbook (Wave 1)
+- [x] 119-02-PLAN.md — Retarget the existing behavior-sync vitest harness to the orchestrator/worker split + add the fan-out coverage / fault-isolation / non-starvation regression tests encoding the 2026-06-16 freeze (Wave 2)
+
 ---
 
 </content>
