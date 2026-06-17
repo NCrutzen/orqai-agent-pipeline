@@ -1,4 +1,4 @@
-// Phase 120 (D-06) — engine collect-then-decide branch.
+// Phase 120 (D-06) → Phase 123 — engine collect-then-decide branch.
 //
 // Proves the config.corroboration PRESENT path runs ALL precedence steps and
 // does NOT short-circuit on the first hit. Fixture: thread_inheritance produces
@@ -7,11 +7,17 @@
 // engine instead COLLECTS both, sees a 2-distinct-kind disagreement (D-06), and
 // returns the precedence winner (C1) at "medium" (capBelowAuto) — observable
 // proof that step 2 (sender_match) WAS visited. Also: zero hits → unresolved.
+//
+// Phase 123: the C2 sender signal is now driven through the generic
+// lookupResolveCandidates mock (an email_domain row), not the retired
+// per-kind contact_lookup wrapper.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const { priorLabelRef, senderMatchesRef } = vi.hoisted(() => ({
   priorLabelRef: { row: null as Record<string, unknown> | null },
+  // Phase 123 — the sender signal now comes from resolve_candidates
+  // (email_domain/email_address rows), not the legacy contact_lookup wrapper.
   senderMatchesRef: { matches: [] as Array<Record<string, unknown>> },
 }));
 
@@ -40,12 +46,18 @@ vi.mock("@/lib/supabase/admin", () => {
   return { admin, createAdminClient: () => admin };
 });
 
-// NXT mock: sender_match calls lookupSenderToAccount; candidate-details slim.
+// NXT mock (Phase 123): the only substrate is resolve_candidates. The sender step
+// passes the email_address/email_domain seeds; the invoice step passes invoice
+// numbers. Branch on the identifiers so the sender signal is driven by
+// senderMatchesRef while the invoice path stays inert.
 vi.mock("@/lib/automations/debtor-email/nxt-zap-client", () => ({
-  lookupSenderToAccount: vi.fn(async () => ({ matches: senderMatchesRef.matches })),
-  lookupIdentifierToAccount: vi.fn(async () => ({ matches: [] })),
-  lookupCandidateDetails: vi.fn(async () => ({ matches: [] })),
-  lookupResolveCandidates: vi.fn(async () => ({ matches: [] })),
+  lookupResolveCandidates: vi.fn(
+    async (input: { identifiers: string[] }) => {
+      const isInvoice = input.identifiers.some((i) => i.startsWith("INV-"));
+      if (isInvoice) return { matches: [] };
+      return { matches: senderMatchesRef.matches };
+    },
+  ),
 }));
 
 import * as engine from "../engine";
@@ -91,9 +103,19 @@ describe("Phase 120 D-06: engine collect-then-decide (no first-hit short-circuit
       debtor_id: null,
       debtor_name: "Customer One",
     };
-    // Step 2 hit: sender_match → C2 (only reached if NO short-circuit).
+    // Step 2 hit: sender_match → C2 (only reached if NO short-circuit). Phase 123:
+    // the signal is a resolve_candidates email_domain row resolving to C2.
     senderMatchesRef.matches = [
-      { top_level_customer_id: "C2", top_level_customer_name: "Customer Two" },
+      {
+        identifier_kind: "email_domain",
+        identifier_value_norm: "acme.example",
+        party_id: "C2",
+        party_name: "Customer Two",
+        brand_id: "SB",
+        root_party_id: null,
+        is_unique_in_scope: true,
+        status: "active",
+      },
     ];
 
     const r = await engine.resolveEntity(args, corrConfig);

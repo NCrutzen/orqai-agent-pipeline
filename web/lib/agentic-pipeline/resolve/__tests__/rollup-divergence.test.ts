@@ -19,13 +19,13 @@ const { resolveCandidatesMock } = vi.hoisted(() => ({
   resolveCandidatesMock: vi.fn(),
 }));
 
-// Mock the whole nxt-zap-client: lookupResolveCandidates is the high-precision
-// read; the legacy invoice path's lookupIdentifierToAccount/lookupCandidateDetails
-// are stubbed inert so the AUTO pre-pass is what's under test.
+// Phase 123 — the only substrate is resolve_candidates. lookupResolveCandidates is
+// BOTH the high-precision AUTO pre-pass read AND (post-Phase-123) the non-AUTO
+// invoice back-search read. The legacy identifier_lookup / candidate_details mocks
+// are retired. Tests that isolate the AUTO pre-pass queue the AUTO rows on the
+// FIRST call and let the default `{matches:[]}` cover the non-AUTO follow-up call.
 vi.mock("@/lib/automations/debtor-email/nxt-zap-client", () => ({
   lookupResolveCandidates: (...a: unknown[]) => resolveCandidatesMock(...a),
-  lookupIdentifierToAccount: vi.fn(async () => ({ matches: [] })),
-  lookupCandidateDetails: vi.fn(async () => ({ matches: [] })),
 }));
 
 import { runIdentifierMatch } from "../steps/identifier-match";
@@ -100,7 +100,13 @@ function invoiceMatch() {
 }
 
 describe("Phase 91 D-04: self_auth → direct, number back-search → root (divergence)", () => {
-  beforeEach(() => resolveCandidatesMock.mockReset());
+  beforeEach(() => {
+    resolveCandidatesMock.mockReset();
+    // Default: empty. Tests queue AUTO-pre-pass rows via mockResolvedValueOnce;
+    // the non-AUTO invoice follow-up call falls back to this empty default so the
+    // AUTO-tier assertions stay isolated (Phase 123).
+    resolveCandidatesMock.mockResolvedValue({ matches: [] });
+  });
 
   it("parented customer: self_auth resolves DIRECT, number back-search resolves ROOT", async () => {
     // self_auth path
