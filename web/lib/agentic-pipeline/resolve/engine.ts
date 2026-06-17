@@ -29,6 +29,7 @@ import { runThreadInheritance } from "./steps/thread-inheritance";
 import { runSenderMatch, type LlmTiebreak } from "./steps/sender-match";
 import { runIdentifierMatch } from "./steps/identifier-match";
 import { runSelfAuthMatch, type SelfAuthConfig } from "./steps/self-auth-match";
+import { scoreCorroboration, type CorroborationSignal } from "./corroborate";
 
 // The engine consumes only `precedence` (the ordered step list) +
 // `auto_safe_kinds` (self-auth-no-op) + `llm_tiebreaker`. Require just those
@@ -38,7 +39,9 @@ import { runSelfAuthMatch, type SelfAuthConfig } from "./steps/self-auth-match";
 // resolve_candidates proc / blocklist loader, not by the in-process precedence
 // runner in P0. Extra fields on the passed object are tolerated.
 export type EngineConfig = Pick<ResolutionConfig, "precedence"> &
-  Partial<Pick<ResolutionConfig, "auto_safe_kinds" | "llm_tiebreaker">> & {
+  Partial<
+    Pick<ResolutionConfig, "auto_safe_kinds" | "llm_tiebreaker" | "corroboration">
+  > & {
     // Phase 91 — the self_auth / number back-search steps read
     // scope.environment_id (D-01 strip) + scope.brand_scope (prefix-family
     // tiebreaker). Typed structurally (NOT Pick<ResolutionConfig,"scope">) so
@@ -188,53 +191,126 @@ export async function resolveEntity(
   // fallback mirrors the legacy `invoices?.candidates ?? []` exactly.
   let lastMatchedIdentifiers: string[] = [];
 
-  for (const stepName of config.precedence) {
+  // Phase 120 (D-06 / CORR-04) — ABSENT-corroboration path. When config has no
+  // `corroboration` field the loop below is BYTE-IDENTICAL to today's first-hit
+  // short-circuit engine. Kept inside this early guard so the verbatim
+  // `for (const stepName of config.precedence)` loop + the unresolved fallback
+  // stay byte-reachable (the D-10 donor re-baseline diff is auditable, and
+  // no-opted-in swarms see zero behaviour change).
+  if (!config.corroboration) {
+    for (const stepName of config.precedence) {
+      if (stepName === "self_auth") {
+        // Phase 91 (RESL-07 / D-10) — high-precision AUTO tier. Fails CLOSED to
+        // null (SUGGEST) on any ambiguity, so a precedence with self_auth FIRST
+        // does not strand thread_inheritance: a no-signal email returns null here
+        // and falls through to the lower-precedence steps. config.scope may be
+        // absent on a minimal config → the step no-ops (returns null) in that case.
+        const result = config.scope
+          ? await runSelfAuthMatch(args, config as SelfAuthConfig)
+          : null;
+        if (result) return result;
+      } else if (stepName === "thread_inheritance") {
+        const result = await runThreadInheritance(args);
+        if (result) return result;
+      } else if (stepName === "sender_match") {
+        const result = await runSenderMatch(args, llmTiebreak);
+        if (result) return result;
+      } else if (stepName === "identifier_match") {
+        // Phase 91 (RESL-08) — pass config only when scope is present so the
+        // number back-search AUTO pre-pass can read environment_id/brand_scope/
+        // auto_safe_kinds. Absent scope → the legacy invoice path runs unchanged
+        // (P0 behaviour-neutral).
+        const outcome = await runIdentifierMatch(
+          args,
+          llmTiebreak,
+          config.scope ? (config as SelfAuthConfig) : undefined,
+        );
+        lastMatchedIdentifiers = outcome.matched_identifiers;
+        if (outcome.result) return outcome.result;
+      }
+      // Unknown precedence names are silently skipped (forward-compat for P1
+      // step kinds not yet implemented in P0).
+    }
+
+    // Final fallback: zero-hit → unresolved (D-03: NO LLM call).
+    // Phase 82.9 — discriminated inputs even on unresolved path.
+    return {
+      method: "unresolved",
+      customer_account_id: null,
+      customer_name: null,
+      confidence: "none",
+      inputs: {
+        kind: "unresolved",
+        sender_email: args.from_email ?? null,
+        matched_identifiers: lastMatchedIdentifiers,
+      },
+    };
+  }
+
+  // Phase 120 (D-06) — PRESENT-corroboration path: run ALL precedence steps,
+  // COLLECT every candidate (NO first-hit short-circuit, NO LLM tiebreaker —
+  // D-03), then score deterministically via scoreCorroboration.
+  const collected: CorroborationSignal[] = [];
+  // Synthetic identifier_kind per step where the result lacks one (A4). self_auth
+  // already carries its self-auth kind on the result; others map by step name.
+  const synthKindFor = (method: ResolveMethod): string => {
+    switch (method) {
+      case "sender_match":
+        return "sender_domain";
+      case "identifier_match":
+        return "invoice_no";
+      case "thread_inheritance":
+        return "thread";
+      default:
+        return method;
+    }
+  };
+  const pushSignal = (result: ResolveResult | null, precedenceIndex: number) => {
+    if (!result || !result.customer_account_id) return;
+    // Prefer a concrete identifier_kind carried on the result's inputs (self_auth
+    // / identifier_match expose matched kinds via matched_identifiers, but the
+    // discriminated `inputs.kind` is the method-level kind); the synthetic kind is
+    // the per-step independence axis (A4).
+    collected.push({
+      customer_account_id: result.customer_account_id,
+      identifier_kind: synthKindFor(result.method),
+      confidence: result.confidence,
+      method: result.method,
+      precedence_index: precedenceIndex,
+      status: null,
+      customer_name: result.customer_name,
+    });
+  };
+
+  for (let i = 0; i < config.precedence.length; i++) {
+    const stepName = config.precedence[i];
     if (stepName === "self_auth") {
-      // Phase 91 (RESL-07 / D-10) — high-precision AUTO tier. Fails CLOSED to
-      // null (SUGGEST) on any ambiguity, so a precedence with self_auth FIRST
-      // does not strand thread_inheritance: a no-signal email returns null here
-      // and falls through to the lower-precedence steps. config.scope may be
-      // absent on a minimal config → the step no-ops (returns null) in that case.
       const result = config.scope
         ? await runSelfAuthMatch(args, config as SelfAuthConfig)
         : null;
-      if (result) return result;
+      pushSignal(result, i);
     } else if (stepName === "thread_inheritance") {
-      const result = await runThreadInheritance(args);
-      if (result) return result;
+      pushSignal(await runThreadInheritance(args), i);
     } else if (stepName === "sender_match") {
-      const result = await runSenderMatch(args, llmTiebreak);
-      if (result) return result;
+      pushSignal(await runSenderMatch(args, llmTiebreak), i);
     } else if (stepName === "identifier_match") {
-      // Phase 91 (RESL-08) — pass config only when scope is present so the
-      // number back-search AUTO pre-pass can read environment_id/brand_scope/
-      // auto_safe_kinds. Absent scope → the legacy invoice path runs unchanged
-      // (P0 behaviour-neutral).
       const outcome = await runIdentifierMatch(
         args,
         llmTiebreak,
         config.scope ? (config as SelfAuthConfig) : undefined,
       );
       lastMatchedIdentifiers = outcome.matched_identifiers;
-      if (outcome.result) return outcome.result;
+      pushSignal(outcome.result, i);
     }
-    // Unknown precedence names are silently skipped (forward-compat for P1
-    // step kinds not yet implemented in P0).
+    // Unknown precedence names silently skipped (forward-compat).
   }
 
-  // Final fallback: zero-hit → unresolved (D-03: NO LLM call).
-  // Phase 82.9 — discriminated inputs even on unresolved path.
-  return {
-    method: "unresolved",
-    customer_account_id: null,
-    customer_name: null,
-    confidence: "none",
-    inputs: {
-      kind: "unresolved",
-      sender_email: args.from_email ?? null,
-      matched_identifiers: lastMatchedIdentifiers,
-    },
-  };
+  return scoreCorroboration(
+    collected,
+    args,
+    config.corroboration,
+    lastMatchedIdentifiers,
+  );
 }
 
 // ─── llmTiebreak (ported verbatim from resolve-debtor.ts:301-406) ─────────────
