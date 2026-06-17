@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: V9.0
-milestone_name: Sales-Email Canonical Pipeline — Outlook-driven
-status: milestone_complete
-stopped_at: Milestone complete (Phase 131 was final phase)
+milestone: V9.7
+milestone_name: Routing Swarm Go-Live — Departmental Routing
+status: in_progress
+stopped_at: Phase 131 (V9.7 P1) complete; next = Phase 132 (Forward + Bulk Review)
 last_updated: 2026-06-17T11:06:03.626Z
 last_activity: 2026-06-17
 progress:
-  total_phases: 11
-  completed_phases: 10
-  total_plans: 47
-  completed_plans: 85
-  percent: 91
+  total_phases: 5
+  completed_phases: 2
+  total_plans: 10
+  completed_plans: 10
+  percent: 40
 ---
 
 # Project State
@@ -57,14 +57,14 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Milestone complete
-**Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
+**Current focus:** V9.7 Routing Swarm Go-Live — P0 (Phase 130) + P1 (Phase 131) complete; next = Phase 132 (Forward + Bulk Review). Phases 132–134 still pending.
+**Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30), V9.0 Sales-Email Canonical Pipeline (shipped 2026-06-15). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 131
+Phase: 131 (V9.7 P1) complete → next Phase 132 (Forward + Bulk Review)
 Plan: Not started
-Status: Milestone complete
+Status: V9.7 in progress (2/5 phases complete; 132–134 pending)
 Last activity: 2026-06-17
 
 ## Performance Metrics
