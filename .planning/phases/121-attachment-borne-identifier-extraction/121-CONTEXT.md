@@ -119,6 +119,31 @@ human/multi-candidate) WITHOUT regressing gold-signal rows (Pitfall 5).
 
 ---
 
+## ⚠️ Cross-phase dependency discovered (2026-06-17)
+
+`.planning/evals/2026-06-16-resolver-customer-eval/RERUN-FINDINGS.md` + the live
+registry show:
+
+- **Mechanism already shipped & opted-in:** BOTH `sales-email` and `debtor-email`
+  have `attachment_config={capture:true, extract:true}` live. The 116-05 fold +
+  subject-factuur extraction already exist. So ATID-03/ATID-04 are effectively met.
+- **Acceptance is gated on Phase 123:** the eval fixture is **debtor** mail, but
+  the live debtor swarm does NOT resolve via the generic `resolve_candidates` /
+  corroboration path (`debtorP0Config.auto_safe_kinds: []` → legacy
+  `nxt.identifier_lookup`/`contact_lookup`). So the bucket-A/D **fixture re-run is
+  blocked until Phase 123** (debtor → `resolve_candidates`, retire legacy tools)
+  lands. Sales already resolves via `resolve_candidates`, but there is no sales
+  eval corpus.
+- **Live-call caveat:** the correctness-gate harness makes live NXT/Zapier calls
+  (`DEBTOR_FETCH_WEBHOOK_SECRET`) — outward-facing; gate behind explicit approval.
+
+**Net:** 121's *buildable-now, fixture-independent* slice is the **#24
+one-mail→many-customers guard** (+ Excel extraction coverage if the extractor
+lacks `.xlsx`) — adapter-side, engine byte-identical, unit-testable without the
+live fixture. The **eval-grounded acceptance over the debtor fixture waits for
+Phase 123**. Plan 121-01 (baseline) should therefore run AFTER 123, or be scoped
+to sales-path verification only.
+
 ## Sequencing note (Option A)
 
 Planned now on the 120 branch tip for fidelity. **Execution waits for 120 → main
