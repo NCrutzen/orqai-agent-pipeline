@@ -38,11 +38,10 @@ import {
   scoreCorroboration,
   type CorroborationSignal,
 } from "@/lib/agentic-pipeline/resolve/corroborate";
-// Phase 123-02: sender_match + factuur_match moved off the legacy per-kind
-// wrappers (lookupSenderToAccount / lookupIdentifierToAccount) onto the single
-// generic resolve_candidates substrate — the SAME transport the offerte/order
-// lookups already use. The legacy wrapper IMPORTS are gone (Plan 03 deletes the
-// definitions); production code no longer calls them.
+// Phase 123-02: sender_match + factuur_match moved off the two legacy per-kind
+// wrappers onto the single generic resolve_candidates substrate — the SAME
+// transport the offerte/order lookups already use. Phase 123-03 deleted the
+// legacy wrapper definitions entirely; production code no longer calls them.
 import {
   lookupResolveCandidates,
   type ResolveCandidateMatch,
