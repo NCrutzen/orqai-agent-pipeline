@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
-status: ready_to_plan
-stopped_at: Phase 120 complete (4/4) — ready to discuss Phase 121
-last_updated: 2026-06-17T09:17:31.141Z
-last_activity: 2026-06-17 -- Phase 120 execution started
+status: executing
+stopped_at: Phase 120 context gathered
+last_updated: "2026-06-17T09:50:56.204Z"
+last_activity: 2026-06-17 -- Phase 123 execution started
 progress:
-  total_phases: 3
-  completed_phases: 0
-  total_plans: 4
-  completed_plans: 79
-  percent: 0
+  total_phases: 4
+  completed_phases: 1
+  total_plans: 8
+  completed_plans: 4
+  percent: 25
 ---
 
 # Project State
@@ -57,15 +57,15 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 121 — attachment borne identifier extraction (corroboration signal source)
+**Current focus:** Phase 123 — unify-stage-2-on-resolve-candidates-retire-legacy-lookup-too
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 121
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-06-17
+Phase: 123 (unify-stage-2-on-resolve-candidates-retire-legacy-lookup-too) — EXECUTING
+Plan: 2 of 4
+Status: Plan 01 complete — debtor sender + invoice paths on resolve_candidates
+Last activity: 2026-06-17 -- Phase 123 Plan 01 closed (Task 3 decision: Option A)
 
 ## Performance Metrics
 
@@ -212,6 +212,8 @@ Last activity: 2026-06-17
 
 ### Decisions
 
+- **[Phase 123-01] Task 3 auto_safe_kinds reconciliation — operator selected Option A:** the debtor invoice path calls `resolve_candidates(invoice_no)` DIRECTLY in the NON-AUTO block, independent of `auto_safe_kinds` (live debtor stays `[]`). Preserves the live AUTO/SUGGEST risk posture, keeps the ≥2 → llmTiebreak escalation (fail-closed), and lets Plan 04's frozen 100-email eval score precisely the sender behavior change. Option B (debtor seed `auto_safe_kinds += invoice_no`, turning on the root-rollup AUTO tier) was REJECTED — not covered by the frozen eval. No debtor seed migration added. Corroboration engine (Phase 120) + brand_id-combined invoice search (Phase 122) remain out of scope.
+- **[Phase 123-01]** Debtor `sender_match` (email_domain/email_address back-search) + `identifier_match` (invoice_no, root_party_id rollup) both resolve over the single generic `nxt.resolve_candidates` substrate; legacy `lookupSenderToAccount`/`lookupIdentifierToAccount` no longer called from production steps or mocked in any resolve test; both engine.ts call sites pass config; ambiguity fails closed; SWARM-02 swarm-agnostic grep green. tsc 0, vitest 176 passed. Capability-before-removal — Plan 03 deletes the wrapper defs/types/zapier_tools rows. Commits 0284340a/c3871383/371a93f8.
 - **[2026-06-04, operator] V9.0 re-sequenced: Phase 114 (Stage 2 resolver reuse) executes BEFORE Phase 113 (Stage 3 intent agent).** Data-grond: verkoop@-corpus (1.273 inbound) is uitzonderlijk klant-resolvebaar — 32% "offerte" in subject, 27% nummer-referenties, 75% business-domeinen (2% freemail), ≥44% extern-domein overlap met debiteuren@-senders (ondergrens). Runtime is toch Stage 2→3 (context-shape contract); customer-resolved corpus verrijkt de intent-seeding (STAGE3-02) met een klant-vs-prospect-as. Consequentie: v8.2 RESL-01/02/03 seam-dep staat nu op het kritieke pad — 114-discuss moet eerst seam-status vaststellen (seam NIET geland in deze workspace; alleen registry-kolommen, `resolution_config` = inert placeholder). Twee ingest-gaten als 114-prereq vastgelegd (todos 2026-06-04: attachments-gap + sender-email-gap).
 - V7.0 uses parallel CSS namespace (--v7-*) to coexist with existing shadcn tokens
 - Azure AD must use OAuth (not SAML) to auto-link existing email/password accounts
