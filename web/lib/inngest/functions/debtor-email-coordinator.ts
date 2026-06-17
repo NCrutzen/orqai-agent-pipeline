@@ -33,7 +33,21 @@ import { assembleInput } from "@/lib/automations/debtor-email/coordinator/assemb
 // swarm_type key. The sales schema is imported by THIS registry file, never
 // by the coordinator, so the coordinator carries zero sales import/literal.
 import { intentSchemaForSwarm } from "@/lib/automations/debtor-email/coordinator/intent-schema-registry";
-import { loadSwarm } from "@/lib/swarms/registry";
+import { loadSwarm, loadRoutingDestinations } from "@/lib/swarms/registry";
+// Phase 131 Plan 03 (ROUTE-04 / ROUTE-06) — the registry-gated Stage-3 ROUTING
+// capability. Runs iff loadRoutingDestinations(swarm_type) returns rows
+// (info-routing today; debtor/sales get [] → block skipped → byte-neutral).
+// Invokes the per-swarm Orq agent (stage3AgentKey, e.g. 'info-routing-
+// coordinator'), Zod-gates its output via parseAgentOutputOrUnrouted (invalid/
+// empty → unrouted, never throws), resolves (bucket×brand)→target_mailbox from
+// the registry, builds the 6-field verdict, and persists it to
+// coordinator_runs.decision_details.routing + a TELE-01 pipeline_events
+// dual-write. The no-forward guarantee (ROUTE-07) is FREE: info-routing is
+// seeded stage_3_routing=true → the existing held path withholds the
+// predicted-emit. NO swarm_type literal — purely registry-gated.
+import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
+import { parseAgentOutputOrUnrouted } from "@/lib/automations/info-routing/coordinator-schema";
+import { buildRoutingVerdict } from "@/lib/automations/info-routing/verdict";
 // Phase 113 Plan 05 (D-08 / D-09) — the swarm-agnostic Stage-3 ROUTING gate.
 // Read BEFORE the predicted-emit; when gated, persist the verdict (already done
 // by persist-ranked) but withhold flip-status-predicted + emit-predicted so the
@@ -169,6 +183,16 @@ export const debtorEmailCoordinator = inngest.createFunction(
     const automation_run_id = email.automation_run_id;
     const budget_run_id = email.budget_run_id;
 
+    // ---- Phase 131 (ROUTE-04) — load the routing destinations for this swarm.
+    // [] for debtor/sales (no routing_destinations rows) → the routing
+    // capability block below is skipped → byte-neutral. Returns the active
+    // (bucket×brand) rows for info-routing. Registry read, replay-safe inside
+    // step.run. NO swarm_type literal — purely data-gated.
+    const routingDestinations = await step.run(
+      "load-routing-destinations",
+      async () => loadRoutingDestinations(supabase, swarm_type),
+    );
+
     // ---- 1) Resolve agent_run_id (caller-provided OR create a fresh row) ----
     const agent_run_id = await step.run("create-agent-run", async () => {
       if (email.agent_run_id) return email.agent_run_id;
@@ -196,6 +220,146 @@ export const debtorEmailCoordinator = inngest.createFunction(
     });
 
     try {
+      // ---- Phase 131 (ROUTE-04 / ROUTE-06 / ROUTE-07) — additive Stage-3
+      // ROUTING capability. Runs iff the swarm has routing_destinations rows
+      // (info-routing today). This is an INDEPENDENT registry-gated capability
+      // (D-03): it invokes the per-swarm classifier (info-routing-coordinator),
+      // resolves (bucket×brand)→mailbox, builds the 6-field verdict, and
+      // persists it via the SAME Stage-3 persistence path (decision_details
+      // .routing + TELE-01 dual-write, D-02 — NO routing_verdicts table). It
+      // then routes through the existing held gate (below): info-routing is
+      // seeded stage_3_routing=true so the predicted-emit is withheld → the
+      // dispatcher never fires → no Stage 4 forward, no Stage-2 invoke (ROUTE-07
+      // is free — no new gating code here). For routing swarms the intent
+      // ranked-list path does NOT run (the routing agent returns a routing-
+      // shaped output, not a ranked-intent list). debtor/sales get [] →
+      // skip → the intent path below is byte-unchanged.
+      if (routingDestinations.length > 0) {
+        // Invoke the per-swarm routing classifier (resolved registry agent key,
+        // e.g. info-routing-coordinator) and Zod-gate its output. Invalid/empty
+        // output → unrouted marker (parseAgentOutputOrUnrouted never throws).
+        const parsed = await step.run("classify-routing", async () => {
+          const { raw } = await invokeOrqAgent(stage3AgentKey, {
+            subject: email.subject ?? "",
+            body_text: email.body_text ?? "",
+            sender_email: email.sender_email ?? null,
+            sender_domain,
+            mailbox: email.mailbox ?? null,
+          });
+          return parseAgentOutputOrUnrouted(raw);
+        });
+
+        // The unrouted threshold is a single swarm-level knob (Discretion 1):
+        // swarms.resolution_config.routing_unrouted_threshold (default 0.6 =
+        // require >= medium). Read via the already-cached loadSwarm.
+        const threshold = await step.run(
+          "load-routing-threshold",
+          async () => {
+            const swarmRow = await loadSwarm(supabase, swarm_type);
+            const raw = (
+              swarmRow?.resolution_config as
+                | { routing_unrouted_threshold?: unknown }
+                | null
+                | undefined
+            )?.routing_unrouted_threshold;
+            return typeof raw === "number" ? raw : 0.6;
+          },
+        );
+
+        // Build the 6-field verdict. dedup defaults to routable here; Plan 04
+        // supplies the real two-layer dedup result via the optional arg.
+        const verdict = buildRoutingVerdict(parsed, routingDestinations, threshold);
+
+        // Persist the verdict via the Stage-3 persistence path (D-02): update
+        // coordinator_runs.decision_details.routing THEN emitPipelineEvent
+        // (TELE-01) inside the SAME step.run — single replay boundary, keyed off
+        // the replay-safe run_id. Bulk Review (Phase 132) reads decision_details
+        // .routing for free.
+        await step.run("persist-routing-verdict", async () => {
+          const { error } = await supabase
+            .from("coordinator_runs")
+            .update({ decision_details: { routing: verdict } })
+            .eq("run_id", run_id);
+          if (error) throw new Error(`persist-routing-verdict: ${error.message}`);
+
+          await emitPipelineEvent(supabase, {
+            swarm_type,
+            stage: 3,
+            email_id,
+            decision: verdict.bucket,
+            confidence: numericConfidence(verdict.confidence),
+            decision_details: { routing: verdict },
+            agent_run_id,
+            automation_run_id: automation_run_id ?? null,
+            triggered_by: "pipeline",
+          });
+        });
+
+        // No-forward gate (ROUTE-07): info-routing is seeded stage_3_routing=true
+        // → held → withhold the predicted-emit so the Stage 3.5 dispatcher never
+        // fires (no Stage 4, no forward). The verdict is already visible above.
+        // We mark routing_held + completed_at and return — agent_runs stays
+        // 'classifying' (the predicted-emit is the flip's only consumer; holding
+        // it holds routing). A green-light flip (stage_3_routing→false) lets a
+        // future phase emit. Fail-closed: a missing flag → held.
+        const routingGatedForRouting = await step.run(
+          "load-stage3-routing-gate-routing",
+          async () => {
+            const swarmRow = await loadSwarm(supabase, swarm_type);
+            return isStage3RoutingGated(swarmRow);
+          },
+        );
+
+        if (routingGatedForRouting) {
+          await step.run("mark-routing-verdict-held", async () => {
+            const { error } = await supabase
+              .from("coordinator_runs")
+              .update({
+                decision_details: { routing: verdict, routing_held: true },
+                completed_at: new Date().toISOString(),
+              })
+              .eq("run_id", run_id);
+            if (error) {
+              throw new Error(`mark-routing-verdict-held: ${error.message}`);
+            }
+          });
+          return { run_id, email_id, decision: "predicted_held" as const };
+        }
+
+        // OPEN path (a future phase flips stage_3_routing→false): emit predicted
+        // so the dispatcher routes the verdict. Held this phase, so unreached
+        // today — but kept so the capability is reversible without a code change.
+        await step.run("flip-status-predicted-routing", async () => {
+          const { error } = await supabase
+            .from("agent_runs")
+            .update({ status: "predicted" })
+            .eq("id", agent_run_id)
+            .eq("status", "classifying");
+          if (error) {
+            throw new Error(`flip-status-predicted-routing: ${error.message}`);
+          }
+        });
+        await step.run("emit-predicted-routing", async () => {
+          await inngest.send({
+            name: "pipeline/predicted",
+            data: {
+              swarm_type,
+              run_id,
+              agent_run_id,
+              email_id,
+              automation_run_id: automation_run_id ?? null,
+              budget_run_id: budget_run_id ?? null,
+              ranked: [],
+              language: "",
+              urgency: "",
+              entity,
+              routing: verdict,
+            },
+          });
+        });
+        return { run_id, email_id, decision: "predicted" as const };
+      }
+
       // ---- 3) Classify intent (V2 ranked output, idempotent cache) ---------
       // Inngest's step.run wraps the return type in JsonifyObject which strips
       // zod-derived literal unions. Cast back to the v2 shape after the await

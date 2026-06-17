@@ -155,6 +155,9 @@ vi.mock("@/lib/swarms/registry", () => ({
   loadSwarmNoiseCategories: (...args: unknown[]) => loadCategoriesMock(...args),
   loadSwarmIntents: (...args: unknown[]) =>
     (loadSwarmIntentsMock as unknown as (...a: unknown[]) => unknown)(...args),
+  // Phase 131 — debtor has no routing_destinations → [] → routing block
+  // skipped (byte-neutral). Added so the new coordinator import resolves.
+  loadRoutingDestinations: vi.fn().mockResolvedValue([]),
 }));
 
 const emitStaleMock = vi.fn().mockResolvedValue(undefined);
