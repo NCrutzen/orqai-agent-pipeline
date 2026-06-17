@@ -342,6 +342,23 @@ Plans:
 
 ---
 
+### Phase 131: Destination taxonomy + Stage-3 router (V9.7 P1)
+
+**Goal**: Build the **routing layer** of the canonical funnel for info-routing: freeze a fixed **destination taxonomy** (the ~6-7 routing buckets + their verified target mailboxes, brand-aware) as a **destination registry**, and stand up a Stage-3 `info-routing-coordinator` Orq agent that classifies each Stage-1-cleared actionable info@ email onto a **destination** (department/mailbox) instead of an intent. This gives every actionable email a destination verdict. Registry-driven (SWARM-02): destinations + routing rules are registry data, zero `if swarm_type==='info-routing'` branches. **No Stage 2** (routing needs no customer resolution). The actual Outlook **forward** side-effect, the NL routing-config UI, verkoop@→order@, and the Bulk Review surface are **later phases (132–133)** — 131 stops at a persisted destination verdict.
+**Depends on**: Phase 130 (clean info@ "unknown" denominator — noise recalibrated) + info-routing swarm Stage 0/1 live + the verified destination mailboxes (charter §2, 2026-06-16) + the existing Stage-3 coordinator pattern (`swarms.stage3_coordinator_agent_key` + `swarm_intents`-style registry from v8.0/v8.1).
+**Depends on (external/cross-track)**: none. **No dependency on V9.5** (no Stage 2 / no resolver). **No dependency on Phase 132** (forward) — 131 produces the verdict that 132 acts on.
+**Requirements**: ROUTE-01 … ROUTE-0N — **to be locked by `131-SPEC.md`** (`/gsd:spec-phase 131`). Source: V9.7 `REQUIREMENTS.md` P1 line + `docs/routing-swarm-milestone-charter.md` §2/§4/§5.
+**Success Criteria** (what must be TRUE — provisional, SPEC.md refines):
+
+  1. A fixed destination taxonomy (~6-7 buckets) + verified target mailboxes is frozen as registry data (a destination registry), brand-aware (info@smeba can route to fire-control mailboxes; `env_id='BX'` hard filter respected).
+  2. A Stage-3 `info-routing-coordinator` Orq agent exists and classifies Stage-1-cleared actionable info@ mail onto a destination from the closed registry list.
+  3. Each routed email gets a persisted Stage-3 destination verdict (the input Phase 132's forward consumes). No forward/side-effect fires in this phase.
+  4. Registry-driven: a new mailbox/destination is an INSERT, no code branch (SWARM-02). No Stage 2 invoked.
+
+**Plans**: TBD (run `/gsd:spec-phase 131` → `/gsd:discuss-phase 131` → `/gsd:plan-phase 131`)
+
+---
+
 ### Phase 110: Visibility Foundation — Bulk Review + swarm-row enrichment + ingest verify
 
 **Goal**: The sales operator can actually see and follow `verkoop@smeba.nl` emails end-to-end in Bulk Review before any phase auto-acts, and the `sales-email` `swarms` row is upgraded from a Stage-0/1 shell to a full-funnel registry config — the foundation every later phase reads from.
