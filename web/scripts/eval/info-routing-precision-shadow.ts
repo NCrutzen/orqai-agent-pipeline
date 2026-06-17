@@ -208,8 +208,52 @@ function fail(msg: string): never {
 
 interface CoordinatorRoutingRow {
   decision_details: { routing?: { bucket?: string; confidence?: string } } | null;
-  /** the delta-synced Outlook category string off the email record (or null). */
-  human_outlook_category: string | null;
+}
+
+// BUG 3 (WR-05) — the columns the report-mode query may safely select from
+// coordinator_runs. `human_outlook_category` is NOT a column on coordinator_runs;
+// selecting it made Postgres throw "column does not exist" in report mode BEFORE
+// the graded_n false-success guard could return insufficient_sample. The
+// human-actual category source (delta-synced Outlook category) is NOT yet
+// captured anywhere — the prerequisite lands OUTSIDE Phase 131. Until then every
+// row maps to human_category=null (→ graded_n=0 → insufficient_sample, the
+// intended behavior today). Exported so a unit test can assert the bad column is
+// gone without a live DB.
+export const COORDINATOR_RUNS_SELECT = "decision_details";
+
+/**
+ * Project raw coordinator_runs rows → the pure ShadowRow shape. Rows missing a
+ * verdict bucket or confidence are dropped. The human-actual category source is
+ * not yet wired (see COORDINATOR_RUNS_SELECT) so `human_category` is ALWAYS null
+ * today → every row is ungraded → graded_n=0 → insufficient_sample.
+ *
+ * ⚠️ WHEN THE DELTA-SYNC-ON-info@ CATEGORY-CAPTURE PREREQUISITE LANDS (outside
+ * Phase 131): this is where the real human-actual category gets read/joined and
+ * mapped to a bucket via `categoryToBucket`. Add the human-category source column
+ * to COORDINATOR_RUNS_SELECT (or JOIN the email record) and resolve
+ * `human_category` from `categoryToBucket.get(<captured category>) ?? null`
+ * instead of hard-null below.
+ */
+export function mapRowToShadow(
+  rawRows: CoordinatorRoutingRow[],
+  _categoryToBucket: Map<string, string>,
+): ShadowRow[] {
+  return rawRows.flatMap((r) => {
+    const routing = r.decision_details?.routing;
+    const verdict_bucket = routing?.bucket;
+    const confidence = routing?.confidence;
+    if (!verdict_bucket || !confidence) return [];
+    // No human-actual category source wired yet → ungraded (null). See the
+    // COORDINATOR_RUNS_SELECT comment for where the real read gets wired.
+    const human_category: string | null = null;
+    return [
+      {
+        verdict_bucket,
+        human_category,
+        confidence: confidence as "low" | "medium" | "high",
+      },
+    ];
+  });
 }
 
 async function main(): Promise<void> {
@@ -234,14 +278,15 @@ async function main(): Promise<void> {
     if (d.outlook_category) categoryToBucket.set(d.outlook_category, d.destination_key);
   }
 
-  // (2) Read the persisted high-confidence verdicts joined to the delta-synced
-  // human Outlook category. The exact projection of the human category depends on
-  // the delta-sync landing surface (prerequisite, outside 131); today this view/
-  // join yields human_outlook_category = null for every row (0/8000 captured),
-  // so every row is ungraded and gradeVerdict refuses — by design.
+  // (2) Read the persisted high-confidence verdicts. BUG 3 (WR-05): we select
+  // ONLY real coordinator_runs columns (COORDINATOR_RUNS_SELECT) — the
+  // human-actual category source (delta-synced Outlook category) is NOT yet a
+  // column anywhere (prerequisite, outside 131). Selecting the non-existent
+  // `human_outlook_category` made Postgres throw "column does not exist" BEFORE
+  // the graded_n guard could return insufficient_sample.
   const res = await admin
     .from("coordinator_runs")
-    .select("decision_details, human_outlook_category")
+    .select(COORDINATOR_RUNS_SELECT)
     .eq("swarm_type", SWARM)
     .not("decision_details->routing", "is", null);
   if (res.error) {
@@ -250,25 +295,11 @@ async function main(): Promise<void> {
 
   const rawRows = (res.data ?? []) as unknown as CoordinatorRoutingRow[];
 
-  // (3) Project DB rows → the pure ShadowRow shape. Map the human Outlook
-  // category back to a bucket via the registry; unmapped/absent → null (ungraded).
-  const rows: ShadowRow[] = rawRows.flatMap((r) => {
-    const routing = r.decision_details?.routing;
-    const verdict_bucket = routing?.bucket;
-    const confidence = routing?.confidence;
-    if (!verdict_bucket || !confidence) return [];
-    const human_category =
-      r.human_outlook_category !== null
-        ? categoryToBucket.get(r.human_outlook_category) ?? null
-        : null;
-    return [
-      {
-        verdict_bucket,
-        human_category,
-        confidence: confidence as "low" | "medium" | "high",
-      },
-    ];
-  });
+  // (3) Project DB rows → the pure ShadowRow shape. The human-actual category
+  // source is not yet wired, so every row maps to human_category=null (ungraded)
+  // → graded_n=0 → insufficient_sample (by design today). categoryToBucket is the
+  // reverse map ready for when the prerequisite lands — see mapRowToShadow.
+  const rows: ShadowRow[] = mapRowToShadow(rawRows, categoryToBucket);
 
   const stats = computeMatchRate(rows);
   const verdict = gradeVerdict(stats);
