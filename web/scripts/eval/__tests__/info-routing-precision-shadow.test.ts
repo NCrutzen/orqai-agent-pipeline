@@ -18,6 +18,8 @@ import {
   gradeVerdict,
   MIN_GRADED_N,
   MATCH_RATE_GATE,
+  COORDINATOR_RUNS_SELECT,
+  mapRowToShadow,
   type ShadowRow,
 } from "../info-routing-precision-shadow";
 
@@ -146,5 +148,46 @@ describe("gradeVerdict — the graded_n false-success guard + ≥0.85 gate", () 
     const g = gradeVerdict(stats);
     expect(g.status).toBe("graded");
     expect(g.pass).toBe(false);
+  });
+});
+
+// BUG 3 (WR-05) — the report-mode query selected `human_outlook_category`, which
+// is NOT a column on coordinator_runs. Postgres throws "column does not exist" in
+// report mode BEFORE the graded_n false-success guard can return
+// insufficient_sample. The human-actual category source is not yet wired, so the
+// select must reference only real columns and every row maps to a null human
+// category (→ graded_n=0 → insufficient_sample, the intended behavior today).
+describe("BUG 3 (WR-05): report-mode query selects only real columns", () => {
+  it("COORDINATOR_RUNS_SELECT does NOT reference the non-existent human_outlook_category column", () => {
+    expect(COORDINATOR_RUNS_SELECT).not.toContain("human_outlook_category");
+    expect(COORDINATOR_RUNS_SELECT).toContain("decision_details");
+  });
+
+  it("mapRowToShadow treats a row with no human category source as ungraded (human_category=null)", () => {
+    const rows = mapRowToShadow(
+      [
+        {
+          decision_details: {
+            routing: { bucket: "verkoop", confidence: "high" },
+          },
+        },
+      ],
+      new Map(),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].verdict_bucket).toBe("verkoop");
+    expect(rows[0].confidence).toBe("high");
+    expect(rows[0].human_category).toBeNull();
+  });
+
+  it("mapRowToShadow drops rows missing a verdict bucket or confidence", () => {
+    const rows = mapRowToShadow(
+      [
+        { decision_details: { routing: { bucket: "verkoop" } } }, // no confidence
+        { decision_details: null }, // no routing
+      ],
+      new Map(),
+    );
+    expect(rows).toEqual([]);
   });
 });
