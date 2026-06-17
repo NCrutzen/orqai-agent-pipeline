@@ -132,23 +132,47 @@ describe("Phase 131 ROUTE-02: resolveRoutingDestination (pure)", () => {
     dest("inspecties", "smeba", "planning@smeba.nl"),
     dest("inspecties", "fire-control", "planning@fire-control.nl"),
     dest("verkoop", "smeba", "verkoop@smeba.nl"),
+    dest("algemeen", "smeba", null), // gap-closure: matched-but-no-forward
     dest("unrouted", "smeba", null),
   ];
 
   it("resolves the CROSS-BRAND case: (inspecties, fire-control) → the fire-control mailbox, not smeba", () => {
     const got = resolveRoutingDestination(rows, "inspecties", "fire-control");
-    expect(got).toBe("planning@fire-control.nl");
+    expect(got).toEqual({ matched: true, target_mailbox: "planning@fire-control.nl" });
     // Sanity: the smeba pick is a different mailbox.
-    expect(resolveRoutingDestination(rows, "inspecties", "smeba")).toBe("planning@smeba.nl");
+    expect(resolveRoutingDestination(rows, "inspecties", "smeba")).toEqual({
+      matched: true,
+      target_mailbox: "planning@smeba.nl",
+    });
   });
 
-  it("returns null for a (bucket × brand) pair with no active row (→ caller treats as unrouted)", () => {
-    expect(resolveRoutingDestination(rows, "inspecties", "berki")).toBeNull();
-    expect(resolveRoutingDestination(rows, "storingen", "smeba")).toBeNull();
+  it("returns matched=false for a (bucket × brand) pair with no active row (→ caller treats as unrouted)", () => {
+    expect(resolveRoutingDestination(rows, "inspecties", "berki")).toEqual({
+      matched: false,
+      target_mailbox: null,
+    });
+    expect(resolveRoutingDestination(rows, "storingen", "smeba")).toEqual({
+      matched: false,
+      target_mailbox: null,
+    });
   });
 
-  it("returns null for the unrouted sentinel (NULL target_mailbox)", () => {
-    expect(resolveRoutingDestination(rows, "unrouted", "smeba")).toBeNull();
+  // Phase 131 gap-closure — a MATCHED row with a NULL target_mailbox is
+  // matched:true, target null ("classified, no forward / stays"). This is the
+  // signal the verdict builder turns into bucket-preserved + unrouted=false,
+  // distinct from the no-match (matched:false) case above.
+  it("returns matched=true, target null for a matched row whose target_mailbox is NULL (no-forward bucket)", () => {
+    expect(resolveRoutingDestination(rows, "algemeen", "smeba")).toEqual({
+      matched: true,
+      target_mailbox: null,
+    });
+  });
+
+  it("returns matched=true, target null for the unrouted sentinel (NULL target_mailbox)", () => {
+    expect(resolveRoutingDestination(rows, "unrouted", "smeba")).toEqual({
+      matched: true,
+      target_mailbox: null,
+    });
   });
 });
 
@@ -178,29 +202,65 @@ describe("Phase 131 BUG 1 (CR-02): null-brand single-tenant fallback", () => {
   ];
 
   it("resolves a single-tenant bucket with brand=null to its sole mailbox", () => {
-    expect(resolveRoutingDestination(seed, "sollicitaties", null)).toBe("hrm@smeba.nl");
-    expect(resolveRoutingDestination(seed, "algemeen", null)).toBe("algemeen@smeba.nl");
-    expect(resolveRoutingDestination(seed, "inspecties", null)).toBe("inspecties@smeba.nl");
-    expect(resolveRoutingDestination(seed, "storingen", null)).toBe("storingen@smeba.nl");
-    expect(resolveRoutingDestination(seed, "opleidingen", null)).toBe("opleidingen@fire-control.nl");
+    expect(resolveRoutingDestination(seed, "sollicitaties", null)).toEqual({
+      matched: true,
+      target_mailbox: "hrm@smeba.nl",
+    });
+    expect(resolveRoutingDestination(seed, "algemeen", null)).toEqual({
+      matched: true,
+      target_mailbox: "algemeen@smeba.nl",
+    });
+    expect(resolveRoutingDestination(seed, "inspecties", null)).toEqual({
+      matched: true,
+      target_mailbox: "inspecties@smeba.nl",
+    });
+    expect(resolveRoutingDestination(seed, "storingen", null)).toEqual({
+      matched: true,
+      target_mailbox: "storingen@smeba.nl",
+    });
+    expect(resolveRoutingDestination(seed, "opleidingen", null)).toEqual({
+      matched: true,
+      target_mailbox: "opleidingen@fire-control.nl",
+    });
   });
 
-  it("keeps cross-tenant ambiguous: order_entry + brand=null → null (unrouted)", () => {
-    expect(resolveRoutingDestination(seed, "order_entry", null)).toBeNull();
-    expect(resolveRoutingDestination(seed, "verkoop", null)).toBeNull();
+  it("keeps cross-tenant ambiguous: order_entry + brand=null → matched=false (unrouted)", () => {
+    expect(resolveRoutingDestination(seed, "order_entry", null)).toEqual({
+      matched: false,
+      target_mailbox: null,
+    });
+    expect(resolveRoutingDestination(seed, "verkoop", null)).toEqual({
+      matched: false,
+      target_mailbox: null,
+    });
   });
 
   it("keeps exact-match winning for cross-tenant: order_entry + 'berki' → order@berki.nl", () => {
-    expect(resolveRoutingDestination(seed, "order_entry", "berki")).toBe("order@berki.nl");
-    expect(resolveRoutingDestination(seed, "verkoop", "fire-control")).toBe("verkoop@fire-control.nl");
+    expect(resolveRoutingDestination(seed, "order_entry", "berki")).toEqual({
+      matched: true,
+      target_mailbox: "order@berki.nl",
+    });
+    expect(resolveRoutingDestination(seed, "verkoop", "fire-control")).toEqual({
+      matched: true,
+      target_mailbox: "verkoop@fire-control.nl",
+    });
   });
 
-  it("returns null for a bucket with no rows at all", () => {
-    expect(resolveRoutingDestination(seed, "nonexistent", null)).toBeNull();
-    expect(resolveRoutingDestination(seed, "nonexistent", "smeba")).toBeNull();
+  it("returns matched=false for a bucket with no rows at all", () => {
+    expect(resolveRoutingDestination(seed, "nonexistent", null)).toEqual({
+      matched: false,
+      target_mailbox: null,
+    });
+    expect(resolveRoutingDestination(seed, "nonexistent", "smeba")).toEqual({
+      matched: false,
+      target_mailbox: null,
+    });
   });
 
-  it("single-tenant sentinel (sole row, NULL target) with brand=null → null", () => {
-    expect(resolveRoutingDestination(seed, "unrouted", null)).toBeNull();
+  it("single-tenant sentinel (sole row, NULL target) with brand=null → matched=true, target null", () => {
+    expect(resolveRoutingDestination(seed, "unrouted", null)).toEqual({
+      matched: true,
+      target_mailbox: null,
+    });
   });
 });
