@@ -262,7 +262,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
-| 131. Destination taxonomy + router | 5/5 | Complete   | 2026-06-17 |
+| 131. Destination taxonomy + router | 5/5 | Complete    | 2026-06-17 |
 | 132. Forward + Bulk Review | — | Pending | — |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
 | 134. Ambient-loop coupling | — | Pending | — |
