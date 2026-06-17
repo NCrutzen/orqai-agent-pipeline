@@ -20,7 +20,7 @@ LLM tiebreaker. It currently passes the live `llmTiebreak` closure into `runSend
 loop's own comment promises is deterministic. Confirmed by both 123-REVIEW.md and the verifier
 reading the actual code. Disposition required: FIX (pass a no-op tiebreaker into the step calls
 inside the corroboration loop, per 123-REVIEW.md) or formally ACCEPT the deviation.
-result: [pending]
+result: resolved — fixed 2026-06-17. engine.ts now injects a no-op tiebreaker into runSenderMatch/runIdentifierMatch on the corroboration collect path (real llmTiebreak retained on the no-corroboration path). Regression test in corroboration-collect.test.ts asserts lookupCandidateDetails is never called on the collect path. tsc 0, vitest green. Commit: fix(123) CR-01.
 
 ### 2. RESL-UNIFY-06 — clean absolute-% correctness eval re-run
 expected: After the `nxt.candidate_details` async-callback transport issue is fixed (follow-up
@@ -41,9 +41,9 @@ result: [pending]
 ## Summary
 
 total: 3
-passed: 0
+passed: 1
 issues: 0
-pending: 3
+pending: 2
 skipped: 0
 blocked: 0
 
