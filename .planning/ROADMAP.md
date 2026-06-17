@@ -262,7 +262,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
-| 131. Destination taxonomy + router | 3/5 | In Progress|  |
+| 131. Destination taxonomy + router | 4/5 | In Progress|  |
 | 132. Forward + Bulk Review | — | Pending | — |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
 | 134. Ambient-loop coupling | — | Pending | — |
@@ -371,7 +371,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3; 04 ∥ 05)*
 
-- [ ] 131-04-PLAN.md — Two-layer duplicate-delivery guard (raw_json recipients + normalized message-id) wired into the verdict (ROUTE-05)
+- [x] 131-04-PLAN.md — Two-layer duplicate-delivery guard (raw_json recipients + normalized message-id) wired into the verdict (ROUTE-05)
 - [ ] 131-05-PLAN.md — Shadow precision harness (verdict vs human-actual Outlook category, ≥85% gate, graded_n false-success guard) (ROUTE-08)
 
 ---
