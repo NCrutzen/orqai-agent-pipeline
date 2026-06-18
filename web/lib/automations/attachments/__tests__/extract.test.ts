@@ -464,6 +464,36 @@ describe("extractAttachment — .xlsx (exceljs)", () => {
     expect(orqRouterChatMock).not.toHaveBeenCalled();
   });
 
+  it("(121-03 contract) an invoice-like token survives into the joined row text (the fold relies on this)", async () => {
+    // Phase 121-03 Task 1 — the Stage 2 load-email fold prepends this extracted
+    // text into body_text; the engine's extraction regexes then run over it. The
+    // contract the fold depends on: a multi-digit invoice token must reach the
+    // row text INTACT (the cell→string coercion + "," join must not split or
+    // mangle the number). statement.xlsx / 17008876 mirror the fold test.
+    xlsxFixture = [
+      {
+        name: "Blad1",
+        rows: [
+          ["Factuur", "Bedrag"],
+          ["17008876", 9000],
+        ],
+      },
+    ];
+
+    const out = await extractAttachment({
+      bytes: textBytes("ignored-by-mock"),
+      contentType: XLSX_CONTENT_TYPE,
+      filename: "statement.xlsx",
+      caps: CAPS,
+    });
+
+    expect(out.status).toBe("extracted");
+    const inner = unwrap(out.text);
+    // The number survives whole, on its own row, joined with its amount.
+    expect(inner).toContain("17008876,9000");
+    expect(inner).toMatch(/(^|\n)17008876,/);
+  });
+
   it("(e) a formula cell { formula, result } coerces to its result string, never [object Object]", async () => {
     xlsxFixture = [
       {
