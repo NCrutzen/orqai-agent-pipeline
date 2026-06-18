@@ -25,15 +25,25 @@ import {
 import { extractInvoiceCandidates } from "@/lib/automations/debtor-email/extract-invoices";
 import { stripEnvPrefix } from "../strip-env-prefix";
 import { isAutoEligibleStatus } from "./auto-gate";
+import {
+  resolveCrossScope,
+  CROSS_SCOPE_ROOT_KINDS,
+} from "./cross-scope";
 import type { ResolveArgs, ResolveResult, Candidate } from "../engine";
 import type { LlmTiebreak } from "./sender-match";
 import type { SelfAuthConfig } from "./self-auth-match";
+import type { CrossScopeConfig, CorroborationConfig } from "../config";
 
 // Phase 91 (RESL-08) — the config slice the number back-search pre-pass reads.
 // Reuses SelfAuthConfig (scope.environment_id for the D-01 strip, scope.brand_scope
 // for the prefix-family tiebreaker, auto_safe_kinds for the eligible number kinds).
+// Phase 122 (XSCOPE-01) — carries the OPTIONAL cross_scope + corroboration slices the
+// cross-scope post-pass reads at the drop sites (presence-gated, swarm-agnostic).
 // Swarm-agnostic (D-08): no debtor literals.
-export type IdentifierMatchConfig = SelfAuthConfig;
+export type IdentifierMatchConfig = SelfAuthConfig & {
+  cross_scope?: CrossScopeConfig;
+  corroboration?: CorroborationConfig;
+};
 
 export interface IdentifierMatchOutcome {
   /** A resolved result (single-hit or tiebreaker), or null to fall through. */
@@ -107,13 +117,42 @@ export async function runIdentifierMatch(
     );
     const rootOf = (m: ResolveCandidateMatch) => m.root_party_id ?? m.party_id;
     const distinctRoots = Array.from(new Set(inScope.map(rootOf)));
+    const inScopeBrands = new Set<string>([
+      args.brand_id,
+      ...(args.brand_scope ?? []),
+    ]);
+
+    // Phase 122 (XSCOPE-01 / D-11) — cross-scope post-pass. Fires ONLY after an
+    // in-scope MISS: the invoice path produces no in-scope-brand single-root AUTO
+    // (every invoice_no row is cross-brand, OR there is no invoice_no row at all).
+    // Gated strictly on config.cross_scope?.enabled (SWARM-02 — no swarm literal);
+    // when absent/false the original logic below runs BYTE-IDENTICAL (opt-out,
+    // Pitfall 1). PURE over the already-fetched res.matches — no second lookup.
+    const hasInScopeInvoiceRoot =
+      distinctRoots.length === 1 &&
+      (() => {
+        const w = inScope.find((m) => rootOf(m) === distinctRoots[0])!;
+        return w.brand_id == null || w.brand_id === "" || inScopeBrands.has(w.brand_id);
+      })();
+    if (config?.cross_scope?.enabled && !hasInScopeInvoiceRoot) {
+      const crossScope = resolveCrossScope(
+        res.matches,
+        CROSS_SCOPE_ROOT_KINDS,
+        config,
+        args,
+        invoices.candidates,
+        "root",
+      );
+      if (crossScope) {
+        return { result: crossScope, matched_identifiers: invoices.candidates };
+      }
+      // No cross-scope decision → fall through to the original in-scope logic
+      // (which then drops to SUGGEST). Opt-out byte-identity is unaffected because
+      // this whole branch is gated on cross_scope.enabled.
+    }
 
     if (distinctRoots.length === 1) {
       // Prefix-family gate against the mailbox brand scope.
-      const inScopeBrands = new Set<string>([
-        args.brand_id,
-        ...(args.brand_scope ?? []),
-      ]);
       const winner = inScope.find((m) => rootOf(m) === distinctRoots[0])!;
       if (
         winner.brand_id != null &&
