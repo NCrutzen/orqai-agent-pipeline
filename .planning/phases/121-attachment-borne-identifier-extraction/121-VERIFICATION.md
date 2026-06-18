@@ -1,7 +1,7 @@
 ---
 phase: 121-attachment-borne-identifier-extraction
 verified: 2026-06-17T22:00:00Z
-status: human_needed
+status: passed  # build accepted by operator 2026-06-18; 2026-06-17 human-verify items resolved (see 121-03-ACCEPTANCE.md)
 score: 5/5
 overrides_applied: 0
 re_verification: false

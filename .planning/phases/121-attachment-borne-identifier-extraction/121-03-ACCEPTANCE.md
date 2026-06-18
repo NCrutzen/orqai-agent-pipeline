@@ -8,6 +8,16 @@ extraction-gap + many-customer guard), split into what is **verifiable NOW**
 Requirements covered: ATID-01 (attachment-borne IDs reach the engine body),
 ATID-02 (no engine edit / STAGE2-01), ATID-04 (live confirmation — rides Phase 123).
 
+> **OPERATOR ACCEPTANCE — 2026-06-18.** Build accepted on the (A) verifiable-now evidence
+> (58 tests green; many-customer guard structural; no-engine-diff FINAL). The (B) live
+> frozen-100 re-run is **reframed as harness-limited** (mailbox-only scoping under-scores
+> cross-brand cases the resolver fails *closed* on; the harness does not fold attachment
+> text) — acceptance rests on the per-bucket targeted runs (bucket-B 12/12, bucket-C 6/6
+> leaf-correct, confident-wrong 4/4 demoted, gold 0 regression) + the cardinal
+> never-confident-wrong constraint, not a single harness %. The two 2026-06-17 human-verify
+> items (ROADMAP marker, ATID-* traceability) are resolved: the build (121-02/03) now exists
+> and is accepted; ATID-01..04 are accepted as ROADMAP-shape requirements.
+
 ---
 
 ## (A) VERIFIABLE NOW (this plan)
