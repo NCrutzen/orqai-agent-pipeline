@@ -116,7 +116,10 @@ describe("classifier-llm-rules-seed", () => {
     await classifierLLMRulesSeed.handler({ step: makeStepStub() });
     expect(h.classifierUpserts.length).toBeGreaterThan(0);
     for (const call of h.classifierUpserts) {
-      expect(call.opts).toEqual({ onConflict: "swarm_type,rule_key" });
+      expect(call.opts).toEqual({
+        onConflict: "swarm_type,rule_key",
+        ignoreDuplicates: true,
+      });
     }
   });
 
@@ -152,6 +155,24 @@ describe("classifier-llm-rules-seed", () => {
       agree: 0,
       ci_lo: null,
     });
+  });
+
+  it("re-fire is idempotent (ignoreDuplicates) so promoted rules are not demoted", async () => {
+    // 260618-iwx: shared cats reach info-routing too; a re-fire must DO NOTHING
+    // on existing rows (ON CONFLICT DO NOTHING) so info-routing's already-
+    // promoted llm:*:high rules keep status='promoted' instead of being reset
+    // to 'candidate'. The opts object is the contract that guarantees this.
+    h.swarmsData = [{ swarm_type: "info-routing" }];
+    h.catsQueue.push([{ category_key: "marketing_newsletter", enabled: true }]);
+    // @ts-expect-error mock handler shape
+    await classifierLLMRulesSeed.handler({ step: makeStepStub() });
+    expect(h.classifierUpserts.length).toBeGreaterThan(0);
+    for (const call of h.classifierUpserts) {
+      expect(call.opts).toEqual({
+        onConflict: "swarm_type,rule_key",
+        ignoreDuplicates: true,
+      });
+    }
   });
 
   it("skips disabled categories", async () => {

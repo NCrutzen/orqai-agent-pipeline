@@ -59,18 +59,34 @@ export async function loadSwarmNoiseCategories(
   const hit = CATEGORIES_CACHE.get(swarmType);
   if (hit && hit.expires > now) return hit.value;
 
+  // Quick task 260618-iwx: union the swarm's own rows with shared '*' rows.
+  // Precedence + enabled filter run in JS (NOT at the DB): an own-swarm row
+  // with enabled=false must be able to SHADOW (opt out of) a shared category,
+  // so a DB-level .eq("enabled", true) would silently break opt-out by
+  // dropping the shadow row before precedence is applied (Pitfall A).
   const { data, error } = await admin
     .from("swarm_noise_categories")
     .select("*")
-    .eq("swarm_type", swarmType)
-    .eq("enabled", true)
+    .in("swarm_type", [swarmType, "*"])
     .order("display_order", { ascending: true });
 
   if (error) {
     if (hit) return hit.value;
     return [];
   }
-  const value = (data as SwarmNoiseCategoryRow[] | null) ?? [];
+  const rows = (data as SwarmNoiseCategoryRow[] | null) ?? [];
+  // Own-swarm row shadows the shared '*' row of the same category_key.
+  const byKey = new Map<string, SwarmNoiseCategoryRow>();
+  for (const row of rows) {
+    const existing = byKey.get(row.category_key);
+    if (!existing || (existing.swarm_type === "*" && row.swarm_type === swarmType)) {
+      byKey.set(row.category_key, row);
+    }
+  }
+  // Drop opted-out / disabled winners, then sort (the union may interleave).
+  const value = Array.from(byKey.values())
+    .filter((row) => row.enabled !== false)
+    .sort((a, b) => a.display_order - b.display_order);
   CATEGORIES_CACHE.set(swarmType, { value, expires: now + TTL_MS });
   return value;
 }
