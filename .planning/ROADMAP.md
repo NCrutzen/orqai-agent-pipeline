@@ -263,7 +263,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 |-------|----------------|--------|-----------|
 | 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
 | 131. Destination taxonomy + router | 5/5 | Complete    | 2026-06-17 |
-| 132. Forward + Bulk Review | — | Pending | — |
+| 132. Forward + Bulk Review | 1/4 | In Progress|  |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
 | 134. Ambient-loop coupling | — | Pending | — |
 
@@ -395,7 +395,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 132-01-PLAN.md — Wave 1: [BLOCKING] live Graph send-scope smoke + leaf primitives (forwardMessage 3-call helper, routing-category vocabulary, isForwardBucketReleased per-bucket gate, Wave-0 RED worker scaffold) (FWD-01, FWD-02, FWD-03, FWD-04, FWD-06, FWD-10)
+- [x] 132-01-PLAN.md — Wave 1: [BLOCKING] live Graph send-scope smoke + leaf primitives (forwardMessage 3-call helper, routing-category vocabulary, isForwardBucketReleased per-bucket gate, Wave-0 RED worker scaffold) (FWD-01, FWD-02, FWD-03, FWD-04, FWD-06, FWD-10)
 
 **Wave 2** *(blocked on Wave 1)*
 
