@@ -115,12 +115,20 @@ None — plan executed exactly as written.
 None. The fold test exercises the live 116-05 fold over a Plan-02-shaped xlsx
 extraction; no placeholder data.
 
-## Open Checkpoint
+## Checkpoint — ACCEPTED (operator, 2026-06-18)
 
-Task 3 is a `checkpoint:human-verify` (gate=blocking, `autonomous: false`) — Phase
-121 build acceptance. Both auto tasks are complete and committed; the checkpoint
-awaits operator sign-off ("accepted") to close Phase 121 build acceptance. The live
-fixture re-run remains a tracked Phase-123 acceptance item.
+Task 3 (`checkpoint:human-verify`, gate=blocking, `autonomous: false`) — Phase 121
+build acceptance — **ACCEPTED by operator 2026-06-18**. Both auto tasks complete and
+committed.
+
+The live fixture re-run was subsequently DONE (2026-06-18, transport-clean,
+`NXT_LOOKUP_WAIT_MS=120000`, 0 timeouts) and **exonerates Phase 121**: the eval RED is
+cross-brand scope (smeba-fire→[SF] vs invoices in [SB]) = Phase 122's remit, NOT
+attachment extraction. Phase 121's deliverable (xlsx/csv extraction + structural
+many-customer guard, engine byte-identical) is sound; identifiers were present in the
+body, not blocked by extraction. See `RERUN-FINDINGS.md` + todo
+`2026-06-18-v95-loose-ends-do-not-forget.md` (item 2b). Cross-brand recovery + the
+smeba-11 extraction cluster are tracked separately, not Phase-121 blockers.
 
 ## Commits
 

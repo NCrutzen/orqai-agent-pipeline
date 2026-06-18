@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
 status: executing
-stopped_at: Completed 121-03-PLAN.md (build acceptance) — Task 3 human-verify checkpoint OPEN
+stopped_at: Phase 121 CLOSED 2026-06-18 — 121-03 checkpoint ACCEPTED; live re-run done (RED = cross-brand scope → Phase 122, not a 121 defect)
 last_updated: "2026-06-18T05:33:05.517Z"
 last_activity: 2026-06-18
 progress:
@@ -57,7 +57,7 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 121 — attachment-borne-identifier-extraction
+**Current focus:** Phase 121 CLOSED (2026-06-18). Next in V9.5: Phase 122 — cross-brand-scope resolution (running in a separate session; the 2026-06-18 re-run shows it should recover ~23/34 gold failures). Open follow-ups tracked in todo `2026-06-18-v95-loose-ends-do-not-forget.md`.
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
@@ -368,9 +368,9 @@ Last activity: 2026-06-18
 ## Session Continuity
 
 Last session: 2026-06-18T05:33:05.474Z
-Stopped at: Completed 121-03-PLAN.md (build acceptance) — Task 3 human-verify checkpoint OPEN
-Resume with: /gsd:execute-phase 121 (build #24) — after the `candidate_details` clean-eval follow-up; 121-03 live re-run gated on Phase 123; then Phase 122 (cross-brand scope).
-Resume file: 121-03-PLAN.md Task 3 checkpoint
+Stopped at: Phase 121 CLOSED 2026-06-18 — all 3 plans complete, 121-03 checkpoint ACCEPTED, live re-run done (RED = cross-brand scope → Phase 122).
+Resume with: Phase 122 (cross-brand-scope resolution) — running in a separate session. Follow-ups in todo `2026-06-18-v95-loose-ends-do-not-forget.md`.
+Resume file: .planning/todos/pending/2026-06-18-v95-loose-ends-do-not-forget.md
 
 ## Deferred Items
 
