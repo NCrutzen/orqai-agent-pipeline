@@ -187,6 +187,27 @@ export async function resolveEntity(
   const llmTiebreak: LlmTiebreak = (customerIds, tiebreakArgs, ctx) =>
     runLlmTiebreak(customerIds, tiebreakArgs, ctx, config);
 
+  // Phase 123 (CR-01 / D-03) — the PRESENT-corroboration collect path MUST stay
+  // deterministic: it collects every step's candidate and scores via
+  // scoreCorroboration, with NO LLM tiebreaker. The sender/identifier steps take
+  // the tiebreak closure as a param (used on the no-corroboration path above), so
+  // inside the collect loop we inject this no-op instead of `llmTiebreak`. On a
+  // multi-candidate (ambiguous) step it resolves to an `unresolved` result, which
+  // pushSignal drops — fail-closed, and no billable/non-deterministic LLM call
+  // fires on the collect path. Do NOT swap this onto the no-corroboration path.
+  const noopTiebreak: LlmTiebreak = (_customerIds, _tiebreakArgs, ctx) =>
+    Promise.resolve({
+      method: "unresolved",
+      customer_account_id: null,
+      customer_name: null,
+      confidence: "none",
+      inputs: {
+        kind: "unresolved",
+        sender_email: ctx.sender_email,
+        matched_identifiers: ctx.matched_identifiers,
+      },
+    });
+
   // Track the identifiers the identifier step extracted so the unresolved
   // fallback mirrors the legacy `invoices?.candidates ?? []` exactly.
   let lastMatchedIdentifiers: string[] = [];
@@ -213,7 +234,14 @@ export async function resolveEntity(
         const result = await runThreadInheritance(args);
         if (result) return result;
       } else if (stepName === "sender_match") {
-        const result = await runSenderMatch(args, llmTiebreak);
+        // Phase 123 — sender_match resolves over resolve_candidates (email_domain/
+        // email_address). It reads scope.environment_id for the D-01 strip; pass
+        // config only when scope is present (absent scope → the step no-ops).
+        const result = await runSenderMatch(
+          args,
+          llmTiebreak,
+          config.scope ? (config as SelfAuthConfig) : undefined,
+        );
         if (result) return result;
       } else if (stepName === "identifier_match") {
         // Phase 91 (RESL-08) — pass config only when scope is present so the
@@ -292,11 +320,21 @@ export async function resolveEntity(
     } else if (stepName === "thread_inheritance") {
       pushSignal(await runThreadInheritance(args), i);
     } else if (stepName === "sender_match") {
-      pushSignal(await runSenderMatch(args, llmTiebreak), i);
+      // Phase 123 — see the no-corroboration loop above (resolve_candidates
+      // email_domain/email_address back-search; config passed only when scope
+      // present).
+      pushSignal(
+        await runSenderMatch(
+          args,
+          noopTiebreak,
+          config.scope ? (config as SelfAuthConfig) : undefined,
+        ),
+        i,
+      );
     } else if (stepName === "identifier_match") {
       const outcome = await runIdentifierMatch(
         args,
-        llmTiebreak,
+        noopTiebreak,
         config.scope ? (config as SelfAuthConfig) : undefined,
       );
       lastMatchedIdentifiers = outcome.matched_identifiers;

@@ -64,6 +64,7 @@ const STATUS_META: Record<string, { label: string; tone: BadgeTone }> = {
   extracted: { label: "Text extracted", tone: "success" },
   pending: { label: "Queued", tone: "progress" },
   extraction_failed: { label: "Extraction failed", tone: "warning" },
+  no_text: { label: "No text content", tone: "muted" },
   skipped_cap: { label: "Skipped (too large)", tone: "warning" },
   source_gone: { label: "Source removed", tone: "warning" },
   unsupported: { label: "Unsupported type", tone: "muted" },

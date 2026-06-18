@@ -48,6 +48,37 @@
 - Cross-brand fallback resolves the bucket-C cases without widening false positives (scope stays a tiebreaker, env_id='BX' stays a hard filter).
 - **Correctness gate:** re-run the resolver over the frozen 100-email eval set after 120/121/122 land → material reduction of the 36 Nee+Twijfel, especially eliminating the 4 confident-wrong AUTO and the now-known-answer A/C cases. Sits alongside (does not replace) the no-Engine-diff measurement.
 - Auto-corroboration never injects a confident wrong customer (the cardinal Stage-2 constraint, inherited from v8.2).
+## V9.7 Routing Swarm Go-Live — Departmental Routing (Defined: 2026-06-16)
+
+**Status:** Defined — not yet started. **Sequenced AFTER V9.5, BEFORE V10.0** (operator decision 2026-06-16). Decoupled from V9.5 (routing needs no Stage 2 customer resolution). **Charter:** `docs/routing-swarm-milestone-charter.md`.
+
+> Note: V9.5 (Stage-2 resolver correctness) is defined in a parallel branch not yet merged to main; this V9.7 entry references it as its predecessor. The ROADMAP table row sits before V10.0 (V9.5's row arrives via its own PR).
+
+**Why this milestone exists (the "what next after V9.5?" decision).** Chosen over draft-reply handlers via a live data analysis (2026-06-16): routing has ~10× the clean addressable volume (~300/mo info@ + ~30/mo verkoop→order vs ~65/mo safe draft-reply intents), far lower risk (internal forward, reversible, no customer-facing content), is more visible to staff (mail lands in their own inbox), and is decoupled from V9.5. Draft-reply handlers become the *next* step, starting narrow with one intent (`copy_document_request`). This is the concrete go-live of the v8.0 dormant SEED-001 (info@smeba routing swarm) + the Phase 88 spike blueprint, and the first concrete consumer of the V10.0 ambient learning-loop.
+
+**Data foundation (live-measured, 30d, 2026-06-16).** info-routing swarm already ingests + runs Stage 0/1 but routes nothing (`stage2_entity_resolver`/`stage3_coordinator_agent_key` = null). info@smeba.nl = 1.073/mo, info@fire-control.nl = 219/mo (2 live; 4 dormant in `info_routing_mailbox_settings`). Of the ~663/mo non-noise "unknown" pool: **~50% is latent noise Stage 1 doesn't yet catch** (cold-sales, newsletters, auto-dealer spam, job applications, surveys) and **~50% (~300/mo) is genuinely routable into 6-7 finite destinations** — no long tail.
+
+**Verified destination mailboxes (exist + actively send = live departmental boxes):** Order-entry → `order@smeba.nl`/`order@fire-control.nl`/`order@berki.nl` (order@smeba: 2.413 recv/636 sent, already separately ingested); Verkoop → `verkoop@{smeba.nl,fire-control.nl,berki.nl}`; Inspecties/keuringen → `planning@smeba.nl`; Storingen → `storing.smeba@smeba.nl`; Opleidingen/BHV → `opleidingen@fire-control.nl`; Debiteuren → `debiteuren@{smeba.nl,smeba-fire.be,berki.nl}`; Crediteuren (supplier invoices) → `crediteuren@smeba.nl`; Sollicitaties → `hrm@smeba.nl`. **Router must be brand-aware** (info@smeba receives fire-control inspection mail that routes to fire-control boxes; env_id='BX' stays a hard filter, brand a tiebreaker).
+
+**Goal:** info@ (smeba + fire-control) actionable mail is classified on *destination* by a Stage-3 router and forwarded to the right departmental mailbox without a human; staff add/curate routing rules via natural language (LLM → registry rules, human-approved); verkoop@→order@ is the first cross-mailbox sales routing. No customer-facing content generation.
+
+**Scope:** (1) Stage 1 noise-recalibration for info@ (close the ~50% leak via `classifier_rules` + Wilson-CI shadow→promote); (2) Stage 3 `info-routing-coordinator` Orq agent classifying on destination + a destination registry (no Stage 2); (3) Stage 4 Outlook-forward side-effect (idempotent, dry-run-gated, brand-aware) + category stamp back (V10 ambient signal); (4) NL routing-config UI (sender/subject/content predicates → destination, human-approved); (5) verkoop@→order@ routing for `quote_acceptance`/`order_status`; (6) info-routing Bulk Review surface. **Out of scope:** draft-reply generation; customer resolution; the 4 dormant info@ boxes (registry-flip when smeba+fire-control are proven).
+
+**Architecture:** Registry-driven on the canonical funnel; fills the info-routing Stage-3/4 shell. **Zero `if swarm_type==='info-routing'` branches** — destinations, routing rules, NL-derived rules are registry data; a new mailbox/destination is an INSERT. Connects to the V10.0 ambient channel: a written-back Outlook category + a clicked-away/moved mail = `correction_event` → loop tunes routing rules (routing = first ambient-loop consumer).
+
+**Phases (proposed):** P0 noise-recalibration · P1 destination taxonomy + router agent · P2 forward side-effect + Bulk Review · P3 NL routing-config + verkoop→order · P4 ambient-loop coupling. Critical path P0→P1→P2.
+
+**Success criteria:**
+- ≥ X% of info@ actionable mail reaches a Stage-3 destination verdict and is forwarded without a human (target TBD; baseline 0%).
+- info@ "unknown" pool that is actually noise drops ~50% → < 20% after recalibration.
+- Forward precision ≥ Y% (wrong-department rate on operator corrections); a wrong forward is reversible but must be rare.
+- A staff member adds a routing rule via NL and it is live within one review-click (no deploy).
+- verkoop@ → order@ routing live for `quote_acceptance`/`order_status`.
+- Zero `if swarm_type==='…'` branches (SWARM-02 holds).
+
+**Depends on:** info-routing swarm Stage 0/1 (live) + `info_routing_mailbox_settings` (exists); Outlook Graph forward capability; the canonical funnel registry. **No dependency on V9.5** (no Stage 2). Feeds V10.0 (first ambient-loop consumer) and complements V11.0 (routing handles *where*; handlers handle *reply*).
+
+**Open questions (gate planning, don't block definition):** confirm a dedicated tenders destination + whether fire-control inspection planning routes via `planning@smeba.nl` or a fire-control box; forward mechanic (true forward vs category+move vs shared-mailbox assignment); noise-recalibration as a standalone pre-win; NL-config rule ownership/approval (supervisor vs department).
 
 ---
 

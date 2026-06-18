@@ -10,16 +10,15 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { lookupSenderMock, lookupIdentifierMock, lookupResolveCandidatesMock } =
-  vi.hoisted(() => ({
-    lookupSenderMock: vi.fn(),
-    lookupIdentifierMock: vi.fn(),
-    lookupResolveCandidatesMock: vi.fn(),
-  }));
+// Phase 123-02: sender + factuur resolve over the SAME resolve_candidates
+// substrate as offerte/order — the legacy per-kind wrappers are gone. A single
+// lookupResolveCandidates mock drives every step; the adapter filters returned
+// rows by identifier_kind to decide which step consumes them.
+const { lookupResolveCandidatesMock } = vi.hoisted(() => ({
+  lookupResolveCandidatesMock: vi.fn(),
+}));
 
 vi.mock("@/lib/automations/debtor-email/nxt-zap-client", () => ({
-  lookupSenderToAccount: lookupSenderMock,
-  lookupIdentifierToAccount: lookupIdentifierMock,
   lookupResolveCandidates: lookupResolveCandidatesMock,
 }));
 
@@ -47,23 +46,17 @@ const baseArgs = {
 };
 
 beforeEach(() => {
-  lookupSenderMock.mockReset();
-  lookupIdentifierMock.mockReset();
   lookupResolveCandidatesMock.mockReset();
-  lookupSenderMock.mockResolvedValue({ matches: [] });
-  lookupIdentifierMock.mockResolvedValue({ matches: [] });
   lookupResolveCandidatesMock.mockResolvedValue({ matches: [] });
 });
 
 describe("Phase 120-02 Task 2: sales corroboration via the shared helper", () => {
   it("two agreeing distinct-kind hits (sender_domain + quote_no) on the SAME customer → high (boost, D-04)", async () => {
-    lookupSenderMock.mockResolvedValue({
-      matches: [
-        { top_level_customer_id: "BX228895", top_level_customer_name: "Bever B.V.", status: "active" },
-      ],
-    });
+    // One substrate mock feeds BOTH steps: the email_domain row (sender_match)
+    // and the quote_no row (offerte_match) resolve the same customer.
     lookupResolveCandidatesMock.mockResolvedValue({
       matches: [
+        { identifier_kind: "email_domain", identifier_value_norm: "bever.nl", party_id: "BX228895", party_name: "Bever B.V.", scope_key: "SB", is_unique_in_scope: true, status: "active" },
         { identifier_kind: "quote_no", identifier_value_norm: "14098", party_id: "BX228895", party_name: "Bever B.V.", scope_key: "SB", is_unique_in_scope: true, status: "active" },
       ],
     });
@@ -78,14 +71,11 @@ describe("Phase 120-02 Task 2: sales corroboration via the shared helper", () =>
   });
 
   it("two distinct-kind hits on DIFFERENT customers → precedence winner at medium (demote, D-06)", async () => {
-    // sender (precedence index 0) → BX111; offerte (index 1) → BX228895.
-    lookupSenderMock.mockResolvedValue({
-      matches: [
-        { top_level_customer_id: "BX111", top_level_customer_name: "Sender Klant", status: "active" },
-      ],
-    });
+    // sender (precedence index 0) → BX111 via email_domain; offerte (index 1) →
+    // BX228895 via quote_no. The adapter filters by identifier_kind per step.
     lookupResolveCandidatesMock.mockResolvedValue({
       matches: [
+        { identifier_kind: "email_domain", identifier_value_norm: "bever.nl", party_id: "BX111", party_name: "Sender Klant", scope_key: "SB", is_unique_in_scope: true, status: "active" },
         { identifier_kind: "quote_no", identifier_value_norm: "14098", party_id: "BX228895", party_name: "Bever B.V.", scope_key: "SB", is_unique_in_scope: true, status: "active" },
       ],
     });
@@ -102,12 +92,13 @@ describe("Phase 120-02 Task 2: sales corroboration via the shared helper", () =>
   });
 
   it("lone sender_domain hit (no second signal) → medium (D-07 cap)", async () => {
-    lookupSenderMock.mockResolvedValue({
+    // Only the email_domain row resolves; no offerte/order in the body → only the
+    // sender signal is collected.
+    lookupResolveCandidatesMock.mockResolvedValue({
       matches: [
-        { top_level_customer_id: "BX111", top_level_customer_name: "Sender Klant", status: "active" },
+        { identifier_kind: "email_domain", identifier_value_norm: "bever.nl", party_id: "BX111", party_name: "Sender Klant", scope_key: "SB", is_unique_in_scope: true, status: "active" },
       ],
     });
-    // No offerte/order in the body → only the sender signal collected.
     const r = await resolveEntity(
       { ...baseArgs, subject: "Algemene vraag", body_text: "geen nummer hier" },
       corrConfig,

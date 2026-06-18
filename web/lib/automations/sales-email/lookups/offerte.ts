@@ -37,10 +37,12 @@ const OFFERTE_SMEQ = /\bSME[QB]\s?\d{4,6}\b/gi;
 // Sales region + brand scope for the resolver_index back-search. Sales is BX
 // (RESL-06 hard region scope) with brand SB. These are SALES-SPECIFIC glue
 // constants — the shared engine/scorer stay swarm-agnostic; per-swarm scope lives
-// in the per-swarm lookup files.
-const SALES_ENVIRONMENT_ID = "BX";
-const SALES_BRAND_SCOPE = ["SB"] as const;
-const SALES_SCOPE_KEY = "SB";
+// in the per-swarm lookup files. Exported (Phase 123-02) so the adapter's
+// sender_match + factuur_match cases reuse the SAME scope constants rather than
+// redefining them (single source of truth for the sales scope).
+export const SALES_ENVIRONMENT_ID = "BX";
+export const SALES_BRAND_SCOPE = ["SB"] as const;
+export const SALES_SCOPE_KEY = "SB";
 
 // Phase 120-03: the dedicated resolve_candidates allowlist intent for sales
 // resolution (default-deny `allowed_for_intents`, BUDG-02). Sales resolution is

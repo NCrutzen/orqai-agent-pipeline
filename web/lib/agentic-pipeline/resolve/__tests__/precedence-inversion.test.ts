@@ -42,11 +42,10 @@ vi.mock("@/lib/supabase/admin", () => {
   return { admin, createAdminClient: () => admin };
 });
 
+// Phase 123 — the only substrate is resolve_candidates; the legacy
+// contact_lookup / identifier_lookup / candidate_details mocks are retired.
 vi.mock("@/lib/automations/debtor-email/nxt-zap-client", () => ({
   lookupResolveCandidates: (...a: unknown[]) => resolveCandidatesMock(...a),
-  lookupIdentifierToAccount: vi.fn(async () => ({ matches: [] })),
-  lookupCandidateDetails: vi.fn(async () => ({ matches: [] })),
-  lookupSenderToAccount: vi.fn(async () => ({ matches: [] })),
 }));
 
 import * as engine from "../engine";

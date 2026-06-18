@@ -22,3 +22,15 @@
 | **ATID-02** | Identifiers enter Stage 2 **adapter-side**; `engine.ts`/`config.ts`/`steps/*` byte-unchanged (no-Engine-diff / STAGE2-01 guard green). Constraint — held by 121-01 (docs-only, zero engine edits). | CONTEXT ATID-02 |
 | **ATID-03** | Registry-gated via `attachment_config`; a swarm opts in with a registry row, zero code (SWARM-02). Met: both `sales-email` and `debtor-email` carry `attachment_config = {capture, extract}` (verified live, read-only). | CONTEXT ATID-03, 121-GAP-MANIFEST |
 | **ATID-04** | Sales onboards first (offerte/PO letterhead IDs); debtor/info opt in later via registry row. Substantially met via existing opt-in; eval-grounded confirmation rides 121-03 (blocked on Phase 123). | CONTEXT ATID-04, 121-GAP-MANIFEST |
+
+## Phase 123 — Unify Stage-2 on `resolve_candidates` + retire legacy lookup tools (V9.5)
+
+| ID | Requirement | Source | Plan |
+|----|-------------|--------|------|
+| **RESL-UNIFY-01** | Debtor `sender_match` resolves the customer via `nxt.resolve_candidates` (`email_domain`/`email_address` back-search), NOT `nxt.contact_lookup`. Ambiguous → SUGGEST (fail-closed), never a confident wrong customer. | CONTEXT Transport+Behavior, ROADMAP draft 1 | 123-01 |
+| **RESL-UNIFY-02** | Debtor invoice resolution goes through `nxt.resolve_candidates` (`invoice_no`); the legacy `nxt.identifier_lookup` fallback is removed. Reconciled with `auto_safe_kinds` (live debtor is `[]`) via an explicit, operator-confirmed choice. | CONTEXT Transport+Behavior, ROADMAP draft 2 | 123-01 |
+| **RESL-UNIFY-03** | Sales `sender_match` + `factuur_match` resolve via `nxt.resolve_candidates` (`email_domain`/`email_address` + `invoice_no`); the corroboration signal shape (independence axis) + fail-closed posture are preserved. | CONTEXT Transport, ROADMAP draft 3 | 123-02 |
+| **RESL-UNIFY-04** | `nxt.contact_lookup` + `nxt.identifier_lookup` removed from `nxt-zap-client.ts` (wrappers/types/schemas/union literals/branches), all step modules, the sales adapter, the spike script, and the ~12 test files. Removal is ATOMIC: the build (tsc 0) + full vitest suite are green at the commit boundary. | CONTEXT Removal, ROADMAP draft 4 | 123-03 |
+| **RESL-UNIFY-05** | The 2 `public.zapier_tools` rows are deleted live + the 2 `debtor.nxt_lookup_requests` CHECK constraints widened back (prod migration, BLOCKING live-apply checkpoint). UPDATE/DELETE-only on existing RLS tables → no new policy; `check:supabase` 0 ERROR. | CONTEXT Removal/DB, ROADMAP draft 5 | 123-04 |
+| **RESL-UNIFY-06** | **Acceptance eval**: the frozen 100-email correctness fixture re-runs over the unified `resolve_candidates` path with no regression below the 64% baseline AND corroboration firing (the 4 confident-wrong AUTO rows demote, gold rows do not regress). This is the carried-over Phase-120 debtor gate; operator-reviewed (BLOCKING). | CONTEXT Behavior, ROADMAP draft 6, RERUN-FINDINGS.md / 120-HUMAN-UAT.md | 123-04 |
+| **RESL-UNIFY-07** | The shared step modules + sales adapter stay swarm-agnostic — zero `if(swarm==='…')` runtime branch (sender-via-resolve_candidates is a generic step change). | CONTEXT key constraint SWARM-02 | 123-01, 123-02 |

@@ -119,14 +119,15 @@ describe("extractAttachment — PDF text-layer", () => {
     // Each page is rendered to a PNG data URL (NEVER a raw application/pdf URL).
     expect(renderPageAsImageMock).toHaveBeenCalledTimes(2);
     expect(orqRouterChatMock).toHaveBeenCalledTimes(1);
-    // The vision body carries image_url parts whose URLs are PNG data URLs.
+    // The vision body carries image parts whose URLs are PNG data URLs. NOTE:
+    // the Orq SDK field is camelCase `imageUrl` (snake_case is rejected).
     const body = orqRouterChatMock.mock.calls[0][0].body as {
-      messages: Array<{ content: Array<{ type: string; image_url?: { url: string } }> }>;
+      messages: Array<{ content: Array<{ type: string; imageUrl?: { url: string } }> }>;
     };
     const imageParts = body.messages[0].content.filter((c) => c.type === "image_url");
     expect(imageParts).toHaveLength(2);
     for (const part of imageParts) {
-      expect(part.image_url?.url.startsWith("data:image/png")).toBe(true);
+      expect(part.imageUrl?.url.startsWith("data:image/png")).toBe(true);
     }
     expect(out.status).toBe("extracted");
     expect(unwrap(out.text)).toBe("Transcribed scanned quote text");
@@ -161,10 +162,10 @@ describe("extractAttachment — image vision path", () => {
     expect(orqRouterChatMock).toHaveBeenCalledTimes(1);
     // The image is sent as a genuine image/jpeg data URL.
     const body = orqRouterChatMock.mock.calls[0][0].body as {
-      messages: Array<{ content: Array<{ type: string; image_url?: { url: string } }> }>;
+      messages: Array<{ content: Array<{ type: string; imageUrl?: { url: string } }> }>;
     };
     const imageParts = body.messages[0].content.filter((c) => c.type === "image_url");
-    expect(imageParts[0].image_url?.url.startsWith("data:image/jpeg")).toBe(true);
+    expect(imageParts[0].imageUrl?.url.startsWith("data:image/jpeg")).toBe(true);
     expect(out.status).toBe("extracted");
     expect(unwrap(out.text)).toBe("Text visible in the JPG");
   });
@@ -276,6 +277,83 @@ describe("extractAttachment — prompt-injection posture (WR-01)", () => {
     };
     const textPart = body.messages[0].content.find((c) => c.type === "text");
     expect(textPart?.text?.toLowerCase()).toContain("untrusted");
+  });
+});
+
+describe("extractAttachment — content-type recovery (backfill-2 fixes)", () => {
+  it("image/jpg alias routes to the image vision path (not unsupported)", async () => {
+    orqRouterChatMock.mockResolvedValue(visionText("text in jpg"));
+    const out = await extractAttachment({
+      bytes: pdfBytes(),
+      contentType: "image/jpg",
+      filename: "scan.jpg",
+      caps: CAPS,
+    });
+    expect(out.status).toBe("extracted");
+    expect(orqRouterChatMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("octet-stream + .pdf filename routes to the PDF text-layer path", async () => {
+    extractTextMock.mockResolvedValue({ text: "Invoice 17008849" });
+    const out = await extractAttachment({
+      bytes: pdfBytes(),
+      contentType: "application/octet-stream",
+      filename: "Document 2578182.pdf",
+      caps: CAPS,
+    });
+    expect(out.status).toBe("extracted");
+    expect(unwrap(out.text)).toContain("Invoice 17008849");
+    expect(extractTextMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("octet-stream + .jpeg filename routes to the image vision path", async () => {
+    orqRouterChatMock.mockResolvedValue(visionText("photo text"));
+    const out = await extractAttachment({
+      bytes: pdfBytes(),
+      contentType: "application/octet-stream",
+      filename: "photo.jpeg",
+      caps: CAPS,
+    });
+    expect(out.status).toBe("extracted");
+    expect(orqRouterChatMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("octet-stream with a non-extractable extension stays unsupported", async () => {
+    const out = await extractAttachment({
+      bytes: pdfBytes(),
+      contentType: "application/octet-stream",
+      filename: "drawing.dwg",
+      caps: CAPS,
+    });
+    expect(out.status).toBe("unsupported");
+    expect(extractTextMock).not.toHaveBeenCalled();
+    expect(orqRouterChatMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("extractAttachment — no_text (empty vision is not a failure)", () => {
+  it("image whose vision transcription is empty → no_text, not extraction_failed", async () => {
+    orqRouterChatMock.mockResolvedValue(visionText("   \n  "));
+    const out = await extractAttachment({
+      bytes: pdfBytes(),
+      contentType: "image/png",
+      filename: "logo.png",
+      caps: CAPS,
+    });
+    expect(out.status).toBe("no_text");
+    expect(out.text).toBe("");
+  });
+
+  it("scanned PDF whose vision transcription is empty → no_text", async () => {
+    extractTextMock.mockResolvedValue({ text: "  " });
+    getDocumentProxyMock.mockResolvedValue({ numPages: 1 });
+    orqRouterChatMock.mockResolvedValue(visionText(""));
+    const out = await extractAttachment({
+      bytes: pdfBytes(),
+      contentType: "application/pdf",
+      caps: CAPS,
+    });
+    expect(out.status).toBe("no_text");
   });
 });
 

@@ -26,13 +26,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // short-circuit, fail-closed, V5 gate) is unchanged.
 const {
   nxtRequestMock,
-  lookupSenderMock,
-  lookupIdentifierMock,
   lookupResolveCandidatesMock,
 } = vi.hoisted(() => ({
   nxtRequestMock: vi.fn(),
-  lookupSenderMock: vi.fn(),
-  lookupIdentifierMock: vi.fn(),
   lookupResolveCandidatesMock: vi.fn(),
 }));
 
@@ -40,9 +36,10 @@ vi.mock("@/lib/automations/nxt-zapier/nxt-client", () => ({
   nxtRequest: nxtRequestMock,
 }));
 
+// Phase 123-02: sender + factuur now resolve over resolve_candidates — the legacy
+// per-kind wrapper mocks are gone; one lookupResolveCandidates mock drives every
+// step (the adapter filters returned rows by identifier_kind).
 vi.mock("@/lib/automations/debtor-email/nxt-zap-client", () => ({
-  lookupSenderToAccount: lookupSenderMock,
-  lookupIdentifierToAccount: lookupIdentifierMock,
   lookupResolveCandidates: lookupResolveCandidatesMock,
 }));
 
@@ -79,12 +76,8 @@ const baseArgs = {
 
 beforeEach(() => {
   nxtRequestMock.mockReset();
-  lookupSenderMock.mockReset();
-  lookupIdentifierMock.mockReset();
   lookupResolveCandidatesMock.mockReset();
-  // Default: no sender/identifier/back-search match unless a test opts in.
-  lookupSenderMock.mockResolvedValue({ matches: [] });
-  lookupIdentifierMock.mockResolvedValue({ matches: [] });
+  // Default: no back-search match unless a test opts in.
   lookupResolveCandidatesMock.mockResolvedValue({ matches: [] });
 });
 
@@ -161,11 +154,15 @@ describe("Phase 114-04: sales resolve-customer adapter", () => {
     expect(result.inputs.kind).toBe(result.method);
   });
 
-  it("crafted/garbage identifier failing the regex format check → never passed to nxtRequest (V5 input validation)", async () => {
+  it("crafted/garbage identifier failing the regex format check → never passed to the substrate (V5 input validation)", async () => {
     await resolveEntity(
       {
         ...baseArgs,
-        from_email: "prospect@brand-new.example",
+        // Own-tenant forwarder with NO quoted-header block → effectiveSender is
+        // null and sender_match no-ops, so the ONLY substrate calls that could
+        // happen are the identifier steps — which must be gated by the format
+        // check on the malformed offerte/order/postcode tokens below.
+        from_email: "verkoop@smeba.nl",
         // 'SB' followed by a SQL-injection-ish blob that does NOT match the
         // SB\d{5,6} format. Must be rejected by the format gate, never sent.
         subject: "Offerte SB'; DROP TABLE customers;--",
@@ -174,7 +171,8 @@ describe("Phase 114-04: sales resolve-customer adapter", () => {
       salesConfig,
     );
 
-    // The format-validation gate must run BEFORE any substrate call.
+    // The format-validation gate must run BEFORE any substrate call; sender is a
+    // no-op (no quoted-header), so the substrate is never invoked at all.
     expect(lookupResolveCandidatesMock).not.toHaveBeenCalled();
     expect(nxtRequestMock).not.toHaveBeenCalled();
   });
@@ -246,13 +244,15 @@ describe("Phase 114-07 Task 1: postcode address-context gate (WR-02)", () => {
 
 describe("Phase 114-07 Task 2: quoted-header-scoped sender (WR-05)", () => {
   it("prefers the quoted-header address over a positionally-earlier signature address", async () => {
-    // sender lookup resolves the quoted-header klant, but NOT noreply@vendor.com.
-    lookupSenderMock.mockImplementation(
-      async (input: { sender_email: string }) => {
-        if (input.sender_email === "klant@bv.nl") {
+    // sender back-search resolves the quoted-header klant (its email_address /
+    // domain), but NOT noreply@vendor.com. The adapter passes the EFFECTIVE sender
+    // (the quoted-header address after the D-07 swap) as the identifiers.
+    lookupResolveCandidatesMock.mockImplementation(
+      async (input: { identifiers: string[] }) => {
+        if (input.identifiers.includes("klant@bv.nl")) {
           return {
             matches: [
-              { top_level_customer_id: "555", top_level_customer_name: "Klant BV" },
+              { identifier_kind: "email_address", identifier_value_norm: "klant@bv.nl", party_id: "555", party_name: "Klant BV", scope_key: "SB", is_unique_in_scope: true, status: "active" },
             ],
           };
         }
@@ -304,7 +304,7 @@ describe("Phase 114-07 Task 2: quoted-header-scoped sender (WR-05)", () => {
     expect(result.method).toBe("unresolved");
     expect(result.customer_account_id).toBeNull();
     // No quoted-header → effective sender is null, lookup never attempted.
-    expect(lookupSenderMock).not.toHaveBeenCalled();
+    expect(lookupResolveCandidatesMock).not.toHaveBeenCalled();
   });
 });
 
