@@ -34,3 +34,11 @@
 | **RESL-UNIFY-05** | The 2 `public.zapier_tools` rows are deleted live + the 2 `debtor.nxt_lookup_requests` CHECK constraints widened back (prod migration, BLOCKING live-apply checkpoint). UPDATE/DELETE-only on existing RLS tables → no new policy; `check:supabase` 0 ERROR. | CONTEXT Removal/DB, ROADMAP draft 5 | 123-04 |
 | **RESL-UNIFY-06** | **Acceptance eval**: the frozen 100-email correctness fixture re-runs over the unified `resolve_candidates` path with no regression below the 64% baseline AND corroboration firing (the 4 confident-wrong AUTO rows demote, gold rows do not regress). This is the carried-over Phase-120 debtor gate; operator-reviewed (BLOCKING). | CONTEXT Behavior, ROADMAP draft 6, RERUN-FINDINGS.md / 120-HUMAN-UAT.md | 123-04 |
 | **RESL-UNIFY-07** | The shared step modules + sales adapter stay swarm-agnostic — zero `if(swarm==='…')` runtime branch (sender-via-resolve_candidates is a generic step change). | CONTEXT key constraint SWARM-02 | 123-01, 123-02 |
+
+## Phase 122 — Cross-brand-scope customer resolution (V9.5)
+
+| ID | Requirement | Source | Plan |
+|----|-------------|--------|------|
+| **XSCOPE-01** | On an in-scope miss the engine runs a cross-scope back-search over the already-fetched `resolve_candidates` `res.matches` (no new SQL/lookup); a single distinct cross-brand root (D-08) on a strong/corroborated kind auto-resolves with a misroute annotation (D-09); a non-unique set, a lone weak kind (D-04), or disagreeing signals (D-05) degrade to `suggestie`. | CONTEXT D-01/D-03/D-04/D-05/D-08/D-09/D-11, ROADMAP 1, RESEARCH Rec 1/5/6 | 122-01, 122-03 |
+| **XSCOPE-02** | Cross-scope is opt-in per swarm via `swarms.resolution_config.cross_scope` (mirror Phase 120 `corroboration`); gated on `config.cross_scope?.enabled` only — zero `if (swarm === '…')` branch (SWARM-02). `cross_scope` absent/`enabled:false` → output byte-identical to today. | CONTEXT D-10/D-11, ROADMAP 2, RESEARCH Rec 2 / Pattern 1 | 122-02, 122-03, 122-04 |
+| **XSCOPE-03** | The 9 frozen-fixture bucket-C rows (#37,#85,#95,#96,#97,#98,#67,#69,#70) resolve to the operator-confirmed customer OR demote below AUTO (`confidence !== "high"`) in the post-landing eval re-run; reachable rows all pass, un-indexed rows reported separately (A1). | CONTEXT acceptance fixture, ROADMAP 3, RESEARCH Rec 7 | 122-01, 122-04 |

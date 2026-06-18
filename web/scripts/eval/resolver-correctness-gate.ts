@@ -90,6 +90,12 @@ const CONFIDENT_WRONG = new Set(["2", "85", "95", "97"]);
 const BUCKET_B = new Set([
   "7", "10", "31", "39", "40", "47", "67", "69", "70", "80", "19", "24",
 ]);
+// Phase 122 (XSCOPE-03) — bucket-C wrong-brand rows: a customer that lives under a
+// DIFFERENT brand than the mailbox, so the in-scope resolve missed (or mis-AUTO'd).
+// Overlaps: #85/#95/#97 ∈ CONFIDENT_WRONG and #67/#69/#70 ∈ BUCKET_B. targetClass
+// checks CONFIDENT_WRONG first (those stay confident-wrong), then BUCKET_C before
+// BUCKET_B (so #67/#69/#70 classify as bucket-C), then BUCKET_B — see targetClass().
+const BUCKET_C = new Set(["37", "85", "95", "96", "97", "98", "67", "69", "70"]);
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
 
@@ -151,7 +157,7 @@ function groundTruth(row: FixtureRow): string | null {
 
 interface RowResult {
   id: string;
-  target: "confident-wrong" | "bucket-B" | "gold" | "other";
+  target: "confident-wrong" | "bucket-B" | "bucket-C" | "gold" | "other";
   baselineVerdict: string;
   baselineConfidence: string | null;
   groundTruth: string | null;
@@ -164,7 +170,11 @@ interface RowResult {
 }
 
 function targetClass(row: FixtureRow): RowResult["target"] {
+  // Overlap resolution (documented at BUCKET_C def): CONFIDENT_WRONG wins over
+  // BUCKET_C (#85/#95/#97 stay confident-wrong); BUCKET_C wins over BUCKET_B
+  // (#67/#69/#70 classify as bucket-C).
   if (CONFIDENT_WRONG.has(row.id)) return "confident-wrong";
+  if (BUCKET_C.has(row.id)) return "bucket-C";
   if (BUCKET_B.has(row.id)) return "bucket-B";
   // gold-signal = baseline correct (Ja) via factuur/klantnummer at hoog.
   if (
@@ -268,6 +278,18 @@ async function main() {
   const bucketBResolvedOrDemoted = bucketB.filter(
     (r) => r.correct === true || r.afterConfidence !== "high",
   );
+  // Phase 122 (XSCOPE-03) — bucket-C wrong-brand acceptance: every reachable
+  // bucket-C row must resolve correctly OR demote below AUTO (confidence !== "high").
+  const bucketC = results.filter((r) => r.target === "bucket-C");
+  const bucketCReachable = bucketC.filter((r) => r.reachable);
+  const bucketCResolvedOrDemoted = bucketC.filter(
+    (r) => r.reachable && (r.correct === true || r.afterConfidence !== "high"),
+  );
+  // Falsifiable PASS line — unreachable when any reachable bucket-C row is high+wrong.
+  const bucketCPassLine =
+    bucketCResolvedOrDemoted.length === bucketCReachable.length
+      ? `Bucket-C: ${bucketCReachable.length}/${bucketCReachable.length} reachable rows resolved or demoted below AUTO (0 confident-wrong)`
+      : `Bucket-C: FAIL — ${bucketCReachable.length - bucketCResolvedOrDemoted.length} confident-wrong row(s)`;
 
   // confident-wrong summary line (the verify grep keys on "confident-wrong").
   console.log(
@@ -278,6 +300,9 @@ async function main() {
   );
   console.log(
     `[corr-gate] overall correct (reachable, ground-truth known): ${correctCount}/${scored.length} = ${pct(correctCount, scored.length)} (baseline 64%)`,
+  );
+  console.log(
+    `[corr-gate] bucket-C wrong-brand resolved or demoted: ${bucketCResolvedOrDemoted.length}/${bucketCReachable.length} — ${bucketCPassLine}`,
   );
 
   if (!writeReport) return;
@@ -306,6 +331,7 @@ ${partial ? `\n> ⚠️ PARTIAL RUN — ${fixture.length}/100 rows replayed. Re-
 | Confident-wrong AUTO rows demoted (conf ≠ high) | 0/4 | ${cwDemoted.length}/${cw.length} |
 | Gold-signal regressions | — | ${goldRegressed.length}/${gold.length} |
 | Bucket-B rows resolved or demoted | — | ${bucketBResolvedOrDemoted.length}/${bucketB.length} |
+| Bucket-C wrong-brand resolved or demoted | — | ${bucketCResolvedOrDemoted.length}/${bucketCReachable.length} |
 | Not-reachable (missing live NXT data) | — | ${notReachable.length} |
 
 ## The 4 confident-wrong AUTO rows (#2, #85, #95, #97)
@@ -340,6 +366,21 @@ Acceptance: gain a 2nd agreeing signal (resolve) OR correctly degrade to suggest
 ${tbl(bucketB)}
 
 **Resolved or demoted: ${bucketBResolvedOrDemoted.length}/${bucketB.length}.**
+
+## Bucket-C wrong-brand rows (XSCOPE-03) — #37,#85,#95,#96,#97,#98,#67,#69,#70
+
+The customer lives under a DIFFERENT brand than the mailbox, so the in-scope resolve
+missed (or AUTO'd the wrong brand). Acceptance: every reachable row resolves correctly
+OR demotes below AUTO (\`confidence !== "high"\`). The line below is the XSCOPE-03 gate —
+it reads PASS only when zero reachable bucket-C rows are high+wrong.
+
+**${bucketCPassLine}**
+
+| Row | Baseline (verdict/conf) | After customer | After conf | Ground-truth | Correct? | |
+|---|---|---|---|---|---|---|
+${tbl(bucketC)}
+
+**Resolved or demoted: ${bucketCResolvedOrDemoted.length}/${bucketCReachable.length} reachable.**
 
 ${notReachable.length > 0 ? `## Not-reachable rows\n\nThese could not be replayed against the live substrate (missing live NXT data or a transient Zap error) — recorded, NOT counted as failures:\n\n${notReachable.map((r) => `- #${r.id}: ${r.note}`).join("\n")}\n` : ""}
 ---

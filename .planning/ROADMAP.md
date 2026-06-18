@@ -531,7 +531,7 @@ Plans:
 
 - [x] **Phase 120: D-06 multi-signal corroboration engine (generic, cross-swarm)** *(added 2026-06-16)* — give the resolution engine a config-expressible corroboration capability so it COLLECTS candidate signals across precedence steps instead of short-circuiting on the first hit, and RAISES confidence when ≥N independent identifiers agree on the same `customer_account_id`; swarm-agnostic, no per-swarm branch (SWARM-02), re-seed `resolution_config` to opt in, then re-run the no-Engine-diff measurement to finalize V9.0 STAGE2-01. (completed 2026-06-17)
 - [x] **Phase 121: Attachment-borne identifier extraction (corroboration signal source)** *(added 2026-06-16)* — parse identifiers (PO / offertenummer / invoice / order numbers) out of attachment **content** (PDF text first, per Phase 116) and feed them into Stage 2 resolution as first-class identifiers; adapter-side body-source (STAGE2-01-safe), registry-gated per swarm, no per-swarm code (SWARM-02). (121-01 discovery DONE 2026-06-17; planned 3 plans — 121-02 build #24 [xlsx extract + many-customer guard], 121-03 acceptance [verifiable-now; live re-run deferred to Phase 123]) (completed 2026-06-18)
-- [ ] **Phase 122: Cross-brand-scope customer resolution** *(added 2026-06-16, from the resolver eval)* — on an in-scope miss, fall back to a cross-brand back-search over `resolver_index` (unique hit resolves, non-unique degrades to suggestie) instead of returning nothing or a wrong-scope guess; swarm-agnostic, config-gated, zero per-swarm branch (SWARM-02).
+- [x] **Phase 122: Cross-brand-scope customer resolution** *(added 2026-06-16, from the resolver eval)* — on an in-scope miss, fall back to a cross-brand back-search over `resolver_index` (unique hit resolves, non-unique degrades to suggestie) instead of returning nothing or a wrong-scope guess; swarm-agnostic, config-gated, zero per-swarm branch (SWARM-02). (completed 2026-06-18; XSCOPE-01/02/03 verified, PR #117; gap-closure 122-05 leaf-vs-root fix)
 - [x] **Phase 123: Unify Stage-2 on `resolve_candidates` + retire legacy lookup tools** *(added 2026-06-17, operator directive)* — move the debtor swarm (sender + invoice) onto the single generic `resolve_candidates` resolver (`resolver_index` already has `email_domain`/`email_address`/`invoice_no` kinds), and REMOVE `nxt.contact_lookup` + `nxt.identifier_lookup` entirely — from code (wrappers/types/schemas/steps/sales adapter/tests) AND the database (`zapier_tools` rows + `nxt_lookup_requests` CHECK constraints). One generic look-up, no dual-tool confusion (SWARM-02). **Carries the deferred Phase-120 debtor correctness gate as its acceptance eval** (sender resolution behavior changes on the dominant error source — must re-score the frozen 100-email fixture). Full inventory: `.planning/todos/pending/2026-06-17-unify-stage2-on-resolve-candidates.md`. (completed 2026-06-17)
 
 ### Phase 120: D-06 multi-signal corroboration engine (generic, cross-swarm)
@@ -571,6 +571,7 @@ The Customer Resolver must use ONE generic look-up — `nxt.resolve_candidates` 
 **Depends on**: Phase 120 (corroboration engine + sales on resolve_candidates — done). **External**: `resolver_index` substrate already carries `email_domain` (21,126) + `email_address` (31,138) + `invoice_no` (175,004) rows in scope SB (verified live 2026-06-17) — no proc change needed.
 
 **Requirements**: RESL-UNIFY-01..07 (defined at planning — see REQUIREMENTS.md). Mapping to draft shape:
+
   1. Debtor `sender_match` resolves via `resolve_candidates` (`email_domain`/`email_address`), not `contact_lookup`.
   2. Debtor `identifier_match` resolves invoices via `resolve_candidates` (`invoice_no`); the legacy `identifier_lookup` fallback is removed.
   3. Sales sender_match + factuur_match likewise on `resolve_candidates`.
@@ -579,6 +580,7 @@ The Customer Resolver must use ONE generic look-up — `nxt.resolve_candidates` 
   6. **Acceptance eval**: re-run the frozen 100-email fixture (`web/scripts/eval/resolver-correctness-gate.ts`) — sender behavior change on the dominant error source must not regress, and corroboration must now fire over the generic path. This is the carried-over Phase-120 debtor gate (`RERUN-FINDINGS.md` / `120-HUMAN-UAT.md`).
 
 **Plans:** 4/4 plans complete
+
 - [x] 123-01-PLAN.md — Debtor sender_match + invoice resolution onto resolve_candidates (wave 1; RESL-UNIFY-01/02/07; auto_safe_kinds reconciliation decision)
 - [x] 123-02-PLAN.md — Sales sender_match + factuur_match onto resolve_candidates (wave 1; RESL-UNIFY-03/07)
 - [x] 123-03-PLAN.md — Atomic removal of nxt.contact_lookup + nxt.identifier_lookup from code + tests (wave 2; RESL-UNIFY-04)
@@ -621,11 +623,22 @@ When the resolver's identifier (factuur / klantnummer / name) does not resolve w
 **Goal**: A mail in the wrong brand mailbox should still resolve to the right customer when the identifier is unambiguous cross-scope — and must NOT manufacture a new false positive (the cross-scope match must itself be unique, `is_unique_in_scope`-style, or it degrades to a suggestie). Distinguish "customer under another brand" (resolve it) from "wrong mailbox, needs re-routing" (operator signal) — these are different fixes; this phase owns the resolution half, not the ingest re-routing half.
 
 **Depends on**: nothing within V9.5 (uses the existing `resolver_index` substrate, Phase 91). Independent of 120/121; all three feed the same re-run vs the 100-email baseline.
-**Requirements**: XSCOPE-01..03 (defined at planning). Draft shape:
+**Requirements**: XSCOPE-01, XSCOPE-02, XSCOPE-03
+**Plans:** 5/5 plans complete
 
-  1. On in-scope miss, the engine performs a cross-scope `resolve_candidates` back-search; a unique cross-scope hit resolves, a non-unique one degrades to suggestie (no confident wrong-scope guess).
-  2. Cross-scope resolution is config-gated per swarm (opt-in), zero `if swarm==='…'` branch (SWARM-02 holds).
-  3. The 9 eval bucket-C rows resolve to the operator-confirmed customer (or are correctly demoted to suggestie when genuinely ambiguous) in the post-landing re-run.
+Plans:
+**Wave 1**
+
+- [x] 122-01-PLAN.md — Wave 0: failing cross-scope unit tests (auto/suggestie/opt-out) + numericConfidence suggestie test + BUCKET_C eval-gate extension
+- [x] 122-02-PLAN.md — Wave 1: types/contract layer — Confidence += suggestie, ResolveResult.cross_scope_misroute, CrossScopeConfig, numericConfidence + worker casts
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 122-03-PLAN.md — Wave 2: shared resolveCrossScope helper + post-pass at the 3 drop sites (invoice/number/self-auth), root vs direct granularity, SWARM-02 clean
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 122-04-PLAN.md — Wave 3: cross_scope opt-in migration + debtorP0Config lockstep + [BLOCKING] live apply + bucket-C eval re-run (XSCOPE-03)
 
 ---
 

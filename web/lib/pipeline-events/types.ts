@@ -106,21 +106,24 @@ export interface OverrideJson {
  * `agent_runs`, and Stage-2/3 outputs to the numeric(4,3) shape required
  * by `pipeline_events.confidence`.
  *
- * Mapping (RESEARCH §Pitfall 1, Assumption A2):
- *   high   -> 0.9
- *   medium -> 0.7
- *   low    -> 0.4
- *   none   -> null
- *   null   -> null
- *   undef  -> null
+ * Mapping (RESEARCH §Pitfall 1, Assumption A2) — the 4-tier operator scale (D-06):
+ *   high      -> 0.9   (green / AUTO)
+ *   suggestie  -> 0.7   (orange — operator-confirm; reuses the medium slot as a
+ *                        DISTINCT value, so the read path needs no numeric change)
+ *   medium    -> 0.7   (legacy mid tier; unchanged)
+ *   low       -> 0.4   (red / heel onzeker)
+ *   none      -> null  (white / geen match)
+ *   null      -> null
+ *   undef     -> null
  *
  * Numeric values from upstream (e.g. Stage 1 regex `r.confidence`) should
  * be passed through directly without using this helper.
  */
 export function numericConfidence(
-  v: "high" | "medium" | "low" | "none" | null | undefined,
+  v: "high" | "medium" | "low" | "none" | "suggestie" | null | undefined,
 ): number | null {
   if (v === "high") return 0.9;
+  if (v === "suggestie") return 0.7; // orange tier (D-06) — reuses the medium 0.7 slot as a DISTINCT value
   if (v === "medium") return 0.7;
   if (v === "low") return 0.4;
   // 'none', null, undefined all collapse to null per the schema convention

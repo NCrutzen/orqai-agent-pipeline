@@ -128,6 +128,48 @@ export interface ResolutionConfig {
    * the seed (Plan 03) is the only writer (operator-controlled, RLS-gated table).
    */
   corroboration?: CorroborationConfig;
+  /**
+   * Phase 122 (D-10 cross-brand scope). OPTIONAL — when ABSENT or `enabled:false`
+   * the engine runs NO cross-brand fallback (today's in-scope-only behaviour,
+   * protects no-engine-diff for non-opted-in swarms). When PRESENT + enabled the
+   * Plan-03 cross-scope helper may resolve a candidate found in a DIFFERENT brand
+   * scope than the mailbox, subject to the auto_resolve_kinds / corroboration bar.
+   *
+   * This is FREE-FORM jsonb (NOT codegen'd) like the rest of resolution_config —
+   * the seed (Plan 03+) is the only writer (operator-controlled, RLS-gated table).
+   * SWARM-AGNOSTIC by design: cross-brand behaviour is gated on the PRESENCE of
+   * this config, NEVER on a swarm_type literal (Pattern 1 / SWARM-02).
+   */
+  cross_scope?: CrossScopeConfig;
+}
+
+/**
+ * Phase 122 (D-10) — the cross-brand-scope fallback policy. Read by the Plan-03
+ * cross-scope helper to decide whether (and how confidently) a candidate found
+ * OUTSIDE the mailbox's own brand scope may resolve. Mirrors CorroborationConfig:
+ * free-form jsonb, presence-gated, swarm-agnostic.
+ */
+export interface CrossScopeConfig {
+  /**
+   * D-10 — master opt-in. `false`/absent means NO cross-brand fallback at all (the
+   * engine stays in-scope-only). Must be `true` for any cross-brand resolve to be
+   * considered; the kind/corroboration bars below only apply once this is on.
+   */
+  enabled: boolean;
+  /**
+   * D-03a — the STRONG identifier_kinds that may AUTO cross-brand ALONE, on a
+   * single distinct root, without corroboration (e.g. "invoice_no"). When ABSENT
+   * defaults to corroboration.auto_safe_alone_kinds (DRY — the same strong-kind
+   * set the in-scope corroboration tier trusts), so a swarm need not duplicate it.
+   */
+  auto_resolve_kinds?: string[];
+  /**
+   * D-03b — when `true`, a cross-brand candidate corroborated by ≥min_signals
+   * (the corroboration independence gate) may AUTO even on a LONE WEAK kind that
+   * is not in auto_resolve_kinds. When `false` only auto_resolve_kinds may AUTO
+   * cross-brand. Default `true`.
+   */
+  allow_corroboration_auto?: boolean;
 }
 
 /**
