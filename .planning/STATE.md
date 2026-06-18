@@ -4,13 +4,13 @@ milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
 status: executing
 stopped_at: Phase 122 context gathered
-last_updated: "2026-06-18T09:40:06.562Z"
+last_updated: "2026-06-18T10:12:50.462Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 12
-  completed_plans: 8
+  completed_plans: 10
   percent: 50
 ---
 
@@ -63,8 +63,8 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 122 (cross-brand-scope-customer-resolution) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 122
+Plan: 2 of 4
+Status: Ready to execute
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
 
@@ -186,6 +186,7 @@ Last activity: 2026-06-18
 | 120 | 4 | - | - |
 | Phase 123 P03 | ~10 minutes | 3 tasks | 5 files |
 | 123 | 4 | - | - |
+| Phase 122 P122-02 | 8min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -320,6 +321,7 @@ Last activity: 2026-06-18
 - [Phase 123-03]: Deleted nxt.contact_lookup + nxt.identifier_lookup ENTIRELY from nxt-zap-client.ts (lookupSenderToAccount/lookupIdentifierToAccount wrappers, ContactLookupInput/IdentifierLookupInput, ContactMatchSchema/IdentifierMatchSchema + type exports, ResponseSchemaByTool + LookupKindByTool entries, NxtToolId literals, callNxtTool overload branches). NxtToolId = candidate_details | resolve_candidates. Spike 011b RETIRED-with-note (Phase 120 work done); 2 remaining test files rewired to resolve_candidates. RESL-UNIFY-04 atomicity: repo grep 0, tsc 0, full vitest 2732 passed. DB half (2 zapier_tools rows + CHECK widen-back) is Plan 04. Commits 2e5fd6ce/7044341c/991e4a63.
 - **[Phase 123-04] Task 2 DELETE-only prod deviation (operator-approved, T-123-10):** pre-flight count of legacy nxt_lookup_requests rows = 1171 (>0), so the narrowed CHECK re-add would fail → applied ONLY `DELETE FROM public.zapier_tools WHERE tool_id IN ('nxt.contact_lookup','nxt.identifier_lookup')` to live mvqjhlxfvtqqubqgdvhz (apply_migration `retire_legacy_lookup_tools_delete_only_p123`); the 2 nxt_lookup_requests CHECK constraints stay WIDE. Verified: legacy tool_ids ABSENT, candidate_details+invoice_fetch+resolve_candidates PRESENT; check:supabase 0 ERROR. Widen-back deferred to todo `2026-06-17-widen-back-nxt-lookup-requests-checks.md` (prune inert rows first). Legacy tools now gone from code AND database (capability-before-removal complete).
 - **[Phase 123-04] Task 3 correctness eval deferred-with-evidence (operator APPROVED-TO-CLOSE):** ran the frozen 100-email gate over the unified resolve_candidates path (commit dcfd0409, RERUN-FINDINGS.md). Overall correct = 18% (14/79) vs 64% baseline = RED, but ROOT CAUSE is a transport artifact in the pre-existing, Phase-123-untouched `candidate_details` tool: live debtor.nxt_lookup_requests eval window shows resolve_candidates 163 req/163 complete-with-result (unified path works), candidate_details 26 req/0 results/all `pending` (LLM-tiebreaker enrichment Zap fires but async callback never lands → rows degrade to unresolved; same issue as Monday's Sales eval per operator). Demotion-DIRECTION targets PASSED: confident-wrong AUTO #2/#85/#95/#97 = 4/4 demoted; bucket-B = 12/12 resolved-or-demoted (corroboration firing correctly). The clean absolute-% re-run is DEFERRED to todo `2026-06-17-candidate-details-callback-and-clean-eval-rerun.md` (fix callback → re-run; closes the deferred Phase-120 / 123 debtor gate). Phase code+DB+transport deliverables COMPLETE and proven live; the absolute-% acceptance number is the only deferred item.
+- [Phase ?]: [Phase 122-02] suggestie Confidence (D-06 4-tier), cross_scope_misroute? (D-09), CrossScopeConfig (D-10) types landed; numericConfidence projects suggestie->0.7 (distinct value, medium 0.7 slot reused, no displacement); both stage-2 worker casts widened. Pitfall-4 audit: only the stage-2 explicit cast needed widening (classifier-screen-worker + debtor-coordinator pass subset types). cross-scope tests now RED on LOGIC only (Plan 03 GREEN target); numericConfidence test GREEN; tsc 0; no swarm-name branch. Commits b1c00d9c/8cef3fbb.
 
 ### Blockers/Concerns
 
@@ -361,10 +363,10 @@ Last activity: 2026-06-18
 
 ## Session Continuity
 
-Last session: 2026-06-18T08:58:27.907Z
+Last session: 2026-06-18T10:12:34.290Z
 Stopped at: Phase 122 context gathered
 Resume with: V9.5 Phase 121 (attachment-borne IDs) — after the `candidate_details` clean-eval follow-up; then Phase 122 (cross-brand scope).
-Resume file: .planning/phases/122-cross-brand-scope-customer-resolution/122-CONTEXT.md
+Resume file: None
 
 ## Deferred Items
 
