@@ -289,16 +289,41 @@ async function runNumberBackSearchAuto(
   // single-distinct-root check IS the AUTO/SUGGEST gate at root granularity.
   const rootOf = (m: ResolveCandidateMatch) => m.root_party_id ?? m.party_id;
   const distinctRoots = Array.from(new Set(inScope.map(rootOf)));
+  const inScopeBrands = new Set<string>([
+    args.brand_id!,
+    ...(args.brand_scope ?? []),
+  ]);
+
+  // Phase 122 (XSCOPE-01 / D-11) — number back-search cross-scope post-pass. Fires
+  // ONLY after an in-scope MISS (no in-scope-brand single root). Gated strictly on
+  // config.cross_scope?.enabled; the original return-null drops below stay
+  // BYTE-IDENTICAL when opted out (Pitfall 1). PURE over the already-fetched
+  // res.matches — no second lookup.
+  const hasInScopeRoot =
+    distinctRoots.length === 1 &&
+    (() => {
+      const w = inScope.find((m) => rootOf(m) === distinctRoots[0])!;
+      return w.brand_id == null || w.brand_id === "" || inScopeBrands.has(w.brand_id);
+    })();
+  if (config.cross_scope?.enabled && !hasInScopeRoot) {
+    const crossScope = resolveCrossScope(
+      res.matches,
+      CROSS_SCOPE_ROOT_KINDS,
+      config,
+      args,
+      identifiers,
+      "root",
+    );
+    if (crossScope) return { result: crossScope, matched_identifiers: identifiers };
+    // No cross-scope decision → fall through to the original SUGGEST drops.
+  }
+
   if (distinctRoots.length !== 1) {
     // >=2 distinct roots → SUGGEST at the AUTO tier (no llmTiebreak here).
     return { result: null, matched_identifiers: identifiers };
   }
 
   // Prefix-family gate against the mailbox brand scope.
-  const inScopeBrands = new Set<string>([
-    args.brand_id!,
-    ...(args.brand_scope ?? []),
-  ]);
   const winner = inScope.find((m) => rootOf(m) === distinctRoots[0])!;
   if (
     winner.brand_id != null &&

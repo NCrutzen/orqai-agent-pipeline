@@ -34,7 +34,9 @@ import {
 import { extractSelfAuthCandidates } from "@/lib/automations/debtor-email/extract-self-auth";
 import { stripEnvPrefix } from "../strip-env-prefix";
 import { isAutoEligibleStatus } from "./auto-gate";
+import { resolveCrossScope } from "./cross-scope";
 import type { ResolveArgs, ResolveResult, Candidate } from "../engine";
+import type { CrossScopeConfig, CorroborationConfig } from "../config";
 
 /**
  * The config slice the self_auth step reads. Everything is swarm-agnostic
@@ -48,6 +50,10 @@ export interface SelfAuthConfig {
     brand_scope?: string[] | null;
   };
   auto_safe_kinds?: string[];
+  // Phase 122 (XSCOPE-01) — OPTIONAL cross_scope + corroboration slices the
+  // DIRECT-tier cross-scope post-pass reads (presence-gated, swarm-agnostic).
+  cross_scope?: CrossScopeConfig;
+  corroboration?: CorroborationConfig;
 }
 
 /**
@@ -121,20 +127,52 @@ export async function runSelfAuthMatch(
       m.is_unique_in_scope &&
       isAutoEligibleStatus(m.status),
   );
-  if (inScope.length === 0) return null;
+
+  const inScopeBrands = new Set<string>([
+    args.brand_id,
+    ...(args.brand_scope ?? []),
+  ]);
 
   // Dedupe to distinct DIRECT parties (D-04: self-auth → direct party_id, NOT
   // root_party_id). >=2 distinct parties is the cardinal ambiguity → SUGGEST.
   const distinctParties = Array.from(new Set(inScope.map((m) => m.party_id)));
+  // Whether the in-scope AUTO gate would fire: exactly one DIRECT party AND its
+  // brand is in the mailbox prefix-family. Anything else is an in-scope MISS.
+  const hasInScopeParty =
+    distinctParties.length === 1 &&
+    inPrefixFamily(
+      inScope.find((m) => m.party_id === distinctParties[0])!.brand_id,
+      inScopeBrands,
+    );
+
+  // Phase 122 (XSCOPE-01 / D-11 / CR-01) — DIRECT-tier cross-scope post-pass. Fires
+  // ONLY after an in-scope MISS (no in-scope-brand single DIRECT party — including
+  // the inScope-empty all-cross-brand case where is_unique_in_scope=false on every
+  // row). Granularity `direct` so the helper dedupes on party_id (NOT root_party_id)
+  // — two parties under the SAME root still degrade to suggestie (CR-01 split
+  // preserved). Gated strictly on config.cross_scope?.enabled; the original
+  // return-null drops stay BYTE-IDENTICAL when opted out (Pitfall 1). PURE over
+  // res.matches — no relookup, no is_unique_in_scope reuse for the cross decision.
+  if (config.cross_scope?.enabled && !hasInScopeParty) {
+    const crossScope = resolveCrossScope(
+      res.matches,
+      eligibleKinds,
+      config,
+      args,
+      identifiers,
+      "direct",
+    );
+    if (crossScope) return crossScope;
+    // No cross-scope decision → fall through to the original SUGGEST drops.
+  }
+
+  if (inScope.length === 0) return null;
+
   if (distinctParties.length !== 1) return null;
 
   // Prefix-family gate: the single resolved party's brand must match the mailbox
   // brand scope. A self-auth id forwarded cross-brand resolving to another
   // brand's customer fails CLOSED (T-91-10).
-  const inScopeBrands = new Set<string>([
-    args.brand_id,
-    ...(args.brand_scope ?? []),
-  ]);
   const winner = inScope.find((m) => m.party_id === distinctParties[0])!;
   if (!inPrefixFamily(winner.brand_id, inScopeBrands)) return null;
 
