@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
 status: executing
-stopped_at: Phase 121 build PLANNED (121-02 #24 xlsx+many-customer, 121-03 acceptance) — ready to execute. Phase 120 + 123 complete + merged to main (PR #111); origin/main merged into the 121 workspace. Phase 119 (per-mailbox isolation) live on main (#110). Remaining V9.5: 121 (build) / 122 (cross-brand scope).
-last_updated: 2026-06-18
-last_activity: 2026-06-18 -- merged origin/main (120+123) into Phase 121 workspace; build ready to execute
+stopped_at: Completed 121-02-PLAN.md (xlsx/csv extraction + many-customer guard)
+last_updated: "2026-06-18T05:27:52.909Z"
+last_activity: 2026-06-18
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 10
   percent: 50
 ---
 
@@ -57,14 +57,14 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 121 — attachment-borne-identifier-extraction (build planned; ready to execute)
+**Current focus:** Phase 121 — attachment-borne-identifier-extraction
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 121 (attachment-borne-identifier-extraction) — PLANNED, ready to execute build
-Plan: 121-01 (discovery) ✅ · 121-02 (build #24: xlsx extract + many-customer guard) ⬜ · 121-03 (acceptance; live re-run → Phase 123) ⬜
-Status: V9.5 in progress — 120 + 123 COMPLETE (merged to main, PR #111); 121 build planned in this workspace (origin/main merged in onto post-120 engine), 122 (cross-brand scope) remaining. Bucket-A acceptance gated on the `candidate_details` clean-eval follow-up + Phase 123.
+Phase: 121 (attachment-borne-identifier-extraction) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
 
@@ -77,7 +77,7 @@ LIVE production config (in Supabase `public.swarms` — shared across machines, 
 - `debtor.labeling_settings` = 4 rows. Sicli (noord+sud) rows DELETED 2026-06-16 (re-add later with verified address).
 
 RESOLVED: the 2026-06-16 regression (debtor multi-mailbox observe starved + froze sales) is fixed by Phase 119 per-mailbox fan-out isolation; debtor observe re-enabled + verified live 2026-06-17.
-Last activity: 2026-06-18 -- merged origin/main (120+123) into Phase 121 workspace
+Last activity: 2026-06-18
 
 ## Performance Metrics
 
@@ -187,6 +187,7 @@ Last activity: 2026-06-18 -- merged origin/main (120+123) into Phase 121 workspa
 | Phase 123 P03 | ~10 minutes | 3 tasks | 5 files |
 | 123 | 4 | - | - |
 | Phase 121 P01 | 5min | 3 tasks | 1 files |
+| Phase 121 P02 | 14m | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -322,6 +323,7 @@ Last activity: 2026-06-18 -- merged origin/main (120+123) into Phase 121 workspa
 - [Phase 123-03]: Deleted nxt.contact_lookup + nxt.identifier_lookup ENTIRELY from nxt-zap-client.ts (lookupSenderToAccount/lookupIdentifierToAccount wrappers, ContactLookupInput/IdentifierLookupInput, ContactMatchSchema/IdentifierMatchSchema + type exports, ResponseSchemaByTool + LookupKindByTool entries, NxtToolId literals, callNxtTool overload branches). NxtToolId = candidate_details | resolve_candidates. Spike 011b RETIRED-with-note (Phase 120 work done); 2 remaining test files rewired to resolve_candidates. RESL-UNIFY-04 atomicity: repo grep 0, tsc 0, full vitest 2732 passed. DB half (2 zapier_tools rows + CHECK widen-back) is Plan 04. Commits 2e5fd6ce/7044341c/991e4a63.
 - **[Phase 123-04] Task 2 DELETE-only prod deviation (operator-approved, T-123-10):** pre-flight count of legacy nxt_lookup_requests rows = 1171 (>0), so the narrowed CHECK re-add would fail → applied ONLY `DELETE FROM public.zapier_tools WHERE tool_id IN ('nxt.contact_lookup','nxt.identifier_lookup')` to live mvqjhlxfvtqqubqgdvhz (apply_migration `retire_legacy_lookup_tools_delete_only_p123`); the 2 nxt_lookup_requests CHECK constraints stay WIDE. Verified: legacy tool_ids ABSENT, candidate_details+invoice_fetch+resolve_candidates PRESENT; check:supabase 0 ERROR. Widen-back deferred to todo `2026-06-17-widen-back-nxt-lookup-requests-checks.md` (prune inert rows first). Legacy tools now gone from code AND database (capability-before-removal complete).
 - **[Phase 123-04] Task 3 correctness eval deferred-with-evidence (operator APPROVED-TO-CLOSE):** ran the frozen 100-email gate over the unified resolve_candidates path (commit dcfd0409, RERUN-FINDINGS.md). Overall correct = 18% (14/79) vs 64% baseline = RED, but ROOT CAUSE is a transport artifact in the pre-existing, Phase-123-untouched `candidate_details` tool: live debtor.nxt_lookup_requests eval window shows resolve_candidates 163 req/163 complete-with-result (unified path works), candidate_details 26 req/0 results/all `pending` (LLM-tiebreaker enrichment Zap fires but async callback never lands → rows degrade to unresolved; same issue as Monday's Sales eval per operator). Demotion-DIRECTION targets PASSED: confident-wrong AUTO #2/#85/#95/#97 = 4/4 demoted; bucket-B = 12/12 resolved-or-demoted (corroboration firing correctly). The clean absolute-% re-run is DEFERRED to todo `2026-06-17-candidate-details-callback-and-clean-eval-rerun.md` (fix callback → re-run; closes the deferred Phase-120 / 123 debtor gate). Phase code+DB+transport deliverables COMPLETE and proven live; the absolute-% acceptance number is the only deferred item.
+- [Phase ?]: [Phase 121-02] xlsx/csv attachment extraction added adapter-side in extract.ts (exceljs lazy-import, string-only, early-capped, fail-soft, UNTRUSTED-fenced); engine byte-identical (no-engine-diff donor re-baselined to post-123 b816c627). Many-customer guard = STRUCTURAL (verify-first: 358-distinct-root demotes below AUTO) — no new adapter-side guard, stage-2-customer-resolver.ts untouched. Commits 35bc3b6e/62685a1a/ca810e1e.
 
 ### Blockers/Concerns
 
@@ -363,8 +365,8 @@ Last activity: 2026-06-18 -- merged origin/main (120+123) into Phase 121 workspa
 
 ## Session Continuity
 
-Last session: 2026-06-18
-Stopped at: Phase 121 build planned (121-02 #24 xlsx+many-customer, 121-03 acceptance) in workspace; 120 + 123 complete + merged to main (PR #111); origin/main merged into this workspace onto the post-120 engine.
+Last session: 2026-06-18T05:27:52.897Z
+Stopped at: Completed 121-02-PLAN.md (xlsx/csv extraction + many-customer guard)
 Resume with: /gsd:execute-phase 121 (build #24) — after the `candidate_details` clean-eval follow-up; 121-03 live re-run gated on Phase 123; then Phase 122 (cross-brand scope).
 Resume file: None
 

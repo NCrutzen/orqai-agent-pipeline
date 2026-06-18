@@ -606,7 +606,7 @@ Plans:
 **Wave 1**
 
 - [x] 121-01-PLAN.md — Wave 0: empirical baseline + gap manifest (discovery — DONE 2026-06-17)
-- [ ] 121-02-PLAN.md — Wave 1: close #24 — exceljs `.xlsx`/`.csv` extraction branch in `extract.ts` (adapter-side, engine byte-identical) + verify-first 358-root many-customer demotion + no-engine-diff gate (ATID-01/02/03/04)
+- [x] 121-02-PLAN.md — Wave 1: close #24 — exceljs `.xlsx`/`.csv` extraction branch in `extract.ts` (adapter-side, engine byte-identical) + verify-first 358-root many-customer demotion + no-engine-diff gate (ATID-01/02/03/04)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
