@@ -63,6 +63,7 @@ type DBState = {
     behavior_tracking_config: {
       enabled: boolean;
       mailbox?: string;
+      mailboxes?: string[];
       weights?: unknown;
     };
   }>;
@@ -96,6 +97,9 @@ type DBState = {
   // written rows
   transitions: Array<Record<string, unknown>>;
   signals: Array<Record<string, unknown>>;
+  // Phase 119: rows written to pipeline_events (onFailure telemetry sink).
+  // Kept separate from `ledger` (which models the stage-4 ledger-join SELECT).
+  pipelineEventInserts: Array<Record<string, unknown>>;
   // when true, the NEXT insert into swarm_review_signals throws 23505
   throw23505OnNextSignalInsert: boolean;
 };
@@ -214,6 +218,10 @@ function makeQuery(table: string) {
       db.transitions.push(row);
       return { data: null, error: null };
     }
+    if (table === "pipeline_events") {
+      db.pipelineEventInserts.push(row);
+      return { data: null, error: null };
+    }
     if (table === "swarm_review_signals") {
       if (db.throw23505OnNextSignalInsert) {
         db.throw23505OnNextSignalInsert = false;
@@ -315,14 +323,48 @@ function routeGraph(folderTree: {
   };
 }
 
-import { swarmBehaviorSync } from "@/lib/inngest/functions/swarm-behavior-sync";
+import {
+  swarmBehaviorSync,
+  swarmBehaviorSyncMailbox,
+} from "@/lib/inngest/functions/swarm-behavior-sync";
+import { inngest } from "@/lib/inngest/client";
 type Ctx = {
   step: { run: ReturnType<typeof vi.fn>; calls?: Array<{ id: string }> };
   event?: { data?: Record<string, unknown> };
 };
 type Handler = (ctx: Ctx) => Promise<Record<string, unknown>>;
-function getHandler(): Handler {
+
+// Phase 119: the cron entrypoint is now the ORCHESTRATOR (fans out one
+// swarm/behavior-sync.mailbox event per enabled (swarm × mailbox)); the
+// per-mailbox WORKER processes exactly one mailbox per invocation. Existing
+// per-mailbox behaviour tests target the worker handler; fan-out/enablement
+// tests target the orchestrator and assert on the captured inngest.send events.
+function getOrchestratorHandler(): Handler {
   return (swarmBehaviorSync as unknown as { handler: Handler }).handler;
+}
+function getWorkerHandler(): Handler {
+  return (swarmBehaviorSyncMailbox as unknown as { handler: Handler }).handler;
+}
+const SALES = "sales-email";
+// Capture the orchestrator's fanned-out swarm/behavior-sync.mailbox events.
+// The orchestrator sends a single BATCH (array) per fan-out, so flatten any
+// array arg as well as a possible single-payload arg.
+function fannedOutEvents(): Array<{
+  name: string;
+  data: Record<string, unknown>;
+}> {
+  type Ev = { name: string; data: Record<string, unknown> };
+  return (vi.mocked(inngest.send).mock.calls as unknown as Array<[Ev | Ev[]]>)
+    .flatMap((c) => (Array.isArray(c[0]) ? c[0] : [c[0]]))
+    .filter((e): e is Ev => !!e && e.name === "swarm/behavior-sync.mailbox");
+}
+// Convenience: invoke the worker for a single (swarm, mailbox).
+function runWorker(
+  mailbox: string,
+  step = makeStep(),
+  swarm_type = SALES,
+): Promise<Record<string, unknown>> {
+  return getWorkerHandler()({ event: { data: { swarm_type, mailbox } }, step });
 }
 
 beforeEach(() => {
@@ -346,6 +388,7 @@ beforeEach(() => {
     writtenCategories: [],
     transitions: [],
     signals: [],
+    pipelineEventInserts: [],
     throw23505OnNextSignalInsert: false,
   };
 });
@@ -389,7 +432,7 @@ describe("swarmBehaviorSync — worker level", () => {
       return tree(url);
     });
 
-    const ret = await getHandler()({ event: { data: {} }, step: makeStep() });
+    const ret = await runWorker(MAILBOX);
 
     expect(db.signals).toHaveLength(0);
     // tokens persisted for both tracked folders, bootstrapped=true
@@ -398,7 +441,8 @@ describe("swarmBehaviorSync — worker level", () => {
     expect(db.tokens.get("F-inbox")?.delta_link).toBe(
       "https://graph/delta?token=BOOT",
     );
-    const r = (ret.results as PerSwarmLike[])[0];
+    // Phase 119: the worker returns the single PerSwarmCounts directly (no results[]).
+    const r = ret as unknown as PerSwarmLike;
     expect(r.swarm_type).toBe("sales-email");
     expect(r.bootstrapped_folders).toBeGreaterThanOrEqual(2);
     expect(r.signals_written).toBe(0);
@@ -448,7 +492,7 @@ describe("swarmBehaviorSync — worker level", () => {
       return tree(url);
     });
 
-    await getHandler()({ event: { data: {} }, step: makeStep() });
+    await runWorker(MAILBOX);
 
     const correctie = db.signals.filter(
       (s) => s.verdict === "correctie_false_positive",
@@ -510,16 +554,14 @@ describe("swarmBehaviorSync — worker level", () => {
     });
 
     // First tick: writes one approve_handled signal.
-    await getHandler()({ event: { data: {} }, step: makeStep() });
+    await runWorker(MAILBOX);
     const afterFirst = db.signals.length;
     expect(afterFirst).toBe(1);
     expect(db.signals[0].verdict).toBe("approve_handled");
 
     // Force the next signal insert to raise 23505 (duplicate) — must be swallowed.
     db.throw23505OnNextSignalInsert = true;
-    await expect(
-      getHandler()({ event: { data: {} }, step: makeStep() }),
-    ).resolves.toBeTruthy();
+    await expect(runWorker(MAILBOX)).resolves.toBeTruthy();
     // dedupe_key carries tickIso which differs per run, but our forced 23505
     // proves the no-op path: no throw, and the dup row is NOT added.
     expect(db.signals.length).toBe(afterFirst);
@@ -564,44 +606,35 @@ describe("swarmBehaviorSync — worker level", () => {
       return tree(url);
     });
 
-    const ret = await getHandler()({ event: { data: {} }, step: makeStep() });
+    const ret = await runWorker(MAILBOX);
     expect(db.signals).toHaveLength(0);
     expect(db.transitions.filter((t) => t.dedupe_key !== "prior")).toHaveLength(0);
-    const r = (ret.results as PerSwarmLike[])[0];
+    const r = ret as unknown as PerSwarmLike;
     expect(r.skipped_sugar).toBeGreaterThanOrEqual(1);
   });
 
-  it("5: registry iteration — disabled swarm is not polled", async () => {
-    seedFolderMap();
-    db.tokens.set("F-inbox", { delta_link: "PREV-inbox", bootstrapped: true });
-    db.tokens.set("F-archive", { delta_link: "PREV-archive", bootstrapped: true });
-    // add a second ENABLED-looking but enabled=false swarm with a different mailbox
+  it("5: registry iteration — disabled swarm is NOT fanned out (orchestrator)", async () => {
+    // add a second enabled=false swarm with a different mailbox
     db.swarms.push({
       swarm_type: "support-tickets",
       behavior_tracking_config: { enabled: false, mailbox: "support@other.nl" },
     });
 
-    // Use a FRESH folder-map (no seeded tokens) so the bootstrap step calls
-    // resolveFolders -> graphFetch with a /users/<mailbox>/ URL. That lets us
-    // observe exactly which mailbox(es) the worker touches.
-    db.folderMap = [];
-    db.tokens = new Map();
-    const polledMailboxes = new Set<string>();
-    const tree = routeGraph({ inboxHasChildren: false });
-    graphFetchMock.mockImplementation(async (url: string) => {
-      const m = url.match(/users\/([^/]+)\//);
-      if (m) polledMailboxes.add(decodeURIComponent(m[1]));
-      if (/messages\/delta/.test(url) || /^PREV-/.test(url)) {
-        return jsonResponse({ value: [], "@odata.deltaLink": "DELTA-empty" });
-      }
-      return tree(url);
-    });
+    // Phase 119: the orchestrator reads the registry and fans out one
+    // swarm/behavior-sync.mailbox event per ENABLED (swarm × mailbox). It
+    // touches no Graph — we assert on the captured inngest.send events.
+    await getOrchestratorHandler()({ event: { data: {} }, step: makeStep() });
 
-    const ret = await getHandler()({ event: { data: {} }, step: makeStep() });
-    expect(ret.swarms_processed).toBe(1);
-    expect((ret.results as PerSwarmLike[])[0].swarm_type).toBe("sales-email");
-    expect(polledMailboxes.has(MAILBOX)).toBe(true);
-    expect(polledMailboxes.has("support@other.nl")).toBe(false);
+    const events = fannedOutEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].data).toMatchObject({
+      swarm_type: "sales-email",
+      mailbox: MAILBOX,
+    });
+    // disabled swarms produce no fan-out
+    expect(events.some((e) => e.data.mailbox === "support@other.nl")).toBe(false);
+    // orchestrator does no Graph work during fan-out
+    expect(graphFetchMock).not.toHaveBeenCalled();
   });
 });
 
@@ -627,6 +660,7 @@ function seedCategoryEditScenario(opts: {
   emailId: string;
   baselineAiCategory: string | null; // the swarm_written_categories row (null = no baseline)
   newCategories: string[]; // the operator's edited categories on the delta event
+  source?: string; // ingest source tag on the email row (default 'outlook')
 }) {
   seedFolderMap();
   db.tokens.set("F-inbox", { delta_link: "PREV-inbox", bootstrapped: true });
@@ -637,7 +671,7 @@ function seedCategoryEditScenario(opts: {
       source_id: opts.immutableId,
       conversation_id: null,
       mailbox: MAILBOX,
-      source: "outlook",
+      source: opts.source ?? "outlook",
     },
   ];
   if (opts.baselineAiCategory !== null) {
@@ -680,7 +714,7 @@ describe("swarmBehaviorSync — category_edited via swarm_written_categories bas
       newCategories: ["AI: order_status"],
     });
 
-    await getHandler()({ event: { data: {} }, step: makeStep() });
+    await runWorker(MAILBOX);
 
     const reclassify = db.signals.filter((s) => s.verdict === "reclassify");
     expect(reclassify).toHaveLength(1);
@@ -697,7 +731,7 @@ describe("swarmBehaviorSync — category_edited via swarm_written_categories bas
       newCategories: [],
     });
 
-    await getHandler()({ event: { data: {} }, step: makeStep() });
+    await runWorker(MAILBOX);
 
     const reclassify = db.signals.filter((s) => s.verdict === "reclassify");
     expect(reclassify).toHaveLength(1);
@@ -713,7 +747,7 @@ describe("swarmBehaviorSync — category_edited via swarm_written_categories bas
       newCategories: ["AI: order_status"],
     });
 
-    await getHandler()({ event: { data: {} }, step: makeStep() });
+    await runWorker(MAILBOX);
 
     expect(db.signals.filter((s) => s.verdict === "reclassify")).toHaveLength(0);
   });
@@ -726,7 +760,7 @@ describe("swarmBehaviorSync — category_edited via swarm_written_categories bas
       newCategories: ["AI: order_status"],
     });
 
-    await getHandler()({ event: { data: {} }, step: makeStep() });
+    await runWorker(MAILBOX);
     const afterFirst = db.signals.filter(
       (s) => s.verdict === "reclassify",
     ).length;
@@ -734,12 +768,116 @@ describe("swarmBehaviorSync — category_edited via swarm_written_categories bas
 
     // Force the next signal insert to raise 23505 (duplicate) — must be swallowed.
     db.throw23505OnNextSignalInsert = true;
-    await expect(
-      getHandler()({ event: { data: {} }, step: makeStep() }),
-    ).resolves.toBeTruthy();
+    await expect(runWorker(MAILBOX)).resolves.toBeTruthy();
     expect(db.signals.filter((s) => s.verdict === "reclassify").length).toBe(
       afterFirst,
     );
+  });
+
+  it("14: a zapier-debtor-ingest row resolves + fires category_edited (widened source filter)", async () => {
+    // The debtor-email ingest tags rows source='zapier-debtor-ingest' (sales is
+    // 'outlook'). Both store the Outlook messageId as source_id, so the
+    // immutable_id->email_id match works once the source filter accepts both.
+    // Pre-fix (.eq("source","outlook")) this row never resolved -> 0 signals (RED).
+    seedCategoryEditScenario({
+      immutableId: "m-zap",
+      emailId: "e-zap",
+      baselineAiCategory: "AI: quote_request",
+      newCategories: ["AI: order_status"],
+      source: "zapier-debtor-ingest",
+    });
+
+    await runWorker(MAILBOX);
+
+    const reclassify = db.signals.filter((s) => s.verdict === "reclassify");
+    expect(reclassify).toHaveLength(1);
+    expect(reclassify[0].email_id).toBe("e-zap");
+    expect(reclassify[0].category_key).toBe("order_status");
+  });
+});
+
+describe("swarmBehaviorSync — multi-mailbox iteration (Phase 118)", () => {
+  const A = "a@smeba.nl";
+  const B = "b@smeba.nl";
+
+  // A fresh folder-map per mailbox so the worker resolves folders (graph tree)
+  // and we can observe which mailboxes are touched via the /users/<mailbox>/ URL.
+  function routeForMailboxes(): {
+    fetch: (url: string) => Response;
+    polled: Set<string>;
+  } {
+    const polled = new Set<string>();
+    const tree = routeGraph({ inboxHasChildren: false });
+    const fetch = (url: string): Response => {
+      const m = url.match(/users\/([^/]+)\//);
+      if (m) polled.add(decodeURIComponent(m[1]));
+      if (/messages\/delta/.test(url) || /^PREV-/.test(url)) {
+        return jsonResponse({ value: [], "@odata.deltaLink": "DELTA-empty" });
+      }
+      return tree(url);
+    };
+    return { fetch, polled };
+  }
+
+  it("11: a swarm with mailboxes:[A,B] fans out one event per mailbox (orchestrator)", async () => {
+    db.swarms = [
+      {
+        swarm_type: "sales-email",
+        behavior_tracking_config: { enabled: true, mailboxes: [A, B] },
+      },
+    ];
+
+    // Phase 119: the orchestrator fans out one swarm/behavior-sync.mailbox event
+    // per mailbox; each mailbox is later processed by its own worker invocation.
+    await getOrchestratorHandler()({ event: { data: {} }, step: makeStep() });
+
+    const events = fannedOutEvents();
+    const mailboxes = events.map((e) => e.data.mailbox);
+    expect(mailboxes).toContain(A);
+    expect(mailboxes).toContain(B);
+    expect(mailboxes).toHaveLength(2);
+    for (const e of events) expect(e.data.swarm_type).toBe("sales-email");
+  });
+
+  it("12: a single worker invocation's step.run ids are unique (mailbox-suffixed) + singular run/tick", async () => {
+    // Cross-mailbox uniqueness is now guaranteed structurally (each mailbox is a
+    // separate invocation); this test guards WITHIN-invocation uniqueness.
+    db.folderMap = [];
+    db.tokens = new Map();
+
+    const { fetch } = routeForMailboxes();
+    graphFetchMock.mockImplementation(async (url: string) => fetch(url));
+
+    const step = makeStep();
+    await runWorker(A, step);
+
+    const ids = step.calls.map((c) => c.id);
+    // every recorded step id is unique (a duplicate would silently memoize)
+    expect(new Set(ids).size).toBe(ids.length);
+
+    // the loop-body ids for THIS mailbox are present (mailbox-suffixed)
+    expect(ids).toContain(`refresh-folder-map-sales-email-${A}`);
+    expect(ids).toContain(`tracked-folders-sales-email-${A}`);
+    expect(ids).toContain(`derive-and-write-sales-email-${A}`);
+    // top-level run/tick ids stay singular (exactly one each)
+    expect(ids.filter((id) => id === "resolve-run-id")).toHaveLength(1);
+    expect(ids.filter((id) => id === "resolve-tick-iso")).toHaveLength(1);
+  });
+
+  it("13: singular fallback — a row with only mailbox:'X' fans out exactly one event (orchestrator)", async () => {
+    const X = "x@smeba.nl";
+    db.swarms = [
+      {
+        swarm_type: "sales-email",
+        behavior_tracking_config: { enabled: true, mailbox: X },
+      },
+    ];
+
+    await getOrchestratorHandler()({ event: { data: {} }, step: makeStep() });
+
+    const events = fannedOutEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].data).toMatchObject({ swarm_type: "sales-email", mailbox: X });
   });
 });
 
@@ -813,8 +951,10 @@ describe("swarmBehaviorSync — bootstrap-correlatie (gap-fix 2026-06-04)", () =
       return jsonResponse({ value: [], "@odata.deltaLink": "DELTA" });
     });
 
-    const out = (await getHandler()({ step: makeStep() })) as {
-      results: Array<{ transitions_written: number; signals_written: number; by_verdict: Record<string, number> }>;
+    const out = (await runWorker(MAILBOX)) as {
+      transitions_written: number;
+      signals_written: number;
+      by_verdict: Record<string, number>;
     };
 
     // refresh ontdekte F-afg + F-2026 met afgehandeld-bucket (ancestry).
@@ -826,8 +966,170 @@ describe("swarmBehaviorSync — bootstrap-correlatie (gap-fix 2026-06-04)", () =
     expect(promoted).toMatchObject({ immutable_id: "IM-d1", from_bucket: "inbox", to_bucket: "afgehandeld" });
     const original = db.transitions.find((t) => t.id === "corr-1");
     expect(original?.to_bucket).toBe("resolved_by_bootstrap");
-    expect(out.results[0].by_verdict).toMatchObject({ approve_handled: 1 });
+    expect(out.by_verdict).toMatchObject({ approve_handled: 1 });
     const signal = db.signals.find((s) => s.verdict === "approve_handled");
     expect(signal).toMatchObject({ email_id: "e-d1", transition_kind: "moved_to_afgehandeld" });
+  });
+});
+
+// ---- Phase 119: fan-out fault isolation + fair budgeting (regression) --------
+//
+// Encodes the 2026-06-16 production regression as a permanent must-not-regress
+// suite: enabling debtor's heavy mailbox starved the shared single-run loop and
+// froze the previously-healthy sales observe. Post-119 the cron fans out one
+// event per (swarm × mailbox) and each mailbox is its own worker invocation, so
+// one mailbox can never abort or starve another. These tests would FAIL against
+// the pre-119 single-run loop (a throw aborted everything after it).
+describe("swarmBehaviorSync — fan-out fault isolation + fair budgeting (Phase 119 regression)", () => {
+  const LARGE = "large@smeba.nl"; // models the 55-folder heavy mailbox
+  const BB = "b2@smeba.nl";
+  const CC = "c@smeba.nl";
+
+  // A graphFetch router. `throwFor` (decoded mailbox) throws on every call for
+  // that mailbox (models a per-folder/resolve failure). `heavyCount` gives the
+  // LARGE mailbox many tracked folders; other mailboxes get the default 2.
+  function makeRouter(opts: {
+    throwFor?: string;
+    heavyCount?: number;
+  }): { fetch: (url: string) => Response; polled: Set<string> } {
+    const polled = new Set<string>();
+    const fetch = (url: string): Response => {
+      const m = url.match(/users\/([^/]+)\//);
+      const mb = m ? decodeURIComponent(m[1]) : null;
+      if (mb === opts.throwFor) {
+        throw new Error(`forced ${opts.throwFor} mailbox failure`);
+      }
+      if (mb) polled.add(mb);
+      if (/\/mailFolders\?/.test(url)) {
+        if (mb === LARGE && opts.heavyCount) {
+          return jsonResponse({
+            value: Array.from({ length: opts.heavyCount }, (_, i) => ({
+              id: `LF-${i}`,
+              displayName: `Folder ${i}`,
+              childFolderCount: 0,
+            })),
+          });
+        }
+        return jsonResponse({
+          value: [
+            { id: "F-inbox", displayName: "Inbox", childFolderCount: 0 },
+            { id: "F-archive", displayName: "Archief", childFolderCount: 0 },
+          ],
+        });
+      }
+      if (/\/childFolders/.test(url)) return jsonResponse({ value: [] });
+      if (/messages\/delta/.test(url) || /^PREV-/.test(url)) {
+        return jsonResponse({ value: [], "@odata.deltaLink": "DELTA-empty" });
+      }
+      return jsonResponse({ value: [], "@odata.deltaLink": "DELTA" });
+    };
+    return { fetch, polled };
+  }
+
+  it("FAN-OUT-COVERAGE: two enabled swarms (one with a heavy mailbox + a second) fan out every (swarm × mailbox) pair, none dropped", async () => {
+    // sales-email has a heavy mailbox LARGE plus BB; debtor-email has CC.
+    db.swarms = [
+      {
+        swarm_type: "sales-email",
+        behavior_tracking_config: { enabled: true, mailboxes: [LARGE, BB] },
+      },
+      {
+        swarm_type: "debtor-email",
+        behavior_tracking_config: { enabled: true, mailboxes: [CC] },
+      },
+    ];
+
+    await getOrchestratorHandler()({ event: { data: {} }, step: makeStep() });
+
+    const pairs = fannedOutEvents().map((e) => ({
+      swarm_type: e.data.swarm_type,
+      mailbox: e.data.mailbox,
+    }));
+    // exactly the three pairs, none dropped regardless of LARGE's folder count
+    expect(pairs).toHaveLength(3);
+    expect(pairs).toContainEqual({ swarm_type: "sales-email", mailbox: LARGE });
+    expect(pairs).toContainEqual({ swarm_type: "sales-email", mailbox: BB });
+    expect(pairs).toContainEqual({ swarm_type: "debtor-email", mailbox: CC });
+    // the orchestrator does NO Graph work — heavy folder trees are irrelevant here
+    expect(graphFetchMock).not.toHaveBeenCalled();
+  });
+
+  it("FAULT-ISOLATION: a throw on one mailbox's worker invocation does NOT prevent the others", async () => {
+    db.folderMap = [];
+    db.tokens = new Map();
+    const { fetch, polled } = makeRouter({ throwFor: LARGE, heavyCount: 12 });
+    graphFetchMock.mockImplementation(async (url: string) => fetch(url));
+
+    // LARGE's own invocation fails (its own failed run) ...
+    await expect(runWorker(LARGE)).rejects.toThrow(/forced large@smeba\.nl/);
+    // ... but BB and CC invocations complete normally (inverse of the regression).
+    const rb = (await runWorker(BB)) as { mailbox: string };
+    const rc = (await runWorker(CC, makeStep(), "debtor-email")) as {
+      mailbox: string;
+    };
+    expect(rb.mailbox).toBe(BB);
+    expect(rc.mailbox).toBe(CC);
+    expect(polled.has(BB)).toBe(true);
+    expect(polled.has(CC)).toBe(true);
+    expect(polled.has(LARGE)).toBe(false); // it threw before polling
+
+    // The failure is attributable per-mailbox: onFailure is wired on the worker
+    // config and, when invoked, writes a behavior_sync_mailbox_failed row keyed
+    // by the specific (swarm, mailbox).
+    const cfg = (
+      swarmBehaviorSyncMailbox as unknown as {
+        __config: { onFailure?: (a: unknown) => Promise<void> };
+      }
+    ).__config;
+    expect(typeof cfg.onFailure).toBe("function");
+    await cfg.onFailure!({
+      error: new Error("forced large@smeba.nl mailbox failure"),
+      event: { data: { event: { data: { swarm_type: "sales-email", mailbox: LARGE } } } },
+    });
+    const failRow = db.pipelineEventInserts.find(
+      (r) => r.decision === "behavior_sync_mailbox_failed",
+    );
+    expect(failRow).toBeTruthy();
+    expect(
+      (failRow?.decision_details as { mailbox?: string } | undefined)?.mailbox,
+    ).toBe(LARGE);
+  });
+
+  it("BUDGET/NON-STARVATION: BB and CC complete independently of the LARGE mailbox's folder count", async () => {
+    db.folderMap = [];
+    db.tokens = new Map();
+    const { fetch, polled } = makeRouter({ heavyCount: 12 }); // LARGE heavy, no throw
+    graphFetchMock.mockImplementation(async (url: string) => fetch(url));
+
+    // Each mailbox is its own invocation — BB and CC do not share LARGE's budget.
+    const rLarge = (await runWorker(LARGE)) as { mailbox: string };
+    const rb = (await runWorker(BB)) as { mailbox: string; signals_written: number };
+    const rc = (await runWorker(CC, makeStep(), "debtor-email")) as {
+      mailbox: string;
+    };
+    expect(rLarge.mailbox).toBe(LARGE);
+    expect(rb.mailbox).toBe(BB);
+    expect(rc.mailbox).toBe(CC);
+    expect(typeof rb.signals_written).toBe("number");
+    expect(polled.has(BB)).toBe(true);
+    expect(polled.has(CC)).toBe(true);
+  });
+
+  it("STEP-ID-UNIQUENESS: a heavy single-mailbox invocation has all-unique step ids + singular run/tick", async () => {
+    db.folderMap = [];
+    db.tokens = new Map();
+    const { fetch } = makeRouter({ heavyCount: 12 });
+    graphFetchMock.mockImplementation(async (url: string) => fetch(url));
+
+    const step = makeStep();
+    await runWorker(LARGE, step);
+
+    const ids = step.calls.map((c) => c.id);
+    // many delta-${...}-${folderId} steps, all unique
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.filter((id) => id.startsWith(`delta-sales-email-${LARGE}-`)).length)
+      .toBeGreaterThanOrEqual(10);
+    expect(ids.filter((id) => id === "resolve-run-id")).toHaveLength(1);
+    expect(ids.filter((id) => id === "resolve-tick-iso")).toHaveLength(1);
   });
 });

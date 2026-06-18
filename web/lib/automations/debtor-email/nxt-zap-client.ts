@@ -11,9 +11,8 @@
 //      which UPDATEs status='complete' with the SQL matches array.
 //
 // Tools:
-//   - nxt.contact_lookup       sender_email -> top-level customer
-//   - nxt.identifier_lookup    invoice_numbers -> paying customer
 //   - nxt.candidate_details    customer_ids -> details for LLM tiebreaker
+//   - nxt.resolve_candidates   identifiers -> candidate set (Layer-A projection)
 //
 // Auth: `auth_secret_env` env var, injected as a body field per
 // `auth_field_name` (Catch-Hook-friendly — headers aren't reliably exposed
@@ -91,23 +90,11 @@ async function loadTool(tool_id: string): Promise<ZapierToolRow> {
 }
 
 export type NxtToolId =
-  | "nxt.contact_lookup"
-  | "nxt.identifier_lookup"
   | "nxt.candidate_details"
   // Phase 90 (RESL-01/RESL-03) — per-email candidate read against the
   // materialized zapier.dbo resolve_candidates index (Layer-A projection).
   | "nxt.resolve_candidates";
 
-export type ContactLookupInput = {
-  nxt_database: string;
-  brand_id: string;
-  sender_email: string;
-};
-export type IdentifierLookupInput = {
-  nxt_database: string;
-  brand_id: string;
-  invoice_numbers: string[];
-};
 export type CandidateDetailsInput = {
   nxt_database: string;
   brand_id: string;
@@ -129,30 +116,6 @@ export type ResolveCandidatesInput = {
 };
 
 const BRAND_ID_RE = /^[A-Z]{2}$/;
-
-const ContactMatchSchema = z.object({
-  contact_id: z.union([z.string(), z.number()]).transform(String),
-  top_level_customer_id: z.union([z.string(), z.number()]).transform(String),
-  top_level_customer_name: z.string(),
-  brand_id: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
-  status: z.string().nullable().optional(),
-  firstname: z.string().nullable().optional(),
-  lastname: z.string().nullable().optional(),
-  type: z.string().nullable().optional(),
-  job_title: z.string().nullable().optional(),
-  depth: z.number().int().nonnegative(),
-});
-
-const IdentifierMatchSchema = z.object({
-  invoice_id: z.union([z.string(), z.number()]).transform(String),
-  invoice_number: z.union([z.string(), z.number()]).transform(String),
-  customer_id: z.union([z.string(), z.number()]).transform(String),
-  top_level_customer_id: z.union([z.string(), z.number()]).transform(String),
-  site_id: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
-  job_id: z.union([z.string(), z.number()]).nullable().optional().transform((v) => (v == null ? v : String(v))),
-  invoice_date: z.string(),
-  status: z.string(),
-});
 
 const CandidateDetailMatchSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
@@ -197,20 +160,14 @@ const ResolveCandidateMatchSchema = z.object({
 });
 
 const ResponseSchemaByTool = {
-  "nxt.contact_lookup": z.object({ matches: z.array(ContactMatchSchema) }),
-  "nxt.identifier_lookup": z.object({ matches: z.array(IdentifierMatchSchema) }),
   "nxt.candidate_details": z.object({ matches: z.array(CandidateDetailMatchSchema) }),
   "nxt.resolve_candidates": z.object({ matches: z.array(ResolveCandidateMatchSchema) }),
 } as const;
 
-export type ContactMatch = z.infer<typeof ContactMatchSchema>;
-export type IdentifierMatch = z.infer<typeof IdentifierMatchSchema>;
 export type CandidateDetail = z.infer<typeof CandidateDetailMatchSchema>;
 export type ResolveCandidateMatch = z.infer<typeof ResolveCandidateMatchSchema>;
 
 const LookupKindByTool: Record<NxtToolId, string> = {
-  "nxt.contact_lookup": "sender_to_account",
-  "nxt.identifier_lookup": "identifier_to_account",
   "nxt.candidate_details": "candidate_details",
   "nxt.resolve_candidates": "resolve_candidates",
 };
@@ -236,15 +193,11 @@ type LookupRequestRow = {
  */
 export async function callNxtTool<T extends NxtToolId>(
   tool_id: T,
-  input: T extends "nxt.contact_lookup"
-    ? ContactLookupInput
-    : T extends "nxt.identifier_lookup"
-      ? IdentifierLookupInput
-      : T extends "nxt.candidate_details"
-        ? CandidateDetailsInput
-        : T extends "nxt.resolve_candidates"
-          ? ResolveCandidatesInput
-          : never,
+  input: T extends "nxt.candidate_details"
+    ? CandidateDetailsInput
+    : T extends "nxt.resolve_candidates"
+      ? ResolveCandidatesInput
+      : never,
   intent: string,
 ): Promise<z.infer<(typeof ResponseSchemaByTool)[T]>> {
   const tool = await loadTool(tool_id);
@@ -497,12 +450,6 @@ async function waitForLookupRequest(
     pollId = setInterval(() => void poll(), pollOnly ? 1000 : 2000);
   });
 }
-
-export const lookupSenderToAccount = (input: ContactLookupInput, intent: string) =>
-  callNxtTool("nxt.contact_lookup", input, intent);
-
-export const lookupIdentifierToAccount = (input: IdentifierLookupInput, intent: string) =>
-  callNxtTool("nxt.identifier_lookup", input, intent);
 
 export const lookupCandidateDetails = (input: CandidateDetailsInput, intent: string) =>
   callNxtTool("nxt.candidate_details", input, intent);

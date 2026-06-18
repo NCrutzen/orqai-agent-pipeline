@@ -174,9 +174,13 @@ export async function detectSoftwareSystem(
     if (signed) signedFrameUrls.push(signed);
   }
 
+  // The Orq SDK uses camelCase `imageUrl` (NOT OpenAI's snake_case `image_url`);
+  // snake_case makes the SDK reject the multimodal message (SDKValidationError),
+  // silently breaking every vision call. Same class of bug as the
+  // responseFormat/jsonSchema camelCase note below. (SDK imagecontentpartschema.)
   const userContent: Array<
     | { type: "text"; text: string }
-    | { type: "image_url"; image_url: { url: string } }
+    | { type: "image_url"; imageUrl: { url: string } }
   > = [
     {
       type: "text",
@@ -184,7 +188,7 @@ export async function detectSoftwareSystem(
     },
   ];
   for (const url of signedFrameUrls) {
-    userContent.push({ type: "image_url", image_url: { url } });
+    userContent.push({ type: "image_url", imageUrl: { url } });
   }
 
   // IMPORTANT: use the Orq SDK's camelCase field names.

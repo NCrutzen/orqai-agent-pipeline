@@ -37,7 +37,8 @@ function setRegistryRow(row: Record<string, unknown>) {
 const BASE_INPUT = {
   nxt_database: "nxt_benelux_prod",
   brand_id: "BE",
-  invoice_numbers: ["123"],
+  environment_id: "BX",
+  identifiers: ["123"],
 };
 
 beforeEach(() => {
@@ -67,7 +68,7 @@ describe("BUDG-02: ToolNotAllowedForIntentError is a named export", () => {
 describe("BUDG-02: default-deny when allowed_for_intents is NULL", () => {
   it("throws ToolNotAllowedForIntentError when the registry row has NULL allowed_for_intents", async () => {
     setRegistryRow({
-      tool_id: "nxt.identifier_lookup",
+      tool_id: "nxt.resolve_candidates",
       backend: "nxt",
       pattern: "async_callback",
       target_url: "https://hooks.zapier.com/x",
@@ -81,7 +82,7 @@ describe("BUDG-02: default-deny when allowed_for_intents is NULL", () => {
 
     await expect(
       callNxtTool(
-        "nxt.identifier_lookup",
+        "nxt.resolve_candidates",
         BASE_INPUT,
         "invoice_copy_request",
       ),
@@ -92,7 +93,7 @@ describe("BUDG-02: default-deny when allowed_for_intents is NULL", () => {
 describe("BUDG-02: default-deny when allowed_for_intents is empty array", () => {
   it("throws ToolNotAllowedForIntentError when allowed_for_intents = []", async () => {
     setRegistryRow({
-      tool_id: "nxt.identifier_lookup",
+      tool_id: "nxt.resolve_candidates",
       backend: "nxt",
       pattern: "async_callback",
       target_url: "https://hooks.zapier.com/x",
@@ -106,7 +107,7 @@ describe("BUDG-02: default-deny when allowed_for_intents is empty array", () => 
 
     await expect(
       callNxtTool(
-        "nxt.identifier_lookup",
+        "nxt.resolve_candidates",
         BASE_INPUT,
         "invoice_copy_request",
       ),
@@ -117,7 +118,7 @@ describe("BUDG-02: default-deny when allowed_for_intents is empty array", () => 
 describe("BUDG-02: deny when intent NOT in allowlist", () => {
   it("throws ToolNotAllowedForIntentError for an unlisted intent", async () => {
     setRegistryRow({
-      tool_id: "nxt.identifier_lookup",
+      tool_id: "nxt.resolve_candidates",
       backend: "nxt",
       pattern: "async_callback",
       target_url: "https://hooks.zapier.com/x",
@@ -131,7 +132,7 @@ describe("BUDG-02: deny when intent NOT in allowlist", () => {
 
     await expect(
       callNxtTool(
-        "nxt.identifier_lookup",
+        "nxt.resolve_candidates",
         BASE_INPUT,
         "payment_status_question",
       ),
@@ -142,7 +143,7 @@ describe("BUDG-02: deny when intent NOT in allowlist", () => {
 describe("BUDG-02: allow happy path — does NOT throw allowlist error", () => {
   it("does not throw ToolNotAllowedForIntentError when intent is in the allowlist (downstream may still fail)", async () => {
     setRegistryRow({
-      tool_id: "nxt.identifier_lookup",
+      tool_id: "nxt.resolve_candidates",
       backend: "nxt",
       pattern: "async_callback",
       target_url: "https://hooks.zapier.com/x",
@@ -164,7 +165,7 @@ describe("BUDG-02: allow happy path — does NOT throw allowlist error", () => {
     let caught: unknown = null;
     try {
       await callNxtTool(
-        "nxt.identifier_lookup",
+        "nxt.resolve_candidates",
         BASE_INPUT,
         "invoice_copy_request",
       );

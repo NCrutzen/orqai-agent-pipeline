@@ -30,12 +30,16 @@
 // extracted text is written to the table, NEVER serialized into the emitted
 // event (T-116-11).
 //
-// retries: 0 — mirrors the verdict-worker / stage-2-resolver peers. The
-// re-emit is idempotent at the event level and the per-attachment writes are
-// upserts; cascading retries would block the next event.
+// retries: 3 (was 0) — handoff-resilience fix (2026-06-16). The `load-context`
+// emails .or() lookup intermittently hit the Postgres statement timeout (now
+// also indexed, see 20260616 migration) and threw BEFORE `emit-stage-2`,
+// dropping the email at the Stage 1.5→2 handoff. The re-emit is idempotent at
+// the event level and the per-attachment writes are upserts, so retries replay
+// safely; a terminal failure surfaces via onFailure.
 
 import { z } from "zod";
 import { inngest } from "@/lib/inngest/client";
+import { recordWorkerFailure } from "@/lib/inngest/on-worker-failure";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSwarm } from "@/lib/swarms/registry";
 import {
@@ -58,7 +62,18 @@ const EventDataSchema = z.object({
 });
 
 export const stage1_5AttachmentExtractor = inngest.createFunction(
-  { id: "stage-1_5-attachment-extractor", retries: 0 },
+  {
+    id: "stage-1_5-attachment-extractor",
+    retries: 3,
+    onFailure: async ({ error, event }) => {
+      await recordWorkerFailure({
+        stage: 1,
+        stageLabel: "stage-1.5-attachment-extractor",
+        event,
+        error,
+      });
+    },
+  },
   { event: "sales-email/attachments.extract.requested" },
   async ({ event, step }) => {
     const {

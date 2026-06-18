@@ -117,4 +117,85 @@ export interface ResolutionConfig {
   blocklist_ref: ResolutionBlocklistRef;
   /** Whether the LLM tiebreaker (llm-tiebreaker.ts) runs over ambiguous candidate sets. */
   llm_tiebreaker: boolean;
+  /**
+   * Phase 120 (D-06 multi-signal corroboration). OPTIONAL — when ABSENT the
+   * engine runs today's first-hit short-circuit loop byte-identically (CORR-04,
+   * protects no-engine-diff for non-opted-in swarms). When PRESENT the engine
+   * collects every precedence step's candidate and scores deterministically via
+   * scoreCorroboration() — NO LLM call (D-03).
+   *
+   * This is FREE-FORM jsonb (NOT codegen'd) like the rest of resolution_config —
+   * the seed (Plan 03) is the only writer (operator-controlled, RLS-gated table).
+   */
+  corroboration?: CorroborationConfig;
+  /**
+   * Phase 122 (D-10 cross-brand scope). OPTIONAL — when ABSENT or `enabled:false`
+   * the engine runs NO cross-brand fallback (today's in-scope-only behaviour,
+   * protects no-engine-diff for non-opted-in swarms). When PRESENT + enabled the
+   * Plan-03 cross-scope helper may resolve a candidate found in a DIFFERENT brand
+   * scope than the mailbox, subject to the auto_resolve_kinds / corroboration bar.
+   *
+   * This is FREE-FORM jsonb (NOT codegen'd) like the rest of resolution_config —
+   * the seed (Plan 03+) is the only writer (operator-controlled, RLS-gated table).
+   * SWARM-AGNOSTIC by design: cross-brand behaviour is gated on the PRESENCE of
+   * this config, NEVER on a swarm_type literal (Pattern 1 / SWARM-02).
+   */
+  cross_scope?: CrossScopeConfig;
+}
+
+/**
+ * Phase 122 (D-10) — the cross-brand-scope fallback policy. Read by the Plan-03
+ * cross-scope helper to decide whether (and how confidently) a candidate found
+ * OUTSIDE the mailbox's own brand scope may resolve. Mirrors CorroborationConfig:
+ * free-form jsonb, presence-gated, swarm-agnostic.
+ */
+export interface CrossScopeConfig {
+  /**
+   * D-10 — master opt-in. `false`/absent means NO cross-brand fallback at all (the
+   * engine stays in-scope-only). Must be `true` for any cross-brand resolve to be
+   * considered; the kind/corroboration bars below only apply once this is on.
+   */
+  enabled: boolean;
+  /**
+   * D-03a — the STRONG identifier_kinds that may AUTO cross-brand ALONE, on a
+   * single distinct root, without corroboration (e.g. "invoice_no"). When ABSENT
+   * defaults to corroboration.auto_safe_alone_kinds (DRY — the same strong-kind
+   * set the in-scope corroboration tier trusts), so a swarm need not duplicate it.
+   */
+  auto_resolve_kinds?: string[];
+  /**
+   * D-03b — when `true`, a cross-brand candidate corroborated by ≥min_signals
+   * (the corroboration independence gate) may AUTO even on a LONE WEAK kind that
+   * is not in auto_resolve_kinds. When `false` only auto_resolve_kinds may AUTO
+   * cross-brand. Default `true`.
+   */
+  allow_corroboration_auto?: boolean;
+}
+
+/**
+ * Phase 120 (D-06) — the corroboration scoring policy. Read by scoreCorroboration()
+ * to decide boost / demote / lone-signal capping over the collected candidate set.
+ */
+export interface CorroborationConfig {
+  /**
+   * D-04 — the minimum number of DISTINCT identifier_kind signals (the D-05
+   * independence axis) agreeing on one customer required to BOOST to high.
+   * Default 2. NOTE: scoreCorroboration applies a `Math.max(2, min_signals)`
+   * FLOOR (T-120-03) so a malformed seed (min_signals=0) cannot make a lone
+   * signal "agree" with itself and auto-boost.
+   */
+  min_signals: number;
+  /**
+   * The confidence tier a corroborated (≥min_signals agreeing) candidate is
+   * boosted to. Default "high". Never raises a candidate ABOVE its agreement —
+   * the boost only applies when the agreement gate passes.
+   */
+  boost: "high" | "medium";
+  /**
+   * D-07 — identifier_kinds that are STRONG enough to keep their native high
+   * confidence when they are the LONE signal (e.g. "invoice_no", "customer_no").
+   * Any lone kind NOT in this set is capped below AUTO (high→medium). A lone
+   * sender/domain signal is deliberately omitted so it caps to medium.
+   */
+  auto_safe_alone_kinds?: string[];
 }

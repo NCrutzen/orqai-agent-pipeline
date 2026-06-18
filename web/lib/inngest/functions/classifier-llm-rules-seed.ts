@@ -65,7 +65,11 @@ export const classifierLLMRulesSeed = inngest.createFunction(
                 promoted_at: null,
                 notes: "Phase 89 — LLM 2nd-pass noise classifier",
               },
-              { onConflict: "swarm_type,rule_key" },
+              // 260618-iwx: ignoreDuplicates => ON CONFLICT DO NOTHING. Without
+              // it, supabase-js defaults to DO UPDATE and a re-fire would reset
+              // already-promoted llm:*:high rules (e.g. info-routing's) back to
+              // status='candidate'. The file header already claims this contract.
+              { onConflict: "swarm_type,rule_key", ignoreDuplicates: true },
             );
             if (error) {
               throw new Error(

@@ -31,7 +31,31 @@
 
 set -euo pipefail
 
-DONOR="${NO_ENGINE_DIFF_BASELINE:-origin/workspace/v8.2-resolution-recall}"
+# Phase 121-02 RE-BASELINE (FINAL STAGE2-01 for post-123 workspace, supersedes the
+# post-120 baseline): the donor is re-pointed from b831e3f6 (post-120) to b816c627
+# (post-123 — the tip carrying the resolve_candidates sender_match rewire + the
+# corroboration collect-path no-op tiebreaker, which legitimately evolved engine.ts/
+# steps/* when Phase 120 + 123 merged into this workspace from origin/main). Against
+# the OLD post-120 donor the guard CORRECTLY reports drift mid-phase (engine.ts/
+# sender-match.ts legitimately gained the 123 resolve_candidates rewire — the same
+# Pitfall 1 the 120-04 re-baseline note describes). With the donor re-baselined to
+# the merged-in post-123 engine, the guard re-asserts what STAGE2-01 means for THIS
+# phase: 121-02 (attachment xlsx/csv extraction) introduces ZERO FURTHER engine
+# drift on top of the post-123 engine. 121-02's only code change is adapter-side
+# (extract.ts) — engine/config/steps stay byte-identical. Override seam preserved
+# via NO_ENGINE_DIFF_BASELINE.
+#
+# V9.5 FINAL RE-BASELINE (post-122, supersedes the post-123 baseline): Phase 122
+# (cross-brand scope, #117) merged into origin/main AFTER b816c627 and added the
+# generic cross-scope.ts step + a config-gated engine.ts branch — all SWARM-02-clean
+# (0 per-swarm branches; verified across b816c627..fdddc3ec). Against the post-123
+# donor the guard correctly reported that legitimate generic drift. Re-pointed to
+# fdddc3ec (the #117 merge tip = V9.5-final engine: 120 corroboration + 122
+# cross-scope) so the guard re-asserts STAGE2-01 FINAL — sales adds ZERO
+# sales-specific engine code; all V9.5 engine work is shared generic capability.
+# This supersedes the V9.0 PROVISIONAL STAGE2-01 result with the milestone's locked
+# FINAL acceptance.
+DONOR="${NO_ENGINE_DIFF_BASELINE:-fdddc3ec}"
 
 # Resolve repo root so the script works from any cwd.
 REPO_ROOT="$(git rev-parse --show-toplevel)"

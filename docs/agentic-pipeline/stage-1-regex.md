@@ -94,6 +94,31 @@ The first four route to `categorize_archive`. `unknown` is the only key that han
 
 A deterministic **regex Pass-1 rule** is the exception — that is code, not registry data: it needs a module registered in `STAGE1_REGEX_MODULES` + a `swarms.stage1_regex_module` UPDATE (the debtor swarm is the only one with a regex module today). Prefer the LLM-category (registry-data) form unless a candidate has a crisp, anchored, bounded-quantifier signature that warrants the regex code cost.
 
+### Shared scope (`swarm_type='*'`) + per-swarm promotion gate (Quick 260618-iwx)
+
+A reserved `swarm_type='*'` row in `swarm_noise_categories` is a **shared** noise
+category: it unions into **every** swarm's call-time closed list. The union lives
+in exactly one place — `loadSwarmNoiseCategories` (`web/lib/swarms/registry.ts`),
+which reads `.in('swarm_type', [swarm, '*'])`, applies own-swarm-row-shadows-
+shared precedence in JS, then applies the `enabled` filter in JS (NOT at the DB).
+
+- **Opt-out is a shadow row, not a new table.** An own-swarm row with the same
+  `category_key` and `enabled=false` shadows the shared row → that category is
+  absent from the swarm's list. (The enabled filter must run in JS *after*
+  precedence; a DB-level `enabled=true` filter would drop the opt-out row and
+  silently re-enable the shared category.)
+- **Promotion stays strictly per-swarm.** `readWhitelist`
+  (`web/lib/classifier/cache.ts`) deliberately does **not** union `'*'`. Each
+  swarm earns auto-archive independently via its own Wilson-CI gate on per-swarm
+  `classifier_rules`. A `'*'`-scoped **promoted** rule would auto-archive across
+  all swarms with zero per-swarm evidence and is **forbidden**. The candidate
+  seed flow (`classifier/llm-rules-seed.run`) scopes `llm:{cat}:high` candidate
+  rows to the **consuming** swarm — that scoping *is* the gate.
+- **Shipped:** info-routing's 7 junk categories (`spam`, `marketing_newsletter`,
+  `cold_sales_outreach`, `auto_dealer_spam`, `unsolicited_job_application`,
+  `survey_feedback_invite`, `automated_security_report`) became shared in
+  `supabase/migrations/20260618_crossswarm_noise_shared_scope.sql`.
+
 ### Inherited AP-noise rule disposition for the sales-email swarm (Phase 111)
 
 The sales-email swarm inherited 8 AP-noise rules from the debtor calibration. Their Phase 111 disposition:

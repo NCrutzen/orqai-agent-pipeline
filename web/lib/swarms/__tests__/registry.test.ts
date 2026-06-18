@@ -58,6 +58,8 @@ function makeAdmin(opts: {
   const categoriesChain = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    // Quick task 260618-iwx: loader now unions [swarmType, '*'] via .in(...).
+    in: vi.fn().mockReturnThis(),
     order: vi.fn().mockImplementation(async () => {
       categoryCalls.count += 1;
       return opts.categories
@@ -234,6 +236,7 @@ describe("D-06: loadSwarmNoiseCategories — empty fallback, ordering, last-know
     const chain = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
       order: orderSpy,
     };
     const admin = {
@@ -268,6 +271,96 @@ describe("D-06: loadSwarmNoiseCategories — empty fallback, ordering, last-know
     vi.advanceTimersByTime(60_001);
     const second = await loadSwarmNoiseCategories(admin, "debtor-email");
     expect(second).toEqual(cats); // last-known-good
+  });
+});
+
+// Quick task 260618-iwx — cross-swarm shared scope ('*' sentinel). The loader
+// unions a swarm's own rows with shared '*' rows; own-swarm rows shadow the
+// shared row of the same category_key; the enabled filter runs in JS AFTER
+// precedence so an own-swarm enabled=false row OPTS OUT of a shared category.
+describe("260618-iwx: loadSwarmNoiseCategories — cross-swarm shared scope", () => {
+  beforeEach(() => {
+    __resetCacheForTests();
+    vi.useRealTimers();
+  });
+
+  it("lets an own-swarm row shadow the shared '*' row of the same key", async () => {
+    const { admin } = makeAdmin({
+      categories: () => ({
+        data: [
+          { ...sampleCategory("debtor-email", "spam", 20), display_label: "OWN", action: "manual_review" },
+          { ...sampleCategory("*", "spam", 20), display_label: "SHARED" },
+        ],
+        error: null,
+      }),
+    });
+    const got = await loadSwarmNoiseCategories(admin, "debtor-email");
+    expect(got).toHaveLength(1);
+    expect(got[0].display_label).toBe("OWN");
+    expect(got[0].action).toBe("manual_review");
+  });
+
+  it("unions own-swarm rows with shared '*' rows of different keys", async () => {
+    const { admin } = makeAdmin({
+      categories: () => ({
+        data: [
+          sampleCategory("sales-email", "auto_reply", 10),
+          sampleCategory("*", "spam", 20),
+          sampleCategory("*", "marketing_newsletter", 30),
+        ],
+        error: null,
+      }),
+    });
+    const got = await loadSwarmNoiseCategories(admin, "sales-email");
+    expect(got.map((r) => r.category_key)).toEqual([
+      "auto_reply",
+      "spam",
+      "marketing_newsletter",
+    ]);
+  });
+
+  it("opts out of a shared category via an own-swarm enabled=false shadow row", async () => {
+    const { admin } = makeAdmin({
+      categories: () => ({
+        data: [
+          { ...sampleCategory("debtor-email", "spam", 20), enabled: false },
+          sampleCategory("*", "spam", 20),
+        ],
+        error: null,
+      }),
+    });
+    const got = await loadSwarmNoiseCategories(admin, "debtor-email");
+    expect(got.map((r) => r.category_key)).not.toContain("spam");
+    expect(got).toHaveLength(0);
+  });
+
+  it("drops a shared '*' row that is itself disabled (no own shadow)", async () => {
+    const { admin } = makeAdmin({
+      categories: () => ({
+        data: [
+          sampleCategory("sales-email", "auto_reply", 10),
+          { ...sampleCategory("*", "spam", 20), enabled: false },
+        ],
+        error: null,
+      }),
+    });
+    const got = await loadSwarmNoiseCategories(admin, "sales-email");
+    expect(got.map((r) => r.category_key)).toEqual(["auto_reply"]);
+  });
+
+  it("orders the unioned result by display_order ascending", async () => {
+    const { admin } = makeAdmin({
+      categories: () => ({
+        data: [
+          sampleCategory("*", "spam", 30),
+          sampleCategory("sales-email", "auto_reply", 10),
+          sampleCategory("*", "marketing_newsletter", 20),
+        ],
+        error: null,
+      }),
+    });
+    const got = await loadSwarmNoiseCategories(admin, "sales-email");
+    expect(got.map((r) => r.display_order)).toEqual([10, 20, 30]);
   });
 });
 

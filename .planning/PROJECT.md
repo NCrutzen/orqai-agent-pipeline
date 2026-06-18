@@ -126,9 +126,18 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 - CLI skill management -- lives in orqai-agent-pipeline repo
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: v8.2 Stage 2 Resolution Recall (debtor track) ∥ V9.0 Sales-email Outlook (sales track) — two parallel tracks, re-sequenced 2026-06-02
+## Current Milestone: V9.5 Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope (ACTIVE — activated 2026-06-16)
 
-**V9.0 Sales-email is now ACTIVE in this workspace** (`workspace/sales-agent-swarm`) — formalized into `REQUIREMENTS.md` + a phase roadmap on **2026-06-02**. Phase numbering starts at **110** (banded above v8.2's 90–95) to avoid cross-workspace collision. The **v8.2 debtor track runs in parallel in its own workspace**. `.planning/STATE.md` / `ROADMAP.md` are single-writer per workspace and reconciled at PR merge (see `docs/collaboration.md`; the per-workstream STATE restructure is tracked as `SEED-002` — its parallel-workspace trigger is now met).
+**Goal:** Stage 2 raises confidence and catches false positives by corroborating multiple independent identifier signals — including identifiers parsed from attachment *content* — that agree on the same customer, and resolves customers that live under a *different* brand entity than the mailbox, replacing the per-step LLM tiebreaker for the agreeing-signals case. The generic, swarm-agnostic engine capability lands and makes the V9.0 STAGE2-01 no-Engine-diff gate legitimately final.
+
+**Target phases:**
+- **Phase 120** — D-06 multi-signal corroboration engine (generic, cross-swarm); collect candidates across precedence steps, ≥N agreeing identifiers → deterministic confidence boost, no LLM call.
+- **Phase 121** — Attachment-borne identifier extraction (PO/offerte/invoice/order IDs from attachment content) as first-class corroboration signals; folds in the factuur-in-subject extraction (eval bucket D).
+- **Phase 122** — Cross-brand-scope customer resolution: cross-brand back-search over `resolver_index` on in-scope miss; unique hit resolves, non-unique degrades to suggestie.
+
+**Acceptance baseline:** the frozen 100-email operator eval (`.planning/evals/2026-06-16-resolver-customer-eval/`, 64% correct) is the V9.5 regression fixture — re-run after 120/121/122 land, targeting a material reduction of the 36 Nee+Twijfel (esp. the 4 confident-wrong AUTO). Banded **120+** to isolate from archived V9.0 (110–117) and the parallel debtor v8.2 track (90–95). Single-writer `.planning/` isolated in `workspace/phase-120-corroboration` (see `docs/collaboration.md`).
+
+**V9.0 Sales-Email Canonical Pipeline SHIPPED 2026-06-15** — 9 phases (110–117 + 112.5), 38 plans. Full canonical 5-stage funnel live for `verkoop@smeba.nl` (Outlook-driven; SugarCRM decommissioned). Sales Stage 2 reuses the v8.2 NXT resolver by config (STAGE2-01 no-Engine-diff proof — **PROVISIONAL** pending V9.5 D-06 corroboration). Archive: `milestones/V9.0-ROADMAP.md`. The **v8.2 debtor track runs in parallel in its own workspace**.
 
 **v8.1 "Validation + Visibility" SHIPPED 2026-06-01** — 8 phases (83–88.2); audit `passed`; all 4 operator-UAT items dispositioned (85 signed · 88 fixed · 86 accepted on live cron · 84 D-05 promotion gate evaluated → 0/16 eligible, telemetry N=0). Delivered body ingestion, Stage-1 noise rules (shadow), Stage-3 prompt v3 + open-set discovery surface, and the retro baseline that *refuted SC-1 usefully* (catch-all is upstream Stage-1 noise, not Stage-3) → directly scoped v8.2. Archive: `milestones/v8.1-ROADMAP.md`. **v8.2 next:** lift Stage-2 customer-resolution recall (~65% unresolved) via a SQL-native resolver in `zapier.dbo` over `nxt`; pre-build validation complete (`spikes/010-comprehensive-backtest/VALIDATION-FINDINGS-v8.2.md` — write-path confirmed, go/no-go P0–P5, auto-flip gated on a full-population dry-run).
 
@@ -206,4 +215,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-05 — Phase 116 complete: attachments are a first-class swarm-agnostic data source (registry-gated capture in both ingest routes, Stage-1.5 extraction funnel, Stage 2 adapter-side body_text fold-in, Bulk Review AttachmentList, gated corpus-backfill worker); go-live items (20260605c apply + backfill run) tracked post-deploy. Next: Phase 113 (Stage 3 sales intent agent). Prior: 2026-06-04 — Phase 114 complete (STAGE2-01/02 validated): sales Stage 2 reuses the v8.2 NXT resolver via per-swarm config, zero Engine changes, dry-run gated; gap-closure 114-06/07 verified passed. Next: Phase 113 (Stage 3 sales intent agent). Prior: 2026-06-02 V9.0 milestone start.*
+*Last updated: 2026-06-16 — V9.5 Stage-2 Resolver Correctness milestone ACTIVATED (V9.0 shipped 2026-06-15). Scope: Phase 120 (corroboration engine) + 121 (attachment-borne IDs) + 122 (cross-brand scope); frozen 100-email operator eval = regression fixture (64% baseline). Next: /gsd:plan-phase 120. Prior: 2026-06-05 — Phase 116 complete (attachments first-class swarm-agnostic data source). Prior: 2026-06-02 V9.0 milestone start.*

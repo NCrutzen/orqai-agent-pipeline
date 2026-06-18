@@ -23,7 +23,7 @@ import { createZapierSdk } from "@zapier/zapier-sdk";
 loadDotenv({ path: path.resolve(__dirname, "..", ".env.local") });
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
-const OUTLOOK_CONNECTION_ID = "56014785";
+const OUTLOOK_CONNECTION_ID = process.env.OUTLOOK_CONNECTION_ID ?? "0299d86c-13e5-8091-804c-2e66aeb4b0e6";
 const FIRE_CONTROL = "administratie@fire-control.nl";
 
 // Most recent fire-control message at script-write time. Override via

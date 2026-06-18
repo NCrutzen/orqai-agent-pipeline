@@ -9,19 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const TOOL_ROWS = [
   {
-    tool_id: "nxt.contact_lookup",
-    backend: "nxt",
-    pattern: "async_callback",
-    target_url: "https://hooks.zapier.test/x",
-    auth_method: "body_field",
-    auth_secret_env: "DEBTOR_FETCH_WEBHOOK_SECRET",
-    auth_field_name: "auth",
-    callback_route: "/api/automations/debtor/nxt-lookup/callback",
-    enabled: true,
-    allowed_for_intents: ["unknown", "invoice_copy_request"],
-  },
-  {
-    tool_id: "nxt.identifier_lookup",
+    tool_id: "nxt.resolve_candidates",
     backend: "nxt",
     pattern: "async_callback",
     target_url: "https://hooks.zapier.test/x",
@@ -148,9 +136,11 @@ describe("callNxtTool (async_callback)", () => {
     );
 
     // Fire the call; resolve via fake Realtime UPDATE shortly after.
-    const promise = callNxtTool("nxt.contact_lookup", {
+    const promise = callNxtTool("nxt.resolve_candidates", {
       nxt_database: "nxt_benelux_prod",
-      brand_id: "SB", sender_email: "x@y.nl",
+      brand_id: "SB",
+      environment_id: "BX",
+      identifiers: ["x@y.nl"],
     }, "unknown");
 
     // Wait one tick so the subscribe + initial-select races settle, then
@@ -165,10 +155,11 @@ describe("callNxtTool (async_callback)", () => {
           result: {
             matches: [
               {
-                contact_id: "c1",
-                top_level_customer_id: "506909",
-                top_level_customer_name: "Vos",
-                depth: 0,
+                identifier_kind: "email_address",
+                identifier_value_norm: "x@y.nl",
+                party_id: "506909",
+                party_name: "Vos",
+                is_unique_in_scope: true,
               },
             ],
           },
@@ -178,7 +169,7 @@ describe("callNxtTool (async_callback)", () => {
     }, 0);
 
     const out = await promise;
-    expect(out.matches[0].top_level_customer_id).toBe("506909");
+    expect(out.matches[0].party_id).toBe("506909");
 
     const init = fetchSpy.mock.calls[0][1];
     const body = JSON.parse(init.body as string);
@@ -187,11 +178,11 @@ describe("callNxtTool (async_callback)", () => {
     expect(body.callback_url).toBe(
       "https://example.test/api/automations/debtor/nxt-lookup/callback",
     );
-    expect(body.lookup_kind).toBe("sender_to_account");
-    expect(body.tool_id).toBe("nxt.contact_lookup");
+    expect(body.lookup_kind).toBe("resolve_candidates");
+    expect(body.tool_id).toBe("nxt.resolve_candidates");
     expect(body.nxt_database).toBe("nxt_benelux_prod");
     expect(body.brand_id).toBe("SB");
-    expect(body.payload.sender_email).toBe("x@y.nl");
+    expect(body.payload.identifiers).toEqual(["x@y.nl"]);
     expect(body.payload.brand_id).toBeUndefined();
     expect(init.headers["content-type"]).toBe("application/json");
   });
@@ -207,10 +198,11 @@ describe("callNxtTool (async_callback)", () => {
       "@/lib/automations/debtor-email/nxt-zap-client"
     );
     await expect(
-      callNxtTool("nxt.contact_lookup", {
+      callNxtTool("nxt.resolve_candidates", {
         nxt_database: "nxt_benelux_prod",
         brand_id: "smeba", // lowercase, too long
-        sender_email: "x@y.nl",
+        environment_id: "BX",
+        identifiers: ["x@y.nl"],
       }, "unknown"),
     ).rejects.toThrow(/brand_id "smeba" must match/);
   });
@@ -249,9 +241,9 @@ describe("callNxtTool (async_callback)", () => {
       "@/lib/automations/debtor-email/nxt-zap-client"
     );
     await expect(
-      callNxtTool("nxt.contact_lookup", {
+      callNxtTool("nxt.resolve_candidates", {
         nxt_database: "nxt_benelux_prod",
-        brand_id: "SB", sender_email: "x@y.nl",
+        brand_id: "SB", environment_id: "BX", identifiers: ["x@y.nl"],
       }, "unknown"),
     ).rejects.toThrow(/DEBTOR_FETCH_WEBHOOK_SECRET/);
   });
@@ -268,14 +260,14 @@ describe("callNxtTool (async_callback)", () => {
       "@/lib/automations/debtor-email/nxt-zap-client"
     );
     await expect(
-      callNxtTool("nxt.contact_lookup", {
+      callNxtTool("nxt.resolve_candidates", {
         nxt_database: "nxt_benelux_prod",
-        brand_id: "SB", sender_email: "x@y.nl",
+        brand_id: "SB", environment_id: "BX", identifiers: ["x@y.nl"],
       }, "unknown"),
     ).rejects.toThrow(/NEXT_PUBLIC_APP_URL/);
   });
 
-  it("Zod-rejects malformed match (top_level_customer_id missing)", async () => {
+  it("Zod-rejects malformed match (party_id missing)", async () => {
     const adminInstance = buildMockAdmin({ initialRow: null });
     vi.doMock("@/lib/supabase/admin", () => ({
       createAdminClient: () => adminInstance,
@@ -285,9 +277,9 @@ describe("callNxtTool (async_callback)", () => {
     const { callNxtTool } = await import(
       "@/lib/automations/debtor-email/nxt-zap-client"
     );
-    const promise = callNxtTool("nxt.contact_lookup", {
+    const promise = callNxtTool("nxt.resolve_candidates", {
       nxt_database: "nxt_benelux_prod",
-      brand_id: "SB", sender_email: "x@y.nl",
+      brand_id: "SB", environment_id: "BX", identifiers: ["x@y.nl"],
     }, "unknown");
 
     await Promise.resolve();

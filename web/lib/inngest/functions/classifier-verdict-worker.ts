@@ -11,12 +11,15 @@
 //   3. A new Inngest worker listening on that event
 // — zero edits to this file.
 //
-// retries: 0 — same rationale as before. Each step is independently
-// idempotent at the API layer; failures surface as automation_runs.status
-// ='failed' with an error_message so the queue UI's retry button is the
-// recovery path rather than cascading retries that would block the next event.
+// retries: 3 (was effectively 2) — handoff-resilience fix (2026-06-16). Each
+// step is independently idempotent at the API layer; a transient throw (the
+// emails .or() lookup statement-timeout, Outlook/iController side-effect) must
+// not silently drop the email at the Stage 1→2 handoff. Terminal failures
+// surface via onFailure (recordWorkerFailure) in addition to the
+// automation_runs.status='failed' path the queue UI already reads.
 
 import { inngest } from "@/lib/inngest/client";
+import { recordWorkerFailure } from "@/lib/inngest/on-worker-failure";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitAutomationRunStale } from "@/lib/automations/runs/emit";
 import { categorizeEmail, archiveEmail } from "@/lib/outlook";
@@ -26,7 +29,18 @@ import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { isStageBlocked } from "@/lib/pipeline-gating/dry-run-gate";
 
 export const classifierVerdictWorker = inngest.createFunction(
-  { id: "classifier/verdict-worker", retries: 2 },
+  {
+    id: "classifier/verdict-worker",
+    retries: 3,
+    onFailure: async ({ error, event }) => {
+      await recordWorkerFailure({
+        stage: 1,
+        stageLabel: "classifier-verdict-worker",
+        event,
+        error,
+      });
+    },
+  },
   { event: "classifier/verdict.recorded" },
   async ({ event, step }) => {
     const {

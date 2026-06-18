@@ -1,23 +1,22 @@
-// Phase 90 Wave 0 RED — fails until Plan 05 builds engine.ts (D-01/D-02).
+// Phase 90 → Phase 123 — the engine-vs-adapter equivalence gate.
 //
-// The behaviour-neutrality gate (D-01 thin-seam + 1:1 port, D-02 P0 stays
-// behaviour-neutral). The ported generic engine MUST return a ResolveResult
-// byte-equal to the live `resolveDebtor` on every fixture — same `method`,
-// `customer_account_id`, `customer_name`, `confidence`, and `inputs`. This is
-// the first-line guard (threat T-90-03) that a confident wrong customer cannot
-// slip in via a logic drift during the port.
+// The behaviour-neutrality gate: the generic engine (engine.resolveEntity) MUST
+// return a ResolveResult byte-equal to the live `resolveDebtor` adapter on every
+// fixture — same `method`, `customer_account_id`, `customer_name`, `confidence`,
+// and `inputs`. This is the first-line guard (threat T-90-03) that a confident
+// wrong customer cannot slip in via a logic drift.
 //
-// `resolveDebtor` is imported from its live home (exists). `engine` is imported
-// from `../engine` (does NOT exist yet) → RED until Plan 05 builds it.
-//
-// NOTE: both resolvers reach Supabase (Layer 1 thread_inheritance) and the
-// nxt-zap-client (Layers 2/3). The shared admin + nxt-client mocks below make
-// the fixtures deterministic so the equality assertion is meaningful once the
-// engine exists; in the RED state the suite never reaches them (import fails).
+// Phase 123: the legacy contact_lookup / identifier_lookup comparison TARGET is
+// RETIRED — both `resolveDebtor` and the engine path now resolve over the single
+// generic nxt.resolve_candidates substrate (email_domain/email_address +
+// invoice_no). This suite drives the resolve_candidates mock only (no legacy
+// wrapper mock remains) and asserts the adapter == the engine with the SAME
+// debtorP0Config (corroboration included).
 
 import { describe, it, expect, vi } from "vitest";
 import {
   resolveDebtor,
+  debtorP0Config,
   type ResolveArgs,
   type ResolveResult,
 } from "@/lib/automations/debtor-email/resolve-debtor";
@@ -58,31 +57,22 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => adminMock,
 }));
 
-// Keep the NXT lookups inert so Layers 2/3 return zero hits deterministically
-// for the fixtures that exercise the unresolved / inheritance paths.
+// Keep the generic resolve_candidates read inert so the sender/invoice steps
+// return zero hits deterministically; the fixtures exercise the inheritance and
+// unresolved paths, where the engine and the adapter must agree byte-for-byte.
 vi.mock("@/lib/automations/debtor-email/nxt-zap-client", () => ({
-  lookupSenderToAccount: vi.fn(async () => ({ matches: [] })),
-  lookupIdentifierToAccount: vi.fn(async () => ({ matches: [] })),
-  lookupCandidateDetails: vi.fn(async () => ({ matches: [] })),
+  lookupResolveCandidates: vi.fn(async () => ({ matches: [] })),
 }));
 
-// Plan 05 built the ported generic engine (a 1:1 move of the 4 layers with
-// step ordering driven by config.precedence).
 import * as engine from "../engine";
 
-// debtor's P0 resolution_config = TODAY's order (inheritance first/high). P1
-// owns the precedence flip; P0 is byte-identical so this equality check is clean.
-const debtorP0Config = {
-  version: "2026-06-01.v1",
-  source: { kind: "nxt", resolver_tool_id: "nxt.resolve_candidates" },
-  scope: { environment_id: "BX", brand_mode: "tiebreaker", brand_scope: ["SB"] },
-  precedence: ["thread_inheritance", "sender_match", "identifier_match"],
-  auto_safe_kinds: [],
-  llm_tiebreaker: true,
-};
+// The engine path uses the SAME debtorP0Config the adapter uses (imported from
+// resolve-debtor) so the equality check covers the real config — including the
+// corroboration sub-object (Phase 120-03). Re-declaring a divergent local config
+// would make the equality assertion meaningless.
 
-// Fixtures: one inheritance hit, one sender-match single-hit, one
-// identifier-match, one unresolved/zero-hit.
+// Fixtures: one inheritance hit, two NXT-inert paths (sender/invoice with no
+// resolve_candidates rows), one unresolved/zero-hit.
 const fixtures: { name: string; args: ResolveArgs }[] = [
   {
     name: "thread_inheritance hit (prior label on same conversation)",

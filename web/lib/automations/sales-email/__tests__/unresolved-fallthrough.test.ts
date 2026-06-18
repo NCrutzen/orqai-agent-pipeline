@@ -14,7 +14,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 
-const { adminMock, nxtRequestMock, lookupSenderMock, lookupIdentifierMock } =
+const { adminMock, nxtRequestMock, lookupResolveCandidatesMock } =
   vi.hoisted(() => {
     const empty = { data: null, error: null };
     const makeChain = (): unknown =>
@@ -40,8 +40,7 @@ const { adminMock, nxtRequestMock, lookupSenderMock, lookupIdentifierMock } =
     return {
       adminMock: admin,
       nxtRequestMock: vi.fn(),
-      lookupSenderMock: vi.fn(),
-      lookupIdentifierMock: vi.fn(),
+      lookupResolveCandidatesMock: vi.fn(),
     };
   });
 
@@ -52,9 +51,10 @@ vi.mock("@/lib/supabase/admin", () => ({
 vi.mock("@/lib/automations/nxt-zapier/nxt-client", () => ({
   nxtRequest: nxtRequestMock,
 }));
+// Phase 123-02: sender + factuur resolve over resolve_candidates (no legacy
+// per-kind wrappers). For these prospect cases the substrate yields no match.
 vi.mock("@/lib/automations/debtor-email/nxt-zap-client", () => ({
-  lookupSenderToAccount: lookupSenderMock,
-  lookupIdentifierToAccount: lookupIdentifierMock,
+  lookupResolveCandidates: lookupResolveCandidatesMock,
 }));
 
 import { resolveEntity } from "../resolve-customer";
@@ -79,8 +79,7 @@ describe("Phase 114-05 STAGE2-02: customer-less prospect falls through to Stage 
   it("no sender hit + no identifier hit → method:unresolved, customer_account_id:null", async () => {
     // No NXT lookup yields a match.
     nxtRequestMock.mockResolvedValue({ status: 200, ok: true, data: null });
-    lookupSenderMock.mockResolvedValue({ matches: [] });
-    lookupIdentifierMock.mockResolvedValue({ matches: [] });
+    lookupResolveCandidatesMock.mockResolvedValue({ matches: [] });
 
     const result = await resolveEntity(
       {
@@ -105,8 +104,7 @@ describe("Phase 114-05 STAGE2-02: customer-less prospect falls through to Stage 
 
   it("no resolvable identifier in subject/body → NXT REST proxy is never called", async () => {
     nxtRequestMock.mockResolvedValue({ status: 200, ok: true, data: null });
-    lookupSenderMock.mockResolvedValue({ matches: [] });
-    lookupIdentifierMock.mockResolvedValue({ matches: [] });
+    lookupResolveCandidatesMock.mockResolvedValue({ matches: [] });
 
     const result = await resolveEntity(
       {
