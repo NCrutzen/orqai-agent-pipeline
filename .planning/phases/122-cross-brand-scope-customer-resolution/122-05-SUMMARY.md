@@ -3,8 +3,10 @@ phase: 122-cross-brand-scope-customer-resolution
 plan: 05
 type: execute
 gap_closure: true
-status: paused-at-checkpoint
+status: complete
 ---
+
+> Task 4 go/no-go resolved 2026-06-18: operator chose **keep-live** (fix is code-only; live opt-in stays enabled, corrected on deploy of PR #117).
 
 # Plan 122-05 Summary — Cross-Scope Leaf-vs-Root Gap-Closure
 
