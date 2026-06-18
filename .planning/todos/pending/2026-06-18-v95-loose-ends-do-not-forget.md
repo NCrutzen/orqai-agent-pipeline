@@ -44,6 +44,30 @@ None block each other except where noted. Keep this until all four are closed.
   confident-wrong AUTO (#2/#85/#95/#97) DEMOTE; bucket-B (12) resolve-or-degrade; overall
   correct ≥ 64% baseline.
 - This run is also the **pre-122 baseline** — see item 4.
+- **Run 1 finding (2026-06-18 ~09:00, ABORTED):** first attempt read RED with massive
+  `nxt lookup timed out after 20000ms` — but a DB check showed the "timed-out" request_ids
+  ALL completed, just at **28–63s** (substrate slow/congested right after the Zapier
+  reconnect). NOT a resolver regression — the harness's default 20s wait was simply too
+  short. Killed before it overwrote RERUN-FINDINGS.md.
+- **Run 2 finding (2026-06-18, ABORTED): `.env.local` does NOT work.** `WAIT_TIMEOUT_MS`
+  is frozen at MODULE-LOAD (`nxt-zap-client.ts:33-36`, IIFE reading
+  `process.env.NXT_LOOKUP_WAIT_MS`, else 20_000). ES imports run BEFORE the harness's
+  own `loadEnvLocal()`, so a `.env.local` entry is parsed too late → still 20s.
+- **CORRECT mitigation: pass it as a REAL shell env var inline**, so it's in `process.env`
+  before module init (exactly what the code comment intends — "build-time instruments can
+  raise it via NXT_LOOKUP_WAIT_MS"). No cap in the code. Command:
+  `cd web && NXT_LOOKUP_WAIT_MS=120000 npx tsx scripts/eval/resolver-correctness-gate.ts --report`
+  (The `.env.local` line is inert for this purpose — harmless, ignore it.)
+- **Root cause CONFIRMED (not Zapier congestion — that was an unverified assumption):**
+  a direct `resolver_index` lookup over the NXT SQL route returned sub-second (2026-06-18
+  ~09:27), so NXT is healthy. The 28–63s is the **documented long tail** of the
+  resolve_candidates Zap — `nxt-zap-client.ts:29-32` literally says it "averages ~8.5s
+  with a tail past 20s" and that build-time instruments MUST raise `NXT_LOOKUP_WAIT_MS`
+  so the tail doesn't read as false timeouts. The default 20s simply clips that tail.
+  No "wait for off-peak" needed — the tail is normal; the inline 120s wait covers it.
+- **Tooling note:** the harness run + permission-rule edits keep hitting the auto-mode
+  safety classifier. Reliable path: operator runs the corrected command via `! <cmd>`, OR
+  adds the allow-rule themselves.
 
 ## 3. `candidate_details` code-retire — DEFERRED (cleanup, not urgent)
 
@@ -56,6 +80,37 @@ None block each other except where noted. Keep this until all four are closed.
 - **Collision guard:** touches `engine.ts` → trips the no-engine-diff gate (needs a donor
   re-baseline). **Do NOT do this while the Phase-122 session is editing the resolver/engine.**
   Schedule AFTER Phase 122 merges.
+
+## 2b. CLEAN RE-RUN DONE 2026-06-18 — result is cross-brand-scope, NOT a regression
+
+Ran the gate with inline `NXT_LOOKUP_WAIT_MS=120000` (0 timeouts, transport-clean,
+substrate healthy: 153/167 resolve_candidates returned matches). Headline: **18%
+(14/79), gold "regression" 35/46**, but demotion targets PASS (confident-wrong 4/4
+demoted, bucket-B 12/12). `RERUN-FINDINGS.md` written.
+
+**ROOT CAUSE (verified, rock-solid — supersedes BOTH the candidate_details AND the
+attachment hypotheses):** the gold failures are **cross-brand scope**, Phase 122's remit.
+- Gold failures by mailbox: **smeba-fire 23, smeba 11**. Passes: berki 7, smeba 3,
+  smeba-fire 1, fire-control 1.
+- **smeba-fire = 23/24 gold rows FAIL.** That mail hits `debiteuren@smeba-fire.be` → eval
+  scopes `[SF]`. The invoices are registered under scope **SB** (verified in
+  `resolver_index`: e.g. #11 `17341213`→BX518399/SB, #13 `17341225`→BX484480/SB,
+  #18 `17339268`→BX518399/SB — all unique, ACTIVE, correct party, invoice IS in the email
+  body). Scoped-on-SF → miss → null. Resolver fails CORRECTLY closed (no guess).
+- NOT a regression, NOT attachments (identifiers in body), NOT transport (0 timeouts,
+  matches returned), NOT missing data (invoices in index). Pure scope mismatch.
+- **The 11 smeba failures are a SEPARATE, smaller cluster** (smeba is already SB scope, so
+  not cross-brand) — likely self-reported-klantnummer extraction (e.g. #6: body had
+  location/report numbers, no clean klantnummer). Not yet root-caused; smaller priority.
+
+**Implications:**
+- The "18% RED" the prior eval (123-04) blamed on candidate_details callbacks is actually
+  dominated by cross-brand scope. Phase 122 should recover ~23 of the 34 gold failures.
+- Phase 122's impact is BIGGER than the roadmap's bucket-C estimate (9 rows) — it's ~23+.
+- **Eval-harness caveat:** the gate scopes purely from mailbox via MAILBOX_MAP
+  (smeba-fire→SF). It does NOT fold attachment text into body_text and passes
+  `conversation_id: null` (no thread context). For a fully production-equivalent gate these
+  should be added, but they are NOT the cause of the current RED (identifiers were in body).
 
 ## 4. Post-122 re-run — AFTER Phase 122 merges
 
