@@ -427,6 +427,7 @@ export const stage2CustomerResolver = inngest.createFunction(
                   | "medium"
                   | "low"
                   | "none"
+                  | "suggestie"
                   | null
                   | undefined,
               ),
@@ -584,6 +585,7 @@ export const stage2CustomerResolver = inngest.createFunction(
               | "medium"
               | "low"
               | "none"
+              | "suggestie"
               | null
               | undefined,
           );
