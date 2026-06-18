@@ -613,7 +613,7 @@ When the resolver's identifier (factuur / klantnummer / name) does not resolve w
 
 **Depends on**: nothing within V9.5 (uses the existing `resolver_index` substrate, Phase 91). Independent of 120/121; all three feed the same re-run vs the 100-email baseline.
 **Requirements**: XSCOPE-01, XSCOPE-02, XSCOPE-03
-**Plans:** 3/4 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 **Wave 1**
