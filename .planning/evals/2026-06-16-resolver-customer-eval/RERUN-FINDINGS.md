@@ -40,7 +40,7 @@ A baseline-correct `high` row MUST stay `high` + correct.
 | #11 | Ja / high | null | none | 518399 | ❌ |  |
 | #12 | Ja / high | null | none | 527773 | ❌ |  |
 | #13 | Ja / high | null | none | 484480 | ❌ |  |
-| #14 | Ja / high | 478825 | high | 478825 | ✅ |  |
+| #14 | Ja / high | 467891 | high | 478825 | ❌ |  |
 | #17 | Ja / high | 484480 | high | 484480 | ✅ |  |
 | #18 | Ja / high | null | none | 518399 | ❌ |  |
 | #22 | Ja / high | 491531 | medium | 477928 | ❌ |  |
@@ -74,7 +74,7 @@ A baseline-correct `high` row MUST stay `high` + correct.
 | #75 | Ja / high | null | none | 530549 | ❌ |  |
 | #77 | Ja / high | null | none | 510711 | ❌ |  |
 | #78 | Ja / high | null | none | 501926 | ❌ |  |
-| #81 | Ja / high | 589061 | medium | 588192 | ❌ |  |
+| #81 | Ja / high | 588192 | high | 588192 | ✅ |  |
 | #84 | Ja / high | null | none | 532029 | ❌ |  |
 | #87 | Ja / high | null | none | 531273 | ❌ |  |
 | #88 | Ja / high | null | none | 531072 | ❌ |  |
@@ -109,4 +109,4 @@ Acceptance: gain a 2nd agreeing signal (resolve) OR correctly degrade to suggest
 
 
 ---
-*Phase 120-04 · D-06 corroboration acceptance · generated 2026-06-17*
+*Phase 120-04 · D-06 corroboration acceptance · generated 2026-06-18*
