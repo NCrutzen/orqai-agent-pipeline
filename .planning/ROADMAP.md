@@ -530,8 +530,8 @@ Plans:
 **Phases in this milestone** (detail sections below):
 
 - [x] **Phase 120: D-06 multi-signal corroboration engine (generic, cross-swarm)** *(added 2026-06-16)* — give the resolution engine a config-expressible corroboration capability so it COLLECTS candidate signals across precedence steps instead of short-circuiting on the first hit, and RAISES confidence when ≥N independent identifiers agree on the same `customer_account_id`; swarm-agnostic, no per-swarm branch (SWARM-02), re-seed `resolution_config` to opt in, then re-run the no-Engine-diff measurement to finalize V9.0 STAGE2-01. (completed 2026-06-17)
-- [ ] **Phase 121: Attachment-borne identifier extraction (corroboration signal source)** *(added 2026-06-16)* — parse identifiers (PO / offertenummer / invoice / order numbers) out of attachment **content** (PDF text first, per Phase 116) and feed them into Stage 2 resolution as first-class identifiers; adapter-side body-source (STAGE2-01-safe), registry-gated per swarm, no per-swarm code (SWARM-02).
-- [x] **Phase 122: Cross-brand-scope customer resolution** *(added 2026-06-16, from the resolver eval)* — on an in-scope miss, fall back to a cross-brand back-search over `resolver_index` (unique hit resolves, non-unique degrades to suggestie) instead of returning nothing or a wrong-scope guess; swarm-agnostic, config-gated, zero per-swarm branch (SWARM-02). (completed 2026-06-18)
+- [x] **Phase 121: Attachment-borne identifier extraction (corroboration signal source)** *(added 2026-06-16)* — parse identifiers (PO / offertenummer / invoice / order numbers) out of attachment **content** (PDF text first, per Phase 116) and feed them into Stage 2 resolution as first-class identifiers; adapter-side body-source (STAGE2-01-safe), registry-gated per swarm, no per-swarm code (SWARM-02). (121-01 discovery DONE 2026-06-17; planned 3 plans — 121-02 build #24 [xlsx extract + many-customer guard], 121-03 acceptance [verifiable-now; live re-run deferred to Phase 123]) (completed 2026-06-18)
+- [x] **Phase 122: Cross-brand-scope customer resolution** *(added 2026-06-16, from the resolver eval)* — on an in-scope miss, fall back to a cross-brand back-search over `resolver_index` (unique hit resolves, non-unique degrades to suggestie) instead of returning nothing or a wrong-scope guess; swarm-agnostic, config-gated, zero per-swarm branch (SWARM-02). (completed 2026-06-18; XSCOPE-01/02/03 verified, PR #117; gap-closure 122-05 leaf-vs-root fix)
 - [x] **Phase 123: Unify Stage-2 on `resolve_candidates` + retire legacy lookup tools** *(added 2026-06-17, operator directive)* — move the debtor swarm (sender + invoice) onto the single generic `resolve_candidates` resolver (`resolver_index` already has `email_domain`/`email_address`/`invoice_no` kinds), and REMOVE `nxt.contact_lookup` + `nxt.identifier_lookup` entirely — from code (wrappers/types/schemas/steps/sales adapter/tests) AND the database (`zapier_tools` rows + `nxt_lookup_requests` CHECK constraints). One generic look-up, no dual-tool confusion (SWARM-02). **Carries the deferred Phase-120 debtor correctness gate as its acceptance eval** (sender resolution behavior changes on the dominant error source — must re-score the frozen 100-email fixture). Full inventory: `.planning/todos/pending/2026-06-17-unify-stage2-on-resolve-candidates.md`. (completed 2026-06-17)
 
 ### Phase 120: D-06 multi-signal corroboration engine (generic, cross-swarm)
@@ -602,6 +602,17 @@ Parse identifiers out of attachment **content** (PDF text first, per Phase 116's
   3. Registry-gated per swarm via `attachment_config`; a swarm opts in with a registry row, zero code (SWARM-02).
   4. Sales onboards first (its offerte/PO traffic carries letterhead IDs); debtor/info opt in via registry row.
   5. **Rides along (eval bucket D, 3 rows):** factuurnummer present in the **subject line** is extracted and used, and factuur-match outranks sender-match in precedence — the gold ID must win over the weak prior when both are present. Same extraction-completeness theme as attachment-borne IDs; folded in here rather than a separate todo (operator, 2026-06-16).
+
+**Plans**: 3 plans (2 waves; 121-01 discovery DONE)
+Plans:
+**Wave 1**
+
+- [x] 121-01-PLAN.md — Wave 0: empirical baseline + gap manifest (discovery — DONE 2026-06-17)
+- [x] 121-02-PLAN.md — Wave 1: close #24 — exceljs `.xlsx`/`.csv` extraction branch in `extract.ts` (adapter-side, engine byte-identical) + verify-first 358-root many-customer demotion + no-engine-diff gate (ATID-01/02/03/04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 121-03-PLAN.md — Wave 2: eval-grounded acceptance — xlsx fold test + verifiable-now suite; live debtor fixture re-run DEFERRED to Phase 123 (blocked, autonomous:false) (ATID-01/02/04)
 
 ### Phase 122: Cross-brand-scope customer resolution
 

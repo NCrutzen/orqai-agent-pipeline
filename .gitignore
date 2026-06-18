@@ -16,3 +16,6 @@ node_modules/
 # Local debugging scripts (kept on disk, not tracked)
 web/lib/automations/debtor-email-cleanup/test-*.ts
 web/lib/outlook/test-tools.ts
+
+# TDD Guard runtime data (per-session test results, not source)
+.claude/tdd-guard/data/

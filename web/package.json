@@ -13,7 +13,6 @@
     "check:supabase": "tsx scripts/check-supabase-advisors.ts",
     "dry-run:equality": "tsx scripts/equality-dry-run.ts",
     "codegen": "tsx scripts/gen-entity-types.ts && tsx scripts/gen-tenant-domains.ts && tsx scripts/gen-intent-types.ts",
-    "dry-run:equality": "tsx scripts/equality-dry-run.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -80,6 +79,7 @@
     "eslint-config-next": "16.1.6",
     "jsdom": "^29.0.1",
     "tailwindcss": "^4",
+    "tdd-guard-vitest": "^0.2.0",
     "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.0"

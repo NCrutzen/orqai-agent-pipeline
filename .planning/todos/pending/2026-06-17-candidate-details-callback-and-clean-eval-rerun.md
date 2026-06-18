@@ -9,7 +9,47 @@ related: [120-HUMAN-UAT, "Monday Sales eval callback issue"]
 
 # candidate_details async callback never lands → blocks clean resolver-correctness re-run
 
-## Symptom (Phase 123-04 eval, 2026-06-17)
+## RESOLUTION (2026-06-18) — callback part WON'T-FIX (moot); re-run de-risked
+
+The "callback bug" is **not a bug**. The operator deliberately turned OFF the
+`candidate_details` Zap (`uv5ju6h`) to force the swarm onto the single generic
+`resolve_candidates` method. The 26 `pending` rows are historical eval rows from
+**before** debtor opted into corroboration — not an active transport failure.
+
+Verified 2026-06-18 (read-only):
+- Both `debtor-email` and `sales-email` now carry `resolution_config.corroboration`
+  (`min_signals: 2`, `boost: high`) in `public.swarms` (live).
+- With `corroboration` present, `engine.ts:221` skips the legacy first-hit block and
+  runs the Phase-120 **collect path**, which injects `noopTiebreak` (`engine.ts:198`,
+  wired at 329/337) instead of the real `llmTiebreak`.
+- `lookupCandidateDetails` has exactly ONE production call site (`engine.ts:380`,
+  inside `runLlmTiebreak`) — **unreachable** on the collect path. So `candidate_details`
+  is **config-dead** on both live resolver paths; the disabled Zap has zero live impact.
+- Over 30 days `candidate_details` completed 299/325 — there was never a structural
+  callback defect; the eval-window failures were the now-superseded `llmTiebreak` path
+  hitting the intentionally-disabled Zap.
+
+**Won't-fix:** no app-code or Zapier fix. The diagnosis agent's proposed Zod change
+(`status`/`modified_on` → optional) is unrelated hardening and does NOT explain the
+`pending` rows (the callback route sets `complete` independent of client-side Zod).
+
+**Remaining actionable item (de-risked):** the clean frozen-100 re-run no longer
+depends on `candidate_details` or the Zap. The harness (`resolver-correctness-gate.ts`)
+runs `debtorP0Config`, whose `.corroboration` is kept in lockstep with the live seed
+(`20260616a_debtor_corroboration_optin.sql`), so it exercises the collect path. The
+re-run now needs ONLY: `DEBTOR_FETCH_WEBHOOK_SECRET` (present in the main
+`/Volumes/Developer/agent-workforce` checkout) + running from there. Tracked as the
+Phase-123 / Phase-120 debtor acceptance item.
+
+**Optional cleanup (separate, not urgent):** retire `candidate_details` dead code
+(drop from `NxtToolId`, remove the unreachable `runLlmTiebreak`/`lookupCandidateDetails`
+branch, drop the `zapier_tools` row) — touches `engine.ts`, so it belongs in a small
+deliberate phase with a no-engine-diff re-baseline, exactly as Phase 123 retired
+`contact_lookup`/`identifier_lookup`.
+
+---
+
+## Symptom (Phase 123-04 eval, 2026-06-17) — superseded by RESOLUTION above
 
 The frozen 100-email correctness gate (`web/scripts/eval/resolver-correctness-gate.ts --report`)
 scored **18% overall (14/79)** vs the 64% baseline. Root cause is NOT a resolver-quality

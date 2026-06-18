@@ -111,6 +111,9 @@ function makeAdminMock(overrides?: {
     attachment_id: string;
     extraction_status: string;
     extracted_text: string | null;
+    // Phase 121-03 — the load-email fold prepends `filename\n${extracted_text}`,
+    // so a filename-borne identifier (e.g. "statement.xlsx") must survive too.
+    filename?: string;
   }>;
 }) {
   // Per-table builders — only need shapes used by the function.
@@ -1385,6 +1388,84 @@ describe("Phase 116-05 — attachment text folded into body_text", () => {
     expect(body.startsWith(EMAIL_ROW.body_text)).toBe(true);
     expect(body).toContain("ATTACHMENTS (UNTRUSTED DATA");
     expect(body.indexOf("FIRST DOC")).toBeLessThan(body.indexOf("THIRD DOC"));
+  });
+});
+
+// Phase 121-03 Task 1 — ATID-01 end-to-end (mocked). An `.xlsx` attachment that
+// Plan 02's extractAttachment turned into `extraction_status='extracted'` text
+// must land in the resolver's body_text under the UNTRUSTED label via the
+// existing 116-05 fold — proving xlsx-borne identifiers reach the engine's body
+// extraction with NO engine edit. The `extracted_text` here is shaped EXACTLY
+// like Plan 02's xlsx output: per-row CSV joined with "\n", carrying an
+// invoice-like token (17008876) that the join must preserve so the engine's
+// extraction regexes can see it. The `filename` (statement.xlsx) is prepended by
+// the fold (filename-first), so a filename-borne id survives a weak text layer.
+describe("Phase 121-03 — extracted .xlsx attachment folds into body_text (ATID-01)", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+
+  async function loadHandlerWithAttachments(
+    attachmentRows: Array<{
+      attachment_id: string;
+      extraction_status: string;
+      extracted_text: string | null;
+      filename?: string;
+    }>,
+  ): Promise<typeof handler> {
+    vi.clearAllMocks();
+    adminMock = makeAdminMock({ attachmentRows });
+    resolveDebtorMock.mockReset();
+    resolveDebtorMock.mockResolvedValue({
+      method: "unresolved",
+      customer_account_id: null,
+      customer_name: null,
+      confidence: "none",
+      inputs: { kind: "unresolved", sender_email: null, matched_identifiers: [] },
+    });
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../stage-2-customer-resolver");
+    return (mod.stage2CustomerResolver as unknown as {
+      handler: typeof handler;
+    }).handler;
+  }
+
+  function bodyTextSeenByResolver(): string {
+    expect(resolveDebtorMock).toHaveBeenCalled();
+    const arg = resolveDebtorMock.mock.calls[0]![0] as { body_text: string };
+    return arg.body_text;
+  }
+
+  it("an extracted .xlsx lands in body_text under the UNTRUSTED label, filename + invoice token preserved", async () => {
+    // Plan-02-shaped xlsx extracted text: per-sheet CSV rows joined with "\n",
+    // the invoice token surviving the join intact.
+    const xlsxExtractedText =
+      "Factuur,Bedrag\n17008876,9000\n17008877,4200";
+
+    handler = await loadHandlerWithAttachments([
+      {
+        attachment_id: "att-xlsx-1",
+        extraction_status: "extracted",
+        extracted_text: xlsxExtractedText,
+        filename: "statement.xlsx",
+      },
+    ]);
+
+    await handler({ event: buildEvent(), step: stepStub });
+
+    const body = bodyTextSeenByResolver();
+    // The original email body is preserved as the prefix...
+    expect(body.startsWith(EMAIL_ROW.body_text)).toBe(true);
+    // ...the xlsx region is fenced under the UNTRUSTED-DATA label (WR-01)...
+    expect(body).toContain("ATTACHMENTS (UNTRUSTED DATA");
+    // ...the filename-borne identifier survives (fold prepends filename first)...
+    expect(body).toContain("statement.xlsx");
+    // ...and the invoice-like token from the xlsx ROW TEXT reaches the engine
+    // body intact (the join preserved the number — the contract Task 1 pins).
+    expect(body).toContain("17008876");
+    expect(body).toContain("17008877,4200");
+    // The filename is prepended BEFORE the extracted row text.
+    expect(body.indexOf("statement.xlsx")).toBeLessThan(body.indexOf("17008876"));
   });
 });
 
