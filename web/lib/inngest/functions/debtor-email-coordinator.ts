@@ -70,7 +70,18 @@ import {
 // fail-closed, NO swarm-name literal. Seeded debtor=open (live emit preserved) /
 // sales=gated. The dispatcher (stage-3-dispatcher.ts) is NEVER edited — the hold
 // is achieved by the coordinator withholding the emit, the classifier-owned seam.
-import { isStage3RoutingGated } from "@/lib/pipeline-gating/dry-run-gate";
+// Phase 132 Plan 02 (FWD-01..FWD-07, D-03) — the per-bucket forward RELEASE gate.
+// Read AFTER persist-routing-verdict to decide whether to emit the dedicated
+// `pipeline/forward.requested` event that drives the swarm-agnostic Stage-4
+// forward worker. INDEPENDENT of the stage_3_routing held gate below (RESEARCH
+// A4 / Pitfall 5): stage_3_routing keeps the intent-dispatch path held
+// permanently (info-routing has no swarm_intents → the dispatcher throws on
+// empty ranked[]), while this forward emit drives ONLY the forward worker.
+// Fail-closed (inverse polarity): a bucket is released ONLY on an explicit TRUE.
+import {
+  isStage3RoutingGated,
+  isForwardBucketReleased,
+} from "@/lib/pipeline-gating/dry-run-gate";
 import {
   createRun,
   findCachedOutput,
@@ -104,6 +115,13 @@ const STAGE_3_INPUT_CAP_CHARS = 8000;
 // key in Events), so `inngest.send` is called directly — no dynamic-name cast
 // needed. CLAUDE.md / Phase 65 dae6276: never alias inngest.send (loses
 // `this`-binding); always call inngest.send(...) inline.
+
+// Phase 132 Plan 02 — `pipeline/forward.requested` is NOT a typed Events key
+// (it is consumed only by the Stage-4 forward worker), so the emit needs a
+// dynamic-name cast. SendFn mirrors the pattern used by the override-handler /
+// stage-3-dispatcher. NEVER alias inngest.send (Phase 65 dae6276) — the cast is
+// applied INLINE at the call site so `this`-binding is preserved.
+type SendFn = (p: { name: string; data: Record<string, unknown> }) => Promise<unknown>;
 
 export const debtorEmailCoordinator = inngest.createFunction(
   {
@@ -386,6 +404,39 @@ export const debtorEmailCoordinator = inngest.createFunction(
             agent_run_id,
             automation_run_id: automation_run_id ?? null,
             triggered_by: "pipeline",
+          });
+        });
+
+        // ---- Phase 132 Plan 02 (FWD-01..FWD-07, D-03) — forward-request emit.
+        // After the verdict is persisted (above) and BEFORE the stage_3_routing
+        // held gate (below), emit the dedicated `pipeline/forward.requested`
+        // event that drives the swarm-agnostic Stage-4 forward worker — but ONLY
+        // when the verdict is forwardable (routable, non-null target, not a
+        // duplicate) AND the verdict's bucket is RELEASED for this swarm.
+        //
+        // This emit is INDEPENDENT of and ADDITIVE to the stage_3_routing held
+        // gate below (RESEARCH A4 / Pitfall 5): the held gate keeps the
+        // intent-dispatch path held permanently (info-routing has no
+        // swarm_intents → the dispatcher would throw on empty ranked[]), while
+        // this emit drives only the forward worker. The worker re-checks
+        // isForwardBucketReleased + the dedup/idempotency guards (defence in
+        // depth, T-132-08). NO swarm_type literal — gated purely on the verdict
+        // fields + the enclosing routingDestinations.length>0 condition + the
+        // per-bucket release flag.
+        await step.run("emit-forward-request", async () => {
+          const forwardable =
+            !verdict.unrouted &&
+            verdict.target_mailbox !== null &&
+            verdict.dedup.status === "routable";
+          if (!forwardable) return;
+          const swarmRow = await loadSwarm(supabase, swarm_type);
+          if (!isForwardBucketReleased(swarmRow, verdict.bucket)) return;
+          // `pipeline/forward.requested` is not a typed Events key → dynamic-name
+          // cast applied INLINE (never alias inngest.send; Phase 65 dae6276).
+          // Reuse the replay-safe run_id (resolved above) — do NOT regenerate.
+          await (inngest.send as unknown as SendFn)({
+            name: "pipeline/forward.requested",
+            data: { swarm_type, run_id, email_id },
           });
         });
 

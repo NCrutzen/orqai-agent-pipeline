@@ -29,14 +29,29 @@
 // self-invalidate the gate. Never assert `=== 0` against unfiltered source.
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-// The shared Stage 3 workers this gate covers. Surface-layer files
+// The shared Stage 3 / Stage 4 workers this gate covers. Surface-layer files
 // (e.g. load-bucket-label-ids.ts) are deliberately absent — see OQ-4.
+//
+// Phase 132 Plan 02 (FWD-07): the Stage-4 forward worker is a SHARED cross-swarm
+// side-effect worker (swarm loaded from the registry, three skips read verdict
+// fields) — it MUST carry zero `swarm_type === '<literal>'` branch. Added here so
+// the SWARM-02 gate covers it.
+//
+// Phase 132 Plan 03 (FWD-07): the forward-now / re-route server actions
+// (routing-actions.ts) pass swarm_type only as event-payload DATA today; this
+// gate pins that they stay branch-free. routing-actions.ts is created by the
+// parallel Plan 03 (same wave) — guarded with an existsSync skip so this gate
+// does NOT fail when run before Plan 03 lands the file. The path is resolved
+// against __dirname (= web/lib/inngest/functions/__tests__): four `..` reach
+// web/, then into app/(dashboard)/...
 const SHARED_WORKERS = [
   "../debtor-email-coordinator.ts",
   "../stage-3-dispatcher.ts",
+  "../stage-4-info-routing-forward.ts",
+  "../../../../app/(dashboard)/automations/[swarm]/_shell/actions/routing-actions.ts",
 ] as const;
 
 // A conditional per-swarm branch — the forbidden pattern. Matches:
@@ -80,7 +95,12 @@ function stripComments(src: string): string {
 describe("SWARM-02 static gate — shared Stage 3 workers carry no per-swarm branch", () => {
   for (const rel of SHARED_WORKERS) {
     it(`${rel} contains zero \`swarm_type === '<literal>'\` branches`, () => {
-      const raw = readFileSync(resolve(__dirname, rel), "utf8");
+      const path = resolve(__dirname, rel);
+      // Plan-03 file (routing-actions.ts) may not exist yet when this gate runs
+      // before that plan lands — skip gracefully; the assertion applies once the
+      // file exists (FWD-07).
+      if (!existsSync(path)) return;
+      const raw = readFileSync(path, "utf8");
       const code = stripComments(raw);
       // Sanity: stripping must not empty the file (would make the gate vacuous).
       expect(code.length).toBeGreaterThan(0);

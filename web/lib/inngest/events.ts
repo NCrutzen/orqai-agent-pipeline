@@ -621,6 +621,26 @@ export type Events = {
     };
   };
 
+  // Phase 132 Plan 02 (FWD-01..FWD-07, D-02/D-03) — swarm-agnostic Stage-4
+  // FORWARD request. Emitted by the SHARED coordinator AFTER it persists the
+  // routing verdict, gated by isForwardBucketReleased (per-bucket release, D-03)
+  // AND the verdict being forwardable (routable, non-null target, not a
+  // duplicate). DEDICATED event (not `pipeline/predicted`) so it drives ONLY the
+  // forward worker — the stage_3_routing held gate keeps the intent-dispatch path
+  // held permanently (RESEARCH A4 / Pitfall 5). Consumed by
+  // stage4InfoRoutingForwardWorker, which re-reads the verdict from
+  // coordinator_runs.decision_details.routing (keyed by run_id), re-checks the
+  // gate + the D-02 forward-state idempotency guard, and forwards the source
+  // info@ mail to the resolved department mailbox. Carries `swarm_type` as the
+  // only discriminator (data, not a literal).
+  "pipeline/forward.requested": {
+    data: {
+      swarm_type: string; // REQUIRED — the routing discriminator
+      run_id: string; // the coordinator_runs PK the verdict is keyed by
+      email_id: string;
+    };
+  };
+
   // Phase 67 (D-01, D-02, R-02) — Stage 2 side-effect: iController DOM tagging.
   // Emitted by classifier-label-resolver after the coordinator emit, gated on
   //   result.customer_account_id !== null
