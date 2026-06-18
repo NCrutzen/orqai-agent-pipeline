@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
 status: executing
-stopped_at: Completed 121-02-PLAN.md (xlsx/csv extraction + many-customer guard)
-last_updated: "2026-06-18T05:27:52.909Z"
+stopped_at: Completed 121-03-PLAN.md (build acceptance) — Task 3 human-verify checkpoint OPEN
+last_updated: "2026-06-18T05:33:05.517Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 11
-  completed_plans: 10
-  percent: 50
+  completed_plans: 11
+  percent: 75
 ---
 
 # Project State
@@ -63,7 +63,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 121 (attachment-borne-identifier-extraction) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
@@ -188,6 +188,7 @@ Last activity: 2026-06-18
 | 123 | 4 | - | - |
 | Phase 121 P01 | 5min | 3 tasks | 1 files |
 | Phase 121 P02 | 14m | 3 tasks | 6 files |
+| Phase 121 P03 | ~9m | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -324,6 +325,7 @@ Last activity: 2026-06-18
 - **[Phase 123-04] Task 2 DELETE-only prod deviation (operator-approved, T-123-10):** pre-flight count of legacy nxt_lookup_requests rows = 1171 (>0), so the narrowed CHECK re-add would fail → applied ONLY `DELETE FROM public.zapier_tools WHERE tool_id IN ('nxt.contact_lookup','nxt.identifier_lookup')` to live mvqjhlxfvtqqubqgdvhz (apply_migration `retire_legacy_lookup_tools_delete_only_p123`); the 2 nxt_lookup_requests CHECK constraints stay WIDE. Verified: legacy tool_ids ABSENT, candidate_details+invoice_fetch+resolve_candidates PRESENT; check:supabase 0 ERROR. Widen-back deferred to todo `2026-06-17-widen-back-nxt-lookup-requests-checks.md` (prune inert rows first). Legacy tools now gone from code AND database (capability-before-removal complete).
 - **[Phase 123-04] Task 3 correctness eval deferred-with-evidence (operator APPROVED-TO-CLOSE):** ran the frozen 100-email gate over the unified resolve_candidates path (commit dcfd0409, RERUN-FINDINGS.md). Overall correct = 18% (14/79) vs 64% baseline = RED, but ROOT CAUSE is a transport artifact in the pre-existing, Phase-123-untouched `candidate_details` tool: live debtor.nxt_lookup_requests eval window shows resolve_candidates 163 req/163 complete-with-result (unified path works), candidate_details 26 req/0 results/all `pending` (LLM-tiebreaker enrichment Zap fires but async callback never lands → rows degrade to unresolved; same issue as Monday's Sales eval per operator). Demotion-DIRECTION targets PASSED: confident-wrong AUTO #2/#85/#95/#97 = 4/4 demoted; bucket-B = 12/12 resolved-or-demoted (corroboration firing correctly). The clean absolute-% re-run is DEFERRED to todo `2026-06-17-candidate-details-callback-and-clean-eval-rerun.md` (fix callback → re-run; closes the deferred Phase-120 / 123 debtor gate). Phase code+DB+transport deliverables COMPLETE and proven live; the absolute-% acceptance number is the only deferred item.
 - [Phase ?]: [Phase 121-02] xlsx/csv attachment extraction added adapter-side in extract.ts (exceljs lazy-import, string-only, early-capped, fail-soft, UNTRUSTED-fenced); engine byte-identical (no-engine-diff donor re-baselined to post-123 b816c627). Many-customer guard = STRUCTURAL (verify-first: 358-distinct-root demotes below AUTO) — no new adapter-side guard, stage-2-customer-resolver.ts untouched. Commits 35bc3b6e/62685a1a/ca810e1e.
+- [Phase ?]: [Phase 121-03] Build acceptance split: verifiable-now (xlsx extract + 116-05 fold ATID-01 + 358-root demotion + no-engine-diff exit 0) green without live fixture; live debtor correctness-gate re-run over frozen 100 DEFERRED to Phase 123 (blocked on debtor → resolve_candidates + DEBTOR_FETCH_WEBHOOK_SECRET). Test-only plan, engine byte-identical.
 
 ### Blockers/Concerns
 
@@ -365,10 +367,10 @@ Last activity: 2026-06-18
 
 ## Session Continuity
 
-Last session: 2026-06-18T05:27:52.897Z
-Stopped at: Completed 121-02-PLAN.md (xlsx/csv extraction + many-customer guard)
+Last session: 2026-06-18T05:33:05.474Z
+Stopped at: Completed 121-03-PLAN.md (build acceptance) — Task 3 human-verify checkpoint OPEN
 Resume with: /gsd:execute-phase 121 (build #24) — after the `candidate_details` clean-eval follow-up; 121-03 live re-run gated on Phase 123; then Phase 122 (cross-brand scope).
-Resume file: None
+Resume file: 121-03-PLAN.md Task 3 checkpoint
 
 ## Deferred Items
 
