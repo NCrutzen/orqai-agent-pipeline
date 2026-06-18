@@ -20,13 +20,28 @@ Gevolg: iemand die in Outlook een ten onrechte gearchiveerde mail terugtrekt (`r
 - **Architectonisch V10.0-vormig.** De brug is "self-learning consumptie" — los bouwen riskeert dubbel werk zodra de V10.0 Promotion Recommender een uniforme signaal-ingestie ontwerpt.
 - **Geen dataverlies tijdens parkeren.** Signalen blijven in `swarm_review_signals`; een latere brug kan de historie backfillen.
 
-## Hoe (schets — uitwerken bij oppakken)
+## Canonieke home: V10 DIAGNOSE-join keystone
 
-Eén van:
-1. Een writer/bridge die geschikte `swarm_review_signals` (approve_handled / correctie_false_positive) mapt naar `agent_runs.human_verdict` op de bijbehorende Stage-1 run, OF
-2. De Stage-1 promotie-cron `swarm_review_signals` mede laten lezen (uniforme telemetrie-bron).
+**Deze gap is het Stage-1-noise-geval van de "DIAGNOSE-join" keystone** uit
+`docs/v10-cross-stage-learning-loop-proposal.md` §11.3 + §11.5 (op main via #113,
+2026-06-18). Die doc benoemt de algemene sluitsteen: `swarm_review_signals` is
+**bewust afgeschermd** van `pipeline_events` (firewall in `swarm-behavior-sync.ts`);
+eerste P0-bouwsteen = een hydratie-view die een negatief signaal koppelt aan de
+pipeline-context op `email_id`. §11.1: ambient (Outlook) domineert explicit-review
+**131:1** — hoog-impact, niet randzaak. **Niet hier dupliceren — bouw als
+onderdeel van die keystone.** Deze todo bewaart enkel de noise-specifieke delta.
 
-**Subtiliteit die meegenomen MOET worden:** de false-positive-afleiding (`signal-derive.ts:140`) joint op `pipeline_events stage=4` (handler), maar noise archiveert op **Stage 1** — dus zelfs het signaal-matchen is mogelijk niet gedekt voor noise. Verifieer + breid de ledger-join uit naar Stage 1 vóór de brug nut heeft.
+## Noise-specifieke delta (bewaren bij keystone-uitvoering)
+
+1. De doc-join mikt op Stage-3 intent-diagnose. De **Stage-1 noise gate** heeft een
+   ándere consument: `classifier-promotion-cron.ts` → `classifier_rule_telemetry`
+   → `agent_runs.human_verdict`. De keystone moet `approve_handled` /
+   `correctie_false_positive` óók naar dát kanaal brengen (of de noise-promotie-cron
+   mede op het ambient-signaal richten), anders flipt de noise-gate nog steeds niet.
+2. **Caveat niet in §11.4:** de false-positive-afleiding (`signal-derive.ts:140`)
+   joint op `pipeline_events stage=4` (handler), maar noise archiveert op **Stage 1**
+   — signaal-matchen is mogelijk niet gedekt voor noise. Breid de ledger-join uit
+   naar Stage 1.
 
 ## Re-evaluatie-moment
 
@@ -34,6 +49,7 @@ Bij **V9.7 info@ go-live**: info-routing bezit juist deze noise-categorieën. Zo
 
 ## Gerelateerd
 
+- **Canoniek:** `docs/v10-cross-stage-learning-loop-proposal.md` §11.3 (DIAGNOSE-join keystone) + §11.5 (status-tabel).
 - Bron-feature: `.planning/quick/260618-iwx-cross-swarm-noise-rules-shared-scope-op-/260618-iwx-SUMMARY.md` (Out-of-scope: Outlook-delta).
 - 112.5 activatie: `2026-06-04-sugar-cutover-enable-behavior-tracking.md`.
 - Phase 117 (intent-correctielus, het bestaande `swarm_review_signals`-pad) — model voor de noise-variant.
