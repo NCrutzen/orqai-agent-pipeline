@@ -613,7 +613,7 @@ When the resolver's identifier (factuur / klantnummer / name) does not resolve w
 
 **Depends on**: nothing within V9.5 (uses the existing `resolver_index` substrate, Phase 91). Independent of 120/121; all three feed the same re-run vs the 100-email baseline.
 **Requirements**: XSCOPE-01, XSCOPE-02, XSCOPE-03
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 **Wave 1**
@@ -623,7 +623,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 122-03-PLAN.md — Wave 2: shared resolveCrossScope helper + post-pass at the 3 drop sites (invoice/number/self-auth), root vs direct granularity, SWARM-02 clean
+- [x] 122-03-PLAN.md — Wave 2: shared resolveCrossScope helper + post-pass at the 3 drop sites (invoice/number/self-auth), root vs direct granularity, SWARM-02 clean
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
