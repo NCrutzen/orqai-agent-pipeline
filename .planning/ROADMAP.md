@@ -20,6 +20,7 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 | **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) · _parallel with v8.2_ | **Shipped 2026-06-15** _(was V10.0)_ |
 | **V9.5** | Stage-2 resolver correctness — corroboration (D-06) + attachment-borne IDs + cross-brand scope · _grounded by the 100-email operator eval (64% baseline); finalizes V9.0 STAGE2-01; before V10.0_ | **Defined 2026-06-16** |
 | **V9.7** | Routing Swarm go-live — info@ + verkoop@→order@ departmental routing · _data-grounded (live mailbox/volume analysis); first ambient-loop consumer; decoupled from V9.5; sequenced after V9.5, before V10.0_ | **Defined 2026-06-16** |
+| **V9.8** | Run-mode / gating model redesign — per-mailbox lifecycle (shadow→dry→live) + per-stage on/off + per-handler off/dry/live · _foundation before the orders swarm; after V9.5/V9.7, parallel-able with V9.5; supersedes V10.0's "granular dry-run gating"_ | **Defined 2026-06-18** |
 | **V10.0** | Promotion Recommender + Learning Inbox + reply-tracing (self-learning) | **Defined** _(was V9.0)_ |
 | **V11.0** | Intent-prioritised handlers | **Defined** |
 
@@ -614,6 +615,18 @@ When the resolver's identifier (factuur / klantnummer / name) does not resolve w
   3. The 9 eval bucket-C rows resolve to the operator-confirmed customer (or are correctly demoted to suggestie when genuinely ambiguous) in the post-landing re-run.
 
 ---
+
+### V9.8 Run-mode / Gating Model Redesign — DEFINED (2026-06-18)
+
+Ground-up redesign of swarm gating into three orthogonal layers, replacing today's per-swarm `dry_run_config` boolean matrix (pivot residue — only sales maps to a clean mode; debtor/info-routing/support sit in mixed/custom states). **Why:** operator verdicts pivoted INTO Outlook — the `AI:` category label *is* the verdict/correction surface now (operator removes/edits a label to correct; the delta is the signal, P112.5/P117), making "labels in Outlook" a functional requirement of the observe phase, not cosmetic.
+
+**Model (3 layers):** (1) **Mailbox lifecycle** — per email address, *derived* not an enum: Shadow → Dry-run → Live. New swarm/mailbox auto-starts Shadow (data-collect, only Bulk Review UX, invisible to operator); Dry-run = also operator-visible (the Outlook label); Live = acts. (2) **Per-stage on/off** — per swarm: each of the 5 stages independently toggleable (Stage 0 always on, Stage 1 usually, Stage 2 swarm-dependent). (3) **Per-handler off/dry/live** — per handler: dry = simulate + capture evidence instead of the side-effect (iController-delete → screenshot; reply-agent → draft); a handler can never be live if its triggering stage is dry/shadow.
+
+**Locked decisions:** granularity = per-swarm config + per-mailbox lifecycle (full per-mailbox config deferred); mode is derived, no enum column (registry-as-source-of-truth, SWARM-02 holds); all 4 swarms normalized; "observe mode" alias dropped → dry-run is canonical. Supersedes V10.0's "granular dry-run gating" line — V10.0 inherits this model.
+
+**Phases (conceptual; global numbers assigned at plan-time, after V9.7's band is known):** P1 — gating model + storage + migration of all 4 swarms + the two renderers (`row-strip` "Auto-applied" badge, `filter-chip` mode selector) + canonical matrix doc in `docs/agentic-pipeline/`. P2 — per-handler dry-capture (iController screenshot, reply draft). P3 — per-email-address control/visibility UI.
+
+**Sequencing:** foundation **before the orders swarm** (orders starts only once V9.5 + V9.7 work through Stage 3). Largely orthogonal to V9.5 (resolver engine) — parallel-able. **Reconcile with** the scattered per-mailbox `dry_run` booleans (`debtor.labeling_settings`, `info_routing_mailbox_settings`) + `debtor.email_labels.status` + the gate in `web/lib/pipeline-gating/dry-run-gate/index.ts`. Seed brief: `.planning/briefs/run-mode-gating-redesign.md`.
 
 ### V10.0 Promotion Recommender + Learning Inbox + Reply-Tracing — DEFINED (re-sequenced 2026-06-02; was V9.0)
 
