@@ -40,7 +40,10 @@ import { scoreCorroboration, type CorroborationSignal } from "./corroborate";
 // runner in P0. Extra fields on the passed object are tolerated.
 export type EngineConfig = Pick<ResolutionConfig, "precedence"> &
   Partial<
-    Pick<ResolutionConfig, "auto_safe_kinds" | "llm_tiebreaker" | "corroboration">
+    Pick<
+      ResolutionConfig,
+      "auto_safe_kinds" | "llm_tiebreaker" | "corroboration" | "cross_scope"
+    >
   > & {
     // Phase 91 — the self_auth / number back-search steps read
     // scope.environment_id (D-01 strip) + scope.brand_scope (prefix-family
@@ -71,7 +74,16 @@ export type ResolveMethod =
   | "llm_tiebreaker"
   | "unresolved";
 
-export type Confidence = "high" | "medium" | "low" | "none";
+// Phase 122 (D-06) — the 4-tier OPERATOR scale, mapped 1:1 to a colour the future
+// Outlook-label phase (A2) renders: high = green (zeker / AUTO), `suggestie` =
+// orange (waarschijnlijk — operator-confirm), low = red (heel onzeker), none =
+// white (geen match). `suggestie` is the DEGRADE tier a cross-brand candidate
+// lands on when it is plausible but not safe to AUTO (≥2 disagreeing roots / a
+// lone weak kind). It is a DISTINCT value but reuses the medium NUMERIC slot
+// (numericConfidence → 0.7, A2) so the read path needs zero numeric change while
+// the tier-to-colour map stays 1:1. NOT produced by capBelowAuto (which only maps
+// high→medium); only the Plan-03 cross-scope helper emits it.
+export type Confidence = "high" | "medium" | "low" | "none" | "suggestie";
 
 export interface ResolveArgs {
   nxt_database: string;
@@ -153,6 +165,17 @@ export interface ResolveResult {
   // from config.scope.environment_id (NOT a debtor literal — D-08). Set on the
   // high-precision AUTO tier (self_auth / number back-search); optional elsewhere.
   environment_id?: string;
+  // Phase 122 (D-09) — EMIT-ONLY cross-brand misroute annotation. Records that a
+  // candidate resolved to a brand DIFFERENT from the mailbox's own brand (the
+  // mail landed in the "wrong" brand inbox but the customer was found cross-scope).
+  // Sourced from config.scope.brand_scope (NOT a swarm/brand literal — D-08), set
+  // ONLY by the Plan-03 cross-scope helper on the cross-brand resolve path; absent
+  // on every in-scope resolve today (no behaviour change this phase). Consumed by
+  // NO reader this phase — it is forward-plumbing for the V9.7 misroute surface.
+  cross_scope_misroute?: {
+    resolved_brand: string;
+    mailbox_brand: string | null;
+  };
   // Phase 82.9 — discriminated via `inputs.kind === method`.
   inputs: Stage2Inputs;
 }
