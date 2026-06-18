@@ -607,12 +607,14 @@ When the resolver's identifier (factuur / klantnummer / name) does not resolve w
 **Goal**: A mail in the wrong brand mailbox should still resolve to the right customer when the identifier is unambiguous cross-scope — and must NOT manufacture a new false positive (the cross-scope match must itself be unique, `is_unique_in_scope`-style, or it degrades to a suggestie). Distinguish "customer under another brand" (resolve it) from "wrong mailbox, needs re-routing" (operator signal) — these are different fixes; this phase owns the resolution half, not the ingest re-routing half.
 
 **Depends on**: nothing within V9.5 (uses the existing `resolver_index` substrate, Phase 91). Independent of 120/121; all three feed the same re-run vs the 100-email baseline.
-**Requirements**: XSCOPE-01..03 (defined at planning). Draft shape:
+**Requirements**: XSCOPE-01, XSCOPE-02, XSCOPE-03
+**Plans:** 4 plans (3 waves)
 
-  1. On in-scope miss, the engine performs a cross-scope `resolve_candidates` back-search; a unique cross-scope hit resolves, a non-unique one degrades to suggestie (no confident wrong-scope guess).
-  2. Cross-scope resolution is config-gated per swarm (opt-in), zero `if swarm==='…'` branch (SWARM-02 holds).
-  3. The 9 eval bucket-C rows resolve to the operator-confirmed customer (or are correctly demoted to suggestie when genuinely ambiguous) in the post-landing re-run.
-
+Plans:
+- [ ] 122-01-PLAN.md — Wave 0: failing cross-scope unit tests (auto/suggestie/opt-out) + numericConfidence suggestie test + BUCKET_C eval-gate extension
+- [ ] 122-02-PLAN.md — Wave 1: types/contract layer — Confidence += suggestie, ResolveResult.cross_scope_misroute, CrossScopeConfig, numericConfidence + worker casts
+- [ ] 122-03-PLAN.md — Wave 2: shared resolveCrossScope helper + post-pass at the 3 drop sites (invoice/number/self-auth), root vs direct granularity, SWARM-02 clean
+- [ ] 122-04-PLAN.md — Wave 3: cross_scope opt-in migration + debtorP0Config lockstep + [BLOCKING] live apply + bucket-C eval re-run (XSCOPE-03)
 ---
 
 ### V10.0 Promotion Recommender + Learning Inbox + Reply-Tracing — DEFINED (re-sequenced 2026-06-02; was V9.0)
