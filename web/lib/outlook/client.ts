@@ -540,6 +540,78 @@ export async function archiveEmail(
 }
 
 /**
+ * Phase 132 Plan 01 (Task 2, D-01) — forward a message to a department mailbox.
+ *
+ * 2-CALL DRAFT FLOW (createForward → send), routed through the single
+ * `graphFetch` credential boundary (connection 56014785) + its built-in
+ * 504/socket retry. NEVER a hand-rolled client and NEVER a connection literal.
+ *
+ * WHY 2 calls and NOT 3 (no replyTo PATCH): the 2026-06-18 live send-scope smoke
+ * proved Exchange STRIPS `replyTo` on send for the shared info@ mailbox, so the
+ * replyTo PATCH is a silent no-op and is OMITTED. Instead the original sender is
+ * conveyed in the forward COMMENT (D-01 sender-in-comment fallback).
+ *
+ * `mailbox` is the info@ SOURCE box (Pitfall 3). `toMailbox` is ONLY the
+ * toRecipients value. Pass ONLY `message.toRecipients` + `comment` — NEVER also
+ * `message.body` (Pitfall 1). NEVER throws — mirrors categorizeEmail.
+ */
+export async function forwardMessage(args: {
+  mailbox: string;
+  messageId: string;
+  toMailbox: string;
+  originalSender: string;
+  comment?: string;
+}): Promise<OutlookActionResult> {
+  const { mailbox, messageId, toMailbox, originalSender, comment } = args;
+
+  const fwdComment = `Doorgestuurd via info-routing — oorspronkelijke afzender: ${originalSender}.${
+    comment ? " " + comment : ""
+  }`;
+
+  const createRes = await graphFetch(
+    `/users/${enc(mailbox)}/messages/${enc(messageId)}/createForward`,
+    {
+      method: "POST",
+      body: {
+        message: {
+          toRecipients: [{ emailAddress: { address: toMailbox } }],
+        },
+        comment: fwdComment,
+      },
+    },
+  );
+
+  if (!createRes.ok) {
+    return {
+      success: false,
+      error: `createForward ${createRes.status}: ${await createRes.text()}`,
+    };
+  }
+
+  const draft = (await createRes.json()) as { id?: string };
+  if (!draft.id) {
+    return {
+      success: false,
+      error: `createForward 200 but draft id missing: ${JSON.stringify(draft)}`,
+    };
+  }
+
+  const sendRes = await graphFetch(
+    `/users/${enc(mailbox)}/messages/${enc(draft.id)}/send`,
+    { method: "POST" },
+  );
+
+  if (!sendRes.ok) {
+    return {
+      success: false,
+      error: `send ${sendRes.status}: ${await sendRes.text()}`,
+    };
+  }
+
+  return { success: true };
+}
+
+/**
  * Find a mail folder by display name. Returns the folder ID or null.
  */
 async function findFolder(
