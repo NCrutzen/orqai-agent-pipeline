@@ -31,15 +31,20 @@
 
 set -euo pipefail
 
-# Phase 120-04 RE-BASELINE (FINAL STAGE2-01, supersedes the PROVISIONAL V9.0 result):
-# the donor is re-pointed from the pre-corroboration v8.2 branch to the post-120
-# commit (b831e3f6 — the tip carrying the corroboration-capable engine.ts/config.ts
-# + corroborate.ts + the sales dynamic.ts entry). Against the OLD v8.2 donor the
-# guard CORRECTLY failed mid-phase (engine.ts/config.ts legitimately gained the
-# corroboration capability — Pitfall 1). With the donor re-baselined, the guard
-# re-asserts: NO FURTHER per-swarm engine drift on top of the corroboration-capable
-# engine. Override seam preserved via NO_ENGINE_DIFF_BASELINE.
-DONOR="${NO_ENGINE_DIFF_BASELINE:-b831e3f63f17308ec8e1c78d10b3999377c998aa}"
+# Phase 121-02 RE-BASELINE (FINAL STAGE2-01 for post-123 workspace, supersedes the
+# post-120 baseline): the donor is re-pointed from b831e3f6 (post-120) to b816c627
+# (post-123 — the tip carrying the resolve_candidates sender_match rewire + the
+# corroboration collect-path no-op tiebreaker, which legitimately evolved engine.ts/
+# steps/* when Phase 120 + 123 merged into this workspace from origin/main). Against
+# the OLD post-120 donor the guard CORRECTLY reports drift mid-phase (engine.ts/
+# sender-match.ts legitimately gained the 123 resolve_candidates rewire — the same
+# Pitfall 1 the 120-04 re-baseline note describes). With the donor re-baselined to
+# the merged-in post-123 engine, the guard re-asserts what STAGE2-01 means for THIS
+# phase: 121-02 (attachment xlsx/csv extraction) introduces ZERO FURTHER engine
+# drift on top of the post-123 engine. 121-02's only code change is adapter-side
+# (extract.ts) — engine/config/steps stay byte-identical. Override seam preserved
+# via NO_ENGINE_DIFF_BASELINE.
+DONOR="${NO_ENGINE_DIFF_BASELINE:-b816c627}"
 
 # Resolve repo root so the script works from any cwd.
 REPO_ROOT="$(git rev-parse --show-toplevel)"
