@@ -4,8 +4,8 @@ milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
 status: executing
 stopped_at: Phase 120 (corroboration engine; STAGE2-01 FINAL) + Phase 123 (unify Stage-2 on resolve_candidates; legacy lookups retired) complete + merged to main (PR #111). Phase 119 (behavior-sync per-mailbox isolation) also live on main (#110). Next in V9.5: Phase 121 (attachment-borne IDs) / 122 (cross-brand scope).
-last_updated: 2026-06-17
-last_activity: 2026-06-17 -- Phase 120 + 123 merged to main (PR #111)
+last_updated: 2026-06-18
+last_activity: 2026-06-18 -- Quick task 260618-iwx: cross-swarm noise rules (shared swarm_type='*' scope)
 progress:
   total_phases: 4
   completed_phases: 2
@@ -77,7 +77,7 @@ LIVE production config (in Supabase `public.swarms` — shared across machines, 
 - `debtor.labeling_settings` = 4 rows. Sicli (noord+sud) rows DELETED 2026-06-16 (re-add later with verified address).
 
 RESOLVED: the 2026-06-16 regression (debtor multi-mailbox observe starved + froze sales) is fixed by Phase 119 per-mailbox fan-out isolation; debtor observe re-enabled + verified live 2026-06-17.
-Last activity: 2026-06-17
+Last activity: 2026-06-18 - Completed quick task 260618-iwx: cross-swarm noise rules (shared swarm_type='*' scope)
 
 ## Performance Metrics
 
@@ -333,9 +333,10 @@ Last activity: 2026-06-17
 
 ### Quick Tasks Completed
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260611-jwt | SugarCRM openstaande-e-mails inventarisatie + Outlook-locatie-match rapport | 2026-06-11 | 008cb16f | [260611-jwt-sugarcrm-openstaande-e-mails-inventarisa](./quick/260611-jwt-sugarcrm-openstaande-e-mails-inventarisa/) |
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260611-jwt | SugarCRM openstaande-e-mails inventarisatie + Outlook-locatie-match rapport | 2026-06-11 | 008cb16f | | [260611-jwt-sugarcrm-openstaande-e-mails-inventarisa](./quick/260611-jwt-sugarcrm-openstaande-e-mails-inventarisa/) |
+| 260618-iwx | cross-swarm noise rules: shared swarm_type='*' scope on swarm_noise_categories + runtime union + cross-swarm telemetry + per-swarm opt-out (info-routing 7 junk cats shared) | 2026-06-18 | 6824e0ad | Verified | [260618-iwx-cross-swarm-noise-rules-shared-scope-op-](./quick/260618-iwx-cross-swarm-noise-rules-shared-scope-op-/) |
 
 ### Outstanding Verification (Deferred)
 
