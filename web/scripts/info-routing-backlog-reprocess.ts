@@ -168,17 +168,21 @@ async function main() {
     return;
   }
 
-  const { data: emails, error } = await admin
-    .schema("email_pipeline")
-    .from("emails")
-    .select(
-      "id, source_id, mailbox, subject, sender_email, body_unique_text, body_text, body_html",
-    )
-    .in("id", ids);
-  if (error) throw new Error(`email fetch failed: ${error.message}`);
-  const byId = new Map<string, EmailRow>(
-    ((emails ?? []) as EmailRow[]).map((e) => [e.id, e]),
-  );
+  // Chunk the .in() fetch: a single GET with hundreds of UUIDs blows the URL
+  // length limit → 400 Bad Request.
+  const byId = new Map<string, EmailRow>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    const { data: emails, error } = await admin
+      .schema("email_pipeline")
+      .from("emails")
+      .select(
+        "id, source_id, mailbox, subject, sender_email, body_unique_text, body_text, body_html",
+      )
+      .in("id", chunk);
+    if (error) throw new Error(`email fetch failed: ${error.message}`);
+    for (const e of (emails ?? []) as EmailRow[]) byId.set(e.id, e);
+  }
 
   let emitted = 0;
   let skipped = 0;
