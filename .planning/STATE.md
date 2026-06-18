@@ -4,7 +4,7 @@ milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
 status: executing
 stopped_at: Phase 122 context gathered
-last_updated: "2026-06-18T09:36:54.613Z"
+last_updated: "2026-06-18T09:40:06.562Z"
 last_activity: 2026-06-18
 progress:
   total_phases: 4
@@ -57,14 +57,14 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Milestone complete
+**Current focus:** Phase 122 — cross-brand-scope-customer-resolution
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: V9.5 — 120 + 123 COMPLETE (merged to main, PR #111)
-Plan: 120 (corroboration engine) ✅ · 123 (resolve_candidates unification, legacy lookups retired) ✅ · 121 (attachment-borne IDs) / 122 (cross-brand scope) — not yet planned
-Status: Ready to execute
+Phase: 122 (cross-brand-scope-customer-resolution) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 122
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
 
