@@ -128,11 +128,20 @@ export async function runIdentifierMatch(
     // Gated strictly on config.cross_scope?.enabled (SWARM-02 — no swarm literal);
     // when absent/false the original logic below runs BYTE-IDENTICAL (opt-out,
     // Pitfall 1). PURE over the already-fetched res.matches — no second lookup.
+    // GAP-CLOSURE (122-05): resolver_index has NO brand_id column — on the live
+    // substrate brand_id is NULL and the brand/scope lives in scope_key. Use
+    // brand_id when present (no behaviour change), else fall back to scope_key.
     const hasInScopeInvoiceRoot =
       distinctRoots.length === 1 &&
       (() => {
         const w = inScope.find((m) => rootOf(m) === distinctRoots[0])!;
-        return w.brand_id == null || w.brand_id === "" || inScopeBrands.has(w.brand_id);
+        const scope =
+          w.brand_id != null && w.brand_id !== ""
+            ? w.brand_id
+            : w.scope_key != null && w.scope_key !== ""
+              ? w.scope_key
+              : null;
+        return scope == null || inScopeBrands.has(scope);
       })();
     if (config?.cross_scope?.enabled && !hasInScopeInvoiceRoot) {
       const crossScope = resolveCrossScope(

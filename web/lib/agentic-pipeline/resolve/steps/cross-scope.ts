@@ -120,7 +120,6 @@ export function resolveCrossScope(
     const strongWinner = group.find((m) => autoKinds.has(m.identifier_kind));
     if (strongWinner) {
       return buildCrossScopeResult(
-        target,
         strongWinner,
         "high",
         envId,
@@ -162,7 +161,6 @@ export function resolveCrossScope(
         (m) => targetOf(m) === scored.customer_account_id,
       );
       return buildCrossScopeResult(
-        scored.customer_account_id,
         winner ?? inScope[0],
         "high",
         envId,
@@ -177,10 +175,18 @@ export function resolveCrossScope(
   // disagreeing signals → SUGGESTIE, never high. Surface the FULL shortlist (D-07
   // rides on the candidate set) and annotate the misroute when a cross-brand winner
   // exists. Emit suggestie DIRECTLY — never route through capBelowAuto.
-  const shortlist = distinctTargets.map((t) => {
+  // GAP-CLOSURE (122-05): distinctness is computed on the ROOT target (D-08), but
+  // each shortlist entry surfaces the matched LEAF party_id (the actually-invoiced
+  // debtor) — NOT the root. Dedupe by leaf so two leaves under one root list both.
+  const shortlist: Candidate[] = [];
+  const shortlistSeen = new Set<string>();
+  for (const t of distinctTargets) {
     const m = inScope.find((x) => targetOf(x) === t)!;
-    return candidateOf(t, m, envId);
-  });
+    const c = candidateOf(m, envId);
+    if (shortlistSeen.has(c.id)) continue;
+    shortlistSeen.add(c.id);
+    shortlist.push(c);
+  }
   const best = inScope.find((m) => targetOf(m) === distinctTargets[0])!;
   return {
     method: "identifier_match",
@@ -198,9 +204,16 @@ export function resolveCrossScope(
   };
 }
 
-/** Build a high (AUTO) cross-scope ResolveResult with the misroute annotation. */
+/**
+ * Build a high (AUTO) cross-scope ResolveResult with the misroute annotation.
+ *
+ * GAP-CLOSURE (122-05): the `target` (root, D-08) drives ONLY the distinctness/
+ * uniqueness bar at the call site. The RESOLVED customer is the winning LEAF
+ * `party_id` (the actually-invoiced debtor) — NOT the root parent. Returning the
+ * root produced the bucket-C confident-wrong (#98/#12/#38 each resolved to the
+ * root of the correct leaf). `target` is intentionally NOT passed here anymore.
+ */
 function buildCrossScopeResult(
-  target: string,
   winner: ResolveCandidateMatch,
   confidence: "high",
   envId: string,
@@ -208,12 +221,13 @@ function buildCrossScopeResult(
   matchedIdentifiers: string[],
   group: ResolveCandidateMatch[],
 ): ResolveResult {
-  const candidate = candidateOf(target, winner, envId);
-  // Surface the whole resolved group so the audit panel renders the shortlist.
+  const candidate = candidateOf(winner, envId);
+  // Surface the whole resolved group so the audit panel renders the shortlist —
+  // each candidate is its own LEAF party_id, deduped.
   const seen = new Set<string>();
   const candidates: Candidate[] = [];
   for (const m of group) {
-    const c = candidateOf(target, m, envId);
+    const c = candidateOf(m, envId);
     if (seen.has(c.id)) continue;
     seen.add(c.id);
     candidates.push(c);
@@ -235,14 +249,13 @@ function buildCrossScopeResult(
   };
 }
 
-/** Build a Candidate from a target id + match row (env-stripped id). */
-function candidateOf(
-  target: string,
-  m: ResolveCandidateMatch,
-  envId: string,
-): Candidate {
+/**
+ * Build a Candidate from a match row — the env-stripped LEAF `party_id` (the
+ * invoiced debtor), NOT the root. The root is the distinctness target only.
+ */
+function candidateOf(m: ResolveCandidateMatch, envId: string): Candidate {
   return {
-    id: stripEnvPrefix(target, envId),
+    id: stripEnvPrefix(m.party_id, envId),
     name: m.party_name,
     contact_person: null,
     recent_invoices: [],
@@ -250,23 +263,24 @@ function candidateOf(
 }
 
 /**
- * The cross_scope_misroute annotation (D-09) — set ONLY when the winner's brand_id
- * is present AND differs from the mailbox brand. resolved_brand = winner brand,
- * mailbox_brand = args.brand_id. Returns an empty object (no field) otherwise so the
- * spread leaves cross_scope_misroute absent (opt-out byte-identity, Pitfall 1).
+ * The cross_scope_misroute annotation (D-09) — set when the winner's resolved brand/
+ * scope differs from the mailbox brand. resolved_brand = winner brand, mailbox_brand
+ * = args.brand_id. Returns an empty object (no field) otherwise so the spread leaves
+ * cross_scope_misroute absent (opt-out byte-identity, Pitfall 1).
+ *
+ * GAP-CLOSURE (122-05): resolver_index has NO brand_id column — the brand/scope
+ * identity lives in scope_key. brand_id wins when present (no behaviour change); else
+ * fall back to scope_key so the annotation fires on the live (null-brand) substrate.
  */
 function misrouteAnnotation(
   winner: ResolveCandidateMatch,
   args: ResolveArgs,
 ): Pick<ResolveResult, "cross_scope_misroute"> | Record<string, never> {
-  if (
-    winner.brand_id != null &&
-    winner.brand_id !== "" &&
-    winner.brand_id !== args.brand_id
-  ) {
+  const resolvedBrand = winner.brand_id || winner.scope_key || null;
+  if (resolvedBrand != null && resolvedBrand !== args.brand_id) {
     return {
       cross_scope_misroute: {
-        resolved_brand: winner.brand_id,
+        resolved_brand: resolvedBrand,
         mailbox_brand: args.brand_id,
       },
     };

@@ -129,8 +129,11 @@ describe("Phase 122 XSCOPE-01 / D-08 / D-09: cross-scope AUTO + misroute", () =>
 
     expect(result.method).toBe("identifier_match");
     expect(result.confidence).toBe("high");
-    // env-stripped root.
-    expect(result.customer_account_id).toBe("100000");
+    // GAP-CLOSURE (122-05): the ROOT (BX100000) drives ONLY the distinctness bar
+    // (one root → AUTO-eligible). The RESOLVED customer is the winning LEAF party_id
+    // (the actually-invoiced debtor) — the first invoice_no row, BX593290. Returning
+    // the root was the bucket-C confident-wrong this gap-closure fixes.
+    expect(result.customer_account_id).toBe("593290");
     // The misroute signal: resolved under SF, mailbox is SB.
     expect(result.cross_scope_misroute).not.toBeUndefined();
     expect(result.cross_scope_misroute).not.toBeNull();
@@ -156,7 +159,8 @@ describe("Phase 122 XSCOPE-01 / D-08 / D-09: cross-scope AUTO + misroute", () =>
     const result = await resolveEntity(args, config);
 
     expect(result.confidence).toBe("high");
-    expect(result.customer_account_id).toBe("100000");
+    // GAP-CLOSURE (122-05): resolves to the winning LEAF (BX593290), not the root.
+    expect(result.customer_account_id).toBe("593290");
     expect(result.cross_scope_misroute).not.toBeNull();
   });
 });
