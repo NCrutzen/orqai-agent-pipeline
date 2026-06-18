@@ -12,7 +12,7 @@ const zapier = createZapierSdk(
     : undefined
 );
 
-const CONNECTION_ID = "56014785";
+const CONNECTION_ID = process.env.OUTLOOK_CONNECTION_ID ?? "0299d86c-13e5-8091-804c-2e66aeb4b0e6";
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 const mailbox = process.argv[2] || "debiteuren@berki.nl";
 

@@ -101,16 +101,16 @@ Gebruik `/orq-agent` skill. Verrijk met MR-context: welke systemen, API beschikb
 
 ## Collaboration (multi-developer)
 
-Repo moved from solo to multi-developer 2026-05-20. **Read `docs/collaboration.md` before starting a phase that touches `.planning/` state, registry tables, or generated TS.** TL;DR: one workspace per active phase via `/gsd-new-workspace`; registry changes go through migrations + `npm run codegen`; high-risk surfaces gated via `CODEOWNERS`.
+Repo moved from solo to multi-developer 2026-05-20. **Read `docs/collaboration.md` before starting a phase that touches `.planning/` state, registry tables, or generated TS.** TL;DR: one workspace per active phase via `/gsd:workspace --new`; registry changes go through migrations + `npm run codegen`; high-risk surfaces gated via `CODEOWNERS`.
 
 ### Workspace gate — ENFORCE actively
 
-**Before running any of `/gsd-plan-phase`, `/gsd-execute-phase`, `/gsd-discuss-phase`, `/gsd-quick`, `/gsd-autonomous`, or `/gsd-spec-phase` while on the `main` branch, you MUST:**
+**Before running any of `/gsd:plan-phase`, `/gsd:execute-phase`, `/gsd:discuss-phase`, `/gsd:quick`, `/gsd:autonomous`, or `/gsd:spec-phase` while on the `main` branch, you MUST:**
 
 1. Check the current branch with `git branch --show-current`.
-2. If the branch is `main` (or any branch not created by `/gsd-new-workspace`), STOP and prompt the user with this exact message:
+2. If the branch is `main` (or any branch not created by `/gsd:workspace --new`), STOP and prompt the user with this exact message:
 
-   > "Phase work shouldn't run on `main` — that's our multi-developer collision rule (see `docs/collaboration.md`). I can run `/gsd-new-workspace <name>` first to spin up an isolated worktree, then start the phase inside it. Want me to do that? (You can override and continue on `main` for a quick one-off, but `.planning/STATE.md` will become single-writer until you push.)"
+   > "Phase work shouldn't run on `main` — that's our multi-developer collision rule (see `docs/collaboration.md`). I can run `/gsd:workspace --new <name>` first to spin up an isolated worktree, then start the phase inside it. Want me to do that? (You can override and continue on `main` for a quick one-off, but `.planning/STATE.md` will become single-writer until you push.)"
 
 3. Wait for the user to confirm before proceeding. If they want a workspace, suggest a name based on the phase number (e.g. `phase-78-codegen` for Phase 78).
 4. If they explicitly override, proceed but flag the override in your end-of-turn summary so it shows up in any session report.

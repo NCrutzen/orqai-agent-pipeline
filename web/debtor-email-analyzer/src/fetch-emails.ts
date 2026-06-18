@@ -63,7 +63,7 @@ interface GraphResponse {
 }
 
 // Moyne Roberts Outlook connection (zapier@moyneroberts.com)
-const OUTLOOK_CONNECTION_ID = "56014785";
+const OUTLOOK_CONNECTION_ID = process.env.OUTLOOK_CONNECTION_ID ?? "0299d86c-13e5-8091-804c-2e66aeb4b0e6";
 
 async function fetchMessagesFromFolder(
   connectionId: string,

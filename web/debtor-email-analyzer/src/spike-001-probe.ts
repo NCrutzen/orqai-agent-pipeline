@@ -15,7 +15,7 @@ const zapier = createZapierSdk(
     : undefined
 );
 
-const CONNECTION_ID = "56014785"; // zapier@moyneroberts.com
+const CONNECTION_ID = process.env.OUTLOOK_CONNECTION_ID ?? "0299d86c-13e5-8091-804c-2e66aeb4b0e6"; // zapier@moyneroberts.com
 const MAILBOX = "info@smeba.nl";
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
