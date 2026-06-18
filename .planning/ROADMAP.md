@@ -255,7 +255,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 - [x] **Phase 130 (P0): info@ Stage-1 noise-recalibration** — close the ~50% latent-noise leak in the info@ "unknown" pool by registering new `classifier_rules` candidates (cold-sales/SEO, newsletters, auto-dealer spam, job applications, survey invites) through the existing Wilson-CI shadow→promote gate; the noise share of the pool drops ~50%→<20%, giving the router a clean denominator. **← current** (completed 2026-06-16)
 - [x] **Phase 131 (P1): Destination taxonomy + Stage-3 router** — freeze the 6-7 destination buckets + verified mailboxes; build the `info-routing-coordinator` Orq agent classifying on destination + destination registry (no Stage 2). (completed 2026-06-17)
-- [ ] **Phase 132 (P2): Forward side-effect + Bulk Review** — Stage-4 Outlook-forward (idempotent, dry-run-gated, brand-aware) + category stamp-back; info-routing Bulk Review surface.
+- [x] **Phase 132 (P2): Forward side-effect + Bulk Review** — Stage-4 Outlook-forward (idempotent, dry-run-gated, brand-aware) + category stamp-back; info-routing Bulk Review surface. (completed 2026-06-18)
 - [ ] **Phase 133 (P3): NL routing-config + verkoop→order** — staff NL → routing rules (human-approved); verkoop@→order@ routing for `quote_acceptance`/`order_status`.
 - [ ] **Phase 134 (P4): Ambient-loop coupling** — clicked-away/moved mail → `correction_event` → V10.0 loop tunes routing rules.
 
@@ -263,7 +263,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 |-------|----------------|--------|-----------|
 | 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
 | 131. Destination taxonomy + router | 5/5 | Complete    | 2026-06-17 |
-| 132. Forward + Bulk Review | 3/4 | In Progress|  |
+| 132. Forward + Bulk Review | 4/4 | Complete   | 2026-06-18 |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
 | 134. Ambient-loop coupling | — | Pending | — |
 
@@ -404,7 +404,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 132-04-PLAN.md — Wave 3: [BLOCKING] apply migration 20260617e to remote + codegen drift gate + check:supabase advisor + full suite (FWD-03, FWD-08)
+- [x] 132-04-PLAN.md — Wave 3: [BLOCKING] apply migration 20260617e to remote + codegen drift gate + check:supabase advisor + full suite (FWD-03, FWD-08)
 
 ---
 
