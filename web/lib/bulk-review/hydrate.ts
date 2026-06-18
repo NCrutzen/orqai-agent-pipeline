@@ -64,6 +64,8 @@ import type {
   BulkReviewStage3Slot,
   BulkReviewStage3p5Slot,
   BulkReviewStage4Slot,
+  BulkReviewRoutingSlot,
+  RoutingForwardStatus,
   RankedIntent,
   ResolverStep,
   Stage0Verdict,
@@ -319,6 +321,31 @@ export async function hydrateBulkReviewRow(
         size_bytes: a.size_bytes ?? null,
         extraction_status: a.extraction_status ?? "pending",
       }));
+    }
+  }
+
+  // (3c) Phase 132 Plan 03 (FWD-08) — the LAST forward outcome for this anchor
+  //      message, keyed on email_id (public.info_routing_forwards, Plan 02). Read
+  //      via the authenticated FOR SELECT policy. Used ONLY to derive the
+  //      routing-slot forward_status when the verdict is routable (a held verdict
+  //      with no forward yet has no row → null → 'held'; a sent row → 'forwarded').
+  //      Swarm-agnostic: a non-routing swarm has no row → null → routing slot
+  //      stays null anyway (it is gated on decision_details.routing below). A
+  //      query error is non-fatal (mirrors the attachments handling) → null.
+  let forwardState: { status: string } | null = null;
+  if (anchorEmailId) {
+    const forwardRes = await admin
+      .from("info_routing_forwards")
+      .select("status")
+      .eq("email_id", anchorEmailId)
+      .maybeSingle();
+    if (forwardRes.error) {
+      console.warn(
+        `[hydrate] info_routing_forwards query failed for email_id=${anchorEmailId}: ${forwardRes.error.message}`,
+      );
+    } else if (isRecord(forwardRes.data)) {
+      const status = asString(forwardRes.data.status);
+      forwardState = status ? { status } : null;
     }
   }
 
@@ -697,6 +724,60 @@ export async function hydrateBulkReviewRow(
     };
   }
 
+  // ----- Routing (Phase 132 Plan 03, FWD-08) -----------------------------
+  // The persisted 6-field RoutingVerdict (Phase 131) lives at the stage-3
+  // event's decision_details.routing. This slot is DATA-GATED: it is populated
+  // ONLY when that key exists — debtor/sales rows (whose stage-3 decision_details
+  // carry ranked/ranked_intents, never a `routing` object) leave it null. NO
+  // swarm_type literal gates it (SWARM-02-safe). forward_status is DERIVED from
+  // verdict fields + the info_routing_forwards mirror (read at step 3c).
+  let routing: BulkReviewRoutingSlot | null = null;
+  const routingRaw =
+    stage3Event && isRecord(stage3Event.decision_details) &&
+    isRecord(stage3Event.decision_details.routing)
+      ? (stage3Event.decision_details.routing as Record<string, unknown>)
+      : null;
+  if (routingRaw) {
+    const bucket = asString(routingRaw.bucket) ?? "unrouted";
+    const brand = asString(routingRaw.brand);
+    const target_mailbox = asString(routingRaw.target_mailbox);
+    const rawConf = asString(routingRaw.confidence);
+    const confidence: "low" | "medium" | "high" =
+      rawConf === "high" || rawConf === "medium" || rawConf === "low"
+        ? rawConf
+        : "low";
+    const dedup = isRecord(routingRaw.dedup) ? routingRaw.dedup : {};
+    const dedup_status: "routable" | "already_addressed" =
+      asString(dedup.status) === "already_addressed"
+        ? "already_addressed"
+        : "routable";
+    const dedup_layer = asString(dedup.matched_layer);
+    const unrouted = routingRaw.unrouted === true;
+
+    // forward_status derivation (verdict-first; falls back to the live mirror).
+    let forward_status: RoutingForwardStatus;
+    if (unrouted) {
+      forward_status = "unrouted";
+    } else if (target_mailbox === null) {
+      forward_status = "stays"; // matched no-forward bucket (e.g. algemeen)
+    } else if (dedup_status === "already_addressed") {
+      forward_status = "dedup-skipped";
+    } else {
+      forward_status = forwardState?.status === "sent" ? "forwarded" : "held";
+    }
+
+    routing = {
+      bucket,
+      brand,
+      target_mailbox,
+      confidence,
+      dedup_status,
+      dedup_layer,
+      unrouted,
+      forward_status,
+    };
+  }
+
   // ----- Axis 3 event ids -----------------------------------------------
   const axis_3_event_ids = events
     .filter(
@@ -737,6 +818,7 @@ export async function hydrateBulkReviewRow(
     stage_3,
     stage_3p5,
     stage_4,
+    routing,
     overrides,
     // Phase 116-05 (D-08) — Stage-2 attachment metadata loaded at step (3b).
     attachments,
