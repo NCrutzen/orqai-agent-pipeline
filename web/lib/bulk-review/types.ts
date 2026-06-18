@@ -354,6 +354,12 @@ export interface BulkReviewRoutingSlot {
   dedup_layer: string | null;
   unrouted: boolean;
   forward_status: RoutingForwardStatus;
+  // The coordinator_runs PK that keys the persisted verdict — the operator
+  // routing actions (re-route / forward-now) need it to read/write
+  // coordinator_runs.decision_details.routing. Sourced at hydration from the
+  // coordinator_runs row for this email_id. Null for legacy rows whose run is
+  // not resolvable (the pane disables the run-keyed controls then).
+  run_id: string | null;
 }
 
 // Per-axis override capture columns (P1-D-03). Axis 3 has no dedicated

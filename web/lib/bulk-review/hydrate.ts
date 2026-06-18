@@ -738,6 +738,24 @@ export async function hydrateBulkReviewRow(
       ? (stage3Event.decision_details.routing as Record<string, unknown>)
       : null;
   if (routingRaw) {
+    // The coordinator_runs PK keying the persisted verdict — needed by the
+    // operator routing actions (re-route / forward-now). Looked up by email_id
+    // (the same anchor) ONLY when a routing verdict is present, so non-routing
+    // swarms add no round-trip. Null when not resolvable (legacy rows).
+    let routing_run_id: string | null = null;
+    if (anchorEmailId) {
+      const runRes = await admin
+        .from("coordinator_runs")
+        .select("run_id")
+        .eq("email_id", anchorEmailId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!runRes.error && isRecord(runRes.data)) {
+        routing_run_id = asString(runRes.data.run_id);
+      }
+    }
+
     const bucket = asString(routingRaw.bucket) ?? "unrouted";
     const brand = asString(routingRaw.brand);
     const target_mailbox = asString(routingRaw.target_mailbox);
@@ -775,6 +793,7 @@ export async function hydrateBulkReviewRow(
       dedup_layer,
       unrouted,
       forward_status,
+      run_id: routing_run_id,
     };
   }
 

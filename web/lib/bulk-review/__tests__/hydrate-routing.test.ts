@@ -20,6 +20,7 @@ import { __resetCacheForTests } from "@/lib/swarms/registry";
 interface FixtureOpts {
   pipelineEvents?: Array<Record<string, unknown>>;
   forwardState?: Record<string, unknown> | null;
+  coordinatorRun?: Record<string, unknown> | null;
 }
 
 function makeAdmin(opts: FixtureOpts): SupabaseClient {
@@ -43,7 +44,10 @@ function makeAdmin(opts: FixtureOpts): SupabaseClient {
     if (table === "info_routing_forwards") {
       return makeBuilder({ data: opts.forwardState ?? null, error: null });
     }
-    // agent_runs / swarms / registries / coordinator_runs → empty.
+    if (table === "coordinator_runs") {
+      return makeBuilder({ data: opts.coordinatorRun ?? null, error: null });
+    }
+    // agent_runs / swarms / registries → empty.
     return makeBuilder({ data: [], error: null });
   };
 
@@ -213,5 +217,18 @@ describe("hydrateBulkReviewRow — routing slot (Phase 132 Plan 03)", () => {
       swarm_type: "debtor-email",
     });
     expect(row!.routing ?? null).toBeNull();
+  });
+
+  it("hydrates routing.run_id from the coordinator_runs row for this email", async () => {
+    const admin = makeAdmin({
+      pipelineEvents: [stage3Event(ROUTABLE)],
+      forwardState: null,
+      coordinatorRun: { run_id: "run-abc-123" },
+    });
+    const row = await hydrateBulkReviewRow(admin, {
+      email_id: EMAIL_ID,
+      swarm_type: SWARM,
+    });
+    expect(row!.routing?.run_id).toBe("run-abc-123");
   });
 });
