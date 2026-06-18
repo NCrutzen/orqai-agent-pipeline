@@ -4,12 +4,12 @@ milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
 status: executing
 stopped_at: Phase 122 context gathered
-last_updated: "2026-06-18T08:58:27.921Z"
-last_activity: 2026-06-17
+last_updated: "2026-06-18T09:36:54.613Z"
+last_activity: 2026-06-18
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 8
+  total_plans: 12
   completed_plans: 8
   percent: 50
 ---
@@ -64,7 +64,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 Phase: V9.5 — 120 + 123 COMPLETE (merged to main, PR #111)
 Plan: 120 (corroboration engine) ✅ · 123 (resolve_candidates unification, legacy lookups retired) ✅ · 121 (attachment-borne IDs) / 122 (cross-brand scope) — not yet planned
-Status: V9.5 in progress — 120 + 123 landed; 121/122 remaining. 121 workspace prepped (`workspace/phase-121-attachment-borne-ids`) — bucket-A acceptance gated on the `candidate_details` clean-eval follow-up.
+Status: Ready to execute
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
 
@@ -77,7 +77,7 @@ LIVE production config (in Supabase `public.swarms` — shared across machines, 
 - `debtor.labeling_settings` = 4 rows. Sicli (noord+sud) rows DELETED 2026-06-16 (re-add later with verified address).
 
 RESOLVED: the 2026-06-16 regression (debtor multi-mailbox observe starved + froze sales) is fixed by Phase 119 per-mailbox fan-out isolation; debtor observe re-enabled + verified live 2026-06-17.
-Last activity: 2026-06-17
+Last activity: 2026-06-18
 
 ## Performance Metrics
 

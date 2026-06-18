@@ -517,12 +517,14 @@ Plans:
 **Operator-grounded requirements basis + acceptance baseline (added 2026-06-16):** a debiteurenbeheer colleague manually validated the resolver's customer match on **100 debtor emails** — `.planning/evals/2026-06-16-resolver-customer-eval/FINDINGS.md` (sheet alongside). Baseline = **64% correct (64 Ja / 25 Nee / 11 Twijfel)**, strongly bimodal: factuur/klantnummer methods ~95%, sender/e-maildomein **21%**; confidence is well-calibrated (AUTO 86% vs SUGGESTIE 13%). The 36 errors map onto exactly the V9.5 phases — bucket B sender-ambiguity (12) → Phase 120, bucket A answer-in-attachment (7) → Phase 121, bucket C wrong-brand-entity (9) → **Phase 122 (new)**, bucket D factuur-in-subject (3) → rides along in Phase 121 (extraction/precedence). **Acceptance:** re-run the resolver over the same frozen 100 after 120/121/122 land; target a material reduction of the 36 Nee+Twijfel (esp. eliminating the 4 confident-wrong AUTO and the now-known-answer A/C cases). This is a *correctness* gate that sits alongside (does not replace) the no-Engine-diff measurement. **Ground-truth note:** Exact customer numbers == NXT numbers, so the colleague's Exact cross-checks are valid NXT ground-truth.
 
 **Dependency graph:**
+
 ```
 120 (corroboration engine)  ──┐
                               ├──> re-run no-Engine-diff measurement (finalizes V9.0 STAGE2-01)
 121 (attachment-borne IDs)  ──┤   120 consumes 121's identifiers as corroboration signals; runs in parallel
 122 (cross-brand scope)     ──┘   independent scope_key fix; feeds the same re-run vs the 100-email baseline
 ```
+
 **External/cross-track:** consumes the `resolver_index` + `nxt.resolve_candidates` substrate (Phase 91, live for debtor). Sales must migrate its REST-proxy lookups onto the same SQL back-search to feed corroboration — see todo `2026-06-15-sales-offerte-lookup-false-positive.md` (the postcode schema gap + REST→SQL migration). Both swarms benefit.
 
 **Phases in this milestone** (detail sections below):
@@ -552,6 +554,7 @@ Give the resolution engine a config-expressible corroboration capability so it C
 **Plans:** 4/4 plans complete
 
 Plans:
+
 - [x] 120-01-PLAN.md *(wave 1)* — Engine capability: pure scoreCorroboration helper + CorroborationConfig field + config-gated collect-then-decide branch (CORR-01..04)
 - [x] 120-02-PLAN.md *(wave 2, ⊃ 01)* — Sales SWARM-02 reconciliation + REST→SQL transport switch (offerte/order/sites via resolver_index; shared helper) (CORR-04/05)
 - [x] 120-03-PLAN.md *(wave 3, ⊃ 01,02)* — Two resolution_config re-seeds (debtor + sales) + debtorP0Config lockstep + [BLOCKING] live Supabase apply (CORR-05)
@@ -568,6 +571,7 @@ The Customer Resolver must use ONE generic look-up — `nxt.resolve_candidates` 
 **Depends on**: Phase 120 (corroboration engine + sales on resolve_candidates — done). **External**: `resolver_index` substrate already carries `email_domain` (21,126) + `email_address` (31,138) + `invoice_no` (175,004) rows in scope SB (verified live 2026-06-17) — no proc change needed.
 
 **Requirements**: RESL-UNIFY-01..07 (defined at planning — see REQUIREMENTS.md). Mapping to draft shape:
+
   1. Debtor `sender_match` resolves via `resolve_candidates` (`email_domain`/`email_address`), not `contact_lookup`.
   2. Debtor `identifier_match` resolves invoices via `resolve_candidates` (`invoice_no`); the legacy `identifier_lookup` fallback is removed.
   3. Sales sender_match + factuur_match likewise on `resolve_candidates`.
@@ -576,6 +580,7 @@ The Customer Resolver must use ONE generic look-up — `nxt.resolve_candidates` 
   6. **Acceptance eval**: re-run the frozen 100-email fixture (`web/scripts/eval/resolver-correctness-gate.ts`) — sender behavior change on the dominant error source must not regress, and corroboration must now fire over the generic path. This is the carried-over Phase-120 debtor gate (`RERUN-FINDINGS.md` / `120-HUMAN-UAT.md`).
 
 **Plans:** 4/4 plans complete
+
 - [x] 123-01-PLAN.md — Debtor sender_match + invoice resolution onto resolve_candidates (wave 1; RESL-UNIFY-01/02/07; auto_safe_kinds reconciliation decision)
 - [x] 123-02-PLAN.md — Sales sender_match + factuur_match onto resolve_candidates (wave 1; RESL-UNIFY-03/07)
 - [x] 123-03-PLAN.md — Atomic removal of nxt.contact_lookup + nxt.identifier_lookup from code + tests (wave 2; RESL-UNIFY-04)
@@ -611,10 +616,19 @@ When the resolver's identifier (factuur / klantnummer / name) does not resolve w
 **Plans:** 4 plans (3 waves)
 
 Plans:
+**Wave 1**
+
 - [ ] 122-01-PLAN.md — Wave 0: failing cross-scope unit tests (auto/suggestie/opt-out) + numericConfidence suggestie test + BUCKET_C eval-gate extension
 - [ ] 122-02-PLAN.md — Wave 1: types/contract layer — Confidence += suggestie, ResolveResult.cross_scope_misroute, CrossScopeConfig, numericConfidence + worker casts
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 122-03-PLAN.md — Wave 2: shared resolveCrossScope helper + post-pass at the 3 drop sites (invoice/number/self-auth), root vs direct granularity, SWARM-02 clean
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 122-04-PLAN.md — Wave 3: cross_scope opt-in migration + debtorP0Config lockstep + [BLOCKING] live apply + bucket-C eval re-run (XSCOPE-03)
+
 ---
 
 ### V10.0 Promotion Recommender + Learning Inbox + Reply-Tracing — DEFINED (re-sequenced 2026-06-02; was V9.0)

@@ -424,17 +424,17 @@ return scoreCorroboration(crossBrandSignals, args, config.corroboration!, matche
 
 **If a downstream agent treats any A# as fact without operator confirmation, surface it in discuss-phase.**
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Strong-kind list for cross-brand auto-resolve (D-03a).**
    - What we know: `auto_safe_alone_kinds = ["customer_no","site_no","invoice_no"]` (`20260616a:46`) is the named strong list.
    - What's unclear: whether ALL three should auto-resolve cross-brand, or whether cross-brand should be stricter (e.g. `invoice_no` only — a forwarded invoice number is the canonical cross-brand case).
-   - Recommendation: default `cross_scope.auto_resolve_kinds` to the same three; let the eval gate confirm. If a bucket-C row over-resolves wrong on a non-invoice kind, tighten the list (config-only, no code change).
+   - RESOLVED — default `cross_scope.auto_resolve_kinds` to the same three; let the eval gate confirm. If a bucket-C row over-resolves wrong on a non-invoice kind, tighten the list (config-only, no code change). Implemented by Plan 122-03 Task 1 + Plan 122-04 Task 1.
 
 2. **Self-auth cross-brand granularity.**
    - What we know: self-auth gates on DIRECT `party_id` distinctness (`self-auth-match.ts:128`), the number tier on `root_party_id`.
    - What's unclear: whether a cross-brand self-auth (customer_no forwarded across brands) should roll up to root or stay direct.
-   - Recommendation: keep self-auth DIRECT (preserve CR-01 split); the cross-scope helper takes a `granularity: "root" | "direct"` param.
+   - RESOLVED — keep self-auth DIRECT (preserve CR-01 split); the cross-scope helper takes a `granularity: "root" | "direct"` param. Implemented by Plan 122-03 Task 2.
 
 ## Environment Availability
 
