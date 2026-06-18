@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: V9.5
 milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
 status: executing
-stopped_at: Phase 120 (corroboration engine; STAGE2-01 FINAL) + Phase 123 (unify Stage-2 on resolve_candidates; legacy lookups retired) complete + merged to main (PR #111). Phase 119 (behavior-sync per-mailbox isolation) also live on main (#110). Next in V9.5: Phase 121 (attachment-borne IDs) / 122 (cross-brand scope).
-last_updated: 2026-06-17
-last_activity: 2026-06-17 -- Phase 120 + 123 merged to main (PR #111)
+stopped_at: Phase 122 context gathered
+last_updated: "2026-06-18T08:58:27.921Z"
+last_activity: 2026-06-17
 progress:
   total_phases: 4
   completed_phases: 2
@@ -361,10 +361,10 @@ Last activity: 2026-06-17
 
 ## Session Continuity
 
-Last session: 2026-06-17
-Stopped at: Phase 120 + 123 complete + merged to main (PR #111); debtor observe re-enabled + verified live; 121 workspace prepped.
+Last session: 2026-06-18T08:58:27.907Z
+Stopped at: Phase 122 context gathered
 Resume with: V9.5 Phase 121 (attachment-borne IDs) — after the `candidate_details` clean-eval follow-up; then Phase 122 (cross-brand scope).
-Resume file: None
+Resume file: .planning/phases/122-cross-brand-scope-customer-resolution/122-CONTEXT.md
 
 ## Deferred Items
 
