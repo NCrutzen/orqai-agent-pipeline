@@ -263,7 +263,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 |-------|----------------|--------|-----------|
 | 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
 | 131. Destination taxonomy + router | 5/5 | Complete    | 2026-06-17 |
-| 132. Forward + Bulk Review | 1/4 | In Progress|  |
+| 132. Forward + Bulk Review | 2/4 | In Progress|  |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
 | 134. Ambient-loop coupling | — | Pending | — |
 
@@ -399,7 +399,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 132-02-PLAN.md — Wave 2: Stage-4 forward worker + info_routing_forwards idempotency store + coordinator pipeline/forward.requested emit + SWARM-02 guard extension + migration (held-by-default seed + RLS table) (FWD-01, FWD-02, FWD-04, FWD-05, FWD-06, FWD-07, FWD-10)
+- [x] 132-02-PLAN.md — Wave 2: Stage-4 forward worker + info_routing_forwards idempotency store + coordinator pipeline/forward.requested emit + SWARM-02 guard extension + migration (held-by-default seed + RLS table) (FWD-01, FWD-02, FWD-04, FWD-05, FWD-06, FWD-07, FWD-10)
 - [ ] 132-03-PLAN.md — Wave 2: info-routing Bulk Review surface (routing detail-pane + verdict/forward-status hydration + re-route / forward-now / don't-forward server actions) (FWD-08, FWD-09)
 
 **Wave 3** *(blocked on Wave 2)*
