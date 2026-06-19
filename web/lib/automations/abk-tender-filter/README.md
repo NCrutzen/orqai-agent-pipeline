@@ -61,14 +61,20 @@ Vereiste env vars (al aanwezig in Vercel/`.env.local`):
 - `AUTOMATION_WEBHOOK_SECRET` — beveiligt de Vercel-route (Zapier stuurt dit mee als `x-webhook-secret`)
 
 ## Zapier configuratie
-1. **Trigger** — Microsoft Outlook → *New Email* (map: Inbox, filter op afzender ABK
-   en/of onderwerp "Nieuwe projecten").
+1. **Trigger** — Microsoft Outlook → *New Email* (map: Inbox). Voeg **direct na de
+   trigger een Filter-stap** toe: *Only continue if…* `From Email` **(exact) is**
+   `noreply@ggp.aanbestedingskalender.nl` (of `From Email` *contains*
+   `aanbestedingskalender.nl`). Zónder deze filter triggert elke inbox-mail de Zap
+   en kan een willekeurige mail als "aanbesteding" doorglippen.
 2. **Action** — Webhooks by Zapier → *POST*
    - URL: `https://<agent-workforce-domein>/api/automations/abk-tender-filter`
    - Payload type: `json`
    - Data:
      - `html` = de **Body** (HTML-versie) van de mail
      - `text` = de **Body Preview** / Body Plain (fallback als HTML leeg is)
+     - `from` = het **From Email**-adres van de mail — **verplicht**. De route
+       classificeert alléén mail van het `aanbestedingskalender.nl`-domein; ontbreekt
+       `from` of klopt het domein niet, dan komt `match_count: 0` terug (fail-closed).
      - `date` = de mail-datum (optioneel)
    - Headers: `x-webhook-secret` = waarde van `AUTOMATION_WEBHOOK_SECRET`
    - ⚠️ Map **zowel `html` als `text`**. Outlook levert niet altijd een HTML-body;

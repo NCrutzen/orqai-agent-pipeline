@@ -26,11 +26,34 @@ const requestSchema = z.object({
   bodyPreview: z.string().optional(),
   subject: z.string().optional(),
   date: z.string().optional(),
+  // Afzender-adres van de mail (Zapier: "From Email"). Verplicht om te
+  // garanderen dat we UITSLUITEND de ABK-mail classificeren — zie isAllowedSender.
+  from: z.string().optional(),
   // Optionele override van de thema's (anders DEFAULT_THEMES).
   themes: z
     .array(z.object({ label: z.string(), omschrijving: z.string() }))
     .optional(),
 });
+
+// Alleen mail van de Aanbestedingskalender (ABK) mag geclassificeerd worden.
+// Vangnet tegen een te ruime Zapier-trigger: zo kan een willekeurige inbox-mail
+// (bv. een losse leveranciersmail) nooit als "aanbesteding" doorgefilterd worden.
+const ALLOWED_SENDER_DOMAIN = "aanbestedingskalender.nl";
+
+/** Haalt het kale e-mailadres uit een From-veld ("Naam <x@y>") en geeft het lowercased terug. */
+function extractEmail(from: string): string {
+  const m = from.match(/<([^>]+)>/);
+  return (m ? m[1] : from).trim().toLowerCase();
+}
+
+/** True als de afzender een (sub)domein-match heeft met de Aanbestedingskalender. */
+function isAllowedSender(from: string): boolean {
+  const email = extractEmail(from);
+  const at = email.lastIndexOf("@");
+  if (at === -1) return false;
+  const domain = email.slice(at + 1);
+  return domain === ALLOWED_SENDER_DOMAIN || domain.endsWith(`.${ALLOWED_SENDER_DOMAIN}`);
+}
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -67,6 +90,28 @@ export async function POST(req: NextRequest) {
       { ok: false, error: "Ongeldige input", details: parsed.error.issues },
       { status: 400 }
     );
+  }
+
+  // --- Afzender-guard (fail-closed) ---
+  // Classificeer uitsluitend de ABK-mail. Onbekende/lege afzender → niets doen,
+  // zodat een verdwaalde inbox-mail nooit als aanbesteding wordt doorgestuurd.
+  // Zapier MOET het From-adres als `from` meesturen (zie README). We geven bewust
+  // GEEN 400 maar match_count 0 terug, zodat de bestaande Zap-filter de flow stopt
+  // zonder dagelijkse foutmail.
+  const from = parsed.data.from?.trim() ?? "";
+  if (!from || !isAllowedSender(from)) {
+    console.warn(
+      `[abk-tender-filter] afzender "${from || "(leeg)"}" is niet de Aanbestedingskalender — overgeslagen`
+    );
+    return NextResponse.json({
+      ok: true,
+      match_count: 0,
+      total_scanned: 0,
+      subject: "",
+      html: "",
+      text: "",
+      note: `Afzender is niet de Aanbestedingskalender (${ALLOWED_SENDER_DOMAIN}) — niets geclassificeerd.`,
+    });
   }
 
   const emailBody =
