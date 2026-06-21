@@ -34,12 +34,24 @@ Flow:
 2. Zapier  → POST mail-HTML naar /api/automations/abk-tender-filter (header x-webhook-secret)
 3. Vercel  → Orq.ai (1 call, json_schema) extraheert + classificeert alle items
            → Zod-validatie → dedupe → bouwt gefilterde digest
-           → geeft { match_count, subject, html, text } terug
-4. Zapier  → filter: alleen door als match_count > 0
-           → Outlook "Send Email": stuur digest naar Albert.Dias.Dullois.cb@moyneroberts.com
+           → geeft ALTIJD een mailbaar { subject, html, text } terug (zie hieronder)
+4. Zapier  → Outlook "Send Email": stuur het resultaat naar Albert.Dias.Dullois.cb@moyneroberts.com
 ```
 
 Eén batched Orq.ai-call houdt het binnen de Zapier-webhook-timeout (~5s in de test).
+
+**Heartbeat — élke ABK-mail levert exact één mail op.** De route geeft nooit meer een
+leeg resultaat terug, zodat een kapotte pipeline niet stil blijft (zoals juni 2026,
+toen `from` niet werd meegestuurd en het twee dagen onopgemerkt bleef). Drie uitkomsten:
+- **≥1 kans** → digest met de relevante aanbestedingen.
+- **0 relevant, mail wél verwerkt** → "geen relevante aanbestedingen"-mail (bewijst dat de pipeline draaide).
+- **Stille fout** (from ontbreekt / lege body) → ⚠️-alarmmail die vertelt wat er mis is.
+
+Daarom is de oude `match_count > 0`-filterstap **verwijderd** — Zapier stuurt nu altijd
+de mail die de route teruggeeft. Krijg je op een werkdag géén mail, dan is de ABK-mail
+zelf niet binnengekomen (of de Zap staat uit) — dát is dan het signaal. Een echte
+route-fout (Orq.ai down → HTTP 502) laat de POST-stap falen, wat Zapier zelf als
+task-error meldt.
 
 ## Aannames
 - De ABK-mail bevat de items als doorzoekbare HTML/tekst (Zapier levert de body aan).
@@ -74,15 +86,15 @@ Vereiste env vars (al aanwezig in Vercel/`.env.local`):
      - `text` = de **Body Preview** / Body Plain (fallback als HTML leeg is)
      - `from` = het **From Email**-adres van de mail — **verplicht**. De route
        classificeert alléén mail van het `aanbestedingskalender.nl`-domein; ontbreekt
-       `from` of klopt het domein niet, dan komt `match_count: 0` terug (fail-closed).
+       `from` of klopt het domein niet, dan komt een ⚠️-alarmmail terug i.p.v. stilte.
      - `date` = de mail-datum (optioneel)
    - Headers: `x-webhook-secret` = waarde van `AUTOMATION_WEBHOOK_SECRET`
    - ⚠️ Map **zowel `html` als `text`**. Outlook levert niet altijd een HTML-body;
      dan zorgt `text` dat de body alsnog meekomt. Het endpoint pakt `html` → `text`
-     → `bodyPreview` in die volgorde. Bij een echt lege mail geeft het endpoint
-     `match_count: 0` terug (geen fout meer), zodat de Zap netjes stopt op de filter.
-3. **Filter** — Only continue if… `match_count` (uit stap 2) > `0`.
-4. **Action** — Microsoft Outlook → *Send Email*
+     → `bodyPreview` in die volgorde. Bij een echt lege mail komt een ⚠️-alarmmail
+     terug (geen stilte), zodat je zo'n fout meteen ziet.
+3. **Action** — Microsoft Outlook → *Send Email* (géén match_count-filter meer; de
+   route geeft altijd een mailbaar resultaat — zie "Heartbeat" hierboven)
    - To: `Albert.Dias.Dullois.cb@moyneroberts.com`
    - Subject: `subject` (uit stap 2)
    - Body type: HTML → `html` (uit stap 2)
@@ -92,7 +104,9 @@ Vereiste env vars (al aanwezig in Vercel/`.env.local`):
 - Headers: `x-webhook-secret: <AUTOMATION_WEBHOOK_SECRET>`
 - Body: `{ "html"?: string, "text"?: string, "date"?: string, "themes"?: [{label, omschrijving}] }`
   (minstens `html` of `text` vereist; `html` heeft de voorkeur)
-- Response: `{ ok: true, match_count, total_scanned, subject, html, text }`
+- Response: `{ ok: true, match_count, total_scanned, subject, html, text, note? }`
+  (`subject`/`html`/`text` zijn altijd gevuld: digest, "geen relevante aanbestedingen",
+  óf een ⚠️-alarm met `note`)
 
 ## Status / openstaand
 - ✅ Logica end-to-end geverifieerd tegen Orq.ai (8/9 testitems correct gefilterd,

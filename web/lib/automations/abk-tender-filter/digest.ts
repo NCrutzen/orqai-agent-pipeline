@@ -107,3 +107,38 @@ export function buildDigest(
     totalScanned: total_scanned,
   };
 }
+
+/**
+ * Bouwt een ⚠️-alarmmail voor het geval dat er wél een ABK-mail binnenkwam
+ * (Zapier liet 'm door), maar de route niets kon classificeren — bijvoorbeeld
+ * omdat het `from`-veld ontbreekt of de mail-inhoud leeg is.
+ *
+ * Zonder deze mail zou zo'n fout stil blijven (de route geeft `200 OK` terug,
+ * dus Zapier ziet geen error) en pas dagen later opvallen. Door hier een
+ * mailbaar resultaat te geven, levert élke binnengekomen ABK-mail exact één
+ * mail op: kansen, "niks relevants", óf dit alarm.
+ */
+export function buildAlarm(reden: string, opts: { date?: string } = {}): Digest {
+  const date = formatDate(opts.date ?? "");
+  const dateLabel = date ? ` ${date}` : "";
+
+  const subject = `⚠️ ABK-filter${dateLabel} — mail binnen maar niet verwerkt`;
+
+  const html = `
+  <div style="max-width:680px;margin:0 auto;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a;">
+    <div style="padding:12px 16px;border-radius:6px;background:#fdeceb;border:1px solid #f3c0bd;margin-bottom:16px;">
+      <strong style="color:#b3261e;">⚠️ Pipeline-signaal</strong>
+    </div>
+    <h2 style="margin:0 0 8px;font-size:20px;">ABK-mail kwam binnen, maar werd niet verwerkt</h2>
+    <p style="margin:0 0 12px;font-size:14px;color:#555;">${escapeHtml(reden)}</p>
+    <p style="margin:0;font-size:13px;color:#777;">
+      Controleer de Zap (staat het <code>from</code>-veld nog goed in stap 3?) en de
+      Vercel-logs van <code>abk-tender-filter</code>. Krijg je deze mail, dan draait de
+      pipeline — er ging alleen iets mis vóór de classificatie.
+    </p>
+  </div>`;
+
+  const text = `⚠️ ABK-mail kwam binnen maar werd niet verwerkt.\n\n${reden}\n\nControleer de Zap (from-veld in stap 3) en de Vercel-logs van abk-tender-filter.`;
+
+  return { subject, html, text, matchCount: 0, totalScanned: 0 };
+}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { classifyTenders } from "@/lib/automations/abk-tender-filter/classify";
-import { buildDigest } from "@/lib/automations/abk-tender-filter/digest";
+import { buildDigest, buildAlarm } from "@/lib/automations/abk-tender-filter/digest";
 import { DEFAULT_THEMES } from "@/lib/automations/abk-tender-filter/themes";
 
 /**
@@ -9,8 +9,10 @@ import { DEFAULT_THEMES } from "@/lib/automations/abk-tender-filter/themes";
  *
  * Hybrid automation-endpoint. Zapier triggert op de dagelijkse ABK-mail en POST
  * de mail-inhoud hierheen. Wij extraheren + classificeren via Orq.ai en geven een
- * gefilterde digest terug. Zapier verstuurt vervolgens de mail (alleen als
- * match_count > 0).
+ * gefilterde digest terug. Élke binnengekomen ABK-mail levert een mailbaar
+ * resultaat op (kansen, "geen relevante aanbestedingen", óf een ⚠️-alarm bij een
+ * stille fout), zodat Zapier altijd één mail stuurt en een kapotte pipeline niet
+ * onopgemerkt blijft. Daarom heeft Zapier geen match_count-filter meer nodig.
  *
  * Auth: header `x-webhook-secret` moet matchen met AUTOMATION_WEBHOOK_SECRET.
  */
@@ -101,16 +103,23 @@ export async function POST(req: NextRequest) {
   const from = parsed.data.from?.trim() ?? "";
   if (!from || !isAllowedSender(from)) {
     console.warn(
-      `[abk-tender-filter] afzender "${from || "(leeg)"}" is niet de Aanbestedingskalender — overgeslagen`
+      `[abk-tender-filter] afzender "${from || "(leeg)"}" is niet de Aanbestedingskalender — alarm`
     );
+    // Geen stille skip: deze tak vuurt als het `from`-veld ontbreekt (Zapier-config)
+    // of niet het ABK-domein heeft. We sturen een ⚠️-alarm zodat zo'n fout niet
+    // dagenlang onopgemerkt blijft (zoals eerder gebeurde toen `from` niet meekwam).
+    const reden = from
+      ? `Afzender "${from}" is niet de Aanbestedingskalender (${ALLOWED_SENDER_DOMAIN}).`
+      : `Het 'from'-veld ontbreekt in de Zapier-payload — controleer stap 3 (POST).`;
+    const alarm = buildAlarm(reden, { date: parsed.data.date });
     return NextResponse.json({
       ok: true,
       match_count: 0,
       total_scanned: 0,
-      subject: "",
-      html: "",
-      text: "",
-      note: `Afzender is niet de Aanbestedingskalender (${ALLOWED_SENDER_DOMAIN}) — niets geclassificeerd.`,
+      subject: alarm.subject,
+      html: alarm.html,
+      text: alarm.text,
+      note: reden,
     });
   }
 
@@ -120,21 +129,24 @@ export async function POST(req: NextRequest) {
     parsed.data.bodyPreview?.trim() ||
     "";
   if (!emailBody) {
-    // Lege mail-inhoud = niets te classificeren. We geven bewust GEEN 400 terug:
-    // dat liet Zapier de stap als "error" rapporteren (dagelijkse foutmail).
-    // In plaats daarvan een geldige respons met match_count 0 — de bestaande
-    // Zap-filter (`match_count > 0`) stopt de flow dan netjes vanzelf.
+    // Lege mail-inhoud = niets te classificeren. We geven bewust GEEN 400 terug
+    // (dat liet Zapier de stap als "error" rapporteren). In plaats daarvan een
+    // ⚠️-alarmmail: er kwam wél een ABK-mail binnen, maar zonder body kunnen we
+    // niets filteren — dat wil je weten i.p.v. stilte.
     console.warn(
-      "[abk-tender-filter] lege mail-inhoud ontvangen (html/text/bodyPreview leeg) — niets te classificeren"
+      "[abk-tender-filter] lege mail-inhoud ontvangen (html/text/bodyPreview leeg) — alarm"
     );
+    const reden =
+      "De mail-inhoud (html/text/bodyPreview) is leeg — controleer de body-mapping in Zapier stap 3.";
+    const alarm = buildAlarm(reden, { date: parsed.data.date });
     return NextResponse.json({
       ok: true,
       match_count: 0,
       total_scanned: 0,
-      subject: "",
-      html: "",
-      text: "",
-      note: "Geen mail-inhoud meegegeven — niets geclassificeerd.",
+      subject: alarm.subject,
+      html: alarm.html,
+      text: alarm.text,
+      note: reden,
     });
   }
 
