@@ -2,7 +2,11 @@
 
 ## Overview
 
-Browser-based interface for creating, deploying, testing, and iterating AI agent swarms on Orq.ai. v8.0 established the canonical 5-stage funnel architecture (Stage 0 safety → Stage 1 regex+LLM noise → Stage 2 entity → Stage 3 coordinator → Stage 4 handler) across debtor-email and sales-email swarms, with operator-facing Bulk Review, per-stage audit surfaces, and feedback capture wired into Supabase. v8.1 closes input/calibration/visibility gaps so Stage 3 intent distribution reflects reality. From here the roadmap runs **two parallel tracks** (re-sequenced 2026-06-02): the debtor track (v8.2 Stage-2 resolution recall, gated on operator validation) and the sales track (V9.0 sales-email live on Outlook, SugarCRM deprecated) — both converging into V10.0 self-learning (Promotion Recommender + reply-tracing), then V11.0 intent-prioritised handlers.
+A fleet of registry-driven AI swarms on the canonical 5-stage funnel (Stage 0 safety → Stage 1 regex+LLM noise → Stage 2 entity → Stage 3 coordinator → Stage 4 handler), built on Orq.ai + Supabase, validated on debtor-email and sales-email and extended swarm-by-swarm via registry INSERTs.
+
+**North-star (reframed 2026-06-22).** The product is **end-to-end orchestration of business processes / customer journeys** — *invoice-to-cash*, *quote-to-order* — carried out across our systems (primarily NXT). **E-mail is one interaction channel *within* a process, not the trigger and not the product** (the trigger is a business event: invoice sent, quote accepted). E-mail handling is the **beachhead** — chosen because it makes AI value immediately visible to the organisation — but the destination is the **act layer**: handlers that *mutate systems* to complete journeys, so departments pick up the work automatically. Personal mailboxes and proactive voice (e.g. calling about overdue invoices) are later swarms/channels on the **same** pipeline, not separate architectures.
+
+**Autonomy ladder:** observe → ground → route → learn → **act** → personalize. v8.0–V9.5 delivered *observe + ground* generically; the *act* half is the unproven core. **Near-term spine:** V9.7 routing/visibility (the visible kompas) → V9.8 governance rail → V10.0 learning loop → **V10.5 Order Entry** (first end-to-end act-proof) → V11.0 generalized handlers — atop a growing **knowledge layer** (customer-specific agreements + work instructions; orq.ai KB + entity-keyed Supabase facts, fed by ingestion + the V10 loop). See **Strategic context** below the table.
 
 ## Milestones
 
@@ -16,12 +20,32 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 | **V7.0** | Agent OS — cinematic swarm operating view | **Shipped 2026-04-30** |
 | **v8.0** | Agentic Platform — canonical 5-stage funnel + debtor-email + sales-email Stage 0-1 | **Shipped 2026-05-20** |
 | **v8.1** | Validation + Visibility — body ingestion, Stage 1 noise rules, Stage 3 prompt v3, open-set discovery | **Shipped 2026-06-01** |
-| **v8.2** | Stage 2 Resolution Recall — debtor track (SQL-native NXT resolver) · _parallel with V9.0_ | **Defined / next** |
-| **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) · _parallel with v8.2_ | **Shipped 2026-06-15** _(was V10.0)_ |
-| **V9.5** | Stage-2 resolver correctness — corroboration (D-06) + attachment-borne IDs + cross-brand scope · _grounded by the 100-email operator eval (64% baseline); finalizes V9.0 STAGE2-01; before V10.0_ | **Defined 2026-06-16** |
-| **V9.7** | Routing Swarm go-live — info@ + verkoop@→order@ departmental routing · _data-grounded (live mailbox/volume analysis); first ambient-loop consumer; decoupled from V9.5; sequenced after V9.5, before V10.0_ | **Defined 2026-06-16** |
-| **V10.0** | Promotion Recommender + Learning Inbox + reply-tracing (self-learning) | **Defined** _(was V9.0)_ |
-| **V11.0** | Intent-prioritised handlers | **Defined** |
+| **v8.2** | Stage 2 Resolution Recall — debtor track (SQL-native NXT resolver) · _partly superseded by V9.5 corroboration_ | **Defined** |
+| **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) | **Shipped 2026-06-15** _(was V10.0)_ |
+| **V9.5** | Stage-2 resolver correctness — corroboration (D-06) + attachment-borne IDs + cross-brand scope · _grounded by the 100-email operator eval (64% baseline); finalizes V9.0 STAGE2-01_ | **Shipped 2026-06-18** |
+| **V9.7** | Routing / visibility — info@ + verkoop@→order@ departmental routing · _the first visible kompas (taakreductie op de triage-laag); NL routing chat-agent **deferred** so the router goes live on registry-seeded rules_ | **In progress** _(workspace: planning/v9.7-p0-noise)_ |
+| **V9.8** | Run-Mode & Gating redesign — shadow→dry→live **governance rail** (per-stage + per-handler tri-state, dry-capture) + read-only "what's on per swarm/mailbox" overview · _prerequisite for safely acting on systems_ | **In progress** _(workspace: workspace/run-mode-unify)_ |
+| **V10.0** | Learning loop — Promotion Recommender + Learning Inbox + reply-tracing · _the kennismotor; harvests the relational knowledge layer (per klant + operator)_ | **Defined** _(workspace: workspace/v10-phase-0)_ |
+| **V10.5** | **Order Entry — first end-to-end act-proof** (offerte→order in NXT) · _own milestone between V10 and V11; **readiness-gated** (V9.8 + spike + colleague voorwerk + task-model doc); dubbel greenfield (geen API's, taakmodel niet vastgelegd) — discovery/doc-fase eerst_ | **Defined (readiness-gated)** |
+| **V11.0** | Intent-prioritised handlers — _generalizes the act layer after V10.5 proves it_ | **Defined** |
+
+---
+
+## Strategic context (converged 2026-06-22)
+
+**Two load-bearing investments.** Routing (V9.7) and handlers (V11) are *tactical*; the foundations that decide whether the real ambition is reachable are **V9.8 (governance rail)** and **V10.0 (knowledge motor)**. Acting in systems — and later in personal voice / on customer agreements — makes errors *reputational*, so the shadow→dry→live rail is not a config UI but the trust-ramp that makes autonomous action safe. V10.0 is the engine that harvests the knowledge layer from operator behaviour.
+
+**Knowledge layer (foundation, not a versioned milestone — grows with the act layer).** Two distinct layers, do **not** conflate:
+- *Transactional entities* (customers, invoices, orders, quotes) → **NXT is the graph**; query it via the REST-proxy / SQL. Do **not** duplicate locally.
+- *Relational / tacit knowledge* (customer-specific agreements, **work instructions/SOPs**, unwritten rules, per-person writing style) → **owned by no system today; this is the real foundation.** Two feeders: **ingestion** of explicit docs + **harvesting** via the V10 loop. Two shapes: documents/instructions → **orq.ai KB/RAG** (existing capability — no new infra); structured per-customer rules → entity-keyed Supabase facts read deterministically by handlers. **Capture discipline now:** key everything by customer + operator + entity, so graduating to a true traversable knowledge graph later (when handlers must walk relationships) is cheap, not a rebuild. Work-instruction ingestion overlaps the V10.5 Order-Entry task-model documentation — same work.
+
+**CEO / taakreductie narrative (staged).** Phase 1 = manual mail triage eliminated (V9.7, visible now). Phase 2 = the system does the actual work (V10.5 Order Entry) — a build project, because our systems have **almost no APIs** and the task model is undocumented.
+
+**Active workspace tracks (worktrees off this repo — keep them synced to `main` after this reshuffle merges, so they stop following the old plan):**
+- `planning/v9.7-p0-noise` → **V9.7 routing** (executing, ~116 commits ahead)
+- `workspace/run-mode-unify` → **V9.8 run-mode/gating** (planning/brief)
+- `workspace/v10-phase-0` → **V10.0 learning-loop spine** (planning/spec, phases 130–133; P130 needs Phase-133 context from V9.7)
+- `workspace/support-tickets-app` → a colleague's track (parallel; hands-off here)
 
 ---
 
