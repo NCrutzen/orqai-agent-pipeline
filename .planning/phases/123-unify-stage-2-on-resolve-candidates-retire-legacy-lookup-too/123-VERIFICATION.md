@@ -1,7 +1,7 @@
 ---
 phase: 123-unify-stage-2-on-resolve-candidates-retire-legacy-lookup-too
 verified: 2026-06-17T00:00:00Z
-status: human_needed
+status: passed  # 2026-06-18: CR-01 (D-03) FIXED in engine.ts (noopTiebreak @352/360); eval reframed (harness-limited); constraint-narrowing = accepted tech debt. See V9.5-MILESTONE-AUDIT.md.
 score: 6/7 must-haves verified
 overrides_applied: 0
 human_verification:

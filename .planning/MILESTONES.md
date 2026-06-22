@@ -21,7 +21,7 @@
 
 ## V9.5 Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope (Defined: 2026-06-16)
 
-**Status:** Defined — not yet started. **Phases:** 120 (corroboration engine) + 121 (attachment-borne identifiers) + 122 (cross-brand-scope resolution), banded 120+ to isolate from the archived V9.0 (110–117) and the parallel debtor v8.2 track (90–95). **Sequenced AFTER V9.0 (shipped), BEFORE V10.0.**
+**Status:** ✅ **SHIPPED 2026-06-18** (audit verdict `tech_debt` — no functional blockers; scoped close, archive at `milestones/v9.5-ROADMAP.md` + `milestones/V9.5-MILESTONE-AUDIT.md`, tag `v9.5`). **Phases shipped:** 119 + 120 + 121 + 122 + 123 (PRs #110/#111/#118/#117). STAGE2-01 made FINAL (no-engine-diff re-baselined post-122); cardinal never-confident-wrong holds (confident-wrong 4/4 demoted, bucket-C 6/6 leaf-correct, gold 0 regression). **Known deferred items at close:** 35 project-wide open artifacts (acknowledged — overwhelmingly the pre-existing v8.x/V9.0 parking-lot) + V9.5 tech debt (123 constraint-narrowing migration, 120 disagreement-override, `candidate_details` dead-code retire, eval-harness production-equivalence). **Scoped close** — global `STATE.md`/`ROADMAP.md`/`PROJECT.md` reorg + `REQUIREMENTS.md` refresh deferred to `main` to avoid single-writer collision with the live V9.7 + V9.8 workspaces. **Sequenced AFTER V9.0 (shipped), BEFORE V10.0.**
 
 **Why this milestone exists.** V9.0 shipped sales `stage_2_resolution` as **observe-only (fast-follow, non-blocking)** and its STAGE2-01 "zero-Engine-diff" generality proof is **PROVISIONAL** — multi-match corroboration (D-06) is a LOCKED CTO requirement (Phase 114 CONTEXT) that is ENGINE work and *will* touch `engine.ts`, so the no-Engine-diff gate cannot be final until it lands (tripwire todo `2026-06-04-d06-corroboration-fast-follow.md`). The idea was validated by spike 011 (~39.8% corroboration surface on sales mail — B∪C: ≥2 identifier kinds co-occur, or corp-domain ∩ ≥1 identifier, well above the 25% first-class threshold) and independently re-derived by a second practitioner (2026-06-16): one entity index across all kinds (= `resolver_index`), parse ALL identifiers incl. attachments into one array, one lookup returns the whole candidate set (= `nxt.resolve_candidates`), N agreeing hits → certain.
 
@@ -62,7 +62,7 @@
 
 **Goal:** info@ (smeba + fire-control) actionable mail is classified on *destination* by a Stage-3 router and forwarded to the right departmental mailbox without a human; staff add/curate routing rules via natural language (LLM → registry rules, human-approved); verkoop@→order@ is the first cross-mailbox sales routing. No customer-facing content generation.
 
-**Scope:** (1) Stage 1 noise-recalibration for info@ (close the ~50% leak via `classifier_rules` + Wilson-CI shadow→promote); (2) Stage 3 `info-routing-coordinator` Orq agent classifying on destination + a destination registry (no Stage 2); (3) Stage 4 Outlook-forward side-effect (idempotent, dry-run-gated, brand-aware) + category stamp back (V10 ambient signal); (4) NL routing-config UI (sender/subject/content predicates → destination, human-approved); (5) verkoop@→order@ routing for `quote_acceptance`/`order_status`; (6) info-routing Bulk Review surface. **Out of scope:** draft-reply generation; customer resolution; the 4 dormant info@ boxes (registry-flip when smeba+fire-control are proven).
+**Scope:** (1) Stage 1 noise-recalibration for info@ (close the ~50% leak via `classifier_rules` + Wilson-CI shadow→promote); (2) Stage 3 `info-routing-coordinator` Orq agent classifying on destination + a destination registry (no Stage 2); (3) Stage 4 Outlook-forward side-effect (idempotent, dry-run-gated, brand-aware) + category stamp back (V10 ambient signal); (4) **[DEFERRED 2026-06-22]** NL routing **chat-agent** (operators steer routing rules in natural language) — pulled out so the router goes **live first on hand-seeded registry rules** (a routing rule is an INSERT); the conversational layer is comfort on top and returns as a later UI slot; (5) verkoop@→order@ routing for `quote_acceptance`/`order_status`; (6) info-routing Bulk Review surface. **Out of scope:** draft-reply generation; customer resolution; the 4 dormant info@ boxes (registry-flip when smeba+fire-control are proven).
 
 **Architecture:** Registry-driven on the canonical funnel; fills the info-routing Stage-3/4 shell. **Zero `if swarm_type==='info-routing'` branches** — destinations, routing rules, NL-derived rules are registry data; a new mailbox/destination is an INSERT. Connects to the V10.0 ambient channel: a written-back Outlook category + a clicked-away/moved mail = `correction_event` → loop tunes routing rules (routing = first ambient-loop consumer).
 
@@ -79,6 +79,32 @@
 **Depends on:** info-routing swarm Stage 0/1 (live) + `info_routing_mailbox_settings` (exists); Outlook Graph forward capability; the canonical funnel registry. **No dependency on V9.5** (no Stage 2). Feeds V10.0 (first ambient-loop consumer) and complements V11.0 (routing handles *where*; handlers handle *reply*).
 
 **Open questions (gate planning, don't block definition):** confirm a dedicated tenders destination + whether fire-control inspection planning routes via `planning@smeba.nl` or a fire-control box; forward mechanic (true forward vs category+move vs shared-mailbox assignment); noise-recalibration as a standalone pre-win; NL-config rule ownership/approval (supervisor vs department).
+
+---
+
+## V9.8 Run-Mode & Gating Model Redesign — the governance rail (Defined: 2026-06-18)
+
+**Status:** In progress (planning/brief) — workspace `workspace/run-mode-unify`, brief `.planning/briefs/run-mode-gating-redesign.md`. **Sequenced after V9.7, before V10.5 Order Entry** (it is the prerequisite for safely acting on systems). Parallel-able with V9.7.
+
+**Why this milestone exists.** Today's gating is a residue of the pivot: per-stage gating *exists and is enforced* (5 worker sites read `swarms.dry_run_config`), but it is **per-swarm only, SQL/migration-only (no UI), with just dry-run(blocked) vs live — no shadow mode, no per-handler dry-capture.** Two problems: (a) the operator has **lost the overview** of what is on per swarm/mailbox; (b) once handlers *mutate systems* (V10.5) and later act in personal voice / on customer agreements, errors become **reputational** — you need a real trust-ramp, not a binary skip.
+
+**The model — three orthogonal layers:** (1) **per-mailbox lifecycle** `shadow → dry → live` (derived, not an enum): shadow = data collected, visible only in Bulk Review; dry = visible to operator (Outlook label appears, correctable), blocks side-effects; live = acts. (2) **per-stage enablement** (per swarm). (3) **per-handler tri-state** `off | dry | live`, where *dry captures evidence* (iController → screenshot instead of delete; reply-agent → draft instead of send). Constraint: a handler can never be `live` if its triggering stage is `dry`/`shadow`.
+
+**Scope split (operator 2026-06-22):** (A) **cheap read-only "what's on per swarm/mailbox" overview NOW** — restores the lost overview from existing data (`dry_run_config` + legacy `labeling_settings.dry_run` + the `pipeline_health_snapshots` per-swarm×mailbox×mode rows). (B) **full redesign as the milestone** — storage rethink (per-mailbox lifecycle + tri-state), migration off scattered `dry_run` booleans without breaking live workers, the two Bulk-Review renderers (add Shadow + derive mode), per-handler dry-capture, operator toggle UI, all 4 swarms normalised. "Foundation before the orders swarm."
+
+---
+
+## V10.5 Order Entry — first end-to-end act-proof (Defined: 2026-06-22, readiness-gated)
+
+**Status:** Defined — **own milestone, sequenced between V10.0 and V11.0**, **readiness-gated** (not hard-pinned; pulls forward when gates clear). This is the depth-first flagship: prove the **act layer** once, deeply, before V11 generalises it.
+
+**Why Order Entry.** The act half (handlers that mutate systems to complete a journey) is the unproven core and the CEO's real *taakreductie*. Order Entry is the best flagship: (a) the department whose individual system-tasks are best (relatively) understood; (b) the **largest e-mail load** → biggest ROI + most learning data; (c) **offerte→order = the cleanest end-to-end journey** (unambiguous trigger = quote acceptance; concrete action = create the order so the department picks up the work). It is the concrete demonstration of the whole thesis in one swarm.
+
+**The crux — dubbel greenfield (operator 2026-06-22):** (1) **NXT has almost no API endpoints and no Flowable endpoints** — the act-layer integration is the central open question (the few endpoints that exist + the CTO's Claude Code skills for certain endpoints + UI automation via Browserless, already in use); whatever is built is cross-swarm (likely transfers partly to sales). (2) **The task model is NOT captured in this repo** — a colleague's voorwerk lives elsewhere (asked 2026-06-22 to commit to GitHub). ⚠ `heeren-oefeningen/` on `workspace/support-tickets-app` is an **unrelated side-project, NOT the order-entry voorwerk**. So **phase 1 is discovery/documentation, not code.**
+
+**Readiness gates:** V9.8 governance rail (dry-capture = a reviewed **concept-order** before live) · the **Order Entry spike** (after the colleague commits the voorwerk — assess voorwerk + existing endpoints/CTO-skills/UI-automation + task-model gap + sales transfer) · task-model documentation. **Knowledge tie-in:** documenting the order-entry work instructions overlaps the knowledge-layer ingestion (same work — feeds orq.ai KB / entity-keyed facts).
+
+**Out of scope / explicitly later:** personal-mailbox swarms and proactive voice (later swarms/channels on the same pipeline); generic intent-prioritised handler scaffolding (V11.0, which generalises the pattern Order Entry proves).
 
 ---
 

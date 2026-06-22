@@ -10,8 +10,8 @@
 If you've never worked in this repo and you're about to build something, here's the 60-second version:
 
 1. **Don't work on `main`.** `main` is for merges only. All real work happens in a *workspace* (an isolated copy of the repo for one phase of work).
-2. **When you start a new piece of work, tell Claude what you want to build.** Claude will either confirm you don't need a workspace (small fix, doc change, question) OR walk you through creating one with `/gsd-new-workspace`. If Claude does not ask you about this, remind it: "should this be in a workspace?"
-3. **Don't manually edit files under `.planning/`** — those track the project state and get rewritten by GSD commands. Edit through the commands (`/gsd-plan-phase`, etc.), not by hand.
+2. **When you start a new piece of work, tell Claude what you want to build.** Claude will either confirm you don't need a workspace (small fix, doc change, question) OR walk you through creating one with `/gsd:workspace --new`. If Claude does not ask you about this, remind it: "should this be in a workspace?"
+3. **Don't manually edit files under `.planning/`** — those track the project state and get rewritten by GSD commands. Edit through the commands (`/gsd:plan-phase`, etc.), not by hand.
 4. **Don't manually edit files named `*.generated.ts`** — those are output of `npm run codegen`. Re-run codegen instead.
 5. **Read `CLAUDE.md`** (top of the repo) — it has all the stack rules. Claude reads it automatically; you should read it once.
 
@@ -20,7 +20,7 @@ If those five rules feel restrictive, they're not — they prevent the failure m
 ## TL;DR
 
 - **Workspaces are created when work starts, not reserved in advance.** One per *active stream*. Lifetime = phase (or sequential chain of related phases). Merged back through PR.
-- **`/gsd-new-workspace <name>`** spins up an isolated worktree with its own `.planning/`.
+- **`/gsd:workspace --new <name>`** spins up an isolated worktree with its own `.planning/`.
 - **Never edit `.planning/STATE.md` on `main` directly.** It is a single-writer file; the workspace owns it for the duration of the phase.
 - **Registry changes go through migrations.** Every `swarms` / `swarm_intents` / `swarm_noise_categories` / `zapier_tools` insert or update is a new file in `supabase/migrations/` — never an ad-hoc psql run on a shared DB.
 - **Run `npm run codegen` before every commit that touches a registry.** CI gates on `npm run codegen && git diff --exit-code`.
@@ -61,17 +61,17 @@ Two people testing different swarms hit the same `email_pipeline.emails`, `agent
 ## Workflow per Active Phase
 
 ```
-/gsd-new-workspace phase-NN-short-name      # creates worktree + branch + isolated .planning/
-/gsd-discuss-phase NN                       # gather context
-/gsd-plan-phase NN                          # produce PLAN.md
-/gsd-execute-phase NN                       # wave-based execution
+/gsd:workspace --new phase-NN-short-name      # creates worktree + branch + isolated .planning/
+/gsd:discuss-phase NN                       # gather context
+/gsd:plan-phase NN                          # produce PLAN.md
+/gsd:execute-phase NN                       # wave-based execution
                                             # migrations + codegen committed atomically
-/gsd-pr-branch                              # filter .planning/ commits out for clean code review
+/gsd:pr-branch                              # filter .planning/ commits out for clean code review
                                             # open PR for code review
                                             # open separate PR (or same branch) for .planning/ updates
 ```
 
-When the PR merges, the workspace is archivable. See `/gsd-remove-workspace`.
+When the PR merges, the workspace is archivable. See `/gsd:workspace --remove`.
 
 ## When You Don't Need a Workspace
 
@@ -107,4 +107,4 @@ These are the failure modes we have already seen (or expect to see) — flag at 
 - `CODEOWNERS` — PR-review routing for the gated surfaces above.
 - `docs/agentic-pipeline/README.md` — canonical architecture; required reading before any pipeline work.
 - `CLAUDE.md` — stack rules and pattern references.
-- `/gsd-new-workspace`, `/gsd-list-workspaces`, `/gsd-remove-workspace`, `/gsd-pr-branch` — the workspace tooling.
+- `/gsd:workspace --new`, `/gsd:workspace --list`, `/gsd:workspace --remove`, `/gsd:pr-branch` — the workspace tooling.

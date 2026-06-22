@@ -2,7 +2,11 @@
 
 ## Overview
 
-Browser-based interface for creating, deploying, testing, and iterating AI agent swarms on Orq.ai. v8.0 established the canonical 5-stage funnel architecture (Stage 0 safety → Stage 1 regex+LLM noise → Stage 2 entity → Stage 3 coordinator → Stage 4 handler) across debtor-email and sales-email swarms, with operator-facing Bulk Review, per-stage audit surfaces, and feedback capture wired into Supabase. v8.1 closes input/calibration/visibility gaps so Stage 3 intent distribution reflects reality. From here the roadmap runs **two parallel tracks** (re-sequenced 2026-06-02): the debtor track (v8.2 Stage-2 resolution recall, gated on operator validation) and the sales track (V9.0 sales-email live on Outlook, SugarCRM deprecated) — both converging into V10.0 self-learning (Promotion Recommender + reply-tracing), then V11.0 intent-prioritised handlers.
+A fleet of registry-driven AI swarms on the canonical 5-stage funnel (Stage 0 safety → Stage 1 regex+LLM noise → Stage 2 entity → Stage 3 coordinator → Stage 4 handler), built on Orq.ai + Supabase, validated on debtor-email and sales-email and extended swarm-by-swarm via registry INSERTs.
+
+**North-star (reframed 2026-06-22).** The product is **end-to-end orchestration of business processes / customer journeys** — *invoice-to-cash*, *quote-to-order* — carried out across our systems (primarily NXT). **E-mail is one interaction channel *within* a process, not the trigger and not the product** (the trigger is a business event: invoice sent, quote accepted). E-mail handling is the **beachhead** — chosen because it makes AI value immediately visible to the organisation — but the destination is the **act layer**: handlers that *mutate systems* to complete journeys, so departments pick up the work automatically. Personal mailboxes and proactive voice (e.g. calling about overdue invoices) are later swarms/channels on the **same** pipeline, not separate architectures.
+
+**Autonomy ladder:** observe → ground → route → learn → **act** → personalize. v8.0–V9.5 delivered *observe + ground* generically; the *act* half is the unproven core. **Near-term spine:** V9.7 routing/visibility (the visible kompas) → V9.8 governance rail → V10.0 learning loop → **V10.5 Order Entry** (first end-to-end act-proof) → V11.0 generalized handlers — atop a growing **knowledge layer** (customer-specific agreements + work instructions; orq.ai KB + entity-keyed Supabase facts, fed by ingestion + the V10 loop). See **Strategic context** below the table.
 
 ## Milestones
 
@@ -16,13 +20,32 @@ Browser-based interface for creating, deploying, testing, and iterating AI agent
 | **V7.0** | Agent OS — cinematic swarm operating view | **Shipped 2026-04-30** |
 | **v8.0** | Agentic Platform — canonical 5-stage funnel + debtor-email + sales-email Stage 0-1 | **Shipped 2026-05-20** |
 | **v8.1** | Validation + Visibility — body ingestion, Stage 1 noise rules, Stage 3 prompt v3, open-set discovery | **Shipped 2026-06-01** |
-| **v8.2** | Stage 2 Resolution Recall — debtor track (SQL-native NXT resolver) · _parallel with V9.0_ | **Defined / next** |
-| **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) · _parallel with v8.2_ | **Shipped 2026-06-15** _(was V10.0)_ |
-| **V9.5** | Stage-2 resolver correctness — corroboration (D-06) + attachment-borne IDs + cross-brand scope · _grounded by the 100-email operator eval (64% baseline); finalizes V9.0 STAGE2-01; before V10.0_ | **Defined 2026-06-16** |
-| **V9.7** | Routing Swarm go-live — info@ + verkoop@→order@ departmental routing · _data-grounded (live mailbox/volume analysis); first ambient-loop consumer; decoupled from V9.5; sequenced after V9.5, before V10.0_ | **Defined 2026-06-16** |
-| **V9.8** | Run-mode / gating model redesign — per-mailbox lifecycle (shadow→dry→live) + per-stage on/off + per-handler off/dry/live · _foundation before the orders swarm; after V9.5/V9.7, parallel-able with V9.5; supersedes V10.0's "granular dry-run gating"_ | **Defined 2026-06-18** |
-| **V10.0** | Promotion Recommender + Learning Inbox + reply-tracing (self-learning) | **Defined** _(was V9.0)_ |
-| **V11.0** | Intent-prioritised handlers | **Defined** |
+| **v8.2** | Stage 2 Resolution Recall — debtor track (SQL-native NXT resolver) · _partly superseded by V9.5 corroboration_ | **Defined** |
+| **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) | **Shipped 2026-06-15** _(was V10.0)_ |
+| **V9.5** | Stage-2 resolver correctness — corroboration (D-06) + attachment-borne IDs + cross-brand scope · _grounded by the 100-email operator eval (64% baseline); finalizes V9.0 STAGE2-01_ | **Shipped 2026-06-18** |
+| **V9.7** | Routing / visibility — info@ + verkoop@→order@ departmental routing · _the first visible kompas (taakreductie op de triage-laag); NL routing chat-agent **deferred** so the router goes live on registry-seeded rules_ | **In progress** _(workspace: planning/v9.7-p0-noise)_ |
+| **V9.8** | Run-Mode & Gating redesign — shadow→dry→live **governance rail** (per-stage + per-handler tri-state, dry-capture) + read-only "what's on per swarm/mailbox" overview · _prerequisite for safely acting on systems_ | **In progress** _(workspace: workspace/run-mode-unify)_ |
+| **V10.0** | Learning loop — Promotion Recommender + Learning Inbox + reply-tracing · _the kennismotor; harvests the relational knowledge layer (per klant + operator)_ | **Defined** _(workspace: workspace/v10-phase-0)_ |
+| **V10.5** | **Order Entry — first end-to-end act-proof** (offerte→order in NXT) · _own milestone between V10 and V11; **readiness-gated** (V9.8 + spike + colleague voorwerk + task-model doc); dubbel greenfield (geen API's, taakmodel niet vastgelegd) — discovery/doc-fase eerst_ | **Defined (readiness-gated)** |
+| **V11.0** | Intent-prioritised handlers — _generalizes the act layer after V10.5 proves it_ | **Defined** |
+
+---
+
+## Strategic context (converged 2026-06-22)
+
+**Two load-bearing investments.** Routing (V9.7) and handlers (V11) are *tactical*; the foundations that decide whether the real ambition is reachable are **V9.8 (governance rail)** and **V10.0 (knowledge motor)**. Acting in systems — and later in personal voice / on customer agreements — makes errors *reputational*, so the shadow→dry→live rail is not a config UI but the trust-ramp that makes autonomous action safe. V10.0 is the engine that harvests the knowledge layer from operator behaviour.
+
+**Knowledge layer (foundation, not a versioned milestone — grows with the act layer).** Two distinct layers, do **not** conflate:
+- *Transactional entities* (customers, invoices, orders, quotes) → **NXT is the graph**; query it via the REST-proxy / SQL. Do **not** duplicate locally.
+- *Relational / tacit knowledge* (customer-specific agreements, **work instructions/SOPs**, unwritten rules, per-person writing style) → **owned by no system today; this is the real foundation.** Two feeders: **ingestion** of explicit docs + **harvesting** via the V10 loop. Two shapes: documents/instructions → **orq.ai KB/RAG** (existing capability — no new infra); structured per-customer rules → entity-keyed Supabase facts read deterministically by handlers. **Capture discipline now:** key everything by customer + operator + entity, so graduating to a true traversable knowledge graph later (when handlers must walk relationships) is cheap, not a rebuild. Work-instruction ingestion overlaps the V10.5 Order-Entry task-model documentation — same work.
+
+**CEO / taakreductie narrative (staged).** Phase 1 = manual mail triage eliminated (V9.7, visible now). Phase 2 = the system does the actual work (V10.5 Order Entry) — a build project, because our systems have **almost no APIs** and the task model is undocumented.
+
+**Active workspace tracks (worktrees off this repo — keep them synced to `main` after this reshuffle merges, so they stop following the old plan):**
+- `planning/v9.7-p0-noise` → **V9.7 routing** (executing, ~116 commits ahead)
+- `workspace/run-mode-unify` → **V9.8 run-mode/gating** (planning/brief)
+- `workspace/v10-phase-0` → **V10.0 learning-loop spine** (planning/spec, phases 130–133; P130 needs Phase-133 context from V9.7)
+- `workspace/support-tickets-app` → a colleague's track (parallel; hands-off here)
 
 ---
 
@@ -518,19 +541,21 @@ Plans:
 **Operator-grounded requirements basis + acceptance baseline (added 2026-06-16):** a debiteurenbeheer colleague manually validated the resolver's customer match on **100 debtor emails** — `.planning/evals/2026-06-16-resolver-customer-eval/FINDINGS.md` (sheet alongside). Baseline = **64% correct (64 Ja / 25 Nee / 11 Twijfel)**, strongly bimodal: factuur/klantnummer methods ~95%, sender/e-maildomein **21%**; confidence is well-calibrated (AUTO 86% vs SUGGESTIE 13%). The 36 errors map onto exactly the V9.5 phases — bucket B sender-ambiguity (12) → Phase 120, bucket A answer-in-attachment (7) → Phase 121, bucket C wrong-brand-entity (9) → **Phase 122 (new)**, bucket D factuur-in-subject (3) → rides along in Phase 121 (extraction/precedence). **Acceptance:** re-run the resolver over the same frozen 100 after 120/121/122 land; target a material reduction of the 36 Nee+Twijfel (esp. eliminating the 4 confident-wrong AUTO and the now-known-answer A/C cases). This is a *correctness* gate that sits alongside (does not replace) the no-Engine-diff measurement. **Ground-truth note:** Exact customer numbers == NXT numbers, so the colleague's Exact cross-checks are valid NXT ground-truth.
 
 **Dependency graph:**
+
 ```
 120 (corroboration engine)  ──┐
                               ├──> re-run no-Engine-diff measurement (finalizes V9.0 STAGE2-01)
 121 (attachment-borne IDs)  ──┤   120 consumes 121's identifiers as corroboration signals; runs in parallel
 122 (cross-brand scope)     ──┘   independent scope_key fix; feeds the same re-run vs the 100-email baseline
 ```
+
 **External/cross-track:** consumes the `resolver_index` + `nxt.resolve_candidates` substrate (Phase 91, live for debtor). Sales must migrate its REST-proxy lookups onto the same SQL back-search to feed corroboration — see todo `2026-06-15-sales-offerte-lookup-false-positive.md` (the postcode schema gap + REST→SQL migration). Both swarms benefit.
 
 **Phases in this milestone** (detail sections below):
 
 - [x] **Phase 120: D-06 multi-signal corroboration engine (generic, cross-swarm)** *(added 2026-06-16)* — give the resolution engine a config-expressible corroboration capability so it COLLECTS candidate signals across precedence steps instead of short-circuiting on the first hit, and RAISES confidence when ≥N independent identifiers agree on the same `customer_account_id`; swarm-agnostic, no per-swarm branch (SWARM-02), re-seed `resolution_config` to opt in, then re-run the no-Engine-diff measurement to finalize V9.0 STAGE2-01. (completed 2026-06-17)
-- [ ] **Phase 121: Attachment-borne identifier extraction (corroboration signal source)** *(added 2026-06-16)* — parse identifiers (PO / offertenummer / invoice / order numbers) out of attachment **content** (PDF text first, per Phase 116) and feed them into Stage 2 resolution as first-class identifiers; adapter-side body-source (STAGE2-01-safe), registry-gated per swarm, no per-swarm code (SWARM-02).
-- [ ] **Phase 122: Cross-brand-scope customer resolution** *(added 2026-06-16, from the resolver eval)* — on an in-scope miss, fall back to a cross-brand back-search over `resolver_index` (unique hit resolves, non-unique degrades to suggestie) instead of returning nothing or a wrong-scope guess; swarm-agnostic, config-gated, zero per-swarm branch (SWARM-02).
+- [x] **Phase 121: Attachment-borne identifier extraction (corroboration signal source)** *(added 2026-06-16)* — parse identifiers (PO / offertenummer / invoice / order numbers) out of attachment **content** (PDF text first, per Phase 116) and feed them into Stage 2 resolution as first-class identifiers; adapter-side body-source (STAGE2-01-safe), registry-gated per swarm, no per-swarm code (SWARM-02). (121-01 discovery DONE 2026-06-17; planned 3 plans — 121-02 build #24 [xlsx extract + many-customer guard], 121-03 acceptance [verifiable-now; live re-run deferred to Phase 123]) (completed 2026-06-18)
+- [x] **Phase 122: Cross-brand-scope customer resolution** *(added 2026-06-16, from the resolver eval)* — on an in-scope miss, fall back to a cross-brand back-search over `resolver_index` (unique hit resolves, non-unique degrades to suggestie) instead of returning nothing or a wrong-scope guess; swarm-agnostic, config-gated, zero per-swarm branch (SWARM-02). (completed 2026-06-18; XSCOPE-01/02/03 verified, PR #117; gap-closure 122-05 leaf-vs-root fix)
 - [x] **Phase 123: Unify Stage-2 on `resolve_candidates` + retire legacy lookup tools** *(added 2026-06-17, operator directive)* — move the debtor swarm (sender + invoice) onto the single generic `resolve_candidates` resolver (`resolver_index` already has `email_domain`/`email_address`/`invoice_no` kinds), and REMOVE `nxt.contact_lookup` + `nxt.identifier_lookup` entirely — from code (wrappers/types/schemas/steps/sales adapter/tests) AND the database (`zapier_tools` rows + `nxt_lookup_requests` CHECK constraints). One generic look-up, no dual-tool confusion (SWARM-02). **Carries the deferred Phase-120 debtor correctness gate as its acceptance eval** (sender resolution behavior changes on the dominant error source — must re-score the frozen 100-email fixture). Full inventory: `.planning/todos/pending/2026-06-17-unify-stage2-on-resolve-candidates.md`. (completed 2026-06-17)
 
 ### Phase 120: D-06 multi-signal corroboration engine (generic, cross-swarm)
@@ -553,6 +578,7 @@ Give the resolution engine a config-expressible corroboration capability so it C
 **Plans:** 4/4 plans complete
 
 Plans:
+
 - [x] 120-01-PLAN.md *(wave 1)* — Engine capability: pure scoreCorroboration helper + CorroborationConfig field + config-gated collect-then-decide branch (CORR-01..04)
 - [x] 120-02-PLAN.md *(wave 2, ⊃ 01)* — Sales SWARM-02 reconciliation + REST→SQL transport switch (offerte/order/sites via resolver_index; shared helper) (CORR-04/05)
 - [x] 120-03-PLAN.md *(wave 3, ⊃ 01,02)* — Two resolution_config re-seeds (debtor + sales) + debtorP0Config lockstep + [BLOCKING] live Supabase apply (CORR-05)
@@ -569,6 +595,7 @@ The Customer Resolver must use ONE generic look-up — `nxt.resolve_candidates` 
 **Depends on**: Phase 120 (corroboration engine + sales on resolve_candidates — done). **External**: `resolver_index` substrate already carries `email_domain` (21,126) + `email_address` (31,138) + `invoice_no` (175,004) rows in scope SB (verified live 2026-06-17) — no proc change needed.
 
 **Requirements**: RESL-UNIFY-01..07 (defined at planning — see REQUIREMENTS.md). Mapping to draft shape:
+
   1. Debtor `sender_match` resolves via `resolve_candidates` (`email_domain`/`email_address`), not `contact_lookup`.
   2. Debtor `identifier_match` resolves invoices via `resolve_candidates` (`invoice_no`); the legacy `identifier_lookup` fallback is removed.
   3. Sales sender_match + factuur_match likewise on `resolve_candidates`.
@@ -577,6 +604,7 @@ The Customer Resolver must use ONE generic look-up — `nxt.resolve_candidates` 
   6. **Acceptance eval**: re-run the frozen 100-email fixture (`web/scripts/eval/resolver-correctness-gate.ts`) — sender behavior change on the dominant error source must not regress, and corroboration must now fire over the generic path. This is the carried-over Phase-120 debtor gate (`RERUN-FINDINGS.md` / `120-HUMAN-UAT.md`).
 
 **Plans:** 4/4 plans complete
+
 - [x] 123-01-PLAN.md — Debtor sender_match + invoice resolution onto resolve_candidates (wave 1; RESL-UNIFY-01/02/07; auto_safe_kinds reconciliation decision)
 - [x] 123-02-PLAN.md — Sales sender_match + factuur_match onto resolve_candidates (wave 1; RESL-UNIFY-03/07)
 - [x] 123-03-PLAN.md — Atomic removal of nxt.contact_lookup + nxt.identifier_lookup from code + tests (wave 2; RESL-UNIFY-04)
@@ -599,6 +627,17 @@ Parse identifiers out of attachment **content** (PDF text first, per Phase 116's
   4. Sales onboards first (its offerte/PO traffic carries letterhead IDs); debtor/info opt in via registry row.
   5. **Rides along (eval bucket D, 3 rows):** factuurnummer present in the **subject line** is extracted and used, and factuur-match outranks sender-match in precedence — the gold ID must win over the weak prior when both are present. Same extraction-completeness theme as attachment-borne IDs; folded in here rather than a separate todo (operator, 2026-06-16).
 
+**Plans**: 3 plans (2 waves; 121-01 discovery DONE)
+Plans:
+**Wave 1**
+
+- [x] 121-01-PLAN.md — Wave 0: empirical baseline + gap manifest (discovery — DONE 2026-06-17)
+- [x] 121-02-PLAN.md — Wave 1: close #24 — exceljs `.xlsx`/`.csv` extraction branch in `extract.ts` (adapter-side, engine byte-identical) + verify-first 358-root many-customer demotion + no-engine-diff gate (ATID-01/02/03/04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 121-03-PLAN.md — Wave 2: eval-grounded acceptance — xlsx fold test + verifiable-now suite; live debtor fixture re-run DEFERRED to Phase 123 (blocked, autonomous:false) (ATID-01/02/04)
+
 ### Phase 122: Cross-brand-scope customer resolution
 
 *(added 2026-06-16, from the resolver eval)*
@@ -608,11 +647,22 @@ When the resolver's identifier (factuur / klantnummer / name) does not resolve w
 **Goal**: A mail in the wrong brand mailbox should still resolve to the right customer when the identifier is unambiguous cross-scope — and must NOT manufacture a new false positive (the cross-scope match must itself be unique, `is_unique_in_scope`-style, or it degrades to a suggestie). Distinguish "customer under another brand" (resolve it) from "wrong mailbox, needs re-routing" (operator signal) — these are different fixes; this phase owns the resolution half, not the ingest re-routing half.
 
 **Depends on**: nothing within V9.5 (uses the existing `resolver_index` substrate, Phase 91). Independent of 120/121; all three feed the same re-run vs the 100-email baseline.
-**Requirements**: XSCOPE-01..03 (defined at planning). Draft shape:
+**Requirements**: XSCOPE-01, XSCOPE-02, XSCOPE-03
+**Plans:** 5/5 plans complete
 
-  1. On in-scope miss, the engine performs a cross-scope `resolve_candidates` back-search; a unique cross-scope hit resolves, a non-unique one degrades to suggestie (no confident wrong-scope guess).
-  2. Cross-scope resolution is config-gated per swarm (opt-in), zero `if swarm==='…'` branch (SWARM-02 holds).
-  3. The 9 eval bucket-C rows resolve to the operator-confirmed customer (or are correctly demoted to suggestie when genuinely ambiguous) in the post-landing re-run.
+Plans:
+**Wave 1**
+
+- [x] 122-01-PLAN.md — Wave 0: failing cross-scope unit tests (auto/suggestie/opt-out) + numericConfidence suggestie test + BUCKET_C eval-gate extension
+- [x] 122-02-PLAN.md — Wave 1: types/contract layer — Confidence += suggestie, ResolveResult.cross_scope_misroute, CrossScopeConfig, numericConfidence + worker casts
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 122-03-PLAN.md — Wave 2: shared resolveCrossScope helper + post-pass at the 3 drop sites (invoice/number/self-auth), root vs direct granularity, SWARM-02 clean
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 122-04-PLAN.md — Wave 3: cross_scope opt-in migration + debtorP0Config lockstep + [BLOCKING] live apply + bucket-C eval re-run (XSCOPE-03)
 
 ---
 

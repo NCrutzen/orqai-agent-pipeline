@@ -88,6 +88,20 @@ export const debtorP0Config: ResolutionConfig = {
     boost: "high",
     auto_safe_alone_kinds: ["customer_no", "site_no", "invoice_no"],
   },
+  // Phase 122-04 (W3, LOCKED): ONLY the `cross_scope` sub-object is kept in
+  // lockstep with the live debtor seed (20260618a_debtor_cross_scope_optin.sql).
+  // The `precedence` + `auto_safe_kinds` above stay the P0 order ON PURPOSE — this
+  // constant is the D-07 kill-switch revert target (see the header comment), NOT a
+  // full mirror of the live registry row. The lockstep test asserts ONLY
+  // `.cross_scope`, never full deep-equality. auto_resolve_kinds names the STRONG
+  // identifier kinds that may AUTO cross-brand alone on a single distinct root
+  // (D-03a); allow_corroboration_auto lets a corroborated cross-brand candidate
+  // AUTO even on a lone weak kind (D-03b).
+  cross_scope: {
+    enabled: true,
+    auto_resolve_kinds: ["invoice_no", "customer_no", "site_no"],
+    allow_corroboration_auto: true,
+  },
 };
 
 /**

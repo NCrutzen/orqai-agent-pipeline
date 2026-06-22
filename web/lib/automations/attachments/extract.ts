@@ -51,6 +51,12 @@ const PDF_RENDER_SCALE = 2.0;
 const PDF_CONTENT_TYPE = "application/pdf";
 const IMAGE_CONTENT_TYPES = new Set(["image/jpeg", "image/png"]);
 
+// Phase 121-02 (#24 EXTRACTION-GAP) — spreadsheet/CSV content types. Both route
+// through the EXISTING 116-05 fold once status is `extracted` (no engine diff).
+const XLSX_CONTENT_TYPE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const CSV_CONTENT_TYPES = new Set(["text/csv", "application/csv"]);
+
 // Generic MIME types senders use when they don't set a real one. When we get
 // one of these we can't trust it — fall back to the filename extension to find
 // the real type (recovers PDFs/images that arrived as octet-stream and were
@@ -211,8 +217,83 @@ export async function extractAttachment(
     const vision = await runVision([dataUrl]);
     if (vision.status !== "extracted") return vision;
     text = vision.text;
+  } else if (ct === XLSX_CONTENT_TYPE) {
+    // (2) Phase 121-02 — .xlsx → exceljs, string-only, fail-soft (D-03).
+    let overCap = false;
+    try {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await wb.xlsx.load(bytes as any);
+
+    // EARLY cap (T-121-02): track projected wrapped length while accumulating
+    // and bail to skipped_cap the moment it would exceed maxExtractedChars —
+    // never materialise a multi-MB string from a 358-row sheet then reject it.
+    const fenceOverhead =
+      UNTRUSTED_ATTACHMENT_OPEN.length + UNTRUSTED_ATTACHMENT_CLOSE.length + 2;
+    const charBudget = caps.maxExtractedChars - fenceOverhead;
+    let projected = 0;
+    const rowLines: string[] = [];
+    wb.eachSheet((sheet) => {
+      if (overCap) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (sheet as any).eachRow((row: any) => {
+        if (overCap) return;
+        const cells: string[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        row.eachCell((cell: any) => {
+          const v = cell.value;
+          let s: string;
+          if (typeof v === "string") {
+            s = v;
+          } else if (typeof v === "number" || typeof v === "boolean") {
+            s = String(v);
+          } else if (
+            v !== null &&
+            typeof v === "object" &&
+            ("formula" in v || "result" in v)
+          ) {
+            // Formula cell: read the CACHED result, never evaluate. result may be
+            // a primitive, a Date, or itself an { error } object.
+            const r = (v as { result?: unknown }).result;
+            if (r !== null && r !== undefined && typeof r !== "object") {
+              s = String(r);
+            } else {
+              const f = (v as { formula?: unknown }).formula;
+              s = typeof f === "string" ? f : "";
+            }
+          } else {
+            s = "";
+          }
+          if (s.length > 0) cells.push(s);
+        });
+        if (cells.length > 0) {
+          const line = cells.join(",");
+          // +1 for the "\n" joining this row to the previous accumulated text.
+          projected += line.length + (rowLines.length > 0 ? 1 : 0);
+          if (projected > charBudget) {
+            overCap = true;
+            return;
+          }
+          rowLines.push(line);
+        }
+      });
+    });
+      text = rowLines.join("\n");
+    } catch {
+      // corrupt / decompression-bomb / any thrown error inside parse or walk →
+      // fail-soft, never propagate past extractAttachment (D-03).
+      return { status: "extraction_failed", text: "" };
+    }
+    if (overCap) {
+      return { status: "skipped_cap", text: "" };
+    }
+  } else if (CSV_CONTENT_TYPES.has(ct)) {
+    // (2) Phase 121-02 — text/csv is already row text; just UTF-8 decode it and
+    // let the shared wrap + output-cap path below handle fencing + the cap.
+    text = new TextDecoder("utf-8").decode(bytes);
   } else {
-    // (2) docx/xlsx/reference/item attachments — no supported extractor (D-10).
+    // (2) docx/reference/item attachments — no supported extractor (D-10).
     return { status: "unsupported", text: "" };
   }
 
