@@ -1,6 +1,10 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// NB: do NOT construct the Resend client at module scope. `new Resend(undefined)`
+// throws when RESEND_API_KEY is unset, and because this module is reachable
+// (transitively) from /api/inngest, that throw breaks `next build`'s page-data
+// collection — taking down the whole deploy over an optional email key. Build
+// it lazily inside the send fn instead.
 
 /**
  * Send an email notification when an approval is pending.
@@ -16,11 +20,18 @@ export async function sendApprovalEmail(params: {
   projectId: string;
   stepName: string;
 }): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("[sendApprovalEmail] RESEND_API_KEY not set — skipping email");
+    return;
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
   const approvalUrl = `${appUrl}/projects/${params.projectId}/runs/${params.runId}?approval=${params.approvalId}`;
 
   try {
+    const resend = new Resend(apiKey);
     await resend.emails.send({
       from: `Agent Workforce <${fromEmail}>`,
       to: params.recipientEmail,

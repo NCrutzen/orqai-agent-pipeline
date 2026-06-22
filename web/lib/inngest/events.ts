@@ -824,7 +824,7 @@ export type Events = {
     data: {
       support_ticket_id: string; // UUID — public.support_tickets.id (PK)
       submission_id: string; // UUID — support_tickets.submission_id (= pipeline_events.email_id handle)
-      external_task_id: string; // text — upstream tracker id (ClickUp etc.)
+      external_task_id: string | null; // text — upstream tracker id (ClickUp etc.); null for app-origin (CONTRACT-02)
       attempt: number; // support_tickets.attempt (1 on first submission)
     };
   };

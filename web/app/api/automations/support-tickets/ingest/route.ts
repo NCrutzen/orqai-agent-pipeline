@@ -150,7 +150,7 @@ export async function POST(
       stage0.verdict,
       stage0.decision_details,
       stage0.duration_ms,
-      body.external_task_id,
+      body.external_task_id ?? null, // CONTRACT-02: external_task_id is now optional
     );
 
     const reasonMap: Record<string, string> = {
@@ -186,8 +186,11 @@ export async function POST(
       attempt: 1,
       submitter_id: body.submitter_id,
       user_chosen_type: body.user_chosen_type,
-      external_task_id: body.external_task_id,
+      external_task_id: body.external_task_id ?? null, // CONTRACT-02: optional; null for app-origin
+      systeem: body.systeem ?? null,                    // CONTRACT-01: new optional system_key slug
       video_storage_url: body.video_storage_url ?? null,
+      soort: body.soort ?? null,                              // CONTRACT-03 (Phase 5)
+      photo_storage_urls: body.photo_storage_urls ?? null,   // CONTRACT-03 (Phase 5)
       device_fingerprint: body.device_fingerprint ?? null,
       submitted_at: body.submitted_at ?? new Date().toISOString(),
     })
@@ -290,7 +293,7 @@ export async function POST(
       data: {
         support_ticket_id,
         submission_id,
-        external_task_id: body.external_task_id,
+        external_task_id: body.external_task_id ?? null, // CONTRACT-02: optional
         attempt: 1,
       },
     });
