@@ -599,16 +599,28 @@ export async function fetchCommentsForSync(id: string): Promise<SyncComment[]> {
 }
 
 /**
- * Enumerate ALL task ids on the Support list (no email filter) for cache
- * backfill / reconciliation. Paginates with include_closed=true so closed
+ * Enumerate task ids on the Support list (no email filter) for cache backfill /
+ * reconciliation. Paginates with include_closed=true so closed
  * (resolved/rejected/merged) tasks are included.
+ *
+ * @param opts.updatedSince - when set (epoch ms), only return tasks whose
+ *   `date_updated` is greater (ClickUp `date_updated_gt`) — i.e. tasks changed
+ *   since the watermark. Used by the incremental poll (clickup-cache-poll) to
+ *   refresh only what changed via the API, instead of per-event Zapier load.
  */
-export async function fetchAllTaskIds(): Promise<{ ids: string[] } | { error: string }> {
+export async function fetchAllTaskIds(
+  opts: { updatedSince?: number } = {},
+): Promise<{ ids: string[] } | { error: string }> {
   const token = process.env.CLICKUP_API_TOKEN;
   const listId = process.env.CLICKUP_LIST_ID;
   if (!token || !listId) {
     return { error: "ClickUp env vars not configured (CLICKUP_API_TOKEN / CLICKUP_LIST_ID)" };
   }
+
+  const sinceParam =
+    typeof opts.updatedSince === "number" && Number.isFinite(opts.updatedSince)
+      ? `&date_updated_gt=${Math.floor(opts.updatedSince)}&order_by=updated`
+      : "";
 
   const ids: string[] = [];
   try {
@@ -616,7 +628,7 @@ export async function fetchAllTaskIds(): Promise<{ ids: string[] } | { error: st
     while (true) {
       const url =
         `https://api.clickup.com/api/v2/list/${listId}/task` +
-        `?include_closed=true&page=${page}`;
+        `?include_closed=true${sinceParam}&page=${page}`;
       const res = await fetch(url, {
         headers: { Authorization: token },
         next: { revalidate: 0 },

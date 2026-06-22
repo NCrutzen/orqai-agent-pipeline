@@ -76,6 +76,7 @@ import { stage4SupportTicketsClickupEscalateHandler } from "@/lib/automations/su
 import { stage4SupportTicketsVendorDraftHandler } from "@/lib/automations/support-tickets/vendor-draft-handler";
 import { clickupOutbound } from "@/lib/automations/support-tickets/clickup-outbound";
 import { clickupCacheSync } from "@/lib/automations/support-tickets/clickup-cache-sync";
+import { clickupCachePoll } from "@/lib/automations/support-tickets/clickup-cache-poll";
 import { supportTicketsEmailNotifier } from "@/lib/automations/support-tickets/email-notifier";
 
 export const { GET, POST, PUT } = serve({
@@ -145,6 +146,7 @@ export const { GET, POST, PUT } = serve({
     stage4SupportTicketsVendorDraftHandler,
     clickupOutbound,
     clickupCacheSync,
+    clickupCachePoll,
     supportTicketsEmailNotifier,
   ],
 });

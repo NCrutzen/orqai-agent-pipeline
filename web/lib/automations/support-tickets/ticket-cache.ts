@@ -188,6 +188,24 @@ export async function getCachedTicketById(
   return { ticket: recordToDetail(record) };
 }
 
+/**
+ * Most recent `date_updated` across all cached tickets — the watermark for the
+ * incremental poll (clickup-cache-poll). Returns null when the cache is empty.
+ */
+export async function getMaxDateUpdated(): Promise<string | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from(TICKETS_TABLE)
+    .select("date_updated")
+    .not("date_updated", "is", null)
+    .order("date_updated", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return (data as { date_updated: string | null }).date_updated;
+}
+
 /** Cached comments for a task, oldest first. Never throws (returns [] on error). */
 export async function getCachedComments(id: string): Promise<ClickupComment[]> {
   const supabase = createAdminClient();
