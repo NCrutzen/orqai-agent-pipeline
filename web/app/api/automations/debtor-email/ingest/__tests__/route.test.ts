@@ -127,6 +127,17 @@ describe("POST /api/automations/debtor-email/ingest — D-A thin ingest", () => 
     sendCalls.length = 0;
     process.env.ZAPIER_INGEST_SECRET = "test-secret";
 
+    // Reset inngest.send to the default all-resolve impl each test; the
+    // label-gap retry tests below override it to fail the stage-0 emit.
+    const { inngest } = await import("@/lib/inngest/client");
+    vi.mocked(inngest.send).mockImplementation(((p: {
+      name: string;
+      data: Record<string, unknown>;
+    }) => {
+      sendCalls.push(p);
+      return Promise.resolve({ ids: ["evt"] });
+    }) as unknown as typeof inngest.send);
+
     const outlook = await import("@/lib/outlook");
     vi.mocked(outlook.getMessageMeta).mockResolvedValue({
       subject: "any subject",
@@ -340,5 +351,91 @@ describe("POST /api/automations/debtor-email/ingest — D-A thin ingest", () => 
     expect(rows[1].position).toBe(2);
     expect(rows[1].source_message_id).toBe("prior-C");
     expect(payload.opts.onConflict).toBe("email_id,position");
+  });
+
+  // ── Label-gap fix shape (1): ingest stage-0 emit resilience ──────────────
+  // A transient stage-0 emit failure must NOT silently drop the email. Before
+  // the fix a single failed send marked the run 'failed' with zero
+  // pipeline_events (6 debtor mails, 2026-06 probe). Now: bounded retry recovers
+  // transient IO, and a terminal failure leaves a VISIBLE worker_failed event.
+
+  it("retries a transient stage-0 emit failure and still dispatches (200)", async () => {
+    const { inngest } = await import("@/lib/inngest/client");
+    let stage0Attempts = 0;
+    vi.mocked(inngest.send).mockImplementation(((p: {
+      name: string;
+      data: Record<string, unknown>;
+    }) => {
+      sendCalls.push(p);
+      if (p.name === "stage-0/email.received") {
+        stage0Attempts++;
+        if (stage0Attempts === 1) {
+          return Promise.reject(new Error("transient inngest 503"));
+        }
+      }
+      return Promise.resolve({ ids: ["evt"] });
+    }) as unknown as typeof inngest.send);
+
+    const res = await postIngest({
+      messageId: "outlook-msg-retry-ok",
+      source_mailbox: "debiteuren@smeba.nl",
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.action).toBe("stage_0_dispatched");
+    // Emitted twice: the failed first attempt + the successful retry.
+    expect(stage0Attempts).toBe(2);
+    // No visible-failure telemetry, and the run was NOT marked failed.
+    const failEvents = supabaseInserts.filter(
+      (r) => r.table === "pipeline_events" && r.payload.decision === "worker_failed",
+    );
+    expect(failEvents).toHaveLength(0);
+    const failedUpdates = supabaseInserts.filter(
+      (r) => r.table === "automation_runs:update" && r.payload.status === "failed",
+    );
+    expect(failedUpdates).toHaveLength(0);
+  });
+
+  it("terminal stage-0 emit failure → 502 + visible worker_failed event + run marked failed", async () => {
+    const { inngest } = await import("@/lib/inngest/client");
+    vi.mocked(inngest.send).mockImplementation(((p: {
+      name: string;
+      data: Record<string, unknown>;
+    }) => {
+      sendCalls.push(p);
+      if (p.name === "stage-0/email.received") {
+        return Promise.reject(new Error("inngest down"));
+      }
+      return Promise.resolve({ ids: ["evt"] });
+    }) as unknown as typeof inngest.send);
+
+    const res = await postIngest({
+      messageId: "outlook-msg-terminal",
+      source_mailbox: "debiteuren@smeba.nl",
+    });
+
+    expect(res.status).toBe(502);
+    const json = await res.json();
+    expect(json.action).toBe("failed");
+
+    // Visible telemetry: a worker_failed pipeline_events row (email_id NULL to
+    // dodge the per-stage unique index; refs live in decision_details).
+    const failEvents = supabaseInserts.filter(
+      (r) => r.table === "pipeline_events" && r.payload.decision === "worker_failed",
+    );
+    expect(failEvents).toHaveLength(1);
+    expect(failEvents[0].payload.stage).toBe(0);
+    expect(failEvents[0].payload.swarm_type).toBe("debtor-email");
+    expect(failEvents[0].payload.email_id).toBeNull();
+    expect(
+      (failEvents[0].payload.decision_details as Record<string, unknown>).message_id,
+    ).toBe("outlook-msg-terminal");
+
+    // Placeholder marked failed so it doesn't linger as pending.
+    const failedUpdates = supabaseInserts.filter(
+      (r) => r.table === "automation_runs:update" && r.payload.status === "failed",
+    );
+    expect(failedUpdates).toHaveLength(1);
   });
 });

@@ -166,18 +166,17 @@ export const stage2CustomerResolver = inngest.createFunction(
     ]);
 
     if (!emailRow) {
-      await step.run("mark-failed-email-missing", async () => {
-        await admin
-          .from("automation_runs")
-          .update({
-            status: "failed",
-            error_message: `email row not found for message_id=${message_id}`,
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", automation_run_id);
-        await emitAutomationRunStale(admin, `${swarm_type}-review`);
-      });
-      return { ok: false, reason: "email_not_found" };
+      // Label-gap fix (#105 follow-up): the emails row is frequently just LATE,
+      // not absent — ingest INSERTs it on a separate code path that can lag this
+      // worker by seconds (replication / commit ordering). The old silent
+      // `return {ok:false}` killed the run on the first miss → no Stage 3, no
+      // label, and (because it did not throw) no worker_failed event either: a
+      // permanently invisible drop (20 'pending' debtor runs, 2026-06 probe).
+      // THROW instead → retries:3 replays past the race, and a genuine
+      // never-arrives row surfaces as a visible worker_failed via onFailure
+      // (recordWorkerFailure marks the automation_run failed too). Exactly the
+      // boundary #105 fixed elsewhere but missed here.
+      throw new Error(`email row not found for message_id=${message_id}`);
     }
 
     // Phase 110 Plan 04 (D-10 / D-11) — per-stage gate. The labeling write is a
