@@ -105,14 +105,21 @@ export function normalizeBody(body: string): NormalizeResult {
   out = applyCleaner(out, FIRST_TIME_SENDER_PATTERN, "", "first_time_sender", removed);
   out = applyCleaner(out, EXCESS_BLANK_LINES_PATTERN, "\n\n", "excess_blank_lines", removed);
 
-  // Defensive: if normalization stripped everything meaningful, fall back to
-  // the original body. Stage 0 must never silently see an empty body.
+  // If normalization stripped everything, the body was PURE mail-client chrome
+  // / zero-width obfuscation with no real text. The old behavior returned the
+  // ORIGINAL body here — which re-fed the zero-width walls to the safety LLM and
+  // produced exactly the false `injection_suspected` this module exists to stop
+  // (observed live: Lidl Zahlungsavis + bulk mail collapse to a single newline,
+  // 2026-06). A body with no real content is benign, so return a neutral, non-
+  // empty placeholder (Stage 0 must never see an empty body) that carries none
+  // of the obfuscation, so the LLM classifies it safe.
   if (!out.trim()) {
+    const placeholder = "(no textual content)";
     return {
-      normalized: body,
-      changed: false,
-      delta_chars: 0,
-      removed: "",
+      normalized: placeholder,
+      changed: true,
+      delta_chars: placeholder.length - body.length,
+      removed: removed.length ? removed.join(",") : "zero_width",
       fallback_reason: "normalized_to_empty",
     };
   }

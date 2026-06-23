@@ -85,18 +85,35 @@ describe("normalizeBody — First-Time Sender chrome", () => {
 });
 
 describe("normalizeBody — fallback when result would be empty", () => {
-  it("returns original body and fallback_reason='normalized_to_empty' when nothing remains", () => {
+  it("returns a benign placeholder (NOT the original) so the safety LLM sees no obfuscation", () => {
     const body =
       `External (someone@example.com)\n` +
       `  Safe  Spam  Phish  More...  FAQ  Protection by Q2Q\n` +
       `CAUTION: External Sender`;
 
     const r = normalizeBody(body);
-    expect(r.normalized).toBe(body);
-    expect(r.changed).toBe(false);
-    expect(r.delta_chars).toBe(0);
+    // Must NOT return the original body — that re-fed the chrome/obfuscation to
+    // the LLM and caused false injection_suspected.
+    expect(r.normalized).not.toBe(body);
+    expect(r.normalized).not.toContain("Protection by Q2Q");
+    expect(r.normalized).not.toContain("External (someone@example.com)");
+    expect(r.normalized.trim().length).toBeGreaterThan(0); // never empty
+    expect(r.changed).toBe(true);
     expect(r.fallback_reason).toBe("normalized_to_empty");
-    expect(r.removed).toBe("");
+  });
+
+  it("a body that is PURE zero-width wall + chrome (Lidl Zahlungsavis class) does not leak the wall", () => {
+    // The live regression: body_text is entirely "CAUTION" + an 88-char U+200C
+    // wall, no real text. Stripping collapses it to whitespace; the old fallback
+    // returned the original (88 zero-width chars) → injection_suspected FP.
+    const wall = "  ‌".repeat(88);
+    const body = `CAUTION: External Sender${wall}`;
+
+    const r = normalizeBody(body);
+    expect(r.normalized).not.toContain("‌"); // no U+200C leaks through
+    expect(r.normalized).not.toMatch(/CAUTION:\s*External Sender/);
+    expect(r.normalized.trim().length).toBeGreaterThan(0);
+    expect(r.fallback_reason).toBe("normalized_to_empty");
   });
 });
 
