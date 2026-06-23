@@ -24,6 +24,31 @@ describe("normalizeBody — Smeba forwarded signature wall", () => {
   });
 });
 
+describe("normalizeBody — soft-hyphen / CGJ obfuscation wall (euroboor class)", () => {
+  it("strips soft hyphen (U+00AD), combining grapheme joiner (U+034F) and bidi/format marks, not only U+200x", () => {
+    // Reproduces the dominant injection-FP class: bulk/marketing senders pad
+    // the body with soft hyphens + CGJ + zero-width chars interspersed BETWEEN
+    // letters. The old pattern only stripped U+200B-200D/FEFF/2060, leaving the
+    // soft hyphens + CGJ for the safety LLM to flag as obfuscation.
+    const SHY = "­"; // soft hyphen
+    const CGJ = "͏"; // combining grapheme joiner
+    const WJ = "⁠"; // word joiner
+    const LRM = "‎"; // left-to-right mark
+    const word = `B${SHY}e${CGJ}s${WJ}t${LRM}e`; // "Beste" with invisible padding
+    const body = `${word}, kunt u factuur 33050878 crediteren?`;
+
+    const r = normalizeBody(body);
+    expect(r.changed).toBe(true);
+    expect(r.normalized).not.toContain(SHY);
+    expect(r.normalized).not.toContain(CGJ);
+    expect(r.normalized).not.toContain(WJ);
+    expect(r.normalized).not.toContain(LRM);
+    // de-obfuscation rejoins the word (the padding rendered as nothing)
+    expect(r.normalized).toContain("Beste, kunt u factuur 33050878 crediteren?");
+    expect(r.removed).toContain("zero_width");
+  });
+});
+
 describe("normalizeBody — Reavas external-sender banner", () => {
   it("strips CAUTION prefix + External envelope but keeps the real message", () => {
     const body =

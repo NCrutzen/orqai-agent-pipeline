@@ -35,9 +35,24 @@ export interface NormalizeResult {
   fallback_reason?: "normalized_to_empty";
 }
 
-// Zero-width characters used as signature spacers by Outlook (and others).
-// U+200B ZWSP, U+200C ZWNJ, U+200D ZWJ, U+FEFF ZWNBSP/BOM, U+2060 WJ.
-const ZERO_WIDTH_PATTERN = /[\u200B\u200C\u200D\uFEFF\u2060]/g;
+// Invisible / zero-render characters used as signature spacers by Outlook and
+// as obfuscation padding by bulk/marketing senders (interspersed BETWEEN
+// letters). All render as nothing, so stripping them is always safe and
+// correctly de-obfuscates padded words.
+//
+// Covered: U+00AD SOFT HYPHEN, U+034F COMBINING GRAPHEME JOINER, U+180E
+// MONGOLIAN VOWEL SEPARATOR, U+200B ZWSP, U+200C ZWNJ, U+200D ZWJ, U+200E LRM,
+// U+200F RLM, U+2060 WORD JOINER, U+2061-U+2064 invisible math operators,
+// U+FEFF ZWNBSP/BOM.
+//
+// Why expanded (live debtor injection-FPs, 2026-06): the Stage 0 safety LLM
+// correctly flags zero-width walls as injection. The old pattern stripped only
+// U+200B-200D/FEFF/2060, so legit marketing/payment-advice mail padded with
+// SOFT HYPHEN + CGJ still tripped `injection_suspected` after normalize \u2014 the
+// dominant FP class (every big-delta FP's llm_reason cited "zero-width spaces
+// AND soft hyphens"). Telemetry label kept as `zero_width` for continuity.
+const ZERO_WIDTH_PATTERN =
+  /[\u00AD\u034F\u180E\u200B-\u200F\u2060-\u2064\uFEFF]/g;
 
 // "CAUTION: External Sender" lines. Outlook prepends this on external mail
 // and Mimecast/Q2Q sometimes injects a duplicate copy inside the body.
