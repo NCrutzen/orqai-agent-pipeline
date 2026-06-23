@@ -46,9 +46,13 @@ send → accept/reject); order-entry owns the order. **The accept event is the s
 
 013 found the GAP: no quote-acceptance trigger, no quote→order glue. 015 places that GAP precisely:
 
-- **Detection is NOT order-entry's to build** — sales-email already has `quote_acceptance` as a
-  registered intent (`swarm_intents`, seeded migration `20260609b`, 13 sales intents). Sales Stage-3
+- **Detection is NOT order-entry's to build** — sales-email already carries `quote_acceptance` as an
+  intent row (`swarm_intents`, seeded migration `20260609b`, 13 sales intents). Sales Stage-3
   classifies it; order@ also receives direct acceptances and classifies them in its own Stage-3.
+  **Live-verified 2026-06-23** (Agent-Workforce DB `mvqjhlxfvtqqubqgdvhz`): all 13 sales intents are
+  `handler_status='placeholder'` (so today they route to the Kanban human-lane, no Stage-4 handler
+  yet); `quote_acceptance` exists with `handler_event='sales-email/quote_acceptance.requested'`. The
+  detection wiring is present; only the act-side handler is missing.
 - **Resolution is NOT order-entry's to build, and is LOCKED away from NXT REST** — the offerte→customer
   lookup is `web/lib/automations/sales-email/lookups/offerte.ts` via `resolver_index` (filter
   `identifier_kind='quote_no'`, require `is_unique_in_scope`). Order-entry MUST reuse this, NOT
@@ -70,6 +74,8 @@ Dirk-€500). None touch the sales swarm.
 ## Conclusion (V10.5 readiness)
 - **Cross-swarm-with-sales surface = the offerte lifecycle, and it reduces to one seam:**
   `quote_acceptance` (sales detects → order-entry acts) + the small reverse `quote_request` forward.
+  Live-verified: the sales intent rows exist but sit at `handler_status='placeholder'` — the seam is
+  scaffolded, not yet wired.
 - **Nothing new to build at the swarm-boundary layer** — dispatch, registry, codegen, and Stage-2
   transport are shared and locked; order-entry inherits them.
 - **Two hard reuse-locks for the V10.5 build:** (a) resolve offerte→customer via the shared
