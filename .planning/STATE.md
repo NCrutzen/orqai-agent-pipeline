@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: V9.7
 milestone_name: Routing Swarm Go-Live — Departmental Routing
 status: planning
-stopped_at: Phase 133 context gathered (V9.5 resolver phases 119/120/121/122/123 complete + merged on main, PR #117/#118/#111/#110)
-last_updated: "2026-06-18T17:49:13.262Z"
+stopped_at: Phase 132.1 context gathered
+last_updated: "2026-06-23T14:48:42.355Z"
 last_activity: 2026-06-18
 progress:
-  total_phases: 22
-  completed_phases: 12
-  total_plans: 55
-  completed_plans: 55
-  percent: 55
+  total_phases: 2
+  completed_phases: 1
+  total_plans: 12
+  completed_plans: 5
+  percent: 42
 ---
 
 # Project State
@@ -397,10 +397,10 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 
 ## Session Continuity
 
-Last session: 2026-06-18T17:49:13.246Z
-Stopped at: Phase 133 context gathered
+Last session: 2026-06-23T14:48:42.338Z
+Stopped at: Phase 132.1 context gathered
 Resume with: Phase 131 verified clean. ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding; WR-02 dedup-below-threshold hardening optional future pass.
-Resume file: .planning/phases/133-nl-routing-config-verkoop-order-v9-7-p3/133-CONTEXT.md
+Resume file: .planning/phases/132.1-router-golive-dispatch-wiring-v9-7/132.1-CONTEXT.md
 
 ## Deferred Items
 
