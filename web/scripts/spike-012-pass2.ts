@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// ponytail: spike script — `any` on router/SDK response shapes is fine for throwaway exploration tooling.
 // Spike 012 — PASS 2: full-corpus order-entry classification (order@smeba.nl, ~30k incoming).
 // Workhorse = aws/eu.anthropic.claude-haiku-4-5 (EU/PII) via the Orq Router (CLAUDE.md: never a
 // direct provider key). ~$5.7 for the full corpus. Buckets + intent (spike 012/016 locked design).

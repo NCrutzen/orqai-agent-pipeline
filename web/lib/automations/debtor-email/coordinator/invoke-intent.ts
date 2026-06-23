@@ -322,7 +322,12 @@ export async function invokeIntentAgent(
     // Fail-soft: try coercing secondary-field violations (out-of-enum nullable
     // fields, over-long strings) and re-parse once. Only a verdict broken on a
     // PRIMARY field (e.g. an out-of-enum ranked[].intent) still throws.
-    const repaired = repairBySafeCoercion(parsed, validated.error.issues);
+    // zod v4 types issue.path as PropertyKey[] (may include symbol); our JSON
+    // schemas never produce symbol paths, so narrow to the helper's shape.
+    const repaired = repairBySafeCoercion(
+      parsed,
+      validated.error.issues as ReadonlyArray<ZodIssueLike>,
+    );
     const second = repaired === undefined ? undefined : schema.safeParse(repaired);
     if (second?.success) {
       console.warn(
