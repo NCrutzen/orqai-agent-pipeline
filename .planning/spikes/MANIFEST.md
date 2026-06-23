@@ -81,3 +81,53 @@ Stage 2 (entity resolution / "identify the customer") leaves **65% of debtor ema
 
 - Building the production resolver layers (that's the milestone's phases).
 - Any live NXT query (whitelisted-IP only; not reachable from the spike).
+
+---
+
+# Idea 3: Order Entry — first end-to-end act-proof (V10.5) (2026-06-22)
+
+## Idea
+
+V10.5 **Order Entry** (roadmap reshuffle #124) is the depth-first flagship: prove the **act layer**
+(handlers that *mutate systems* to complete a journey) once, deeply, on the cleanest end-to-end
+journey — `offerte→order` in NXT — before V11 generalises it. It is **readiness-gated**, and one of
+its gates is **"the Order Entry spike"**: assess the colleague's voorwerk + the existing NXT/Flowable
+endpoints + CTO Claude Code skills + Browserless UI-automation + the task-model gap + what transfers
+to/from sales. The crux is **dubbel greenfield** (NXT has almost no API; the task model is
+undocumented) → **phase 1 is discovery/documentation, not code**. This spike series is that
+read-only assessment; it sizes the build before any V10.5 phase is planned.
+
+Voorwerk committed by `automation-CURA` on `workspace/order-entry-agent-swarm` (2026-06-22):
+451-mail week classification (`order@smeba.nl`, 08–15 juni), `INTENT-VALIDATIE.md` §A (Ans-validated),
+Koen's intent-first proposal (not yet Ans-validated), design docs + session transcripts.
+
+## Requirements
+
+- **Read-only / assessment.** No runtime code, no `swarm_*` / `routing_destinations` / `swarm_intents`
+  INSERTs, no Outlook automation. The series produces written verdicts that size V10.5.
+- **Live validation, zero Koen inputs (Nick, 2026-06-22).** The corpus dimension is a LIVE validation
+  of Koen's voorwerk findings: his claims are hypotheses, the live `order@smeba.nl` mailbox is the
+  evidence, and we classify independently. Legit inputs = raw `email_pipeline.emails` (or a fresh
+  Graph fetch) + CTO act-layer facts. Koen's label CSVs / `INTENT-VALIDATIE.md` / intent-first set are
+  NOT inputs.
+- Honour the locked architecture: NXT REST is **writes/UI-lookups only**, never an entity-resolution
+  path (`docs/agentic-pipeline/stage-2-entity.md`); Order Entry's shape is **Router**, not noise-filter
+  (`docs/agentic-pipeline/README.md` Swarm Shapes).
+- Intent vocabulary is assessed, not hand-curated — the intent-first set is Koen↔Ans's to validate.
+
+## Spikes
+
+| # | Name | Type | Validates | Verdict | Tags |
+|---|------|------|-----------|---------|------|
+| 012 | order-entry-live-corpus-shape | standard | Dim A — LIVE validation of Koen's voorwerk findings against the live order@smeba.nl mailbox (~30,469 incoming): H1 Router-not-noise, H2 72/25/3 split, H3 intent set holds (survives full corpus?), H4 ~53% attachment-dependent. Classified independently; zero Koen inputs | ⧖ PENDING — scaffolded 2026-06-22 | order-entry, v10.5, live-validation, router, read-only |
+| 013 | nxt-act-layer-inventory | standard | Dim B — what NXT/Camunda endpoints actually exist for order creation; which CTO Claude Code skills cover which; where Browserless UI-automation is the only path. Builds on spikes 007 + 011d | ✓ LARGELY ANSWERED 2026-06-22 (CTO-sourced, authoritative) — act layer EXISTS: Layer C SPA-token writes on /api/* + /api/camunda-rest; create-order = POST /api/orders (nxt-user); M2M dead; agent-workforce proxy defunct (→ update nxt-rest-access.md). GAP: no quote-acceptance trigger / quote→order skill — orchestration glue is the swarm's | order-entry, nxt, camunda, act-layer, endpoints, cto-sourced |
+| 014 | order-entry-task-model-gap | standard | Dim C — documented vs undocumented task model; what discovery/documentation a handler needs before it can act (overlaps knowledge-layer ingestion) | ⧖ PLANNED | order-entry, task-model, knowledge-layer, discovery |
+| 015 | order-entry-sales-transfer | standard | Dim D — what of the act-layer + intent work is cross-swarm (transfers to/from sales-email) vs order-entry-specific | ⧖ PLANNED | order-entry, sales, cross-swarm |
+| 016 | order-entry-model-selection | standard | Which LLM (cost/speed/quality, EU/PII) for PASS 2 classification — shootout over EU candidates vs Opus-4.7-EU reference | ✓ DECIDED 2026-06-22 — workhorse = haiku-4.5 EU (~$11/30k); gemini-3.5-flash EU best quality (9/10) but ~7x cost (reasoning not suppressible) → escalation only; ministral-3b 3/10; nova-lite + nemotron-nano return empty → unusable. Prereq: lock order_work-vs-forward def | order-entry, v10.5, llm, model-selection, orq, eu, pii |
+
+## Out of scope (Idea 3)
+
+- Any new `order-entry` swarm registration or registry INSERT (that's a V10.5 phase).
+- Outlook label/forward automation for `order@smeba.nl`.
+- Writing the V10.5 milestone plan (`/gsd-plan-phase` after the gates clear).
+- Personal-mailbox swarms, proactive voice, and the generic V11 handler scaffolding.

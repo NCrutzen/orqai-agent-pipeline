@@ -98,7 +98,7 @@ export async function lookupPostcodeToAccount(
       brand_id: ctx.brand_id,
       environment_id: SALES_ENVIRONMENT_ID,
       identifiers: candidates,
-      brand_scope: [...SALES_BRAND_SCOPE],
+      brand_scope: ctx.brand_scope ?? [...SALES_BRAND_SCOPE],
     },
     SALES_RESOLVE_INTENT,
   ).catch((err) => {
@@ -113,7 +113,7 @@ export async function lookupPostcodeToAccount(
   const siteMatches = res.matches.filter(
     (m) =>
       POSTCODE_SITE_KINDS.has(m.identifier_kind) &&
-      m.scope_key === SALES_SCOPE_KEY &&
+      m.scope_key === (ctx.scope_key ?? SALES_SCOPE_KEY) &&
       m.is_unique_in_scope === true,
   );
   const distinctParties = Array.from(new Set(siteMatches.map((m) => m.party_id)));

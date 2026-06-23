@@ -30,8 +30,24 @@ import {
   type ResolveCandidateMatch,
 } from "@/lib/automations/debtor-email/nxt-zap-client";
 
-// Data-driven regex shapes (Plan 03 mining report `kinds[].pattern`).
-const OFFERTE_SB = /\bSB\d{5,6}\b/gi;
+// Data-driven regex shapes. Fact-checked against the source NXT quote table
+// (nxt.dbo.quote.reference, 2026-06-23): the offerte prefix == the 2-letter brand
+// code + a (zero-padded) 6-digit number. One pattern covers all prefixed brands:
+//   smeba        SB######  (4952 quotes, e.g. SB018409)
+//   berki        BB######  (3047, BB018415)
+//   fire-control FI######  (1624, FI018407)
+//   inprevo      IN######  (251,  IN015494..IN018418)  ← verified, NOT a guess
+//   smeba (alt)  "Smeq 97891" / "SMEQ98082" → SME[QB] + 4-6 digits
+// (The same table also carries SS/SN/SF/WF/AF for sicli/smeba-fire/Walker Fire/
+// Apex Fire — not sales mailboxes here, same convention.) Normalized = prefix +
+// leading zeros stripped → matches resolver_index quote_no per scope.
+// DELIBERATELY NOT matched: the 8-digit "Offerte Inprevo 50018685" numbers in
+// current Inprevo mail — Inprevo was acquired 2026-05-01 and those are the PRIOR
+// company's legacy offerte numbers, which do NOT exist in NXT (verified absent
+// from resolver_index). Matching them yields only non-resolving / coincidental
+// cross-scope hits. Extraction is brand-blind; the resolver_index back-search is
+// scoped to the mailbox brand (scope_key), so an out-of-scope number won't resolve.
+const OFFERTE_PREFIXED = /\b(?:SB|BB|FI|IN)\d{5,6}\b/gi;
 const OFFERTE_SMEQ = /\bSME[QB]\s?\d{4,6}\b/gi;
 
 // Sales region + brand scope for the resolver_index back-search. Sales is BX
@@ -54,6 +70,12 @@ export const SALES_RESOLVE_INTENT = "sales_resolution";
 export interface SalesResolveCtx {
   nxt_database: string;
   brand_id: string;
+  // Sales multi-brand: per-mailbox NXT brand tiebreaker scope + the
+  // resolver_index scope_key filter. The adapter derives both from the
+  // per-mailbox mapping (swarms.resolution_config.scope.brand_scope_by_mailbox);
+  // when absent (legacy callers/tests) the lookups fall back to the smeba default.
+  brand_scope?: string[];
+  scope_key?: string;
 }
 
 export interface SalesCustomerMatch {
@@ -77,8 +99,9 @@ export interface SalesCustomerMatch {
 
 /**
  * Normalize an offerte identifier to the resolver_index `identifier_value_norm`
- * form: strip the alpha prefix (SB/SMEQ/SMEB) AND leading zeros so "SB014098" and
- * "SMEQ98082" become "14098" / "98082" (verified resolver_index shape).
+ * form: strip the alpha prefix (SB/BB/FI/IN/SMEQ) AND leading zeros, so
+ * "SB014098" → "14098" and "FI016585" → "16585" (resolver_index quote_no is
+ * bare 5-digit; verified live for all brand scopes 2026-06-23).
  */
 function normalizeOfferteDigits(raw: string): string {
   return raw.replace(/\D/g, "").replace(/^0+/, "");
@@ -91,7 +114,7 @@ export function extractOfferteCandidates(
 ): string[] {
   const found: string[] = [];
   for (const text of [subject, body]) {
-    for (const re of [OFFERTE_SB, OFFERTE_SMEQ]) {
+    for (const re of [OFFERTE_PREFIXED, OFFERTE_SMEQ]) {
       re.lastIndex = 0;
       for (const m of text.matchAll(re)) {
         // Normalize internal whitespace (e.g. "SMEQ 98082" → "SMEQ98082") so the
@@ -133,7 +156,7 @@ export async function lookupOfferteToAccount(
       brand_id: ctx.brand_id,
       environment_id: SALES_ENVIRONMENT_ID,
       identifiers,
-      brand_scope: [...SALES_BRAND_SCOPE],
+      brand_scope: ctx.brand_scope ?? [...SALES_BRAND_SCOPE],
     },
     SALES_RESOLVE_INTENT,
   ).catch((err) => {
@@ -150,7 +173,7 @@ export async function lookupOfferteToAccount(
   const quoteMatches = res.matches.filter(
     (m) =>
       m.identifier_kind === "quote_no" &&
-      m.scope_key === SALES_SCOPE_KEY &&
+      m.scope_key === (ctx.scope_key ?? SALES_SCOPE_KEY) &&
       m.is_unique_in_scope === true,
   );
   const distinctParties = Array.from(new Set(quoteMatches.map((m) => m.party_id)));

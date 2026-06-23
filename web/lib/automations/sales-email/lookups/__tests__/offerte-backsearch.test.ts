@@ -18,9 +18,24 @@ vi.mock("@/lib/automations/debtor-email/nxt-zap-client", () => ({
   lookupResolveCandidates: lookupResolveCandidatesMock,
 }));
 
-import { lookupOfferteToAccount } from "../offerte";
+import { lookupOfferteToAccount, extractOfferteCandidates } from "../offerte";
 
 const ctx = { nxt_database: "nxt", brand_id: "SB" };
+
+// Multi-brand offerte extraction (verified against nxt.dbo.quote.reference 2026-06-23):
+// SB/BB/FI/IN brand-code prefix + 5-6 digits, normalized to bare digits.
+describe("extractOfferteCandidates — per-brand prefixes", () => {
+  it("extracts SB/BB/FI/IN prefixed offerte numbers", () => {
+    expect(extractOfferteCandidates("Offerte SB014967", "")).toContain("SB014967");
+    expect(extractOfferteCandidates("RE: Offerte BB011094 locatie", "")).toContain("BB011094");
+    expect(extractOfferteCandidates("Herinnering offerte FI016585", "")).toContain("FI016585");
+    expect(extractOfferteCandidates("Offerte IN018418", "")).toContain("IN018418");
+  });
+
+  it("does NOT extract legacy 8-digit Inprevo numbers (pre-acquisition, not in NXT)", () => {
+    expect(extractOfferteCandidates("Re: Offerte Inprevo 50018685", "")).toHaveLength(0);
+  });
+});
 
 beforeEach(() => {
   lookupResolveCandidatesMock.mockReset();

@@ -65,10 +65,12 @@ import {
   extractPostcodeCandidates,
 } from "./lookups/sites";
 
-// Sales tenant domains (source of truth: public.swarms.tenant_domains for
-// sales-email = ["smeba.nl"]). Sales-specific glue, NOT an engine concern. When
-// the sender is one of these, D-07 quoted-sender extraction kicks in.
-const SALES_TENANT_DOMAINS = ["smeba.nl"] as const;
+// Sales tenant domains. Sales-specific glue, NOT an engine concern. When the
+// sender is one of these, D-07 quoted-sender extraction kicks in (the real
+// customer is in the quoted body of an internal forward).
+// ponytail: multi-brand sales — one own-domain per onboarded sales mailbox.
+// Upgrade path: read from swarms.tenant_domains once that column is populated.
+const SALES_TENANT_DOMAINS = ["smeba.nl", "berki.nl", "fire-control.nl"] as const;
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 
@@ -164,10 +166,28 @@ export async function resolveEntity(
     ? extractQuotedSender(body)
     : (args.from_email ?? null);
 
+  // Per-mailbox brand scope (multi-brand sales). The worker derives
+  // args.brand_scope from swarms.resolution_config.scope.brand_scope_by_mailbox
+  // (e.g. verkoop@berki.nl → ['BB'], verkoop@fire-control.nl → ['FI']); fall back
+  // to the single brand_id, then the smeba default. scope_key filters
+  // resolver_index rows to the in-scope brand.
+  const brandScope: string[] =
+    args.brand_scope && args.brand_scope.length > 0
+      ? args.brand_scope
+      : args.brand_id
+        ? [args.brand_id]
+        : [...SALES_BRAND_SCOPE];
+  const scopeKey: string = brandScope[0] ?? args.brand_id ?? SALES_SCOPE_KEY;
+
   // Resolution context for the resolver_index back-search lookups (offerte/order/
   // sites). brand_id is required by the substrate; when absent those steps no-op.
   const salesCtx: SalesResolveCtx | null = args.brand_id
-    ? { nxt_database: args.nxt_database, brand_id: args.brand_id }
+    ? {
+        nxt_database: args.nxt_database,
+        brand_id: args.brand_id,
+        brand_scope: brandScope,
+        scope_key: scopeKey,
+      }
     : null;
 
   // Track identifiers seen across attempted steps so the unresolved fall-through
@@ -195,7 +215,7 @@ export async function resolveEntity(
             brand_id: args.brand_id,
             environment_id: SALES_ENVIRONMENT_ID,
             identifiers,
-            brand_scope: [...SALES_BRAND_SCOPE],
+            brand_scope: brandScope,
           },
           SALES_RESOLVE_INTENT,
         ).catch((err) => {
@@ -210,7 +230,7 @@ export async function resolveEntity(
           (m) =>
             (m.identifier_kind === "email_address" ||
               m.identifier_kind === "email_domain") &&
-            m.scope_key === SALES_SCOPE_KEY &&
+            m.scope_key === scopeKey &&
             m.is_unique_in_scope === true,
         );
         const addressRows = senderRows.filter(
@@ -295,7 +315,7 @@ export async function resolveEntity(
             brand_id: args.brand_id,
             environment_id: SALES_ENVIRONMENT_ID,
             identifiers: extract.candidates,
-            brand_scope: [...SALES_BRAND_SCOPE],
+            brand_scope: brandScope,
           },
           SALES_RESOLVE_INTENT,
         ).catch((err) => {
@@ -311,7 +331,7 @@ export async function resolveEntity(
         const invoiceRows = inv.matches.filter(
           (m) =>
             m.identifier_kind === "invoice_no" &&
-            m.scope_key === SALES_SCOPE_KEY &&
+            m.scope_key === scopeKey &&
             m.is_unique_in_scope === true,
         );
         const distinctRoots = Array.from(
