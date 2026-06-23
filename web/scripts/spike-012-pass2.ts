@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// ponytail: spike script — `any` on router/SDK response shapes is fine for throwaway exploration tooling.
+/* eslint-disable @typescript-eslint/no-explicit-any -- one-shot analysis script: untyped Orq/Supabase row shapes */
 // Spike 012 — PASS 2: full-corpus order-entry classification (order@smeba.nl, ~30k incoming).
 // Workhorse = aws/eu.anthropic.claude-haiku-4-5 (EU/PII) via the Orq Router (CLAUDE.md: never a
 // direct provider key). ~$5.7 for the full corpus. Buckets + intent (spike 012/016 locked design).
@@ -11,7 +10,7 @@
 // progress to stderr. JSONL append = partial progress survives a crash.
 import { config as dotenv } from "dotenv";
 dotenv({ path: new URL("../.env.local", import.meta.url).pathname, quiet: true });
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync, existsSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { orqRouterChat } from "../lib/automations/orq-router";
 
@@ -81,27 +80,60 @@ async function classify(rows: { source_id: string; line: string }[]) {
   if (out) appendFileSync(OUT, out + "\n");
 }
 
+// Retry transient blips (DNS/fetch failed) before giving up — 4 tries, linear backoff.
+async function retry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  let last: any;
+  for (let a = 1; a <= 4; a++) {
+    try { return await fn(); }
+    catch (e: any) {
+      last = e;
+      process.stderr.write(`retry ${label} (${a}/4): ${e?.message ?? e}\n`);
+      await new Promise((r) => setTimeout(r, a * 3000));
+    }
+  }
+  throw last;
+}
+
+// Resume: skip source_ids already in OUT (idempotent re-run; also retries earlier gaps).
+function loadDone(): Set<string> {
+  if (!existsSync(OUT)) return new Set();
+  const done = new Set<string>();
+  for (const ln of readFileSync(OUT, "utf8").split("\n")) {
+    if (!ln) continue;
+    try { done.add(JSON.parse(ln).source_id); } catch { /* skip partial line */ }
+  }
+  return done;
+}
+
 async function main() {
+  const done = loadDone();
+  process.stderr.write(`resume: ${done.size} already classified\n`);
   let seen = 0;
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from("emails")
-      .select("source_id, sender_email, subject, body_unique_text, body_text")
-      .eq("mailbox", "order@smeba.nl").eq("direction", "incoming")
-      .order("source_id").range(from, from + PAGE - 1);
+    const { data, error } = await retry(`fetch@${from}`, async () => {
+      const r = await supabase
+        .from("emails")
+        .select("source_id, sender_email, subject, body_unique_text, body_text")
+        .eq("mailbox", "order@smeba.nl").eq("direction", "incoming")
+        .order("source_id").range(from, from + PAGE - 1);
+      if (r.error) throw r.error;
+      return r;
+    });
     if (error) throw error;
     if (!data?.length) break;
-    const rows = data.map((e) => ({ source_id: e.source_id, line: lineFor(e) }));
+    const rows = data
+      .filter((e) => !done.has(e.source_id))
+      .map((e) => ({ source_id: e.source_id, line: lineFor(e) }));
     for (let i = 0; i < rows.length; i += BATCH) {
       if (LIMIT && seen >= LIMIT) { process.stderr.write(`limit ${LIMIT} reached\n`); return; }
       const slice = rows.slice(i, i + BATCH);
       try {
-        await classify(slice);
+        await retry(`batch@${from + i}`, () => classify(slice));
       } catch (e: any) {
-        process.stderr.write(`batch @${from + i} FAILED: ${e?.message ?? e}\n`);
+        process.stderr.write(`batch @${from + i} FAILED (gave up): ${e?.message ?? e}\n`);
       }
       seen += slice.length;
-      process.stderr.write(`done ${seen}\n`);
+      process.stderr.write(`done ${done.size + seen} (this run +${seen})\n`);
     }
   }
   process.stderr.write("sweep complete\n");
