@@ -130,6 +130,67 @@ function buildUserMessage(promptVars: {
   );
 }
 
+// Fail-soft repair (follow-up to debtor-email-coordinator.ts retries note):
+// salvage a verdict whose ONLY schema violations are on secondary, coercible
+// fields — an out-of-enum value on a NULLABLE field (→ null) or an over-long
+// string (→ truncate). Swarm-agnostic: it names no field, only reacts to Zod
+// issue codes, so it works for any swarm's output schema. It never invents a
+// primary value: nulling a required field just makes the re-parse fail again
+// and the caller throws, so a broken top-1 intent still surfaces (no silent
+// mislabel). Returns the repaired clone, or undefined if any issue is one we
+// can't safely coerce (caller then throws the original error).
+type ZodIssueLike = {
+  code: string;
+  path: ReadonlyArray<string | number>;
+  maximum?: number | bigint;
+  origin?: string;
+  type?: string;
+};
+function getAtPath(obj: unknown, path: ReadonlyArray<string | number>): unknown {
+  let cur: unknown = obj;
+  for (const k of path) {
+    if (cur == null) return undefined;
+    cur = (cur as Record<string | number, unknown>)[k];
+  }
+  return cur;
+}
+function setAtPath(
+  obj: unknown,
+  path: ReadonlyArray<string | number>,
+  val: unknown,
+): void {
+  let cur: unknown = obj;
+  for (let i = 0; i < path.length - 1; i++) {
+    if (cur == null) return;
+    cur = (cur as Record<string | number, unknown>)[path[i]];
+  }
+  if (cur != null) (cur as Record<string | number, unknown>)[path[path.length - 1]] = val;
+}
+function repairBySafeCoercion(
+  value: unknown,
+  issues: ReadonlyArray<ZodIssueLike>,
+): unknown {
+  const clone = structuredClone(value);
+  for (const issue of issues) {
+    if (issue.path.length === 0) return undefined; // root-level — unrepairable
+    // zod4 emits "invalid_value" for enum mismatches; "invalid_enum_value" is
+    // the zod3 name — accept both so the repair survives a zod bump.
+    if (issue.code === "invalid_value" || issue.code === "invalid_enum_value") {
+      setAtPath(clone, issue.path, null);
+    } else if (
+      issue.code === "too_big" &&
+      (issue.origin === "string" || issue.type === "string") &&
+      typeof issue.maximum === "number"
+    ) {
+      const cur = getAtPath(clone, issue.path);
+      if (typeof cur === "string") setAtPath(clone, issue.path, cur.slice(0, issue.maximum));
+    } else {
+      return undefined; // unknown issue — don't guess, let the caller throw
+    }
+  }
+  return clone;
+}
+
 export async function invokeIntentAgent(
   input: InvokeIntentInput,
   options: InvokeIntentOptions = {},
@@ -256,15 +317,34 @@ export async function invokeIntentAgent(
       ? intentAgentOutputSchemaV3
       : intentAgentOutputSchemaV2;
   const schema = options.schema ?? debtorDefaultSchema;
-  const validated = schema.safeParse(parsed);
+  let validated = schema.safeParse(parsed);
   if (!validated.success) {
-    const e = new Error(
-      `Intent-agent output schema mismatch (version=${String(version)}): ${JSON.stringify(
-        validated.error.issues,
-      )}`,
+    // Fail-soft: try coercing secondary-field violations (out-of-enum nullable
+    // fields, over-long strings) and re-parse once. Only a verdict broken on a
+    // PRIMARY field (e.g. an out-of-enum ranked[].intent) still throws.
+    // zod v4 types issue.path as PropertyKey[] (may include symbol); our JSON
+    // schemas never produce symbol paths, so narrow to the helper's shape.
+    const repaired = repairBySafeCoercion(
+      parsed,
+      validated.error.issues as ReadonlyArray<ZodIssueLike>,
     );
-    (e as { raw?: string }).raw = raw;
-    throw e;
+    const second = repaired === undefined ? undefined : schema.safeParse(repaired);
+    if (second?.success) {
+      console.warn(
+        `[invoke-intent] fail-soft coerced ${validated.error.issues.length} secondary schema issue(s) (version=${String(
+          version,
+        )}): ${JSON.stringify(validated.error.issues.map((i) => i.path))}`,
+      );
+      validated = second;
+    } else {
+      const e = new Error(
+        `Intent-agent output schema mismatch (version=${String(version)}): ${JSON.stringify(
+          validated.error.issues,
+        )}`,
+      );
+      (e as { raw?: string }).raw = raw;
+      throw e;
+    }
   }
 
   // Phase 87 Plan 03 — forward Orq usage when present. `undefined` keeps the

@@ -223,9 +223,24 @@ export const stage2CustomerResolver = inngest.createFunction(
     // brand-scoped rung (sender_match + identifier_match) is silently disabled
     // for debtor (brand_id null → engine.ts "NXT lookups disabled"), which
     // produced a live 0% debtor resolve rate. Learning 07d402a0-9631-4033-9b31-e409866fcd8b.
+    // Multi-brand sales: prefer the PER-MAILBOX brand from
+    // scope.brand_scope_by_mailbox (e.g. verkoop@berki.nl → ['BB']) over the
+    // single config-wide scope.brand_scope. Debtor-safe: debtor's brand_scope is
+    // null and its only by-mailbox entry (debiteuren@berki.nl → ['BB','IN'])
+    // already equals the labeling_settings brandId, and unmapped debtor mailboxes
+    // fall through to the labeling_settings brandId exactly as before.
+    const brandScopeConfig = (
+      resolutionConfig as {
+        scope?: {
+          brand_scope?: string[];
+          brand_scope_by_mailbox?: Record<string, string[]>;
+        };
+      } | null
+    )?.scope;
     const genericBrandId =
-      (resolutionConfig as { scope?: { brand_scope?: string[] } } | null)?.scope
-        ?.brand_scope?.[0] ?? null;
+      brandScopeConfig?.brand_scope_by_mailbox?.[source_mailbox]?.[0] ??
+      brandScopeConfig?.brand_scope?.[0] ??
+      null;
     const effectiveBrandId = usesGenericPath
       ? genericBrandId ?? brandId
       : brandId;

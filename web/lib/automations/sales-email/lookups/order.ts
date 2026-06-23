@@ -80,7 +80,7 @@ export async function lookupOrderToAccount(
       brand_id: ctx.brand_id,
       environment_id: SALES_ENVIRONMENT_ID,
       identifiers,
-      brand_scope: [...SALES_BRAND_SCOPE],
+      brand_scope: ctx.brand_scope ?? [...SALES_BRAND_SCOPE],
     },
     SALES_RESOLVE_INTENT,
   ).catch((err) => {
@@ -95,7 +95,7 @@ export async function lookupOrderToAccount(
   const orderMatches = res.matches.filter(
     (m) =>
       m.identifier_kind === "order_no" &&
-      m.scope_key === SALES_SCOPE_KEY &&
+      m.scope_key === (ctx.scope_key ?? SALES_SCOPE_KEY) &&
       m.is_unique_in_scope === true,
   );
   const distinctParties = Array.from(new Set(orderMatches.map((m) => m.party_id)));
