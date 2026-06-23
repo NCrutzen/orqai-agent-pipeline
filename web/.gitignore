@@ -43,3 +43,7 @@ next-env.d.ts
 
 # Automation local screenshots (dev artifacts)
 lib/automations/**/screenshots/
+
+# Serwist-generated service worker (built artifact — not committed)
+public/sw.js
+public/sw.js.map

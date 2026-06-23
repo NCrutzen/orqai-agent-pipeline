@@ -166,18 +166,17 @@ export const stage2CustomerResolver = inngest.createFunction(
     ]);
 
     if (!emailRow) {
-      await step.run("mark-failed-email-missing", async () => {
-        await admin
-          .from("automation_runs")
-          .update({
-            status: "failed",
-            error_message: `email row not found for message_id=${message_id}`,
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", automation_run_id);
-        await emitAutomationRunStale(admin, `${swarm_type}-review`);
-      });
-      return { ok: false, reason: "email_not_found" };
+      // Label-gap fix (#105 follow-up): the emails row is frequently just LATE,
+      // not absent — ingest INSERTs it on a separate code path that can lag this
+      // worker by seconds (replication / commit ordering). The old silent
+      // `return {ok:false}` killed the run on the first miss → no Stage 3, no
+      // label, and (because it did not throw) no worker_failed event either: a
+      // permanently invisible drop (20 'pending' debtor runs, 2026-06 probe).
+      // THROW instead → retries:3 replays past the race, and a genuine
+      // never-arrives row surfaces as a visible worker_failed via onFailure
+      // (recordWorkerFailure marks the automation_run failed too). Exactly the
+      // boundary #105 fixed elsewhere but missed here.
+      throw new Error(`email row not found for message_id=${message_id}`);
     }
 
     // Phase 110 Plan 04 (D-10 / D-11) — per-stage gate. The labeling write is a
@@ -224,9 +223,24 @@ export const stage2CustomerResolver = inngest.createFunction(
     // brand-scoped rung (sender_match + identifier_match) is silently disabled
     // for debtor (brand_id null → engine.ts "NXT lookups disabled"), which
     // produced a live 0% debtor resolve rate. Learning 07d402a0-9631-4033-9b31-e409866fcd8b.
+    // Multi-brand sales: prefer the PER-MAILBOX brand from
+    // scope.brand_scope_by_mailbox (e.g. verkoop@berki.nl → ['BB']) over the
+    // single config-wide scope.brand_scope. Debtor-safe: debtor's brand_scope is
+    // null and its only by-mailbox entry (debiteuren@berki.nl → ['BB','IN'])
+    // already equals the labeling_settings brandId, and unmapped debtor mailboxes
+    // fall through to the labeling_settings brandId exactly as before.
+    const brandScopeConfig = (
+      resolutionConfig as {
+        scope?: {
+          brand_scope?: string[];
+          brand_scope_by_mailbox?: Record<string, string[]>;
+        };
+      } | null
+    )?.scope;
     const genericBrandId =
-      (resolutionConfig as { scope?: { brand_scope?: string[] } } | null)?.scope
-        ?.brand_scope?.[0] ?? null;
+      brandScopeConfig?.brand_scope_by_mailbox?.[source_mailbox]?.[0] ??
+      brandScopeConfig?.brand_scope?.[0] ??
+      null;
     const effectiveBrandId = usesGenericPath
       ? genericBrandId ?? brandId
       : brandId;

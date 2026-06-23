@@ -74,7 +74,7 @@ SHIPPED + MERGED to main: Phase 118 (PR #104); #107 widened the delta-sync sourc
 LIVE production config (in Supabase `public.swarms` — shared across machines, NOT in git):
 
 - debtor-email: `dry_run_config.stage_3_intent_label=false` (AI: labels LIVE). `behavior_tracking_config={enabled:true, mailboxes:[debiteuren@smeba.nl, administratie@fire-control.nl, debiteuren@smeba-fire.be, debiteuren@berki.nl]}` — observe **RE-ENABLED 2026-06-17** after the Phase 119 fan-out fix; all 4 mailboxes tick independently, sales unaffected (verified live).
-- sales-email: labels live + `behavior_tracking_config={enabled:true, mailboxes:["verkoop@smeba.nl"]}`.
+- sales-email: labels live + `behavior_tracking_config={enabled:true, mailboxes:["verkoop@smeba.nl", "verkoop@fire-control.nl", "verkoop@berki.nl", "sales.products@berki.nl"]}` — **all 4 sales mailboxes onboarded 2026-06-23** (PR #130). Per-mailbox brand (`resolution_config.scope.brand_scope_by_mailbox`: SB/FI/BB/IN) + per-mailbox entity (`entity_by_mailbox`: smeba/fire-control/berki/inprevo) + multi-brand offerte extraction (SB/BB/FI/IN, NXT-verified). Stage 0/1/3 + entity tagging LIVE per mailbox; Stage 2 still dry (`stage_2_resolution=true`). Inprevo (IN) acquired 2026-05-01 — legacy 8-digit offerte numbers excluded (not in NXT).
 - `debtor.labeling_settings` = 4 rows. Sicli (noord+sud) rows DELETED 2026-06-16 (re-add later with verified address).
 
 RESOLVED: the 2026-06-16 regression (debtor multi-mailbox observe starved + froze sales) is fixed by Phase 119 per-mailbox fan-out isolation; debtor observe re-enabled + verified live 2026-06-17.

@@ -189,15 +189,35 @@ export const debtorEmailCoordinator = inngest.createFunction(
     // preserves debtor behavior; downstream consumers that don't need entity
     // (sales) simply ignore it. Widen the cast target to accept the union; the
     // debtor default is NOT dropped.
-    const entity = (email.entity ?? "smeba") as
-      | "smeba"
-      | "berki"
-      | "sicli-noord"
-      | "sicli-sud"
-      | "smeba-fire";
     const sender_domain = email.sender_domain ?? "";
     const inngest_run_id = event.id ?? `local-${email_id}`;
     const supabase = createAdminClient();
+
+    // Multi-brand sales: debtor threads email.entity from labeling_settings;
+    // sales ingest writes entity=null, so fall back to the swarm's per-mailbox
+    // entity map (resolution_config.scope.entity_by_mailbox), then the smeba
+    // baseline. Registry-driven, no swarm-name branch — debtor is unchanged
+    // (email.entity is set → the fallback never runs). The cast is the codegen
+    // Entity union (now includes inprevo); the DB column is text.
+    const entityByMailbox = await step.run("load-swarm-entity-map", async () => {
+      const swarmRow = await loadSwarm(supabase, swarm_type);
+      const scope = (
+        swarmRow?.resolution_config as
+          | { scope?: { entity_by_mailbox?: Record<string, string> } }
+          | null
+      )?.scope;
+      return scope?.entity_by_mailbox ?? null;
+    });
+    const entity = (email.entity ??
+      (email.mailbox ? entityByMailbox?.[email.mailbox] : undefined) ??
+      "smeba") as
+      | "smeba"
+      | "berki"
+      | "fire-control"
+      | "inprevo"
+      | "sicli-noord"
+      | "sicli-sud"
+      | "smeba-fire";
 
     // ---- Phase 113 Plan 02 (Q1 seam) — per-swarm Stage 3 dispatch -----------
     // Resolve the per-swarm Orq agent KEY from the DB registry

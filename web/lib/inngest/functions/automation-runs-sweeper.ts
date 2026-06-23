@@ -109,6 +109,35 @@ export const stage0StaleSweeper = inngest.createFunction(
             `stale-sweeper mark-failed row ${row.id} failed: ${error.message}`,
           );
         }
+
+        // Label-gap reconciliation: reaping used to be SILENT — a stuck run was
+        // marked failed but emitted zero pipeline_events, so a dropped email
+        // vanished with no telemetry (shape B, 2026-06 debtor probe). Emit a
+        // visible worker_failed row so Bulk Review surfaces every reap. email_id
+        // NULL dodges the partial unique index pipeline_events_one_per_stage_email;
+        // refs live in decision_details. Mirrors recordWorkerFailure. Best-effort
+        // — a telemetry hiccup must not abort the sweep of the remaining rows.
+        const sweptResult = (row.result ?? {}) as Record<string, unknown>;
+        const { error: evErr } = await admin.from("pipeline_events").insert({
+          swarm_type: row.swarm_type,
+          stage: 0,
+          email_id: null,
+          decision: "worker_failed",
+          decision_details: {
+            stage_label: "stage-0/stale-sweeper",
+            reason: "inngest_cancelled_stale",
+            automation_run_id: row.id,
+            email_id: sweptResult.email_id ?? null,
+            message_id: sweptResult.message_id ?? null,
+          },
+          automation_run_id: row.id,
+          triggered_by: "pipeline",
+        });
+        if (evErr) {
+          console.error(
+            `[stale-sweeper] worker_failed emit failed for ${row.id}: ${evErr.message}`,
+          );
+        }
       }
     });
 

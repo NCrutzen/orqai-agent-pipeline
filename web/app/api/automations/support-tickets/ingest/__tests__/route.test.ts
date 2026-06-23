@@ -177,24 +177,24 @@ describe("POST /api/automations/support-tickets/ingest", () => {
     expect(body.error).toMatch(/user_chosen_type/);
   });
 
-  it("rejects missing external_task_id with 400 (Zod rejects before any DB write)", async () => {
+  it("accepts a submission WITHOUT external_task_id (CONTRACT-02: optional — assigned later via the ClickUp callback)", async () => {
+    // external_task_id was made optional in the Zod schema (CONTRACT-02): app
+    // submissions don't have a ClickUp task id yet — it's filled in later by the
+    // clickup-create callback. So a body without it is valid and proceeds to
+    // Stage 0 like the happy path (it used to be rejected with 400).
     const res = await POST(
       makeReq({
         body: { submitter_id: "u1", user_chosen_type: "bug" },
         secret: SECRET,
       }),
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.action).toBe("failed");
-    expect(body.error).toMatch(/external_task_id/);
-    // No DB writes whatsoever — Zod gate fires before Stage 0.
+    expect(body.action).toBe("stage_0_dispatched");
+    // The submission still creates a support_tickets row.
     expect(
       supabaseOps.filter((o) => o.table === "support_tickets").length,
-    ).toBe(0);
-    expect(
-      supabaseOps.filter((o) => o.table === "pipeline_events").length,
-    ).toBe(0);
+    ).toBeGreaterThan(0);
   });
 
   it("rejects unknown top-level fields (e.g. submission_id) with 400", async () => {

@@ -30,7 +30,12 @@ function getZapierClient() {
  */
 export async function graphFetch(
   path: string,
-  options: { method: string; body?: unknown; prefer?: string } = {
+  options: {
+    method: string;
+    body?: unknown;
+    prefer?: string;
+    headers?: Record<string, string>;
+  } = {
     method: "GET",
   },
 ): Promise<Response> {
@@ -53,6 +58,15 @@ export async function graphFetch(
     fetchOptions.headers = {
       ...((fetchOptions.headers as Record<string, string>) ?? {}),
       Prefer: options.prefer,
+    };
+  }
+
+  // Optional extra headers (e.g. ConsistencyLevel: eventual for advanced
+  // $filter/$count queries). Merged last so callers can set anything they need.
+  if (options.headers) {
+    fetchOptions.headers = {
+      ...((fetchOptions.headers as Record<string, string>) ?? {}),
+      ...options.headers,
     };
   }
 

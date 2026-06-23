@@ -32,6 +32,7 @@ vi.mock("@/lib/automations/runs/emit", () => ({
 // Then per-row: from(table).update(payload).eq("id", id) → ok.
 const fixtureRows: Array<Record<string, unknown>> = [];
 const updateCalls: Array<{ id: string; payload: Record<string, unknown> }> = [];
+const pipelineEventInserts: Array<Record<string, unknown>> = [];
 
 function makeAdminMock() {
   const selectChain: {
@@ -68,9 +69,14 @@ function makeAdminMock() {
       return { data: null, error: null };
     }),
   }));
+  const insert = vi.fn(async (payload: Record<string, unknown>) => {
+    pipelineEventInserts.push(payload);
+    return { data: null, error: null };
+  });
   const from = vi.fn((_table: string) => ({
     select: vi.fn(() => selectChain),
     update,
+    insert,
   }));
   return {
     from,
@@ -107,6 +113,7 @@ function getHandler(): SweeperHandler {
 beforeEach(() => {
   fixtureRows.length = 0;
   updateCalls.length = 0;
+  pipelineEventInserts.length = 0;
   stepRunCalls.length = 0;
   adminMock = makeAdminMock();
   inngestSend.mockClear();
@@ -260,5 +267,45 @@ describe("Sweeper — emit stale channel (T-D4)", () => {
     expect(channels.sort()).toEqual(
       ["debtor-email-review", "sales-email-review"].sort(),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Label-gap reconciliation: reaping a stuck row must no longer be SILENT.
+// Before this fix the sweeper marked the row 'failed' but emitted zero
+// pipeline_events, so a dropped email vanished with no telemetry (shape B,
+// 2026-06 debtor probe). Now each reaped row also writes a visible
+// worker_failed pipeline_events row (email_id NULL dodges the per-stage unique
+// index; refs live in decision_details).
+// ---------------------------------------------------------------------------
+describe("Sweeper — visible worker_failed on reap (label-gap)", () => {
+  it("emits one worker_failed pipeline_events row per reaped stuck run", async () => {
+    fixtureRows.push({
+      id: "ar-reaped",
+      status: "pending",
+      triggered_by: "zapier:ingest",
+      created_at: new Date(Date.now() - 20 * 60_000).toISOString(),
+      result: { stage: "stage_0_safety_pending", message_id: "msg-9" },
+      swarm_type: "debtor-email",
+    });
+
+    const handler = getHandler();
+    await handler({ event: { data: {} }, step: makeStep() });
+
+    // Still marked failed (existing contract).
+    expect(updateCalls.map((c) => c.id)).toContain("ar-reaped");
+
+    // And now visible.
+    const failEvents = pipelineEventInserts.filter(
+      (p) => p.decision === "worker_failed",
+    );
+    expect(failEvents).toHaveLength(1);
+    expect(failEvents[0].stage).toBe(0);
+    expect(failEvents[0].swarm_type).toBe("debtor-email");
+    expect(failEvents[0].email_id).toBeNull();
+    expect(failEvents[0].automation_run_id).toBe("ar-reaped");
+    expect(
+      (failEvents[0].decision_details as Record<string, unknown>).message_id,
+    ).toBe("msg-9");
   });
 });

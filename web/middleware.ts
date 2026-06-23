@@ -49,6 +49,11 @@ export default async function proxy(request: NextRequest) {
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/auth") &&
+    // Public PWA assets — must be served as-is (not redirected to /login) so the
+    // service worker registers and stays fresh, and the manifest is reachable for
+    // installability. Neither is sensitive. (/sw.js is the static Serwist SW.)
+    !request.nextUrl.pathname.startsWith("/sw.js") &&
+    !request.nextUrl.pathname.startsWith("/manifest.webmanifest") &&
     !request.nextUrl.pathname.startsWith("/api/inngest") &&
     !request.nextUrl.pathname.startsWith("/api/automations") &&
     !request.nextUrl.pathname.startsWith("/api/klachten") &&

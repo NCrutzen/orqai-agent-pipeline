@@ -158,7 +158,7 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 
 - **Platform:** Orq.ai — agent orchestration (model routing, prompt versioning, evals); LLM calls via the Orq.ai Router, not direct provider SDKs
 - **Stack:** Next.js on Vercel · Supabase (Postgres + Realtime + auth) · Inngest (durable functions) · Zapier (NXT SQL bridge + Outlook ingest; **SugarCRM trigger deprecated 2026-06-02**) · Browserless.io (no-API systems) · ElevenLabs (voice) · Twilio (telephony). Full guidance in `CLAUDE.md`.
-- **Mailboxes in scope:** debtor-email on 5 mailboxes (debiteuren@smeba.nl, debiteuren@berki.nl, debiteuren@smeba-fire.be, administratie@fire-control.nl, sicli) ; sales-email at verkoop@smeba.nl (Outlook-driven from V9.0; SugarCRM deprecated)
+- **Mailboxes in scope:** debtor-email on 5 mailboxes (debiteuren@smeba.nl, debiteuren@berki.nl, debiteuren@smeba-fire.be, administratie@fire-control.nl, sicli) ; sales-email on 4 mailboxes (verkoop@smeba.nl, verkoop@fire-control.nl, verkoop@berki.nl, sales.products@berki.nl — multi-brand SB/FI/BB/IN, onboarded 2026-06-23) (Outlook-driven from V9.0; SugarCRM deprecated)
 - **Operator model:** single debtor-person from week of 2026-05-18; sales-email operator added in V9.0 (Outlook). Multi-operator reconciliation lands in V10.0 self-learning. (Re-sequenced 2026-06-02.)
 - **Users:** 5–15 Moyne Roberts employees, mostly non-technical. The product is the *automations themselves*, not a swarm-builder UI.
 
