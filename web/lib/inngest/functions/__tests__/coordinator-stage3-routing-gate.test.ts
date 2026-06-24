@@ -95,6 +95,9 @@ vi.mock("@/lib/swarms/registry", () => ({
   loadSwarm: (...args: unknown[]) => loadSwarmMock(...args),
   loadSwarmNoiseCategories: vi.fn().mockResolvedValue([]),
   loadSwarmIntents: vi.fn().mockResolvedValue([]),
+  // Phase 131 — debtor/sales have no routing_destinations → [] → routing block
+  // skipped (this test exercises the intent ranked-list path, not routing).
+  loadRoutingDestinations: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/lib/automations/runs/emit", () => ({

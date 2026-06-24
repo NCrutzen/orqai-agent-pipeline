@@ -138,6 +138,26 @@ Axis 1 of the override model is the override surface for this stage. Operators c
 
 Axis 1 signals feed the regex-rule promotion hook: a candidate rule accumulates the per-rule binomial sample, and the Wilson-CI gate (thresholds in code, deliberately not in this RFC) flips the rule from candidate to live once the lower bound clears. See [`./graduated-automation.md#hook-taxonomy`](./graduated-automation.md#hook-taxonomy). Phase 56's sender-mapping promotion is the working precedent.
 
+## Actionable-Token Carve-Out (NOISE-04) — SHARED swarm-agnostic Stage-1 block-rule
+
+The actionable-token carve-out is a **SHARED, swarm-AGNOSTIC Stage-1 block-rule** with **per-swarm ADOPTION** (Phase 130 WR-03). It is NOT an info-routing special-case. A rule written once lives in a shared pool and is transferable across swarms: any swarm ADOPTS it by adding `'actionable_token'` to its `public.swarms.stage1_shared_block_rules` (text[]) adoption array. **Info-routing is the first adopter**; debtor/sales/planning/order-entry adopt nothing by default (empty array → behaviour-neutral) and can adopt later after validation. The worker gate is a swarm-agnostic membership check (`swarmRow.stage1_shared_block_rules?.includes('actionable_token')`), **never a `swarm_type ===` literal** (REQ-6) — the same registry-as-source-of-truth principle the codebase enforces for `swarm_noise_categories` and `swarm_intents`.
+
+Why it exists: an adopting swarm's "unknown" pool is **mixed** — several high-frequency senders are genuinely *routable* (fire-control inspecties/ontruimingsplattegronden, klant-PO's/orders/openstaande posten, finance retour-facturen) and must never be archived as noise, even from a noisy-looking sender domain. A leak-fix that eats routable mail is worse than the leak.
+
+The carve-out is enforced on **three layers**:
+
+- **(a) Agent category definitions** — the `stage-1-category-classifier` category definitions instruct: *never classify as noise if the subject or body mentions an actionable signal* (offerte / order / inkooporder / factuur / aanmaning / keuring / ontruiming / storing / werkbon). This is the first-line, content-aware carve-out.
+- **(b) Programmatic shared block-rule — WIRED** — the pure predicate `hasActionableToken(text)` in `web/lib/stage-1/actionable-tokens.ts` runs in `classifier-screen-worker.ts` on the LLM success path (right after `const finalKey = parsed.category_key`, before the `agent_runs` INSERT — upstream of BOTH the debtor live-archive block and Step 5). When the swarm has adopted the rule AND the LLM 2nd-pass returned a noise key AND the subject/body carries an actionable token, the worker forces the verdict BACK to `unknown` (the non-archive key) and records the override in `agent_runs.tool_outputs` (`gated_to='unknown'`, `shared_block_rule='actionable_token'`). This makes the NOISE-04 threat mitigation **(T-130-02-01) a real, fail-safe upstream block — not prompt-only**. Hard separation: a noise-level override only, it never touches `swarm_intents`.
+- **(c) Wilson-CI shadow backstop** — even if (a) and (b) slip, a false-archive surfaces as an operator reject in Bulk Review → the rule's `agree` count drops → its Wilson CI-lower bound never clears 0.92 → the candidate **never promotes**. The shadow gate (`status='candidate'` until `classifier-promotion-cron` with `CLASSIFIER_CRON_MUTATE=true`) means no adopting-swarm noise rule auto-archives until it has earned operator-verified precision.
+
+Word-boundary semantics in the predicate are deliberate: `storing` is start-boundary-only (matches the routable compounds `storingsmelding`/`storingsdienst`), while `factuur` is full-boundary (does **not** match `factuurloos` — the carve-out protects standalone tokens, not compounds). Pinned by `web/__tests__/stage-1/info-routing-actionable-carveout.test.ts`; the wired worker veto is pinned by `web/lib/inngest/functions/__tests__/classifier-screen-worker.actionable-carveout.test.ts`.
+
+### NOISE-03 measurement — automated view-distribution metric
+
+NOISE-03 is measured as the **automated per-mailbox unknown-share computed from `public.info_unknown_pool_composition`** (the `pct` for `decision='unknown'` per `mailbox_entity`), with **ZERO manual labelling**. The earlier human-labelled true-noise fraction (sample → label → compute → Wilson CI) is **gone**: the wired (b) carve-out structurally prevents the routable mis-archive (Pitfall 5) that originally mandated labelling, so the cheap distribution metric is now **sufficient**, not merely necessary. Reporter: `web/scripts/eval/info-unknown-pool-noise-baseline.ts` (`report` mode).
+
+> **Forward-note — shared-pool noise registry (out of scope here).** The per-swarm noise registry (`classifier_rules` / `swarm_noise_categories`) is still swarm-scoped. A FUTURE phase should rework it into the same **shared-pool-with-adoption** model the actionable-token block-rule now uses (`swarms.stage1_shared_block_rules`), so any cross-swarm noise/block rule — e.g. the spike's open `generic_noreply_notification` question — is written once and adopted, never duplicated per swarm.
+
 ## Implementation Patterns (link out)
 
 - [`../zapier-patterns.md`](../zapier-patterns.md) -- registry-driven routing, `zapier_tools` shape that the same one-row-per-thing pattern applies to elsewhere in the funnel.

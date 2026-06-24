@@ -317,6 +317,51 @@ export interface BulkReviewStage4Slot {
   pipeline_event_id: string | null;
 }
 
+// Phase 132 Plan 03 (FWD-08, D-07). The info-routing routing verdict + forward
+// status surfaced in the operator Bulk Review surface. This slot is a flattened
+// projection of the persisted 6-field RoutingVerdict
+// (coordinator_runs.decision_details.routing, Phase 131) PLUS the live forward
+// outcome (info_routing_forwards.status, Plan 02). It is populated ONLY for rows
+// that carry a decision_details.routing verdict — debtor/sales rows (which have
+// no routing key) leave it null. NO swarm_type literal anywhere in the hydrator
+// gates this slot: it is purely data-gated on the presence of the routing key
+// (SWARM-02-safe).
+//
+// forward_status is DERIVED at hydration time (not a stored column):
+//   - 'unrouted'      when verdict.unrouted (the agent had no destination)
+//   - 'stays'         when target_mailbox === null (a matched no-forward bucket,
+//                      e.g. algemeen — mail stays in info@)
+//   - 'dedup-skipped' when dedup.status === 'already_addressed'
+//   - otherwise the info_routing_forwards.status mirror for this email_id:
+//     'forwarded' when status === 'sent', else 'held'.
+// Mirrors web/lib/automations/info-routing/verdict.ts RoutingVerdict (the brand /
+// bucket / target_mailbox / confidence / dedup / unrouted fields are projected
+// 1:1) — NOT imported (bulk-review must not import from automations per the
+// out-of-band guard); both shapes stay structurally aligned.
+export type RoutingForwardStatus =
+  | "held"
+  | "forwarded"
+  | "unrouted"
+  | "dedup-skipped"
+  | "stays";
+
+export interface BulkReviewRoutingSlot {
+  bucket: string;
+  brand: string | null;
+  target_mailbox: string | null;
+  confidence: "low" | "medium" | "high";
+  dedup_status: "routable" | "already_addressed";
+  dedup_layer: string | null;
+  unrouted: boolean;
+  forward_status: RoutingForwardStatus;
+  // The coordinator_runs PK that keys the persisted verdict — the operator
+  // routing actions (re-route / forward-now) need it to read/write
+  // coordinator_runs.decision_details.routing. Sourced at hydration from the
+  // coordinator_runs row for this email_id. Null for legacy rows whose run is
+  // not resolvable (the pane disables the run-keyed controls then).
+  run_id: string | null;
+}
+
 // Per-axis override capture columns (P1-D-03). Axis 3 has no dedicated
 // column today — it lives ONLY in pipeline_events rows.
 export interface BulkReviewOverrideCapture {
@@ -360,6 +405,14 @@ export interface BulkReviewRow {
   stage_3: BulkReviewStage3Slot | null; // null when Stage 1 routed to noise
   stage_3p5: BulkReviewStage3p5Slot | null; // null when dispatcher did not fire
   stage_4: BulkReviewStage4Slot | null; // null when no handler ran
+  // Phase 132 Plan 03 (FWD-08). Info-routing routing verdict + forward status.
+  // null for non-routing swarms (debtor/sales never carry decision_details.routing).
+  // Optional (`?`) only so the many pre-existing BulkReviewRow fixtures that
+  // predate this slot stay assignable without churn (mirrors the `attachments?`
+  // precedent); the hydrator (the ONE read path) ALWAYS projects it (null when
+  // the row carries no decision_details.routing). Consumers treat absent === null
+  // (`row.routing ?? null`).
+  routing?: BulkReviewRoutingSlot | null;
   overrides: BulkReviewOverrideCapture;
   // Phase 116-05 (D-08). Stage-2-relevant attachment metadata loaded by the row
   // hydrator from email_pipeline.email_attachments keyed on the anchor email id.

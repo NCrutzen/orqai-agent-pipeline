@@ -46,6 +46,11 @@ import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { numericConfidence } from "@/lib/pipeline-events/types";
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
 import { classify as debtorEmailClassify } from "@/lib/debtor-email/classify";
+// Phase 130 WR-03 — SHARED, swarm-agnostic Stage-1 actionable-token block-rule.
+// Registry-gated below on swarmRow.stage1_shared_block_rules: any adopting swarm
+// (info-routing is the first) forces an LLM noise verdict back to 'unknown' when
+// the subject/body carries an actionable token. No swarm_type literal (REQ-6).
+import { hasActionableToken } from "@/lib/stage-1/actionable-tokens";
 // Phase 82.2 Plan 06 D-A — debtor-email category dispatch logic, moved
 // from the synchronous ingest route. RFC: Stage 1 = noise filter only
 // (docs/agentic-pipeline/stage-1-regex.md). The whitelist below is a subset
@@ -394,7 +399,31 @@ export const classifierScreenWorker = inngest.createFunction(
             // verdict path), we preserve the predicted category and let the
             // Step 5 gate route medium/low to `classifier/screen.requires_review`
             // so the row stays at status='predicted' for human review.
-            const finalKey = parsed.category_key;
+            // Phase 130 WR-03 — SHARED swarm-agnostic actionable-token
+            // carve-out. Registry-gated: only swarms that ADOPTED the shared
+            // 'actionable_token' block-rule (swarms.stage1_shared_block_rules)
+            // are vetoed — a swarm-agnostic membership check, NOT a swarm_type
+            // literal (REQ-6). When the adopting swarm's LLM 2nd-pass returned a
+            // noise key (finalKey !== 'unknown') but the subject/body carries an
+            // actionable token, force the verdict BACK to 'unknown' (the
+            // non-archive key) so routable mail is never archived as noise. This
+            // is the upstream hard block (T-130-02-01), placed on the LLM
+            // success path BEFORE any archive mechanism (debtor block / Step 5),
+            // so it is fail-safe against EITHER live-archive path, current or
+            // future, for any adopting swarm. Deterministic from event.data +
+            // swarmRow → replay-safe (no new step.run). Hard separation: this is
+            // a noise-level override only — it NEVER touches swarm_intents.
+            const carveoutAdopted =
+              swarmRow.stage1_shared_block_rules?.includes(
+                "actionable_token",
+              ) === true;
+            const carveoutFires =
+              carveoutAdopted &&
+              parsed.category_key !== "unknown" &&
+              hasActionableToken(
+                `${subject ?? ""}\n${body_full_text ?? body_text ?? ""}`,
+              );
+            const finalKey = carveoutFires ? "unknown" : parsed.category_key;
 
             const insertSuccess = await admin.from("agent_runs").insert({
               id,
@@ -415,6 +444,13 @@ export const classifierScreenWorker = inngest.createFunction(
               tool_outputs: {
                 stage1_category: parsed.category_key,
                 gated_to: finalKey,
+                // Phase 130 WR-03 — audit trail for the shared-block-rule
+                // override. Present only when the actionable-token carve-out
+                // fired (noise key → forced 'unknown'); absent otherwise. Noise
+                // level only (never swarm_intents — hard separation).
+                ...(carveoutFires
+                  ? { shared_block_rule: "actionable_token" }
+                  : {}),
               },
             });
             if (insertSuccess.error) {
