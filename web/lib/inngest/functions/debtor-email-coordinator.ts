@@ -53,6 +53,14 @@ import {
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
 import { parseAgentOutputOrUnrouted, unroutedFromError } from "@/lib/automations/info-routing/coordinator-schema";
 import { buildRoutingVerdict } from "@/lib/automations/info-routing/verdict";
+// Phase 132.1 Plan 01 Task 2 (D-01) — held-path routing-category stamp + 112.5
+// baseline building blocks (all existing swarm-agnostic helpers, no literal).
+import {
+  mergeRoutingCategory,
+  buildRoutingCategory,
+} from "@/lib/outlook/routing-category";
+import { recordWrittenCategory } from "@/lib/outlook/written-category-store";
+import { graphFetch } from "@/lib/outlook/client";
 // Phase 131 Plan 04 (ROUTE-05) — the two-layer duplicate-delivery guard. Runs
 // after (bucket×brand)→target_mailbox resolution, inside step.run (the layer-b
 // DB read must be replay-safe). Its { status, matched_layer } result feeds the
@@ -522,6 +530,85 @@ export const debtorEmailCoordinator = inngest.createFunction(
         );
 
         if (routingGatedForRouting) {
+          // ---- Phase 132.1 Plan 01 Task 2 (D-01) — held-path category stamp +
+          // 112.5 baseline. During the dry-run window the held routing verdict
+          // gets `AI: held → <bucket>` (routable) or `AI: triage` (unrouted)
+          // stamped onto the SOURCE info@ mail via Graph GET+PATCH, and the SAME
+          // category string seeds the swarm_written_categories baseline so the
+          // 112.5 delta-sync has a row to diff against (D-01 chicken-and-egg).
+          // This is what gives the operator an AI label to CORRECT and 112.5 a
+          // baseline to compare — the precondition for Plan 04's shadow gate.
+          //
+          // D-04: an `algemeen` verdict (matched, target_mailbox null — "stays"
+          // in info@) is NOT stamped/baselined — no forward measurement axis.
+          // The unrouted verdict (no bucket) IS triaged (AI: triage) so the
+          // operator still sees a routing decision. Guard: skip only the matched
+          // no-forward "stays" case (target_mailbox null AND NOT unrouted).
+          //
+          // Best-effort + isolated in its OWN step.run (mirrors the forward
+          // worker's stamp isolation): a Graph failure must NOT abort the
+          // held-verdict persist below — the try/catch swallows it. Replay-safe:
+          // the source mailbox/graphId are read from the emails row keyed by the
+          // replay-safe resolvedEmailId. NO swarm-name literal — purely verdict-
+          // field driven inside the registry-gated routing block.
+          const stamps3Algemeen =
+            !verdict.unrouted && verdict.target_mailbox === null;
+          if (!stamps3Algemeen) {
+            await step.run("stamp-held-routing-category", async () => {
+              try {
+                const aiCategory = buildRoutingCategory(
+                  verdict.unrouted ? "triage" : "held",
+                  verdict.bucket,
+                );
+                // Resolve the SOURCE info@ mailbox + Graph immutable id the same
+                // way the forward worker does (source_id = Graph id; mailbox =
+                // the source box — stamp against the SOURCE, never the target).
+                const { data: srcRow } = await supabase
+                  .from("emails")
+                  .select("source_id, mailbox")
+                  .eq("id", resolvedEmailId)
+                  .maybeSingle();
+                const src = srcRow as {
+                  source_id?: string | null;
+                  mailbox?: string | null;
+                } | null;
+                const sourceId = src?.source_id ?? null;
+                const sourceMailbox = src?.mailbox ?? email.mailbox ?? null;
+                if (sourceId && sourceMailbox) {
+                  const getRes = await graphFetch(
+                    `/users/${encodeURIComponent(sourceMailbox)}/messages/${encodeURIComponent(sourceId)}?$select=categories`,
+                  );
+                  if (getRes.ok) {
+                    const msg = (await getRes.json()) as {
+                      categories?: string[];
+                    };
+                    const next = mergeRoutingCategory(
+                      msg.categories ?? [],
+                      verdict.unrouted ? "triage" : "held",
+                      verdict.bucket,
+                    );
+                    await graphFetch(
+                      `/users/${encodeURIComponent(sourceMailbox)}/messages/${encodeURIComponent(sourceId)}`,
+                      { method: "PATCH", body: { categories: next } },
+                    );
+                  }
+                  // Seed the 112.5 baseline with the SAME category string. Keyed
+                  // by resolvedEmailId so 112.5 can join source_id → email_id →
+                  // baseline and diff the operator's live edit against it.
+                  await recordWrittenCategory(supabase, {
+                    email_id: resolvedEmailId,
+                    swarm_type,
+                    source_mailbox: sourceMailbox,
+                    ai_category: aiCategory,
+                  });
+                }
+              } catch {
+                // Best-effort (D-01): a stamp/baseline failure must never abort
+                // the held-verdict persist below. Swallow + continue.
+              }
+            });
+          }
+
           await step.run("mark-routing-verdict-held", async () => {
             const { error } = await supabase
               .from("coordinator_runs")

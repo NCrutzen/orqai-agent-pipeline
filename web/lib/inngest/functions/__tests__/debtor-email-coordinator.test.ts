@@ -39,6 +39,19 @@ function setEmailsResolveRow(row: { id?: string } | null) {
   emailsResolveRow = row;
 }
 
+// Phase 132.1 Task 2 — the source-message row read by the held-path stamp step
+// (`.from("emails").select("source_id, mailbox").eq("id", resolvedEmailId)`).
+// Default carries a source_id + mailbox so the stamp can resolve the Graph id.
+let emailsSourceRow: {
+  source_id?: string | null;
+  mailbox?: string | null;
+} | null = { source_id: "graph-info-1", mailbox: "info@smeba.nl" };
+function setEmailsSourceRow(
+  row: { source_id?: string | null; mailbox?: string | null } | null,
+) {
+  emailsSourceRow = row;
+}
+
 function makeSupabaseMock() {
   const channel = vi.fn(() => ({
     send: vi.fn().mockResolvedValue(undefined),
@@ -51,6 +64,7 @@ function makeSupabaseMock() {
     // the configurable emails-resolution row (the resolve-email-id fallback)
     // distinct from the default null other reads expect.
     let usedOr = false;
+    let selectCols = "";
     builder.insert = vi.fn(async (row: Record<string, unknown>) => {
       captured.inserts.push({ table, row });
       return { data: null, error: null };
@@ -76,7 +90,10 @@ function makeSupabaseMock() {
       ) => finalize().then(resolve, reject);
       return chain;
     });
-    builder.select = vi.fn(() => builder);
+    builder.select = vi.fn((cols?: string) => {
+      selectCols = cols ?? "";
+      return builder;
+    });
     builder.eq = vi.fn(() => builder);
     builder.or = vi.fn(() => {
       usedOr = true;
@@ -88,6 +105,10 @@ function makeSupabaseMock() {
     builder.maybeSingle = vi.fn(async () => {
       if (table === "emails" && usedOr) {
         return { data: emailsResolveRow, error: null };
+      }
+      // Held-path stamp reads source_id + mailbox via .eq("id") (no .or()).
+      if (table === "emails" && selectCols.includes("source_id")) {
+        return { data: emailsSourceRow, error: null };
       }
       return { data: null, error: null };
     });
@@ -1376,6 +1397,7 @@ describe("Phase 132.1 D-01: held-path stamp + 112.5 baseline", () => {
     captured.upserts.length = 0;
     stepRunNames.length = 0;
     setEmailsResolveRow({ id: "info-email-pk" });
+    setEmailsSourceRow({ source_id: "graph-info-1", mailbox: "info@smeba.nl" });
     supabaseMock = makeSupabaseMock();
     createRunMock.mockResolvedValue("agent-run-id-fresh");
     graphFetchMock.mockReset();
