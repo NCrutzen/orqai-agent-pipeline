@@ -1,5 +1,6 @@
 import { createZapierSdk } from "@zapier/zapier-sdk";
 import { z } from "zod";
+import { buildRoutingCategory } from "./routing-category";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
@@ -492,6 +493,105 @@ function stripHtml(html: string): string {
 }
 
 /**
+ * Phase 132.1 Plan 02 (D-03) — the ONE non-grey Outlook preset colour shared by
+ * EVERY routing master category.
+ *
+ * Outlook category swatches are named `preset0`..`preset24`. `preset0` is the
+ * grey "no colour" default that the `AI:` INTENT labels keep (they are left
+ * untouched here). Routing labels get this single distinct non-grey swatch so
+ * operators tell routing decisions apart from intent labels at a glance.
+ * `preset5` is a distinct non-grey swatch — NOT per-bucket, NOT per-brand (D-03).
+ */
+export const ROUTING_CATEGORY_PRESET_COLOR = "preset5";
+
+const masterCategoriesSchema = z.object({
+  value: z.array(
+    z.object({
+      id: z.string().optional(),
+      displayName: z.string(),
+      color: z.string().optional(),
+    }),
+  ),
+});
+
+/**
+ * Phase 132.1 Plan 02 (D-03) — idempotently provision the routing master
+ * categories for a mailbox with ONE non-grey preset colour.
+ *
+ * Colour is a mailbox-level master-category property; it cannot be set at
+ * message-stamp time — it must be provisioned once per mailbox via Graph
+ * `masterCategories`. The held-path stamp (Plan 01) and the forward stamp
+ * (Phase 132) write category DISPLAY NAMES; this call makes those names render
+ * in `ROUTING_CATEGORY_PRESET_COLOR`.
+ *
+ * Behaviour:
+ *  - GET existing `/users/{mailbox}/outlook/masterCategories`; build a Set of
+ *    present `displayName`s.
+ *  - The DESIRED routing display-name set is sourced from `buildRoutingCategory`
+ *    (single vocabulary source — NEVER duplicated literals): the static
+ *    `triage`/`algemeen` labels plus the per-bucket `held`/`forwarded`/`dedup`
+ *    variants for each active routing bucket.
+ *  - POST ONLY the desired names that are MISSING, each with the one chosen
+ *    non-grey preset. Idempotent: a second call POSTs nothing.
+ *  - It NEVER touches the grey `AI:` intent labels — it only ever POSTs missing
+ *    routing labels, and never PATCHes/deletes existing categories (additive,
+ *    low-risk per threat T-132.1-06).
+ *
+ * Routes through the single `graphFetch` credential boundary (connection
+ * 56014785) + its built-in 504/socket retry — never a hand-rolled client.
+ */
+export async function ensureRoutingMasterCategories(
+  mailbox: string,
+  buckets: string[],
+): Promise<{ created: string[]; existing: number }> {
+  const getRes = await graphFetch(
+    `/users/${enc(mailbox)}/outlook/masterCategories`,
+  );
+  if (!getRes.ok) {
+    throw new Error(
+      `ensureRoutingMasterCategories GET ${getRes.status}: ${await getRes.text()}`,
+    );
+  }
+  const parsed = masterCategoriesSchema.parse(await getRes.json());
+  const present = new Set(parsed.value.map((c) => c.displayName));
+
+  // Desired routing display names — sourced from the vocabulary module
+  // (buildRoutingCategory), never duplicated literals. Static labels first,
+  // then per-bucket held/forwarded/dedup variants. De-dupe defensively in case
+  // the same bucket is passed twice.
+  const desired: string[] = [
+    buildRoutingCategory("triage"),
+    buildRoutingCategory("algemeen"),
+  ];
+  for (const bucket of buckets) {
+    desired.push(buildRoutingCategory("held", bucket));
+    desired.push(buildRoutingCategory("forwarded", bucket));
+    desired.push(buildRoutingCategory("dedup", bucket));
+  }
+  const uniqueDesired = [...new Set(desired)];
+
+  const created: string[] = [];
+  for (const displayName of uniqueDesired) {
+    if (present.has(displayName)) continue;
+    const postRes = await graphFetch(
+      `/users/${enc(mailbox)}/outlook/masterCategories`,
+      {
+        method: "POST",
+        body: { displayName, color: ROUTING_CATEGORY_PRESET_COLOR },
+      },
+    );
+    if (!postRes.ok) {
+      throw new Error(
+        `ensureRoutingMasterCategories POST "${displayName}" ${postRes.status}: ${await postRes.text()}`,
+      );
+    }
+    created.push(displayName);
+  }
+
+  return { created, existing: present.size };
+}
+
+/**
  * Categorize an email by adding a category label.
  * Categories must exist in the mailbox — Graph API creates them on first use.
  */
@@ -548,6 +648,78 @@ export async function archiveEmail(
   if (!res.ok) {
     const err = await res.text();
     return { success: false, error: `Failed to archive: ${res.status} ${err}` };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Phase 132 Plan 01 (Task 2, D-01) — forward a message to a department mailbox.
+ *
+ * 2-CALL DRAFT FLOW (createForward → send), routed through the single
+ * `graphFetch` credential boundary (connection 56014785) + its built-in
+ * 504/socket retry. NEVER a hand-rolled client and NEVER a connection literal.
+ *
+ * WHY 2 calls and NOT 3 (no replyTo PATCH): the 2026-06-18 live send-scope smoke
+ * proved Exchange STRIPS `replyTo` on send for the shared info@ mailbox, so the
+ * replyTo PATCH is a silent no-op and is OMITTED. Instead the original sender is
+ * conveyed in the forward COMMENT (D-01 sender-in-comment fallback).
+ *
+ * `mailbox` is the info@ SOURCE box (Pitfall 3). `toMailbox` is ONLY the
+ * toRecipients value. Pass ONLY `message.toRecipients` + `comment` — NEVER also
+ * `message.body` (Pitfall 1). NEVER throws — mirrors categorizeEmail.
+ */
+export async function forwardMessage(args: {
+  mailbox: string;
+  messageId: string;
+  toMailbox: string;
+  originalSender: string;
+  comment?: string;
+}): Promise<OutlookActionResult> {
+  const { mailbox, messageId, toMailbox, originalSender, comment } = args;
+
+  const fwdComment = `Doorgestuurd via info-routing — oorspronkelijke afzender: ${originalSender}.${
+    comment ? " " + comment : ""
+  }`;
+
+  const createRes = await graphFetch(
+    `/users/${enc(mailbox)}/messages/${enc(messageId)}/createForward`,
+    {
+      method: "POST",
+      body: {
+        message: {
+          toRecipients: [{ emailAddress: { address: toMailbox } }],
+        },
+        comment: fwdComment,
+      },
+    },
+  );
+
+  if (!createRes.ok) {
+    return {
+      success: false,
+      error: `createForward ${createRes.status}: ${await createRes.text()}`,
+    };
+  }
+
+  const draft = (await createRes.json()) as { id?: string };
+  if (!draft.id) {
+    return {
+      success: false,
+      error: `createForward 200 but draft id missing: ${JSON.stringify(draft)}`,
+    };
+  }
+
+  const sendRes = await graphFetch(
+    `/users/${enc(mailbox)}/messages/${enc(draft.id)}/send`,
+    { method: "POST" },
+  );
+
+  if (!sendRes.ok) {
+    return {
+      success: false,
+      error: `send ${sendRes.status}: ${await sendRes.text()}`,
+    };
   }
 
   return { success: true };

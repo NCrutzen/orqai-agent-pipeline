@@ -36,12 +36,14 @@ A fleet of registry-driven AI swarms on the canonical 5-stage funnel (Stage 0 sa
 **Two load-bearing investments.** Routing (V9.7) and handlers (V11) are *tactical*; the foundations that decide whether the real ambition is reachable are **V9.8 (governance rail)** and **V10.0 (knowledge motor)**. Acting in systems — and later in personal voice / on customer agreements — makes errors *reputational*, so the shadow→dry→live rail is not a config UI but the trust-ramp that makes autonomous action safe. V10.0 is the engine that harvests the knowledge layer from operator behaviour.
 
 **Knowledge layer (foundation, not a versioned milestone — grows with the act layer).** Two distinct layers, do **not** conflate:
+
 - *Transactional entities* (customers, invoices, orders, quotes) → **NXT is the graph**; query it via the REST-proxy / SQL. Do **not** duplicate locally.
 - *Relational / tacit knowledge* (customer-specific agreements, **work instructions/SOPs**, unwritten rules, per-person writing style) → **owned by no system today; this is the real foundation.** Two feeders: **ingestion** of explicit docs + **harvesting** via the V10 loop. Two shapes: documents/instructions → **orq.ai KB/RAG** (existing capability — no new infra); structured per-customer rules → entity-keyed Supabase facts read deterministically by handlers. **Capture discipline now:** key everything by customer + operator + entity, so graduating to a true traversable knowledge graph later (when handlers must walk relationships) is cheap, not a rebuild. Work-instruction ingestion overlaps the V10.5 Order-Entry task-model documentation — same work.
 
 **CEO / taakreductie narrative (staged).** Phase 1 = manual mail triage eliminated (V9.7, visible now). Phase 2 = the system does the actual work (V10.5 Order Entry) — a build project, because our systems have **almost no APIs** and the task model is undocumented.
 
 **Active workspace tracks (worktrees off this repo — keep them synced to `main` after this reshuffle merges, so they stop following the old plan):**
+
 - `planning/v9.7-p0-noise` → **V9.7 routing** (executing, ~116 commits ahead)
 - `workspace/run-mode-unify` → **V9.8 run-mode/gating** (planning/brief)
 - `workspace/v10-phase-0` → **V10.0 learning-loop spine** (planning/spec, phases 130–133; P130 needs Phase-133 context from V9.7)
@@ -268,6 +270,41 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 ---
 
+### V9.7 Routing Swarm Go-Live — Departmental Routing (Phases 130–134) — ACTIVE (defined 2026-06-16)
+
+**Milestone goal:** `info@` (smeba + fire-control) actionable mail is classified on *destination* by a Stage-3 router and forwarded to the right departmental mailbox without a human; staff curate routing rules via natural language; verkoop@→order@ is the first cross-mailbox sales routing. No customer-facing content generation (that is the draft-reply track, deferred). Full rationale + data: `MILESTONES.md` (V9.7) + `docs/routing-swarm-milestone-charter.md`.
+
+**Data baseline (live 30d, 2026-06-16):** info-routing already ingests + runs Stage 0/1 but routes nothing (`stage2_entity_resolver`/`stage3_coordinator_agent_key` = null). info@smeba.nl 1.073/mo, info@fire-control.nl 219/mo. The ~663/mo "unknown" pool is ~50% latent noise + ~50% (~300/mo) routable into 6-7 finite destinations. Verified destination mailboxes (actively send): `order@`/`verkoop@` (3 brands), `planning@smeba.nl`, `storing.smeba@smeba.nl`, `opleidingen@fire-control.nl`, `crediteuren@smeba.nl`, `hrm@smeba.nl`.
+
+**Hard constraints:** registry changes ship as `supabase/migrations/` + `npm run codegen` committed atomically — never hand-edit `*.generated.ts`; **zero `if swarm_type==='info-routing'` branches** in shared workers (SWARM-02) — destinations + routing rules are registry data; routing needs **no Stage 2** (decoupled from V9.5); first concrete consumer of the V10.0 ambient learning-loop.
+
+**Sequencing principle:** clean the denominator first (P0 noise-recalibration) → then the router (P1) → then forward + review surface (P2) → NL-config + verkoop→order (P3) → ambient-loop (P4). Critical path P0→P1→P2.
+
+- [x] **Phase 130 (P0): info@ Stage-1 noise-recalibration** — close the ~50% latent-noise leak in the info@ "unknown" pool by registering new `classifier_rules` candidates (cold-sales/SEO, newsletters, auto-dealer spam, job applications, survey invites) through the existing Wilson-CI shadow→promote gate; the noise share of the pool drops ~50%→<20%, giving the router a clean denominator. **← current** (completed 2026-06-16)
+- [x] **Phase 131 (P1): Destination taxonomy + Stage-3 router** — freeze the 6-7 destination buckets + verified mailboxes; build the `info-routing-coordinator` Orq agent classifying on destination + destination registry (no Stage 2). (completed 2026-06-17)
+- [x] **Phase 132 (P2): Forward side-effect + Bulk Review** — Stage-4 Outlook-forward (idempotent, dry-run-gated, brand-aware) + category stamp-back; info-routing Bulk Review surface. (completed 2026-06-18)
+- [x] **Phase 132.1 (P2.5, INSERTED): Router go-live — Stage-3 dispatch-wiring + activation + shadow-precision gate** — take the built-but-held info-routing router/forward (131/132) live-measurable: fix Stage-3 dispatch so a Stage-1-cleared `unknown` actionable info@ email reaches the generic coordinator with a valid `email_id` while cleanly skipping Stage 2 (resolves the `email_id=null` createRun crash reverted in #131); activate `behavior_tracking` + `AI:` routing-category stamp-back on info@ so operator corrections become ground-truth; gate on ≥85% shadow precision (verdict vs operator-actual) per mailbox. Routing labels get a distinct Outlook category colour. Forward stays dry-run until precision proven. (completed 2026-06-24)
+  **Plans:** 4 plans (2 waves)
+  Plans:
+
+  - [x] 132.1-01-PLAN.md — Wave 1: dispatch email_id-resolution fix (D-fix) + held-path AI: held/triage stamp + swarm_written_categories baseline (D-01)
+  - [x] 132.1-02-PLAN.md — Wave 1: masterCategories ensure-call — one non-grey preset for all routing labels (D-03)
+  - [x] 132.1-03-PLAN.md — Wave 2: activation migrations (dispatch re-flip + behavior_tracking enable, jsonb || merge + DB read-back) + one-flag forward revert (D-fix, D-01, D-02)
+  - [x] 132.1-04-PLAN.md — Wave 2: ROUTE-08 human_category wiring + per-mailbox auto-flip cron (≥85%, min-N=50, monitoring) (D-02, ROUTE-08)
+- [ ] **Phase 133 (P3): NL routing-config + verkoop→order** — staff NL → routing rules (human-approved); verkoop@→order@ routing for `quote_acceptance`/`order_status`.
+- [ ] **Phase 134 (P4): Ambient-loop coupling** — clicked-away/moved mail → `correction_event` → V10.0 loop tunes routing rules.
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
+| 131. Destination taxonomy + router | 5/5 | Complete    | 2026-06-17 |
+| 132. Forward + Bulk Review | 4/4 | Complete    | 2026-06-18 |
+| 132.1. Router go-live + shadow-precision (INSERTED) | 4/4 | Complete   | 2026-06-24 |
+| 133. NL routing-config + verkoop→order | — | Pending | — |
+| 134. Ambient-loop coupling | — | Pending | — |
+
+---
+
 ### V9.0 Sales-Email Canonical Pipeline — Outlook-driven (Phases 110–117) — SHIPPED 2026-06-15 (re-sequenced 2026-06-02; was V10.0)
 
 **Milestone goal:** `verkoop@smeba.nl` runs the full canonical 5-stage funnel end-to-end with an operator-usable Bulk Review trace — the actual "second swarm validation" v8.0 promised, and the first cross-swarm reuse of the v8.2 NXT resolver. **NOT "move to Outlook"** (ingest already live, 827 emails/30d, Sugar→Outlook cutover done 2026-05-06): the delta is finish Stage 1 + add Stage 2/3 + Bulk Review + clean up dead Sugar code.
@@ -316,6 +353,97 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 ---
 
 ## Phase Details
+
+### Phase 130: info@ Stage-1 noise-recalibration (V9.7 P0)
+
+**Goal**: Close the ~50% latent-noise leak in the info-routing "unknown" pool (info@smeba.nl + info@fire-control.nl) by registering new Stage-1 `classifier_rules` candidates — cold-sales/SEO outreach, marketing newsletters, auto-dealer/vehicle spam, unsolicited job applications, survey/feedback invites — that flow through the existing Wilson-CI shadow→promote gate. Outcome: the noise share of the "unknown" pool drops ~50%→<20%, giving the V9.7 router (Phase 131) a clean denominator. Registry-data only; no per-swarm code.
+**Depends on**: info-routing swarm Stage 0/1 (live) + `info_routing_mailbox_settings` (exists) + the v8.0/v8.1 `classifier_rules` + Wilson-CI shadow→promote infra (live). First V9.7 phase.
+**Depends on (external/cross-track)**: none. **No dependency on V9.5** (no Stage 2).
+**Requirements**: NOISE-01, NOISE-02, NOISE-03, NOISE-04, NOISE-05
+**Success Criteria** (what must be TRUE):
+
+  1. New `classifier_rules` candidates exist (as registry rows, no per-swarm branch) covering the five leaking noise classes, with shadow telemetry accumulating (NOISE-01, NOISE-02).
+  2. Candidates promote to acting noise rules only via the existing Wilson-CI confidence gate — no blind auto-archive (NOISE-02).
+  3. Instrumented before/after shows the info@ "unknown" pool's true-noise share dropping ~50%→<20% per live mailbox (NOISE-03).
+  4. Zero false-archive of actionable mail: an actionable-token carve-out (offerte/order/inkooporder/factuur/keuring/storing) + word-boundary matching is in place and verified on a sample (NOISE-04).
+  5. Rules apply across info@smeba.nl + info@fire-control.nl with brand/mailbox awareness; dormant info@ boxes untouched (NOISE-05).
+
+**Plans**: 3 plans (2 waves — Wave 0 BLOCKING telemetry unblock, then Wave 1 parallel seeds + measurement)
+Plans:
+
+- [x] 130-01-PLAN.md — Wave 0 [BLOCKING]: widen agent_runs swarm_type CHECK to include info-routing + live-INSERT smoke (unblocks all shadow telemetry) (NOISE-02) — Tasks 1-3 complete; migration applied to remote 2026-06-16 (CHECK now 5-value union; live info-routing INSERT roundtrip proven, 0 telemetry pollution)
+- [x] 130-02-PLAN.md — Wave 1: seed 6 info-routing swarm_noise_categories + paired classifier_rules candidates (shadow) + actionable-token carve-out boundary test (NOISE-01, NOISE-04, NOISE-05) — seeds applied to remote 2026-06-16 (6 categories + 6 candidate rules live, all kind=agent_intent/status=candidate)
+- [x] 130-03-PLAN.md — Wave 1: per-mailbox unknown-pool composition view (security_invoker) + worker-category test + labelled-sample noise-baseline script + classifier-promotion-cron gate verify (NOISE-02, NOISE-03) — view applied 2026-06-16 (check:supabase 0 ERROR, no codegen drift, 10 composition rows); 2 human-verification items remain (live-email telemetry confirm + BEFORE labelled baseline)
+- [x] 130-04-PLAN.md — gap-closure: fix NOISE-03 measurement tooling (WR-01 email_pipeline.emails subject/sender lookup + WR-02 wilsonCiUpper/wilson_ci_hi) (NOISE-03) — 24/24 tests green, typecheck clean
+- [x] 130-05-PLAN.md — gap-closure: SHARED swarm-agnostic Stage-1 actionable-token block-rule wired into worker (WR-03 option A) + swarms.stage1_shared_block_rules adoption pool (info-routing first adopter; debtor/sales/support-tickets neutral) + NOISE-03 re-scoped to automated view-metric (no human labelling) (NOISE-03, NOISE-04, REQ-6) — migration 20260616e applied 2026-06-16, 5 veto tests green, advisors clean
+
+---
+
+### Phase 131: Destination taxonomy + Stage-3 router (V9.7 P1)
+
+**Goal**: Build the **routing layer** of the canonical funnel for info-routing: freeze a fixed **destination taxonomy** (the ~6-7 routing buckets + their verified target mailboxes, brand-aware) as a **destination registry**, and stand up a Stage-3 `info-routing-coordinator` Orq agent that classifies each Stage-1-cleared actionable info@ email onto a **destination** (department/mailbox) instead of an intent. This gives every actionable email a destination verdict. Registry-driven (SWARM-02): destinations + routing rules are registry data, zero `if swarm_type==='info-routing'` branches. **No Stage 2** (routing needs no customer resolution). The actual Outlook **forward** side-effect, the NL routing-config UI, verkoop@→order@, and the Bulk Review surface are **later phases (132–133)** — 131 stops at a persisted destination verdict.
+**Depends on**: Phase 130 (clean info@ "unknown" denominator — noise recalibrated) + info-routing swarm Stage 0/1 live + the verified destination mailboxes (charter §2, 2026-06-16) + the existing Stage-3 coordinator pattern (`swarms.stage3_coordinator_agent_key` + `swarm_intents`-style registry from v8.0/v8.1).
+**Depends on (external/cross-track)**: none. **No dependency on V9.5** (no Stage 2 / no resolver). **No dependency on Phase 132** (forward) — 131 produces the verdict that 132 acts on.
+**Requirements**: ROUTE-01, ROUTE-02, ROUTE-03, ROUTE-04, ROUTE-05, ROUTE-06, ROUTE-07, ROUTE-08 (locked by `131-SPEC.md`).
+**Success Criteria** (what must be TRUE — provisional, SPEC.md refines):
+
+  1. A fixed destination taxonomy (~6-7 buckets) + verified target mailboxes is frozen as registry data (a destination registry), brand-aware (info@smeba can route to fire-control mailboxes; `env_id='BX'` hard filter respected).
+  2. A Stage-3 `info-routing-coordinator` Orq agent exists and classifies Stage-1-cleared actionable info@ mail onto a destination from the closed registry list.
+  3. Each routed email gets a persisted Stage-3 destination verdict (the input Phase 132's forward consumes). No forward/side-effect fires in this phase.
+  4. Registry-driven: a new mailbox/destination is an INSERT, no code branch (SWARM-02). No Stage 2 invoked.
+
+**Plans**: 5 plans (4 waves; A→B→C→(D∥E))
+Plans:
+**Wave 1**
+
+- [x] 131-01-PLAN.md — Registry + wiring: routing_destinations table+RLS+seed, swarms stage-3 wiring (agent key + stage_3_routing held + threshold), unknown→swarm_dispatch flip, codegen (ROUTE-01, ROUTE-02)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [x] 131-02-PLAN.md — Orq info-routing-coordinator agent (list_models→create→PATCH→get_agent, closed-list anyOf json_schema) + Zod validator (ROUTE-03)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [x] 131-03-PLAN.md — Coordinator routing capability: 6-field verdict on coordinator_runs.decision_details.routing + TELE-01, unrouted gate, ROUTE-07 no-forward/no-Stage-2 gate (ROUTE-04, ROUTE-06, ROUTE-07)
+
+**Wave 4** *(blocked on Wave 3; 04 ∥ 05)*
+
+- [x] 131-04-PLAN.md — Two-layer duplicate-delivery guard (raw_json recipients + normalized message-id) wired into the verdict (ROUTE-05)
+- [x] 131-05-PLAN.md — Shadow precision harness (verdict vs human-actual Outlook category, ≥85% gate, graded_n false-success guard) (ROUTE-08)
+
+---
+
+### Phase 132: Forward side-effect + Bulk Review (V9.7 P2)
+
+**Goal**: Turn the persisted Stage-3 destination verdict from Phase 131 into a real Stage-4 side-effect: forward each routable info@ email to its resolved departmental mailbox (idempotent, dry-run-gated, brand-aware), stamp the routing outcome back as an Outlook category (the V10 ambient-loop signal), and stand up the info-routing Bulk Review surface so operators can see/verify routing decisions before and after release. `algemeen` (no-forward / stays in info@) and `unrouted` verdicts never forward. No NL routing-config UI and no verkoop@→order@ routing here — those are Phase 133.
+**Depends on**: Phase 131 (the persisted destination verdict + the held no-forward gate that this phase releases) + the info-routing swarm Stage 0/1 live + the verified destination mailboxes (charter §2).
+**Depends on (external/cross-track)**: Outlook Graph forward + category-write capability on the info@ mailboxes. (`algemeen@smeba.nl` non-existence already dispositioned 2026-06-17 — `algemeen` is a no-forward outcome.)
+**Requirements**: FWD-01, FWD-02, FWD-03, FWD-04, FWD-05, FWD-06, FWD-07, FWD-08, FWD-09, FWD-10 (provisional FWD-xx group derived during planning from success criteria 1-6 + 132-RESEARCH.md; a future `132-SPEC.md` may refine/rename).
+**Success Criteria** (what must be TRUE — provisional, SPEC.md refines):
+
+  1. A routable destination verdict triggers an idempotent Outlook forward to the resolved target mailbox; re-runs never double-forward (Phase 131 two-layer dedup guard honored).
+  2. Forwarding is dry-run-gated (observe → release) and brand-aware (info@smeba can forward to fire-control/berki mailboxes; `env_id='BX'` hard filter respected).
+  3. `algemeen` (no-forward/stays) and `unrouted` verdicts never forward — they stay in info@ / go to human triage.
+  4. The routing outcome is stamped back as an Outlook category on the source mail (the V10 ambient-loop signal).
+  5. An info-routing Bulk Review surface shows each email's destination verdict + forward status for operator verification.
+  6. Registry-driven (SWARM-02): zero `if swarm_type==='info-routing'` branches in the shared Stage-4 / dispatcher path.
+
+**Plans**: 4 plans (3 waves)
+Plans:
+**Wave 1**
+
+- [x] 132-01-PLAN.md — Wave 1: [BLOCKING] live Graph send-scope smoke + leaf primitives (forwardMessage 3-call helper, routing-category vocabulary, isForwardBucketReleased per-bucket gate, Wave-0 RED worker scaffold) (FWD-01, FWD-02, FWD-03, FWD-04, FWD-06, FWD-10)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [x] 132-02-PLAN.md — Wave 2: Stage-4 forward worker + info_routing_forwards idempotency store + coordinator pipeline/forward.requested emit + SWARM-02 guard extension + migration (held-by-default seed + RLS table) (FWD-01, FWD-02, FWD-04, FWD-05, FWD-06, FWD-07, FWD-10)
+- [x] 132-03-PLAN.md — Wave 2: info-routing Bulk Review surface (routing detail-pane + verdict/forward-status hydration + re-route / forward-now / don't-forward server actions) (FWD-08, FWD-09)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [x] 132-04-PLAN.md — Wave 3: [BLOCKING] apply migration 20260617e to remote + codegen drift gate + check:supabase advisor + full suite (FWD-03, FWD-08)
+
+---
 
 ### Phase 110: Visibility Foundation — Bulk Review + swarm-row enrichment + ingest verify
 
@@ -735,7 +863,7 @@ Plans:
 - `.planning/phases/60-debtor-email-close-the-whitelist-gate-loop-data-driven-auto-/60-09-PLAN.md` — regex tightening pattern
 - `web/lib/debtor-email/classify.ts` — current regex set with English keywords (NL/BE-tuned)
 
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 

@@ -783,8 +783,10 @@ describe("hydrateBulkReviewRow", () => {
     expect(uniqueTables.has("debtor.email_labels")).toBe(true);
     expect(uniqueTables.has("public.pipeline_events")).toBe(true);
     expect(uniqueTables.has("public.agent_runs")).toBe(true);
-    // Total bounded — no per-row registry chatter.
-    expect(uniqueTables.size).toBeLessThanOrEqual(7);
+    // Total bounded — no per-row registry chatter. Phase 132 Plan 03 added one
+    // bounded read (public.info_routing_forwards, FWD-08), bumping the ceiling
+    // from 7 → 8.
+    expect(uniqueTables.size).toBeLessThanOrEqual(8);
 
     // Second hydrate within TTL — registry must NOT hit the network again
     // for the same swarm_type.
@@ -794,8 +796,8 @@ describe("hydrateBulkReviewRow", () => {
       swarm_type: SWARM,
     });
     const second = fromCalls.slice(before);
-    // Second call: anchor + pipeline_events + agent_runs (3 calls). No more
-    // swarm_noise_categories / swarm_intents / swarms — cached.
+    // Second call: anchor + pipeline_events + agent_runs + info_routing_forwards
+    // (4 calls). No more swarm_noise_categories / swarm_intents / swarms — cached.
     expect(second.filter((t) => t.startsWith("public.swarm")).length).toBe(0);
   });
 

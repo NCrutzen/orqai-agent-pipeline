@@ -14,8 +14,7 @@
     "check:clickup-webhooks": "tsx scripts/check-clickup-webhooks.ts",
     "check:ticket-cache": "tsx scripts/check-ticket-cache.ts",
     "check:clickup-env": "! grep -rI --exclude-dir=node_modules --exclude=package.json 'NEXT_PUBLIC_CLICKUP' . 2>/dev/null | grep -v check:clickup-env",
-    "dry-run:equality": "tsx scripts/equality-dry-run.ts",
-    "codegen": "tsx scripts/gen-entity-types.ts && tsx scripts/gen-tenant-domains.ts && tsx scripts/gen-intent-types.ts",
+    "codegen": "tsx scripts/gen-entity-types.ts && tsx scripts/gen-tenant-domains.ts && tsx scripts/gen-intent-types.ts && tsx scripts/gen-routing-destinations.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -74,7 +73,6 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/dagre": "^0.7.54",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

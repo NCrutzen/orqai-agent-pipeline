@@ -24,6 +24,7 @@ import type { BulkReviewRow } from "@/lib/bulk-review/types";
 import { Stage4Widget, type Stage4Quality } from "../../stage-1/components/stage-4-widget";
 
 import { AuditBlock, auditBlockIsComplete } from "./audit-block";
+import { RoutingDetailPane } from "./routing-detail-pane";
 import styles from "./stage-4-decide.module.css";
 import { useSelection } from "../selection-context";
 import {
@@ -86,6 +87,16 @@ export function Stage4Decide({ row, onSubmitted }: Stage4DecideProps) {
     mapping !== null && mapping.verdict !== "approved" ? "override" : "confirm";
   const submitLabel =
     submitMode === "override" ? "Submit override ⏎" : "Confirm ⏎";
+
+  // Phase 132 Plan 03 (D-07) — info-routing rows carry a routing verdict slot;
+  // render the routing detail pane instead of the handler-output Stage-4 widget.
+  // DATA-GATED on row.routing (NO swarm_type literal): debtor/sales rows have
+  // row.routing === null and fall through to the existing Stage-4 behavior. The
+  // branch sits AFTER all hooks so hook order stays consistent (a row's routing
+  // identity is stable for its whole mount — keyed by email_label_id upstream).
+  if ((row.routing ?? null) !== null) {
+    return <RoutingDetailPane row={row} onSubmitted={onSubmitted} />;
+  }
 
   if (slot === null) {
     return (
