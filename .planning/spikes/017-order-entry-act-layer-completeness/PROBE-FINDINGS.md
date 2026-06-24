@@ -57,7 +57,36 @@ De quote→order-bouwopdracht is **smaller dan "greenfield"**: trigger = email-a
 lineage + cancellation-catalogus staan; wat ontbreekt is de **automatisering** (de "Order Genereren"-call
 zelf) en de orchestratie-glue.
 
-## REST/Browserless-helft — LIVE GEDRAAID 2026-06-24; token-harvest-bug (temporary login token)
+## REST-helft — RESOLVED op PRODUCTIE 2026-06-24 (read-only, CTO-akkoord; acc offline)
+Acc lag offline → CTO gaf akkoord de read-only REST-helft op **productie** te draaien (alleen lezen).
+Gedraaid via een **wegwerp-runner** die safe-by-construction is: token via `loadToken("production")`
+(plain SELECT, geen harvest/geen store) en bij expiry een **in-memory** `acquireTokenViaBrowserless`
+— nooit `getValidToken`/`storeToken`, dus de live `settings.nxt_oauth_token_production`-rij blijft ongemoeid.
+
+**Root-cause vanmorgen herzien (2e keer):** de "temporary login token"-vangst was **geen** harvest-bug
+maar twee aparte oorzaken: (a) acc was kapot, en (b) de `NXT Production Login`-credential had de
+**verkeerde username** (`danny.vaessens.cb` i.p.v. `nick.crutzen.cb`) → Auth0 "Wrong email or password",
+dus geen Bearer. Username gecorrigeerd (wachtwoord bleef ongewijzigd); daarna logde de harvest probleemloos
+in en leverde een echt RS256-token (~10h TTL).
+
+| # | Residual | Live-prod resultaat |
+|---|---|---|
+| #7 | order types | `POST /api/orders/types {status:active,availableForEntry:true}` → **200, 19 entry-valide types** (SQL zei 34 totaal). Bv. `AI=Detectie Installatie`. |
+| #6 | camunda quote→order/backorder proces? | `GET /api/camunda-rest/process-definition?latestVersion=true` → **16 procs**. Relevant = **`quoteProcess`** (Quote process). **Géén** apart order- of backorder-proces; planning via `prePlanningProcess`/`updatePlanningProcess`/`Job_processing`. |
+| #2 | quote REST-endpoint | collection `GET /api/quotes` → **405** (methodNotSupported, conform CTO-gotcha). Single `GET /api/quotes/{id}` → **200** (`{id,status,…}`). REST-quote bestaat. |
+| #1/#3 | order shape + lineage-veld | `GET /api/orders/{guid}` → **200**. Top-level keys: `id, internalId, date, reference1, brandId, customerId, siteId, created, createdBy, ticketFinishDate, orderTypeId, orderTypeAvailableForEntry, orderTypeDirectDispatchEnabled, orderTypeDirectInvoice, orderStatusId, windowStartDate, windowEndDate, startDate, subscriptionId, jobsCustomDurations, site, customer, companyId, lines, notes, `**`originQuote`**`. → REST-lineage-veld = **`originQuote`** (verfijnt SQL's `origin_quote_id`/`quote_reference`); lifecycle-veld = `orderStatusId`; dispatch-flag = `orderTypeDirectDispatchEnabled`; stammaand-link = `subscriptionId`. |
+| #5 | orderScheme read | `GET /api/sites/{id}/orderSchemes` → **405** → read is POST-shaped (CTO-gotcha "order-scheme POST"). Velden al via SQL-replica gedekt. |
+| #4 | cancellation reasons | `GET /api/cancellations/reasons` → **400** (`reasons` als long geparsed → pad is `/api/cancellations/{id:long}`). Reason-catalogus al via SQL-replica gedekt. |
+| #10 | SPA-token-TTL | harvest leverde token met **~600min (10h)** TTL — conform CTO `id_token ~10h`. |
+
+**Echt nog open (alléén via UI-gesture / Browserless DOM-capture, geen GET):**
+1. Exacte **"Order Genereren"**-call die quote→`status='ORDER'` + order met `originQuote` zet (loopt via `quoteProcess` Camunda; method/path/body niet REST-zichtbaar zonder de klik).
+2. Magazijn **"rode pijltje"**-dispatch: `/api/...` of strikt UI/Tablet Dispatch (order-type-flag `orderTypeDirectDispatchEnabled` is de hint).
+→ Zie DOM-PROBE-note onderaan `probe-order-entry-acc.ts`.
+
+<details><summary>Historische diagnose (acc-run vanochtend — superseded door bovenstaande)</summary>
+
+### REST/Browserless-helft — LIVE GEDRAAID 2026-06-24; token-harvest-bug (temporary login token)
 De probe (`probe-order-entry-acc.ts`) is **live uitgevoerd** vanuit de main-checkout (deps + `.env.local`).
 Resultaat + **gecorrigeerde diagnose** (dank Ans/Nick):
 - **Token-harvest liep, maar pakte het VERKEERDE token.** `acquireTokenViaBrowserless` vangt de **eerste**
@@ -86,3 +115,5 @@ Onderstaande punten blijven open tot de harvest een **volwaardig** token levert:
 4. DocuWare-auth (upload Site/Job/Document Type).
 5. SPA-token-TTL via de Browserless-harvest.
 → Draai `web/lib/automations/nxt-zapier/probe-order-entry-acc.ts` in de dev-env (zie README).
+
+</details>
