@@ -280,6 +280,26 @@ export const classifierScreenWorker = inngest.createFunction(
     // surfaces the purple Pass-2 evidence variant when non-null.
     let llmModelKey: string | null = null;
 
+    // Quick 260624 — only a GENUINE 'unknown' may be refined into a noise
+    // category by the loopback mutation below or the LLM 2nd-pass. The debtor
+    // regex module also returns category='unknown' for DELIBERATE blocks
+    // (blocked_submission_rejected, payment_blocked_request_template /
+    // _refund / _by_dispute) — these are real "route to a human / Stage 2-3"
+    // decisions, NOT abstentions. Before this guard the LLM 2nd-pass ran on
+    // every 'unknown' and could DEMOTE a deliberate block to archivable noise
+    // (observed on debtor: 18 'Te veel PDF' invoice-rejections relabeled
+    // auto_reply, a payment dispute relabeled payment_admittance). Genuine
+    // abstention is matchedRule='no_match' (regex ran, no rule fired) OR
+    // matchedRule=null (no regex module at all — e.g. sales-email, whose ONLY
+    // classifier is the LLM 2nd-pass, so it MUST stay refinable). A deliberate
+    // block is the non-null, non-'no_match' case → skip both noise-adding
+    // paths and let it flow untouched to the unknown → Stage 2/3 handoff.
+    // Evaluated live (regexOutcome is reassigned by the loopback block).
+    const regexAllowsNoiseRefinement = () =>
+      regexOutcome.category === "unknown" &&
+      (regexOutcome.matchedRule === null ||
+        regexOutcome.matchedRule === "no_match");
+
     // ───── Phase 84 D-03 own_outbound_invoice_loopback (R-02 direction guard) ─
     // Worker-side because classify.ts signature lacks 'from' historically and
     // 'direction' is not in scope inside the regex module (Pitfall 3). The
@@ -297,7 +317,9 @@ export const classifierScreenWorker = inngest.createFunction(
     //
     // In-memory mutation only — no step.run wrapper needed (Pitfall 3
     // recommendation). Replay-safe: deterministic from event.data fields.
-    if (regexOutcome.category === "unknown") {
+    // Guard (Quick 260624): a deliberate-block 'unknown' is NOT an abstention
+    // and must not be reclassified as loopback noise either.
+    if (regexAllowsNoiseRefinement()) {
       const tenantDomains = (swarmRow.tenant_domains as string[] | undefined) ?? [];
       const fromDomain = (fromFromEvent ?? "").split("@")[1]?.toLowerCase() ?? "";
       // Default: when producer omits direction, treat as 'inbound' (every
@@ -332,8 +354,11 @@ export const classifierScreenWorker = inngest.createFunction(
       }
     }
 
-    // ───── Step 3: LLM call only on regex='unknown' (D-16.3, D-10, D-11) ─
-    if (regexOutcome.category === "unknown") {
+    // ───── Step 3: LLM call only on a GENUINE regex='unknown' (D-16.3, D-10,
+    // D-11). Quick 260624: deliberate blocks are excluded — see
+    // regexAllowsNoiseRefinement above — so the LLM 2nd-pass can no longer
+    // demote a "route to human / Stage 2-3" verdict into archivable noise.
+    if (regexAllowsNoiseRefinement()) {
       // Pitfall 6: empty registry → coerce to 'unknown' BEFORE the LLM call.
       // Filtering `enabled` here also handles the case where every category
       // is disabled mid-flight. registry helpers already filter enabled=true,

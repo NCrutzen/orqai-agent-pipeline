@@ -830,6 +830,59 @@ describe("Phase 82.2 D-A — category dispatch (moved from ingest)", () => {
     );
   });
 
+  it("Test A2 (Quick 260624): DELIBERATE regex block (blocked_submission_rejected) → LLM 2nd-pass NOT invoked, stays unknown → Stage 2 handoff (no demotion to noise)", async () => {
+    // Guard regression. The debtor regex deliberately routes vendor-system
+    // invoice rejections ("Te veel PDF of UBL bestanden aangeboden") to
+    // category='unknown' with matchedRule='blocked_submission_rejected' so a
+    // human resubmits. Before the guard, the worker ran the LLM 2nd-pass on
+    // every 'unknown' and the LLM demoted these to auto_reply (archivable
+    // noise). The LLM here is stubbed to return auto_reply ON PURPOSE — the
+    // test proves it is never consulted, so the deliberate block survives.
+    classifyMock.mockReturnValue({
+      category: "unknown",
+      confidence: 0,
+      matchedRule: "blocked_submission_rejected",
+    });
+    invokeOrqAgentMock.mockResolvedValue({
+      raw: { category_key: "auto_reply", confidence: "high", reasoning: null },
+      agent: { agent_key: "stage-1-category-classifier" },
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      billing: { total_cost: 0 },
+      cost_cents: 0,
+    });
+    // Even if auto_reply WERE assigned, this whitelist + auto_label would have
+    // archived it — making a regression loud.
+    readWhitelistMock.mockResolvedValue(new Set(["llm:auto_reply:high"]));
+
+    const cache: StepCache = new Map();
+    await handler({ event: debtorEvent(), step: makeStepStub(cache) });
+
+    // Core guarantee: the LLM 2nd-pass is never invoked for a deliberate block.
+    expect(invokeOrqAgentMock).not.toHaveBeenCalled();
+    // No demotion to noise → no Outlook side-effects.
+    expect(categorizeEmailMock).not.toHaveBeenCalled();
+    expect(archiveEmailMock).not.toHaveBeenCalled();
+    // Pipeline event keeps the deliberate-block verdict (decision stays unknown,
+    // predictor 'regex' not 'llm_2nd_pass').
+    const evt = emitPipelineEventMock.mock.calls.find(
+      ([, p]) => (p as { stage: number }).stage === 1,
+    );
+    expect(evt).toBeDefined();
+    expect((evt![1] as { decision: string }).decision).toBe("unknown");
+    expect(
+      (evt![1] as { decision_details: { predictor: string } }).decision_details
+        .predictor,
+    ).toBe("regex");
+    // Routed to Stage 2, exactly like a genuine unknown.
+    const verdictCall = inngestSend.mock.calls.find(
+      ([payload]) =>
+        (payload as { name: string }).name === "classifier/verdict.recorded" &&
+        (payload as { data: { predicted_category: string } }).data
+          .predicted_category === "unknown",
+    );
+    expect(verdictCall).toBeDefined();
+  });
+
   it("Test B: whitelist match + auto_label_enabled=true → categorize+archive called, 2 automation_runs rows (completed audit + pending cleanup)", async () => {
     readWhitelistMock.mockResolvedValue(new Set(["subject_paid_marker"]));
     classifyMock.mockReturnValue({
