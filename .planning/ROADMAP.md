@@ -288,7 +288,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
   Plans:
 
   - [x] 132.1-01-PLAN.md — Wave 1: dispatch email_id-resolution fix (D-fix) + held-path AI: held/triage stamp + swarm_written_categories baseline (D-01)
-  - [ ] 132.1-02-PLAN.md — Wave 1: masterCategories ensure-call — one non-grey preset for all routing labels (D-03)
+  - [x] 132.1-02-PLAN.md — Wave 1: masterCategories ensure-call — one non-grey preset for all routing labels (D-03)
   - [ ] 132.1-03-PLAN.md — Wave 2: activation migrations (dispatch re-flip + behavior_tracking enable, jsonb || merge + DB read-back) + one-flag forward revert (D-fix, D-01, D-02)
   - [ ] 132.1-04-PLAN.md — Wave 2: ROUTE-08 human_category wiring + per-mailbox auto-flip cron (≥85%, min-N=50, monitoring) (D-02, ROUTE-08)
 - [ ] **Phase 133 (P3): NL routing-config + verkoop→order** — staff NL → routing rules (human-approved); verkoop@→order@ routing for `quote_acceptance`/`order_status`.
@@ -299,7 +299,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
 | 131. Destination taxonomy + router | 5/5 | Complete    | 2026-06-17 |
 | 132. Forward + Bulk Review | 4/4 | Complete    | 2026-06-18 |
-| 132.1. Router go-live + shadow-precision (INSERTED) | 1/4 | In Progress|  |
+| 132.1. Router go-live + shadow-precision (INSERTED) | 2/4 | In Progress|  |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
 | 134. Ambient-loop coupling | — | Pending | — |
 
