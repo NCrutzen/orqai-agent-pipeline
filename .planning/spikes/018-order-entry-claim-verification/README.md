@@ -1,15 +1,15 @@
 ---
-spike: 017
+spike: 018
 name: order-entry-claim-verification
 type: standard
 validates: "Koens voorwerk is per werkregel 'provisional until live-verified'. Deze spike harvest élke concrete, toetsbare claim uit de volledige order-entry/research-set (klantnummers, artikelnummers, order-types, tarieven, mailboxen) en verifieert ze READ-ONLY tegen de levende systemen: NXT SQL (via Zapier-SDK-SQL) + de Supabase-mailcorpus. Sluit de validatielaag boven 012–016 vóór een V10.5-fase wordt gepland."
 verdict: "DONE 2026-06-24. De kern van Koens werk is solide en nu hard onderbouwd; live-toetsing bevestigde de order-types (nxt.dbo.order_type_bx, 34 codes — handleiding-vs-audio STRIJDIG beslecht), ~28 klantnummers (naam+merk+postcode corroboreren), de kern-artikelen + O0XXTEXT (€0, 18 min), en Defensie all-in €20,98/eenheid (price_bx). Live toetsen ving ~8 concrete fouten/drifts die anders de eerste handler in zouden lekken: 530984≠Jumbo (=De Grabbelton), 540649 nog ACTIVE, 491961 INACTIVE, picto 3100313489 nog ACTIVE (zou vervallen), verouderde Lidl-prijzen, 3 afwezige klantnummers, BE order-inbox niet geïngest. Reachability-bevinding: de hele NXT SQL-server (customers/order-types/items/prices) is read-only queryable via Zapier-SQL — géén dev-env nodig. Alleen NXT-writes/UI/DocuWare vereisen dev-env; QuoteWerks is uitgefaseerd. Detail + volledige checklist: BACKLOG.md."
-related: [010b, 012, 013, 014, 015]
+related: [010b, 012, 013, 014, 015, 017]
 idea: order-entry-act-proof
 tags: [order-entry, v10.5, live-verification, nxt-sql, claims, read-only]
 ---
 
-# Spike 017: order-entry claim-verification (Koens voorwerk vs live NXT)
+# Spike 018: order-entry claim-verification (Koens voorwerk vs live NXT)
 
 Harvest + live-toets van élke concrete claim uit Koens `order-entry/research/`-set tegen de levende
 systemen. Volledige claim→bron→methode-checklist en alle resultaten: **`BACKLOG.md`** (naast deze README).
