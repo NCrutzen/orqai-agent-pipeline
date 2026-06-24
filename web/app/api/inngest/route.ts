@@ -54,6 +54,7 @@ import { stage3Dispatcher } from "@/lib/inngest/functions/stage-3-dispatcher";
 import { stage3IntentLabelWorker } from "@/lib/inngest/functions/stage-3-intent-label-worker";
 import { stage4InfoRoutingForwardWorker } from "@/lib/inngest/functions/stage-4-info-routing-forward";
 import { infoRoutingForwardAutoflip } from "@/lib/inngest/functions/info-routing-forward-autoflip";
+import { infoRoutingForwardObserve } from "@/lib/inngest/functions/info-routing-forward-observe";
 import { debtorEmailOverrideHandler } from "@/lib/inngest/functions/debtor-email-override-handler";
 import { patternsRecommenderCron } from "@/lib/inngest/functions/promotion-recommender-cron";
 import { debtorEmailStage3RetroClassify } from "@/lib/inngest/functions/debtor-email-stage-3-retro-classify";
@@ -128,6 +129,7 @@ export const { GET, POST, PUT } = serve({
     stage3IntentLabelWorker,
     stage4InfoRoutingForwardWorker,
     infoRoutingForwardAutoflip,
+    infoRoutingForwardObserve,
     debtorEmailOverrideHandler,
     patternsRecommenderCron,
     debtorEmailStage3RetroClassify,
