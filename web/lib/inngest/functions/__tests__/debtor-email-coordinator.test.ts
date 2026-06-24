@@ -177,15 +177,34 @@ const loadSwarmMock = vi.fn(
     dry_run_config: { stage_3_routing: false },
   }),
 );
-vi.mock("@/lib/swarms/registry", () => ({
-  loadSwarm: (...args: unknown[]) =>
-    (loadSwarmMock as unknown as (...a: unknown[]) => unknown)(...args),
-  loadSwarmNoiseCategories: (...args: unknown[]) => loadCategoriesMock(...args),
-  loadSwarmIntents: (...args: unknown[]) =>
-    (loadSwarmIntentsMock as unknown as (...a: unknown[]) => unknown)(...args),
-  // Phase 131 — debtor has no routing_destinations → [] → routing block
-  // skipped (byte-neutral). Added so the new coordinator import resolves.
-  loadRoutingDestinations: vi.fn().mockResolvedValue([]),
+// Phase 131/132.1 — debtor has no routing_destinations → [] → routing block
+// skipped (byte-neutral). Named mock so Task 2 can drive the info-routing held
+// path with real rows. resolveRoutingDestination + UNROUTED_BUCKET are the REAL
+// implementations (pure functions used by buildRoutingVerdict).
+const loadRoutingDestinationsMock = vi.fn().mockResolvedValue([]);
+vi.mock("@/lib/swarms/registry", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/swarms/registry")>();
+  return {
+    ...actual,
+    loadSwarm: (...args: unknown[]) =>
+      (loadSwarmMock as unknown as (...a: unknown[]) => unknown)(...args),
+    loadSwarmNoiseCategories: (...args: unknown[]) =>
+      loadCategoriesMock(...args),
+    loadSwarmIntents: (...args: unknown[]) =>
+      (loadSwarmIntentsMock as unknown as (...a: unknown[]) => unknown)(...args),
+    loadRoutingDestinations: (...args: unknown[]) =>
+      (loadRoutingDestinationsMock as unknown as (...a: unknown[]) => unknown)(
+        ...args,
+      ),
+  };
+});
+
+// Phase 132.1 Task 2 — the info-routing Stage-3 routing agent. Mocked so the
+// held-path tests can drive a routable / unrouted / algemeen verdict.
+const invokeOrqAgentMock = vi.fn();
+vi.mock("@/lib/automations/orq-agents/client", () => ({
+  invokeOrqAgent: (...args: unknown[]) => invokeOrqAgentMock(...args),
 }));
 
 const emitStaleMock = vi.fn().mockResolvedValue(undefined);
@@ -1294,5 +1313,131 @@ describe("Phase 132.1 D-fix: email_id resolution from message_id", () => {
     ).rejects.toThrow(/unresolved email_id for message_id=graph-msg-missing/);
 
     expect(createRunMock).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 132.1 Plan 01 Task 2 (D-01) — held-path routing-category stamp + 112.5
+// baseline. In the held routing branch the coordinator stamps `AI: held →
+// <bucket>` (or `AI: triage` when unrouted) on the source mail via Graph
+// GET+PATCH and seeds the swarm_written_categories baseline. `algemeen`
+// (target_mailbox null) is NOT stamped/baselined (D-04); debtor/sales (no
+// routing_destinations) are byte-neutral; a stamp failure must not abort the
+// held-verdict persist.
+// ---------------------------------------------------------------------------
+
+describe("Phase 132.1 D-01: held-path stamp + 112.5 baseline", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+  const stepRunNames: string[] = [];
+  const tracedStep = {
+    run: async (name: string, fn: () => Promise<unknown>) => {
+      stepRunNames.push(name);
+      return fn();
+    },
+  };
+
+  // info-routing routing_destinations: storingen→order@ (routable),
+  // algemeen→null (stays/no-forward).
+  const routingRows = [
+    {
+      swarm_type: "info-routing",
+      destination_key: "storingen",
+      brand: "smeba",
+      target_mailbox: "order@smeba.nl",
+      outlook_category: "storingen",
+      active: true,
+    },
+    {
+      swarm_type: "info-routing",
+      destination_key: "algemeen",
+      brand: "smeba",
+      target_mailbox: null,
+      outlook_category: "algemeen",
+      active: true,
+    },
+  ];
+
+  function mockRoutingAgent(
+    bucket: string,
+    brand: string | null,
+    confidence: "low" | "medium" | "high",
+  ) {
+    // invokeOrqAgent returns { raw } where raw is the PARSED object;
+    // parseAgentOutputOrUnrouted safeParse's it directly.
+    invokeOrqAgentMock.mockResolvedValueOnce({
+      raw: { bucket, brand, confidence, reasoning: "r" },
+    });
+  }
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    captured.inserts.length = 0;
+    captured.updates.length = 0;
+    captured.upserts.length = 0;
+    stepRunNames.length = 0;
+    setEmailsResolveRow({ id: "info-email-pk" });
+    supabaseMock = makeSupabaseMock();
+    createRunMock.mockResolvedValue("agent-run-id-fresh");
+    graphFetchMock.mockReset();
+    recordWrittenCategoryMock.mockReset();
+    recordWrittenCategoryMock.mockResolvedValue(undefined);
+    // GET categories → ok with empty categories; PATCH → ok.
+    graphFetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ categories: [] }),
+    });
+    // info-routing swarm: routing held (stage_3_routing=true).
+    loadSwarmMock.mockReset();
+    loadSwarmMock.mockImplementation(
+      async (_supabase: unknown, swarmType: string) => ({
+        swarm_type: swarmType,
+        stage3_coordinator_agent_key: "info-routing-coordinator",
+        dry_run_config: { stage_3_routing: true },
+        resolution_config: { routing_unrouted_threshold: 0.6 },
+        behavior_tracking_config: { enabled: true },
+        forward_buckets: {},
+      }),
+    );
+    loadRoutingDestinationsMock.mockReset();
+    loadRoutingDestinationsMock.mockResolvedValue(routingRows);
+    vi.resetModules();
+    const mod = await import("../debtor-email-coordinator");
+    handler = (
+      mod.debtorEmailCoordinator as unknown as { handler: typeof handler }
+    ).handler;
+  });
+
+  function infoEvent(overrides: Record<string, unknown> = {}) {
+    return buildEvent({
+      swarm_type: "info-routing",
+      email_id: "info-email-pk",
+      agent_run_id: undefined,
+      mailbox: "info@smeba.nl",
+      message_id: "graph-info-1",
+      ...overrides,
+    });
+  }
+
+  it("held routable verdict (bucket=storingen, high) → PATCH categories contain 'AI: held → storingen' AND recordWrittenCategory called with matching ai_category", async () => {
+    mockRoutingAgent("storingen", "smeba", "high");
+
+    await handler({ event: infoEvent(), step: tracedStep });
+
+    expect(stepRunNames).toContain("stamp-held-routing-category");
+    const patchCall = graphFetchMock.mock.calls.find(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "PATCH",
+    );
+    expect(patchCall).toBeDefined();
+    const body = (patchCall![1] as { body: { categories: string[] } }).body;
+    expect(body.categories).toContain("AI: held → storingen");
+
+    expect(recordWrittenCategoryMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        email_id: "info-email-pk",
+        swarm_type: "info-routing",
+        ai_category: "AI: held → storingen",
+      }),
+    );
   });
 });
