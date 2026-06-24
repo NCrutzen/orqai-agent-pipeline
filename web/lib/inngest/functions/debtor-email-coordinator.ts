@@ -351,7 +351,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
         // Invoke the per-swarm routing classifier (resolved registry agent key,
         // e.g. info-routing-coordinator) and Zod-gate its output. Invalid/empty
         // output → unrouted marker (parseAgentOutputOrUnrouted never throws).
-        const parsed = await step.run("classify-routing", async () => {
+        const classifyOut = await step.run("classify-routing", async () => {
           // BUG 2 (CR-01) — invokeOrqAgent THROWS on empty output text, non-JSON
           // body, or timeout BEFORE returning raw; parseAgentOutputOrUnrouted only
           // guards valid-JSON-but-schema-invalid. Wrap BOTH in try/catch so ANY
@@ -367,12 +367,23 @@ export const debtorEmailCoordinator = inngest.createFunction(
               sender_domain,
               mailbox: email.mailbox ?? null,
             });
-            return parseAgentOutputOrUnrouted(raw);
+            const parsedOk = parseAgentOutputOrUnrouted(raw);
+            // ponytail: TEMP instrumentation (V9.7 routing 0-routed diag). Capture
+            // the raw agent output + parse outcome so the swallowed unrouted cause
+            // is queryable in decision_details.routing_debug. REMOVE after smoke.
+            return {
+              parsed: parsedOk,
+              debug: { threw: false, parsed_unrouted: parsedOk.unrouted, raw },
+            };
           } catch (err) {
             const reason = err instanceof Error ? err.message : String(err);
-            return unroutedFromError(reason);
+            return {
+              parsed: unroutedFromError(reason),
+              debug: { threw: true, reason },
+            };
           }
         });
+        const parsed = classifyOut.parsed;
 
         // The unrouted threshold is a single swarm-level knob (Discretion 1):
         // swarms.resolution_config.routing_unrouted_threshold (default 0.6 =
@@ -470,7 +481,9 @@ export const debtorEmailCoordinator = inngest.createFunction(
         await step.run("persist-routing-verdict", async () => {
           const { error } = await supabase
             .from("coordinator_runs")
-            .update({ decision_details: { routing: verdict } })
+            .update({
+              decision_details: { routing: verdict, routing_debug: classifyOut.debug },
+            })
             .eq("run_id", run_id);
           if (error) throw new Error(`persist-routing-verdict: ${error.message}`);
 
@@ -619,7 +632,11 @@ export const debtorEmailCoordinator = inngest.createFunction(
             const { error } = await supabase
               .from("coordinator_runs")
               .update({
-                decision_details: { routing: verdict, routing_held: true },
+                decision_details: {
+                  routing: verdict,
+                  routing_held: true,
+                  routing_debug: classifyOut.debug,
+                },
                 completed_at: new Date().toISOString(),
               })
               .eq("run_id", run_id);
