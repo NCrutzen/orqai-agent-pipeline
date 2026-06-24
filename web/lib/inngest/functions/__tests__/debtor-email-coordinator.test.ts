@@ -1258,4 +1258,41 @@ describe("Phase 132.1 D-fix: email_id resolution from message_id", () => {
       expect.objectContaining({ email_id: "resolved-email-pk" }),
     );
   });
+
+  it("dispatch with email_id present → resolve-email-id step NOT invoked; createRun gets the same email_id (byte-neutral)", async () => {
+    seedHappyIntent();
+
+    await handler({
+      event: buildEvent({
+        email_id: "present-email-id",
+        agent_run_id: undefined,
+        message_id: "graph-msg-1",
+      }),
+      step: tracedStep,
+    });
+
+    expect(stepRunNames).not.toContain("resolve-email-id");
+    expect(createRunMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ email_id: "present-email-id" }),
+    );
+  });
+
+  it("dispatch with { message_id, no email_id } and a non-existent emails row → throws named error, createRun never called with null", async () => {
+    seedHappyIntent();
+    setEmailsResolveRow(null); // resolution miss
+
+    await expect(
+      handler({
+        event: buildEvent({
+          email_id: undefined,
+          agent_run_id: undefined,
+          message_id: "graph-msg-missing",
+        }),
+        step: tracedStep,
+      }),
+    ).rejects.toThrow(/unresolved email_id for message_id=graph-msg-missing/);
+
+    expect(createRunMock).not.toHaveBeenCalled();
+  });
 });
