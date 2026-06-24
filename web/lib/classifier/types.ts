@@ -13,8 +13,6 @@ export type EvaluationAction =
   | "shadow_would_promote"
   | "shadow_would_demote";
 
-export type MailboxOverride = "block" | "force_promote";
-
 export interface ClassifierRule {
   id: string;
   swarm_type: string;
@@ -30,23 +28,3 @@ export interface ClassifierRule {
   notes: string | null;
 }
 
-export interface ClassifierRuleEvaluation {
-  id: string;
-  swarm_type: string;
-  rule_key: string;
-  n: number;
-  agree: number;
-  ci_lo: number;
-  action: EvaluationAction;
-  evaluated_at: string;
-}
-
-export interface ClassifierRuleMailboxOverride {
-  id: string;
-  swarm_type: string;
-  rule_key: string;
-  source_mailbox: string;
-  override: MailboxOverride;
-  set_by: string | null;
-  set_at: string;
-}
