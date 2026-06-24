@@ -31,5 +31,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "debtor-email-analyzer", "lib/automations", "public/sw.js"]
+  "exclude": ["node_modules", "lib/automations", "public/sw.js"]
 }
