@@ -14,6 +14,18 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const ORQ_API_KEY = process.env.ORQ_API_KEY;
 const ORQ_BASE_URL = "https://api.orq.ai/v2/agents";
+// The Orq Router Responses endpoint. Unlike the agents-path
+// (/v2/agents/{key}/responses, configuration.blocking) this is a direct,
+// queue-free model call — it does NOT enqueue an agent run, so it does not
+// saturate under burst (the failure mode behind the intermittent 45s
+// "Orq agents-path deadline exceeded" timeouts on the high-volume Stage-1
+// classifier). Opt-in per agent via orq_agents.use_router; Studio remains the
+// source of truth (the agent's model + instructions + response_format are
+// fetched from /v2/agents/{key} and replayed inline). Measured 2026-06-24:
+// agents-path ~1.5s / router ~1.4s steady; both fine, but the router removes
+// the agent-queue as a burst failure mode entirely. CLAUDE.md already prefers
+// the Router for ad-hoc LLM calls.
+const ORQ_ROUTER_URL = "https://api.orq.ai/v3/router/responses";
 const REGISTRY_CACHE_TTL_MS = 60_000; // matches zapier_tools cadence
 
 /**
@@ -57,10 +69,25 @@ export type OrqAgentRow = {
   model_config: Record<string, unknown>;
   timeout_ms: number;
   enabled: boolean;
+  // When true, invoke via the queue-free Orq Router (/v3/router/responses)
+  // instead of the blocking agents-path. Default false → existing behaviour.
+  use_router: boolean;
 };
 
 let cache: { fetched_at: number; agents: Map<string, OrqAgentRow> } | null =
   null;
+
+// The Studio agent definition needed to replay an agent over the Router:
+// its model id, system instructions, response_format, and fallback model ids.
+// Fetched from GET /v2/agents/{key} and cached per agent (same TTL as the
+// registry) so the hot path does not pay a Studio round-trip on every call.
+type OrqAgentDef = {
+  model: string;
+  instructions: string;
+  response_format: unknown;
+  fallback_models: string[];
+};
+const defCache = new Map<string, { fetched_at: number; def: OrqAgentDef }>();
 
 async function loadAgent(agent_key: string): Promise<OrqAgentRow> {
   const now = Date.now();
@@ -69,7 +96,7 @@ async function loadAgent(agent_key: string): Promise<OrqAgentRow> {
     const { data, error } = await admin
       .from("orq_agents")
       .select(
-        "agent_key, orqai_id, description, swarm_type, version, input_schema, output_schema, model_config, timeout_ms, enabled",
+        "agent_key, orqai_id, description, swarm_type, version, input_schema, output_schema, model_config, timeout_ms, enabled, use_router",
       )
       .eq("enabled", true);
     if (error) {
@@ -116,6 +143,147 @@ export function invokeResultCostCents(result: {
 }
 
 /**
+ * Fetch the Studio agent definition (model + instructions + response_format +
+ * fallbacks) for Router replay, cached per agent. Studio stays the source of
+ * truth: we never duplicate instructions into the registry, we replay them.
+ */
+async function loadAgentDef(agent_key: string): Promise<OrqAgentDef> {
+  const now = Date.now();
+  const hit = defCache.get(agent_key);
+  if (hit && now - hit.fetched_at <= REGISTRY_CACHE_TTL_MS) return hit.def;
+  const res = await fetch(`${ORQ_BASE_URL}/${agent_key}`, {
+    headers: { authorization: `Bearer ${ORQ_API_KEY}` },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Orq agent-def fetch ${agent_key} failed: HTTP ${res.status} ${text.slice(0, 200)}`,
+    );
+  }
+  const j = (await res.json()) as {
+    model?: {
+      id?: string;
+      parameters?: { response_format?: unknown };
+      fallback_models?: Array<{ id?: string }>;
+    };
+    instructions?: string;
+  };
+  const model = j.model?.id;
+  const instructions = j.instructions;
+  if (!model || !instructions) {
+    throw new Error(
+      `Orq agent-def ${agent_key}: missing model or instructions`,
+    );
+  }
+  const def: OrqAgentDef = {
+    model,
+    instructions,
+    // Mirror the agent's configured response_format; json_object is the safe
+    // default if the agent has none (the caller still Zod-gates the output).
+    response_format: j.model?.parameters?.response_format ?? {
+      type: "json_object",
+    },
+    fallback_models: (j.model?.fallback_models ?? [])
+      .map((f) => f.id)
+      .filter((x): x is string => !!x),
+  };
+  defCache.set(agent_key, { fetched_at: now, def });
+  return def;
+}
+
+/**
+ * Queue-free Router transport for `invokeOrqAgent` (opt-in via
+ * orq_agents.use_router). Replays the Studio agent inline over
+ * /v3/router/responses. Returns the IDENTICAL InvokeResult shape as the
+ * agents-path so every caller + Zod gate is unchanged. Same 45s deadline +
+ * OrqClientTimeoutError contract (callers discriminate on the error name).
+ */
+async function invokeViaRouter(
+  agent: OrqAgentRow,
+  userText: string,
+): Promise<InvokeResult> {
+  const def = await loadAgentDef(agent.agent_key);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CLIENT_DEADLINE_MS);
+  let res: Response;
+  try {
+    res = await fetch(ORQ_ROUTER_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${ORQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: def.model,
+        ...(def.fallback_models.length > 0
+          ? { fallbacks: def.fallback_models.map((model) => ({ model })) }
+          : {}),
+        instructions: def.instructions,
+        input: userText,
+        response_format: def.response_format,
+      }),
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    if ((err as { name?: string } | undefined)?.name === "AbortError") {
+      throw new OrqClientTimeoutError(
+        `Orq router deadline exceeded for ${agent.agent_key} after ${CLIENT_DEADLINE_MS}ms`,
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Orq router invoke ${agent.agent_key} failed: HTTP ${res.status} ${text.slice(0, 200)}`,
+    );
+  }
+  const json = (await res.json()) as {
+    output?: Array<{
+      type?: string;
+      content?: Array<{ type?: string; text?: string }>;
+    }>;
+    output_text?: string;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      total_tokens?: number;
+      prompt_tokens?: number;
+      completion_tokens?: number;
+    };
+  };
+  const msgItem = json.output?.find((o) => o.type === "message");
+  const rawText =
+    msgItem?.content?.find((c) => typeof c.text === "string")?.text ??
+    json.output_text ??
+    "";
+  if (!rawText) {
+    throw new Error(`Orq router invoke ${agent.agent_key}: empty output text`);
+  }
+  const stripped = rawText
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "");
+  let raw: unknown;
+  try {
+    raw = JSON.parse(stripped);
+  } catch (e) {
+    throw new Error(
+      `Orq router invoke ${agent.agent_key}: JSON.parse failed: ${(e as Error).message}`,
+    );
+  }
+  const usage = {
+    prompt_tokens: json.usage?.input_tokens ?? json.usage?.prompt_tokens ?? 0,
+    completion_tokens:
+      json.usage?.output_tokens ?? json.usage?.completion_tokens ?? 0,
+    total_tokens: json.usage?.total_tokens ?? 0,
+  };
+  return { raw, agent, usage, billing: { total_cost: 0 }, cost_cents: 0 };
+}
+
+/**
  * Invoke an Orq.ai agent by registry key.
  *
  * 2026-05-01 rewrite: Plan 02's original implementation called
@@ -156,6 +324,12 @@ export async function invokeOrqAgent(
   // User message = JSON inputs verbatim. Agents' system prompts handle
   // the interpretation — keeps client.ts generic across all agent keys.
   const userText = JSON.stringify(inputs, null, 2);
+
+  // Opt-in queue-free Router transport (orq_agents.use_router). Default false
+  // → debtor/sales and every other caller keep the agents-path unchanged.
+  if (agent.use_router) {
+    return invokeViaRouter(agent, userText);
+  }
 
   // Phase 999.4 Fix B (D-01) — 45s client-side deadline. Wraps ONLY the
   // fetch; response parsing / JSON.parse / billing math live outside this
