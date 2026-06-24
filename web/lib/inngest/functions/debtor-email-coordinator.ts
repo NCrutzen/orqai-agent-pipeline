@@ -190,8 +190,30 @@ export const debtorEmailCoordinator = inngest.createFunction(
     // (sales) simply ignore it. Widen the cast target to accept the union; the
     // debtor default is NOT dropped.
     const sender_domain = email.sender_domain ?? "";
-    const inngest_run_id = event.id ?? `local-${email_id}`;
     const supabase = createAdminClient();
+
+    // Phase 132.1 Plan 01 Task 1 (D-fix) — resolve email_id from message_id when
+    // absent (info-routing skips Stage 2 → email_id null → createRun NOT-NULL
+    // crash). Generic `??` fallback inside step.run (replay-safe write key);
+    // byte-neutral when email_id is present. NO swarm-name branch.
+    const resolvedEmailId: string | null =
+      email_id ??
+      (await step.run("resolve-email-id", async () => {
+        const messageId = email.message_id;
+        if (!messageId) return null;
+        const { data } = await supabase
+          .from("emails")
+          .select("id")
+          .or(`source_id.eq.${messageId},internet_message_id.eq.${messageId}`)
+          .maybeSingle();
+        return (data as { id?: string } | null)?.id ?? null;
+      }));
+    if (!resolvedEmailId) {
+      throw new Error(
+        `coordinator: unresolved email_id for message_id=${email.message_id ?? "<none>"}`,
+      );
+    }
+    const inngest_run_id = event.id ?? `local-${resolvedEmailId}`;
 
     // Multi-brand sales: debtor threads email.entity from labeling_settings;
     // sales ingest writes entity=null, so fall back to the swarm's per-mailbox
@@ -268,7 +290,12 @@ export const debtorEmailCoordinator = inngest.createFunction(
     // ---- 1) Resolve agent_run_id (caller-provided OR create a fresh row) ----
     const agent_run_id = await step.run("create-agent-run", async () => {
       if (email.agent_run_id) return email.agent_run_id;
-      return createRun(supabase, { swarm_type, email_id, inngest_run_id, entity });
+      return createRun(supabase, {
+        swarm_type,
+        email_id: resolvedEmailId,
+        inngest_run_id,
+        entity,
+      });
     });
 
     // ---- 2) Insert coordinator_runs row early -------------------------------
@@ -278,7 +305,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
       const { error } = await supabase.from("coordinator_runs").insert({
         run_id,
         automation_run_id: automation_run_id ?? null,
-        email_id,
+        email_id: resolvedEmailId,
         swarm_type,
         ranked_intents: [],
         escalation_decision: "single_shot",
@@ -397,7 +424,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
             const { data: emailRow } = await supabase
               .from("emails")
               .select("recipients, raw_json")
-              .eq("id", email_id)
+              .eq("id", resolvedEmailId)
               .maybeSingle();
             return checkDuplicateDelivery({
               emailRow: {
@@ -436,7 +463,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
           await emitPipelineEvent(supabase, {
             swarm_type,
             stage: 3,
-            email_id,
+            email_id: resolvedEmailId,
             decision: verdict.bucket,
             confidence: numericConfidence(verdict.confidence),
             decision_details: { routing: verdict },
@@ -475,7 +502,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
           // Reuse the replay-safe run_id (resolved above) — do NOT regenerate.
           await (inngest.send as unknown as SendFn)({
             name: "pipeline/forward.requested",
-            data: { swarm_type, run_id, email_id },
+            data: { swarm_type, run_id, email_id: resolvedEmailId },
           });
         });
 
@@ -507,7 +534,11 @@ export const debtorEmailCoordinator = inngest.createFunction(
               throw new Error(`mark-routing-verdict-held: ${error.message}`);
             }
           });
-          return { run_id, email_id, decision: "predicted_held" as const };
+          return {
+            run_id,
+            email_id: resolvedEmailId,
+            decision: "predicted_held" as const,
+          };
         }
 
         // OPEN path (a future phase flips stage_3_routing→false): emit predicted
@@ -530,7 +561,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
               swarm_type,
               run_id,
               agent_run_id,
-              email_id,
+              email_id: resolvedEmailId,
               automation_run_id: automation_run_id ?? null,
               budget_run_id: budget_run_id ?? null,
               ranked: [],
@@ -541,7 +572,11 @@ export const debtorEmailCoordinator = inngest.createFunction(
             },
           });
         });
-        return { run_id, email_id, decision: "predicted" as const };
+        return {
+          run_id,
+          email_id: resolvedEmailId,
+          decision: "predicted" as const,
+        };
       }
 
       // ---- 3) Classify intent (V2 ranked output, idempotent cache) ---------
@@ -563,7 +598,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
           const { data: emailRow } = await supabase
             .from("emails")
             .select("body_full_text, body_text")
-            .eq("id", email_id)
+            .eq("id", resolvedEmailId)
             .maybeSingle();
           const bodyFull =
             (emailRow as { body_full_text?: string | null } | null)
@@ -576,7 +611,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
           const { data: priorsRows } = await supabase
             .from("conversation_context")
             .select("position, sender_email, subject, received_at, body_text")
-            .eq("email_id", email_id)
+            .eq("email_id", resolvedEmailId)
             .order("position", { ascending: true });
           const priors = (priorsRows ?? []).map(
             (r: Record<string, unknown>) => ({
@@ -604,7 +639,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
           // so no run breaks; rows naturally re-key once V3 ships (PATTERNS §A).
           const cached = await findCachedOutput<Record<string, unknown>>(
             supabase,
-            email_id,
+            resolvedEmailId,
             "intent_version",
             INTENT_VERSION_V3,
             "tool_outputs",
@@ -621,7 +656,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
           const output: IntentAgentOutputV2 | IntentAgentOutputV3 = cachedFirst
             ?? (await invokeIntentAgent(
               {
-                email_id,
+                email_id: resolvedEmailId,
                 inngest_run_id,
                 subject: email.subject,
                 body_text: email.body_text,
@@ -705,7 +740,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
         await emitPipelineEvent(supabase, {
           swarm_type,
           stage: 3,
-          email_id,
+          email_id: resolvedEmailId,
           decision: top.intent,
           confidence: numericConfidence(top.confidence),
           decision_details: {
@@ -781,7 +816,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
             name: "pipeline/intent-label.requested",
             data: {
               swarm_type,
-              email_id,
+              email_id: resolvedEmailId,
               intent_key: topIntent,
               source_mailbox: email.mailbox ?? null,
               run_id,
@@ -840,7 +875,11 @@ export const debtorEmailCoordinator = inngest.createFunction(
         // coordinator_runs.ranked_intents for the verdict regardless of the
         // agent_runs status. A green-light flip (stage_3_routing→false) lets
         // subsequent runs flip+emit normally (reversible per D-09).
-        return { run_id, email_id, decision: "predicted_held" as const };
+        return {
+          run_id,
+          email_id: resolvedEmailId,
+          decision: "predicted_held" as const,
+        };
       }
 
       // ---- 5) Flip agent_runs.status: classifying → predicted -------------
@@ -868,7 +907,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
             swarm_type,
             run_id,
             agent_run_id,
-            email_id,
+            email_id: resolvedEmailId,
             automation_run_id: automation_run_id ?? null,
             budget_run_id: budget_run_id ?? null,
             ranked: output.ranked,
@@ -883,7 +922,11 @@ export const debtorEmailCoordinator = inngest.createFunction(
       // existing emit-predicted (which is byte-unchanged above).
       await emitIntentLabel();
 
-      return { run_id, email_id, decision: "predicted" as const };
+      return {
+        run_id,
+        email_id: resolvedEmailId,
+        decision: "predicted" as const,
+      };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await step.run("mark-failed", async () => {

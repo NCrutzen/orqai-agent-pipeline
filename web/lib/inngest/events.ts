@@ -564,7 +564,13 @@ export type Events = {
   "pipeline/coordinator.requested": {
     data: {
       swarm_type: string; // REQUIRED — the routing discriminator (no event-name fallback)
-      email_id: string;
+      // Phase 132.1 Plan 01 (D-fix): email_id is now OPTIONAL. The info-routing
+      // dispatch path skips Stage 2 and supplies `message_id` instead; the
+      // coordinator resolves email_id from it (source_id/internet_message_id
+      // back-search) before createRun. Debtor/sales still always supply email_id.
+      email_id?: string;
+      // The Graph message id, supplied when email_id is absent (info-routing).
+      message_id?: string;
       automation_run_id?: string;
       run_id?: string;
       budget_run_id?: string;
