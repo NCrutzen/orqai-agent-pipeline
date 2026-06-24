@@ -4,8 +4,8 @@ milestone: V9.7
 milestone_name: Routing Swarm Go-Live — Departmental Routing
 status: executing
 stopped_at: Phase 132.1 context gathered
-last_updated: "2026-06-24T04:32:13.583Z"
-last_activity: 2026-06-24 -- Phase 132.1 planning complete
+last_updated: "2026-06-24T05:16:10.722Z"
+last_activity: 2026-06-24
 progress:
   total_phases: 2
   completed_phases: 1
@@ -57,15 +57,15 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 133 (V9.7 P3) — NL routing-config + verkoop→order; context gathered, ready to plan. (V9.5 resolver milestone 119/120/121/122/123 complete + merged on main.)
+**Current focus:** Phase 132.1 — router-golive-dispatch-wiring-v9-7
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30), V9.0 Sales-Email Canonical Pipeline (shipped 2026-06-15). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 133 (nl-routing-config-verkoop-order; V9.7 P3)
-Plan: Not started (context gathered)
+Phase: 132.1 (router-golive-dispatch-wiring-v9-7) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-06-24 -- Phase 132.1 planning complete
+Last activity: 2026-06-24
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
 
@@ -201,6 +201,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 | 131 | 5 | - | - |
 | Phase 132 P01 | 75m | 3 tasks | 9 files |
 | 132 | 4 | - | - |
+| Phase Phase 132.1 P01 | 30m | 2 tasks tasks | 3 files files |
 
 ## Accumulated Context
 
@@ -351,6 +352,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 - [Phase ?]: [Phase 132-01]: forwardMessage is a 2-call createForward→send Graph helper (NO replyTo PATCH — Exchange strips replyTo on send for the shared info@ mailbox, confirmed 2026-06-18 send-scope smoke: createForward=201/send=202/delivered as info@ with attachment); original sender carried in the forward COMMENT (D-01 sender-in-comment fallback). routing-category.ts pins the D-05 AI: stamp-back vocabulary. isForwardBucketReleased + stage_4_forward_buckets uses INVERSE polarity (TRUE=released, FALSE/MISSING=held, fail-closed D-04, per-bucket graduated release D-03). Wave-0 RED scaffold (describe.todo, no replyTo assertions) is the Plan-02 target. Rule-3 fix: wired tdd-guard-vitest reporter into vitest.config. OUTLOOK_CONNECTION_ID untouched (env fix on main PR #112). Commits 45cbc576/7e8166b3/74995331.
 - [Phase ?]: 132-02: forward worker skips/held make zero Graph calls; only successful forward stamps category
 - [Phase ?]: 132-03: info-routing Bulk Review reuses the swarm-generic Stage4Decide shell (D-07) — RoutingDetailPane data-gated on row.routing (no new view, no swarm literal); forward_status derived at hydration; 3 D-08 operator actions (reroute re-resolves+re-verdicts / forward-now bypasses the per-bucket gate but honors dedup / dont-forward suppresses); routing.run_id added so the actions can key coordinator_runs; routing? optional per the attachments? precedent
+- [Phase ?]: [Phase 132.1-01] Generic email_id ?? resolve-from-message_id fallback kills the createRun null-email_id crash; held-path stamps AI: held/triage + seeds swarm_written_categories baseline (D-01); algemeen skipped (D-04); zero swarm-name branch.
 
 ### Blockers/Concerns
 
@@ -397,10 +399,10 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 
 ## Session Continuity
 
-Last session: 2026-06-23T14:48:42.338Z
+Last session: 2026-06-24T05:16:10.717Z
 Stopped at: Phase 132.1 context gathered
 Resume with: Phase 131 verified clean. ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding; WR-02 dedup-below-threshold hardening optional future pass.
-Resume file: .planning/phases/132.1-router-golive-dispatch-wiring-v9-7/132.1-CONTEXT.md
+Resume file: None
 
 ## Deferred Items
 

@@ -36,12 +36,14 @@ A fleet of registry-driven AI swarms on the canonical 5-stage funnel (Stage 0 sa
 **Two load-bearing investments.** Routing (V9.7) and handlers (V11) are *tactical*; the foundations that decide whether the real ambition is reachable are **V9.8 (governance rail)** and **V10.0 (knowledge motor)**. Acting in systems — and later in personal voice / on customer agreements — makes errors *reputational*, so the shadow→dry→live rail is not a config UI but the trust-ramp that makes autonomous action safe. V10.0 is the engine that harvests the knowledge layer from operator behaviour.
 
 **Knowledge layer (foundation, not a versioned milestone — grows with the act layer).** Two distinct layers, do **not** conflate:
+
 - *Transactional entities* (customers, invoices, orders, quotes) → **NXT is the graph**; query it via the REST-proxy / SQL. Do **not** duplicate locally.
 - *Relational / tacit knowledge* (customer-specific agreements, **work instructions/SOPs**, unwritten rules, per-person writing style) → **owned by no system today; this is the real foundation.** Two feeders: **ingestion** of explicit docs + **harvesting** via the V10 loop. Two shapes: documents/instructions → **orq.ai KB/RAG** (existing capability — no new infra); structured per-customer rules → entity-keyed Supabase facts read deterministically by handlers. **Capture discipline now:** key everything by customer + operator + entity, so graduating to a true traversable knowledge graph later (when handlers must walk relationships) is cheap, not a rebuild. Work-instruction ingestion overlaps the V10.5 Order-Entry task-model documentation — same work.
 
 **CEO / taakreductie narrative (staged).** Phase 1 = manual mail triage eliminated (V9.7, visible now). Phase 2 = the system does the actual work (V10.5 Order Entry) — a build project, because our systems have **almost no APIs** and the task model is undocumented.
 
 **Active workspace tracks (worktrees off this repo — keep them synced to `main` after this reshuffle merges, so they stop following the old plan):**
+
 - `planning/v9.7-p0-noise` → **V9.7 routing** (executing, ~116 commits ahead)
 - `workspace/run-mode-unify` → **V9.8 run-mode/gating** (planning/brief)
 - `workspace/v10-phase-0` → **V10.0 learning-loop spine** (planning/spec, phases 130–133; P130 needs Phase-133 context from V9.7)
@@ -284,7 +286,8 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 - [ ] **Phase 132.1 (P2.5, INSERTED): Router go-live — Stage-3 dispatch-wiring + activation + shadow-precision gate** — take the built-but-held info-routing router/forward (131/132) live-measurable: fix Stage-3 dispatch so a Stage-1-cleared `unknown` actionable info@ email reaches the generic coordinator with a valid `email_id` while cleanly skipping Stage 2 (resolves the `email_id=null` createRun crash reverted in #131); activate `behavior_tracking` + `AI:` routing-category stamp-back on info@ so operator corrections become ground-truth; gate on ≥85% shadow precision (verdict vs operator-actual) per mailbox. Routing labels get a distinct Outlook category colour. Forward stays dry-run until precision proven.
   **Plans:** 4 plans (2 waves)
   Plans:
-  - [ ] 132.1-01-PLAN.md — Wave 1: dispatch email_id-resolution fix (D-fix) + held-path AI: held/triage stamp + swarm_written_categories baseline (D-01)
+
+  - [x] 132.1-01-PLAN.md — Wave 1: dispatch email_id-resolution fix (D-fix) + held-path AI: held/triage stamp + swarm_written_categories baseline (D-01)
   - [ ] 132.1-02-PLAN.md — Wave 1: masterCategories ensure-call — one non-grey preset for all routing labels (D-03)
   - [ ] 132.1-03-PLAN.md — Wave 2: activation migrations (dispatch re-flip + behavior_tracking enable, jsonb || merge + DB read-back) + one-flag forward revert (D-fix, D-01, D-02)
   - [ ] 132.1-04-PLAN.md — Wave 2: ROUTE-08 human_category wiring + per-mailbox auto-flip cron (≥85%, min-N=50, monitoring) (D-02, ROUTE-08)
@@ -296,7 +299,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
 | 131. Destination taxonomy + router | 5/5 | Complete    | 2026-06-17 |
 | 132. Forward + Bulk Review | 4/4 | Complete    | 2026-06-18 |
-| 132.1. Router go-live + shadow-precision (INSERTED) | 0/4 | Planned | — |
+| 132.1. Router go-live + shadow-precision (INSERTED) | 1/4 | In Progress|  |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
 | 134. Ambient-loop coupling | — | Pending | — |
 
