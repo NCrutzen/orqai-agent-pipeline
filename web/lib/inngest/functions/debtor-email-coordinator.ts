@@ -367,6 +367,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
           // selectRoutingContent prefers the DB row, falls back to the event
           // payload so debtor/sales stay byte-neutral.
           const { data: contentRow } = await supabase
+            .schema("email_pipeline")
             .from("emails")
             .select("subject, body_text, body_full_text")
             .eq("id", resolvedEmailId)
@@ -463,6 +464,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
             // `recipients` column is NULL for info-routing ingest rows — layer
             // (a) reads raw_json (handled inside extractRecipientAddresses).
             const { data: emailRow } = await supabase
+              .schema("email_pipeline")
               .from("emails")
               .select("recipients, raw_json")
               .eq("id", resolvedEmailId)
@@ -599,6 +601,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
                 // way the forward worker does (source_id = Graph id; mailbox =
                 // the source box — stamp against the SOURCE, never the target).
                 const { data: srcRow } = await supabase
+                  .schema("email_pipeline")
                   .from("emails")
                   .select("source_id, mailbox")
                   .eq("id", resolvedEmailId)
