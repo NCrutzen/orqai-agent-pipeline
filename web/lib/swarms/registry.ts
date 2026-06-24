@@ -234,7 +234,6 @@ export async function loadCanonicalContextShape(
 // Phase 69 / CANO-02 — entity_brand registry helpers (re-exported from
 // ./brand-register so callers have one canonical import path via swarms/registry).
 export const loadEntityBrand = loadAllBrandRegisters;
-export const loadEntityBrandRegister = loadBrandRegister;
 export type { BrandRegister };
 
 // Test helper. Production callers MUST NOT use this.

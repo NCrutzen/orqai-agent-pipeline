@@ -51,13 +51,6 @@ export interface CredentialWithLinks extends Credential {
   linked_project_count: number;
 }
 
-// Credential-project link
-export interface CredentialProjectLink {
-  credential_id: string;
-  project_id: string;
-  linked_at: string;
-}
-
 // Health check service status
 export type HealthServiceStatus = "connected" | "degraded" | "unreachable" | "checking";
 
@@ -92,9 +85,4 @@ export interface CreateCredentialRequest {
   authType: AuthProfileTypeId;
   values: Record<string, string>;
   projectIds?: string[];
-}
-
-// Replace credential request body
-export interface ReplaceCredentialRequest {
-  values: Record<string, string>;
 }
