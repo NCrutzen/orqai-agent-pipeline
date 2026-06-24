@@ -27,7 +27,17 @@ type CapturedInsert = { table: string; row: Record<string, unknown> };
 const captured = {
   inserts: [] as CapturedInsert[],
   updates: [] as CapturedUpdate[],
+  upserts: [] as CapturedInsert[],
 };
+
+// Phase 132.1 Plan 01 — per-test override for the `emails` resolution row used
+// by the new resolve-email-id fallback (queried via `.or(source_id..., internet_
+// message_id...).maybeSingle()`). When `null`, the `.or()` maybeSingle returns
+// no row (resolution miss → handler throws before createRun).
+let emailsResolveRow: { id?: string } | null = null;
+function setEmailsResolveRow(row: { id?: string } | null) {
+  emailsResolveRow = row;
+}
 
 function makeSupabaseMock() {
   const channel = vi.fn(() => ({
@@ -37,8 +47,16 @@ function makeSupabaseMock() {
 
   const fromImpl = (table: string) => {
     const builder: Record<string, unknown> = {};
+    // Track whether `.or()` was used on this builder so maybeSingle can return
+    // the configurable emails-resolution row (the resolve-email-id fallback)
+    // distinct from the default null other reads expect.
+    let usedOr = false;
     builder.insert = vi.fn(async (row: Record<string, unknown>) => {
       captured.inserts.push({ table, row });
+      return { data: null, error: null };
+    });
+    builder.upsert = vi.fn(async (row: Record<string, unknown>) => {
+      captured.upserts.push({ table, row });
       return { data: null, error: null };
     });
     builder.update = vi.fn((patch: Record<string, unknown>) => {
@@ -60,10 +78,19 @@ function makeSupabaseMock() {
     });
     builder.select = vi.fn(() => builder);
     builder.eq = vi.fn(() => builder);
+    builder.or = vi.fn(() => {
+      usedOr = true;
+      return builder;
+    });
     builder.not = vi.fn(() => builder);
     builder.order = vi.fn(() => builder);
     builder.limit = vi.fn(() => builder);
-    builder.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
+    builder.maybeSingle = vi.fn(async () => {
+      if (table === "emails" && usedOr) {
+        return { data: emailsResolveRow, error: null };
+      }
+      return { data: null, error: null };
+    });
     builder.single = vi.fn(async () => ({
       data: { id: "agent-run-id" },
       error: null,
@@ -72,6 +99,7 @@ function makeSupabaseMock() {
   };
   return {
     from: vi.fn(fromImpl),
+    schema: vi.fn(() => ({ from: vi.fn(fromImpl) })),
     channel,
     removeChannel,
   };
@@ -163,6 +191,21 @@ vi.mock("@/lib/swarms/registry", () => ({
 const emitStaleMock = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/automations/runs/emit", () => ({
   emitAutomationRunStale: (...args: unknown[]) => emitStaleMock(...args),
+}));
+
+// ---- Phase 132.1 Plan 01 Task 2 — held-path stamp + baseline mocks ---------
+// The coordinator's held branch stamps the routing category via the Graph
+// GET+PATCH (graphFetch) and seeds the 112.5 baseline via recordWrittenCategory.
+// Both are mocked so the held-path assertions can inspect them without IO.
+const graphFetchMock = vi.fn();
+vi.mock("@/lib/outlook/client", () => ({
+  graphFetch: (...args: unknown[]) => graphFetchMock(...args),
+}));
+
+const recordWrittenCategoryMock = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/outlook/written-category-store", () => ({
+  recordWrittenCategory: (...args: unknown[]) =>
+    recordWrittenCategoryMock(...args),
 }));
 
 // ---- Helpers -------------------------------------------------------------
@@ -1135,5 +1178,84 @@ describe("D-07/D-09: swarm_type generalization parity (debtor unchanged)", () =>
     const payload = (predictedEmit![0] as { data: Record<string, unknown> })
       .data;
     expect(payload.entity).toBe("smeba");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 132.1 Plan 01 Task 1 (D-fix) — email_id resolution from message_id.
+//
+// The info-routing dispatch path skips Stage 2 and supplies NO email_id (it went
+// null on the 2026-06-17 flip → createRun crashed with NOT-NULL violation). The
+// coordinator now resolves email_id from event.data.message_id via a generic
+// `email_id ?? (await step.run("resolve-email-id", ...))` fallback BEFORE
+// createRun. Byte-neutral for debtor/sales (email_id present → fallback skipped).
+// ---------------------------------------------------------------------------
+
+describe("Phase 132.1 D-fix: email_id resolution from message_id", () => {
+  let handler: (ctx: unknown) => Promise<unknown>;
+  const stepRunNames: string[] = [];
+  const tracedStep = {
+    run: async (name: string, fn: () => Promise<unknown>) => {
+      stepRunNames.push(name);
+      return fn();
+    },
+  };
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    captured.inserts.length = 0;
+    captured.updates.length = 0;
+    captured.upserts.length = 0;
+    stepRunNames.length = 0;
+    setEmailsResolveRow(null);
+    supabaseMock = makeSupabaseMock();
+    createRunMock.mockResolvedValue("agent-run-id-fresh");
+    loadSwarmIntentsMock.mockReset();
+    loadSwarmIntentsMock.mockImplementation(
+      async (_supabase: unknown, _swarmType: string) => [
+        defaultIntentRow("copy_document_request"),
+      ],
+    );
+    vi.resetModules();
+    const mod = await import("../debtor-email-coordinator");
+    handler = (
+      mod.debtorEmailCoordinator as unknown as { handler: typeof handler }
+    ).handler;
+  });
+
+  function seedHappyIntent() {
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          { intent: "copy_document_request", confidence: "high", ...baseRanked },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+  }
+
+  it("dispatch with { message_id, no email_id } resolves email_id from the emails row → createRun receives the resolved PK", async () => {
+    seedHappyIntent();
+    setEmailsResolveRow({ id: "resolved-email-pk" });
+
+    // No email_id, no agent_run_id (force createRun) → resolution must run.
+    await handler({
+      event: buildEvent({
+        email_id: undefined,
+        agent_run_id: undefined,
+        message_id: "graph-msg-1",
+      }),
+      step: tracedStep,
+    });
+
+    expect(stepRunNames).toContain("resolve-email-id");
+    expect(createRunMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ email_id: "resolved-email-pk" }),
+    );
   });
 });
