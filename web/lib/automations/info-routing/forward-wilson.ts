@@ -7,8 +7,10 @@
 // (which, unlike a raw match-rate, stays conservative on small samples).
 //
 // This module is PURE / IO-free so it unit-tests without Supabase or Graph.
-// The Graph reader + matcher lives in ./forward-observer.ts; the cron that
-// wires them lives in web/lib/inngest/functions/info-routing-forward-observe.ts.
+// The Graph reader lives in ./forward-observer.ts; the one-shot retroactive
+// backfill that wires them lives in web/scripts/forward-wilson-backfill.ts
+// (no persistent table, no recurring cron — the historical forward sample is
+// fixed, so one pass determines the per-bucket release flags).
 
 import type { RoutingDestinationLike } from "@/scripts/eval/info-routing-precision-shadow";
 

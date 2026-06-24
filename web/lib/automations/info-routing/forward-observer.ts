@@ -1,7 +1,8 @@
 // Forward observer — reads the actual manual forwards out of an info@ shared
-// mailbox's Sent Items and matches each back to its inbound original (via
-// conversationId), so the forward DESTINATION can be graded against the AI's
-// held verdict (see ./forward-wilson.ts). Operator ground-truth idea, memory
+// mailbox's Sent Items (the one-shot backfill matches each back to its inbound
+// original via conversationId, so the forward DESTINATION can be graded against
+// the AI's held verdict — see ./forward-wilson.ts and
+// web/scripts/forward-wilson-backfill.ts). Operator ground-truth idea, memory
 // `forward-match-as-wilson-ground-truth`.
 //
 // ASSUMPTION (documented): staff forward FROM the shared info@ mailbox, so the
@@ -13,15 +14,11 @@
 //
 // Graph access goes through the single hardcoded Zapier connection (memory
 // `outlook-connection-id-hardcoded-ingest-spof`) — a disconnect silently halts
-// this observer too. The Graph IO is isolated to fetchForwardsByConversation;
-// the rest is pure + unit-tested.
+// this reader too. The Graph IO is isolated to fetchForwardsByConversation; the
+// subject/recipient helpers are pure + unit-tested. No persistence — this just
+// returns matches.
 
 import { graphFetch } from "@/lib/outlook/client";
-import type { RoutingDestinationLike } from "@/scripts/eval/info-routing-precision-shadow";
-import {
-  resolveObservedBucket,
-  type ForwardObservation,
-} from "./forward-wilson";
 
 /** Forward subject prefixes across the locales info@ sees (NL/EN/DE/FR). */
 const FORWARD_PREFIXES = ["fw:", "fwd:", "doorst:", "wg:", "tr:", "rv:"];
@@ -99,57 +96,4 @@ export async function fetchForwardsByConversation(
     url = json["@odata.nextLink"] ?? null;
   }
   return out;
-}
-
-/** A held verdict joined to its email's conversationId — the matcher input. */
-export interface HeldVerdict {
-  email_id: string;
-  conversation_id: string | null;
-  source_mailbox: string;
-  predicted_bucket: string;
-  predicted_target: string | null;
-  brand: string | null;
-}
-
-/** A full observation row, ready to upsert + to grade. */
-export interface ForwardObservationRow extends ForwardObservation {
-  email_id: string;
-  predicted_target: string | null;
-  observed_target: string | null;
-  brand: string | null;
-  observed_at: string | null;
-  agree: boolean;
-}
-
-/**
- * PURE — join held verdicts to the forward map and resolve the observed bucket.
- * A verdict whose conversation has no forward yet is dropped (no observation to
- * record). A forward to a non-routing address → observed_bucket=null (ungraded
- * but still recorded, so coverage is visible). Returns one row per matched
- * email_id.
- */
-export function buildForwardObservations(
-  verdicts: HeldVerdict[],
-  forwardsByConversation: Map<string, ForwardRecord>,
-  destinations: RoutingDestinationLike[],
-): ForwardObservationRow[] {
-  const rows: ForwardObservationRow[] = [];
-  for (const v of verdicts) {
-    if (!v.conversation_id) continue;
-    const fwd = forwardsByConversation.get(v.conversation_id);
-    if (!fwd) continue; // not forwarded (yet) → no ground truth
-    const observed_bucket = resolveObservedBucket(fwd.toAddress, destinations);
-    rows.push({
-      email_id: v.email_id,
-      source_mailbox: v.source_mailbox,
-      predicted_bucket: v.predicted_bucket,
-      predicted_target: v.predicted_target,
-      observed_target: fwd.toAddress,
-      observed_bucket,
-      brand: v.brand,
-      observed_at: fwd.sentAt,
-      agree: observed_bucket !== null && observed_bucket === v.predicted_bucket,
-    });
-  }
-  return rows;
 }

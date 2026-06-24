@@ -660,18 +660,6 @@ export type Events = {
     };
   };
 
-  // Forward-match Wilson ground-truth (memory forward-match-as-wilson-ground-
-  // truth) — manual trigger for the forward-observe cron
-  // (info-routing-forward-observe). Reads Sent-Items forwards, grades the held
-  // verdict bucket vs the actual forward destination by Wilson lower bound, and
-  // release-flips stage_4_forward_buckets. No payload (state from registry +
-  // Graph); send to force an off-schedule re-grade.
-  "info-routing/forward-observe.requested": {
-    data: {
-      triggeredBy?: string;
-    };
-  };
-
   // Phase 67 (D-01, D-02, R-02) — Stage 2 side-effect: iController DOM tagging.
   // Emitted by classifier-label-resolver after the coordinator emit, gated on
   //   result.customer_account_id !== null
