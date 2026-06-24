@@ -44,7 +44,10 @@ import { loadSwarm, loadSwarmNoiseCategories } from "@/lib/swarms/registry";
 import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { numericConfidence } from "@/lib/pipeline-events/types";
-import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
+import {
+  invokeOrqAgent,
+  OrqClientTimeoutError,
+} from "@/lib/automations/orq-agents/client";
 import { classify as debtorEmailClassify } from "@/lib/debtor-email/classify";
 // Phase 130 WR-03 — SHARED, swarm-agnostic Stage-1 actionable-token block-rule.
 // Registry-gated below on swarmRow.stage1_shared_block_rules: any adopting swarm
@@ -158,7 +161,7 @@ export const classifierScreenWorker = inngest.createFunction(
     },
   },
   { event: "classifier/screen.requested" },
-  async ({ event, step }) => {
+  async ({ event, step, attempt }) => {
     const {
       automation_run_id,
       email_id,
@@ -481,6 +484,20 @@ export const classifierScreenWorker = inngest.createFunction(
               model_key: result.agent.agent_key,
             };
           } catch (err) {
+            // RELIABILITY (2026-06-24) — a transient client-deadline timeout
+            // (agents-path OR router) must be RETRIED via the function's
+            // retries:3, not silently coerced to ('unknown','low'). The old
+            // fail-soft turned every burst-induced timeout into an `unknown`
+            // verdict → the email leaked into the pipeline as actionable
+            // instead of being noise-filtered. Rethrow the timeout until the
+            // final attempt so Inngest replays the LLM step; only the exhausted
+            // final attempt (attempt === retries) falls through to the
+            // fail-soft coerce below so the pipeline still makes progress.
+            // `attempt` is 0-indexed; retries:3 → final attempt index is 3.
+            const STAGE1_RETRIES = 3;
+            if (err instanceof OrqClientTimeoutError && attempt < STAGE1_RETRIES) {
+              throw err;
+            }
             // D-11: coerce to ('unknown', 'low'); persist error_message
             // AND tool_outputs.error. Do NOT rethrow — the run continues
             // through pipeline_events emit + verdict emit.
