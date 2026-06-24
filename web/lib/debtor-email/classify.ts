@@ -314,6 +314,25 @@ const SUBJECT_BASECONE_SUCCESS = /^\s*Succesvol\b/i;
 const SENDER_HOFWONEN = /^facturen@hofwonen\.nl$/i;
 const SUBJECT_HOFWONEN_ACK = /^\s*Bedankt\s+voor\s+uw\s+e-?mail\b/i;
 
+// ── Unsolicited cold-solicitation spam (regex Pass 1, high-precision) ───────
+// Vocabulary that effectively never appears in genuine fire-safety business
+// mail. A match emits `spam` — a shared '*' swarm_noise_categories row
+// (action=categorize_archive) that loadSwarmNoiseCategories unions into every
+// swarm — so it auto-archives in LIVE swarms and is held-with-label in dry-run
+// swarms (info-routing). A false-positive archive is the costly failure mode,
+// so these stay deliberately narrow; fuzzier cold outreach is left to the LLM
+// 2nd-pass via the same shared `spam`/`cold_sales_outreach` categories. NL+EN.
+const SPAM_SEO =
+  /\b(?:seo|search engine optimi[sz]ation|back[\s-]?links?|guest[\s-]?post(?:ing|s)?|link[\s-]?building|domain authority|off[\s-]?page seo|white[\s-]?hat seo|first page of google|google ranking|top ranking|web ?traffic|increase your (?:google )?(?:ranking|rankings|traffic|sales|visibility))\b/i;
+const SPAM_CAR_OFFER =
+  /\b(?:beste bod voor (?:je|uw|jouw) (?:auto|wagen|voertuig)|wij kopen (?:je|uw|jouw) (?:auto|wagen)|verkoop (?:snel |vandaag )?(?:je|uw|jouw) auto|gratis (?:auto)?taxatie|hoogste bod (?:op|voor) (?:je|uw) auto|sell your car (?:fast|today))\b/i;
+// Foreign trade-fair / exhibition invites need BOTH a fair keyword AND a
+// foreign-trade context signal, so a legitimate "we will exhibit at <NL fair>"
+// business mail is NOT archived (it stays unknown → human/LLM review).
+const SPAM_FOREIGN_FAIR = /\b(?:exhibition|trade ?fair|fuar|expo|messe)\b/i;
+const SPAM_FOREIGN_FAIR_CTX =
+  /\b(?:turkey|t[üu]rkiye|istanbul|ankara|dubai|uae|shenzhen|guangzhou|shanghai|beijing|mumbai|new delhi|exhibitor|book your (?:booth|stand|space)|reserve your (?:booth|stand)|international (?:visitors?|buyers?))\b/i;
+
 // ─────────────────────────────────────────────────────────────── classify ──
 
 export function classify(input: ClassifyInput): ClassifyResult {
@@ -568,6 +587,23 @@ export function classify(input: ClassifyInput): ClassifyResult {
   // door subject_acknowledgement, subject_ticket_ref en reply_prefix+
   // system_sender. Alles wat daar niet onder valt wordt handmatig
   // opgepakt — dat is het punt van een whitelist-gebaseerde classifier.)
+
+  // ── Unsolicited cold-solicitation spam (Pass 1) ───────────────────────────
+  // Ordered LAST — after every legitimate noise category — so it can never
+  // shadow a real classification; only mail that matched nothing else is
+  // tested against the narrow spam vocabulary.
+  if (SPAM_SEO.test(normSubject) || SPAM_SEO.test(body)) {
+    return { category: "spam", confidence: 0.97, matchedRule: "spam_seo_solicitation" };
+  }
+  if (SPAM_CAR_OFFER.test(normSubject) || SPAM_CAR_OFFER.test(body)) {
+    return { category: "spam", confidence: 0.97, matchedRule: "spam_car_offer" };
+  }
+  if (
+    (SPAM_FOREIGN_FAIR.test(normSubject) || SPAM_FOREIGN_FAIR.test(body)) &&
+    (SPAM_FOREIGN_FAIR_CTX.test(normSubject) || SPAM_FOREIGN_FAIR_CTX.test(body))
+  ) {
+    return { category: "spam", confidence: 0.95, matchedRule: "spam_foreign_fair" };
+  }
 
   return { category: "unknown", confidence: 0, matchedRule: "no_match" };
 }
