@@ -627,3 +627,64 @@ describe("Phase 84 D-01 — supplier_bank_change_notification", () => {
     expect(result.category).not.toBe("supplier_bank_change_notification");
   });
 });
+
+describe("Quick 260624 — Basecone upload-confirmation sender-pin", () => {
+  it("no-reply@mailtobasecone.com 'Succesvol …' → auto_reply / basecone_upload_confirmation", () => {
+    const result = classify({
+      subject:
+        "Succesvol 'Documenten n.a.v. uitgevoerde werkzaamheden. Factuur: 25123623' ",
+      from: "no-reply@mailtobasecone.com",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("auto_reply");
+    expect(result.matchedRule).toBe("basecone_upload_confirmation");
+  });
+
+  it("matches regardless of local part (DoNotReply@) — domain pin", () => {
+    const result = classify({
+      subject: "Succesvol verwerkt",
+      from: "DoNotReply@mailtobasecone.com",
+      bodySnippet: "",
+    });
+    expect(result.matchedRule).toBe("basecone_upload_confirmation");
+  });
+
+  it("BOUNDARY: a NON-success Basecone subject does NOT match (rejections stay human-routed)", () => {
+    const result = classify({
+      subject: "Afgekeurd: factuur kon niet worden verwerkt",
+      from: "no-reply@mailtobasecone.com",
+      bodySnippet: "",
+    });
+    expect(result.matchedRule).not.toBe("basecone_upload_confirmation");
+  });
+
+  it("BOUNDARY: 'Succesvol' from a non-Basecone sender does NOT match the pin", () => {
+    const result = classify({
+      subject: "Succesvol iets",
+      from: "iemand@andereklant.nl",
+      bodySnippet: "",
+    });
+    expect(result.matchedRule).not.toBe("basecone_upload_confirmation");
+  });
+});
+
+describe("Quick 260624 — Hof Wonen auto-acknowledgement sender-pin", () => {
+  it("facturen@hofwonen.nl 'Bedankt voor uw e-mail.' → auto_reply / hofwonen_autoreply_ack", () => {
+    const result = classify({
+      subject: "Bedankt voor uw e-mail.",
+      from: "facturen@hofwonen.nl",
+      bodySnippet: "",
+    });
+    expect(result.category).toBe("auto_reply");
+    expect(result.matchedRule).toBe("hofwonen_autoreply_ack");
+  });
+
+  it("BOUNDARY: same ack subject from a different sender does NOT match the pin", () => {
+    const result = classify({
+      subject: "Bedankt voor uw e-mail.",
+      from: "klant@external.nl",
+      bodySnippet: "",
+    });
+    expect(result.matchedRule).not.toBe("hofwonen_autoreply_ack");
+  });
+});

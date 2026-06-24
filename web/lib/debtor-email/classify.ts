@@ -294,6 +294,26 @@ const SENDER_FARMPLUS = /^info@farmplus\.nl$/i;
 const SUBJECT_OR_BODY_BANK_CHANGE =
   /\b(IBAN|huisbankier|bankrekening|betaalgegevens)\b/i;
 
+// Quick 260624 — Basecone document-processing UPLOAD CONFIRMATION (auto_reply).
+// Pinned to the dedicated transactional domain @mailtobasecone.com (local part
+// varies: no-reply@, DoNotReply@) PLUS a "Succesvol" success anchor. The
+// success anchor is load-bearing: it deliberately matches ONLY the upload-OK
+// confirmation, never a rejection/"non-invoice" notice (those must stay
+// human-routed, cf. the Yardi/vvefacturen submission-rejected trap). 19/19 of
+// the corpus were "Succesvol 'Documenten n.a.v. …'". Pure noise, safe to
+// archive once the rule promotes.
+const SENDER_BASECONE = /@mailtobasecone\.com$/i;
+const SUBJECT_BASECONE_SUCCESS = /^\s*Succesvol\b/i;
+
+// Quick 260624 — Hof Wonen invoice-mailbox AUTO-ACKNOWLEDGEMENT (auto_reply).
+// Sender-pinned to facturen@hofwonen.nl (single-word local part → outside
+// SENDER_HUMAN_SHAPE, and not a no-reply form → SENDER_SYSTEM misses it, which
+// is why these fell to the LLM) PLUS the exact "Bedankt voor uw e-mail" ack
+// subject. One-supplier-narrow per the R-03 precedent; broaden only if the
+// same templated ack appears from other senders. 18/18 in the corpus.
+const SENDER_HOFWONEN = /^facturen@hofwonen\.nl$/i;
+const SUBJECT_HOFWONEN_ACK = /^\s*Bedankt\s+voor\s+uw\s+e-?mail\b/i;
+
 // ─────────────────────────────────────────────────────────────── classify ──
 
 export function classify(input: ClassifyInput): ClassifyResult {
@@ -415,6 +435,24 @@ export function classify(input: ClassifyInput): ClassifyResult {
       category: "supplier_bank_change_notification",
       confidence: 0.99,
       matchedRule: "supplier_bank_change_notification",
+    };
+  }
+  if (SENDER_BASECONE.test(from) && SUBJECT_BASECONE_SUCCESS.test(normSubject)) {
+    // Sender-domain pin AND "Succesvol" anchor — success-only, never a
+    // rejection (Quick 260624). Was reaching the LLM as no_match→auto_reply.
+    return {
+      category: "auto_reply",
+      confidence: 0.99,
+      matchedRule: "basecone_upload_confirmation",
+    };
+  }
+  if (SENDER_HOFWONEN.test(from) && SUBJECT_HOFWONEN_ACK.test(normSubject)) {
+    // Sender-pinned auto-acknowledgement (Quick 260624). Was reaching the LLM
+    // as no_match→auto_reply.
+    return {
+      category: "auto_reply",
+      confidence: 0.99,
+      matchedRule: "hofwonen_autoreply_ack",
     };
   }
 
