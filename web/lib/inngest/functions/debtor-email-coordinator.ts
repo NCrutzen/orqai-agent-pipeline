@@ -209,7 +209,13 @@ export const debtorEmailCoordinator = inngest.createFunction(
       (await step.run("resolve-email-id", async () => {
         const messageId = email.message_id;
         if (!messageId) return null;
+        // emails live in the email_pipeline schema (info-routing ingest +
+        // Stage-2 resolver both write/read email_pipeline.emails). The clone of
+        // the Stage-2 .or() query dropped the schema, so this hit public.emails
+        // → always null → "unresolved email_id" throw for every info-routing
+        // mail (no Stage 2 supplies email_id; the fallback always runs).
         const { data } = await supabase
+          .schema("email_pipeline")
           .from("emails")
           .select("id")
           .or(`source_id.eq.${messageId},internet_message_id.eq.${messageId}`)
