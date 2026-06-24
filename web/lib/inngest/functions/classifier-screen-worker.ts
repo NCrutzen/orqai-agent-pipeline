@@ -41,6 +41,7 @@ import { inngest } from "@/lib/inngest/client";
 import { recordWorkerFailure } from "@/lib/inngest/on-worker-failure";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSwarm, loadSwarmNoiseCategories } from "@/lib/swarms/registry";
+import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { numericConfidence } from "@/lib/pipeline-events/types";
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
@@ -93,13 +94,35 @@ type SendFn = (p: {
 // swarms keep the registry-driven dispatch via swarm_noise_categories.action
 // (verdict-worker). Hard separation per stage-1-regex.md: this is the
 // noise-filter auto-action gate, NOT intent classification.
-const DEBTOR_CATEGORY_LABEL: Record<string, string> = {
-  auto_reply: "Auto-Reply",
-  ooo_temporary: "OoO — Temporary",
-  ooo_permanent: "OoO — Permanent",
-  payment_admittance: "Payment Admittance",
-};
-const DEBTOR_MR_LABELS = new Set(Object.values(DEBTOR_CATEGORY_LABEL));
+// Quick 260624 — registry-driven noise label resolution. Previously a
+// hardcoded 4-key map (auto_reply / ooo_temporary / ooo_permanent /
+// payment_admittance) lived here, which silently bypassed the
+// swarm_noise_categories registry: any noise key the LLM 2nd-pass could
+// return that wasn't one of those four (spam, automated_security_report,
+// auto_dealer_spam, cold_sales_outreach, m365_quarantine, coupa_*, the
+// shared swarm_type='*' rows, …) hit the `if (!label)` bail-out at the
+// auto-action branch and wrote a "no Outlook label for category X" FAILURE
+// the instant its `llm:{cat}:high` rule was promoted into the whitelist.
+// The labels below are now read from the loaded `categories`
+// (loadSwarmNoiseCategories, which unions the swarm's own rows with the
+// shared '*' rows — registry.ts), exactly mirroring how the verdict-worker
+// dispatches `category.outlook_label` for other swarms. The promotion gate
+// (readWhitelist, strictly per-swarm — docs/.../stage-1-regex.md) is
+// untouched: this only fixes WHICH label is applied once a rule clears the
+// gate, never WHETHER auto-action fires. The four historical labels match
+// the debtor-email registry rows exactly, so this is behavior-preserving
+// for today's promoted noise and correctly extends to the rest.
+const labelForCategory = (
+  categories: SwarmNoiseCategoryRow[],
+  categoryKey: string,
+): string | null =>
+  categories.find((c) => c.category_key === categoryKey)?.outlook_label ?? null;
+const mrLabelSet = (categories: SwarmNoiseCategoryRow[]): Set<string> =>
+  new Set(
+    categories
+      .map((c) => c.outlook_label)
+      .filter((l): l is string => typeof l === "string" && l.length > 0),
+  );
 const DEBTOR_LEGACY_ICONTROLLER_COMPANY = "smebabrandbeveiliging";
 
 interface DebtorLabelingSettings {
@@ -511,7 +534,9 @@ export const classifierScreenWorker = inngest.createFunction(
     // is the registry-keyed stage1_regex_module — the debtor-email regex
     // module is the only one with promoted-rule whitelist mechanics today.
     // Onboarding a future swarm with auto-action dispatch will need to
-    // register here and extend DEBTOR_CATEGORY_LABEL accordingly.
+    // register here; the noise label is read from the swarm's
+    // swarm_noise_categories rows (labelForCategory), so no per-category code
+    // map needs extending — adding a noise key stays pure registry data.
     const DEBTOR_REGEX_MODULE_KEY = "@/lib/debtor-email/classify";
     if (swarmRow.stage1_regex_module === DEBTOR_REGEX_MODULE_KEY) {
       const settings = await step.run(
@@ -548,7 +573,7 @@ export const classifierScreenWorker = inngest.createFunction(
             try {
               const meta = await getMessageMeta(source_mailbox, message_id);
               const labeled = (meta.categories ?? []).filter((c: string) =>
-                DEBTOR_MR_LABELS.has(c),
+                mrLabelSet(categories).has(c),
               );
               return { alreadyLabeled: labeled.length > 0, labels: labeled };
             } catch {
@@ -720,12 +745,13 @@ export const classifierScreenWorker = inngest.createFunction(
         //    dedupes per (run_id, step_name). categorize is additionally
         //    guarded by the idempotency-precheck above so a repeated
         //    delivery does not double-tag.
-        const label = DEBTOR_CATEGORY_LABEL[finalCategoryKey];
+        const label = labelForCategory(categories, finalCategoryKey);
         if (!label) {
-          // Defensive bail-out: a whitelisted category with no Outlook
-          // label mapping. Should not happen — whitelist keys map to known
-          // categories by construction, and `unknown` exited above. Surface
-          // it rather than fire Outlook with an undefined label.
+          // Defensive bail-out: a whitelisted category whose registry row
+          // carries no outlook_label. Should not happen for categorize_archive
+          // noise (all such debtor + shared '*' rows set outlook_label), and
+          // `unknown` (outlook_label=null, action=swarm_dispatch) exited above.
+          // Surface it rather than fire Outlook with an undefined label.
           await step.run("write-no-label-failure", async () => {
             await admin.from("automation_runs").insert({
               automation: "debtor-email-review",

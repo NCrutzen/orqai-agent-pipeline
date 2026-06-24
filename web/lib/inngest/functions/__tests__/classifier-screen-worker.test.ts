@@ -261,6 +261,20 @@ const DEBTOR_CATEGORIES = [
     enabled: true,
   },
   {
+    // Quick 260624 — shared cross-swarm noise row (swarm_type='*'), as
+    // loadSwarmNoiseCategories unions it into debtor-email's list. NOT one of
+    // the four keys the old hardcoded DEBTOR_CATEGORY_LABEL map covered, so it
+    // exercises registry-driven label resolution (labelForCategory).
+    swarm_type: "*",
+    category_key: "spam",
+    display_label: "Spam",
+    outlook_label: "Spam",
+    action: "categorize_archive",
+    swarm_dispatch: null,
+    display_order: 10,
+    enabled: true,
+  },
+  {
     swarm_type: "debtor-email",
     category_key: "unknown",
     display_label: "Unknown",
@@ -933,6 +947,48 @@ describe("Phase 82.2 D-A — category dispatch (moved from ingest)", () => {
 
     expect(categorizeEmailMock).toHaveBeenCalledTimes(1);
     expect(archiveEmailMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("Test G (Quick 260624): LLM 2nd-pass shared-noise key ('spam', NOT in the old hardcoded map) + promoted rule → registry outlook_label applied, no hard-fail", async () => {
+    // Regression guard for the registry-driven label fix. Before it, a
+    // whitelisted noise category outside the 4-key DEBTOR_CATEGORY_LABEL map
+    // hit the `if (!label)` bail-out and wrote a "no Outlook label for category
+    // spam" FAILURE. Now the label is read from the loaded swarm_noise_categories
+    // (shared '*' row, outlook_label='Spam'), so it categorizes + archives.
+    // Regex abstains → LLM Pass 2 returns spam@high; rule promoted in whitelist.
+    classifyMock.mockReturnValue({
+      category: "unknown",
+      confidence: 0,
+      matchedRule: "no_match",
+    });
+    invokeOrqAgentMock.mockResolvedValue({
+      raw: { category_key: "spam", confidence: "high", reasoning: null },
+      agent: { agent_key: "stage-1-category-classifier" },
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      billing: { total_cost: 0 },
+      cost_cents: 0,
+    });
+    // Promoted shared-noise rule (per-swarm whitelist, RFC stage-1-regex.md).
+    readWhitelistMock.mockResolvedValue(new Set(["llm:spam:high"]));
+
+    const cache: StepCache = new Map();
+    await handler({ event: debtorEvent(), step: makeStepStub(cache) });
+
+    // The exact value of the fix: registry label applied, not a hard-fail.
+    expect(categorizeEmailMock).toHaveBeenCalledTimes(1);
+    expect(categorizeEmailMock).toHaveBeenCalledWith(
+      "debiteuren@smeba.nl",
+      "msg-dispatch-1",
+      "Spam",
+    );
+    expect(archiveEmailMock).toHaveBeenCalledTimes(1);
+    // No "no Outlook label" failure row.
+    const noLabelFailure = automationRunsInserts.find(
+      (r) =>
+        typeof r.error_message === "string" &&
+        r.error_message.includes("no Outlook label"),
+    );
+    expect(noLabelFailure).toBeUndefined();
   });
 });
 
