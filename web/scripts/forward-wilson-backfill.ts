@@ -142,8 +142,8 @@ async function main(): Promise<void> {
 
   // (2) Match forwards → inbound originals by conversation_id (email_pipeline).
   const emailByConversation = new Map<string, InboundEmail>();
-  for (let i = 0; i < conversationIds.length; i += 200) {
-    const chunk = conversationIds.slice(i, i + 200);
+  for (let i = 0; i < conversationIds.length; i += 40) {
+    const chunk = conversationIds.slice(i, i + 40);
     const { data, error } = await admin
       .schema("email_pipeline")
       .from("emails")
