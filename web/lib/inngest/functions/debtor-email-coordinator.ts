@@ -53,6 +53,7 @@ import {
 import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
 import { parseAgentOutputOrUnrouted, unroutedFromError } from "@/lib/automations/info-routing/coordinator-schema";
 import { buildRoutingVerdict } from "@/lib/automations/info-routing/verdict";
+import { selectRoutingContent } from "@/lib/automations/info-routing/routing-content";
 // Phase 132.1 Plan 01 Task 2 (D-01) — held-path routing-category stamp + 112.5
 // baseline building blocks (all existing swarm-agnostic helpers, no literal).
 import {
@@ -359,10 +360,25 @@ export const debtorEmailCoordinator = inngest.createFunction(
           // triage, the safe fallback) instead of escaping to the outer catch →
           // mark-failed → terminal coordinator FAILURE. Preserves ROUTE-04/ROUTE-06
           // "invalid/empty → unrouted, never crash." The valid path is unchanged.
+          // ROUTE-FIX — the event payload arrives with EMPTY subject/body_text
+          // for info-routing (the routing agent reported "body and subject are
+          // empty" → 100% unrouted). Re-fetch the canonical content from emails
+          // by email_id (mirrors the intent path's classify-intent re-fetch);
+          // selectRoutingContent prefers the DB row, falls back to the event
+          // payload so debtor/sales stay byte-neutral.
+          const { data: contentRow } = await supabase
+            .from("emails")
+            .select("subject, body_text, body_full_text")
+            .eq("id", resolvedEmailId)
+            .maybeSingle();
+          const routeContent = selectRoutingContent(contentRow, {
+            subject: email.subject,
+            body_text: email.body_text,
+          });
           try {
             const { raw } = await invokeOrqAgent(stage3AgentKey, {
-              subject: email.subject ?? "",
-              body_text: email.body_text ?? "",
+              subject: routeContent.subject,
+              body_text: routeContent.body_text,
               sender_email: email.sender_email ?? null,
               sender_domain,
               mailbox: email.mailbox ?? null,
