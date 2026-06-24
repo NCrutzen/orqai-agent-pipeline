@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: V9.7
 milestone_name: Routing Swarm Go-Live — Departmental Routing
-status: verifying
+status: "V9.7 info@ slice (130-132.1) shipped — PR #145 (awaiting review/merge; prod gates pending)"
 stopped_at: Completed 132.1-04-PLAN.md
-last_updated: "2026-06-24T08:42:22.325Z"
+last_updated: "2026-06-24T10:05:49.986Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 2
@@ -64,7 +64,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 Phase: 132.1 (router-golive-dispatch-wiring-v9-7) — EXECUTING
 Plan: 4 of 4
-Status: Phase complete — ready for verification
+Status: V9.7 info@ slice (130-132.1) shipped — PR #145 (awaiting review/merge; prod gates pending)
 Last activity: 2026-06-24
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
