@@ -270,6 +270,83 @@ export function computePerMailboxStats(
   return out;
 }
 
+// ─── PURE: per-mailbox precision → per-bucket release reconciliation ────────
+// (D-02 / RESEARCH A4 — operator-confirmed rule: BRAND-REACHABLE.)
+
+/**
+ * The buckets a cleared mailbox's BRAND can reach — the distinct active
+ * destination buckets whose `routing_destinations.brand` matches the cleared
+ * brand. The `unrouted` sentinel (null outlook_category) is excluded: it is not a
+ * real forward destination. Pure — no IO. `stage_4_forward_buckets` is keyed by
+ * BUCKET alone (no bucket×brand variant — operator-confirmed), so this returns the
+ * bare bucket keys to release for the brand.
+ */
+export function releasableBucketsForBrand(
+  destinations: RoutingDestinationLike[],
+  brand: string,
+): string[] {
+  const buckets = new Set<string>();
+  for (const d of destinations) {
+    // Skip the unrouted sentinel (no outlook_category = no forward axis).
+    if (!d.outlook_category) continue;
+    if (d.brand === brand) buckets.add(d.destination_key);
+  }
+  return [...buckets].sort();
+}
+
+/** A single planned forward-bucket release: which mailbox/brand cleared it. */
+export interface PlannedFlip {
+  mailbox: string;
+  brand: string;
+  bucket: string;
+}
+
+/**
+ * Plan the forward-bucket releases for ONE cron tick (D-02), applying the full
+ * safety gate per mailbox:
+ *   - only mailboxes whose grade is `graded` AND `pass===true` AND
+ *     `graded_n >= MIN_GRADED_N` are eligible (insufficient_sample / pass:null
+ *     NEVER flips — the false-success guard is load-bearing);
+ *   - smeba and fire-control are evaluated independently;
+ *   - a cleared mailbox releases only the buckets reachable from its BRAND
+ *     (brand-reachable rule, operator-confirmed A4);
+ *   - a bucket already `true` in `currentForwardBuckets` is NOT re-planned
+ *     (idempotent; release-only — this never plans a `false`).
+ *
+ * Returns the distinct (mailbox, brand, bucket) flips to apply. Pure — no IO.
+ * `brandForMailbox` maps a cleared mailbox → its brand (resolution_config.scope.
+ * entity_by_mailbox); a mailbox with no brand mapping is skipped (cannot reconcile).
+ */
+export function planForwardBucketFlips(args: {
+  perMailbox: Map<string, PerMailboxGrade>;
+  destinations: RoutingDestinationLike[];
+  brandForMailbox: (mailbox: string) => string | null;
+  currentForwardBuckets: Record<string, boolean>;
+}): PlannedFlip[] {
+  const { perMailbox, destinations, brandForMailbox, currentForwardBuckets } = args;
+  const flips: PlannedFlip[] = [];
+
+  for (const [mailbox, grade] of perMailbox) {
+    // The gate: graded + pass + sufficient sample. Anything else → no flip.
+    if (
+      grade.verdict.status !== "graded" ||
+      grade.verdict.pass !== true ||
+      grade.stats.graded_n < MIN_GRADED_N
+    ) {
+      continue;
+    }
+    const brand = brandForMailbox(mailbox);
+    if (!brand) continue; // no brand mapping → cannot reconcile → skip.
+
+    for (const bucket of releasableBucketsForBrand(destinations, brand)) {
+      // Idempotent + release-only: skip a bucket already released.
+      if (currentForwardBuckets[bucket] === true) continue;
+      flips.push({ mailbox, brand, bucket });
+    }
+  }
+  return flips;
+}
+
 // ─── CLI ───────────────────────────────────────────────────────────────────
 
 const USAGE = `info-routing-precision-shadow — ROUTE-08 shadow precision harness
