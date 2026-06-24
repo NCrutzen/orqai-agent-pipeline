@@ -1462,4 +1462,92 @@ describe("Phase 132.1 D-01: held-path stamp + 112.5 baseline", () => {
       }),
     );
   });
+
+  it("held unrouted verdict (low confidence) → stamps/baselines 'AI: triage'", async () => {
+    // low confidence → buildRoutingVerdict marks unrouted=true.
+    mockRoutingAgent("storingen", "smeba", "low");
+
+    await handler({ event: infoEvent(), step: tracedStep });
+
+    const patchCall = graphFetchMock.mock.calls.find(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "PATCH",
+    );
+    expect(patchCall).toBeDefined();
+    const body = (patchCall![1] as { body: { categories: string[] } }).body;
+    expect(body.categories).toContain("AI: triage");
+    expect(recordWrittenCategoryMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ ai_category: "AI: triage" }),
+    );
+  });
+
+  it("algemeen verdict (target_mailbox null) → NO stamp, NO recordWrittenCategory (D-04)", async () => {
+    mockRoutingAgent("algemeen", "smeba", "high");
+
+    await handler({ event: infoEvent(), step: tracedStep });
+
+    const patchCall = graphFetchMock.mock.calls.find(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "PATCH",
+    );
+    expect(patchCall).toBeUndefined();
+    expect(recordWrittenCategoryMock).not.toHaveBeenCalled();
+  });
+
+  it("debtor/sales dispatch (routingDestinations empty) → neither stamp nor recordWrittenCategory runs (byte-neutral)", async () => {
+    loadRoutingDestinationsMock.mockReset();
+    loadRoutingDestinationsMock.mockResolvedValue([]);
+    loadSwarmMock.mockReset();
+    loadSwarmMock.mockImplementation(
+      async (_supabase: unknown, swarmType: string) => ({
+        swarm_type: swarmType,
+        stage3_coordinator_agent_key: "debtor-intent-agent",
+        dry_run_config: { stage_3_routing: false },
+      }),
+    );
+    invokeIntentMock.mockResolvedValueOnce({
+      output: {
+        ranked: [
+          { intent: "copy_document_request", confidence: "high", ...baseRanked },
+        ],
+        language: "nl",
+        urgency: "normal",
+        intent_version: INTENT_VERSION_V2,
+      },
+      raw: "",
+    });
+    findCachedMock.mockResolvedValue(null);
+
+    await handler({
+      event: buildEvent({ swarm_type: "debtor-email", email_id: "email-1" }),
+      step: tracedStep,
+    });
+
+    expect(graphFetchMock).not.toHaveBeenCalled();
+    expect(recordWrittenCategoryMock).not.toHaveBeenCalled();
+  });
+
+  it("a graphFetch PATCH failure inside the stamp step does NOT prevent mark-routing-verdict-held from persisting (best-effort isolation)", async () => {
+    mockRoutingAgent("storingen", "smeba", "high");
+    // GET ok, PATCH throws.
+    graphFetchMock.mockReset();
+    graphFetchMock.mockImplementation(
+      async (_path: string, opts?: { method?: string }) => {
+        if (opts?.method === "PATCH") throw new Error("graph boom");
+        return { ok: true, json: async () => ({ categories: [] }) };
+      },
+    );
+
+    const result = await handler({ event: infoEvent(), step: tracedStep });
+
+    // Held verdict still persisted despite the stamp failure.
+    expect(stepRunNames).toContain("mark-routing-verdict-held");
+    const heldUpdate = captured.updates.find(
+      (u) =>
+        u.table === "coordinator_runs" &&
+        (u.patch.decision_details as { routing_held?: boolean } | undefined)
+          ?.routing_held === true,
+    );
+    expect(heldUpdate).toBeDefined();
+    expect((result as { decision?: string }).decision).toBe("predicted_held");
+  });
 });
