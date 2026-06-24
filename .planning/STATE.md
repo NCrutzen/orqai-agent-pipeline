@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: V9.7
 milestone_name: Routing Swarm Go-Live — Departmental Routing
-status: executing
-stopped_at: Phase 132.1 context gathered
-last_updated: "2026-06-24T07:33:21.414Z"
+status: verifying
+stopped_at: Completed 132.1-04-PLAN.md
+last_updated: "2026-06-24T08:42:22.325Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 2
@@ -64,7 +64,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 Phase: 132.1 (router-golive-dispatch-wiring-v9-7) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-24
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
@@ -204,6 +204,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 | Phase Phase 132.1 P01 | 30m | 2 tasks tasks | 3 files files |
 | Phase 132.1 P02 | ~40m | 1 tasks | 2 files |
 | Phase 132.1 P03 | ~25m | 3 tasks | 3 files |
+| Phase 132.1 P04 | ~55m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -357,6 +358,8 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 - [Phase ?]: [Phase 132.1-01] Generic email_id ?? resolve-from-message_id fallback kills the createRun null-email_id crash; held-path stamps AI: held/triage + seeds swarm_written_categories baseline (D-01); algemeen skipped (D-04); zero swarm-name branch.
 - [Phase ?]: [Phase 132.1-02] Routing master categories provisioned with non-grey preset5 (preset0=grey kept by AI: intent labels); ensureRoutingMasterCategories GET-before-POST idempotent, additive-only, names from buildRoutingCategory
 - [Phase ?]: [Phase 132.1-03] Info-routing activation shipped as migrations only: dispatch re-flip + behavior_tracking enable (jsonb || merge, siblings preserved) in 20260624a; one-flag forward revert (jsonb_set stage_4_forward_buckets to {}) armed-not-applied in 20260624b; ensure-info-routing-categories.ts invokes Plan-02 preset5 colour per info@ mailbox (buckets from routing_destinations registry). Live apply + DB/Graph read-backs operator-gated (no Supabase/Graph MCP tool exposed + prod-read denied).
+- [Phase ?]: [Phase 132.1-04] ROUTE-08 human_category from swarm_review_signals (112.5 category_edited reclassify) mapped via categoryToBucket; gate logic byte-unchanged
+- [Phase ?]: [Phase 132.1-04] Per-mailbox auto-flip reconciliation = brand-reachable (Option A, operator-confirmed); stage_4_forward_buckets stays bucket-keyed, release-only + idempotent, panic lever = migration 20260624b
 
 ### Blockers/Concerns
 
@@ -403,8 +406,8 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 
 ## Session Continuity
 
-Last session: 2026-06-24T07:33:00.550Z
-Stopped at: Phase 132.1 context gathered
+Last session: 2026-06-24T08:42:22.319Z
+Stopped at: Completed 132.1-04-PLAN.md
 Resume with: Phase 131 verified clean. ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding; WR-02 dedup-below-threshold hardening optional future pass.
 Resume file: None
 
