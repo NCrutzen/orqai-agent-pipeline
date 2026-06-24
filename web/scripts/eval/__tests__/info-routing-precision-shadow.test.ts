@@ -20,7 +20,10 @@ import {
   MATCH_RATE_GATE,
   COORDINATOR_RUNS_SELECT,
   mapRowToShadow,
+  buildCategoryToBucket,
+  computePerMailboxStats,
   type ShadowRow,
+  type RoutingDestinationLike,
 } from "../info-routing-precision-shadow";
 
 describe("computeMatchRate — per-bucket + overall verdict-vs-human match-rate", () => {
@@ -163,31 +166,161 @@ describe("BUG 3 (WR-05): report-mode query selects only real columns", () => {
     expect(COORDINATOR_RUNS_SELECT).toContain("decision_details");
   });
 
-  it("mapRowToShadow treats a row with no human category source as ungraded (human_category=null)", () => {
+  it("mapRowToShadow treats a row with no captured human correction as ungraded (human_category=null)", () => {
     const rows = mapRowToShadow(
       [
         {
+          email_id: "e-1",
+          source_mailbox: "info@smeba.nl",
           decision_details: {
             routing: { bucket: "verkoop", confidence: "high" },
           },
         },
       ],
-      new Map(),
+      new Map(), // categoryToBucket
+      new Map(), // humanCategoryByEmailId — no correction captured
     );
     expect(rows).toHaveLength(1);
     expect(rows[0].verdict_bucket).toBe("verkoop");
     expect(rows[0].confidence).toBe("high");
+    expect(rows[0].source_mailbox).toBe("info@smeba.nl");
     expect(rows[0].human_category).toBeNull();
   });
 
   it("mapRowToShadow drops rows missing a verdict bucket or confidence", () => {
     const rows = mapRowToShadow(
       [
-        { decision_details: { routing: { bucket: "verkoop" } } }, // no confidence
-        { decision_details: null }, // no routing
+        {
+          email_id: "e-1",
+          source_mailbox: "info@smeba.nl",
+          decision_details: { routing: { bucket: "verkoop" } }, // no confidence
+        },
+        {
+          email_id: "e-2",
+          source_mailbox: "info@smeba.nl",
+          decision_details: null, // no routing
+        },
       ],
+      new Map(),
       new Map(),
     );
     expect(rows).toEqual([]);
+  });
+});
+
+// ─── Plan 04 Task 1 (ROUTE-08 / D-01) — human_category wired from the 112.5
+// delta-synced operator correction, mapped to a bucket via categoryToBucket.
+// The gate logic (computeMatchRate/gradeVerdict + MIN/GATE) stays byte-unchanged.
+describe("Plan 04: human_category wired from the operator correction", () => {
+  const destinations: RoutingDestinationLike[] = [
+    { destination_key: "verkoop", brand: "smeba", outlook_category: "Verkoop" },
+    { destination_key: "verkoop", brand: "fire-control", outlook_category: "Verkoop" },
+    { destination_key: "storingen", brand: "smeba", outlook_category: "Storingen" },
+    { destination_key: "unrouted", brand: "smeba", outlook_category: null },
+  ];
+
+  it("buildCategoryToBucket maps the master outlook_category → bucket (and skips null)", () => {
+    const m = buildCategoryToBucket(destinations);
+    expect(m.get("Verkoop")).toBe("verkoop");
+    expect(m.get("Storingen")).toBe("storingen");
+    // the unrouted sentinel has a null outlook_category → no entry.
+    expect([...m.values()]).not.toContain("unrouted");
+  });
+
+  it("buildCategoryToBucket ALSO recognises the AI routing-label vocabulary → bucket", () => {
+    const m = buildCategoryToBucket(destinations);
+    // The held stamp (Plan 01) the operator corrects is `AI: held → <bucket>`;
+    // a corrected/forwarded label is `AI: routed → <bucket>`. Both resolve to the
+    // bucket so the captured category maps whether the operator applied a master
+    // colour category OR edited the AI routing label.
+    expect(m.get("AI: routed → verkoop")).toBe("verkoop");
+    expect(m.get("AI: held → storingen")).toBe("storingen");
+  });
+
+  it("resolves human_category to the bucket when an operator correction is captured", () => {
+    const categoryToBucket = buildCategoryToBucket(destinations);
+    const humanCategoryByEmailId = new Map<string, string>([
+      ["e-1", "Verkoop"], // operator applied the master routing colour category
+      ["e-2", "AI: routed → storingen"], // operator edited the AI routing label
+    ]);
+    const rows = mapRowToShadow(
+      [
+        {
+          email_id: "e-1",
+          source_mailbox: "info@smeba.nl",
+          decision_details: { routing: { bucket: "verkoop", confidence: "high" } },
+        },
+        {
+          email_id: "e-2",
+          source_mailbox: "info@fire-control.nl",
+          decision_details: { routing: { bucket: "verkoop", confidence: "high" } },
+        },
+      ],
+      categoryToBucket,
+      humanCategoryByEmailId,
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows[0].human_category).toBe("verkoop"); // matches verdict → match
+    expect(rows[1].human_category).toBe("storingen"); // differs from verdict → miss
+  });
+
+  it("a captured category that maps to NO bucket → human_category null (ungraded)", () => {
+    const categoryToBucket = buildCategoryToBucket(destinations);
+    const humanCategoryByEmailId = new Map<string, string>([
+      ["e-1", "Belangrijk"], // a user category that is not a routing destination
+    ]);
+    const rows = mapRowToShadow(
+      [
+        {
+          email_id: "e-1",
+          source_mailbox: "info@smeba.nl",
+          decision_details: { routing: { bucket: "verkoop", confidence: "high" } },
+        },
+      ],
+      categoryToBucket,
+      humanCategoryByEmailId,
+    );
+    expect(rows[0].human_category).toBeNull();
+  });
+
+  it("MIN_GRADED_N and MATCH_RATE_GATE are unchanged (false-success guard intact)", () => {
+    expect(MIN_GRADED_N).toBe(50);
+    expect(MATCH_RATE_GATE).toBe(0.85);
+  });
+});
+
+// ─── Plan 04 Task 1 — per-mailbox grouping so Task 2's auto-flip reads a
+// per-mailbox graded/pass status (precision is measured PER MAILBOX, not swarm-wide).
+describe("computePerMailboxStats — per-mailbox graded verdict (for the auto-flip)", () => {
+  it("groups rows by source_mailbox and grades each mailbox independently", () => {
+    const rows: ShadowRow[] = [
+      // smeba: 1 graded row (insufficient on its own)
+      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high", source_mailbox: "info@smeba.nl" },
+      // fire-control: 1 graded row
+      { verdict_bucket: "storingen", human_category: "verkoop", confidence: "high", source_mailbox: "info@fire-control.nl" },
+    ];
+    const byMailbox = computePerMailboxStats(rows);
+    expect(byMailbox.has("info@smeba.nl")).toBe(true);
+    expect(byMailbox.has("info@fire-control.nl")).toBe(true);
+    // Each mailbox graded in isolation — small samples → insufficient_sample.
+    expect(byMailbox.get("info@smeba.nl")!.verdict.status).toBe("insufficient_sample");
+    expect(byMailbox.get("info@fire-control.nl")!.verdict.status).toBe("insufficient_sample");
+    // The smeba row matched; the fire-control row missed — independent stats.
+    expect(byMailbox.get("info@smeba.nl")!.stats.overall_match_pct).toBeCloseTo(1.0, 5);
+    expect(byMailbox.get("info@fire-control.nl")!.stats.overall_match_pct).toBeCloseTo(0.0, 5);
+  });
+
+  it("a mailbox with ≥MIN graded rows at ≥0.85 grades to a passing verdict", () => {
+    const rows: ShadowRow[] = Array.from({ length: MIN_GRADED_N }, (_, i) => ({
+      verdict_bucket: "verkoop",
+      human_category: i % 10 === 0 ? "storingen" : "verkoop", // 90% match
+      confidence: "high" as const,
+      source_mailbox: "info@smeba.nl",
+    }));
+    const byMailbox = computePerMailboxStats(rows);
+    const smeba = byMailbox.get("info@smeba.nl")!;
+    expect(smeba.verdict.status).toBe("graded");
+    expect(smeba.verdict.pass).toBe(true);
+    expect(smeba.stats.graded_n).toBe(MIN_GRADED_N);
   });
 });

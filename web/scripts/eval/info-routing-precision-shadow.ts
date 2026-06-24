@@ -65,6 +65,9 @@ export interface ShadowRow {
   verdict_bucket: string;
   human_category: string | null;
   confidence: "low" | "medium" | "high";
+  /** The mailbox the verdict was produced for — the per-mailbox grouping axis
+   * (precision is measured PER MAILBOX, not swarm-wide). */
+  source_mailbox: string;
 }
 
 export interface PerBucketMatch {
@@ -182,6 +185,91 @@ export function gradeVerdict(stats: MatchRateStats): GradedVerdict {
   };
 }
 
+// ─── PURE: outlook-category → bucket reverse map (IO-free) ──────────────────
+
+/**
+ * The shape of a `routing_destinations` row this harness needs to build the
+ * reverse map. A structural subset of `RoutingDestinationRow` (registry) so the
+ * pure builder is testable without the registry import.
+ */
+export interface RoutingDestinationLike {
+  destination_key: string;
+  brand: string | null;
+  outlook_category: string | null;
+}
+
+/**
+ * The AI routing-label prefixes Plan 01 stamps on the held/forwarded source
+ * message (`AI: held → <bucket>`, `AI: routed → <bucket>`). The operator may
+ * correct routing EITHER by applying the master colour category (`outlook_
+ * category`, e.g. "Verkoop") OR by editing the AI routing label itself. The
+ * reverse map below recognises both forms so the captured human category maps to
+ * a bucket regardless of which the operator used. These mirror buildRoutingCategory
+ * (web/lib/outlook/routing-category.ts) — keep in sync if that vocabulary changes.
+ */
+const AI_ROUTING_LABEL_PREFIXES = ["AI: routed → ", "AI: held → "] as const;
+
+/**
+ * Build the (captured Outlook category → destination bucket) reverse map from the
+ * routing_destinations registry. Each `outlook_category` (the human-applied master
+ * colour category, e.g. "Verkoop") maps to its `destination_key` (the bucket).
+ * Null `outlook_category` (the `unrouted` sentinel) is skipped. ALSO seeds the AI
+ * routing-label vocabulary (`AI: routed → <bucket>` / `AI: held → <bucket>`) → the
+ * bucket, so a corrected AI label resolves too. Pure — no IO.
+ */
+export function buildCategoryToBucket(
+  destinations: RoutingDestinationLike[],
+): Map<string, string> {
+  const categoryToBucket = new Map<string, string>();
+  for (const d of destinations) {
+    // The `unrouted` sentinel has a null outlook_category and is NOT a real
+    // forward destination → no master-category entry AND no AI-label entry.
+    if (!d.outlook_category) continue;
+    categoryToBucket.set(d.outlook_category, d.destination_key);
+    // Seed the AI routing-label forms for this bucket so a corrected AI label
+    // (the Plan-01 held stamp the operator edits) also resolves to the bucket.
+    for (const prefix of AI_ROUTING_LABEL_PREFIXES) {
+      categoryToBucket.set(`${prefix}${d.destination_key}`, d.destination_key);
+    }
+  }
+  return categoryToBucket;
+}
+
+// ─── PURE: per-mailbox grading (IO-free) ────────────────────────────────────
+
+/** A per-mailbox graded result: the stats + the gateVerdict for ONE mailbox. */
+export interface PerMailboxGrade {
+  stats: MatchRateStats;
+  verdict: GradedVerdict;
+}
+
+/**
+ * Group ShadowRows by `source_mailbox` and grade EACH mailbox independently
+ * (precision is measured PER MAILBOX, not swarm-wide — must_have). Reuses the
+ * unchanged pure `computeMatchRate` + `gradeVerdict`, so the false-success guard
+ * (MIN_GRADED_N / insufficient_sample / pass:null) applies per mailbox: a mailbox
+ * with too few graded rows grades to `insufficient_sample` and can never flip.
+ * Pure — no IO.
+ */
+export function computePerMailboxStats(
+  rows: ShadowRow[],
+): Map<string, PerMailboxGrade> {
+  const byMailbox = new Map<string, ShadowRow[]>();
+  for (const r of rows) {
+    const group = byMailbox.get(r.source_mailbox) ?? [];
+    group.push(r);
+    byMailbox.set(r.source_mailbox, group);
+  }
+
+  const out = new Map<string, PerMailboxGrade>();
+  for (const [mailbox, mailboxRows] of byMailbox) {
+    const stats = computeMatchRate(mailboxRows);
+    const verdict = gradeVerdict(stats);
+    out.set(mailbox, { stats, verdict });
+  }
+  return out;
+}
+
 // ─── CLI ───────────────────────────────────────────────────────────────────
 
 const USAGE = `info-routing-precision-shadow — ROUTE-08 shadow precision harness
@@ -207,50 +295,60 @@ function fail(msg: string): never {
 }
 
 interface CoordinatorRoutingRow {
+  email_id: string | null;
+  source_mailbox: string | null;
   decision_details: { routing?: { bucket?: string; confidence?: string } } | null;
 }
 
-// BUG 3 (WR-05) — the columns the report-mode query may safely select from
-// coordinator_runs. `human_outlook_category` is NOT a column on coordinator_runs;
-// selecting it made Postgres throw "column does not exist" in report mode BEFORE
-// the graded_n false-success guard could return insufficient_sample. The
-// human-actual category source (delta-synced Outlook category) is NOT yet
-// captured anywhere — the prerequisite lands OUTSIDE Phase 131. Until then every
-// row maps to human_category=null (→ graded_n=0 → insufficient_sample, the
-// intended behavior today). Exported so a unit test can assert the bad column is
-// gone without a live DB.
-export const COORDINATOR_RUNS_SELECT = "decision_details";
+// Plan 04 (ROUTE-08 / D-01) — the columns the report-mode query selects from
+// coordinator_runs. `email_id` is the JOIN key to the captured operator
+// correction (the 112.5 reclassify signal, keyed by email_id); `source_mailbox`
+// is the per-mailbox grouping axis (precision is measured PER MAILBOX). The
+// human-actual category is NOT a coordinator_runs column — it is joined in main()
+// from swarm_review_signals (the 112.5 delta-synced reclassify verdict). NEVER
+// reintroduce the non-existent `human_outlook_category` column (BUG 3 / WR-05):
+// it made Postgres throw "column does not exist" BEFORE the graded_n guard ran.
+// Exported so a unit test can assert the bad column is gone without a live DB.
+export const COORDINATOR_RUNS_SELECT = "email_id, source_mailbox, decision_details";
 
 /**
  * Project raw coordinator_runs rows → the pure ShadowRow shape. Rows missing a
- * verdict bucket or confidence are dropped. The human-actual category source is
- * not yet wired (see COORDINATOR_RUNS_SELECT) so `human_category` is ALWAYS null
- * today → every row is ungraded → graded_n=0 → insufficient_sample.
+ * verdict bucket or confidence are dropped.
  *
- * ⚠️ WHEN THE DELTA-SYNC-ON-info@ CATEGORY-CAPTURE PREREQUISITE LANDS (outside
- * Phase 131): this is where the real human-actual category gets read/joined and
- * mapped to a bucket via `categoryToBucket`. Add the human-category source column
- * to COORDINATOR_RUNS_SELECT (or JOIN the email record) and resolve
- * `human_category` from `categoryToBucket.get(<captured category>) ?? null`
- * instead of hard-null below.
+ * `human_category` (D-01) is resolved from the 112.5 delta-synced operator
+ * correction: `humanCategoryByEmailId` maps email_id → the captured Outlook
+ * category (the master colour category the operator applied, or the AI routing
+ * label they edited), which `categoryToBucket` maps BACK to a destination bucket.
+ * A row with NO captured correction (or a captured category that maps to no
+ * bucket) → human_category=null → ungraded (excluded from the match-rate), so
+ * graded_n only counts emails the operator actually corrected.
  */
 export function mapRowToShadow(
   rawRows: CoordinatorRoutingRow[],
-  _categoryToBucket: Map<string, string>,
+  categoryToBucket: Map<string, string>,
+  humanCategoryByEmailId: Map<string, string>,
 ): ShadowRow[] {
   return rawRows.flatMap((r) => {
     const routing = r.decision_details?.routing;
     const verdict_bucket = routing?.bucket;
     const confidence = routing?.confidence;
     if (!verdict_bucket || !confidence) return [];
-    // No human-actual category source wired yet → ungraded (null). See the
-    // COORDINATOR_RUNS_SELECT comment for where the real read gets wired.
-    const human_category: string | null = null;
+
+    // Resolve the human-actual bucket from the captured operator correction.
+    // No correction captured, or it maps to no routing bucket → null (ungraded).
+    const capturedCategory = r.email_id
+      ? humanCategoryByEmailId.get(r.email_id)
+      : undefined;
+    const human_category =
+      (capturedCategory ? categoryToBucket.get(capturedCategory) : undefined) ??
+      null;
+
     return [
       {
         verdict_bucket,
         human_category,
         confidence: confidence as "low" | "medium" | "high",
+        source_mailbox: r.source_mailbox ?? "unknown",
       },
     ];
   });
@@ -269,21 +367,45 @@ async function main(): Promise<void> {
   const { loadRoutingDestinations } = await import("@/lib/swarms/registry");
   const admin = createAdminClient();
 
-  // (1) Build the Outlook-category → bucket reverse map from the registry. The
-  // human-actual destination is an Outlook category string; routing_destinations
-  // .outlook_category maps each (bucket×brand) to its category, so we invert it.
+  // (1) Build the (captured Outlook category → bucket) reverse map from the
+  // registry. The human-actual destination is an Outlook category string;
+  // routing_destinations.outlook_category maps each (bucket×brand) to its master
+  // colour category, and buildCategoryToBucket also seeds the AI routing-label
+  // forms (the Plan-01 held stamp the operator corrects).
   const destinations = await loadRoutingDestinations(admin, SWARM);
-  const categoryToBucket = new Map<string, string>();
-  for (const d of destinations) {
-    if (d.outlook_category) categoryToBucket.set(d.outlook_category, d.destination_key);
+  const categoryToBucket = buildCategoryToBucket(destinations);
+
+  // (2) Read the 112.5 delta-synced operator corrections (D-01 ground-truth). A
+  // `category_edited` transition → a `reclassify` swarm_review_signals row carries
+  // the operator-corrected category in `category_key`, keyed by email_id. We map
+  // email_id → that captured category so mapRowToShadow can resolve human_category.
+  // Latest correction per email_id wins (a later edit supersedes an earlier one).
+  const sigRes = await admin
+    .from("swarm_review_signals")
+    .select("email_id, category_key, observed_at")
+    .eq("swarm_type", SWARM)
+    .eq("transition_kind", "category_edited")
+    .not("category_key", "is", null)
+    .order("observed_at", { ascending: true });
+  if (sigRes.error) {
+    throw new Error(`swarm_review_signals read failed: ${sigRes.error.message}`);
+  }
+  const humanCategoryByEmailId = new Map<string, string>();
+  for (const s of (sigRes.data ?? []) as {
+    email_id: string | null;
+    category_key: string | null;
+  }[]) {
+    if (s.email_id && s.category_key) {
+      // ascending order → last write (most recent correction) wins.
+      humanCategoryByEmailId.set(s.email_id, s.category_key);
+    }
   }
 
-  // (2) Read the persisted high-confidence verdicts. BUG 3 (WR-05): we select
-  // ONLY real coordinator_runs columns (COORDINATOR_RUNS_SELECT) — the
-  // human-actual category source (delta-synced Outlook category) is NOT yet a
-  // column anywhere (prerequisite, outside 131). Selecting the non-existent
-  // `human_outlook_category` made Postgres throw "column does not exist" BEFORE
-  // the graded_n guard could return insufficient_sample.
+  // (3) Read the persisted high-confidence verdicts. We select ONLY real
+  // coordinator_runs columns (COORDINATOR_RUNS_SELECT) — email_id (the join key to
+  // the correction) + source_mailbox (the per-mailbox grouping axis) + the routing
+  // verdict. NEVER reintroduce the non-existent `human_outlook_category` column
+  // (BUG 3 / WR-05).
   const res = await admin
     .from("coordinator_runs")
     .select(COORDINATOR_RUNS_SELECT)
@@ -295,14 +417,23 @@ async function main(): Promise<void> {
 
   const rawRows = (res.data ?? []) as unknown as CoordinatorRoutingRow[];
 
-  // (3) Project DB rows → the pure ShadowRow shape. The human-actual category
-  // source is not yet wired, so every row maps to human_category=null (ungraded)
-  // → graded_n=0 → insufficient_sample (by design today). categoryToBucket is the
-  // reverse map ready for when the prerequisite lands — see mapRowToShadow.
-  const rows: ShadowRow[] = mapRowToShadow(rawRows, categoryToBucket);
+  // (4) Project DB rows → the pure ShadowRow shape, resolving human_category from
+  // the captured corrections. A row with no correction (or one mapping to no
+  // bucket) → human_category=null (ungraded). graded_n only counts corrected rows.
+  const rows: ShadowRow[] = mapRowToShadow(
+    rawRows,
+    categoryToBucket,
+    humanCategoryByEmailId,
+  );
 
+  // (5) Swarm-wide stats (legacy report shape) + the per-mailbox breakdown that
+  // the auto-flip reads (precision is measured PER MAILBOX, not swarm-wide).
   const stats = computeMatchRate(rows);
   const verdict = gradeVerdict(stats);
+  const perMailbox = computePerMailboxStats(rows);
+  const per_mailbox = [...perMailbox.entries()]
+    .map(([mailbox, g]) => ({ mailbox, verdict: g.verdict, stats: g.stats }))
+    .sort((a, b) => a.mailbox.localeCompare(b.mailbox));
 
   // eslint-disable-next-line no-console
   console.log(
@@ -315,6 +446,7 @@ async function main(): Promise<void> {
         min_graded_n: MIN_GRADED_N,
         verdict,
         stats,
+        per_mailbox,
       },
       null,
       2,
