@@ -296,7 +296,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 130. info@ noise-recalibration | 5/5 | Complete   | 2026-06-16 |
 | 131. Destination taxonomy + router | 5/5 | Complete    | 2026-06-17 |
 | 132. Forward + Bulk Review | 4/4 | Complete    | 2026-06-18 |
-| 132.1. Router go-live + shadow-precision (INSERTED) | 0/4 | Pending | — |
+| 132.1. Router go-live + shadow-precision (INSERTED) | 0/4 | Planned | — |
 | 133. NL routing-config + verkoop→order | — | Pending | — |
 | 134. Ambient-loop coupling | — | Pending | — |
 
