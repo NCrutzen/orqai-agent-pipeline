@@ -338,7 +338,11 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
   });
 
   it("releases brand buckets via a merge that PRESERVES dry_run siblings", async () => {
-    const captured = { inserts: [] as Record<string, unknown>[], updateCalled: false };
+    const captured: {
+      update?: Record<string, unknown>;
+      inserts: Record<string, unknown>[];
+      updateCalled: boolean;
+    } = { inserts: [], updateCalled: false };
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
         swarmsRow: {
@@ -376,7 +380,11 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
   });
 
   it("insufficient_sample → NO swarms UPDATE (the guard holds)", async () => {
-    const captured = { inserts: [] as Record<string, unknown>[], updateCalled: false };
+    const captured: {
+      update?: Record<string, unknown>;
+      inserts: Record<string, unknown>[];
+      updateCalled: boolean;
+    } = { inserts: [], updateCalled: false };
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
         swarmsRow: {
@@ -395,7 +403,11 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
   });
 
   it("emits a precision-regression alert when a released bucket's mailbox drops <0.85", async () => {
-    const captured = { inserts: [] as Record<string, unknown>[], updateCalled: false };
+    const captured: {
+      update?: Record<string, unknown>;
+      inserts: Record<string, unknown>[];
+      updateCalled: boolean;
+    } = { inserts: [], updateCalled: false };
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
         swarmsRow: {

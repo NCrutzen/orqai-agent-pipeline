@@ -29,11 +29,11 @@ import {
 describe("computeMatchRate — per-bucket + overall verdict-vs-human match-rate", () => {
   it("computes overall_match_pct over high-confidence verdicts (4/5 → 0.8)", () => {
     const rows: ShadowRow[] = [
-      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high" },
-      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high" },
-      { verdict_bucket: "storingen", human_category: "storingen", confidence: "high" },
-      { verdict_bucket: "inspecties", human_category: "inspecties", confidence: "high" },
-      { verdict_bucket: "verkoop", human_category: "storingen", confidence: "high" }, // miss
+      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high", source_mailbox: "info@smeba.nl" },
+      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high", source_mailbox: "info@smeba.nl" },
+      { verdict_bucket: "storingen", human_category: "storingen", confidence: "high", source_mailbox: "info@smeba.nl" },
+      { verdict_bucket: "inspecties", human_category: "inspecties", confidence: "high", source_mailbox: "info@smeba.nl" },
+      { verdict_bucket: "verkoop", human_category: "storingen", confidence: "high", source_mailbox: "info@smeba.nl" }, // miss
     ];
     const r = computeMatchRate(rows);
     expect(r.graded_n).toBe(5);
@@ -43,9 +43,9 @@ describe("computeMatchRate — per-bucket + overall verdict-vs-human match-rate"
 
   it("reports a correct per-bucket breakdown keyed off the verdict bucket", () => {
     const rows: ShadowRow[] = [
-      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high" },
-      { verdict_bucket: "verkoop", human_category: "storingen", confidence: "high" }, // miss
-      { verdict_bucket: "storingen", human_category: "storingen", confidence: "high" },
+      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high", source_mailbox: "info@smeba.nl" },
+      { verdict_bucket: "verkoop", human_category: "storingen", confidence: "high", source_mailbox: "info@smeba.nl" }, // miss
+      { verdict_bucket: "storingen", human_category: "storingen", confidence: "high", source_mailbox: "info@smeba.nl" },
     ];
     const r = computeMatchRate(rows);
     const verkoop = r.per_bucket.find((b) => b.bucket === "verkoop")!;
@@ -60,9 +60,9 @@ describe("computeMatchRate — per-bucket + overall verdict-vs-human match-rate"
 
   it("counts a null human_category as ungraded — NOT a match and NOT a miss", () => {
     const rows: ShadowRow[] = [
-      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high" },
-      { verdict_bucket: "storingen", human_category: null, confidence: "high" },
-      { verdict_bucket: "inspecties", human_category: null, confidence: "high" },
+      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high", source_mailbox: "info@smeba.nl" },
+      { verdict_bucket: "storingen", human_category: null, confidence: "high", source_mailbox: "info@smeba.nl" },
+      { verdict_bucket: "inspecties", human_category: null, confidence: "high", source_mailbox: "info@smeba.nl" },
     ];
     const r = computeMatchRate(rows);
     expect(r.graded_n).toBe(1);
@@ -76,9 +76,9 @@ describe("computeMatchRate — per-bucket + overall verdict-vs-human match-rate"
 
   it("includes ONLY high-confidence verdicts (low/medium excluded)", () => {
     const rows: ShadowRow[] = [
-      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high" },
-      { verdict_bucket: "storingen", human_category: "verkoop", confidence: "low" }, // excluded
-      { verdict_bucket: "inspecties", human_category: "verkoop", confidence: "medium" }, // excluded
+      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high", source_mailbox: "info@smeba.nl" },
+      { verdict_bucket: "storingen", human_category: "verkoop", confidence: "low", source_mailbox: "info@smeba.nl" }, // excluded
+      { verdict_bucket: "inspecties", human_category: "verkoop", confidence: "medium", source_mailbox: "info@smeba.nl" }, // excluded
     ];
     const r = computeMatchRate(rows);
     // Only the single high-confidence row is graded.
@@ -101,7 +101,7 @@ describe("gradeVerdict — the graded_n false-success guard + ≥0.85 gate", () 
   it("REFUSES a verdict when graded_n is below MIN (the false-100% trap)", () => {
     // Every graded row matches → naive overall is 1.0, but graded_n is tiny.
     const rows: ShadowRow[] = [
-      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high" },
+      { verdict_bucket: "verkoop", human_category: "verkoop", confidence: "high", source_mailbox: "info@smeba.nl" },
     ];
     const stats = computeMatchRate(rows);
     expect(stats.overall_match_pct).toBeCloseTo(1.0, 5);
@@ -113,8 +113,8 @@ describe("gradeVerdict — the graded_n false-success guard + ≥0.85 gate", () 
 
   it("REFUSES a verdict at graded_n=0 (today's 0/8000 prerequisite-absent state)", () => {
     const rows: ShadowRow[] = [
-      { verdict_bucket: "verkoop", human_category: null, confidence: "high" },
-      { verdict_bucket: "storingen", human_category: null, confidence: "high" },
+      { verdict_bucket: "verkoop", human_category: null, confidence: "high", source_mailbox: "info@smeba.nl" },
+      { verdict_bucket: "storingen", human_category: null, confidence: "high", source_mailbox: "info@smeba.nl" },
     ];
     const stats = computeMatchRate(rows);
     expect(stats.graded_n).toBe(0);
@@ -129,6 +129,7 @@ describe("gradeVerdict — the graded_n false-success guard + ≥0.85 gate", () 
       // 90% match: every 10th row is a miss.
       human_category: i % 10 === 0 ? "storingen" : "verkoop",
       confidence: "high" as const,
+      source_mailbox: "info@smeba.nl",
     }));
     const stats = computeMatchRate(rows);
     expect(stats.graded_n).toBe(MIN_GRADED_N);
@@ -144,6 +145,7 @@ describe("gradeVerdict — the graded_n false-success guard + ≥0.85 gate", () 
       // 50% match — well below 0.85.
       human_category: i % 2 === 0 ? "storingen" : "verkoop",
       confidence: "high" as const,
+      source_mailbox: "info@smeba.nl",
     }));
     const stats = computeMatchRate(rows);
     expect(stats.graded_n).toBe(MIN_GRADED_N);

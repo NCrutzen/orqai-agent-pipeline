@@ -898,6 +898,9 @@ export const debtorEmailCoordinator = inngest.createFunction(
       const topIntent = output.ranked[0]?.intent;
       async function emitIntentLabel() {
         if (!topIntent) return;
+        // resolvedEmailId is non-null past the line-219 guard, but TS re-widens
+        // it to string|null inside this closure — re-narrow before the emit.
+        if (!resolvedEmailId) return;
         await step.run("emit-intent-label", async () => {
           await inngest.send({
             name: "pipeline/intent-label.requested",
