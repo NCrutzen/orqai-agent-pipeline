@@ -4,7 +4,7 @@ milestone: V9.7
 milestone_name: Routing Swarm Go-Live — Departmental Routing
 status: executing
 stopped_at: Phase 132.1 context gathered
-last_updated: "2026-06-24T07:02:54.305Z"
+last_updated: "2026-06-24T07:33:21.414Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 2
@@ -63,7 +63,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 132.1 (router-golive-dispatch-wiring-v9-7) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-06-24
 
@@ -203,6 +203,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 | 132 | 4 | - | - |
 | Phase Phase 132.1 P01 | 30m | 2 tasks tasks | 3 files files |
 | Phase 132.1 P02 | ~40m | 1 tasks | 2 files |
+| Phase 132.1 P03 | ~25m | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -355,6 +356,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 - [Phase ?]: 132-03: info-routing Bulk Review reuses the swarm-generic Stage4Decide shell (D-07) — RoutingDetailPane data-gated on row.routing (no new view, no swarm literal); forward_status derived at hydration; 3 D-08 operator actions (reroute re-resolves+re-verdicts / forward-now bypasses the per-bucket gate but honors dedup / dont-forward suppresses); routing.run_id added so the actions can key coordinator_runs; routing? optional per the attachments? precedent
 - [Phase ?]: [Phase 132.1-01] Generic email_id ?? resolve-from-message_id fallback kills the createRun null-email_id crash; held-path stamps AI: held/triage + seeds swarm_written_categories baseline (D-01); algemeen skipped (D-04); zero swarm-name branch.
 - [Phase ?]: [Phase 132.1-02] Routing master categories provisioned with non-grey preset5 (preset0=grey kept by AI: intent labels); ensureRoutingMasterCategories GET-before-POST idempotent, additive-only, names from buildRoutingCategory
+- [Phase ?]: [Phase 132.1-03] Info-routing activation shipped as migrations only: dispatch re-flip + behavior_tracking enable (jsonb || merge, siblings preserved) in 20260624a; one-flag forward revert (jsonb_set stage_4_forward_buckets to {}) armed-not-applied in 20260624b; ensure-info-routing-categories.ts invokes Plan-02 preset5 colour per info@ mailbox (buckets from routing_destinations registry). Live apply + DB/Graph read-backs operator-gated (no Supabase/Graph MCP tool exposed + prod-read denied).
 
 ### Blockers/Concerns
 
@@ -401,7 +403,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 
 ## Session Continuity
 
-Last session: 2026-06-24T07:02:44.953Z
+Last session: 2026-06-24T07:33:00.550Z
 Stopped at: Phase 132.1 context gathered
 Resume with: Phase 131 verified clean. ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding; WR-02 dedup-below-threshold hardening optional future pass.
 Resume file: None
