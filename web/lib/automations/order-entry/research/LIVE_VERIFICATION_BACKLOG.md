@@ -15,6 +15,33 @@ Gwenda-set (cheatsheet/werkdoc/SOP-19/leeswijzer).
 
 ---
 
+## Bronnen — live systemen & provenance
+
+Alle live-checks liepen via **read-only** queries tegen twee kanalen:
+
+**1. Supabase** (project `mvqjhlxfvtqqubqgdvhz`, via MCP) — `email_pipeline.emails` (mailcorpus),
+`public.swarm_intents`, `debtor.sender_customer_map`. Bron voor §0 (mailboxen/intents).
+
+**2. NXT SQL-Server** (via Zapier-SDK-SQL, whitelisted-IP — dezelfde route als de V9.5 Customer Resolver;
+**niet** de NXT-REST). Op die server twee gebruikte lagen:
+- `zapier.dbo.*` — **onze eigen sync-laag**: `resolver_customer`, `resolver_index`, `rvb_site_map`
+  (gedenormaliseerde lookup voor Stage-2, zie spike 010b).
+- `nxt.dbo.*` — de **geconsolideerde NXT-replica** (ERP-data): `order_type_bx`, `order_asset_type_bx`,
+  `customer_bx`, `item_bx`, `price_bx`, `orders_bx`, `order_line_bx`.
+
+**Naamgevingsconventie `_bx` / `_uk` / `_ie` = regio-partitie** (bx=Benelux, uk=UK, ie=Ireland). De tabel
+zónder suffix is de unie: bewezen via `order_type` 231 = `_bx` 34 + `_uk` 118 + `_ie` 79. Sluit aan op de
+kolom `environment_id` (`'BX'`) en de prod-DB's `nxt_benelux_prod`/`nxt_uk_prod`/`nxt_ireland_prod`.
+Dit is **NXT-vendor/replica-schema**, geen agent-workforce-naamgeving — spike 010b documenteert het al
+("env_id BX/UK/IE; numbers triple; env='BX' hard filter"). Voor Order Entry (Smeba=Benelux) gelden de
+**`_bx`-tabellen + `environment_id='BX'`**.
+
+**Kanttekeningen:** bx=Benelux/uk=UK/ie=Ierland is interpretatie (matcht `environment_id` + prod-DB-namen),
+niet een letterlijk land-label. De `nxt`-DB is een **replica** — versheid/lag niet gemeten (M0 open vraag
+"NXT-acc snapshot-versheid") → een live create-order vereist nog acceptance-validatie. Alles read-only.
+
+---
+
 ## §0. Al live-bevestigd (2026-06-23, Supabase `mvqjhlxfvtqqubqgdvhz`, read-only)
 
 Down-payment die ik nu al kon draaien tegen `email_pipeline.emails` + `public.swarm_intents`:
