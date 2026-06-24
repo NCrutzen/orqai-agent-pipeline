@@ -80,8 +80,15 @@ in en leverde een echt RS256-token (~10h TTL).
 | #10 | SPA-token-TTL | harvest leverde token met **~600min (10h)** TTL — conform CTO `id_token ~10h`. |
 
 **Echt nog open (alléén via UI-gesture / Browserless DOM-capture, geen GET):**
-1. Exacte **"Order Genereren"**-call die quote→`status='ORDER'` + order met `originQuote` zet (loopt via `quoteProcess` Camunda; method/path/body niet REST-zichtbaar zonder de klik).
-2. Magazijn **"rode pijltje"**-dispatch: `/api/...` of strikt UI/Tablet Dispatch (order-type-flag `orderTypeDirectDispatchEnabled` is de hint).
+1. Exacte **"Order Genereren"**-call die quote→`status='ORDER'` + order met `originQuote` zet.
+2. Magazijn **"rode pijltje"**-dispatch: `/api/...` of strikt UI/Tablet Dispatch.
+
+### Read-only UI-capture-poging 2026-06-24 (geen write afgevuurd) — wat het opleverde
+Browserless-sessie ingelogd op prod (creds gefixt), passief genavigeerd, **geen actie-knop geklikt**.
+Conclusies (inferentieel — exacte body vereist een echte write → acc-first):
+- **#1 "Order Genereren" = vrijwel zeker een Camunda user-task-completion in `quoteProcess`, géén directe `POST /api/orders` vanuit de knop.** Bewijs: `quoteProcess` bestaat (#6); de home/taken-inbox draait op `POST /api/tasks` (200); CTO/matrix beschrijft "Open User Task `Resolution=won` → Order Genereren". De act = de user-task completen met `Resolution=won` → de proces-engine bouwt de order (met `originQuote`). De mirror `Resolution=lost` sluit de quote als LOST (zie quote_rejection-quick-win).
+- **#8 dispatch "rode pijltje" = vrijwel zeker pure UI (Tablet Dispatch), geen algemene `/api`-call.** Bewijs: route `#/dispatch` redirect naar `#/home` voor deze user/rol; de order-shape draagt de flag `orderTypeDirectDispatchEnabled` (UI-conditie, geen endpoint). Bevestigt de BROWSERLESS-ONLY-classificatie in de matrix.
+- JS-bundle-grep faalde: NXT serveert één opaque bundle + dynamisch samengestelde paden → endpoint-literals niet betrouwbaar headless te grijpen. De exacte call vastleggen vereist de klik = een write → **acc-first** (spike-regel), niet read-only haalbaar.
 → Zie DOM-PROBE-note onderaan `probe-order-entry-acc.ts`.
 
 <details><summary>Historische diagnose (acc-run vanochtend — superseded door bovenstaande)</summary>
