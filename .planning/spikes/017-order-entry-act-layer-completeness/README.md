@@ -49,7 +49,12 @@ Dispatch** (SOP07/08/27), plattegronden (SOP16: Emrode/Dropbox/G-schijf/post), D
   is enkel een opaque string; `prospect→open` heeft géén API — "convert in UI"). Dit is dé bouwopdracht.
 
 ## Residu — live Browserless/REST-probe op NXT-acceptance (dev-env; NIET van hier draaibaar)
-Geen `BROWSERLESS_API_TOKEN`/deps in deze omgeving → dit deel draait in de dev-env. Te bevestigen:
+Geen `BROWSERLESS_API_TOKEN`/deps in deze omgeving → dit deel draait in de dev-env.
+**Runnable scaffold:** `web/lib/automations/nxt-zapier/probe-order-entry-acc.ts` — read-only REST-probe
+die `nxtRequest`/`getValidToken` hergebruikt (geen nieuw auth/HTTP-wiel) en de GET-bare punten hieronder
+afvinkt. De twee UI-gebaar-punten (#2 "Order Genereren", #8 dispatch) staan als DOM-PROBE-note onderin
+dat bestand, met verwijzing naar `acquire-token-via-browserless.ts` + de heeren-oefeningen-harness.
+Draaien (vanuit `web/`): `PROBE_ORDER_ID=… PROBE_QUOTE_ID=… PROBE_SITE_ID=… node_modules/.bin/tsx lib/automations/nxt-zapier/probe-order-entry-acc.ts`. Te bevestigen:
 1. `POST /api/orders` exacte payload + lifecycle (`prospect`+`prospect:true`→`open`; lines; `stockAllocationRequired` alleen via "Verwijder instelling").
 2. Het **quote-object** + of er een "Order Genereren"/`Resolution=won|lost`-endpoint is, of enkel Camunda-task → bepaalt of de trigger REST of Browserless is.
 3. `quoteReference`-lineage bij order-create.
