@@ -4,6 +4,7 @@ source: Phase 82.8 UAT — dry-run scope investigation
 status: pending
 priority: M
 target_milestone: v9.0
+resolves_phase: 135
 tags: [dry-run, gating, pipeline, review-pane, governance]
 ---
 
