@@ -19,9 +19,10 @@ import type { RoutingDestinationLike } from "@/scripts/eval/info-routing-precisi
 export const WILSON_Z_95 = 1.96;
 
 // Release gate: a bucket goes live only when its Wilson LOWER bound ≥ this AND
-// the sample is at least MIN_OBSERVED_N. 0.85 mirrors the existing
-// MATCH_RATE_GATE so the two ground-truth channels agree on "good enough".
-export const FORWARD_WILSON_GATE = 0.85;
+// the sample is at least MIN_OBSERVED_N. 0.70: internal department forwarding is low-stakes (a wrong route is a
+// colleague re-forward — reversible, dedup-guarded, no external impact), so the
+// stricter 0.85 noise-archive bar is relaxed here (operator decision 2026-06-25).
+export const FORWARD_WILSON_GATE = 0.7;
 
 // Minimum forward observations for a bucket before it can flip. The Wilson
 // lower bound already punishes small n, but a hard floor keeps a single lucky
