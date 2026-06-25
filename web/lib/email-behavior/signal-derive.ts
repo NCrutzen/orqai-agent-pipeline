@@ -38,7 +38,14 @@ export type SignalVerdict =
   | "approve_handled"
   | "approve_replied"
   | "weak_seen"
-  | "suppressed";
+  | "suppressed"
+  // Phase 132.2 — produced by the forward-autoflip's capture step (not this
+  // deriveSignals delta path). A staff forward whose destination is ground truth
+  // for the correct route; fed to the forward-Wilson grader.
+  | "forward_observed"
+  // Phase 132.2 — a forward with NO persisted Stage-3 verdict (or unrouted).
+  // Logged for observability (complete ledger); NEVER fed to Wilson/coverage.
+  | "forward_observed_no_verdict";
 
 /**
  * Per-transitie-soort weging. Een "weight" is hier een semantisch label dat de
