@@ -82,6 +82,20 @@ Full per-mailbox *config* (only the lifecycle is per-mailbox; stage/handler conf
   on 2026-06-18 (brief table) + the V9.7 forward releases. Anything that would differ from today's
   effective behavior is explicitly NOT wanted here.
 
+### Resolved at plan time (2026-06-25) — supersedes D-05 prose
+- **D-05-R — sales-email seed = verified-live → derives `Dry`.** Operator confirmed: **Sugar is out
+  of the picture** (the STATE/117 "keep sales GATED until the Sugar cut-over" constraint is dead).
+  Therefore sales `stage_3_intent_label` stays **LIVE** (the `AI:`-label keeps being written so the
+  operator can see + correct the AI's guess — observe/correction mode, P117), and `stage_3_routing`
+  stays live-but-inert (sales has no Stage-4 handlers/buckets, so nothing acts). This is today's
+  behavior → honors D-09 (no change at cutover) and keeps the correction-monitoring signal. The seed
+  for sales is the **verified-live** state, not D-05's literal "intent-label held" prose. Sales still
+  derives **`Dry`** (label written, nothing acts) — which is what D-05 named as the target mode.
+  - **Open follow-up for the planner (OQ-3):** confirm sales has no actually-firing live archive
+    (`stage_1_archive=false` is the flag, but if no sales category carries a live `outlook_label` the
+    archive is inert). If inert → sales derives `Dry` as intended; assert this with a derive-mode test.
+    If sales *does* fire a live archive, sales derives `Live` — surface that, do not silently bury it.
+
 ### Folded Todos
 - **`2026-05-18-granular-dry-run-gating-per-stage-and-handler.md`** (tagged `resolves_phase: 135`).
   Original problem: `debtor.labeling_settings.dry_run` only gated intent-labeling; the iController
