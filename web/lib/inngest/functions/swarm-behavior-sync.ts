@@ -415,13 +415,27 @@ export const swarmBehaviorSyncMailbox = inngest.createFunction(
       const folders = await resolveFolders(mailbox);
       const newRows = folders
         .filter((f) => !existing.has(f.folder_id))
-        .map((f) => ({
-          folder_id: f.folder_id,
-          mailbox,
-          display_name: f.display_name,
-          bucket: bucketForFolderPath(f.path),
-          tracked: true,
-        }));
+        .map((f) => {
+          const bucket = bucketForFolderPath(f.path);
+          return {
+            folder_id: f.folder_id,
+            mailbox,
+            display_name: f.display_name,
+            bucket,
+            // INBOX-ONLY delta polling (2026-06-22): operators correct AI:
+            // labels while mail sits in the inbox; once filed into a customer/
+            // afgehandeld folder it is handled. Tracking EVERY folder bootstraps
+            // the whole mailbox history in ONE invocation (debiteuren@smeba.nl =
+            // 127 customer folders / ~40k mail) and blows the 300s function
+            // ceiling -> FUNCTION_INVOCATION_TIMEOUT -> the delta token never
+            // advances -> permanent re-walk -> capture goes down. Inbox-only
+            // keeps capture working (a drag BACK into the inbox is re-seen and
+            // re-tracked) without reading history; a move OUT of the inbox is
+            // still observed as `left_to_untracked` from the inbox side.
+            // Generic (bucket-based), no per-swarm branch.
+            tracked: bucket === "inbox",
+          };
+        });
       if (newRows.length > 0) {
         const { error } = await admin
           .from("outlook_folder_map")

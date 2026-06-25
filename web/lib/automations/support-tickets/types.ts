@@ -13,6 +13,10 @@
 
 import { z } from "zod";
 
+// IN-01: single source of truth for the photo count limit — imported by both
+// the Zod schema (max validation) and the FotoUpload component (UI gate).
+export const MAX_PHOTO_COUNT = 10;
+
 export const USER_CHOSEN_TYPES = [
   "bug",
   "feature-request",
@@ -39,35 +43,43 @@ export type UserChosenType = (typeof USER_CHOSEN_TYPES)[number];
 export type ExternalTaskId = string;
 
 /**
- * Phase 1 ingest body schema. `.strict()` rejects unknown top-level fields
- * (T-01-10 mitigation — prevents privilege injection of e.g. `submission_id`,
- * `attempt`, `final_intent`).
+ * Phase 2 ingest body schema. `.strict()` rejects unknown top-level fields
+ * (T-01-10 / T-02-01 mitigation — prevents privilege injection of e.g.
+ * `submission_id`, `attempt`, `final_intent`).
  *
  * `submission_id` and `automation_run_id` are server-generated only; clients
  * MUST NOT supply them. `attempt` is server-managed across clarification
  * re-entries (Phase 4 concern).
  *
- * `external_task_id` is REQUIRED: the upstream tracker task id created
- * upstream (Zapier / direct API / future automation) BEFORE the submission
- * hits this endpoint. It is persisted on `support_tickets.external_task_id`
- * (canonical join location) and recorded in
- * `pipeline_events.decision_details.external_task_id` for every Stage row
- * (per-event audit trail). It does NOT flow into `pipeline_events.email_id`
- * — that column is UUID-typed and carries the server-generated `submission_id`.
+ * CONTRACT-02 (Phase 2 D-03): `external_task_id` is now OPTIONAL. App-origin
+ * submissions (Phase 2 submit flow) do not have an upstream tracker task id
+ * before ingest. Zapier-origin flows still supply it. When present, the
+ * `.min(1)` floor is preserved — empty string is rejected. It is persisted on
+ * `support_tickets.external_task_id` and recorded in
+ * `pipeline_events.decision_details.external_task_id` for audit trail.
+ *
+ * CONTRACT-01 (Phase 2 D-04): `systeem` is a new OPTIONAL field — the
+ * `system_key` slug from `support_software_systems` chosen by the user in the
+ * submit form. Machine-readable routing/triage signal. NULL for text-only
+ * submissions or when "mijn systeem staat er niet bij" is chosen.
  */
 export const ingestBodySchema = z
   .object({
     submitter_id: z.string().min(1),
     user_chosen_type: z.enum(USER_CHOSEN_TYPES),
-    external_task_id: z
-      .string()
-      .min(1, "external_task_id is required (upstream tracker task identifier)"),
+    external_task_id: z.string().min(1).optional(), // CONTRACT-02: was required
+    systeem: z.string().min(1).optional(),           // CONTRACT-01: new optional field
     video_storage_url: z.string().url().nullable().optional(),
     video_size_bytes: z.number().int().nonnegative().nullable().optional(),
     device_fingerprint: z.string().optional(),
     submitted_at: z.string().datetime().optional(),
+    // CONTRACT-03 (Phase 5 D-09/D-10): soort = routing signal for Zapier;
+    // photo_storage_urls = public storage URLs from support-tickets-photos bucket.
+    // Both optional — additive, backward-compatible with existing software submissions.
+    soort: z.enum(["software", "hardware"]).optional(),
+    photo_storage_urls: z.array(z.string().url()).max(MAX_PHOTO_COUNT).optional(),
   })
-  .strict();
+  .strict(); // .strict() preserved — T-01-10 / T-02-01 unknown-field-injection mitigation
 
 export type IngestBody = z.infer<typeof ingestBodySchema>;
 

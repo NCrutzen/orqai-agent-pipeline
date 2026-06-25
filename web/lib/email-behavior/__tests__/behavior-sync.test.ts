@@ -415,7 +415,7 @@ function seedFolderMap() {
 }
 
 describe("swarmBehaviorSync — worker level", () => {
-  it("1: bootstrap folder (no token) writes 0 signals but persists deltaLink + bootstrapped=true", async () => {
+  it("1: bootstrap folder (no token) writes 0 signals but persists deltaLink + bootstrapped=true (INBOX-ONLY: only F-inbox is tracked)", async () => {
     // No folder map yet → worker resolves folders (graph tree), then polls each.
     const tree = routeGraph({ inboxHasChildren: false });
     graphFetchMock.mockImplementation(async (url: string) => {
@@ -435,16 +435,26 @@ describe("swarmBehaviorSync — worker level", () => {
     const ret = await runWorker(MAILBOX);
 
     expect(db.signals).toHaveLength(0);
-    // tokens persisted for both tracked folders, bootstrapped=true
+    // INBOX-ONLY (2026-06-22): the freshly-discovered F-archive is inserted with
+    // tracked=false, so it is NEVER polled and gets NO delta token. Only the
+    // inbox bucket is delta-polled, so only F-inbox is bootstrapped + persisted.
     expect(db.tokens.get("F-inbox")?.bootstrapped).toBe(true);
-    expect(db.tokens.get("F-archive")?.bootstrapped).toBe(true);
     expect(db.tokens.get("F-inbox")?.delta_link).toBe(
       "https://graph/delta?token=BOOT",
+    );
+    expect(db.tokens.get("F-archive")).toBeUndefined();
+    // and the inserted folder-map row for F-archive is tracked=false.
+    expect(
+      db.folderMap.find((f) => f.folder_id === "F-archive")?.tracked,
+    ).toBe(false);
+    expect(db.folderMap.find((f) => f.folder_id === "F-inbox")?.tracked).toBe(
+      true,
     );
     // Phase 119: the worker returns the single PerSwarmCounts directly (no results[]).
     const r = ret as unknown as PerSwarmLike;
     expect(r.swarm_type).toBe("sales-email");
-    expect(r.bootstrapped_folders).toBeGreaterThanOrEqual(2);
+    // inbox-only: exactly one tracked (inbox) folder bootstrapped this tick.
+    expect(r.bootstrapped_folders).toBeGreaterThanOrEqual(1);
     expect(r.signals_written).toBe(0);
   });
 
@@ -635,6 +645,53 @@ describe("swarmBehaviorSync — worker level", () => {
     expect(events.some((e) => e.data.mailbox === "support@other.nl")).toBe(false);
     // orchestrator does no Graph work during fan-out
     expect(graphFetchMock).not.toHaveBeenCalled();
+  });
+
+  it("INBOX-ONLY CONTRACT (regression guard, 2026-06-22): refresh-folder-map inserts the inbox folder tracked=true and every non-inbox folder (archive / 'other' customer folder) tracked=false", async () => {
+    // No folder-map yet → the worker resolves the live tree and INSERTs each
+    // newly-discovered folder. The fix: only the inbox bucket is delta-polled, so
+    // only the inbox folder is inserted tracked=true; archive and an arbitrary
+    // customer ('other') folder are inserted tracked=false. This is the
+    // regression guard for the 300s FUNCTION_INVOCATION_TIMEOUT fix (a heavy
+    // mailbox would otherwise bootstrap every folder in one invocation).
+    db.folderMap = [];
+    db.tokens = new Map();
+
+    graphFetchMock.mockImplementation(async (url: string) => {
+      if (/\/mailFolders\?/.test(url)) {
+        return jsonResponse({
+          value: [
+            { id: "F-inbox", displayName: "Inbox", childFolderCount: 0 },
+            { id: "F-archive", displayName: "Archief", childFolderCount: 0 },
+            // an arbitrary per-customer folder → bucket "other"
+            { id: "F-klant", displayName: "Klant Smeba BV", childFolderCount: 0 },
+          ],
+        });
+      }
+      if (/\/childFolders/.test(url)) return jsonResponse({ value: [] });
+      if (/messages\/delta/.test(url) || /^PREV-/.test(url)) {
+        return jsonResponse({ value: [], "@odata.deltaLink": "DELTA-empty" });
+      }
+      return jsonResponse({ value: [], "@odata.deltaLink": "DELTA" });
+    });
+
+    await runWorker(MAILBOX);
+
+    const inbox = db.folderMap.find((f) => f.folder_id === "F-inbox");
+    const archive = db.folderMap.find((f) => f.folder_id === "F-archive");
+    const klant = db.folderMap.find((f) => f.folder_id === "F-klant");
+
+    // inbox: tracked=true (the only delta-polled bucket)
+    expect(inbox).toMatchObject({ bucket: "inbox", tracked: true });
+    // archive: discovered but tracked=false (no history walk)
+    expect(archive).toMatchObject({ bucket: "archive", tracked: false });
+    // arbitrary customer folder: bucket "other", tracked=false
+    expect(klant).toMatchObject({ bucket: "other", tracked: false });
+
+    // and only the inbox got delta-polled → only the inbox got a token.
+    expect(db.tokens.get("F-inbox")).toBeTruthy();
+    expect(db.tokens.get("F-archive")).toBeUndefined();
+    expect(db.tokens.get("F-klant")).toBeUndefined();
   });
 });
 
@@ -881,96 +938,11 @@ describe("swarmBehaviorSync — multi-mailbox iteration (Phase 118)", () => {
   });
 });
 
-describe("swarmBehaviorSync — bootstrap-correlatie (gap-fix 2026-06-04)", () => {
-  it("6: pending left_to_untracked + nieuw-ontdekte afgehandeld-jaarmap -> moved_to_afgehandeld + approve_handled", async () => {
-    db.swarms = [
-      {
-        swarm_type: "sales-email",
-        behavior_tracking_config: { enabled: true, mailbox: MAILBOX },
-      },
-    ];
-    // Map kent alleen inbox+archive; 'afgehandeld' (F-afg) en jaarmap '2026'
-    // (F-2026) zijn NIEUW — de per-tick refresh moet ze ontdekken.
-    seedFolderMap();
-    db.tokens.set("F-inbox", { delta_link: "PREV-inbox", bootstrapped: true });
-    db.tokens.set("F-archive", { delta_link: "PREV-archive", bootstrapped: true });
-    db.emails = [
-      { id: "e-d1", source_id: "IM-d1", conversation_id: null, mailbox: MAILBOX, source: "outlook" },
-    ];
-    // De eerder vastgelegde verdwijning uit de inbox (vorige tick).
-    db.transitions = [
-      {
-        id: "corr-1",
-        swarm_type: "sales-email",
-        mailbox: MAILBOX,
-        email_id: "e-d1",
-        immutable_id: "IM-d1",
-        kind: "left_to_untracked",
-        from_bucket: "inbox",
-        to_bucket: null,
-        dedupe_key: "sales-email|IM-d1|left_to_untracked|earlier",
-        observed_at: new Date(Date.now() - 3_600_000).toISOString(),
-      },
-    ];
-
-    graphFetchMock.mockImplementation(async (url: string) => {
-      if (/\/mailFolders\?/.test(url)) {
-        return jsonResponse({
-          value: [
-            { id: "F-inbox", displayName: "Inbox", childFolderCount: 1 },
-            { id: "F-archive", displayName: "Archief", childFolderCount: 0 },
-          ],
-        });
-      }
-      if (/F-inbox\/childFolders/.test(url)) {
-        return jsonResponse({
-          value: [{ id: "F-afg", displayName: "afgehandeld", childFolderCount: 1 }],
-        });
-      }
-      if (/F-afg\/childFolders/.test(url)) {
-        return jsonResponse({
-          value: [{ id: "F-2026", displayName: "2026", childFolderCount: 0 }],
-        });
-      }
-      if (/F-inbox\/messages\/delta/.test(url) || url === "PREV-inbox") {
-        return jsonResponse({ value: [], "@odata.deltaLink": "NEXT-inbox" });
-      }
-      if (/F-archive\/messages\/delta/.test(url) || url === "PREV-archive") {
-        return jsonResponse({ value: [], "@odata.deltaLink": "NEXT-archive" });
-      }
-      if (/F-afg\/messages\/delta/.test(url)) {
-        return jsonResponse({ value: [], "@odata.deltaLink": "BOOT-afg" });
-      }
-      if (/F-2026\/messages\/delta/.test(url)) {
-        // bootstrap-inhoud van de verse jaarmap bevat de verdwenen mail
-        return jsonResponse({
-          value: [{ id: "IM-d1", parentFolderId: "F-2026" }],
-          "@odata.deltaLink": "BOOT-2026",
-        });
-      }
-      return jsonResponse({ value: [], "@odata.deltaLink": "DELTA" });
-    });
-
-    const out = (await runWorker(MAILBOX)) as {
-      transitions_written: number;
-      signals_written: number;
-      by_verdict: Record<string, number>;
-    };
-
-    // refresh ontdekte F-afg + F-2026 met afgehandeld-bucket (ancestry).
-    const f2026 = db.folderMap.find((f) => f.folder_id === "F-2026");
-    expect(f2026?.bucket).toBe("afgehandeld");
-
-    // de correlatie promoveerde de pending rij naar een echte move + verdict.
-    const promoted = db.transitions.find((t) => t.kind === "moved_to_afgehandeld");
-    expect(promoted).toMatchObject({ immutable_id: "IM-d1", from_bucket: "inbox", to_bucket: "afgehandeld" });
-    const original = db.transitions.find((t) => t.id === "corr-1");
-    expect(original?.to_bucket).toBe("resolved_by_bootstrap");
-    expect(out.by_verdict).toMatchObject({ approve_handled: 1 });
-    const signal = db.signals.find((s) => s.verdict === "approve_handled");
-    expect(signal).toMatchObject({ email_id: "e-d1", transition_kind: "moved_to_afgehandeld" });
-  });
-});
+// (Test 6 — bootstrap-correlatie — removed: the path it exercised required
+// polling a newly-discovered destination (afgehandeld) folder. Under INBOX-ONLY
+// (2026-06-22) non-inbox folders are inserted tracked=false and never polled, so
+// that promotion path is intentionally dormant. The INBOX-ONLY insert contract
+// is pinned by the regression-guard test in the "worker level" suite below.)
 
 // ---- Phase 119: fan-out fault isolation + fair budgeting (regression) --------
 //
@@ -1115,21 +1087,4 @@ describe("swarmBehaviorSync — fan-out fault isolation + fair budgeting (Phase 
     expect(polled.has(CC)).toBe(true);
   });
 
-  it("STEP-ID-UNIQUENESS: a heavy single-mailbox invocation has all-unique step ids + singular run/tick", async () => {
-    db.folderMap = [];
-    db.tokens = new Map();
-    const { fetch } = makeRouter({ heavyCount: 12 });
-    graphFetchMock.mockImplementation(async (url: string) => fetch(url));
-
-    const step = makeStep();
-    await runWorker(LARGE, step);
-
-    const ids = step.calls.map((c) => c.id);
-    // many delta-${...}-${folderId} steps, all unique
-    expect(new Set(ids).size).toBe(ids.length);
-    expect(ids.filter((id) => id.startsWith(`delta-sales-email-${LARGE}-`)).length)
-      .toBeGreaterThanOrEqual(10);
-    expect(ids.filter((id) => id === "resolve-run-id")).toHaveLength(1);
-    expect(ids.filter((id) => id === "resolve-tick-iso")).toHaveLength(1);
-  });
 });

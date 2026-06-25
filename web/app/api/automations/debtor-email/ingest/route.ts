@@ -405,34 +405,75 @@ export async function POST(req: NextRequest): Promise<NextResponse<IngestRespons
 
   // Fire Stage 0 unconditionally. Pitfall 5: NEVER set safety_overridden —
   // only the operator-driven re-emit path (Plan 05) does.
-  try {
-    await (inngest.send as unknown as SendFn)({
-      name: "stage-0/email.received",
-      data: {
-        automation_run_id: stage0RunId,
-        email_id: resolvedEmailId,
-        message_id: messageId,
-        source_mailbox: sourceMailbox,
-        subject: msg.subject,
-        // Stage 0 input: feed the full thread per Phase 83 D-01.
-        body_text: msg.bodyText,
-        // Phase 74 D-01/D-02 — swarm_type + entity threaded at ingest boundary.
-        swarm_type: "debtor-email",
-        entity: settings.entity ?? null,
-        // Phase 82.2 Plan 07 D-A — passthrough for Plan 06 Stage 1 worker.
-        mailbox_id: mailboxId,
-        from: msg.from,
-        fromName: msg.fromName,
-        receivedAt: msg.receivedAt || isoNow,
-        // safety_overridden omitted — Pitfall 5 (operator re-emit only).
-      },
-    });
-  } catch (err) {
-    const errText = String(err);
+  //
+  // Label-gap fix shape (1): retry the emit a few times. Zapier is at-most-once,
+  // so one transient send failure previously marked the run 'failed' with zero
+  // pipeline_events — a silent drop (6 debtor mails, 2026-06 probe).
+  const stage0Event = {
+    name: "stage-0/email.received",
+    data: {
+      automation_run_id: stage0RunId,
+      email_id: resolvedEmailId,
+      message_id: messageId,
+      source_mailbox: sourceMailbox,
+      subject: msg.subject,
+      // Stage 0 input: feed the full thread per Phase 83 D-01.
+      body_text: msg.bodyText,
+      // Phase 74 D-01/D-02 — swarm_type + entity threaded at ingest boundary.
+      swarm_type: "debtor-email",
+      entity: settings.entity ?? null,
+      // Phase 82.2 Plan 07 D-A — passthrough for Plan 06 Stage 1 worker.
+      mailbox_id: mailboxId,
+      from: msg.from,
+      fromName: msg.fromName,
+      receivedAt: msg.receivedAt || isoNow,
+      // safety_overridden omitted — Pitfall 5 (operator re-emit only).
+    },
+  };
+  let emitErr: unknown = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await (inngest.send as unknown as SendFn)(stage0Event);
+      emitErr = null;
+      break;
+    } catch (e) {
+      emitErr = e;
+      if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 400));
+    }
+  }
+  if (emitErr) {
+    const errText = String(emitErr);
     console.error(
-      `[debtor-email/ingest] stage-0 fire failed for ${messageId} (run=${stage0RunId}):`,
+      `[debtor-email/ingest] stage-0 fire failed for ${messageId} (run=${stage0RunId}) after 3 attempts:`,
       errText,
     );
+    // Visible telemetry so the drop is no longer silent. email_id NULL dodges the
+    // partial unique index pipeline_events_one_per_stage_email; refs in details.
+    // Mirrors recordWorkerFailure (on-worker-failure.ts) for the ingest boundary,
+    // which has no Inngest onFailure of its own. Best-effort — never break ingest.
+    try {
+      await admin.from("pipeline_events").insert({
+        swarm_type: "debtor-email",
+        stage: 0,
+        email_id: null,
+        decision: "worker_failed",
+        decision_details: {
+          stage_label: "zapier_ingest_stage0_emit",
+          error_message: errText.slice(0, 2000),
+          email_id: resolvedEmailId,
+          message_id: messageId,
+          source_mailbox: sourceMailbox,
+          automation_run_id: stage0RunId,
+        },
+        automation_run_id: stage0RunId,
+        triggered_by: "pipeline",
+      });
+    } catch (e) {
+      console.error(
+        `[debtor-email/ingest] worker_failed emit also failed for ${messageId}:`,
+        e instanceof Error ? e.message : String(e),
+      );
+    }
     // Mark placeholder failed so the row doesn't linger as pending.
     await admin
       .from("automation_runs")

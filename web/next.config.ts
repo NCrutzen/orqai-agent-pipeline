@@ -1,6 +1,20 @@
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
+// Pin the workspace root to THIS app directory. Stray lockfiles higher up
+// (~/package-lock.json, plus the monorepo's own) made Next/Turbopack infer the
+// home directory as the workspace root, which corrupted server route-handler
+// output — route handlers (/auth/callback, the manifest metadata route) failed
+// at runtime/build with "No response is returned from route handler". Pinning the
+// root fixes file tracing so those handlers resolve correctly. Local-only issue
+// (Vercel has no stray lockfile), but required for the prod build to run here.
+const appRoot = fileURLToPath(new URL(".", import.meta.url));
+
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: appRoot,
+  turbopack: {
+    root: appRoot,
+  },
   serverExternalPackages: [
     "ssh2-sftp-client",
     "ssh2",
@@ -39,4 +53,9 @@ const nextConfig: NextConfig = {
   },
 };
 
+// Note: the Serwist service worker is NOT wired into this config. It is bundled
+// by a separate `serwist build` step (configurator mode) after `next build` — see
+// serwist.config.js and the `build` script in package.json — so the SW build is
+// fully decoupled from Next's (Turbopack) compilation. SW registration happens
+// client-side via <SerwistProvider> in app/(app)/layout.tsx.
 export default nextConfig;

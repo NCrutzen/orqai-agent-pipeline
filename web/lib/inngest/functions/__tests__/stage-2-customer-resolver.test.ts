@@ -115,11 +115,16 @@ function makeAdminMock(overrides?: {
     // so a filename-borne identifier (e.g. "statement.xlsx") must survive too.
     filename?: string;
   }>;
+  // Label-gap fix: null = the emails row is absent (race / never-ingested) so
+  // the worker must THROW (retry + visible worker_failed) instead of returning.
+  emailRow?: Record<string, unknown> | null;
 }) {
   // Per-table builders — only need shapes used by the function.
   const settingsRow = overrides?.settings === undefined ? SETTINGS_ROW : overrides.settings;
   const insertedLabelId = overrides?.insertedLabelId ?? "label-uuid-stub";
   const attachmentRows = overrides?.attachmentRows ?? [];
+  const emailRow =
+    overrides?.emailRow === undefined ? EMAIL_ROW : overrides.emailRow;
 
   // Phase 70 — capture cross-table inserts so dual-write assertions can
   // distinguish email_labels from pipeline_events.
@@ -164,7 +169,12 @@ function makeAdminMock(overrides?: {
     // Return a FRESH copy so the worker's in-place body_text mutation
     // (Phase 116-05 attachment fold) does not leak into the shared EMAIL_ROW
     // constant across handler runs.
-    b.maybeSingle = vi.fn(async () => ({ data: { ...EMAIL_ROW }, error: null }));
+    b.maybeSingle = vi.fn(async () => ({
+      // FRESH copy so the worker's in-place body_text mutation does not leak
+      // into the shared EMAIL_ROW; null passes through to exercise the throw.
+      data: emailRow ? { ...emailRow } : null,
+      error: null,
+    }));
     return b;
   }
   function labelingSettingsBuilder() {
@@ -1658,5 +1668,33 @@ describe("debtor generic path — Phase 90-07 brand fallback (regression)", () =
     const args = resolveEntityMock.mock.calls[0][0] as { nxt_database: unknown };
     expect(args.nxt_database).toBe("nxt_benelux_prod");
     expect(args.nxt_database).not.toBe("nxt");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Label-gap fix (#105 follow-up): a missing emails row must THROW, not silently
+// return. The throw is what gives retries:3 a chance to replay past the
+// ingest→stage-2 race, and what surfaces a genuine never-arrives row as a
+// visible worker_failed via onFailure — the silent `return {ok:false}` did
+// neither (20 invisible 'pending' debtor runs, 2026-06 probe).
+// ---------------------------------------------------------------------------
+describe("stage-2-customer-resolver — missing emails row throws (label-gap)", () => {
+  it("throws (does not silently return) when the emails lookup yields null", async () => {
+    vi.clearAllMocks();
+    adminMock = makeAdminMock({ emailRow: null });
+    resolveDebtorMock.mockReset();
+    inngestSend.mockReset();
+    inngestSend.mockResolvedValue({ ids: ["evt"] });
+    vi.resetModules();
+    const mod = await import("../stage-2-customer-resolver");
+    const handler = (
+      mod.stage2CustomerResolver as unknown as {
+        handler: (ctx: unknown) => Promise<unknown>;
+      }
+    ).handler;
+
+    await expect(
+      handler({ event: buildEvent(), step: stepStub }),
+    ).rejects.toThrow(/email row not found/);
   });
 });

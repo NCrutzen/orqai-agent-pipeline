@@ -52,6 +52,8 @@ import { coordinatorOrchestrator } from "@/lib/inngest/functions/coordinator-orc
 import { coordinatorSynthesis } from "@/lib/inngest/functions/coordinator-synthesis";
 import { stage3Dispatcher } from "@/lib/inngest/functions/stage-3-dispatcher";
 import { stage3IntentLabelWorker } from "@/lib/inngest/functions/stage-3-intent-label-worker";
+import { stage4InfoRoutingForwardWorker } from "@/lib/inngest/functions/stage-4-info-routing-forward";
+import { infoRoutingForwardAutoflip } from "@/lib/inngest/functions/info-routing-forward-autoflip";
 import { debtorEmailOverrideHandler } from "@/lib/inngest/functions/debtor-email-override-handler";
 import { patternsRecommenderCron } from "@/lib/inngest/functions/promotion-recommender-cron";
 import { debtorEmailStage3RetroClassify } from "@/lib/inngest/functions/debtor-email-stage-3-retro-classify";
@@ -75,6 +77,9 @@ import { stage4SupportTicketsInfoAnswerHandler } from "@/lib/automations/support
 import { stage4SupportTicketsClickupEscalateHandler } from "@/lib/automations/support-tickets/clickup-escalate-handler";
 import { stage4SupportTicketsVendorDraftHandler } from "@/lib/automations/support-tickets/vendor-draft-handler";
 import { clickupOutbound } from "@/lib/automations/support-tickets/clickup-outbound";
+import { clickupCacheSync } from "@/lib/automations/support-tickets/clickup-cache-sync";
+import { clickupCachePoll } from "@/lib/automations/support-tickets/clickup-cache-poll";
+import { supportTicketsEmailNotifier } from "@/lib/automations/support-tickets/email-notifier";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -121,6 +126,8 @@ export const { GET, POST, PUT } = serve({
     coordinatorSynthesis,
     stage3Dispatcher,
     stage3IntentLabelWorker,
+    stage4InfoRoutingForwardWorker,
+    infoRoutingForwardAutoflip,
     debtorEmailOverrideHandler,
     patternsRecommenderCron,
     debtorEmailStage3RetroClassify,
@@ -142,5 +149,8 @@ export const { GET, POST, PUT } = serve({
     stage4SupportTicketsClickupEscalateHandler,
     stage4SupportTicketsVendorDraftHandler,
     clickupOutbound,
+    clickupCacheSync,
+    clickupCachePoll,
+    supportTicketsEmailNotifier,
   ],
 });

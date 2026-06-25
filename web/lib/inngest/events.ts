@@ -564,7 +564,13 @@ export type Events = {
   "pipeline/coordinator.requested": {
     data: {
       swarm_type: string; // REQUIRED — the routing discriminator (no event-name fallback)
-      email_id: string;
+      // Phase 132.1 Plan 01 (D-fix): email_id is now OPTIONAL. The info-routing
+      // dispatch path skips Stage 2 and supplies `message_id` instead; the
+      // coordinator resolves email_id from it (source_id/internet_message_id
+      // back-search) before createRun. Debtor/sales still always supply email_id.
+      email_id?: string;
+      // The Graph message id, supplied when email_id is absent (info-routing).
+      message_id?: string;
       automation_run_id?: string;
       run_id?: string;
       budget_run_id?: string;
@@ -620,6 +626,37 @@ export type Events = {
       intent_key: string; // Stage-3 ranked[0].intent
       source_mailbox?: string | null;
       run_id?: string;
+    };
+  };
+
+  // Phase 132 Plan 02 (FWD-01..FWD-07, D-02/D-03) — swarm-agnostic Stage-4
+  // FORWARD request. Emitted by the SHARED coordinator AFTER it persists the
+  // routing verdict, gated by isForwardBucketReleased (per-bucket release, D-03)
+  // AND the verdict being forwardable (routable, non-null target, not a
+  // duplicate). DEDICATED event (not `pipeline/predicted`) so it drives ONLY the
+  // forward worker — the stage_3_routing held gate keeps the intent-dispatch path
+  // held permanently (RESEARCH A4 / Pitfall 5). Consumed by
+  // stage4InfoRoutingForwardWorker, which re-reads the verdict from
+  // coordinator_runs.decision_details.routing (keyed by run_id), re-checks the
+  // gate + the D-02 forward-state idempotency guard, and forwards the source
+  // info@ mail to the resolved department mailbox. Carries `swarm_type` as the
+  // only discriminator (data, not a literal).
+  "pipeline/forward.requested": {
+    data: {
+      swarm_type: string; // REQUIRED — the routing discriminator
+      run_id: string; // the coordinator_runs PK the verdict is keyed by
+      email_id: string;
+    };
+  };
+
+  // Phase 132.1 Plan 04 (D-02) — manual trigger for the per-mailbox forward
+  // auto-flip cron (info-routing-forward-autoflip). The function runs on a
+  // business-hours cron AND this event; the handler reads no payload (all state
+  // comes from the registry + dry_run_config), so data is optional. Send this
+  // to force an off-schedule precision re-evaluation / bucket-release check.
+  "info-routing/forward-autoflip.requested": {
+    data: {
+      triggeredBy?: string;
     };
   };
 
@@ -824,7 +861,7 @@ export type Events = {
     data: {
       support_ticket_id: string; // UUID — public.support_tickets.id (PK)
       submission_id: string; // UUID — support_tickets.submission_id (= pipeline_events.email_id handle)
-      external_task_id: string; // text — upstream tracker id (ClickUp etc.)
+      external_task_id: string | null; // text — upstream tracker id (ClickUp etc.); null for app-origin (CONTRACT-02)
       attempt: number; // support_tickets.attempt (1 on first submission)
     };
   };

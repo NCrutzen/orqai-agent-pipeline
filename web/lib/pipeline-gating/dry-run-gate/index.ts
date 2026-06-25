@@ -58,6 +58,19 @@ export interface DryRunConfig {
   // fail-closed (gated).
   stage_3_intent_label?: boolean;
   stage_4_handlers?: Record<string, boolean>;
+  // Phase 132 Plan 01 (D-03 / D-04) — the per-BUCKET forward RELEASE map for the
+  // info-routing Stage-4 forward worker. Keyed by destination bucket
+  // (e.g. "storingen", "verkoop").
+  //
+  // ⚠️ INVERSE POLARITY to every other flag in this interface. For
+  // stage_4_handlers / stage_3_routing / stage_3_labeling the value TRUE means
+  // BLOCKED/held. For stage_4_forward_buckets the value TRUE means RELEASED
+  // (live forward fires) and FALSE/MISSING means HELD. The inversion is
+  // deliberate (a graduated per-bucket OPT-IN to live forwarding, D-03) and is
+  // pinned by forward-bucket-release.test.ts so the second-mental-model trap
+  // (RESEARCH Pattern 2) cannot ship a premature forward. Read it ONLY through
+  // isForwardBucketReleased, never via isHandlerBlocked.
+  stage_4_forward_buckets?: Record<string, boolean>;
 }
 
 /** Minimal shape this module needs off a loaded swarm row. */
@@ -96,6 +109,29 @@ export function isStage3RoutingGated(
   swarm: SwarmLikeForGate | null | undefined,
 ): boolean {
   return swarm?.dry_run_config?.stage_3_routing ?? true;
+}
+
+/**
+ * Phase 132 Plan 01 (D-03 / D-04). True when the named forward BUCKET is
+ * RELEASED (live forward may fire) for this swarm.
+ *
+ * ⚠️ INVERSE POLARITY to isHandlerBlocked / isStageBlocked / isStage3RoutingGated.
+ * Those return TRUE = held/blocked. THIS returns TRUE = released:
+ *   stage_4_forward_buckets[bucket] === true  → released (live forward)
+ *   value FALSE                                → held
+ *   entry/map/config MISSING                   → held (fail-closed, D-04
+ *                                                default held/observe)
+ *
+ * So the live-forward decision is a strict `=== true` check, not a `?? false`
+ * — the read is fail-closed: anything other than an explicit TRUE keeps the
+ * bucket held. This per-bucket OPT-IN is the graduated-release gate (D-03):
+ * an operator green-lights one bucket at a time by flipping its entry to true.
+ */
+export function isForwardBucketReleased(
+  swarm: SwarmLikeForGate | null | undefined,
+  bucket: string,
+): boolean {
+  return swarm?.dry_run_config?.stage_4_forward_buckets?.[bucket] === true;
 }
 
 /**

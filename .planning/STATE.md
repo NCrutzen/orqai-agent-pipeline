@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: V9.5
-milestone_name: Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope — ACTIVE
-status: executing
-stopped_at: Phase 122 (cross-brand scope; XSCOPE-01/02/03) complete + verified (PR #117); gap-closure 122-05 leaf-vs-root fix. Phase 121 (attachment-borne IDs) closed + merged (#118). Phases 120 + 123 (corroboration + resolve_candidates unification) + 119 (per-mailbox isolation) already merged (PR #111/#110). Quick task 260618-iwx (cross-swarm noise rules) also merged. V9.5 resolver phases (119/120/121/122/123) all complete.
-last_updated: 2026-06-18
-last_activity: 2026-06-18 -- Phase 122 complete + verified (PR #117); cross-scope leaf-vs-root fix landed
+milestone: V9.7
+milestone_name: Routing Swarm Go-Live — Departmental Routing
+status: "V9.7 CLOSED (scoped) 2026-06-25 — info@ routing 130→132.1 shipped (PR #145 merged, tag v9.7). Phase 133/134 deferred. Next: V9.8 governance rail (workspace/run-mode-unify). Prod forward held on shadow-precision gate."
+stopped_at: V9.7 milestone closed (scoped)
+last_updated: "2026-06-25T08:10:00.000Z"
+last_activity: 2026-06-25
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 16
-  completed_plans: 16
-  percent: 100
+  total_phases: 2
+  completed_phases: 1
+  total_plans: 12
+  completed_plans: 5
+  percent: 42
 ---
 
 # Project State
@@ -38,6 +38,10 @@ Future milestones re-slotted + split into **two parallel tracks** (full detail i
 
 ## Deferred Items
 
+Acknowledged and deferred at **V9.7 milestone close (2026-06-25)** — ~45 open artifacts surfaced by audit-open (6 debug sessions all root-caused/verified, 16 quick-tasks, 5 todos, 2 seeds, 8 UAT gaps, 6 verification gaps, 2 context-questions). Overwhelmingly the pre-existing v8.x/V9.0/V9.5 project-wide parking-lot — none block the shipped V9.7 info@ routing flow. **V9.7-specific carry-forward:** the production forward go-live gate (≥85% shadow precision + `algemeen→algemeen@smeba.nl` mapping verify) — tracked `todos/pending/2026-06-25-v9.7-info-routing-forward-golive-gate.md`. Phase 133/134 deferred (see ROADMAP V9.7 deferred block). Full prior context below.
+
+---
+
 Acknowledged and deferred at **v8.1 milestone close (2026-06-01)** — 24 open artifacts surfaced by the pre-close audit, mostly project-wide parking-lot (none block the shipped v8.1 flows):
 
 | Category | Item(s) | Status |
@@ -57,33 +61,34 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** V9.5 resolver milestone complete — Phase 121 (attachment-borne IDs) + Phase 122 (cross-brand scope) both done. Phase 122 verified + merged via PR #117 (gap-closure 122-05 leaf-vs-root fix). Open follow-ups: `2026-06-18-v95-loose-ends-do-not-forget.md` + `2026-06-18-resolver-95-leaf-wrong-confident.md`.
-**Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
+**Current focus:** Phase 132.1 — router-golive-dispatch-wiring-v9-7
+**Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30), V9.0 Sales-Email Canonical Pipeline (shipped 2026-06-15). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 122 (cross-brand-scope-customer-resolution) — COMPLETE (5 of 5 plans; verified, PR #117)
-Plan: 5 of 5
-Status: Complete (pending PR #117 merge → deploy)
+Phase: 132.1 (router-golive-dispatch-wiring-v9-7) — EXECUTING
+Plan: 4 of 4
+Status: V9.7 info@ slice (130-132.1) shipped — PR #145 (awaiting review/merge; prod gates pending)
+Last activity: 2026-06-25 - Completed quick task 260625-9ll: AI-Handled move step
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
 
-SHIPPED + MERGED to main: Phase 118 (PR #104); #107 widened the delta-sync source filter to `source IN ('outlook','zapier-debtor-ingest')`; #108 pruned stale sicli/.nl entries; **Phase 119 per-mailbox fan-out isolation (PR #110)**; **Phase 120 + 123 — resolver corroboration + resolve_candidates unification, legacy lookups retired (PR #111)**.
+SHIPPED + MERGED to main: Phase 118 (PR #104); #107 widened the delta-sync source filter to `source IN ('outlook','zapier-debtor-ingest')`; #108 pruned stale sicli/.nl entries; **Phase 119 per-mailbox fan-out isolation (PR #110)**; **Phase 120 + 123 — resolver corroboration + resolve_candidates unification, legacy lookups retired (PR #111)**; **Phase 121 attachment-borne IDs (PR #118)**; **Phase 122 cross-brand scope (PR #117, gap-closure 122-05 leaf-vs-root fix)**.
 
 LIVE production config (in Supabase `public.swarms` — shared across machines, NOT in git):
 
 - debtor-email: `dry_run_config.stage_3_intent_label=false` (AI: labels LIVE). `behavior_tracking_config={enabled:true, mailboxes:[debiteuren@smeba.nl, administratie@fire-control.nl, debiteuren@smeba-fire.be, debiteuren@berki.nl]}` — observe **RE-ENABLED 2026-06-17** after the Phase 119 fan-out fix; all 4 mailboxes tick independently, sales unaffected (verified live).
-- sales-email: labels live + `behavior_tracking_config={enabled:true, mailboxes:["verkoop@smeba.nl"]}`.
+- sales-email: labels live + `behavior_tracking_config={enabled:true, mailboxes:["verkoop@smeba.nl", "verkoop@fire-control.nl", "verkoop@berki.nl", "sales.products@berki.nl"]}` — **all 4 sales mailboxes onboarded 2026-06-23** (PR #130). Per-mailbox brand (`resolution_config.scope.brand_scope_by_mailbox`: SB/FI/BB/IN) + per-mailbox entity (`entity_by_mailbox`: smeba/fire-control/berki/inprevo) + multi-brand offerte extraction (SB/BB/FI/IN, NXT-verified). Stage 0/1/3 + entity tagging LIVE per mailbox; Stage 2 still dry (`stage_2_resolution=true`). Inprevo (IN) acquired 2026-05-01 — legacy 8-digit offerte numbers excluded (not in NXT).
 - `debtor.labeling_settings` = 4 rows. Sicli (noord+sud) rows DELETED 2026-06-16 (re-add later with verified address).
 
 RESOLVED: the 2026-06-16 regression (debtor multi-mailbox observe starved + froze sales) is fixed by Phase 119 per-mailbox fan-out isolation; debtor observe re-enabled + verified live 2026-06-17.
-Last activity: 2026-06-18 - Phase 122 cross-brand scope complete + verified (PR #117); Phase 121 closed + merged (#118); quick task 260618-iwx (cross-swarm noise rules) on main
+V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `2026-06-18-resolver-95-leaf-wrong-confident.md`.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 53
+- Total plans completed: 54
 - Average duration: --
 - Total execution time: 0 hours
 
@@ -191,6 +196,19 @@ Last activity: 2026-06-18 - Phase 122 cross-brand scope complete + verified (PR 
 | Phase 121 P03 | ~9m | 3 tasks | 3 files |
 | Phase 122 P122-02 | 8min | 2 tasks | 4 files |
 | Phase 122 P122-03 | 18min | 2 tasks | 4 files |
+| Phase 130 P02 | 12m | 3 tasks | 5 files |
+| Phase 130 P03 | 6m | 3 tasks | 4 files |
+| Phase 130 P04 | 6m | 3 tasks | 4 files |
+| Phase 131 P131-03 | 9min | 3 tasks | 9 files |
+| Phase 131 P131-04 | 7min | 2 tasks | 3 files |
+| Phase 131 P131-05 | 3min | 1 tasks | 2 files |
+| 131 | 5 | - | - |
+| Phase 132 P01 | 75m | 3 tasks | 9 files |
+| 132 | 4 | - | - |
+| Phase Phase 132.1 P01 | 30m | 2 tasks tasks | 3 files files |
+| Phase 132.1 P02 | ~40m | 1 tasks | 2 files |
+| Phase 132.1 P03 | ~25m | 3 tasks | 3 files |
+| Phase 132.1 P04 | ~55m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -332,9 +350,24 @@ Last activity: 2026-06-18 - Phase 122 cross-brand scope complete + verified (PR 
 - [Phase ?]: [Phase 122-03] Cross-scope fallback shipped as a SHARED PURE post-pass (resolveCrossScope) over already-fetched all-brand res.matches, wired into all three SUGGEST drop sites. Relaxation = OMIT the brand prefix-family filter ONLY; no second lookupResolveCandidates, no swarm-name branch. AUTO only on single distinct root/party + strong kind (D-03a) or scoreCorroboration high (D-03b); else suggestie emitted directly. Gated on config.cross_scope.enabled; opt-out byte-identical. Full resolve suite 65 GREEN. Commits dabcca71/7e2fcddc.
 - [Phase ?]: [Phase 122-04] Debtor cross_scope opt-in migration (20260618a, jsonb||concat ADD-only) + debtorP0Config lockstep + RED-first lockstep test; APPLIED LIVE to mvqjhlxfvtqqubqgdvhz (no precedence/auto_safe_kinds drift). Commit 243646b0.
 - [Phase ?]: [Phase 122-05] GAP-CLOSURE: cross-scope returned root_party_id (parent) instead of the matched leaf party_id — found via airtight A/B + NXT resolver_index query (the plan-prescribed auto_resolve_kinds config-tighten would have MASKED it). Fix: root_party_id used ONLY for the distinctness bar (D-08); resolved customer + degrade shortlist surface the leaf party_id; misroute annotation falls back to scope_key (resolver_index has no brand_id column). Bucket-C XSCOPE-03 re-run PASS (0 reachable confident-wrong); #98/#12/#38 now resolve to correct leaf. Operator: keep-live. Commits 9c7e2d16/e6ccdff4. Follow-up: #95 leaf-wrong (original confident-wrong set, separate root cause).
+- [Phase ?]: [Phase 130-02]: six info-routing noise classes registered as paired swarm_noise_categories + classifier_rules(agent_intent,candidate) seeds (20260616b/20260616c) — zero per-swarm branch (SWARM-02); shadow-only, promotion via classifier-promotion-cron Wilson-CI. NOISE-04 carve-out as production pure predicate hasActionableToken (web/lib/info-routing/actionable-tokens.ts): storing start-boundary, factuur full-boundary, ReDoS-safe; 30/30 boundary test. Migrations NOT yet applied to remote (operator checkpoint). Commits acb6d787/c487c2c6/b0730d97.
+- [Phase ?]: [Phase 130-03]: NOISE-03 measurement substrate — public.info_unknown_pool_composition security_invoker view (per-mailbox Stage-1 distribution over pipeline_events, no time window) + hermetic worker test proving the 6 info-routing categories reach the stage-1-category-classifier closed list (NOISE-01) + per-mailbox labelled-sample baseline (mulberry32 seeded sampling + Wilson-CI, MANUAL human labelling, arg-guarded before createAdminClient). NOISE-02 gate = classifier-promotion-cron (swarm-agnostic Wilson-CI, shadow until CLASSIFIER_CRON_MUTATE=true), NOT labeling-flip-cron. Commits 0aacaf28/07121981/268865de. Task 4 checkpoint-blocked: operator applies 20260616b/c/d + captures BEFORE baseline.
+- [Phase ?]: [Phase 130-04]: NOISE-03 measurement-tooling gap closure (WR-01/WR-02) — pure wilsonCiUpper (95% upper bound, +radius, clamp to 1, n=0->0; symmetry-verified pin 0.668) + wilson_ci_hi surfaced per mailbox in computeNoiseFractions, enabling the AFTER assertion wilson_ci_hi < 0.20; sample scaffold now reads real subject/sender from email_pipeline.emails by email_id (CHUNK=200, sender_email) instead of never-set dd.subject/dd.from (non-circular labelling, Pitfall 5), unresolved ids degrade to null. WR-03 out of scope. No migrations/seeds touched. 24/24 tests green, tsc clean. Commits 04b1fb39/0db9f9fd/b70991d2.
+- [Phase 131-02]: ROUTE-03 — info-routing-coordinator Orq agent built + registered + live-verified. Closed-list Zod gate (coordinator-schema.ts, 11 tests) collapses any invalid/empty agent output to a frozen UNROUTED_OUTCOME without throwing; the agent's bucket enum and the Zod enum BOTH single-source the codegen'd DESTINATION_KEYS_BY_SWARM['info-routing'] (the Orq response_format const is exported from the schema module and IMPORTED by the build script — agent-vs-validator drift is structurally impossible). Agent 01KVA6BAVS6QWJBHQVENB74R8S (project Default/Agents, v1.1.1): list_models-validated Haiku-EU primary + 3 fallbacks (openai/gpt-4o-mini, google-ai/gemini-2.5-flash, mistral/mistral-large-2411) + retry; strict json_schema response_format (8-bucket enum, anyOf-nullable brand) PATCHed + get_agent-verified persisted; default Web Search/Web Scraper tools stripped (tools:[]). Migration 20260617d orq_agents row (agent_key='info-routing-coordinator', swarm_type='info-routing', enabled, timeout_ms=90000) APPLIED to remote + live-verified; check:supabase 0 ERROR. **Deviation:** agent built via Orq MCP not the REST manage script (ORQ_API_KEY lacked scope for GET/verify endpoints + v2 create required a `path`); manage script path-fixed for future use + real orqai_id backfilled. Commits 10481efb/d5814f21/3491896c/681f38f4.
+- [Phase ?]: [Phase 131-03] Stage-3 routing capability wired into the generic coordinator: additive routingDestinations.length>0 block invokes info-routing-coordinator, builds the 6-field verdict (buildRoutingVerdict, unrouted gate), persists decision_details.routing + TELE-01 in one replay-safe step.run, routes through the existing held gate (ROUTE-07 no-forward). Routing swarms skip the intent ranked-list path (capability-gated, no swarm literal); debtor/sales byte-neutral. dedup defaults routable (Plan 04 seam). Commits 49306024/ad164444/1c55b154/333416a1.
+- [Phase ?]: ROUTE-08 shadow harness refuses a pass/fail below MIN_GRADED_N (50) — false-100% guard while delta-sync-on-info@ is absent; live run prerequisite-gated outside 131
+- [Phase ?]: [Phase 132-01]: forwardMessage is a 2-call createForward→send Graph helper (NO replyTo PATCH — Exchange strips replyTo on send for the shared info@ mailbox, confirmed 2026-06-18 send-scope smoke: createForward=201/send=202/delivered as info@ with attachment); original sender carried in the forward COMMENT (D-01 sender-in-comment fallback). routing-category.ts pins the D-05 AI: stamp-back vocabulary. isForwardBucketReleased + stage_4_forward_buckets uses INVERSE polarity (TRUE=released, FALSE/MISSING=held, fail-closed D-04, per-bucket graduated release D-03). Wave-0 RED scaffold (describe.todo, no replyTo assertions) is the Plan-02 target. Rule-3 fix: wired tdd-guard-vitest reporter into vitest.config. OUTLOOK_CONNECTION_ID untouched (env fix on main PR #112). Commits 45cbc576/7e8166b3/74995331.
+- [Phase ?]: 132-02: forward worker skips/held make zero Graph calls; only successful forward stamps category
+- [Phase ?]: 132-03: info-routing Bulk Review reuses the swarm-generic Stage4Decide shell (D-07) — RoutingDetailPane data-gated on row.routing (no new view, no swarm literal); forward_status derived at hydration; 3 D-08 operator actions (reroute re-resolves+re-verdicts / forward-now bypasses the per-bucket gate but honors dedup / dont-forward suppresses); routing.run_id added so the actions can key coordinator_runs; routing? optional per the attachments? precedent
+- [Phase ?]: [Phase 132.1-01] Generic email_id ?? resolve-from-message_id fallback kills the createRun null-email_id crash; held-path stamps AI: held/triage + seeds swarm_written_categories baseline (D-01); algemeen skipped (D-04); zero swarm-name branch.
+- [Phase ?]: [Phase 132.1-02] Routing master categories provisioned with non-grey preset5 (preset0=grey kept by AI: intent labels); ensureRoutingMasterCategories GET-before-POST idempotent, additive-only, names from buildRoutingCategory
+- [Phase ?]: [Phase 132.1-03] Info-routing activation shipped as migrations only: dispatch re-flip + behavior_tracking enable (jsonb || merge, siblings preserved) in 20260624a; one-flag forward revert (jsonb_set stage_4_forward_buckets to {}) armed-not-applied in 20260624b; ensure-info-routing-categories.ts invokes Plan-02 preset5 colour per info@ mailbox (buckets from routing_destinations registry). Live apply + DB/Graph read-backs operator-gated (no Supabase/Graph MCP tool exposed + prod-read denied).
+- [Phase ?]: [Phase 132.1-04] ROUTE-08 human_category from swarm_review_signals (112.5 category_edited reclassify) mapped via categoryToBucket; gate logic byte-unchanged
+- [Phase ?]: [Phase 132.1-04] Per-mailbox auto-flip reconciliation = brand-reachable (Option A, operator-confirmed); stage_4_forward_buckets stays bucket-keyed, release-only + idempotent, panic lever = migration 20260624b
 
 ### Blockers/Concerns
 
+- **Phase 130-01 Task 3 CHECKPOINT (blocking-human) — the migration apply:** operator must (1) apply `supabase/migrations/20260616_phase130_agent_runs_swarm_type_check_info_routing.sql` to remote (`mvqjhlxfvtqqubqgdvhz`) via Supabase MCP `apply_migration` — drop+re-add `agent_runs_swarm_type_check` widening the value list to the union `'debtor-email','sales-email','planning','order-entry','info-routing'`; (2) `npm run check:supabase` → 0 ERROR; (3) `cd web && npx vitest run __tests__/migrations/agent-runs-info-routing-insert.test.ts` → PASS (info-routing INSERT now succeeds; previously 23514; requires `web` deps installed); (4) optionally confirm a live `agent_runs` info-routing INSERT succeeds + roll back. **Until applied, every info-routing agent_runs INSERT (classifier-screen-worker Step 3) throws 23514, classifier_rule_telemetry stays empty, and the Wilson-CI promotion gate is starved — all of Phase 130 is INERT.** Resume signal: "migration applied". Details: `phases/130-*/130-01-SUMMARY.md`.
 - Azure AD tenant setup has organizational dependencies (IT admin access)
 - Supabase Management API token expired -- Phase 50 migration apply blocked (seed update also needs this or Studio access)
 - **Phase 110 / Plan 110-04 Task 4 UNBLOCKED + APPLIED (2026-06-03)**: the 3 `20260603*` migrations are now applied to remote `mvqjhlxfvtqqubqgdvhz` via Supabase MCP `apply_migration` (after re-linking the MCP OAuth to the Agent-Workforce org `oavpdqisdpzxqttgdgpt`). Verified live: sales `entity_brand=['smeba']` + `stage3_coordinator_agent_key='sales-intent-agent'` + all dry_run flags blocked + `swarm_intents=0`/`side_effects=[]` (inert); **debtor `dry_run_config.stage_1_cleanup=false` (LIVE preserved)**. `entity.generated.ts` regenerated + committed (`c774f989`). RLS advisor green (0 ERROR). Outstanding: per-mailbox `pipeline_health_snapshots` row for `verkoop@smeba.nl` populates on next monitor cron tick; Task 5 human governance checkpoint awaiting operator "approved".
@@ -342,6 +375,9 @@ Last activity: 2026-06-18 - Phase 122 cross-brand scope complete + verified (PR 
 - **Phase 117-02 Task 4 CHECKPOINT (blocking-human) — the migration-apply:** operator/orchestrator must (1) apply `supabase/migrations/20260615_phase117_intent_label_store_and_gate.sql` to remote (`mvqjhlxfvtqqubqgdvhz`) via Supabase MCP apply_migration — creates `public.swarm_written_categories` (RLS service_role FOR ALL + authenticated SELECT, no anon) + seeds `dry_run_config.stage_3_intent_label=true` GATED for BOTH swarms via jsonb `||`; (2) `npm run check:supabase` → 0 ERROR; (3) confirm seed = both swarms `stage_3_intent_label`='true', other per-stage flags preserved; (4) `cd web && npm run codegen && git diff --exit-code` → no drift; (5) trigger one live sales Stage-3 verdict → confirm `pipeline/intent-label.requested` fired AND worker returned `decision="gated"` (no Graph PATCH), `swarm_written_categories` stays empty. **Sales caveat (D-3 ⚠): keep BOTH swarms GATED at phase close — do NOT flip sales live until the Sugar cut-over / Power Automate sweep clears.** Resume signal: "migration applied". Details: `phases/117-*/117-02-SUMMARY.md`.
 - **Phase 113-05 Task 3 CHECKPOINT (blocking-human) — the STAGE3-03 go-live:** operator must, IN ORDER: (1) **apply migration `20260609c` to remote BEFORE/atomic-with the coordinator code deploy** — the routing gate is FAIL-CLOSED and live `swarms.dry_run_config` currently has NO `stage_3_routing` key, so a code-only deploy would HOLD debtor's live predicted-emit. 20260609c sets debtor=false (open, preserves live emit) + sales=true (gated). (2) dry-run observation: trigger live sales Stage 3, verdicts persist + surface in Bulk Review while routing held; run `cd web && npx tsx scripts/eval/sales-stage3-deadletter-check.ts <since> <until>` → gap=0. (3) review ~100 sales verdicts (ranked intents + entity_relationship; Zod-failure row shows raw output + working retry; axis-3 overrides recordable). (4) on green-light, FLIP sales `stage_3_routing`→false → coordinator emits `sales-email/predicted` → dispatcher opens Kanban routing (reversible by re-gating, D-09). (5) record green-light + sample size in UAT. Resume: "go-live approved". Details: `phases/113-*/113-05-SUMMARY.md`.
 - **Phase 113-03 Task 2 CHECKPOINT (blocking-human):** operator must (1) create the `sales-intent-agent` SHELL + json_schema in Orq Studio (run `cd web && npx tsx scripts/orq/manage-sales-intent-agent.ts` to print the schema; Studio → Tools → Add → JSON Schema, then Model parameters → Response Format = it; confirm the Model dropdown is non-empty), (2) trigger `sales-email/retro-classify.requested` with `bootstrap:true` + a recent Outlook since/until (NOT a full SugarCRM sweep) and confirm `stage_3_retro_runs` gains rows tagged `run_type='bootstrap'` + sales `intent_proposal_clusters` is non-empty, (3) promote clusters to ~80% coverage (D-02), (4) record the `promoted_intents` yaml in `113-03-SUMMARY.md`. Resume signal: "agent created". (Plan 04 falls back to reading promoted clusters from the DB if the yaml stays empty.)
+- Phase 130-02 CHECKPOINT (operator) — apply registry-seed migrations to remote (mvqjhlxfvtqqubqgdvhz) IN ORDER via Supabase MCP apply_migration: (1) 20260616b_phase130_info_routing_noise_categories.sql then (2) 20260616c_phase130_info_routing_classifier_rules_seed.sql; (3) npm run check:supabase → 0 ERROR; (4) confirm 6 swarm_noise_categories + 6 paired classifier_rules(candidate) rows for info-routing. Until applied the stage-1-category-classifier has no info-routing categories — seeds inert. Resume signal: 'seeds applied'. Details: phases/130-*/130-02-SUMMARY.md.
+- Phase 130-03 Task 4 CHECKPOINT (blocking-human) — operator applies migrations to remote (mvqjhlxfvtqqubqgdvhz) via Supabase MCP apply_migration IN ORDER: 20260616b (noise categories) -> 20260616c (classifier_rules candidates) -> 20260616d (info_unknown_pool_composition view); Plan-01 20260616 CHECK-widen already live. Then: npm run check:supabase -> 0 ERROR; cd web && npm run codegen && git diff --exit-code -> no drift; confirm select from info_unknown_pool_composition returns smeba+fire-control rows + 6 info-routing classifier_rules(candidate) + 6 swarm_noise_categories; trigger one live info-routing unknown email -> agent_runs swarm_type=info-routing + rule_key=llm:{cat}:{conf} lands (no 23514); run baseline script (sample->human-label->compute) to capture BEFORE true-noise fraction per mailbox. Promotion stays SHADOW (do NOT flip CLASSIFIER_CRON_MUTATE). Resume signal: 'migrations applied + baseline captured'. Details: phases/130-*/130-03-SUMMARY.md.
+- **Phase 131-01 Task 3 CHECKPOINT — CLEARED (2026-06-17).** All 3 migrations (20260617 / 20260617b / 20260617c) APPLIED to remote (mvqjhlxfvtqqubqgdvhz) + live-verified: 12 routing_destinations info-routing rows, swarms agent key='info-routing-coordinator' + stage_3_routing held + routing_unrouted_threshold=0.6, unknown row swarm_dispatch=pipeline/coordinator.requested; advisors 0 ERROR; post-apply codegen && git diff --exit-code clean. Plan 131-01 COMPLETE. **⚠️ PRE-PHASE-132:** `algemeen` -> `algemeen@smeba.nl` is NOT in charter §2's verified-mailbox table — operator confirmed KEEP for 131 (inert under ROUTE-07 held gate) but it MUST be verified before Phase 132 live forwarding. Details: phases/131-*/131-01-SUMMARY.md.
 
 ### Quick Tasks Completed
 
@@ -349,6 +385,7 @@ Last activity: 2026-06-18 - Phase 122 cross-brand scope complete + verified (PR 
 |---|-------------|------|--------|--------|-----------|
 | 260611-jwt | SugarCRM openstaande-e-mails inventarisatie + Outlook-locatie-match rapport | 2026-06-11 | 008cb16f | | [260611-jwt-sugarcrm-openstaande-e-mails-inventarisa](./quick/260611-jwt-sugarcrm-openstaande-e-mails-inventarisa/) |
 | 260618-iwx | cross-swarm noise rules: shared swarm_type='*' scope on swarm_noise_categories + runtime union + cross-swarm telemetry + per-swarm opt-out (info-routing 7 junk cats shared) | 2026-06-18 | 6824e0ad | Verified | [260618-iwx-cross-swarm-noise-rules-shared-scope-op-](./quick/260618-iwx-cross-swarm-noise-rules-shared-scope-op-/) |
+| 260625-9ll | info-routing Stage-4: move auto-forwarded mail to "AI Handled" folder (live-mode terminal step; moveMessageToFolder Graph helper + best-effort step.run; dry-run/held never moved) | 2026-06-25 | af2b86d7 | | [260625-9ll-add-a-post-forward-move-to-ai-handled-st](./quick/260625-9ll-add-a-post-forward-move-to-ai-handled-st/) |
 
 ### Outstanding Verification (Deferred)
 
@@ -374,10 +411,10 @@ Last activity: 2026-06-18 - Phase 122 cross-brand scope complete + verified (PR 
 
 ## Session Continuity
 
-Last session: 2026-06-18T10:12:34.290Z
-Stopped at: Phase 122 complete + verified (PR #117); gap-closure 122-05 leaf-vs-root fix landed. Phase 121 closed + merged (#118). V9.5 resolver phases (119/120/121/122/123) all complete.
-Resume with: merge PR #117 → deploy (keep-live: fix is correct in production only after deploy). Then consider /gsd-complete-milestone V9.5 / next milestone.
-Resume file: .planning/todos/pending/2026-06-18-v95-loose-ends-do-not-forget.md
+Last session: 2026-06-24T08:42:22.319Z
+Stopped at: Completed 132.1-04-PLAN.md
+Resume with: Phase 131 verified clean. ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding; WR-02 dedup-below-threshold hardening optional future pass.
+Resume file: None
 
 ## Deferred Items
 
@@ -396,4 +433,6 @@ See .planning/milestones/v7.0-* archive files for full milestone state.
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- **V9.7 closed (scoped) 2026-06-25.** Next milestone = **V9.8 Run-Mode & Gating (governance rail)** — already defined + in progress in worktree `workspace/run-mode-unify`. Continue V9.8 work there, not in this V9.7 workspace.
+- **Open V9.7 carry-forward:** flip the info@ forward live once the ≥85% shadow-precision gate clears — `todos/pending/2026-06-25-v9.7-info-routing-forward-golive-gate.md`.
+- This V9.7 close was done on branch `feat/ai-handled-move`; PR it to `main` so the archive + MILESTONES/ROADMAP/STATE updates land.

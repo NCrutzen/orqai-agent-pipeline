@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-const WEBHOOK_SECRET = process.env.AUTOMATION_WEBHOOK_SECRET!;
-
 export async function POST(request: NextRequest) {
+  // Lazy-initialize Supabase client inside the handler to avoid module-level
+  // env var access that breaks static build analysis when .env.local is absent.
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const WEBHOOK_SECRET = process.env.AUTOMATION_WEBHOOK_SECRET!;
+
   const secret = request.headers.get("x-automation-secret");
   if (secret !== WEBHOOK_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

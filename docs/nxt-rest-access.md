@@ -4,6 +4,30 @@
 **Code:** `web/lib/automations/nxt-zapier/` · **Proxy-route:** `web/app/api/automations/nxt/proxy/route.ts`
 **Voor skills/collega's buiten de repo:** `tools/nxt-mcp/` (MCP-server + raw-HTTP skill).
 
+> ## ⚠️ UPDATE 2026-06-22 — CTO 3-lagen access-model (gezaghebbend)
+>
+> De CTO heeft een set NXT-skills gedeeld (`~/Downloads/skills`, o.a. `nxt-context`,
+> `nxt-user`, `camunda-tasks`) die een **canoniek 3-lagen access-model** documenteren.
+> Per bronregel "CTO = gezaghebbend" is dit leidend boven de details hieronder:
+>
+> | Laag | Doel | Transport | Auth |
+> |---|---|---|---|
+> | **A** | Read-only warehouse (referentie/diagnostiek) | SQL Server, `awsdatawh.moyneroberts.com` user `claude` | DB (SELECT only) |
+> | **B** | Officiële M2M-API's | Auth0 client_credentials | **DOOD** (401 op Laag C) |
+> | **C** | Interne SPA `/api/*` + `/api/camunda-rest/*` — **de write-surface** | REST | **SPA Bearer (Auth0 ID-token)**, per-brand cache `~/.config/nxt/token-<brand>` |
+>
+> - **Alle NXT-writes lopen via Laag C (SPA-token).** `nxt-user` doet o.a.
+>   `POST /api/orders` (= `create-order`), `camunda-tasks` start/voltooit processen via
+>   `/api/camunda-rest`. Brand-matrix: bx→sb · uk→wf · ie→af, hosts `[acc.]<prefix>.n-xt.org`.
+> - **❗ De CTO meldt dat "de agent-workforce proxy defunct" is.** Dat spreekt de
+>   `Status: live geverifieerd`-regel hierboven tegen. **NIET stilzwijgend overschreven** —
+>   te **herverifiëren**: werkt onze `/api/automations/nxt/proxy` (`web/lib/automations/nxt-zapier/`)
+>   nog tegen acc/prod, of moeten we over op de CTO per-brand token-cache? Tot die check blijft
+>   de token-harvest-mechanica hieronder geldig als manier om aan een Laag-C Bearer te komen.
+> - **Consistent met de repo:** CLAUDE.md staat NXT REST al toe voor order-entry **writes**
+>   (`create-sales-order`) + `/api/nxt/lookup/*` — de CTO `create-order` bevestigt die write-route.
+> - Bron-spike: `.planning/spikes/013-nxt-act-layer-inventory/` (in de Order Entry-spikeserie).
+
 > CLAUDE.md zegt historisch *"NXT — Geen API"*. Dat klopt genuanceerd niet: er is
 > geen **officiële/supported** API, maar NXT is een **JHipster + Auth0 SPA** met
 > een volwaardige REST-backend op `/api/*` die we kunnen aanspreken zodra we het

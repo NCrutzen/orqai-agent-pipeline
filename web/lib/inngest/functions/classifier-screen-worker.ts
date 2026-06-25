@@ -41,10 +41,19 @@ import { inngest } from "@/lib/inngest/client";
 import { recordWorkerFailure } from "@/lib/inngest/on-worker-failure";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSwarm, loadSwarmNoiseCategories } from "@/lib/swarms/registry";
+import type { SwarmNoiseCategoryRow } from "@/lib/swarms/types";
 import { emitPipelineEvent } from "@/lib/pipeline-events/emit";
 import { numericConfidence } from "@/lib/pipeline-events/types";
-import { invokeOrqAgent } from "@/lib/automations/orq-agents/client";
+import {
+  invokeOrqAgent,
+  OrqClientTimeoutError,
+} from "@/lib/automations/orq-agents/client";
 import { classify as debtorEmailClassify } from "@/lib/debtor-email/classify";
+// Phase 130 WR-03 — SHARED, swarm-agnostic Stage-1 actionable-token block-rule.
+// Registry-gated below on swarmRow.stage1_shared_block_rules: any adopting swarm
+// (info-routing is the first) forces an LLM noise verdict back to 'unknown' when
+// the subject/body carries an actionable token. No swarm_type literal (REQ-6).
+import { hasActionableToken } from "@/lib/stage-1/actionable-tokens";
 // Phase 82.2 Plan 06 D-A — debtor-email category dispatch logic, moved
 // from the synchronous ingest route. RFC: Stage 1 = noise filter only
 // (docs/agentic-pipeline/stage-1-regex.md). The whitelist below is a subset
@@ -93,13 +102,35 @@ type SendFn = (p: {
 // swarms keep the registry-driven dispatch via swarm_noise_categories.action
 // (verdict-worker). Hard separation per stage-1-regex.md: this is the
 // noise-filter auto-action gate, NOT intent classification.
-const DEBTOR_CATEGORY_LABEL: Record<string, string> = {
-  auto_reply: "Auto-Reply",
-  ooo_temporary: "OoO — Temporary",
-  ooo_permanent: "OoO — Permanent",
-  payment_admittance: "Payment Admittance",
-};
-const DEBTOR_MR_LABELS = new Set(Object.values(DEBTOR_CATEGORY_LABEL));
+// Quick 260624 — registry-driven noise label resolution. Previously a
+// hardcoded 4-key map (auto_reply / ooo_temporary / ooo_permanent /
+// payment_admittance) lived here, which silently bypassed the
+// swarm_noise_categories registry: any noise key the LLM 2nd-pass could
+// return that wasn't one of those four (spam, automated_security_report,
+// auto_dealer_spam, cold_sales_outreach, m365_quarantine, coupa_*, the
+// shared swarm_type='*' rows, …) hit the `if (!label)` bail-out at the
+// auto-action branch and wrote a "no Outlook label for category X" FAILURE
+// the instant its `llm:{cat}:high` rule was promoted into the whitelist.
+// The labels below are now read from the loaded `categories`
+// (loadSwarmNoiseCategories, which unions the swarm's own rows with the
+// shared '*' rows — registry.ts), exactly mirroring how the verdict-worker
+// dispatches `category.outlook_label` for other swarms. The promotion gate
+// (readWhitelist, strictly per-swarm — docs/.../stage-1-regex.md) is
+// untouched: this only fixes WHICH label is applied once a rule clears the
+// gate, never WHETHER auto-action fires. The four historical labels match
+// the debtor-email registry rows exactly, so this is behavior-preserving
+// for today's promoted noise and correctly extends to the rest.
+const labelForCategory = (
+  categories: SwarmNoiseCategoryRow[],
+  categoryKey: string,
+): string | null =>
+  categories.find((c) => c.category_key === categoryKey)?.outlook_label ?? null;
+const mrLabelSet = (categories: SwarmNoiseCategoryRow[]): Set<string> =>
+  new Set(
+    categories
+      .map((c) => c.outlook_label)
+      .filter((l): l is string => typeof l === "string" && l.length > 0),
+  );
 const DEBTOR_LEGACY_ICONTROLLER_COMPANY = "smebabrandbeveiliging";
 
 interface DebtorLabelingSettings {
@@ -130,7 +161,7 @@ export const classifierScreenWorker = inngest.createFunction(
     },
   },
   { event: "classifier/screen.requested" },
-  async ({ event, step }) => {
+  async ({ event, step, attempt }) => {
     const {
       automation_run_id,
       email_id,
@@ -257,6 +288,26 @@ export const classifierScreenWorker = inngest.createFunction(
     // surfaces the purple Pass-2 evidence variant when non-null.
     let llmModelKey: string | null = null;
 
+    // Quick 260624 — only a GENUINE 'unknown' may be refined into a noise
+    // category by the loopback mutation below or the LLM 2nd-pass. The debtor
+    // regex module also returns category='unknown' for DELIBERATE blocks
+    // (blocked_submission_rejected, payment_blocked_request_template /
+    // _refund / _by_dispute) — these are real "route to a human / Stage 2-3"
+    // decisions, NOT abstentions. Before this guard the LLM 2nd-pass ran on
+    // every 'unknown' and could DEMOTE a deliberate block to archivable noise
+    // (observed on debtor: 18 'Te veel PDF' invoice-rejections relabeled
+    // auto_reply, a payment dispute relabeled payment_admittance). Genuine
+    // abstention is matchedRule='no_match' (regex ran, no rule fired) OR
+    // matchedRule=null (no regex module at all — e.g. sales-email, whose ONLY
+    // classifier is the LLM 2nd-pass, so it MUST stay refinable). A deliberate
+    // block is the non-null, non-'no_match' case → skip both noise-adding
+    // paths and let it flow untouched to the unknown → Stage 2/3 handoff.
+    // Evaluated live (regexOutcome is reassigned by the loopback block).
+    const regexAllowsNoiseRefinement = () =>
+      regexOutcome.category === "unknown" &&
+      (regexOutcome.matchedRule === null ||
+        regexOutcome.matchedRule === "no_match");
+
     // ───── Phase 84 D-03 own_outbound_invoice_loopback (R-02 direction guard) ─
     // Worker-side because classify.ts signature lacks 'from' historically and
     // 'direction' is not in scope inside the regex module (Pitfall 3). The
@@ -274,7 +325,9 @@ export const classifierScreenWorker = inngest.createFunction(
     //
     // In-memory mutation only — no step.run wrapper needed (Pitfall 3
     // recommendation). Replay-safe: deterministic from event.data fields.
-    if (regexOutcome.category === "unknown") {
+    // Guard (Quick 260624): a deliberate-block 'unknown' is NOT an abstention
+    // and must not be reclassified as loopback noise either.
+    if (regexAllowsNoiseRefinement()) {
       const tenantDomains = (swarmRow.tenant_domains as string[] | undefined) ?? [];
       const fromDomain = (fromFromEvent ?? "").split("@")[1]?.toLowerCase() ?? "";
       // Default: when producer omits direction, treat as 'inbound' (every
@@ -309,8 +362,11 @@ export const classifierScreenWorker = inngest.createFunction(
       }
     }
 
-    // ───── Step 3: LLM call only on regex='unknown' (D-16.3, D-10, D-11) ─
-    if (regexOutcome.category === "unknown") {
+    // ───── Step 3: LLM call only on a GENUINE regex='unknown' (D-16.3, D-10,
+    // D-11). Quick 260624: deliberate blocks are excluded — see
+    // regexAllowsNoiseRefinement above — so the LLM 2nd-pass can no longer
+    // demote a "route to human / Stage 2-3" verdict into archivable noise.
+    if (regexAllowsNoiseRefinement()) {
       // Pitfall 6: empty registry → coerce to 'unknown' BEFORE the LLM call.
       // Filtering `enabled` here also handles the case where every category
       // is disabled mid-flight. registry helpers already filter enabled=true,
@@ -346,7 +402,31 @@ export const classifierScreenWorker = inngest.createFunction(
             // verdict path), we preserve the predicted category and let the
             // Step 5 gate route medium/low to `classifier/screen.requires_review`
             // so the row stays at status='predicted' for human review.
-            const finalKey = parsed.category_key;
+            // Phase 130 WR-03 — SHARED swarm-agnostic actionable-token
+            // carve-out. Registry-gated: only swarms that ADOPTED the shared
+            // 'actionable_token' block-rule (swarms.stage1_shared_block_rules)
+            // are vetoed — a swarm-agnostic membership check, NOT a swarm_type
+            // literal (REQ-6). When the adopting swarm's LLM 2nd-pass returned a
+            // noise key (finalKey !== 'unknown') but the subject/body carries an
+            // actionable token, force the verdict BACK to 'unknown' (the
+            // non-archive key) so routable mail is never archived as noise. This
+            // is the upstream hard block (T-130-02-01), placed on the LLM
+            // success path BEFORE any archive mechanism (debtor block / Step 5),
+            // so it is fail-safe against EITHER live-archive path, current or
+            // future, for any adopting swarm. Deterministic from event.data +
+            // swarmRow → replay-safe (no new step.run). Hard separation: this is
+            // a noise-level override only — it NEVER touches swarm_intents.
+            const carveoutAdopted =
+              swarmRow.stage1_shared_block_rules?.includes(
+                "actionable_token",
+              ) === true;
+            const carveoutFires =
+              carveoutAdopted &&
+              parsed.category_key !== "unknown" &&
+              hasActionableToken(
+                `${subject ?? ""}\n${body_full_text ?? body_text ?? ""}`,
+              );
+            const finalKey = carveoutFires ? "unknown" : parsed.category_key;
 
             const insertSuccess = await admin.from("agent_runs").insert({
               id,
@@ -367,6 +447,13 @@ export const classifierScreenWorker = inngest.createFunction(
               tool_outputs: {
                 stage1_category: parsed.category_key,
                 gated_to: finalKey,
+                // Phase 130 WR-03 — audit trail for the shared-block-rule
+                // override. Present only when the actionable-token carve-out
+                // fired (noise key → forced 'unknown'); absent otherwise. Noise
+                // level only (never swarm_intents — hard separation).
+                ...(carveoutFires
+                  ? { shared_block_rule: "actionable_token" }
+                  : {}),
               },
             });
             if (insertSuccess.error) {
@@ -397,6 +484,20 @@ export const classifierScreenWorker = inngest.createFunction(
               model_key: result.agent.agent_key,
             };
           } catch (err) {
+            // RELIABILITY (2026-06-24) — a transient client-deadline timeout
+            // (agents-path OR router) must be RETRIED via the function's
+            // retries:3, not silently coerced to ('unknown','low'). The old
+            // fail-soft turned every burst-induced timeout into an `unknown`
+            // verdict → the email leaked into the pipeline as actionable
+            // instead of being noise-filtered. Rethrow the timeout until the
+            // final attempt so Inngest replays the LLM step; only the exhausted
+            // final attempt (attempt === retries) falls through to the
+            // fail-soft coerce below so the pipeline still makes progress.
+            // `attempt` is 0-indexed; retries:3 → final attempt index is 3.
+            const STAGE1_RETRIES = 3;
+            if (err instanceof OrqClientTimeoutError && attempt < STAGE1_RETRIES) {
+              throw err;
+            }
             // D-11: coerce to ('unknown', 'low'); persist error_message
             // AND tool_outputs.error. Do NOT rethrow — the run continues
             // through pipeline_events emit + verdict emit.
@@ -511,7 +612,9 @@ export const classifierScreenWorker = inngest.createFunction(
     // is the registry-keyed stage1_regex_module — the debtor-email regex
     // module is the only one with promoted-rule whitelist mechanics today.
     // Onboarding a future swarm with auto-action dispatch will need to
-    // register here and extend DEBTOR_CATEGORY_LABEL accordingly.
+    // register here; the noise label is read from the swarm's
+    // swarm_noise_categories rows (labelForCategory), so no per-category code
+    // map needs extending — adding a noise key stays pure registry data.
     const DEBTOR_REGEX_MODULE_KEY = "@/lib/debtor-email/classify";
     if (swarmRow.stage1_regex_module === DEBTOR_REGEX_MODULE_KEY) {
       const settings = await step.run(
@@ -548,7 +651,7 @@ export const classifierScreenWorker = inngest.createFunction(
             try {
               const meta = await getMessageMeta(source_mailbox, message_id);
               const labeled = (meta.categories ?? []).filter((c: string) =>
-                DEBTOR_MR_LABELS.has(c),
+                mrLabelSet(categories).has(c),
               );
               return { alreadyLabeled: labeled.length > 0, labels: labeled };
             } catch {
@@ -720,12 +823,13 @@ export const classifierScreenWorker = inngest.createFunction(
         //    dedupes per (run_id, step_name). categorize is additionally
         //    guarded by the idempotency-precheck above so a repeated
         //    delivery does not double-tag.
-        const label = DEBTOR_CATEGORY_LABEL[finalCategoryKey];
+        const label = labelForCategory(categories, finalCategoryKey);
         if (!label) {
-          // Defensive bail-out: a whitelisted category with no Outlook
-          // label mapping. Should not happen — whitelist keys map to known
-          // categories by construction, and `unknown` exited above. Surface
-          // it rather than fire Outlook with an undefined label.
+          // Defensive bail-out: a whitelisted category whose registry row
+          // carries no outlook_label. Should not happen for categorize_archive
+          // noise (all such debtor + shared '*' rows set outlook_label), and
+          // `unknown` (outlook_label=null, action=swarm_dispatch) exited above.
+          // Surface it rather than fire Outlook with an undefined label.
           await step.run("write-no-label-failure", async () => {
             await admin.from("automation_runs").insert({
               automation: "debtor-email-review",

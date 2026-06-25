@@ -294,6 +294,45 @@ const SENDER_FARMPLUS = /^info@farmplus\.nl$/i;
 const SUBJECT_OR_BODY_BANK_CHANGE =
   /\b(IBAN|huisbankier|bankrekening|betaalgegevens)\b/i;
 
+// Quick 260624 — Basecone document-processing UPLOAD CONFIRMATION (auto_reply).
+// Pinned to the dedicated transactional domain @mailtobasecone.com (local part
+// varies: no-reply@, DoNotReply@) PLUS a "Succesvol" success anchor. The
+// success anchor is load-bearing: it deliberately matches ONLY the upload-OK
+// confirmation, never a rejection/"non-invoice" notice (those must stay
+// human-routed, cf. the Yardi/vvefacturen submission-rejected trap). 19/19 of
+// the corpus were "Succesvol 'Documenten n.a.v. …'". Pure noise, safe to
+// archive once the rule promotes.
+const SENDER_BASECONE = /@mailtobasecone\.com$/i;
+const SUBJECT_BASECONE_SUCCESS = /^\s*Succesvol\b/i;
+
+// Quick 260624 — Hof Wonen invoice-mailbox AUTO-ACKNOWLEDGEMENT (auto_reply).
+// Sender-pinned to facturen@hofwonen.nl (single-word local part → outside
+// SENDER_HUMAN_SHAPE, and not a no-reply form → SENDER_SYSTEM misses it, which
+// is why these fell to the LLM) PLUS the exact "Bedankt voor uw e-mail" ack
+// subject. One-supplier-narrow per the R-03 precedent; broaden only if the
+// same templated ack appears from other senders. 18/18 in the corpus.
+const SENDER_HOFWONEN = /^facturen@hofwonen\.nl$/i;
+const SUBJECT_HOFWONEN_ACK = /^\s*Bedankt\s+voor\s+uw\s+e-?mail\b/i;
+
+// ── Unsolicited cold-solicitation spam (regex Pass 1, high-precision) ───────
+// Vocabulary that effectively never appears in genuine fire-safety business
+// mail. A match emits `spam` — a shared '*' swarm_noise_categories row
+// (action=categorize_archive) that loadSwarmNoiseCategories unions into every
+// swarm — so it auto-archives in LIVE swarms and is held-with-label in dry-run
+// swarms (info-routing). A false-positive archive is the costly failure mode,
+// so these stay deliberately narrow; fuzzier cold outreach is left to the LLM
+// 2nd-pass via the same shared `spam`/`cold_sales_outreach` categories. NL+EN.
+const SPAM_SEO =
+  /\b(?:seo|search engine optimi[sz]ation|back[\s-]?links?|guest[\s-]?post(?:ing|s)?|link[\s-]?building|domain authority|off[\s-]?page seo|white[\s-]?hat seo|first page of google|google ranking|top ranking|web ?traffic|increase your (?:google )?(?:ranking|rankings|traffic|sales|visibility))\b/i;
+const SPAM_CAR_OFFER =
+  /\b(?:beste bod voor (?:je|uw|jouw) (?:auto|wagen|voertuig)|wij kopen (?:je|uw|jouw) (?:auto|wagen)|verkoop (?:snel |vandaag )?(?:je|uw|jouw) auto|gratis (?:auto)?taxatie|hoogste bod (?:op|voor) (?:je|uw) auto|sell your car (?:fast|today))\b/i;
+// Foreign trade-fair / exhibition invites need BOTH a fair keyword AND a
+// foreign-trade context signal, so a legitimate "we will exhibit at <NL fair>"
+// business mail is NOT archived (it stays unknown → human/LLM review).
+const SPAM_FOREIGN_FAIR = /\b(?:exhibition|trade ?fair|fuar|expo|messe)\b/i;
+const SPAM_FOREIGN_FAIR_CTX =
+  /\b(?:turkey|t[üu]rkiye|istanbul|ankara|dubai|uae|shenzhen|guangzhou|shanghai|beijing|mumbai|new delhi|exhibitor|book your (?:booth|stand|space)|reserve your (?:booth|stand)|international (?:visitors?|buyers?))\b/i;
+
 // ─────────────────────────────────────────────────────────────── classify ──
 
 export function classify(input: ClassifyInput): ClassifyResult {
@@ -417,6 +456,24 @@ export function classify(input: ClassifyInput): ClassifyResult {
       matchedRule: "supplier_bank_change_notification",
     };
   }
+  if (SENDER_BASECONE.test(from) && SUBJECT_BASECONE_SUCCESS.test(normSubject)) {
+    // Sender-domain pin AND "Succesvol" anchor — success-only, never a
+    // rejection (Quick 260624). Was reaching the LLM as no_match→auto_reply.
+    return {
+      category: "auto_reply",
+      confidence: 0.99,
+      matchedRule: "basecone_upload_confirmation",
+    };
+  }
+  if (SENDER_HOFWONEN.test(from) && SUBJECT_HOFWONEN_ACK.test(normSubject)) {
+    // Sender-pinned auto-acknowledgement (Quick 260624). Was reaching the LLM
+    // as no_match→auto_reply.
+    return {
+      category: "auto_reply",
+      confidence: 0.99,
+      matchedRule: "hofwonen_autoreply_ack",
+    };
+  }
 
   // Vendor-system rejection van onze invoice-submission (bv. "Te veel PDF
   // of UBL bestanden aangeboden"). Vereist heruit-versturen met minder
@@ -530,6 +587,23 @@ export function classify(input: ClassifyInput): ClassifyResult {
   // door subject_acknowledgement, subject_ticket_ref en reply_prefix+
   // system_sender. Alles wat daar niet onder valt wordt handmatig
   // opgepakt — dat is het punt van een whitelist-gebaseerde classifier.)
+
+  // ── Unsolicited cold-solicitation spam (Pass 1) ───────────────────────────
+  // Ordered LAST — after every legitimate noise category — so it can never
+  // shadow a real classification; only mail that matched nothing else is
+  // tested against the narrow spam vocabulary.
+  if (SPAM_SEO.test(normSubject) || SPAM_SEO.test(body)) {
+    return { category: "spam", confidence: 0.97, matchedRule: "spam_seo_solicitation" };
+  }
+  if (SPAM_CAR_OFFER.test(normSubject) || SPAM_CAR_OFFER.test(body)) {
+    return { category: "spam", confidence: 0.97, matchedRule: "spam_car_offer" };
+  }
+  if (
+    (SPAM_FOREIGN_FAIR.test(normSubject) || SPAM_FOREIGN_FAIR.test(body)) &&
+    (SPAM_FOREIGN_FAIR_CTX.test(normSubject) || SPAM_FOREIGN_FAIR_CTX.test(body))
+  ) {
+    return { category: "spam", confidence: 0.95, matchedRule: "spam_foreign_fair" };
+  }
 
   return { category: "unknown", confidence: 0, matchedRule: "no_match" };
 }

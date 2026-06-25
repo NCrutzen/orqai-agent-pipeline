@@ -1,0 +1,62 @@
+SPIKE 012 — order-entry-live-corpus-shape
+Live validation of Koen's voorwerk findings against email_pipeline.emails (mailbox=order@smeba.nl).
+Run: 2026-06-22, via Supabase SQL (read-only). Project mvqjhlxfvtqqubqgdvhz.
+PASS 1 = SQL over subject/folder/sender/attachments. Deep body/LLM pass = follow-up (see README).
+
+=== CORPUS TOTALS ===
+incoming = 30,469 (2024-04-15 .. 2026-06-15)   sent = 2,357
+attachment rate (incoming) = 46.2%
+own-domain share (smeba.nl + smeba-fire.be) = 43.4%
+read rate = 98.6%   (archive of handled mail)
+
+=== SOURCE-FOLDER DISTRIBUTION (weak action-label) ===
+2025 Orders verwerkt        21,100   att 45.1%
+2026 Orders verwerkt         8,623   att 48.4%
+2025 Opzeggingen verwerkt      293   att 34.5%
+(null)                         292   att 68.2%
+Inbox                          114   att 56.1%
+EVY Equans                      16
+ligt bij Jeroen - Ad            10
+Apex fire                        6
+SMEQ                             5
+EVY offerte / Defensie / 2026 WI / customer-named ...  (<=2 each)
+-> 97.6% of archived mail sits in "Orders verwerkt" folders.
+   NOTE survivorship bias: forwards/noise leave via Sent or deletion, not incoming folders.
+
+=== TOP SENDER DOMAINS ===
+smeba.nl              12,242   (own)
+cbre.coupahost.com     1,291   (Coupa PO portal)
+rap.partners           1,049
+mindef.nl                983   (Defensie)
+smeba-fire.be            977   (own group)
+equans.com               716
+urg.tech                 702
+heijmans.nl              677
+equans.coupahost.com     548   (Coupa)
+ansmtp.ariba.com         470   (Ariba PO)
+moyneroberts.com         443   (own group)
+lidl.nl 415 · planoncloud.com 379 · unica.nl 342 · coop.nl 304 ·
+kfns.facilitor.nl 257 · cbre.com 257 · ... ns.nl 154
+-> external orders arrive largely via procurement PORTALS (Coupa/Ariba/Facilitor/Planon) + big customers.
+
+=== SUBJECT FIRST-MATCH CLASSIFICATION (full corpus) ===
+4_order              8,298   27.2%
+3_offerte            3,164   10.4%
+5_factuur            2,645    8.7%
+7_reply_or_fwd_only  2,051    6.7%
+6_status_vraag         494    1.6%
+1_opzegging            122    0.4%
+2_backorder            107    0.4%
+9_other             13,588   44.6%   <- subject alone is weak; needs body/LLM pass
+total               30,469
+
+=== 451-WEEK (2026-06-08..15) FOLDER SPLIT (like-for-like vs Koen) ===
+2026 Orders verwerkt   245   (54%)
+Inbox                  114
+(null)                  45
+EVY Equans 16 · ligt bij Jeroen-Ad 10 · Apex fire 6 · SMEQ 5 · ...
+
+=== MONTHLY VOLUME (recent) ===
+2026-01 2135 · 2026-02 1674 · 2026-03 1775 · 2026-04 1578 · 2026-05 1073 · 2026-06 710 (partial)
+2025-11 1615 · 2025-12 1310
+-> ~1,600/month ~= 53/day inbound, stable.
