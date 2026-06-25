@@ -2,9 +2,10 @@
 gsd_state_version: 1.0
 milestone: V9.8
 milestone_name: Run-Mode & Gating Redesign — Governance Rail
-status: planning
-last_updated: "2026-06-25T15:45:00.000Z"
-last_activity: 2026-06-25
+status: "Roadmap created — awaiting `/gsd:plan-phase 135`"
+stopped_at: Phase 135 context gathered
+last_updated: "2026-06-25T15:42:32.354Z"
+last_activity: 2026-06-25 — V9.8 roadmap created (phases 135–138, 17/17 requirements mapped)
 progress:
   total_phases: 4
   completed_phases: 0
@@ -421,10 +422,10 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 
 ## Session Continuity
 
-Last session: 2026-06-24T08:42:22.319Z
-Stopped at: Completed 132.1-04-PLAN.md
+Last session: 2026-06-25T15:42:32.333Z
+Stopped at: Phase 135 context gathered
 Resume with: Phase 131 verified clean. ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding; WR-02 dedup-below-threshold hardening optional future pass.
-Resume file: None
+Resume file: .planning/phases/135-gating-model-storage-migration-4-swarm-normalization-v9-8-p1/135-CONTEXT.md
 
 ## Deferred Items
 
