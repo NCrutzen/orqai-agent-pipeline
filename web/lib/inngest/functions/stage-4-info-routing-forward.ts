@@ -201,10 +201,10 @@ export const stage4InfoRoutingForwardWorker = inngest.createFunction(
       });
     });
 
-    // ---- 8b) Best-effort file the source mail into "AI handled" -------------
+    // ---- 8b) Best-effort file the source mail into "AI Handled" -------------
     // Quick task 260625-9ll: once the forward is SENT + forward_state recorded +
     // the AI:routed category stamped, move the source info@ mail out of the
-    // inbox into an "AI handled" folder so operators see a clean inbox.
+    // inbox into an "AI Handled" folder so operators see a clean inbox.
     //
     // SAFETY: this is purely cosmetic housekeeping and runs ONLY here — inside
     // the released + routable + forwarded branch, AFTER the irreversible send.
@@ -219,7 +219,7 @@ export const stage4InfoRoutingForwardWorker = inngest.createFunction(
         await moveMessageToFolder({
           mailbox,
           messageId: graphId,
-          folderName: "AI handled",
+          folderName: "AI Handled",
         });
       } catch {
         // Best-effort only — never let a move failure surface.
