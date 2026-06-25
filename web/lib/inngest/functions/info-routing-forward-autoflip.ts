@@ -52,6 +52,9 @@ import {
   type ForwardObservation,
 } from "@/lib/automations/info-routing/forward-wilson";
 
+// Phase 132.2 deploy retrigger: the #167 merge created no Vercel production
+// build (merge-commit quirk), so prod froze on the old source_mailbox autoflip.
+// This web-touching commit forces a clean production deploy of current main.
 const SWARM = "info-routing";
 
 // Business-hours cron: every 30 minutes, hours 6-19, Mon-Fri, Europe/Amsterdam.
