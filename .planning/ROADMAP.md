@@ -859,7 +859,14 @@ Plans:
   4. The new shape supersedes `swarms.dry_run_config`, both per-mailbox `dry_run` booleans, and `debtor.email_labels.status` as the gating source; the existing pipeline gate reads the new shape and gates identically across the cutover — no behavior change at migration time (MIGRATE-01, MIGRATE-02).
   5. All 4 swarms (sales, debtor, info-routing, support-tickets) are normalized to their intended per-stage + per-handler state under the new model, with debtor iController noise-delete governed explicitly via the per-handler tri-state rather than an implicit always-live flag (MIGRATE-03).
 
-**Plans**: TBD
+**Plans**: 5 plans across 4 waves
+Plans:
+
+- [ ] 135-01-PLAN.md — Wave 0: TDD scaffold — `npm ci` + RED derive-mode/tri-state/Shadow tests + operator-runnable SQL trigger-smoke + seed-readback scripts (the Nyquist net the rest turns green)
+- [ ] 135-02-PLAN.md — Wave 1: TS gate cutover — rename `DryRunConfig`→`GatingConfig` / `dry_run_config`→`gating_config`, handler tri-state internals, add `deriveMailboxMode()`, re-point all production readers (turns the derive-mode + tri-state RED tests green; pins stay green)
+- [ ] 135-03-PLAN.md — Wave 1: SQL migration authoring — `20260625_phase135_gating_config.sql` in locked order (rename → bool→tri-state → 4-swarm legal seed → invariant trigger + `security_invoker` violation view); confirm the handler→trigger-stage map against dispatch wiring
+- [ ] 135-04-PLAN.md — Wave 2: D-03 Shadow runtime gate — early-return `shadow_suppressed` in `stage-3-intent-label-worker.ts` holding ONLY the Graph `AI:`-PATCH (internal writes intact), derive read inside `step.run()` (turns the Shadow RED assertion green)
+- [ ] 135-05-PLAN.md — Wave 3 (operator-gated): re-confirm live seed + sales-seed decision checkpoint → apply the migration to live `mvqjhlxfvtqqubqgdvhz` → post-apply gate (seed read-back + trigger smoke + `check:supabase` 0 ERROR + codegen no-op + full `npm test`)
 
 ### Phase 136: Review renderers + canonical matrix doc (V9.8 P1b)
 
