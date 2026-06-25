@@ -726,6 +726,119 @@ export async function forwardMessage(args: {
 }
 
 /**
+ * Quick task 260625-9ll (Task 1) — best-effort move of a message into a named
+ * destination folder under the SOURCE mailbox.
+ *
+ * Used by the Stage-4 info-routing forward worker to file a successfully
+ * forwarded mail into an "AI handled" folder AFTER the forward + state +
+ * category stamp. It is purely additive/cosmetic housekeeping: it NEVER throws
+ * (mirrors forwardMessage / categorizeEmail → returns OutlookActionResult so a
+ * caller can swallow a failure without affecting the irreversible forward).
+ *
+ * Resolution + provisioning:
+ *  - Resolve the destination folder id by DISPLAY NAME under the mailbox's
+ *    `/users/{mailbox}/mailFolders` (paged, $filter on displayName).
+ *  - If absent, CREATE it (POST /users/{mailbox}/mailFolders { displayName }).
+ *  - Cache the resolved (mailbox, folderName) → folderId in a module-level Map
+ *    so repeated moves (every forwarded mail) don't re-resolve. Keyed on the
+ *    lowercased mailbox + the exact display name.
+ *
+ * Routes through the single `graphFetch` credential boundary (connection
+ * 56014785) + its built-in 504/socket retry — never a hand-rolled client.
+ */
+const folderIdCache = new Map<string, string>();
+
+function folderCacheKey(mailbox: string, folderName: string): string {
+  return `${mailbox.toLowerCase()}::${folderName}`;
+}
+
+/**
+ * Resolve (and provision if missing) the folder id for a display name under a
+ * mailbox, memoised in `folderIdCache`. Exported for the unit test of the pure
+ * resolve/cache seam. Returns null when Graph could not resolve or create the
+ * folder (the move caller treats null as a soft failure).
+ */
+export async function resolveFolderId(
+  mailbox: string,
+  folderName: string,
+): Promise<string | null> {
+  const key = folderCacheKey(mailbox, folderName);
+  const cached = folderIdCache.get(key);
+  if (cached) return cached;
+
+  // Look up by display name (top-level mailFolders).
+  const searchRes = await graphFetch(
+    `/users/${enc(mailbox)}/mailFolders?$filter=${enc(`displayName eq '${folderName.replace(/'/g, "''")}'`)}&$select=id,displayName&$top=10`,
+  );
+  if (searchRes.ok) {
+    const data = (await searchRes.json()) as {
+      value?: Array<{ id?: string }>;
+    };
+    const found = data.value?.find((f) => typeof f.id === "string")?.id;
+    if (found) {
+      folderIdCache.set(key, found);
+      return found;
+    }
+  }
+
+  // Absent → create it.
+  const createRes = await graphFetch(`/users/${enc(mailbox)}/mailFolders`, {
+    method: "POST",
+    body: { displayName: folderName },
+  });
+  if (createRes.ok) {
+    const created = (await createRes.json()) as { id?: string };
+    if (created.id) {
+      folderIdCache.set(key, created.id);
+      return created.id;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Move a message into a named destination folder under the source mailbox.
+ * Best-effort — NEVER throws; returns OutlookActionResult.
+ */
+export async function moveMessageToFolder(args: {
+  mailbox: string;
+  messageId: string;
+  folderName: string;
+}): Promise<OutlookActionResult> {
+  const { mailbox, messageId, folderName } = args;
+
+  let destinationId: string | null;
+  try {
+    destinationId = await resolveFolderId(mailbox, folderName);
+  } catch (err) {
+    return { success: false, error: `resolveFolderId threw: ${String(err)}` };
+  }
+  if (!destinationId) {
+    return {
+      success: false,
+      error: `Could not resolve or create folder "${folderName}"`,
+    };
+  }
+
+  try {
+    const res = await graphFetch(
+      `/users/${enc(mailbox)}/messages/${enc(messageId)}/move`,
+      { method: "POST", body: { destinationId } },
+    );
+    if (!res.ok) {
+      return {
+        success: false,
+        error: `move ${res.status}: ${await res.text()}`,
+      };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: `move threw: ${String(err)}` };
+  }
+}
+
+/**
  * Find a mail folder by display name. Returns the folder ID or null.
  */
 async function findFolder(
