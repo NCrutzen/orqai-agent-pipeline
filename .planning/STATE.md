@@ -65,7 +65,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 Phase: 132.1 (router-golive-dispatch-wiring-v9-7) — EXECUTING
 Plan: 4 of 4
 Status: V9.7 info@ slice (130-132.1) shipped — PR #145 (awaiting review/merge; prod gates pending)
-Last activity: 2026-06-24
+Last activity: 2026-06-25 - Completed quick task 260625-9ll: AI-Handled move step
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
 
@@ -381,6 +381,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 |---|-------------|------|--------|--------|-----------|
 | 260611-jwt | SugarCRM openstaande-e-mails inventarisatie + Outlook-locatie-match rapport | 2026-06-11 | 008cb16f | | [260611-jwt-sugarcrm-openstaande-e-mails-inventarisa](./quick/260611-jwt-sugarcrm-openstaande-e-mails-inventarisa/) |
 | 260618-iwx | cross-swarm noise rules: shared swarm_type='*' scope on swarm_noise_categories + runtime union + cross-swarm telemetry + per-swarm opt-out (info-routing 7 junk cats shared) | 2026-06-18 | 6824e0ad | Verified | [260618-iwx-cross-swarm-noise-rules-shared-scope-op-](./quick/260618-iwx-cross-swarm-noise-rules-shared-scope-op-/) |
+| 260625-9ll | info-routing Stage-4: move auto-forwarded mail to "AI Handled" folder (live-mode terminal step; moveMessageToFolder Graph helper + best-effort step.run; dry-run/held never moved) | 2026-06-25 | af2b86d7 | | [260625-9ll-add-a-post-forward-move-to-ai-handled-st](./quick/260625-9ll-add-a-post-forward-move-to-ai-handled-st/) |
 
 ### Outstanding Verification (Deferred)
 
