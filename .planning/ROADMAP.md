@@ -23,7 +23,7 @@ A fleet of registry-driven AI swarms on the canonical 5-stage funnel (Stage 0 sa
 | **v8.2** | Stage 2 Resolution Recall — debtor track (SQL-native NXT resolver) · _partly superseded by V9.5 corroboration_ | **Defined** |
 | **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) | **Shipped 2026-06-15** _(was V10.0)_ |
 | **V9.5** | Stage-2 resolver correctness — corroboration (D-06) + attachment-borne IDs + cross-brand scope · _grounded by the 100-email operator eval (64% baseline); finalizes V9.0 STAGE2-01_ | **Shipped 2026-06-18** |
-| **V9.7** | Routing / visibility — **info@** departmental routing (smeba + fire-control) · _the first visible kompas (taakreductie op de triage-laag); router goes live on registry-seeded rules. NL routing chat-agent **and** verkoop@→order@ both **deferred** out of V9.7 (2026-06-25) — see deferred block below_ | **Shipped 2026-06-25** _(scoped: 130→132.1; PR #145, tag v9.7; prod forward held on shadow-precision gate)_ |
+| **V9.7** | Routing / visibility — **info@** departmental routing (smeba + fire-control) · _the first visible kompas (taakreductie op de triage-laag); router goes live on registry-seeded rules. NL routing chat-agent **and** verkoop@→order@ both **deferred** out of V9.7 (2026-06-25) — see deferred block below_ | **Shipped 2026-06-25** _(130→134; PR #145, tag v9.7; router live, verkoop+opleidingen forwards live on the 0.7 gate, rest release as earned; forward-grade cron merge pending)_ |
 | **V9.8** | Run-Mode & Gating redesign — shadow→dry→live **governance rail** (per-stage + per-handler tri-state, dry-capture) + read-only "what's on per swarm/mailbox" overview · _prerequisite for safely acting on systems_ | **In progress** _(workspace: workspace/run-mode-unify)_ |
 | **V10.0** | Learning loop — Promotion Recommender + Learning Inbox + reply-tracing · _the kennismotor; harvests the relational knowledge layer (per klant + operator)_ | **Defined** _(workspace: workspace/v10-phase-0)_ |
 | **V10.5** | **Order Entry — first end-to-end act-proof** (offerte→order in NXT) · _own milestone between V10 and V11; **readiness-gated** (V9.8 + spike + colleague voorwerk + task-model doc); dubbel greenfield (geen API's, taakmodel niet vastgelegd) — discovery/doc-fase eerst_ | **Defined (readiness-gated)** |
@@ -270,17 +270,17 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 ---
 
-### V9.7 Routing Swarm Go-Live — Departmental Routing (Phases 130–132.1) — ✅ SHIPPED 2026-06-25 (scoped; defined 2026-06-16, rescoped 2026-06-25)
+### V9.7 Routing Swarm Go-Live — Departmental Routing (Phases 130–134) — ✅ SHIPPED 2026-06-25 (scoped; defined 2026-06-16, rescoped 2026-06-25)
 
 **Milestone goal:** `info@` (smeba + fire-control) actionable mail is classified on *destination* by a Stage-3 router and forwarded to the right departmental mailbox without a human. No customer-facing content generation (that is the draft-reply track, deferred). Full rationale + data: `MILESTONES.md` (V9.7) + `docs/routing-swarm-milestone-charter.md`.
 
-> **Rescoped 2026-06-25.** Phase 133 (NL routing-config) and verkoop@→order@ are **deferred out of V9.7** — see the deferred block after the phase table. V9.7 now closes on the info@ routing win (130→132.1, in PR #145, go-live gated on ≥85% shadow precision). The NL chat-agent is a much-later phase; verkoop@→order@ moves to a sales-routing iteration after the V9.8 governance rail (it is the first *act* on sales intents and is gated on sales Stage-3 go-live anyway — Phase 113 is still in dry-run).
+> **Rescoped 2026-06-25.** Phase 133 (NL routing-config) and verkoop@→order@ are **deferred out of V9.7** — see the deferred block after the phase table. V9.7 ships the info@ routing win (130→134): the router classifies + stamps `AI:` categories live, and forwards are **released per bucket** on a **0.7** forward-match Wilson gate (relaxed from 0.85 by operator decision 2026-06-25 — internal forwarding is low-stakes/reversible). **Live today:** `verkoop` (0.793) + `opleidingen` (1.00); other buckets held until they earn the gate. The NL chat-agent is a much-later phase; verkoop@→order@ (a *sales*-swarm intent handoff, distinct from the info@ `verkoop` bucket) moves to a sales-routing iteration after the V9.8 governance rail.
 
 **Data baseline (live 30d, 2026-06-16):** info-routing already ingests + runs Stage 0/1 but routes nothing (`stage2_entity_resolver`/`stage3_coordinator_agent_key` = null). info@smeba.nl 1.073/mo, info@fire-control.nl 219/mo. The ~663/mo "unknown" pool is ~50% latent noise + ~50% (~300/mo) routable into 6-7 finite destinations. Verified destination mailboxes (actively send): `order@`/`verkoop@` (3 brands), `planning@smeba.nl`, `storing.smeba@smeba.nl`, `opleidingen@fire-control.nl`, `crediteuren@smeba.nl`, `hrm@smeba.nl`.
 
 **Hard constraints:** registry changes ship as `supabase/migrations/` + `npm run codegen` committed atomically — never hand-edit `*.generated.ts`; **zero `if swarm_type==='info-routing'` branches** in shared workers (SWARM-02) — destinations + routing rules are registry data; routing needs **no Stage 2** (decoupled from V9.5); first concrete consumer of the V10.0 ambient learning-loop.
 
-**Sequencing principle:** clean the denominator first (P0 noise-recalibration) → then the router (P1) → then forward + review surface (P2) → go-live dispatch-wiring + shadow-precision gate (P2.5). Critical path P0→P1→P2. _(P3 NL-config + P4 ambient-loop deferred out of V9.7 — 2026-06-25.)_
+**Sequencing principle:** clean the denominator first (P0 noise-recalibration) → then the router (P1) → then forward + review surface (P2) → go-live dispatch-wiring + shadow-precision gate (P2.5) → ongoing per-bucket forward-grade release (P4). Critical path P0→P1→P2. _(P3 NL-config deferred out of V9.7; the ambient-loop is deferred to V10.0 — 2026-06-25.)_
 
 - [x] **Phase 130 (P0): info@ Stage-1 noise-recalibration** — close the ~50% latent-noise leak in the info@ "unknown" pool by registering new `classifier_rules` candidates (cold-sales/SEO, newsletters, auto-dealer spam, job applications, survey invites) through the existing Wilson-CI shadow→promote gate; the noise share of the pool drops ~50%→<20%, giving the router a clean denominator. (completed 2026-06-16)
 - [x] **Phase 131 (P1): Destination taxonomy + Stage-3 router** — freeze the 6-7 destination buckets + verified mailboxes; build the `info-routing-coordinator` Orq agent classifying on destination + destination registry (no Stage 2). (completed 2026-06-17)
@@ -294,7 +294,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
   - [x] 132.1-03-PLAN.md — Wave 2: activation migrations (dispatch re-flip + behavior_tracking enable, jsonb || merge + DB read-back) + one-flag forward revert (D-fix, D-01, D-02)
   - [x] 132.1-04-PLAN.md — Wave 2: ROUTE-08 human_category wiring + per-mailbox auto-flip cron (≥85%, min-N=50, monitoring) (D-02, ROUTE-08)
 - ~~**Phase 133 (P3): NL routing-config + verkoop→order**~~ — **DEFERRED out of V9.7 (2026-06-25)**. NL routing-config → much-later phase (chat-agent, net-new Teams integration, gated on staff auth substrate). verkoop@→order@ → sales-routing iteration after V9.8 governance rail. See deferred block below.
-- ~~**Phase 134 (P4): Ambient-loop coupling**~~ — **DEFERRED out of V9.7**; belongs to the V10.0 learning-loop track (`workspace/v10-phase-0`).
+- [x] **Phase 134 (P4): Forward-destination grading (ongoing per-bucket dry→live release)** — grade the AI's predicted destination bucket against where the operator *actually* forwarded the mail (forward-match Wilson ground-truth), and release each bucket to live forwarding when it clears the **0.7** Wilson gate (n ≥ 20, coverage ≥ 0.7). Live releases today: `verkoop` (0.793) + `opleidingen` (1.00). ⚠ **Complete in worktree `aw-forward-grade` (4/4 plans, VERIFICATION `human_needed` = post-deploy smoke), NOT yet merged to `main`/deployed** — the live releases came from the one-shot 132.1 mechanism; the dedicated ongoing cron (`forward_grade_config`) lands when that worktree merges. (built 2026-06-25; merge + post-deploy smoke pending — see `todos/pending/2026-06-25-v9.7-info-routing-forward-golive-gate.md`)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -303,7 +303,7 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 132. Forward + Bulk Review | 4/4 | Complete    | 2026-06-18 |
 | 132.1. Router go-live + shadow-precision (INSERTED) | 4/4 | Complete   | 2026-06-24 |
 | 133. NL routing-config + verkoop→order | — | Deferred (2026-06-25) | — |
-| 134. Ambient-loop coupling | — | Deferred → V10.0 | — |
+| 134. Forward-destination grading (P4) | 4/4 | Complete (worktree; merge + post-deploy smoke pending) | 2026-06-25 |
 
 ---
 
@@ -313,9 +313,9 @@ After NL routing-config was deferred earlier this week, Phase 133 collapsed to j
 
 - **NL routing-config (chat-agent).** Staff describe routing in natural language → LLM-parsed → human-confirmed → registry rule; dynamic candidate-list Stage-3 router. Net-new Microsoft Teams ingest path and a multi-user staff auth substrate are hard prerequisites that don't exist yet. → **much-later phase**, after the knowledge/governance foundations. Full design captured in `.planning/phases/133-*/133-CONTEXT.md` (D-01..D-11) — preserve for when it's rescheduled.
 - **verkoop@→order@ routing.** Deterministic intent→destination map (`quote_acceptance`/`order_status` → `order@{brand}`), reuses Phase 132 forward. It is the **first real *act* on sales intents** and is gated on sales Stage-3 go-live (Phase 113 is still in dry-run). It belongs **after the V9.8 governance rail** (the shadow→dry→live trust-ramp that makes acting on sales mail safe), as a sales-routing iteration. Design captured in `133-CONTEXT.md` D-12..D-15.
-- **Ambient-loop coupling (was Phase 134).** clicked-away/moved mail → `correction_event` → loop tunes routing rules. Belongs to the **V10.0 learning-loop track** (`workspace/v10-phase-0`).
+- **Ambient-loop coupling** (clicked-away/moved mail → `correction_event` → loop tunes routing rules) → deferred to the **V10.0 learning-loop track** (`workspace/v10-phase-0`). _(Note: the "P4" slot in V9.7 is taken by Phase 134 forward-destination grading — see the phase list above. The ambient-loop is a distinct, separately-numbered V10.0 phase.)_
 
-V9.7 closes on the info@ routing win (130→132.1, PR #145), once the forward clears its ≥85% shadow-precision go-live gate.
+V9.7 ships the info@ routing win (130→134, PR #145 + the forward-grade worktree). The router + `verkoop`/`opleidingen` forwards are live; remaining buckets release per the 0.7 forward-match Wilson gate as they earn it.
 
 ---
 
