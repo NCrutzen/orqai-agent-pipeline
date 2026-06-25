@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: V9.8
 milestone_name: Run-Mode & Gating Redesign — Governance Rail
 status: planning
-last_updated: "2026-06-25T15:05:45.427Z"
+last_updated: "2026-06-25T15:45:00.000Z"
 last_activity: 2026-06-25
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -65,10 +65,21 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started — roadmap created (4 phases: 135 P1a · 136 P1b · 137 P2 · 138 P3)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-25 — Milestone V9.8 started
+Status: Roadmap created — awaiting `/gsd:plan-phase 135`
+Last activity: 2026-06-25 — V9.8 roadmap created (phases 135–138, 17/17 requirements mapped)
+
+### V9.8 roadmap (created 2026-06-25)
+
+Governance rail — 3-layer gating model (L1 per-mailbox lifecycle shadow→dry→live *derived* · L2 per-stage enablement · L3 per-handler off|dry|live). Build order P1→P2→P3:
+
+- **Phase 135 (P1a)** — gating model + storage + migration off the 3 scattered state holders (`swarms.dry_run_config`, the two per-mailbox `dry_run` booleans, `debtor.email_labels.status`) + 4-swarm normalization (sales/debtor/info-routing/support-tickets). Cardinal invariant: handler never `live` unless trigger-stage live; mode is *derived*, no enum. MODEL-01..05, MIGRATE-01..03.
+- **Phase 136 (P1b)** — review renderers (`row-strip.tsx` Auto-applied→+Shadow, `filter-chip-strip.tsx` mode selector +Shadow, both derive) + emit-time dry-run provenance + canonical matrix doc in `docs/agentic-pipeline/`. REVIEW-01..03, DOC-01. Depends on 135.
+- **Phase 137 (P2)** — per-handler dry-capture: iController screenshot-instead-of-delete, reply-agent draft-instead-of-send, evidence surfaced. CAPTURE-01..03. Depends on 135's per-handler tri-state.
+- **Phase 138 (P3)** — per-email-address control/visibility UI (view + set per-stage + per-handler per mailbox; invariant enforced in-surface). CONTROL-01..02. Depends on 135's storage shape; independent of 137.
+
+Brief (locked source of truth): `.planning/briefs/run-mode-gating-redesign.md`. Key code refs: `web/lib/pipeline-gating/dry-run-gate/index.ts` (gate), `supabase/migrations/20260603b_swarms_dry_run_config.sql` (current shape), `web/app/(dashboard)/automations/[swarm]/_shell/components/row-strip.tsx` + `.../_shell/filter-chip-strip.tsx` (renderers).
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
 

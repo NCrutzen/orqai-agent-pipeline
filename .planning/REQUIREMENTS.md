@@ -66,22 +66,39 @@ The storage/derivation core. The mailbox "mode" is *derived* from these layers �
 
 ## Traceability
 
-Filled during roadmap creation.
+Every v1 requirement maps to exactly one phase. Roadmap created 2026-06-25 (phases 135–138, coarse granularity; P1 split into 135 spine + 136 surface).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MODEL-01..05 | — | Pending |
-| MIGRATE-01..03 | — | Pending |
-| REVIEW-01..03 | — | Pending |
-| DOC-01 | — | Pending |
-| CAPTURE-01..03 | — | Pending |
-| CONTROL-01..02 | — | Pending |
+| MODEL-01 | Phase 135 | Pending |
+| MODEL-02 | Phase 135 | Pending |
+| MODEL-03 | Phase 135 | Pending |
+| MODEL-04 | Phase 135 | Pending |
+| MODEL-05 | Phase 135 | Pending |
+| MIGRATE-01 | Phase 135 | Pending |
+| MIGRATE-02 | Phase 135 | Pending |
+| MIGRATE-03 | Phase 135 | Pending |
+| REVIEW-01 | Phase 136 | Pending |
+| REVIEW-02 | Phase 136 | Pending |
+| REVIEW-03 | Phase 136 | Pending |
+| DOC-01 | Phase 136 | Pending |
+| CAPTURE-01 | Phase 137 | Pending |
+| CAPTURE-02 | Phase 137 | Pending |
+| CAPTURE-03 | Phase 137 | Pending |
+| CONTROL-01 | Phase 138 | Pending |
+| CONTROL-02 | Phase 138 | Pending |
 
 **Coverage:**
 - v1 requirements: 17 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 17 ⚠️
+- Mapped to phases: 17 ✓
+- Unmapped: 0
+
+**Per-phase coverage:**
+- Phase 135 (P1a — model + storage + migration + 4-swarm normalization): MODEL-01..05, MIGRATE-01..03 (8)
+- Phase 136 (P1b — review renderers + matrix doc): REVIEW-01..03, DOC-01 (4)
+- Phase 137 (P2 — per-handler dry-capture): CAPTURE-01..03 (3)
+- Phase 138 (P3 — per-email control UI): CONTROL-01..02 (2)
 
 ---
 *Requirements defined: 2026-06-25*
-*Last updated: 2026-06-25 after milestone V9.8 start*
+*Last updated: 2026-06-25 after roadmap creation (phases 135–138 mapped; 17/17 covered)*

@@ -24,7 +24,7 @@ A fleet of registry-driven AI swarms on the canonical 5-stage funnel (Stage 0 sa
 | **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) | **Shipped 2026-06-15** _(was V10.0)_ |
 | **V9.5** | Stage-2 resolver correctness — corroboration (D-06) + attachment-borne IDs + cross-brand scope · _grounded by the 100-email operator eval (64% baseline); finalizes V9.0 STAGE2-01_ | **Shipped 2026-06-18** |
 | **V9.7** | Routing / visibility — **info@** departmental routing (smeba + fire-control) · _the first visible kompas (taakreductie op de triage-laag); router goes live on registry-seeded rules. NL routing chat-agent **and** verkoop@→order@ both **deferred** out of V9.7 (2026-06-25) — see deferred block below_ | **Shipped 2026-06-25** _(130→134; PR #145, tag v9.7; router live, verkoop+opleidingen forwards live on the 0.7 gate, rest release as earned; forward-grade cron merge pending)_ |
-| **V9.8** | Run-Mode & Gating redesign — shadow→dry→live **governance rail** (per-stage + per-handler tri-state, dry-capture) + read-only "what's on per swarm/mailbox" overview · _prerequisite for safely acting on systems_ | **In progress** _(workspace: workspace/run-mode-unify)_ |
+| **V9.8** | Run-Mode & Gating redesign — shadow→dry→live **governance rail** (per-stage + per-handler tri-state, dry-capture) + read-only "what's on per swarm/mailbox" overview · _prerequisite for safely acting on systems_ | **In progress** _(Phases 135–138; workspace: workspace/run-mode-unify)_ |
 | **V10.0** | Learning loop — Promotion Recommender + Learning Inbox + reply-tracing · _the kennismotor; harvests the relational knowledge layer (per klant + operator)_ | **Defined** _(workspace: workspace/v10-phase-0)_ |
 | **V10.5** | **Order Entry — first end-to-end act-proof** (offerte→order in NXT) · _own milestone between V10 and V11; **readiness-gated** (V9.8 + spike + colleague voorwerk + task-model doc); dubbel greenfield (geen API's, taakmodel niet vastgelegd) — discovery/doc-fase eerst_ | **Defined (readiness-gated)** |
 | **V11.0** | Intent-prioritised handlers — _generalizes the act layer after V10.5 proves it_ | **Defined** |
@@ -808,17 +808,105 @@ Plans:
 
 ---
 
-### V9.8 Run-mode / Gating Model Redesign — DEFINED (2026-06-18)
+### V9.8 Run-Mode & Gating Redesign — Governance Rail (Phases 135–138) — ACTIVE (activated 2026-06-25)
 
-Ground-up redesign of swarm gating into three orthogonal layers, replacing today's per-swarm `dry_run_config` boolean matrix (pivot residue — only sales maps to a clean mode; debtor/info-routing/support sit in mixed/custom states). **Why:** operator verdicts pivoted INTO Outlook — the `AI:` category label *is* the verdict/correction surface now (operator removes/edits a label to correct; the delta is the signal, P112.5/P117), making "labels in Outlook" a functional requirement of the observe phase, not cosmetic.
+**Why this milestone exists.** Today's gating is pivot residue: per-stage gating *exists and is enforced* (5 worker sites read `swarms.dry_run_config`), but it is **per-swarm only, SQL/migration-only (no UI), with just dry-run(blocked) vs live — no shadow mode, no per-handler dry-capture.** Two problems: (a) the operator has **lost the overview** of what is on per swarm/mailbox; (b) once handlers *mutate systems* (V10.5 Order Entry) and later act in personal voice / on customer agreements, errors become **reputational** — you need a real trust-ramp, not a binary skip. Operator verdicts have also moved **into Outlook** (the `AI:` category label *is* the verdict surface, P112.5/P117) — so "labels in Outlook" is a functional requirement of the observe phase, not cosmetic. This is the trust-ramp prerequisite for V10.5 Order Entry — the first real *act* in systems.
 
-**Model (3 layers):** (1) **Mailbox lifecycle** — per email address, *derived* not an enum: Shadow → Dry-run → Live. New swarm/mailbox auto-starts Shadow (data-collect, only Bulk Review UX, invisible to operator); Dry-run = also operator-visible (the Outlook label); Live = acts. (2) **Per-stage on/off** — per swarm: each of the 5 stages independently toggleable (Stage 0 always on, Stage 1 usually, Stage 2 swarm-dependent). (3) **Per-handler off/dry/live** — per handler: dry = simulate + capture evidence instead of the side-effect (iController-delete → screenshot; reply-agent → draft); a handler can never be live if its triggering stage is dry/shadow.
+**The model — three orthogonal layers (locked, brief `.planning/briefs/run-mode-gating-redesign.md`):**
 
-**Locked decisions:** granularity = per-swarm config + per-mailbox lifecycle (full per-mailbox config deferred); mode is derived, no enum column (registry-as-source-of-truth, SWARM-02 holds); all 4 swarms normalized; "observe mode" alias dropped → dry-run is canonical. Supersedes V10.0's "granular dry-run gating" line — V10.0 inherits this model.
+- **L1 — Mailbox lifecycle** (per email address), a *derived* state: `Shadow → Dry-run → Live`. A mailbox newly added to a swarm auto-starts **Shadow** (data collected, visible only in the internal Bulk Review surface). Dry-run = also operator-visible (the Outlook label, the correction surface); Live = acts autonomously. **No stored `mode` enum that can drift** — the mode is derived from the layers below.
+- **L2 — Per-stage enablement** (per swarm): each of the 5 pipeline stages independently on/off.
+- **L3 — Per-handler `off | dry | live`** (per swarm): `dry` = simulate the side-effect + capture evidence (iController-delete → screenshot; reply-agent → draft) instead of acting. **Cardinal invariant: a handler is never `live` unless its trigger-stage is live.**
 
-**Phases (conceptual; global numbers assigned at plan-time, after V9.7's band is known):** P1 — gating model + storage + migration of all 4 swarms + the two renderers (`row-strip` "Auto-applied" badge, `filter-chip` mode selector) + canonical matrix doc in `docs/agentic-pipeline/`. P2 — per-handler dry-capture (iController screenshot, reply draft). P3 — per-email-address control/visibility UI.
+**Locked decisions:** granularity = per-swarm config + per-mailbox lifecycle (full per-mailbox *config* deferred); mode is derived, no parallel enum column (registry-as-source-of-truth, SWARM-02 holds); all 4 swarms (sales, debtor, info-routing, support-tickets) normalized this milestone — including debtor iController noise-delete governed explicitly via the per-handler tri-state, not an implicit always-live flag; "observe mode" alias dropped → **dry-run is canonical**. Provenance is forward-only (`decision_details` didn't carry it before — no historical backfill). Auto-promotion / auto-flip stays out (V10.0 learning-loop territory — V9.8 ships the rail, not the promoter). Supersedes V10.0's "granular dry-run gating" line — V10.0 inherits this model.
 
-**Sequencing:** foundation **before the orders swarm** (orders starts only once V9.5 + V9.7 work through Stage 3). Largely orthogonal to V9.5 (resolver engine) — parallel-able. **Reconcile with** the scattered per-mailbox `dry_run` booleans (`debtor.labeling_settings`, `info_routing_mailbox_settings`) + `debtor.email_labels.status` + the gate in `web/lib/pipeline-gating/dry-run-gate/index.ts`. Seed brief: `.planning/briefs/run-mode-gating-redesign.md`.
+**Sequencing:** **build order P1 → P2 → P3.** P1 (the spine: 135 model+storage+migration+normalization, then 136 renderers+matrix-doc) lands the storage shape + derive rules + cutover with no behavior change. P2 (137) per-handler dry-capture depends on P1's per-handler tri-state. P3 (138) per-email control UI depends on P1's storage shape; it is independent of P2 but naturally comes last as the operator-facing surface. **Largely orthogonal to V9.5 (resolver engine) — parallel-able.** **Reconcile with** the scattered state holders: `swarms.dry_run_config`, the two per-mailbox `dry_run` booleans (`debtor.labeling_settings.dry_run`, `public.info_routing_mailbox_settings.dry_run`), `debtor.email_labels.status`, and the gate in `web/lib/pipeline-gating/dry-run-gate/index.ts`.
+
+**Dependency graph:**
+
+```
+135 (model + storage + migration + 4-swarm normalization)   [the spine; live workers cut over, no behavior change]
+  ├──> 136 (renderers + canonical matrix doc)   [derive Shadow/Dry/Live from the layers in the review UI]
+  ├──> 137 (P2: per-handler dry-capture)         [iController screenshot, reply draft, evidence surfaced]
+  └──> 138 (P3: per-email-address control UI)    [operator views + sets per-stage/per-handler; invariant enforced in-surface]
+```
+
+- [ ] **Phase 135 (P1a): Gating model + storage + migration + 4-swarm normalization** — the spine. Land the new storage shape (per-mailbox lifecycle + per-stage enablement + per-handler `off|dry|live`), make the mailbox mode *derived*, enforce the trigger-stage invariant at write time, migrate the live gate off the 3 scattered state holders with no behavior change at cutover, and normalize all 4 swarms to their intended state. Covers MODEL-01..05, MIGRATE-01..03.
+- [ ] **Phase 136 (P1b): Review renderers + canonical matrix doc** — surface the model in the Bulk Review UI: the row renderer derives + shows Shadow/Dry/Live (the "Auto-applied" badge extended to add Shadow), each row carries dry-run provenance captured at emit time (survives later flips), the mode-filter strip derives mode and gains a Shadow option, and the canonical run-mode/gating matrix doc lands in `docs/agentic-pipeline/`. Covers REVIEW-01..03, DOC-01.
+- [ ] **Phase 137 (P2): Per-handler dry-capture** — give the `dry` handler state real evidence-capture mechanics: the iController delete handler in `dry` does not delete and screenshots which email it would have actioned; the reply-agent handler in `dry` writes to an Outlook draft instead of sending; the captured evidence is surfaced to the operator from the review/audit surface. Covers CAPTURE-01..03.
+- [ ] **Phase 138 (P3): Per-email-address control / visibility UI** — the operator-facing surface: per email address, view the exact per-stage enablement + per-handler `off|dry|live` state, and change them from the UI, with the trigger-stage invariant enforced in the surface. Covers CONTROL-01..02.
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 135. Gating model + storage + migration + 4-swarm normalization (P1a) | 0/TBD | Not started | - |
+| 136. Review renderers + canonical matrix doc (P1b) | 0/TBD | Not started | - |
+| 137. Per-handler dry-capture (P2) | 0/TBD | Not started | - |
+| 138. Per-email control / visibility UI (P3) | 0/TBD | Not started | - |
+
+---
+
+### Phase 135: Gating model + storage + migration + 4-swarm normalization (V9.8 P1a)
+
+**Goal**: The 3-layer gating model becomes the single source of gating truth — per-mailbox lifecycle (Shadow→Dry→Live, *derived*), per-stage enablement, and per-handler `off|dry|live` are stored in a ground-up shape that the live pipeline gate reads, the scattered legacy state holders are superseded with zero behavior change at cutover, and all 4 swarms are normalized to their intended state.
+**Depends on**: the live `dry-run-gate/index.ts` gate + `swarms.dry_run_config` + the two per-mailbox `dry_run` booleans + `debtor.email_labels.status` (the state being reconciled) + the `swarms` registry (SWARM-02). First V9.8 phase.
+**Depends on (external/cross-track)**: none. Orthogonal to V9.5 (resolver engine) — parallel-able.
+**Requirements**: MODEL-01, MODEL-02, MODEL-03, MODEL-04, MODEL-05, MIGRATE-01, MIGRATE-02, MIGRATE-03
+**Success Criteria** (what must be TRUE):
+
+  1. Each of the 5 pipeline stages has an independent enabled/disabled state per swarm, and each handler has an independent `off|dry|live` state per swarm, stored in the new shape (MODEL-01, MODEL-02).
+  2. The per-mailbox lifecycle (Shadow→Dry-run→Live) is *derived* from the per-stage + per-handler flags with no separately-stored mode enum that can drift; a mailbox newly added to a swarm derives **Shadow** by default (MODEL-03, MODEL-05).
+  3. The trigger-stage invariant is enforced: a handler can never be `live` while its trigger-stage is not live — rejected at write time and/or surfaced as a violation (MODEL-04).
+  4. The new shape supersedes `swarms.dry_run_config`, both per-mailbox `dry_run` booleans, and `debtor.email_labels.status` as the gating source; the existing pipeline gate reads the new shape and gates identically across the cutover — no behavior change at migration time (MIGRATE-01, MIGRATE-02).
+  5. All 4 swarms (sales, debtor, info-routing, support-tickets) are normalized to their intended per-stage + per-handler state under the new model, with debtor iController noise-delete governed explicitly via the per-handler tri-state rather than an implicit always-live flag (MIGRATE-03).
+
+**Plans**: TBD
+
+### Phase 136: Review renderers + canonical matrix doc (V9.8 P1b)
+
+**Goal**: The Bulk Review surface reflects the new model — each row's mode (Shadow / Dry / Live) is derived from the layers and shown, the dry-run provenance is captured at emit time so a row stays correctly marked after later flips, the mode-filter strip derives mode and gains a Shadow option, and a canonical run-mode/gating matrix doc captures the model + derive rules + invariant + current per-swarm state.
+**Depends on**: Phase 135 (the derived-mode storage shape + per-stage/per-handler flags the renderers read; provenance written into `decision_details` at emit time).
+**Depends on (external/cross-track)**: none.
+**Requirements**: REVIEW-01, REVIEW-02, REVIEW-03, DOC-01
+**Success Criteria** (what must be TRUE):
+
+  1. The Bulk Review row renderer (`row-strip.tsx`) shows each row's mode (Shadow / Dry / Live) derived from the layers — the "Auto-applied" badge is replaced/extended to add Shadow (REVIEW-01).
+  2. Each row carries its dry-run provenance captured **at emit time**, so a row that was dry when its decision happened stays marked dry even after a later flip to live (REVIEW-02).
+  3. The mode-filter strip (`filter-chip-strip.tsx`) derives mode from the layers and includes a **Shadow** filter option (REVIEW-03).
+  4. A canonical run-mode/gating matrix doc lands in `docs/agentic-pipeline/` covering the 3-layer model, the derive rules, the trigger-stage invariant, and the current per-swarm state — replacing the mapping that today lives only in `dry-run-gate/index.ts` comments (DOC-01).
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 137: Per-handler dry-capture (V9.8 P2)
+
+**Goal**: The `dry` handler state stops being a no-op skip and becomes a real simulate-plus-capture: a handler in `dry` performs the work up to the side-effect, captures evidence of what it *would* have done, and surfaces that evidence to the operator for verification — proving the act is correct before it goes live.
+**Depends on**: Phase 135 (the per-handler `off|dry|live` tri-state model that defines what `dry` means and which handlers are in it).
+**Depends on (external/cross-track)**: Browserless.io for the iController screenshot path; Microsoft Graph draft API for the reply-agent draft path.
+**Requirements**: CAPTURE-01, CAPTURE-02, CAPTURE-03
+**Success Criteria** (what must be TRUE):
+
+  1. The iController delete handler in `dry` does not delete and captures screenshots evidencing which email it would have actioned, for operator verification (CAPTURE-01).
+  2. The reply-agent handler in `dry` writes its response to an Outlook **draft** instead of sending (CAPTURE-02).
+  3. The captured dry-run evidence (screenshots, drafts) is surfaced to the operator from the relevant review/audit surface (CAPTURE-03).
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 138: Per-email-address control / visibility UI (V9.8 P3)
+
+**Goal**: The operator gets a control surface, per email address, that both *shows* the exact per-stage enablement + per-handler `off|dry|live` state and *lets them change it* — with the trigger-stage invariant enforced directly in the surface so an illegal live-handler-on-non-live-stage state can't be set.
+**Depends on**: Phase 135 (the storage shape this surface reads + writes; the invariant it enforces). Independent of Phase 137 (P2) — naturally sequenced last as the operator-facing surface.
+**Depends on (external/cross-track)**: none.
+**Requirements**: CONTROL-01, CONTROL-02
+**Success Criteria** (what must be TRUE):
+
+  1. The operator can view, per email address, the exact per-stage enablement and per-handler `off|dry|live` state (CONTROL-01).
+  2. The operator can change per-stage enablement and per-handler `off|dry|live` for a mailbox from the UI, with the trigger-stage invariant enforced in the surface (a handler cannot be set `live` unless its trigger-stage is live) (CONTROL-02).
+
+**Plans**: TBD
+**UI hint**: yes
+
+---
 
 ### V10.0 Promotion Recommender + Learning Inbox + Reply-Tracing — DEFINED (re-sequenced 2026-06-02; was V9.0)
 
