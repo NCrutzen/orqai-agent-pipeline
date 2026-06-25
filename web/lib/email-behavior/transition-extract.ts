@@ -40,7 +40,13 @@ export type TransitionKind =
    * wanneer een nieuw-ontdekte folder bij bootstrap hetzelfde immutable id
    * blijkt te bevatten (bootstrap-correlatie).
    */
-  | "left_to_untracked";
+  | "left_to_untracked"
+  // Phase 132.2 — set by the forward-autoflip's capture step (not produced by
+  // extractTransitions). A staff forward observed for grading.
+  | "forward_observed"
+  // Phase 132.2 — forward with no persisted Stage-3 verdict; logged only, never
+  // fed to Wilson/coverage. Symmetry with the forward signal's verdict field.
+  | "forward_observed_no_verdict";
 
 /**
  * Eén ruw Graph delta-event, verrijkt met `_folderId` (de folder waarop de
