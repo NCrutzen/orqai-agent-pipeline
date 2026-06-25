@@ -6,7 +6,7 @@
 // destination bucket is INSERTed into the registry.
 
 export const DESTINATION_KEYS_BY_SWARM = {
-  "info-routing": ["algemeen", "inspecties", "opleidingen", "order_entry", "sollicitaties", "storingen", "unrouted", "verkoop"],
+  "info-routing": ["administratie", "algemeen", "crediteuren", "debiteuren", "facilitair", "hr", "inspecties", "opleidingen", "order_entry", "sollicitaties", "storingen", "unrouted", "verkoop"],
 } as const;
 
 export type DestinationKey =

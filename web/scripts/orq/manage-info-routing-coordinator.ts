@@ -157,10 +157,14 @@ async function createPatchVerify(): Promise<void> {
       settings: { max_iterations: 1, max_execution_time: 15, max_cost: 0 },
     }),
   });
-  if (created.status >= 300 && created.status !== 409) {
+  // Orq now returns 500 (not 409) for an existing key — match on the message
+  // too so an existing agent still proceeds to the idempotent PATCH.
+  const alreadyExists =
+    created.status === 409 || created.text.includes("already exists");
+  if (created.status >= 300 && !alreadyExists) {
     fail(`create_agent failed: ${created.status} ${created.text.slice(0, 300)}`);
   }
-  if (created.status === 409) {
+  if (alreadyExists) {
     console.log("• agent already exists — proceeding to PATCH (idempotent).");
   }
 
@@ -170,6 +174,11 @@ async function createPatchVerify(): Promise<void> {
   const patched = await orqFetch(`/agents/${AGENT_KEY}`, {
     method: "PATCH",
     body: JSON.stringify({
+      // Persist the prompt too — for an existing agent the create (which carries
+      // instructions) is a no-op, so the <closed_list> changes only land via
+      // this PATCH. Without it, new buckets reach the schema enum but the model
+      // is never told what they mean.
+      instructions: loadInstructions(),
       model: {
         id: PRIMARY_MODEL,
         parameters: {
