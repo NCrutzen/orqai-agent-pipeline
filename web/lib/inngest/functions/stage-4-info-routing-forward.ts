@@ -30,7 +30,11 @@ import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSwarm } from "@/lib/swarms/registry";
 import { isForwardBucketReleased } from "@/lib/pipeline-gating/dry-run-gate";
-import { forwardMessage, graphFetch } from "@/lib/outlook/client";
+import {
+  forwardMessage,
+  graphFetch,
+  moveMessageToFolder,
+} from "@/lib/outlook/client";
 import { mergeRoutingCategory } from "@/lib/outlook/routing-category";
 import {
   readForwardState,
@@ -195,6 +199,31 @@ export const stage4InfoRoutingForwardWorker = inngest.createFunction(
         method: "PATCH",
         body: { categories: next },
       });
+    });
+
+    // ---- 8b) Best-effort file the source mail into "AI handled" -------------
+    // Quick task 260625-9ll: once the forward is SENT + forward_state recorded +
+    // the AI:routed category stamped, move the source info@ mail out of the
+    // inbox into an "AI handled" folder so operators see a clean inbox.
+    //
+    // SAFETY: this is purely cosmetic housekeeping and runs ONLY here — inside
+    // the released + routable + forwarded branch, AFTER the irreversible send.
+    // moveMessageToFolder never throws; we additionally swallow any error and
+    // ignore the result so a move failure CANNOT affect the forward, the
+    // forward_state row, the AI:routed stamp, or the returned decision. None of
+    // the skip/held/dry-run/dedup/gate paths reach this step — they returned
+    // earlier. Its own step.run boundary keeps a replay from re-touching the
+    // forward (D-02 isolation).
+    await step.run("move-to-ai-handled", async () => {
+      try {
+        await moveMessageToFolder({
+          mailbox,
+          messageId: graphId,
+          folderName: "AI handled",
+        });
+      } catch {
+        // Best-effort only — never let a move failure surface.
+      }
     });
 
     // ---- 9) Best-effort audit row (stage 4) ---------------------------------
