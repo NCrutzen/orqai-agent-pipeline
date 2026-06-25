@@ -518,7 +518,10 @@ See "DB Invariant Mechanism — Recommendation" above for the full PL/pgSQL + vi
 | A4 | Renaming `dry_run_config`→`gating_config` is acceptable in a zero-behavior-change phase | Storage Recommendation | If the operator wants minimal churn, keep the name `dry_run_config` and only evolve contents (the fallback is stated). Low risk — purely a naming/ergonomics call. |
 | A5 | The mailbox-mode is per-swarm-uniform in 135 (no per-mailbox lifecycle override store yet) | Pattern 3 / OQ-1 | If 138 needs a per-mailbox store, 135 should at least reserve the shape. info-routing's 2-live/4-held split is masked by ingest_enabled=false, so uniform is safe for now. |
 
-## Open Questions
+## Open Questions (RESOLVED at plan time — 2026-06-25)
+
+> Resolutions: OQ-1 → defer per-mailbox lifecycle store to Phase 138; 135 derives per-swarm-uniform (A5).
+> OQ-2 → **D-05-R** (CONTEXT.md): operator confirmed **Sugar is out of the picture** → sales seed = verified-live → derives **Dry** (intent-label stays LIVE/written for correction monitoring). OQ-3 → **Path A** (below): seed sales `stage_1_archive` to its *effective* state (**held**, because sales has no wired archive side-effect — observe-mode), keeping the simple Pattern-3 derive fn correct (sales → Dry) and behavior unchanged (D-09); the executor VERIFIES inertness at apply and escalates at the 135-05 operator checkpoint if sales actually fires a live archive. OQ-4 → migrated blocked handlers default to `"dry"` (not `"off"`), matching the 137 capture intent.
 
 1. **Where does the per-mailbox L1 lifecycle live, given config stays per-swarm?**
    - What we know: lifecycle is per-mailbox (locked); stage/handler config is per-swarm (locked). Mailbox lists live in `swarms.behavior_tracking_config.mailboxes`. info-routing has a real 2-live/4-held per-mailbox split (in `info_routing_mailbox_settings`), but the 4 held are `ingest_enabled=false` (not flowing).
