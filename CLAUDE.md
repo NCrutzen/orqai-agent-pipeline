@@ -61,7 +61,7 @@ URL:      https://mvqjhlxfvtqqubqgdvhz.supabase.co
 ANON KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12cWpobHhmdnRxcXVicWdkdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzkzMzAsImV4cCI6MjA4OTE1NTMzMH0.8mKWUcA5o_0g0GKBc9OVBcA9MtHeo6I5kUOtbEfbK1U
 ```
 
-Anon key: alleen INSERT/SELECT op `learnings`. Voor DDL/deletes/credentials: service role key uit `web/.env.local`.
+Anon key: **geen** toegang meer tot `learnings` — de anon INSERT/SELECT-policies zijn gerevoked door migratie `20260520_harden_rls.sql` (nu `service_role` voor alles, `authenticated` voor SELECT). Schrijf/lees `learnings` daarom met de **service role key** uit `web/.env.local` (REST: `apikey` + `Bearer` = service role key). Idem voor DDL/deletes/credentials. Let op de CHECK-constraints: `system ∈ {Inngest, NXT, Supabase, Zapier, architecture, general, iController, orq.ai}`, `severity ∈ {critical, high, medium, info}`, `status ∈ {active, archived, superseded}`; `tags` en `references` zijn `text[]`.
 
 ## Zapier-First Beslisboom
 
