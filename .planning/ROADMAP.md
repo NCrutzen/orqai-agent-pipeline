@@ -23,7 +23,7 @@ A fleet of registry-driven AI swarms on the canonical 5-stage funnel (Stage 0 sa
 | **v8.2** | Stage 2 Resolution Recall — debtor track (SQL-native NXT resolver) · _partly superseded by V9.5 corroboration_ | **Defined** |
 | **V9.0** | Sales-email canonical pipeline — Outlook-driven (Sugar deprecated) | **Shipped 2026-06-15** _(was V10.0)_ |
 | **V9.5** | Stage-2 resolver correctness — corroboration (D-06) + attachment-borne IDs + cross-brand scope · _grounded by the 100-email operator eval (64% baseline); finalizes V9.0 STAGE2-01_ | **Shipped 2026-06-18** |
-| **V9.7** | Routing / visibility — info@ + verkoop@→order@ departmental routing · _the first visible kompas (taakreductie op de triage-laag); NL routing chat-agent **deferred** so the router goes live on registry-seeded rules_ | **In progress** _(workspace: planning/v9.7-p0-noise)_ |
+| **V9.7** | Routing / visibility — **info@** departmental routing (smeba + fire-control) · _the first visible kompas (taakreductie op de triage-laag); router goes live on registry-seeded rules. NL routing chat-agent **and** verkoop@→order@ both **deferred** out of V9.7 (2026-06-25) — see deferred block below_ | **Shipped 2026-06-25** _(scoped: 130→132.1; PR #145, tag v9.7; prod forward held on shadow-precision gate)_ |
 | **V9.8** | Run-Mode & Gating redesign — shadow→dry→live **governance rail** (per-stage + per-handler tri-state, dry-capture) + read-only "what's on per swarm/mailbox" overview · _prerequisite for safely acting on systems_ | **In progress** _(workspace: workspace/run-mode-unify)_ |
 | **V10.0** | Learning loop — Promotion Recommender + Learning Inbox + reply-tracing · _the kennismotor; harvests the relational knowledge layer (per klant + operator)_ | **Defined** _(workspace: workspace/v10-phase-0)_ |
 | **V10.5** | **Order Entry — first end-to-end act-proof** (offerte→order in NXT) · _own milestone between V10 and V11; **readiness-gated** (V9.8 + spike + colleague voorwerk + task-model doc); dubbel greenfield (geen API's, taakmodel niet vastgelegd) — discovery/doc-fase eerst_ | **Defined (readiness-gated)** |
@@ -270,17 +270,19 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 
 ---
 
-### V9.7 Routing Swarm Go-Live — Departmental Routing (Phases 130–134) — ACTIVE (defined 2026-06-16)
+### V9.7 Routing Swarm Go-Live — Departmental Routing (Phases 130–132.1) — ✅ SHIPPED 2026-06-25 (scoped; defined 2026-06-16, rescoped 2026-06-25)
 
-**Milestone goal:** `info@` (smeba + fire-control) actionable mail is classified on *destination* by a Stage-3 router and forwarded to the right departmental mailbox without a human; staff curate routing rules via natural language; verkoop@→order@ is the first cross-mailbox sales routing. No customer-facing content generation (that is the draft-reply track, deferred). Full rationale + data: `MILESTONES.md` (V9.7) + `docs/routing-swarm-milestone-charter.md`.
+**Milestone goal:** `info@` (smeba + fire-control) actionable mail is classified on *destination* by a Stage-3 router and forwarded to the right departmental mailbox without a human. No customer-facing content generation (that is the draft-reply track, deferred). Full rationale + data: `MILESTONES.md` (V9.7) + `docs/routing-swarm-milestone-charter.md`.
+
+> **Rescoped 2026-06-25.** Phase 133 (NL routing-config) and verkoop@→order@ are **deferred out of V9.7** — see the deferred block after the phase table. V9.7 now closes on the info@ routing win (130→132.1, in PR #145, go-live gated on ≥85% shadow precision). The NL chat-agent is a much-later phase; verkoop@→order@ moves to a sales-routing iteration after the V9.8 governance rail (it is the first *act* on sales intents and is gated on sales Stage-3 go-live anyway — Phase 113 is still in dry-run).
 
 **Data baseline (live 30d, 2026-06-16):** info-routing already ingests + runs Stage 0/1 but routes nothing (`stage2_entity_resolver`/`stage3_coordinator_agent_key` = null). info@smeba.nl 1.073/mo, info@fire-control.nl 219/mo. The ~663/mo "unknown" pool is ~50% latent noise + ~50% (~300/mo) routable into 6-7 finite destinations. Verified destination mailboxes (actively send): `order@`/`verkoop@` (3 brands), `planning@smeba.nl`, `storing.smeba@smeba.nl`, `opleidingen@fire-control.nl`, `crediteuren@smeba.nl`, `hrm@smeba.nl`.
 
 **Hard constraints:** registry changes ship as `supabase/migrations/` + `npm run codegen` committed atomically — never hand-edit `*.generated.ts`; **zero `if swarm_type==='info-routing'` branches** in shared workers (SWARM-02) — destinations + routing rules are registry data; routing needs **no Stage 2** (decoupled from V9.5); first concrete consumer of the V10.0 ambient learning-loop.
 
-**Sequencing principle:** clean the denominator first (P0 noise-recalibration) → then the router (P1) → then forward + review surface (P2) → NL-config + verkoop→order (P3) → ambient-loop (P4). Critical path P0→P1→P2.
+**Sequencing principle:** clean the denominator first (P0 noise-recalibration) → then the router (P1) → then forward + review surface (P2) → go-live dispatch-wiring + shadow-precision gate (P2.5). Critical path P0→P1→P2. _(P3 NL-config + P4 ambient-loop deferred out of V9.7 — 2026-06-25.)_
 
-- [x] **Phase 130 (P0): info@ Stage-1 noise-recalibration** — close the ~50% latent-noise leak in the info@ "unknown" pool by registering new `classifier_rules` candidates (cold-sales/SEO, newsletters, auto-dealer spam, job applications, survey invites) through the existing Wilson-CI shadow→promote gate; the noise share of the pool drops ~50%→<20%, giving the router a clean denominator. **← current** (completed 2026-06-16)
+- [x] **Phase 130 (P0): info@ Stage-1 noise-recalibration** — close the ~50% latent-noise leak in the info@ "unknown" pool by registering new `classifier_rules` candidates (cold-sales/SEO, newsletters, auto-dealer spam, job applications, survey invites) through the existing Wilson-CI shadow→promote gate; the noise share of the pool drops ~50%→<20%, giving the router a clean denominator. (completed 2026-06-16)
 - [x] **Phase 131 (P1): Destination taxonomy + Stage-3 router** — freeze the 6-7 destination buckets + verified mailboxes; build the `info-routing-coordinator` Orq agent classifying on destination + destination registry (no Stage 2). (completed 2026-06-17)
 - [x] **Phase 132 (P2): Forward side-effect + Bulk Review** — Stage-4 Outlook-forward (idempotent, dry-run-gated, brand-aware) + category stamp-back; info-routing Bulk Review surface. (completed 2026-06-18)
 - [x] **Phase 132.1 (P2.5, INSERTED): Router go-live — Stage-3 dispatch-wiring + activation + shadow-precision gate** — take the built-but-held info-routing router/forward (131/132) live-measurable: fix Stage-3 dispatch so a Stage-1-cleared `unknown` actionable info@ email reaches the generic coordinator with a valid `email_id` while cleanly skipping Stage 2 (resolves the `email_id=null` createRun crash reverted in #131); activate `behavior_tracking` + `AI:` routing-category stamp-back on info@ so operator corrections become ground-truth; gate on ≥85% shadow precision (verdict vs operator-actual) per mailbox. Routing labels get a distinct Outlook category colour. Forward stays dry-run until precision proven. (completed 2026-06-24)
@@ -291,8 +293,8 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
   - [x] 132.1-02-PLAN.md — Wave 1: masterCategories ensure-call — one non-grey preset for all routing labels (D-03)
   - [x] 132.1-03-PLAN.md — Wave 2: activation migrations (dispatch re-flip + behavior_tracking enable, jsonb || merge + DB read-back) + one-flag forward revert (D-fix, D-01, D-02)
   - [x] 132.1-04-PLAN.md — Wave 2: ROUTE-08 human_category wiring + per-mailbox auto-flip cron (≥85%, min-N=50, monitoring) (D-02, ROUTE-08)
-- [ ] **Phase 133 (P3): NL routing-config + verkoop→order** — staff NL → routing rules (human-approved); verkoop@→order@ routing for `quote_acceptance`/`order_status`.
-- [ ] **Phase 134 (P4): Ambient-loop coupling** — clicked-away/moved mail → `correction_event` → V10.0 loop tunes routing rules.
+- ~~**Phase 133 (P3): NL routing-config + verkoop→order**~~ — **DEFERRED out of V9.7 (2026-06-25)**. NL routing-config → much-later phase (chat-agent, net-new Teams integration, gated on staff auth substrate). verkoop@→order@ → sales-routing iteration after V9.8 governance rail. See deferred block below.
+- ~~**Phase 134 (P4): Ambient-loop coupling**~~ — **DEFERRED out of V9.7**; belongs to the V10.0 learning-loop track (`workspace/v10-phase-0`).
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -300,8 +302,20 @@ V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25 in favour of
 | 131. Destination taxonomy + router | 5/5 | Complete    | 2026-06-17 |
 | 132. Forward + Bulk Review | 4/4 | Complete    | 2026-06-18 |
 | 132.1. Router go-live + shadow-precision (INSERTED) | 4/4 | Complete   | 2026-06-24 |
-| 133. NL routing-config + verkoop→order | — | Pending | — |
-| 134. Ambient-loop coupling | — | Pending | — |
+| 133. NL routing-config + verkoop→order | — | Deferred (2026-06-25) | — |
+| 134. Ambient-loop coupling | — | Deferred → V10.0 | — |
+
+---
+
+#### Deferred out of V9.7 (2026-06-25)
+
+After NL routing-config was deferred earlier this week, Phase 133 collapsed to just verkoop@→order@. On review, both halves leave the milestone:
+
+- **NL routing-config (chat-agent).** Staff describe routing in natural language → LLM-parsed → human-confirmed → registry rule; dynamic candidate-list Stage-3 router. Net-new Microsoft Teams ingest path and a multi-user staff auth substrate are hard prerequisites that don't exist yet. → **much-later phase**, after the knowledge/governance foundations. Full design captured in `.planning/phases/133-*/133-CONTEXT.md` (D-01..D-11) — preserve for when it's rescheduled.
+- **verkoop@→order@ routing.** Deterministic intent→destination map (`quote_acceptance`/`order_status` → `order@{brand}`), reuses Phase 132 forward. It is the **first real *act* on sales intents** and is gated on sales Stage-3 go-live (Phase 113 is still in dry-run). It belongs **after the V9.8 governance rail** (the shadow→dry→live trust-ramp that makes acting on sales mail safe), as a sales-routing iteration. Design captured in `133-CONTEXT.md` D-12..D-15.
+- **Ambient-loop coupling (was Phase 134).** clicked-away/moved mail → `correction_event` → loop tunes routing rules. Belongs to the **V10.0 learning-loop track** (`workspace/v10-phase-0`).
+
+V9.7 closes on the info@ routing win (130→132.1, PR #145), once the forward clears its ≥85% shadow-precision go-live gate.
 
 ---
 

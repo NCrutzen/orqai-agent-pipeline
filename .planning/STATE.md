@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: V9.7
 milestone_name: Routing Swarm Go-Live — Departmental Routing
-status: "V9.7 info@ slice (130-132.1) shipped — PR #145 (awaiting review/merge; prod gates pending)"
-stopped_at: Completed 132.1-04-PLAN.md
-last_updated: "2026-06-24T10:05:49.986Z"
-last_activity: 2026-06-24
+status: "V9.7 CLOSED (scoped) 2026-06-25 — info@ routing 130→132.1 shipped (PR #145 merged, tag v9.7). Phase 133/134 deferred. Next: V9.8 governance rail (workspace/run-mode-unify). Prod forward held on shadow-precision gate."
+stopped_at: V9.7 milestone closed (scoped)
+last_updated: "2026-06-25T08:10:00.000Z"
+last_activity: 2026-06-25
 progress:
   total_phases: 2
   completed_phases: 1
@@ -37,6 +37,10 @@ Future milestones re-slotted + split into **two parallel tracks** (full detail i
 - Memory updated: `project_sales_email_source_sugarcrm.md` (Sugar→Outlook).
 
 ## Deferred Items
+
+Acknowledged and deferred at **V9.7 milestone close (2026-06-25)** — ~45 open artifacts surfaced by audit-open (6 debug sessions all root-caused/verified, 16 quick-tasks, 5 todos, 2 seeds, 8 UAT gaps, 6 verification gaps, 2 context-questions). Overwhelmingly the pre-existing v8.x/V9.0/V9.5 project-wide parking-lot — none block the shipped V9.7 info@ routing flow. **V9.7-specific carry-forward:** the production forward go-live gate (≥85% shadow precision + `algemeen→algemeen@smeba.nl` mapping verify) — tracked `todos/pending/2026-06-25-v9.7-info-routing-forward-golive-gate.md`. Phase 133/134 deferred (see ROADMAP V9.7 deferred block). Full prior context below.
+
+---
 
 Acknowledged and deferred at **v8.1 milestone close (2026-06-01)** — 24 open artifacts surfaced by the pre-close audit, mostly project-wide parking-lot (none block the shipped v8.1 flows):
 
@@ -429,4 +433,6 @@ See .planning/milestones/v7.0-* archive files for full milestone state.
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- **V9.7 closed (scoped) 2026-06-25.** Next milestone = **V9.8 Run-Mode & Gating (governance rail)** — already defined + in progress in worktree `workspace/run-mode-unify`. Continue V9.8 work there, not in this V9.7 workspace.
+- **Open V9.7 carry-forward:** flip the info@ forward live once the ≥85% shadow-precision gate clears — `todos/pending/2026-06-25-v9.7-info-routing-forward-golive-gate.md`.
+- This V9.7 close was done on branch `feat/ai-handled-move`; PR it to `main` so the archive + MILESTONES/ROADMAP/STATE updates land.

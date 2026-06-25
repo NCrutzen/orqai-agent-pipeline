@@ -1,7 +1,10 @@
 # Phase 133: NL routing-config + verkoop→order - Context
 
+> ⛔ **DEFERRED OUT OF V9.7 (2026-06-25).** Do NOT plan/execute this phase as-is.
+> Both halves left the milestone: NL routing-config → much-later chat-agent phase (needs net-new Teams ingest + staff auth substrate); verkoop@→order@ → sales-routing iteration **after the V9.8 governance rail** (first real act on sales intents; gated on Phase 113 sales Stage-3 go-live). Ambient-loop (was Phase 134) → V10.0 track. This document is preserved as the design of record for when these are rescheduled. See ROADMAP.md V9.7 "Deferred out of V9.7" block.
+
 **Gathered:** 2026-06-18
-**Status:** Ready for planning
+**Status:** DEFERRED (was: ready for planning)
 
 <domain>
 ## Phase Boundary

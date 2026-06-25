@@ -50,7 +50,23 @@
 - Auto-corroboration never injects a confident wrong customer (the cardinal Stage-2 constraint, inherited from v8.2).
 ## V9.7 Routing Swarm Go-Live — Departmental Routing (Defined: 2026-06-16)
 
-**Status:** Defined — not yet started. **Sequenced AFTER V9.5, BEFORE V10.0** (operator decision 2026-06-16). Decoupled from V9.5 (routing needs no Stage 2 customer resolution). **Charter:** `docs/routing-swarm-milestone-charter.md`.
+**Status:** ✅ **SHIPPED (scoped) 2026-06-25** — info@ routing win, phases 130→132.1 (PR #145 merged to `main`, tag `v9.7`). Archives: `milestones/V9.7-ROADMAP.md` · `milestones/V9.7-REQUIREMENTS.md`. **Scoped close** (precedent V9.5): global `REQUIREMENTS.md` deletion + ROADMAP forward-section collapse deferred to `main` to avoid single-writer collision with the live V9.8 (`workspace/run-mode-unify`) + V10.0 (`workspace/v10-phase-0`) worktrees. **No milestone audit run** (operator decision 2026-06-25 — consciously scoped, code merged). Decoupled from V9.5 (routing needs no Stage 2). **Charter:** `docs/routing-swarm-milestone-charter.md`.
+
+**Key accomplishments:**
+
+1. **info@ Stage-3 destination router live-measurable (130→132.1).** Stage-1-cleared `unknown` actionable info@ mail (smeba + fire-control) reaches the `info-routing-coordinator` Orq agent, gets a brand-aware destination verdict from `public.routing_destinations`, and is forwarded to the departmental mailbox — idempotent, dry-run-gated, **no Stage 2**, **zero `if swarm_type==='info-routing'` branches** (SWARM-02 holds).
+2. **info@ Stage-1 noise-recalibration (130).** New `classifier_rules` candidates for the latent-noise classes (cold-sales/SEO, newsletters, auto-dealer spam, job applications, surveys) through the Wilson-CI shadow→promote gate, with a hard actionable-token carve-out (zero false-archive).
+3. **Destination registry + closed-list router (131).** `routing_destinations` (brand-aware, RLS, codegen DestinationKey) + Haiku-EU Orq agent (3 validated fallbacks, strict json_schema) + Zod gate collapsing invalid output to `unrouted` + two-layer duplicate-delivery guard.
+4. **Forward side-effect + Bulk Review (132).** 2-call Graph forward helper + per-bucket graduated release + forward-state idempotency + `AI:` routing-category stamp-back; swarm-generic info-routing Bulk Review detail pane reusing existing primitives (no fork).
+5. **Go-live shadow-precision gate (132.1).** Dispatch `email_id`-resolution fix (Stage 2 cleanly skipped), `behavior_tracking` + category stamp-back activated so operator corrections become ground-truth, per-mailbox auto-flip cron at ≥85% precision (min-N=50). Forward held until proven.
+
+**Go-live state (prod):** info@ router classifies + stamps `AI:` categories LIVE; **forward dry-run/held** until the ≥85% shadow-precision auto-flip clears per mailbox — tracked `todos/pending/2026-06-25-v9.7-info-routing-forward-golive-gate.md` (incl. `algemeen→algemeen@smeba.nl` carry-forward verify).
+
+**Deferred out of V9.7 (2026-06-25):** Phase 133 NL routing-config → much-later chat-agent phase (net-new MS Teams ingest + staff auth); Phase 133 verkoop@→order@ → sales-routing iteration after the V9.8 governance rail (first act on sales intents, gated on Phase 113 dry-run go-live); Phase 134 ambient-loop → V10.0 track. Designs preserved in `phases/133-*/133-CONTEXT.md`.
+
+**Known deferred items at close:** ~45 project-wide open artifacts (audit-open) — overwhelmingly the pre-existing v8.x/V9.0/V9.5 parking-lot (6 debug sessions root-caused, 16 quick-tasks, 8 UAT gaps, 6 verification gaps); acknowledged + recorded in STATE.md `## Deferred Items`. Not V9.7-blocking.
+
+> _Original V9.7 definition (2026-06-16) preserved below for the historical record._
 
 > Note: V9.5 (Stage-2 resolver correctness) is defined in a parallel branch not yet merged to main; this V9.7 entry references it as its predecessor. The ROADMAP table row sits before V10.0 (V9.5's row arrives via its own PR).
 
