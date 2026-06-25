@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   wilsonLowerBound,
   gradeBucketsByWilson,
+  computeBucketCoverage,
   resolveObservedBucket,
   FORWARD_WILSON_GATE,
+  FORWARD_COVERAGE_GATE,
   MIN_OBSERVED_N,
   type ForwardObservation,
 } from "../forward-wilson";
@@ -94,5 +96,45 @@ describe("resolveObservedBucket", () => {
 
   it("never matches the null-target unrouted sentinel", () => {
     expect(resolveObservedBucket("", destinations)).toBeNull();
+  });
+});
+
+describe("computeBucketCoverage (D-05 — distinct denominators, Pitfall 3)", () => {
+  const mk = (
+    predicted: string,
+    observed: string | null,
+    n: number,
+  ): ForwardObservation[] =>
+    Array.from({ length: n }, () => ({
+      predicted_bucket: predicted,
+      observed_bucket: observed,
+      source_mailbox: "info@smeba.nl",
+    }));
+
+  it("coverage = graded / TOTAL incl. nulls (25 total, 12 graded → 0.48)", () => {
+    const obs = [...mk("storingen", "storingen", 12), ...mk("storingen", null, 13)];
+    const c = computeBucketCoverage(obs).get("storingen")!;
+    expect(c.total).toBe(25);
+    expect(c.graded).toBe(12);
+    expect(c.coverage).toBeCloseTo(0.48, 10);
+  });
+
+  it("coverage = 1.0 when all observations are graded (20 total, 20 graded)", () => {
+    const obs = mk("verkoop", "verkoop", 20);
+    const c = computeBucketCoverage(obs).get("verkoop")!;
+    expect(c.total).toBe(20);
+    expect(c.graded).toBe(20);
+    expect(c.coverage).toBe(1);
+  });
+
+  it("a bucket with 0 observations is simply absent (never coverage NaN)", () => {
+    const m = computeBucketCoverage([]);
+    expect(m.has("anything")).toBe(false);
+    expect(m.size).toBe(0);
+    for (const v of m.values()) expect(Number.isNaN(v.coverage)).toBe(false);
+  });
+
+  it("exposes FORWARD_COVERAGE_GATE = 0.70", () => {
+    expect(FORWARD_COVERAGE_GATE).toBe(0.7);
   });
 });
