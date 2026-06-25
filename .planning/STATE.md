@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: V9.7
-milestone_name: Routing Swarm Go-Live — Departmental Routing
-status: "V9.7 CLOSED (scoped) 2026-06-25 — info@ routing 130→134 shipped (PR #145 merged, tag v9.7). Router live; verkoop+opleidingen forwards live on the 0.7 gate, rest release as earned; forward-grade cron (134) merge pending in aw-forward-grade. Phase 133 deferred; ambient-loop → V10.0. Next: V9.8 governance rail (workspace/run-mode-unify)."
-stopped_at: V9.7 milestone closed (scoped)
-last_updated: "2026-06-25T08:10:00.000Z"
+milestone: V9.8
+milestone_name: Run-Mode & Gating Redesign — Governance Rail
+status: planning
+last_updated: "2026-06-25T15:05:45.427Z"
 last_activity: 2026-06-25
 progress:
-  total_phases: 2
-  completed_phases: 1
-  total_plans: 12
-  completed_plans: 5
-  percent: 42
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -66,10 +65,10 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: 132.1 (router-golive-dispatch-wiring-v9-7) — EXECUTING
-Plan: 4 of 4
-Status: V9.7 info@ slice (130-132.1) shipped — PR #145 (awaiting review/merge; prod gates pending)
-Last activity: 2026-06-25 - Completed quick task 260625-9ll: AI-Handled move step
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-25 — Milestone V9.8 started
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
 

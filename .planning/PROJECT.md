@@ -126,16 +126,23 @@ The pieces of V3/V4/V6 that survived the pivot were absorbed into V7.0 (Agent OS
 - CLI skill management -- lives in orqai-agent-pipeline repo
 - Dynamic/exploratory browser-use — already handled by existing Orq.ai MCP tools
 
-## Current Milestone: V9.5 Stage-2 Resolver Correctness — Corroboration + Attachment-Borne IDs + Cross-Brand Scope (ACTIVE — activated 2026-06-16)
+## Current Milestone: V9.8 Run-Mode & Gating Redesign — Governance Rail (ACTIVE — activated 2026-06-25)
 
-**Goal:** Stage 2 raises confidence and catches false positives by corroborating multiple independent identifier signals — including identifiers parsed from attachment *content* — that agree on the same customer, and resolves customers that live under a *different* brand entity than the mailbox, replacing the per-step LLM tiebreaker for the agreeing-signals case. The generic, swarm-agnostic engine capability lands and makes the V9.0 STAGE2-01 no-Engine-diff gate legitimately final.
+**Goal:** Replace the coarse, scattered dry-run flags (`swarms.dry_run_config` + the two per-mailbox `dry_run` booleans + `debtor.email_labels.status`) with a 3-layer governance model so acting on real systems (Order Entry, V10.5) is safe and auditable. The mailbox "mode" becomes **derived**, not a stored enum that drifts from flag truth.
 
-**Target phases:**
-- **Phase 120** — D-06 multi-signal corroboration engine (generic, cross-swarm); collect candidates across precedence steps, ≥N agreeing identifiers → deterministic confidence boost, no LLM call.
-- **Phase 121** — Attachment-borne identifier extraction (PO/offerte/invoice/order IDs from attachment content) as first-class corroboration signals; folds in the factuur-in-subject extraction (eval bucket D).
-- **Phase 122** — Cross-brand-scope customer resolution: cross-brand back-search over `resolver_index` on in-scope miss; unique hit resolves, non-unique degrades to suggestie.
+**Locked model (brief `.planning/briefs/run-mode-gating-redesign.md`):**
+- **L1 — Mailbox lifecycle** `Shadow→Dry→Live`, a *derived* state per email address. A new mailbox added to a swarm auto-starts Shadow.
+- **L2 — Per-stage enablement** per swarm (each of the 5 stages independently on/off).
+- **L3 — Per-handler `off|dry|live`** per swarm, where `dry` = simulate + capture evidence (iController screenshot, reply draft). Invariant: a handler is never `live` unless its trigger-stage is live.
+- All 4 swarms (sales, debtor, info-routing, support-tickets) normalized to intended state this milestone.
 
-**Acceptance baseline:** the frozen 100-email operator eval (`.planning/evals/2026-06-16-resolver-customer-eval/`, 64% correct) is the V9.5 regression fixture — re-run after 120/121/122 land, targeting a material reduction of the 36 Nee+Twijfel (esp. the 4 confident-wrong AUTO). Banded **120+** to isolate from archived V9.0 (110–117) and the parallel debtor v8.2 track (90–95). Single-writer `.planning/` isolated in `workspace/phase-120-corroboration` (see `docs/collaboration.md`).
+**Target phases (start at 135):** P1 — model + storage + migration + 4-swarm normalization + renderers + canonical matrix doc. P2 — per-handler dry-capture (iController screenshot-instead-of-delete, reply-agent draft-instead-of-send, evidence surfaced). P3 — per-email-address control/visibility UI (operator sees/sets per-stage + per-handler state per mailbox).
+
+**Why now:** V9.8 is the trust-ramp prerequisite for V10.5 Order Entry — acting in systems makes errors reputational, so shadow→dry→live must exist before the first real *act*. Largely orthogonal to the resolver track; parallel-able.
+
+**V9.7 Routing Swarm Go-Live SHIPPED 2026-06-25 (scoped)** — info@ departmental routing (Phases 130→134). Router live; `verkoop`+`opleidingen` forwards live on the 0.7 forward-match Wilson gate, rest release as earned. NL routing-config + verkoop@→order@ deferred (verkoop@→order@ sequenced *after* this governance rail); ambient-loop → V10.0. Archive: ROADMAP V9.7 block + `milestones/`.
+
+**V9.5 Stage-2 Resolver Correctness SHIPPED 2026-06-18** — corroboration engine (Phase 120) + attachment-borne IDs (121) + cross-brand scope (122); finalized the V9.0 STAGE2-01 no-Engine-diff gate against the frozen 100-email operator eval (64% baseline).
 
 **V9.0 Sales-Email Canonical Pipeline SHIPPED 2026-06-15** — 9 phases (110–117 + 112.5), 38 plans. Full canonical 5-stage funnel live for `verkoop@smeba.nl` (Outlook-driven; SugarCRM decommissioned). Sales Stage 2 reuses the v8.2 NXT resolver by config (STAGE2-01 no-Engine-diff proof — **PROVISIONAL** pending V9.5 D-06 corroboration). Archive: `milestones/V9.0-ROADMAP.md`. The **v8.2 debtor track runs in parallel in its own workspace**.
 
@@ -215,4 +222,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-16 — V9.5 Stage-2 Resolver Correctness milestone ACTIVATED (V9.0 shipped 2026-06-15). Scope: Phase 120 (corroboration engine) + 121 (attachment-borne IDs) + 122 (cross-brand scope); frozen 100-email operator eval = regression fixture (64% baseline). Next: /gsd:plan-phase 120. Prior: 2026-06-05 — Phase 116 complete (attachments first-class swarm-agnostic data source). Prior: 2026-06-02 V9.0 milestone start.*
+*Last updated: 2026-06-25 — V9.8 Run-Mode & Gating Redesign (governance rail) milestone ACTIVATED (V9.7 routing shipped 2026-06-25, V9.5 resolver shipped 2026-06-18). Scope: P1 model+storage+migration+4-swarm-normalization+renderers+matrix-doc, P2 per-handler dry-capture, P3 per-email control UI; phases start at 135. Source of truth: `.planning/briefs/run-mode-gating-redesign.md`. Next: /gsd:plan-phase 135. Prior: 2026-06-16 — V9.5 milestone start.*
