@@ -35,9 +35,15 @@ describe("infoRoutingAgentOutputSchema — closed-list parse", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects an off-list bucket (e.g. debtor's 'debiteuren')", () => {
+  it("rejects an off-list bucket (not in DESTINATION_KEYS)", () => {
+    // Use a sentinel that can never be a real bucket. Real debtor buckets
+    // (e.g. 'debiteuren') were promoted INTO the info-routing closed list by
+    // migration 20260625, so they are now ON-list — the guard below fails fast
+    // if the chosen sentinel ever becomes a real key.
+    const offList = "__not_a_routing_bucket__";
+    expect(INFO_ROUTING_BUCKET_KEYS).not.toContain(offList);
     const raw = {
-      bucket: "debiteuren",
+      bucket: offList,
       brand: "smeba",
       confidence: "high",
       reasoning: "Off-list bucket not in DESTINATION_KEYS.",
@@ -65,7 +71,7 @@ describe("parseAgentOutputOrUnrouted — never throws, unrouted fallback", () =>
 
   it("off-list bucket → unrouted outcome (no throw)", () => {
     const out = parseAgentOutputOrUnrouted({
-      bucket: "debiteuren",
+      bucket: "__not_a_routing_bucket__",
       brand: "smeba",
       confidence: "high",
       reasoning: "x",

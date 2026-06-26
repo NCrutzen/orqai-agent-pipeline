@@ -51,6 +51,8 @@ function makeSupabaseMock() {
   };
   return {
     from: vi.fn(fromImpl),
+    // coordinator re-fetches email content via supabase.schema("email_pipeline").from(...)
+    schema: vi.fn(() => ({ from: vi.fn(fromImpl) })),
     channel: vi.fn(() => ({ send: vi.fn().mockResolvedValue(undefined) })),
     removeChannel: vi.fn().mockResolvedValue(undefined),
   };
