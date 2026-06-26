@@ -17,8 +17,7 @@ function mockOrqResponse(jsonText: string) {
     json: vi.fn().mockResolvedValue({
       output: [
         {
-          role: "assistant",
-          parts: [{ kind: "text", text: jsonText }],
+          content: [{ type: "output_text", text: jsonText }],
         },
       ],
     }),

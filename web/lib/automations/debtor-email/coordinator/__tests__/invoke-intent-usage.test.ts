@@ -53,7 +53,7 @@ function mockOrqResponse(opts: {
 }) {
   const body: Record<string, unknown> = {
     output: [
-      { role: "assistant", parts: [{ kind: "text", text: opts.text }] },
+      { content: [{ type: "output_text", text: opts.text }] },
     ],
   };
   if (opts.usage !== undefined) body.usage = opts.usage;

@@ -1,21 +1,21 @@
 import { salesIntentOutputSchema, type SalesIntentOutput } from "./types";
+import { invokeOrqResponses } from "@/lib/automations/orq-responses";
 
 // ---------------------------------------------------------------------------
 // Sales Stage 3 Orq invoke wrapper (Phase 113, greenfield V1).
 //
-// Structurally identical to the debtor invoke-intent.ts (same ORQ_ENDPOINT,
-// 45s timeout, sortKeys, received_at-out-of-prompt, fence-strip regex, usage
-// forwarding). The only substantive differences:
+// Structurally identical to the debtor invoke-intent.ts: both route through the
+// queue-free Responses API (orq-responses.ts) via `agent/<key>`, with a 45s
+// deadline, fence-strip regex, and usage forwarding. The only substantive
+// differences:
 //   1. AGENT_KEY = "sales-intent-agent".
 //   2. Single literal-version Zod gate (salesIntentOutputSchema) — sales is
 //      greenfield V1, so NO V2/V3 discriminated union.
 //   3. No document_reference/sub_type, so the prompt <context> block carries the
 //      sales fields + a <stage2_resolution> line (the entity_relationship prompt
 //      input, D-05/D-06).
-//   4. No modelOverride path — sales is single-model V1.
 // ---------------------------------------------------------------------------
 
-const ORQ_ENDPOINT = "https://api.orq.ai/v2/agents";
 const AGENT_KEY = "sales-intent-agent";
 const TIMEOUT_MS = 45_000;
 
@@ -59,14 +59,6 @@ export type InvokeSalesIntentResult = {
   usage?: InvokeSalesIntentUsage;
 };
 
-function sortKeys<T extends Record<string, unknown>>(obj: T): T {
-  const sorted: Record<string, unknown> = {};
-  for (const key of Object.keys(obj).sort()) {
-    sorted[key] = obj[key];
-  }
-  return sorted as T;
-}
-
 function buildUserMessage(promptVars: {
   email_id: string;
   run_id: string;
@@ -97,81 +89,24 @@ function buildUserMessage(promptVars: {
 export async function invokeSalesIntentAgent(
   input: InvokeSalesIntentInput,
 ): Promise<InvokeSalesIntentResult> {
-  const apiKey = process.env.ORQ_API_KEY;
-  if (!apiKey) throw new Error("ORQ_API_KEY not set");
-
-  // `received_at` is logged as an Orq variable for traces but kept out of the
-  // prompt text so retries N minutes later hash to the same prompt string.
-  const promptVars = sortKeys({
-    email_id: input.email_id,
-    inngest_run_id: input.inngest_run_id,
-    stage: "classify",
-    subject: input.subject,
-    body_text: input.body_text,
-    assembled_input: input.assembled_input,
-    sender_email: input.sender_email,
-    sender_domain: input.sender_domain,
-    mailbox: input.mailbox,
-    resolution_status: input.resolution_status,
+  // Phase 139 — invoke via the QUEUE-FREE Responses API (orq-responses.ts), NOT
+  // the legacy /v2/agents/{key}/responses queue endpoint. `agent/<key>` applies
+  // the agent's Studio prompt + response_format server-side. received_at was an
+  // Orq trace-only variable on the dead endpoint; the <context> block in
+  // buildUserMessage already carries the ids, so trace visibility holds via `input`.
+  const { text: raw, usage: orqUsage } = await invokeOrqResponses({
+    model: `agent/${AGENT_KEY}`,
+    input: buildUserMessage({
+      email_id: input.email_id,
+      run_id: input.inngest_run_id,
+      sender_email: input.sender_email,
+      sender_domain: input.sender_domain,
+      mailbox: input.mailbox,
+      resolution_status: input.resolution_status,
+      assembled_input: input.assembled_input,
+    }),
+    timeoutMs: TIMEOUT_MS,
   });
-
-  const variables: Record<string, unknown> = {
-    ...promptVars,
-    received_at: input.received_at,
-  };
-
-  const body = {
-    message: {
-      role: "user",
-      parts: [
-        {
-          kind: "text",
-          text: buildUserMessage({
-            email_id: input.email_id,
-            run_id: input.inngest_run_id,
-            sender_email: input.sender_email,
-            sender_domain: input.sender_domain,
-            mailbox: input.mailbox,
-            resolution_status: input.resolution_status,
-            assembled_input: input.assembled_input,
-          }),
-        },
-      ],
-    },
-    configuration: { blocking: true, variables },
-  };
-
-  const res = await fetch(`${ORQ_ENDPOINT}/${AGENT_KEY}/responses`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(
-      `Orq sales-intent-agent failed: ${res.status} ${res.statusText}${errText ? ` -- ${errText.slice(0, 200)}` : ""}`,
-    );
-  }
-
-  const json = (await res.json()) as {
-    output?: Array<{
-      role?: string;
-      parts?: Array<{ kind?: string; text?: string }>;
-    }>;
-    usage?: {
-      input_tokens?: number;
-      output_tokens?: number;
-      total_tokens?: number;
-    };
-  };
-
-  const raw = json.output?.[0]?.parts?.[0]?.text ?? "";
-  if (!raw) throw new Error("Orq sales-intent-agent returned empty output");
 
   const stripped = raw
     .trim()
@@ -202,15 +137,7 @@ export async function invokeSalesIntentAgent(
     throw e;
   }
 
-  const u = json.usage;
-  const usage: InvokeSalesIntentUsage | undefined =
-    u && typeof u.total_tokens === "number"
-      ? {
-          input_tokens: u.input_tokens ?? 0,
-          output_tokens: u.output_tokens ?? 0,
-          total_tokens: u.total_tokens,
-        }
-      : undefined;
+  const usage: InvokeSalesIntentUsage | undefined = orqUsage;
 
   return { output: validated.data, raw, usage };
 }
