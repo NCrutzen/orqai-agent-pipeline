@@ -46,10 +46,18 @@ interface ReplayBody {
   email_ids?: string[];
   swarm_type?: string;
   dry_run?: boolean;
+  /**
+   * "auto" (default) auto-detects the stall type per email. "refire_coordinator"
+   * skips detection and re-runs Stage 3 directly for every id — the cure for a
+   * dispatcher/Stage-3 stall (email classified, then the Stage-3 call failed),
+   * which the hand-off (stage-2) re-fire does NOT resolve.
+   */
+  mode?: "auto" | "refire_coordinator";
 }
 
 type ReplayAction =
   | "refire_stage2_handoff"
+  | "refire_coordinator"
   | "dispatcher_stall_detected"
   | "skipped_not_stalled"
   | "skipped_no_email"
@@ -61,6 +69,74 @@ interface ReplayResult {
   event?: { name: string; data: Record<string, unknown> } | null;
   inngest_ids?: string[];
   reason?: string;
+}
+
+/**
+ * v2 — re-run Stage 3 directly for a dispatcher/Stage-3 stall by re-emitting the
+ * canonical `pipeline/coordinator.requested` event (the same one the Stage-2
+ * resolver emits). Rebuilds the payload from the email row; `entity` is carried
+ * from the email's most recent agent_run. Stage-2 customer context is NOT
+ * re-resolved here (Stage 3 intent is body-driven; null is the legal no-match
+ * value) — a full re-resolve is the hand-off (stage-2) path. A fresh run_id is
+ * minted by the coordinator, so a fresh coordinator_run + agent_run are created.
+ */
+async function refireCoordinator(
+  admin: ReturnType<typeof createAdminClient>,
+  send: SendFn,
+  swarm_type: string,
+  emailId: string,
+  dryRun: boolean,
+): Promise<ReplayResult> {
+  const { data: email } = await admin
+    .schema("email_pipeline")
+    .from("emails")
+    .select(
+      "id, subject, body_text, sender_email, mailbox, source_id, internet_message_id",
+    )
+    .eq("id", emailId)
+    .maybeSingle();
+  if (!email) return { email_id: emailId, action: "skipped_no_email" };
+
+  const { data: arRows } = await admin
+    .from("agent_runs")
+    .select("entity")
+    .eq("email_id", emailId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const entity =
+    (arRows as Array<{ entity?: string | null }> | null)?.[0]?.entity ?? null;
+
+  const event = {
+    name: "pipeline/coordinator.requested",
+    data: {
+      swarm_type,
+      email_id: email.id as string,
+      automation_run_id: null,
+      entity,
+      entity_brand: entity,
+      context_version: 1,
+      subject: (email.subject as string | null) ?? "",
+      body_text: (email.body_text as string | null) ?? "",
+      sender_email: (email.sender_email as string | null) ?? "",
+      mailbox: email.mailbox as string,
+      received_at: new Date().toISOString(),
+      graph_message_id:
+        (email.source_id as string | null) ??
+        (email.internet_message_id as string | null),
+      customer_id: null,
+      customer_account_id: null,
+      customer_name: null,
+    },
+  };
+
+  if (dryRun) return { email_id: emailId, action: "refire_coordinator", event };
+  const res = (await send(event)) as { ids?: string[] };
+  return {
+    email_id: emailId,
+    action: "refire_coordinator",
+    event,
+    inngest_ids: res?.ids ?? [],
+  };
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -104,6 +180,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   // dry_run defaults TRUE — caller must explicitly pass false to fire.
   const dryRun = body.dry_run !== false;
+  const mode =
+    body.mode === "refire_coordinator" ? "refire_coordinator" : "auto";
 
   const admin = createAdminClient();
   const send: SendFn = (event) => (inngest.send as unknown as SendFn)(event);
@@ -112,6 +190,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   for (const emailId of emailIds) {
     try {
+      // v2 — operator forces a direct Stage-3 re-run (dispatcher-stall cure),
+      // skipping the hand-off auto-detection entirely.
+      if (mode === "refire_coordinator") {
+        results.push(
+          await refireCoordinator(admin, send, swarm_type, emailId, dryRun),
+        );
+        continue;
+      }
+
       const { data: email } = await admin
         .schema("email_pipeline")
         .from("emails")
@@ -143,14 +230,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         .eq("email_id", emailId)
         .limit(1);
       if (cr && cr.length > 0) {
-        // Dispatcher-phase stall (reached the classifier, never dispatched).
-        // v2 will re-fire pipeline/predicted from coordinator_runs.ranked_intents.
-        results.push({
-          email_id: emailId,
-          action: "dispatcher_stall_detected",
-          reason:
-            "has coordinator_run but no Stage-3 event — needs pipeline/predicted re-fire (not yet automated)",
-        });
+        // Dispatcher/Stage-3 stall (reached the classifier, never produced a
+        // Stage-3 event). v2 — re-run Stage 3 directly (queue-free path) so the
+        // verdict + label are produced. Replaces the v1 report-only.
+        results.push(
+          await refireCoordinator(admin, send, swarm_type, emailId, dryRun),
+        );
         continue;
       }
 
