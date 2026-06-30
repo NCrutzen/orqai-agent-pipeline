@@ -1,0 +1,53 @@
+-- Phase 135 Plan 03 (MODEL-01, MODEL-02, MODEL-04, MIGRATE-01, MIGRATE-03).
+-- Gating-model storage migration + 4-swarm normalization (V9.8 P1a).
+--
+-- This migration is AUTHORED here; it is APPLIED (operator-gated) in Phase 135-05.
+-- It (1) renames public.swarms.dry_run_config -> gating_config, (2) migrates the
+-- stage_4_handlers map from boolean (blocked/live) to a tri-state string
+-- (off|dry|live), (3) seeds the swarms to their verified-live LEGAL state, and
+-- (4) installs the trigger-stage invariant (PL/pgSQL BEFORE trigger + a
+-- security_invoker violation view) STRICTLY LAST so the seed lands before
+-- enforcement turns on (RESEARCH Pitfall 5).
+--
+-- Polarity reminder: per-stage flags TRUE = blocked/held, FALSE = live.
+-- Forward-bucket sub-map: TRUE = released (inverse polarity — NEVER converted to
+-- tri-state). Tri-state handlers: "off" | "dry" | "live".
+--
+-- Only ALTERs the existing RLS-enabled public.swarms; existing swarms policies
+-- cover the renamed column. No new table, no new policy, no anon grant. The
+-- violation view is security_invoker = true (RLS of the calling role applies).
+--
+-- ════════════════════════════════════════════════════════════════════════════
+-- TASK 1 — CONFIRMED handler -> trigger-stage map (MODEL-04 / RESEARCH A1)
+-- ════════════════════════════════════════════════════════════════════════════
+-- The trigger below RAISEs on any handler="live" whose trigger-stage is not live.
+-- The handler->trigger-stage map encoded in the trigger fn was CONFIRMED against
+-- the real dispatch wiring (not just inferred from RESEARCH A1):
+--
+--   * stage_1_cleanup  -> trigger-stage = stage_1_cleanup (flag false = live).
+--       Dispatched by the Stage-1 iController cleanup path, NOT by Stage-3 routing:
+--       web/lib/inngest/functions/stage-1-icontroller-noise-cleanup-dispatcher.ts:48
+--         is a `{ cron: "TZ=Europe/Amsterdam */5 6-19 * * 1-5" }` Stage-1 dispatcher
+--         that emits "debtor-email/stage-1.icontroller-cleanup.requested" (line 101);
+--       web/lib/inngest/functions/stage-1-icontroller-noise-cleanup.ts:51,69
+--         is the handler, triggered by that Stage-1 cleanup event. Its trigger-stage
+--         is therefore the Stage-1 cleanup flag — CONFIRMED, matches A1.
+--
+--   * every OTHER Stage-4 handler (e.g. invoice-copy) -> trigger-stage = stage_3_routing
+--       (flag false = live). Dispatched by the Stage-3 predicted-emit -> dispatcher:
+--       web/lib/inngest/functions/classifier-invoice-copy-handler.ts:49,101
+--         is the handler, triggered by "debtor-email/invoice-copy.requested";
+--       web/lib/inngest/functions/stage-3-dispatcher.ts:176-211 emits the
+--         registry handler_event (from swarm_intents) for registered intents — this
+--         is the Stage-3 routing/predicted-emit dispatch path;
+--       web/lib/inngest/functions/debtor-email-coordinator.ts:77-88 reads the
+--         stage_3_routing gate BEFORE the predicted-emit: when routing is held the
+--         predicted-emit is withheld so the dispatcher (hence every routing-driven
+--         handler such as invoice-copy) never fires.
+--       So: invoice-copy -> stage_3_routing — CONFIRMED, matches A1. No deviation
+--       from RESEARCH A1 was found; the dispatch wiring corroborates the map.
+--
+-- Legal-by-construction (no live handler on a held stage):
+--   debtor stage_1_cleanup:"live" requires stage_1_cleanup flag live (false) -- seeded false (live).
+--   debtor invoice-copy:"dry" is not live -> unconstrained.
+--   sales/info-routing/support-tickets seed no live handler -> invariant vacuous.
