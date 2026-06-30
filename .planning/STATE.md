@@ -4,14 +4,14 @@ milestone: V9.8
 milestone_name: Run-Mode & Gating Redesign — Governance Rail
 status: executing
 stopped_at: Phase 135 context gathered
-last_updated: "2026-06-25T17:13:41.879Z"
-last_activity: 2026-06-25 -- Phase 135 planning complete
+last_updated: "2026-06-30T06:57:20.096Z"
+last_activity: 2026-06-30 -- Phase 135 execution started
 progress:
-  total_phases: 4
-  completed_phases: 0
-  total_plans: 5
-  completed_plans: 0
-  percent: 0
+  total_phases: 22
+  completed_phases: 16
+  total_plans: 84
+  completed_plans: 72
+  percent: 73
 ---
 
 # Project State
@@ -61,15 +61,15 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 132.1 — router-golive-dispatch-wiring-v9-7
+**Current focus:** Phase 135 — gating-model-storage-migration-4-swarm-normalization-v9-8-p1
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30), V9.0 Sales-Email Canonical Pipeline (shipped 2026-06-15). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: Not started — roadmap created (4 phases: 135 P1a · 136 P1b · 137 P2 · 138 P3)
-Plan: —
-Status: Ready to execute
-Last activity: 2026-06-25 -- Phase 135 planning complete
+Phase: 135 (gating-model-storage-migration-4-swarm-normalization-v9-8-p1) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 135
+Last activity: 2026-06-30 -- Phase 135 execution started
 
 ### V9.8 roadmap (created 2026-06-25)
 
