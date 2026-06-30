@@ -33,7 +33,7 @@ import { inngest } from "@/lib/inngest/client";
 import { recordWorkerFailure } from "@/lib/inngest/on-worker-failure";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSwarm } from "@/lib/swarms/registry";
-import { isStageBlocked } from "@/lib/pipeline-gating/dry-run-gate";
+import { isStageBlocked, deriveMailboxMode } from "@/lib/pipeline-gating/dry-run-gate";
 import { graphFetch } from "@/lib/outlook/client";
 import { buildIntentCategory, mergeIntentCategory } from "@/lib/outlook/intent-category";
 import {
@@ -46,6 +46,7 @@ const enc = encodeURIComponent;
 
 type LabelDecision =
   | "gated"
+  | "shadow_suppressed"
   | "unresolved"
   | "clobber-skip"
   | "unchanged"
@@ -75,6 +76,43 @@ export const stage3IntentLabelWorker = inngest.createFunction(
   async ({ event, step }) => {
     const { swarm_type, email_id, intent_key } = event.data;
     const admin = createAdminClient();
+
+    // ---- 0) Shadow gate (D-03 / MODEL-05) — derive the per-mailbox lifecycle -
+    // mode and HOLD the operator-visible Graph AI:-category PATCH when the
+    // mailbox is not yet greenlit (Shadow = nothing live AND the AI:-label write
+    // is held). This sits BEFORE the stage gate ON PURPOSE: deriveMailboxMode
+    // returns Shadow only when stage_3_intent_label is NOT live, so Shadow is a
+    // STRICT SUBSET of the stage-3 gate below — placing it after would let the
+    // generic `gated` return mask every Shadow row and never emit the internal
+    // suppression audit. Pitfall 4: suppress ONLY the Graph PATCH — internal
+    // persistence (this audit pipeline_event + the upstream-coordinator verdict
+    // that already ran before this worker) stays intact and visible in Bulk
+    // Review. Replay-safe: the derive read is inside step.run (CLAUDE.md Inngest).
+    const mode = await step.run("derive-mode", async () => {
+      const swarmRow = await loadSwarm(admin, swarm_type);
+      return deriveMailboxMode(swarmRow);
+    });
+    if (mode === "Shadow") {
+      await step.run("emit-shadow-audit", async () => {
+        try {
+          await emitPipelineEvent(admin, {
+            swarm_type,
+            stage: 4,
+            email_id,
+            decision: "intent_label_shadow_suppressed",
+            decision_details: {
+              ai_category: buildIntentCategory(intent_key),
+              source_stage: 3,
+              suppressed_at: new Date().toISOString(),
+            },
+            triggered_by: "pipeline",
+          });
+        } catch {
+          // Audit is best-effort; a Shadow suppression must never dead-letter.
+        }
+      });
+      return { decision: "shadow_suppressed" as LabelDecision };
+    }
 
     // ---- 1) Gate (D-3) — load the swarm row, fail-closed no-op when GATED ----
     const gated = await step.run("load-swarm-row", async () => {
