@@ -831,14 +831,14 @@ Plans:
   └──> 138 (P3: per-email-address control UI)    [operator views + sets per-stage/per-handler; invariant enforced in-surface]
 ```
 
-- [ ] **Phase 135 (P1a): Gating model + storage + migration + 4-swarm normalization** — the spine. Land the new storage shape (per-mailbox lifecycle + per-stage enablement + per-handler `off|dry|live`), make the mailbox mode *derived*, enforce the trigger-stage invariant at write time, migrate the live gate off the 3 scattered state holders with no behavior change at cutover, and normalize all 4 swarms to their intended state. Covers MODEL-01..05, MIGRATE-01..03.
+- [x] **Phase 135 (P1a): Gating model + storage + migration + 4-swarm normalization** — the spine. Land the new storage shape (per-mailbox lifecycle + per-stage enablement + per-handler `off|dry|live`), make the mailbox mode *derived*, enforce the trigger-stage invariant at write time, migrate the live gate off the 3 scattered state holders with no behavior change at cutover, and normalize all 4 swarms to their intended state. Covers MODEL-01..05, MIGRATE-01..03. (completed 2026-06-30)
 - [ ] **Phase 136 (P1b): Review renderers + canonical matrix doc** — surface the model in the Bulk Review UI: the row renderer derives + shows Shadow/Dry/Live (the "Auto-applied" badge extended to add Shadow), each row carries dry-run provenance captured at emit time (survives later flips), the mode-filter strip derives mode and gains a Shadow option, and the canonical run-mode/gating matrix doc lands in `docs/agentic-pipeline/`. Covers REVIEW-01..03, DOC-01.
 - [ ] **Phase 137 (P2): Per-handler dry-capture** — give the `dry` handler state real evidence-capture mechanics: the iController delete handler in `dry` does not delete and screenshots which email it would have actioned; the reply-agent handler in `dry` writes to an Outlook draft instead of sending; the captured evidence is surfaced to the operator from the review/audit surface. Covers CAPTURE-01..03.
 - [ ] **Phase 138 (P3): Per-email-address control / visibility UI** — the operator-facing surface: per email address, view the exact per-stage enablement + per-handler `off|dry|live` state, and change them from the UI, with the trigger-stage invariant enforced in the surface. Covers CONTROL-01..02.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 135. Gating model + storage + migration + 4-swarm normalization (P1a) | 3/5 | In Progress|  |
+| 135. Gating model + storage + migration + 4-swarm normalization (P1a) | 5/5 | Complete   | 2026-06-30 |
 | 136. Review renderers + canonical matrix doc (P1b) | 0/TBD | Not started | - |
 | 137. Per-handler dry-capture (P2) | 0/TBD | Not started | - |
 | 138. Per-email control / visibility UI (P3) | 0/TBD | Not started | - |
@@ -870,11 +870,11 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 135-04-PLAN.md — Wave 2: D-03 Shadow runtime gate — early-return `shadow_suppressed` in `stage-3-intent-label-worker.ts` holding ONLY the Graph `AI:`-PATCH (internal writes intact), derive read inside `step.run()` (turns the Shadow RED assertion green)
+- [x] 135-04-PLAN.md — Wave 2: D-03 Shadow runtime gate — early-return `shadow_suppressed` in `stage-3-intent-label-worker.ts` holding ONLY the Graph `AI:`-PATCH (internal writes intact), derive read inside `step.run()` (turns the Shadow RED assertion green)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 135-05-PLAN.md — Wave 3 (operator-gated): re-confirm live seed + sales-seed decision checkpoint → apply the migration to live `mvqjhlxfvtqqubqgdvhz` → post-apply gate (seed read-back + trigger smoke + `check:supabase` 0 ERROR + codegen no-op + full `npm test`)
+- [x] 135-05-PLAN.md — Wave 3 (operator-gated): re-confirm live seed + sales-seed decision checkpoint → apply the migration to live `mvqjhlxfvtqqubqgdvhz` → post-apply gate (seed read-back + trigger smoke + `check:supabase` 0 ERROR + codegen no-op + full `npm test`)
 
 ### Phase 136: Review renderers + canonical matrix doc (V9.8 P1b)
 
@@ -936,7 +936,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 **Goal:** swarm-behavior-sync.ts observes MULTIPLE mailboxes per swarm row (behavior_tracking_config.mailboxes string[] with a backward-compatible singular-mailbox fallback), and sales-email is migrated to the mailboxes[] form to live-validate the new read-path before debtor enablement.
 **Requirements**: none registered (must_haves derived from goal + 118-CONTEXT.md)
 **Depends on:** Phase 117
-**Plans:** 3/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 
