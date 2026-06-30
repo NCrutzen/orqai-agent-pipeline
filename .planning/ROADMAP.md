@@ -838,7 +838,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 135. Gating model + storage + migration + 4-swarm normalization (P1a) | 5/5 | Complete   | 2026-06-30 |
+| 135. Gating model + storage + migration + 4-swarm normalization (P1a) | 5/5 | Complete    | 2026-06-30 |
 | 136. Review renderers + canonical matrix doc (P1b) | 0/TBD | Not started | - |
 | 137. Per-handler dry-capture (P2) | 0/TBD | Not started | - |
 | 138. Per-email control / visibility UI (P3) | 0/TBD | Not started | - |

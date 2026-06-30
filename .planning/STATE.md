@@ -4,7 +4,7 @@ milestone: V9.8
 milestone_name: Run-Mode & Gating Redesign — Governance Rail
 status: verifying
 stopped_at: Completed 135-02-PLAN.md
-last_updated: "2026-06-30T08:44:51.855Z"
+last_updated: "2026-06-30T08:56:09.263Z"
 last_activity: 2026-06-30
 progress:
   total_phases: 22
@@ -66,8 +66,8 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 
 ## Current Position
 
-Phase: 135 (gating-model-storage-migration-4-swarm-normalization-v9-8-p1) — EXECUTING
-Plan: 5 of 5
+Phase: 136
+Plan: Not started
 Status: Phase complete — ready for verification
 Last activity: 2026-06-30
 
@@ -99,7 +99,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 
 **Velocity:**
 
-- Total plans completed: 54
+- Total plans completed: 59
 - Average duration: --
 - Total execution time: 0 hours
 
@@ -225,6 +225,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 | Phase 135 P03 | 14min | 3 tasks | 1 files |
 | Phase 135 P04 | 6min | 1 tasks | 2 files |
 | Phase 135 P135-05 | 35m | 4 tasks | 3 files |
+| 135 | 5 | - | - |
 
 ## Accumulated Context
 
