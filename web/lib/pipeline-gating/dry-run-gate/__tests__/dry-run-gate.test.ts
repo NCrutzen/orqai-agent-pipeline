@@ -17,18 +17,18 @@ import { isStageBlocked, isHandlerBlocked } from "../index";
 describe("dry-run gate — stage_2_resolution key (fail-closed)", () => {
   it("returns true (BLOCKED) when stage_2_resolution=true", () => {
     expect(
-      isStageBlocked({ dry_run_config: { stage_2_resolution: true } }, "stage_2_resolution"),
+      isStageBlocked({ gating_config: { stage_2_resolution: true } }, "stage_2_resolution"),
     ).toBe(true);
   });
 
   it("returns false (LIVE) when stage_2_resolution=false", () => {
     expect(
-      isStageBlocked({ dry_run_config: { stage_2_resolution: false } }, "stage_2_resolution"),
+      isStageBlocked({ gating_config: { stage_2_resolution: false } }, "stage_2_resolution"),
     ).toBe(false);
   });
 
   it("returns true (BLOCKED) when the key is missing — fail-closed", () => {
-    expect(isStageBlocked({ dry_run_config: {} }, "stage_2_resolution")).toBe(true);
+    expect(isStageBlocked({ gating_config: {} }, "stage_2_resolution")).toBe(true);
   });
 
   it("returns true (BLOCKED) when the swarm is null — fail-closed", () => {

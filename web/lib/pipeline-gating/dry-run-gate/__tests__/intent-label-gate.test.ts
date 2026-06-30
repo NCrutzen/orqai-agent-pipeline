@@ -17,18 +17,18 @@ import { isStageBlocked } from "../index";
 describe("dry-run gate — stage_3_intent_label key (fail-closed, D-3)", () => {
   it("returns true (GATED) when stage_3_intent_label=true", () => {
     expect(
-      isStageBlocked({ dry_run_config: { stage_3_intent_label: true } }, "stage_3_intent_label"),
+      isStageBlocked({ gating_config: { stage_3_intent_label: true } }, "stage_3_intent_label"),
     ).toBe(true);
   });
 
   it("returns false (LIVE) when stage_3_intent_label=false", () => {
     expect(
-      isStageBlocked({ dry_run_config: { stage_3_intent_label: false } }, "stage_3_intent_label"),
+      isStageBlocked({ gating_config: { stage_3_intent_label: false } }, "stage_3_intent_label"),
     ).toBe(false);
   });
 
   it("returns true (GATED) when the key is missing — fail-closed", () => {
-    expect(isStageBlocked({ dry_run_config: {} }, "stage_3_intent_label")).toBe(true);
+    expect(isStageBlocked({ gating_config: {} }, "stage_3_intent_label")).toBe(true);
   });
 
   it("returns true (GATED) when the swarm is null — fail-closed", () => {
@@ -39,7 +39,7 @@ describe("dry-run gate — stage_3_intent_label key (fail-closed, D-3)", () => {
     // A config carrying both the new key and the existing keys must resolve each
     // existing key exactly as before — stage_3_intent_label is independent.
     const cfg = {
-      dry_run_config: {
+      gating_config: {
         stage_1_archive: false,
         stage_3_labeling: true,
         stage_3_routing: false,
