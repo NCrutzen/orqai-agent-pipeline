@@ -4,7 +4,7 @@ milestone: V9.8
 milestone_name: Run-Mode & Gating Redesign — Governance Rail
 status: executing
 stopped_at: Completed 135-02-PLAN.md
-last_updated: "2026-06-30T07:45:06.330Z"
+last_updated: "2026-06-30T07:54:03.234Z"
 last_activity: 2026-06-30
 progress:
   total_phases: 22
@@ -67,7 +67,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 135 (gating-model-storage-migration-4-swarm-normalization-v9-8-p1) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-06-30
 
@@ -223,6 +223,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 | Phase 135 P01 | 9min | 3 tasks | 5 files |
 | Phase 135 P02 | 12min | 2 tasks | 13 files |
 | Phase 135 P03 | 14min | 3 tasks | 1 files |
+| Phase 135 P04 | 6min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -380,6 +381,8 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 - [Phase ?]: [Phase 132.1-04] Per-mailbox auto-flip reconciliation = brand-reachable (Option A, operator-confirmed); stage_4_forward_buckets stays bucket-keyed, release-only + idempotent, panic lever = migration 20260624b
 - [Phase ?]: [Phase 135-01] Wave 0 RED scaffold landed: derive-mode + tri-state + Shadow-suppression tests RED until 135-02/135-04; pin tests stay green (MIGRATE-02). Sales derive-fixture presents stage_1_archive=true held per OQ-3 Path A so sales derives Dry. Smoke scripts probe via always-raise DO block (never persist) using Management-API token only.
 - [Phase ?]: [Phase 135-02] verdict-worker has NO legacy labeling_settings.dry_run co-gate — it gates stage_1_archive purely via the registry isStageBlocked; only invoice-copy-handler retains a transitional dry_run OR-gate (MIGRATE-01, removal deferred).
+- [Phase ?]: [Phase 135-04] Shadow gate placed BEFORE the stage_3_intent_label gate (plan said after): deriveMailboxMode returns Shadow only when the label write is held, so Shadow is a strict subset of the stage gate — placing it after would let the generic 'gated' return mask every Shadow row and skip the internal suppression audit.
+- [Phase ?]: [Phase 135-04] Repaired stale intent-label-worker.test.ts fixtures (135-02 gating_config drift left 8 RED): Dry tests convert verbatim, held-stage GATED tests derive Live, missing-config test now derives Shadow (MODEL-05).
 
 ### Blockers/Concerns
 
@@ -427,7 +430,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 
 ## Session Continuity
 
-Last session: 2026-06-30T07:45:06.136Z
+Last session: 2026-06-30T07:53:55.246Z
 Stopped at: Completed 135-02-PLAN.md
 Resume with: Phase 131 verified clean. ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding; WR-02 dedup-below-threshold hardening optional future pass.
 Resume file: None
