@@ -18,6 +18,14 @@
 -- (new keys feed the Zod enum + the Orq agent json_schema), then re-deploy the
 -- info-routing-coordinator agent (manage-info-routing-coordinator.ts) with the
 -- new <closed_list>. RLS already enabled on public.routing_destinations.
+--
+-- MANDATORY after adding/renaming any routing bucket: re-run the master-category
+-- seeder so the new `AI: held → <bucket>` / `AI: routed → <bucket>` names render
+-- in the non-grey preset5 colour instead of grey:
+--   cd web && npx tsx scripts/ensure-info-routing-categories.ts
+-- It is idempotent (GET-before-POST) and sources buckets live from this registry.
+-- SKIPPING THIS leaves new buckets' chips grey in Outlook — debug session
+-- .planning/debug/resolved/ai-held-label-color-gray-blue.md documents that drift.
 
 BEGIN;
 

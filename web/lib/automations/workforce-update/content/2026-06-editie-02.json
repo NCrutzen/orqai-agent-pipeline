@@ -1,0 +1,111 @@
+{
+  "edition": 2,
+  "period_label": "Edition #2",
+  "period_sub": "June 2026",
+  "title": "Agent Workforce Update",
+  "tagline": "What your digital colleagues have been doing",
+  "date_human": "25 June 2026",
+  "intro": "A look back at June. The agent workforce now spans thirteen mailboxes across four brands — the sales assistant went live for Smeba, Fire Control and Berki, and info@ mail is now routed to the right team automatically. It reads, sorts and matches every email and prepares the next step, still changing nothing in shadow and dry-run until each mailbox is signed off.",
+
+  "hero_stats": [
+    { "value": "13", "label": "mailboxes connected", "sub": "across four brands" },
+    { "value": "±8,100", "label": "emails received", "sub": "last 45 days" },
+    { "value": "7", "label": "mailboxes processed", "sub": "sales + debtor swarms" },
+    { "value": "4", "label": "brands connected", "sub": "Smeba · Fire Control · Berki" }
+  ],
+
+  "mailbox_caption": "Emails received per mailbox · last 45 days",
+  "mailboxes": [
+    { "name": "info@smeba.nl", "count": 1863 },
+    { "name": "order@smeba.nl", "count": 1649 },
+    { "name": "verkoop@smeba.nl", "count": 1474 },
+    { "name": "debiteuren@smeba.nl", "count": 871 },
+    { "name": "administratie@fire-control.nl", "count": 581 },
+    { "name": "debiteuren@smeba-fire.be", "count": 476 },
+    { "name": "info@fire-control.nl", "count": 401 },
+    { "name": "debiteuren@berki.nl", "count": 394 },
+    { "name": "order@berki.nl", "count": 109 },
+    { "name": "order@fire-control.nl", "count": 103 },
+    { "name": "verkoop@fire-control.nl", "count": 83 },
+    { "name": "verkoop@berki.nl", "count": 67 },
+    { "name": "sales.products@berki.nl", "count": 57 }
+  ],
+
+  "status_live": "Acts on its own in your inbox — sorting, labelling and routing. (You still send the replies.)",
+  "status_dryrun": "Labels mail in Outlook with the detected intent, but takes no automatic action on it yet.",
+  "status_shadow": "Runs behind the scenes — you only see it in the Bulk Review tool. Nothing changes in Outlook.",
+
+  "pipeline": {
+    "title": "Every email goes through five steps",
+    "intro": "One shared process for every brand and team — each step handled by its own digital colleague.",
+    "steps": [
+      { "persona": "Marshall", "persona_title": "the Gatekeeper", "avatar": "safety.png", "title": "Security check" },
+      { "persona": "Cleo", "persona_title": "the Smart Sorter", "avatar": "cleo.png", "title": "Sort the noise" },
+      { "persona": "Iris", "persona_title": "the Customer Matcher", "avatar": "credit.png", "title": "Match the customer" },
+      { "persona": "Debbie", "persona_title": "the Team Lead", "avatar": "debbie.png", "title": "Decide the action" },
+      { "persona": "Quinn", "persona_title": "the Drafter (+ team)", "avatar": "invoicecopy.png", "title": "Do the work" }
+    ],
+    "new_teammate": { "persona": "Robin", "persona_title": "the Router", "avatar": "triage.png", "blurb": "sorts info@ mail to the right department." },
+    "persona_note": "Cleo, Debbie and now Robin are on the roster; Marshall, Iris and Quinn are proposed names. Avatars: Personas by Draftbit (CC BY 4.0)."
+  },
+
+  "matrix": {
+    "title": "What's switched on, per mailbox",
+    "caption": "Which funnel stage is active per mailbox — and what you'll see where",
+    "columns": ["Reads & screens", "Archives noise", "Matches customer", "Intent label", "Routes to team", "Drafts reply"],
+    "short_columns": ["Read", "Archive", "Match", "Label", "Route", "Reply"],
+    "legend": [
+      { "key": "live", "label": "Live — acts" },
+      { "key": "dry", "label": "Dry-run — label only" },
+      { "key": "shadow", "label": "Shadow — Bulk Review" },
+      { "key": "off", "label": "Not yet" }
+    ],
+    "rows": [
+      { "mailbox": "verkoop@smeba.nl", "cells": ["live", "live", "shadow", "dry", "off", "off"] },
+      { "mailbox": "verkoop@fire-control.nl", "cells": ["live", "live", "shadow", "dry", "off", "off"] },
+      { "mailbox": "verkoop@berki.nl", "cells": ["live", "live", "shadow", "dry", "off", "off"] },
+      { "mailbox": "sales.products@berki.nl", "cells": ["live", "live", "shadow", "dry", "off", "off"] },
+      { "mailbox": "debiteuren@smeba.nl", "cells": ["live", "live", "shadow", "dry", "off", "off"] },
+      { "mailbox": "debiteuren@smeba-fire.be", "cells": ["live", "live", "shadow", "dry", "off", "off"] },
+      { "mailbox": "debiteuren@berki.nl", "cells": ["live", "live", "shadow", "dry", "off", "off"] },
+      { "mailbox": "administratie@fire-control.nl", "cells": ["live", "live", "shadow", "dry", "off", "off"] },
+      { "mailbox": "info@smeba.nl", "cells": ["live", "live", "off", "off", "live", "off"] },
+      { "mailbox": "info@fire-control.nl", "cells": ["live", "live", "off", "off", "live", "off"] },
+      { "mailbox": "order@smeba.nl", "cells": ["shadow", "off", "off", "off", "off", "off"] },
+      { "mailbox": "order@fire-control.nl", "cells": ["shadow", "off", "off", "off", "off", "off"] },
+      { "mailbox": "order@berki.nl", "cells": ["shadow", "off", "off", "off", "off", "off"] }
+    ],
+    "note": "Shadow = behind the scenes (Bulk Review only). Dry-run = the label appears in Outlook, but no automatic action yet. Routes = info@ mail forwarded to the right team. States reflect current config — verify before sending."
+  },
+
+  "learning_spotlight": {
+    "title": "It learns from how you work",
+    "body": "It watches how you correct it, and improves with every edit.",
+    "points": [
+      "Change or remove a label → it learns the label was wrong.",
+      "Drag an email elsewhere → it learns where it belongs.",
+      "Edit or reject a draft → it sharpens the next suggestion."
+    ]
+  },
+
+  "shipped": [
+    { "title": "Sales assistant live on 4 mailboxes", "body": "Now reading and labelling sales mail for Smeba, Fire Control and Berki." },
+    { "title": "info@ mail auto-routed", "body": "Mail to info@ is sorted and forwarded to the right department automatically." },
+    { "title": "Sharper customer matching", "body": "Combines clues, reads PDF attachments, and won't guess when unsure." },
+    { "title": "Less spam & cold sales", "body": "Junk, cold pitches and newsletters are filtered before staff see them." },
+    { "title": "Tidies handled mail away", "body": "Handled email is filed into an 'AI Handled' folder." },
+    { "title": "Tender mailbox check-in", "body": "The tender filter now sends a short status update." }
+  ],
+
+  "roadmap": [
+    { "title": "What each mailbox may do", "body": "A clear overview of what every mailbox assistant is allowed to do." },
+    { "title": "Handling rejected quotes", "body": "Spotting declined quotes and following them up automatically." },
+    { "title": "Learning from your replies", "body": "Your corrections and sent replies teach the system over time." },
+    { "title": "Smarter reply drafts", "body": "Draft replies for the most common request types." }
+  ],
+
+  "roadmap_note": "Roadmap is a proposal based on the planning — adjust to what you want to communicate.",
+  "footer": "Questions or feedback? We'd love to hear what helps. — MR Automations",
+  "brand_line": "Moyne Roberts · Trusted Safety Solutions",
+  "shadow_note": "Shadow mode · no changes without sign-off"
+}

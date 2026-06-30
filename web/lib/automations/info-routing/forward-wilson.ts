@@ -29,6 +29,15 @@ export const FORWARD_WILSON_GATE = 0.7;
 // 1/1 from ever clearing the gate.
 export const MIN_OBSERVED_N = 20;
 
+// Phase 132.2 (D-05) coverage gate. A bucket flips ONLY when the autoflip sees
+// that at least this fraction of forwards for the predicted bucket actually
+// landed on a known routing destination (graded). The cron combines:
+//   coverage >= FORWARD_COVERAGE_GATE  AND  gradeBucketsByWilson(...).pass
+// (i.e. n >= MIN_OBSERVED_N AND wilson_lower >= FORWARD_WILSON_GATE). The
+// coverage gate guards the case where a bucket looks like a clean small graded
+// sample only because most of its forwards went to personal/untracked mailboxes.
+export const FORWARD_COVERAGE_GATE = 0.7;
+
 /**
  * Wilson score interval LOWER bound for a binomial proportion.
  * lower = (p̂ + z²/2n − z·√[(p̂(1−p̂) + z²/4n)/n]) / (1 + z²/n)
@@ -109,6 +118,47 @@ export function gradeBucketsByWilson(
       wilson_lower,
       pass: n >= minN && wilson_lower >= gate,
     });
+  }
+  return out;
+}
+
+/**
+ * Phase 132.2 (D-05) — per-predicted-bucket coverage over the forward
+ * observations. DISTINCT denominator from gradeBucketsByWilson:
+ *   - `total`    = ALL observations for the predicted bucket, INCLUDING the ones
+ *                  whose observed_bucket is null (forwarded to a personal/external
+ *                  address that maps to no routing destination).
+ *   - `graded`   = observations with a non-null observed_bucket (the ones Wilson
+ *                  actually scores).
+ *   - `coverage` = graded / total.
+ *
+ * A bucket with zero observations is never added to the map, so coverage is
+ * never NaN. The autoflip releases a bucket only when `coverage >=
+ * FORWARD_COVERAGE_GATE` AND `gradeBucketsByWilson(...).pass`. This guards a
+ * half-mapped bucket from masquerading as a clean small graded sample: Wilson
+ * excludes observed_bucket===null from both numerator and denominator, so a
+ * bucket where most forwards went to untracked mailboxes could clear Wilson on
+ * the few graded ones while we have almost no real evidence. Coverage is that
+ * guard. Pure.
+ */
+export function computeBucketCoverage(
+  observations: ForwardObservation[],
+): Map<string, { total: number; graded: number; coverage: number }> {
+  const byBucket = new Map<string, { total: number; graded: number }>();
+  for (const o of observations) {
+    const e = byBucket.get(o.predicted_bucket) ?? { total: 0, graded: 0 };
+    e.total += 1;
+    if (o.observed_bucket !== null) e.graded += 1;
+    byBucket.set(o.predicted_bucket, e);
+  }
+
+  const out = new Map<
+    string,
+    { total: number; graded: number; coverage: number }
+  >();
+  for (const [bucket, { total, graded }] of byBucket) {
+    // total is always >= 1 here, so coverage is never NaN.
+    out.set(bucket, { total, graded, coverage: graded / total });
   }
   return out;
 }

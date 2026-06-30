@@ -33,7 +33,7 @@ function orqResponse(text: string, usage?: unknown) {
     status: 200,
     statusText: "OK",
     json: async () => ({
-      output: [{ role: "assistant", parts: [{ kind: "text", text }] }],
+      output: [{ content: [{ type: "output_text", text }] }],
       usage,
     }),
     text: async () => "",
@@ -101,13 +101,17 @@ describe("invokeSalesIntentAgent (Task 3)", () => {
     );
   });
 
-  it("POSTs to the sales-intent-agent responses endpoint", async () => {
+  it("POSTs /v3/router/responses with model=agent/sales-intent-agent", async () => {
     const spy = vi
       .spyOn(global, "fetch")
       .mockResolvedValue(orqResponse(JSON.stringify(validOutput())));
     await invokeSalesIntentAgent(baseInput);
     const url = spy.mock.calls[0][0] as string;
-    expect(url).toContain("sales-intent-agent/responses");
+    expect(url).toBe("https://api.orq.ai/v3/router/responses");
+    const body = JSON.parse(
+      String((spy.mock.calls[0][1] as { body?: unknown }).body),
+    );
+    expect(body.model).toBe("agent/sales-intent-agent");
   });
 });
 

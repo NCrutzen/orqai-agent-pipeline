@@ -20,7 +20,7 @@ function mockOrqResponse(jsonText: string) {
     status: 200,
     statusText: "OK",
     json: vi.fn().mockResolvedValue({
-      output: [{ role: "assistant", parts: [{ kind: "text", text: jsonText }] }],
+      output: [{ content: [{ type: "output_text", text: jsonText }] }],
     }),
     text: vi.fn().mockResolvedValue(""),
   } as unknown as Response;

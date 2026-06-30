@@ -1,27 +1,36 @@
-// Phase 132.1 Plan 04 Task 2 (D-02) — the per-mailbox forward AUTO-FLIP cron.
+// Phase 132.1 (D-02) → Phase 132.2 (V9.7.x) — the per-bucket forward AUTO-FLIP cron.
 //
 // This cron ARMS irreversible live Outlook forwards. It releases a forward bucket
 // (`swarms.gating_config.stage_4_forward_buckets[bucket]=true`) for the
-// info-routing swarm ONLY when that bucket's source mailbox has cleared the
-// ROUTE-08 shadow gate: per-mailbox precision is `graded` AND `pass===true` AND
-// `graded_n >= MIN_GRADED_N` (50). `insufficient_sample` / `pass:null` NEVER
-// flips — the false-success guard (gradeVerdict, IMPORTED unchanged) is the
-// load-bearing safety. Brand-reachable reconciliation (operator-confirmed A4): a
-// cleared mailbox releases only the buckets reachable from its brand; smeba and
-// fire-control flip independently. Release-only + idempotent: only ever sets
-// `true`, never `false`; a bucket already true is left untouched.
+// info-routing swarm ONLY when that bucket clears the FORWARD-MATCH ground-truth
+// gate: over the accumulated ledger of observed staff forwards, the bucket's
+// per-bucket Wilson lower bound ≥ FORWARD_WILSON_GATE (0.70) at n ≥ MIN_OBSERVED_N
+// AND its coverage ≥ FORWARD_COVERAGE_GATE (0.70). Release-only + idempotent:
+// only ever sets `true`, never `false`; a bucket already true is left untouched.
+//
+// Phase 132.2 changed the INPUT (Option A — feed the autoflip, do not rebuild a
+// release path): the release used to grade a PROXY (per-mailbox precision over
+// `swarm_review_signals.transition_kind="category_edited"`). It now grades the
+// REAL forward destination (memory `forward-match-as-wilson-ground-truth`):
+//   (a) CAPTURE — once per business day, read each info@ mailbox's Sent-Items
+//       forwards (Graph), match each to its inbound original, read the LIVE
+//       persisted Stage-3 verdict (NO re-classify), and persist each as a
+//       first-class `forward_observed` signal in swarm_review_signals (the
+//       ongoing ledger; replaces the one-shot forward-wilson-backfill).
+//   (b) GRADE — read the WHOLE accumulated ledger back (paginated), reconstruct
+//       per-bucket observations, grade with Wilson + coverage.
+//   (c) RELEASE — release-only jsonb merge of the buckets that clear.
+// Brand/mailbox reachability is now implicit: a bucket only accumulates
+// observations from the mailboxes that actually forward to it.
 //
 // PANIC LEVER: the one-flag revert is migration `20260624b_phase1321_forward_
-// buckets_revert.sql` (Plan 03, armed-not-applied) — it resets
-// stage_4_forward_buckets to {} (all held). Apply it to instantly hold every
-// forward if a regression is detected.
+// buckets_revert.sql` — it resets stage_4_forward_buckets to {} (all held).
+// Apply it to instantly hold every forward if a regression is detected.
 //
-// MONITORING (D-02): emits a pipeline_events alert row on the three regression
-// conditions — (a) a post-release precision regression (a released bucket's
-// mailbox drops below 0.85), (b) a forward-worker non-ok Graph response, and
-// (c) a post-flip createRun-null worker_failed. The first is detected here; the
-// latter two are surfaced by the forward worker and tallied via the shared
-// pipeline_events sink (this cron emits the regression alert it can compute).
+// MONITORING: emits a pipeline_events alert row when an ALREADY-RELEASED bucket's
+// per-bucket Wilson grade drops to pass===false at n ≥ MIN_OBSERVED_N (a
+// post-release regression). The release-only cron never auto-reverts; the
+// operator applies migration 20260624b.
 //
 // CLAUDE.md Inngest rules honored: the cron string lives on the trigger arg
 // (never in a /** */ JSDoc — a literal "*/N" would close the comment); described
@@ -31,188 +40,320 @@
 import { inngest } from "@/lib/inngest/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadRoutingDestinations } from "@/lib/swarms/registry";
+import { fetchForwardsByConversation } from "@/lib/automations/info-routing/forward-observer";
+import { buildForwardSignalRow } from "@/lib/automations/info-routing/forward-signal";
 import {
-  computePerMailboxStats,
-  planForwardBucketFlips,
-  MATCH_RATE_GATE,
-  type ShadowRow,
-  type RoutingDestinationLike,
-} from "@/scripts/eval/info-routing-precision-shadow";
+  resolveObservedBucket,
+  gradeBucketsByWilson,
+  computeBucketCoverage,
+  FORWARD_COVERAGE_GATE,
+  FORWARD_WILSON_GATE,
+  MIN_OBSERVED_N,
+  type ForwardObservation,
+} from "@/lib/automations/info-routing/forward-wilson";
 
+// Phase 132.2 deploy retrigger: the #167 merge created no Vercel production
+// build (merge-commit quirk), so prod froze on the old source_mailbox autoflip.
+// This web-touching commit forces a clean production deploy of current main.
 const SWARM = "info-routing";
 
 // Business-hours cron: every 30 minutes, hours 6-19, Mon-Fri, Europe/Amsterdam.
 // (Lives on the trigger arg below — never in a block JSDoc. CLAUDE.md rule.)
+// Capture is daily-gated; release evaluation is idempotent, so running every 30
+// min off an unchanged ledger is a harmless no-op until the next daily capture.
 const CRON_BUSINESS_HOURS = "TZ=Europe/Amsterdam */30 6-19 * * 1-5";
 
-interface CoordinatorRoutingRow {
-  email_id: string | null;
-  source_mailbox: string | null;
-  decision_details: { routing?: { bucket?: string; confidence?: string } } | null;
+// The info@ shared mailboxes, used only when the swarm row carries no explicit
+// behavior_tracking_config.mailboxes (the canonical source).
+const DEFAULT_MAILBOXES = ["info@smeba.nl", "info@fire-control.nl"];
+
+// Rolling read window (days) for the Sent-Items scan. Bumped past weekend gaps
+// (CLAUDE.md cron rule: the first tick after a gap must still pick up
+// Friday/weekend forwards). The persisted dedupe ledger + the 23505 no-op make
+// re-scanning this window safe.
+const LOOKBACK_DAYS = 10;
+
+// PostgREST .in() chunk — Graph conversation_id values are ~100+ chars; 25 is the
+// proven-safe size that keeps the URL under the ~16KB header cap (200 failed, 25
+// succeeded live for the backfill twin).
+const ID_CHUNK = 25;
+
+// Capture daily-gate: skip the Graph scan if any forward_observed* row was
+// captured in the last CAPTURE_GATE_HOURS. 18h ≈ once per business day without
+// calendar-midnight TZ subtlety. ponytail: rolling gate; make it calendar-exact
+// only if a boundary double-capture ever shows up.
+const CAPTURE_GATE_HOURS = 18;
+
+// PostgREST caps an unbounded select at 1000 rows; the ledger grows past that, so
+// the grade read paginates to avoid silently truncating Wilson's denominator.
+const LEDGER_PAGE = 1000;
+
+// CLAUDE.md / Phase 65 dae6276 — never alias/destructure inngest.send. (Not used
+// here; the cron emits no events. Documented for the next editor.)
+
+interface BehaviorTrackingConfig {
+  mailboxes?: string[];
+  mailbox?: string;
 }
 
-/**
- * Build the (captured Outlook category → bucket) reverse map. Mirrors the
- * harness main() wiring; kept local so the cron does not depend on the script's
- * private builder export surface beyond the pure planners it imports.
- */
-function buildShadowRows(
-  rawRows: CoordinatorRoutingRow[],
-  categoryToBucket: Map<string, string>,
-  humanCategoryByEmailId: Map<string, string>,
-): ShadowRow[] {
-  return rawRows.flatMap((r) => {
-    const routing = r.decision_details?.routing;
-    const verdict_bucket = routing?.bucket;
-    const confidence = routing?.confidence;
-    if (!verdict_bucket || !confidence) return [];
-    const captured = r.email_id
-      ? humanCategoryByEmailId.get(r.email_id)
-      : undefined;
-    const human_category =
-      (captured ? categoryToBucket.get(captured) : undefined) ?? null;
-    return [
-      {
-        verdict_bucket,
-        human_category,
-        confidence: confidence as "low" | "medium" | "high",
-        source_mailbox: r.source_mailbox ?? "unknown",
-      },
-    ];
-  });
-}
-
-const AI_ROUTING_LABEL_PREFIXES = ["AI: routed → ", "AI: held → "] as const;
-
-function buildCategoryToBucket(
-  destinations: RoutingDestinationLike[],
-): Map<string, string> {
-  const m = new Map<string, string>();
-  for (const d of destinations) {
-    if (!d.outlook_category) continue;
-    m.set(d.outlook_category, d.destination_key);
-    for (const prefix of AI_ROUTING_LABEL_PREFIXES) {
-      m.set(`${prefix}${d.destination_key}`, d.destination_key);
-    }
-  }
-  return m;
-}
+const isUniqueViolation = (err: unknown): boolean => {
+  const code = (err as { code?: string } | null)?.code;
+  const msg = (err as Error)?.message ?? "";
+  return (
+    code === "23505" ||
+    msg.includes("duplicate key value") ||
+    msg.includes("23505")
+  );
+};
 
 export const infoRoutingForwardAutoflip = inngest.createFunction(
   // Serial (limit 1) so two ticks never race the read-modify-write of
-  // gating_config. retries:1 — a transient DB error retries once, then surfaces.
+  // gating_config. retries:1 — a transient DB/Graph error retries once.
   { id: "info-routing/forward-autoflip", retries: 1, concurrency: [{ limit: 1 }] },
   [{ cron: CRON_BUSINESS_HOURS }, { event: "info-routing/forward-autoflip.requested" }],
   async ({ step }) => {
-    // (1) Load the routing registry (brand → bucket axis) + the swarm's current
-    // gating_config + per-mailbox brand map. Read gating_config FRESH (not via
-    // the cached loadSwarm) so idempotency is computed against live state.
+    // (1) Load destinations (for resolveObservedBucket), the current release map,
+    // and the mailbox list. Read FRESH (not cached loadSwarm) so idempotency is
+    // computed against live state.
     const ctx = await step.run("load-registry-and-config", async () => {
       const admin = createAdminClient();
       const destinations = await loadRoutingDestinations(admin, SWARM);
       const { data: swarmRow, error } = await admin
         .from("swarms")
-        .select("gating_config, resolution_config")
+        .select("gating_config, behavior_tracking_config")
         .eq("swarm_type", SWARM)
         .maybeSingle();
       if (error) throw new Error(`load swarm failed: ${error.message}`);
       const dryRun = (swarmRow?.gating_config ?? {}) as {
         stage_4_forward_buckets?: Record<string, boolean>;
       };
-      const scope = (
-        swarmRow?.resolution_config as
-          | { scope?: { entity_by_mailbox?: Record<string, string> } }
-          | null
-      )?.scope;
+      const bt = (swarmRow?.behavior_tracking_config ??
+        {}) as BehaviorTrackingConfig;
+      const mailboxes =
+        bt.mailboxes ?? (bt.mailbox ? [bt.mailbox] : DEFAULT_MAILBOXES);
       return {
         destinations,
         currentForwardBuckets: dryRun.stage_4_forward_buckets ?? {},
-        entityByMailbox: scope?.entity_by_mailbox ?? {},
+        mailboxes,
       };
     });
 
-    // (2) Read the 112.5 delta-synced operator corrections (ground-truth) +
-    // the persisted high-confidence routing verdicts. Same sources as the shadow
-    // harness report mode.
-    const shadow = await step.run("read-shadow-inputs", async () => {
+    // (2) CAPTURE — daily-gated. Read each mailbox's Sent-Items forwards, match
+    // to the inbound original, read the live persisted verdict (NO re-classify),
+    // persist each as a forward_observed signal. Idempotent via dedupe_key.
+    const capture = await step.run("capture-forwards", async () => {
       const admin = createAdminClient();
 
-      const sig = await admin
+      // Daily-gate: already captured within the window? → skip the Graph scan.
+      const gateSinceIso = new Date(
+        Date.now() - CAPTURE_GATE_HOURS * 60 * 60 * 1000,
+      ).toISOString();
+      const { data: recent, error: gateErr } = await admin
         .from("swarm_review_signals")
-        .select("email_id, category_key, observed_at")
+        .select("id")
         .eq("swarm_type", SWARM)
-        .eq("transition_kind", "category_edited")
-        .not("category_key", "is", null)
-        .order("observed_at", { ascending: true });
-      if (sig.error)
-        throw new Error(`swarm_review_signals read failed: ${sig.error.message}`);
+        .in("verdict", ["forward_observed", "forward_observed_no_verdict"])
+        .gte("created_at", gateSinceIso)
+        .limit(1);
+      if (gateErr) throw new Error(`capture daily-gate read failed: ${gateErr.message}`);
+      if ((recent ?? []).length > 0) {
+        return { captured: 0, skipped: "already-captured-today" as const };
+      }
 
-      const verdicts = await admin
-        .from("coordinator_runs")
-        .select("email_id, source_mailbox, decision_details")
-        .eq("swarm_type", SWARM)
-        .not("decision_details->routing", "is", null);
-      if (verdicts.error)
-        throw new Error(`coordinator_runs read failed: ${verdicts.error.message}`);
+      const sinceIso = new Date(
+        Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      const destinations = ctx.destinations;
+      let persisted = 0;
+      let noVerdict = 0;
+      let dedupSkipped = 0;
 
-      return {
-        signals: (sig.data ?? []) as {
-          email_id: string | null;
+      for (const mailbox of ctx.mailboxes) {
+        // (2a) read this mailbox's forwards from Sent-Items.
+        const forwardsMap = await fetchForwardsByConversation(mailbox, sinceIso);
+        const forwards = [...forwardsMap.entries()].map(([conversation_id, rec]) => ({
+          conversation_id,
+          to_address: rec.toAddress,
+          sent_at: rec.sentAt,
+        }));
+        if (forwards.length === 0) continue;
+
+        // (2b) dedup-vs-ledger: existing dedupe_keys for this swarm+mailbox+window.
+        const existingKeys = new Set<string>();
+        {
+          const { data: ledger, error } = await admin
+            .from("swarm_review_signals")
+            .select("dedupe_key")
+            .eq("swarm_type", SWARM)
+            .eq("mailbox", mailbox)
+            .in("verdict", ["forward_observed", "forward_observed_no_verdict"])
+            .gte("observed_at", sinceIso);
+          if (error) throw new Error(`dedup-vs-ledger read failed: ${error.message}`);
+          for (const r of (ledger ?? []) as { dedupe_key: string }[]) {
+            existingKeys.add(r.dedupe_key);
+          }
+        }
+
+        // (2c) match inbound originals by conversation_id (email_pipeline —
+        // NEVER bare public.emails; memory admin-client-defaults-public).
+        const conversationIds = forwards.map((f) => f.conversation_id);
+        const emailByConversation = new Map<string, { id: string }>();
+        for (let i = 0; i < conversationIds.length; i += ID_CHUNK) {
+          const chunk = conversationIds.slice(i, i + ID_CHUNK);
+          const { data, error } = await admin
+            .schema("email_pipeline")
+            .from("emails")
+            .select("id, conversation_id, received_at")
+            .in("conversation_id", chunk)
+            .order("received_at", { ascending: true });
+          if (error) throw new Error(`match-inbound read failed: ${error.message}`);
+          for (const e of (data ?? []) as {
+            id: string;
+            conversation_id: string | null;
+          }[]) {
+            if (e.conversation_id && !emailByConversation.has(e.conversation_id)) {
+              emailByConversation.set(e.conversation_id, { id: e.id });
+            }
+          }
+        }
+
+        // (2d) read the LIVE persisted verdict ONLY (no re-classify). Keyed by
+        // email_id; carries only email_id + decision_details.
+        const emailIds = [...emailByConversation.values()].map((e) => e.id);
+        const verdictByEmail = new Map<string, { bucket: string; unrouted: boolean }>();
+        for (let i = 0; i < emailIds.length; i += ID_CHUNK) {
+          const chunk = emailIds.slice(i, i + ID_CHUNK);
+          if (chunk.length === 0) continue;
+          const { data, error } = await admin
+            .from("coordinator_runs")
+            .select("email_id, decision_details")
+            .eq("swarm_type", SWARM)
+            .in("email_id", chunk)
+            .not("decision_details->routing", "is", null);
+          if (error) throw new Error(`read-verdicts read failed: ${error.message}`);
+          for (const r of (data ?? []) as {
+            email_id: string | null;
+            decision_details: {
+              routing?: { bucket?: string; unrouted?: boolean };
+            } | null;
+          }[]) {
+            const rt = r.decision_details?.routing;
+            if (r.email_id && rt?.bucket && !verdictByEmail.has(r.email_id)) {
+              verdictByEmail.set(r.email_id, {
+                bucket: rt.bucket,
+                unrouted: rt.unrouted === true,
+              });
+            }
+          }
+        }
+
+        // (2e) build + persist one signal per forward.
+        for (const fwd of forwards) {
+          const email = emailByConversation.get(fwd.conversation_id);
+          const emailId = email?.id ?? null;
+          const v = emailId ? verdictByEmail.get(emailId) : undefined;
+          const predictedBucket = v && v.bucket && !v.unrouted ? v.bucket : null;
+          const observedBucket = resolveObservedBucket(fwd.to_address, destinations);
+
+          const row = buildForwardSignalRow({
+            swarm_type: SWARM,
+            mailbox,
+            email_id: emailId,
+            conversation_id: fwd.conversation_id,
+            predicted_bucket: predictedBucket,
+            observed_bucket: observedBucket,
+            observed_to_address: fwd.to_address,
+            forward_sent_at: fwd.sent_at ?? sinceIso,
+          });
+
+          if (existingKeys.has(row.dedupe_key)) {
+            dedupSkipped += 1;
+            continue;
+          }
+          try {
+            const { error } = await admin.from("swarm_review_signals").insert({
+              swarm_type: row.swarm_type,
+              mailbox: row.mailbox,
+              email_id: row.email_id,
+              category_key: row.category_key, // predicted bucket (null = no-verdict)
+              verdict: row.verdict,
+              transition_kind: row.transition_kind,
+              dedupe_key: row.dedupe_key,
+              observed_at: row.observed_at,
+              observed_meta: row.observed_meta,
+            });
+            if (error) throw error;
+            if (row.verdict === "forward_observed_no_verdict") noVerdict += 1;
+            else persisted += 1;
+            existingKeys.add(row.dedupe_key);
+          } catch (err) {
+            if (isUniqueViolation(err)) {
+              dedupSkipped += 1; // raced/duplicate — the ledger already has it.
+              continue;
+            }
+            throw err;
+          }
+        }
+      }
+      return { captured: persisted, no_verdict: noVerdict, dedup_skipped: dedupSkipped };
+    });
+
+    // (3) GRADE — read the WHOLE accumulated ledger back (paginated) and
+    // reconstruct per-bucket observations. Only the graded variant
+    // (`forward_observed`, predicted non-null) is fed to Wilson/coverage; the
+    // no-verdict rows are observability-only and excluded by the verdict filter.
+    const observations = await step.run("read-ledger", async () => {
+      const admin = createAdminClient();
+      const obs: ForwardObservation[] = [];
+      for (let from = 0; ; from += LEDGER_PAGE) {
+        const { data, error } = await admin
+          .from("swarm_review_signals")
+          .select("category_key, mailbox, observed_meta")
+          .eq("swarm_type", SWARM)
+          .eq("verdict", "forward_observed")
+          .order("observed_at", { ascending: true })
+          .range(from, from + LEDGER_PAGE - 1);
+        if (error) throw new Error(`ledger read failed: ${error.message}`);
+        const rows = (data ?? []) as {
           category_key: string | null;
-        }[],
-        verdicts: (verdicts.data ?? []) as unknown as CoordinatorRoutingRow[],
-      };
-    });
-
-    // (3) Grade per mailbox (PURE harness fns — gradeVerdict imported unchanged).
-    const humanCategoryByEmailId = new Map<string, string>();
-    for (const s of shadow.signals) {
-      if (s.email_id && s.category_key) {
-        humanCategoryByEmailId.set(s.email_id, s.category_key); // ascending → latest wins
+          mailbox: string | null;
+          observed_meta: { observed_bucket?: string | null } | null;
+        }[];
+        for (const r of rows) {
+          if (!r.category_key) continue; // predicted bucket is the grade axis.
+          obs.push({
+            predicted_bucket: r.category_key,
+            observed_bucket: r.observed_meta?.observed_bucket ?? null,
+            source_mailbox: r.mailbox ?? "unknown",
+          });
+        }
+        if (rows.length < LEDGER_PAGE) break;
       }
-    }
-    const categoryToBucket = buildCategoryToBucket(ctx.destinations);
-    const rows = buildShadowRows(
-      shadow.verdicts,
-      categoryToBucket,
-      humanCategoryByEmailId,
-    );
-    const perMailbox = computePerMailboxStats(rows);
-
-    // (4) Plan the brand-reachable releases (operator-confirmed A4), gated on
-    // graded+pass+graded_n≥MIN, idempotent + release-only.
-    const flips = planForwardBucketFlips({
-      perMailbox,
-      destinations: ctx.destinations,
-      brandForMailbox: (mailbox) => ctx.entityByMailbox[mailbox] ?? null,
-      currentForwardBuckets: ctx.currentForwardBuckets,
+      return obs;
     });
 
-    // (5) Monitoring — a post-release precision regression: a bucket already
-    // released whose source mailbox now grades pass===false (dropped below the
-    // gate). Emit ONE alert row enumerating the regressed mailboxes (release-only
-    // cron never auto-reverts; the operator applies migration 20260624b).
-    const regressions: { mailbox: string; overall_match_pct: number }[] = [];
-    for (const [mailbox, grade] of perMailbox) {
-      const brand = ctx.entityByMailbox[mailbox];
-      if (!brand) continue;
-      if (grade.verdict.status !== "graded") continue;
-      if (grade.verdict.pass === true) continue; // healthy
-      // pass===false: any of this brand's buckets already released? → regression.
-      const released = ctx.destinations.some(
-        (d) =>
-          d.outlook_category &&
-          d.brand === brand &&
-          ctx.currentForwardBuckets[d.destination_key] === true,
-      );
-      if (released) {
-        regressions.push({
-          mailbox,
-          overall_match_pct: grade.stats.overall_match_pct,
-        });
+    const grades = gradeBucketsByWilson(observations);
+    const coverage = computeBucketCoverage(observations);
+
+    // Combined gate: a bucket clears ONLY when Wilson passes (n ≥ MIN_OBSERVED_N
+    // AND wilson_lower ≥ FORWARD_WILSON_GATE) AND coverage ≥ FORWARD_COVERAGE_GATE.
+    const clearing: string[] = [];
+    for (const [bucket, grade] of grades) {
+      const cov = coverage.get(bucket);
+      if (grade.pass && cov && cov.coverage >= FORWARD_COVERAGE_GATE) {
+        clearing.push(bucket);
       }
     }
 
+    // (4) MONITORING — a post-release regression: an already-released bucket whose
+    // per-bucket Wilson grade now fails at sufficient sample (n ≥ MIN_OBSERVED_N).
+    const regressions: { bucket: string; wilson_lower: number; n: number }[] = [];
+    for (const [bucket, grade] of grades) {
+      if (ctx.currentForwardBuckets[bucket] !== true) continue; // not released.
+      if (grade.n >= MIN_OBSERVED_N && grade.pass === false) {
+        regressions.push({ bucket, wilson_lower: grade.wilson_lower, n: grade.n });
+      }
+    }
     if (regressions.length > 0) {
       await step.run("emit-regression-alert", async () => {
         const admin = createAdminClient();
@@ -224,7 +365,8 @@ export const infoRoutingForwardAutoflip = inngest.createFunction(
           email_id: null,
           decision: "forward_autoflip_precision_regression",
           decision_details: {
-            gate: MATCH_RATE_GATE,
+            wilson_gate: FORWARD_WILSON_GATE,
+            coverage_gate: FORWARD_COVERAGE_GATE,
             regressions,
             panic_lever:
               "apply migration 20260624b_phase1321_forward_buckets_revert.sql to hold all forwards",
@@ -239,21 +381,22 @@ export const infoRoutingForwardAutoflip = inngest.createFunction(
       });
     }
 
-    // (6) Apply the planned releases. A jsonb `||` merge sets ONLY the target
-    // bucket keys to true, preserving every gating_config sibling (stage_3_
-    // routing, stage_2_resolution, …). No flips → no write (idempotent no-op).
-    if (flips.length === 0) {
+    // (5) RELEASE — release-only jsonb merge: set ONLY the clearing bucket keys to
+    // true, preserving every gating_config sibling. No clears → no write.
+    const toRelease = clearing.filter((b) => ctx.currentForwardBuckets[b] !== true);
+    if (toRelease.length === 0) {
       return {
         flipped: 0,
+        captured: capture.captured ?? 0,
         regressions: regressions.length,
-        per_mailbox: [...perMailbox.keys()],
+        graded_buckets: [...grades.keys()].sort(),
       };
     }
 
     const applied = await step.run("release-forward-buckets", async () => {
       const admin = createAdminClient();
-      // Re-read gating_config inside the write step (replay-safe) so the merge
-      // is computed against the freshest state; merge only the bucket keys.
+      // Re-read gating_config inside the write step (replay-safe) so the merge is
+      // computed against the freshest state; merge only the bucket keys.
       const { data: row, error: readErr } = await admin
         .from("swarms")
         .select("gating_config")
@@ -267,9 +410,8 @@ export const infoRoutingForwardAutoflip = inngest.createFunction(
       const nextBuckets: Record<string, boolean> = {
         ...(dryRun.stage_4_forward_buckets ?? {}),
       };
-      for (const f of flips) {
-        // Release-only: only ever set true; never write false.
-        if (nextBuckets[f.bucket] !== true) nextBuckets[f.bucket] = true;
+      for (const b of toRelease) {
+        if (nextBuckets[b] !== true) nextBuckets[b] = true; // release-only.
       }
       const nextDryRun = { ...dryRun, stage_4_forward_buckets: nextBuckets };
 
@@ -279,14 +421,14 @@ export const infoRoutingForwardAutoflip = inngest.createFunction(
         .eq("swarm_type", SWARM);
       if (updErr) throw new Error(`forward-bucket release failed: ${updErr.message}`);
 
-      return { buckets: [...new Set(flips.map((f) => f.bucket))].sort() };
+      return { buckets: [...new Set(toRelease)].sort() };
     });
 
     return {
       flipped: applied.buckets.length,
       buckets: applied.buckets,
+      captured: capture.captured ?? 0,
       regressions: regressions.length,
-      flips,
     };
   },
 );

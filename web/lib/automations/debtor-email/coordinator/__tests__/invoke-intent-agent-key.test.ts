@@ -22,7 +22,7 @@ function mockOrqResponse(jsonText: string) {
     status: 200,
     statusText: "OK",
     json: vi.fn().mockResolvedValue({
-      output: [{ role: "assistant", parts: [{ kind: "text", text: jsonText }] }],
+      output: [{ content: [{ type: "output_text", text: jsonText }] }],
     }),
     text: vi.fn().mockResolvedValue(""),
   } as unknown as Response;
@@ -70,15 +70,19 @@ describe("Phase 113 invokeIntentAgent — parameterized agent_key + schema", () 
     vi.restoreAllMocks();
   });
 
-  it("no options → POSTs /v2/agents/debtor-intent-agent/responses + debtor schema gate (byte-neutral)", async () => {
+  it("no options → POSTs /v3/router/responses with model=agent/debtor-intent-agent + debtor schema gate", async () => {
     const fetchMock = vi.fn().mockResolvedValue(mockOrqResponse(debtorV3Payload));
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const result = await invokeIntentAgent(baseInput);
 
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://api.orq.ai/v2/agents/debtor-intent-agent/responses",
+      "https://api.orq.ai/v3/router/responses",
     );
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as { body?: unknown }).body),
+    );
+    expect(body.model).toBe("agent/debtor-intent-agent");
     expect(result.output.intent_version).toBe(INTENT_VERSION_V3);
   });
 
@@ -102,8 +106,12 @@ describe("Phase 113 invokeIntentAgent — parameterized agent_key + schema", () 
     });
 
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://api.orq.ai/v2/agents/sales-intent-agent/responses",
+      "https://api.orq.ai/v3/router/responses",
     );
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as { body?: unknown }).body),
+    );
+    expect(body.model).toBe("agent/sales-intent-agent");
     expect((result.output as unknown as { marker: string }).marker).toBe(
       "custom-gate",
     );

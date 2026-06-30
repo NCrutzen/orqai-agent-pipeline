@@ -1,16 +1,14 @@
-// Phase 132.1 Plan 04 Task 2 (D-02) — the per-mailbox forward auto-flip cron.
+// Phase 132.2 (V9.7.x) — the per-bucket forward AUTO-FLIP cron.
 //
-// The cron reads the ROUTE-08 shadow harness pure fns (computeMatchRate /
-// gradeVerdict — IMPORTED, never reimplemented), grades EACH info@ mailbox
-// independently, and releases `stage_4_forward_buckets[bucket]=true` ONLY when a
-// mailbox's grade is `graded` AND `pass===true` AND `graded_n>=MIN_GRADED_N`,
-// brand-reachable (operator-confirmed A4). insufficient_sample / pass:null never
-// flips (the false-success guard is load-bearing). Release-only: never writes
-// `false` (revert is the Plan-03 one-flag migration).
+// The cron CAPTURES staff forwards as forward_observed signals (daily-gated),
+// GRADES each routing bucket over the accumulated ledger with Wilson + coverage
+// (pure fns imported, tested in forward-wilson.test.ts), and RELEASES
+// stage_4_forward_buckets[bucket]=true ONLY when the bucket clears
+// (n≥MIN_OBSERVED_N AND wilson_lower≥0.70 AND coverage≥0.70). Release-only.
 //
-// These tests drive the pure reconciliation planner (planForwardBucketFlips) and
-// the cron handler's DB wiring (jsonb merge, sibling preservation, idempotency,
-// alert emission) through a mocked Supabase client.
+// These tests drive the handler's DB wiring through a mocked Supabase client:
+// the daily capture gate, the ledger→release jsonb merge (sibling preservation,
+// idempotency), the no-clear no-op, and the post-release regression alert.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -30,166 +28,112 @@ vi.mock("@/lib/inngest/client", () => ({
   },
 }));
 
-import {
-  planForwardBucketFlips,
-  releasableBucketsForBrand,
-  computePerMailboxStats,
-  MIN_GRADED_N,
-  type ShadowRow,
-  type RoutingDestinationLike,
-} from "@/scripts/eval/info-routing-precision-shadow";
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
+vi.mock("@/lib/swarms/registry", () => ({
+  loadRoutingDestinations: vi.fn(async () => [
+    { destination_key: "verkoop", brand: "smeba", outlook_category: "Verkoop", target_mailbox: "verkoop@smeba.nl", active: true },
+    { destination_key: "storingen", brand: "smeba", outlook_category: "Storingen", target_mailbox: "storingen@smeba.nl", active: true },
+    { destination_key: "unrouted", brand: "smeba", outlook_category: null, target_mailbox: null, active: true },
+  ]),
+}));
+const { fetchForwards } = vi.hoisted(() => ({ fetchForwards: vi.fn() }));
+vi.mock("@/lib/automations/info-routing/forward-observer", () => ({
+  fetchForwardsByConversation: fetchForwards,
+}));
 
-const DESTINATIONS: RoutingDestinationLike[] = [
-  { destination_key: "verkoop", brand: "smeba", outlook_category: "Verkoop" },
-  { destination_key: "storingen", brand: "smeba", outlook_category: "Storingen" },
-  { destination_key: "inspecties", brand: "smeba", outlook_category: "Inspecties" },
-  { destination_key: "opleidingen", brand: "fire-control", outlook_category: "Opleidingen" },
-  { destination_key: "verkoop", brand: "fire-control", outlook_category: "Verkoop" },
-  { destination_key: "order_entry", brand: "fire-control", outlook_category: "Order-entry" },
-  { destination_key: "unrouted", brand: "smeba", outlook_category: null }, // sentinel
-];
+import { createAdminClient } from "@/lib/supabase/admin";
+import { infoRoutingForwardAutoflip } from "@/lib/inngest/functions/info-routing-forward-autoflip";
 
-const BRAND_FOR_MAILBOX = (mailbox: string): string | null =>
-  ({ "info@smeba.nl": "smeba", "info@fire-control.nl": "fire-control" })[mailbox] ??
-  null;
+// ── chainable Supabase mock ────────────────────────────────────────────────
+// Every chain method returns the same thenable builder; the builder resolves
+// based on (table, select columns). maybeSingle resolves the single swarms row.
 
-/** Build N high-confidence graded rows for a mailbox at the given match rate. */
-function gradedRows(
-  mailbox: string,
-  n: number,
-  matchEvery: number, // a miss every `matchEvery`-th row (10 → 90% match)
-): ShadowRow[] {
-  return Array.from({ length: n }, (_, i) => ({
-    verdict_bucket: "verkoop",
-    human_category: i % matchEvery === 0 ? "storingen" : "verkoop",
-    confidence: "high" as const,
-    source_mailbox: mailbox,
+interface Captured {
+  update?: Record<string, unknown>;
+  updateCalled: boolean;
+  signalInserts: Record<string, unknown>[];
+  eventInserts: Record<string, unknown>[];
+}
+
+interface MockOpts {
+  swarmsRow: { gating_config: unknown; behavior_tracking_config?: unknown };
+  gateRows: { id: string }[]; // daily-gate: non-empty = already captured today
+  ledger: {
+    category_key: string | null;
+    mailbox: string;
+    observed_meta: { observed_bucket: string | null };
+  }[];
+  dedupKeys?: { dedupe_key: string }[];
+  emails?: { id: string; conversation_id: string }[];
+  verdicts?: { email_id: string; decision_details: unknown }[];
+  captured: Captured;
+}
+
+function makeAdminMock(opts: MockOpts) {
+  const listFor = (table: string, cols: string) => {
+    if (table === "swarm_review_signals") {
+      if (cols.includes("observed_meta")) return { data: opts.ledger, error: null };
+      if (cols.includes("dedupe_key")) return { data: opts.dedupKeys ?? [], error: null };
+      return { data: opts.gateRows, error: null }; // "id" → gate
+    }
+    if (table === "emails") return { data: opts.emails ?? [], error: null };
+    if (table === "coordinator_runs") return { data: opts.verdicts ?? [], error: null };
+    return { data: [], error: null };
+  };
+
+  const builder = (table: string, cols: string): Record<string, unknown> => {
+    const b: Record<string, unknown> = {};
+    for (const m of ["eq", "in", "gte", "not", "order", "limit", "range"]) {
+      b[m] = () => b;
+    }
+    b.maybeSingle = async () => ({ data: opts.swarmsRow, error: null });
+    (b as { then: unknown }).then = (
+      res: (v: unknown) => unknown,
+      rej: (e: unknown) => unknown,
+    ) => Promise.resolve(listFor(table, cols)).then(res, rej);
+    return b;
+  };
+
+  const tableApi = (table: string) => ({
+    select: (cols = "") => builder(table, cols),
+    insert: async (row: Record<string, unknown>) => {
+      if (table === "swarm_review_signals") opts.captured.signalInserts.push(row);
+      if (table === "pipeline_events") opts.captured.eventInserts.push(row);
+      return { error: null };
+    },
+    update: (payload: Record<string, unknown>) => {
+      opts.captured.update = payload;
+      opts.captured.updateCalled = true;
+      return { eq: async () => ({ error: null }) };
+    },
+  });
+
+  return {
+    from: (table: string) => tableApi(table),
+    schema: () => ({ from: (table: string) => tableApi(table) }),
+  };
+}
+
+function mkLedger(predicted: string, observed: string | null, n: number) {
+  return Array.from({ length: n }, () => ({
+    category_key: predicted,
+    mailbox: "info@smeba.nl",
+    observed_meta: { observed_bucket: observed },
   }));
 }
 
-describe("releasableBucketsForBrand — brand-reachable reconciliation (A4)", () => {
-  it("returns only the cleared brand's buckets, excluding the unrouted sentinel", () => {
-    expect(releasableBucketsForBrand(DESTINATIONS, "smeba")).toEqual([
-      "inspecties",
-      "storingen",
-      "verkoop",
-    ]);
-    expect(releasableBucketsForBrand(DESTINATIONS, "fire-control")).toEqual([
-      "opleidingen",
-      "order_entry",
-      "verkoop",
-    ]);
-  });
-});
+async function runHandler() {
+  const fn = infoRoutingForwardAutoflip as unknown as {
+    handler: (ctx: {
+      step: { run: (id: string, f: () => Promise<unknown>) => Promise<unknown> };
+    }) => Promise<unknown>;
+  };
+  return fn.handler({ step: { run: async (_id, f) => f() } });
+}
 
-describe("planForwardBucketFlips — the per-mailbox safety gate", () => {
-  it("releases the cleared mailbox's brand buckets on graded+pass+graded_n≥MIN", () => {
-    const perMailbox = computePerMailboxStats(
-      gradedRows("info@smeba.nl", MIN_GRADED_N + 10, 10),
-    );
-    const flips = planForwardBucketFlips({
-      perMailbox,
-      destinations: DESTINATIONS,
-      brandForMailbox: BRAND_FOR_MAILBOX,
-      currentForwardBuckets: {},
-    });
-    expect(flips.map((f) => f.bucket).sort()).toEqual([
-      "inspecties",
-      "storingen",
-      "verkoop",
-    ]);
-    expect(flips.every((f) => f.mailbox === "info@smeba.nl")).toBe(true);
-  });
-
-  it("does NOT flip on insufficient_sample (graded_n < MIN → pass:null)", () => {
-    const perMailbox = computePerMailboxStats(
-      gradedRows("info@smeba.nl", 3, 10), // tiny sample
-    );
-    const flips = planForwardBucketFlips({
-      perMailbox,
-      destinations: DESTINATIONS,
-      brandForMailbox: BRAND_FOR_MAILBOX,
-      currentForwardBuckets: {},
-    });
-    expect(flips).toEqual([]);
-  });
-
-  it("does NOT flip on pass=false (precision <0.85, graded_n≥MIN)", () => {
-    const perMailbox = computePerMailboxStats(
-      gradedRows("info@smeba.nl", MIN_GRADED_N, 2), // 50% match
-    );
-    const flips = planForwardBucketFlips({
-      perMailbox,
-      destinations: DESTINATIONS,
-      brandForMailbox: BRAND_FOR_MAILBOX,
-      currentForwardBuckets: {},
-    });
-    expect(flips).toEqual([]);
-  });
-
-  it("flips smeba and fire-control independently (one clears, one insufficient)", () => {
-    const rows = [
-      ...gradedRows("info@smeba.nl", MIN_GRADED_N + 5, 10), // smeba clears
-      ...gradedRows("info@fire-control.nl", 4, 10), // fire-control insufficient
-    ];
-    const flips = planForwardBucketFlips({
-      perMailbox: computePerMailboxStats(rows),
-      destinations: DESTINATIONS,
-      brandForMailbox: BRAND_FOR_MAILBOX,
-      currentForwardBuckets: {},
-    });
-    // Only smeba's buckets — fire-control released nothing.
-    expect(flips.every((f) => f.mailbox === "info@smeba.nl")).toBe(true);
-    expect(flips.some((f) => f.bucket === "opleidingen")).toBe(false);
-  });
-
-  it("is idempotent — a bucket already true is NOT re-planned", () => {
-    const perMailbox = computePerMailboxStats(
-      gradedRows("info@smeba.nl", MIN_GRADED_N + 5, 10),
-    );
-    const flips = planForwardBucketFlips({
-      perMailbox,
-      destinations: DESTINATIONS,
-      brandForMailbox: BRAND_FOR_MAILBOX,
-      currentForwardBuckets: { verkoop: true }, // already released
-    });
-    expect(flips.map((f) => f.bucket)).not.toContain("verkoop");
-    expect(flips.map((f) => f.bucket).sort()).toEqual(["inspecties", "storingen"]);
-  });
-
-  it("never plans a `false` value — release-only (revert is the migration)", () => {
-    const perMailbox = computePerMailboxStats(
-      gradedRows("info@smeba.nl", MIN_GRADED_N + 5, 10),
-    );
-    const flips = planForwardBucketFlips({
-      perMailbox,
-      destinations: DESTINATIONS,
-      brandForMailbox: BRAND_FOR_MAILBOX,
-      currentForwardBuckets: { storingen: false }, // explicitly held
-    });
-    // storingen is held (false) → still releasable (release-only sets it true).
-    expect(flips.some((f) => f.bucket === "storingen")).toBe(true);
-    // The planner only ever produces a release; there is no `value` field to be false.
-    flips.forEach((f) => expect(typeof f.bucket).toBe("string"));
-  });
-
-  it("skips a mailbox with no brand mapping (cannot reconcile)", () => {
-    const perMailbox = computePerMailboxStats(
-      gradedRows("info@unknown.nl", MIN_GRADED_N + 5, 10),
-    );
-    const flips = planForwardBucketFlips({
-      perMailbox,
-      destinations: DESTINATIONS,
-      brandForMailbox: BRAND_FOR_MAILBOX, // returns null for unknown
-      currentForwardBuckets: {},
-    });
-    expect(flips).toEqual([]);
-  });
-});
-
-// ─── Cron wiring: registration + DB merge + monitoring ──────────────────────
-
-import { infoRoutingForwardAutoflip } from "@/lib/inngest/functions/info-routing-forward-autoflip";
+function freshCaptured(): Captured {
+  return { updateCalled: false, signalInserts: [], eventInserts: [] };
+}
 
 describe("infoRoutingForwardAutoflip — Inngest registration", () => {
   it("is a business-hours cron in Europe/Amsterdam, Mon-Fri", () => {
@@ -206,143 +150,11 @@ describe("infoRoutingForwardAutoflip — Inngest registration", () => {
   });
 });
 
-// ─── Handler integration: jsonb merge (sibling preservation), idempotent no-op,
-// regression alert — driven through a chainable Supabase mock. ──────────────
-
-import { createAdminClient } from "@/lib/supabase/admin";
-
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
-// loadRoutingDestinations reads routing_destinations off the same admin client;
-// stub it so the cron sees a deterministic registry without a live DB.
-vi.mock("@/lib/swarms/registry", () => ({
-  loadRoutingDestinations: vi.fn(async () => [
-    { destination_key: "verkoop", brand: "smeba", outlook_category: "Verkoop", active: true },
-    { destination_key: "storingen", brand: "smeba", outlook_category: "Storingen", active: true },
-    { destination_key: "inspecties", brand: "smeba", outlook_category: "Inspecties", active: true },
-    { destination_key: "unrouted", brand: "smeba", outlook_category: null, active: true },
-  ]),
-}));
-
-/**
- * A minimal chainable Supabase mock. `swarmsRow` is what swarms.select returns;
- * `signals`/`verdicts` feed the shadow reads. Captures the swarms UPDATE payload
- * and any pipeline_events INSERT for assertions.
- */
-function makeAdminMock(opts: {
-  swarmsRow: { gating_config: unknown; resolution_config: unknown };
-  signals: { email_id: string; category_key: string }[];
-  verdicts: {
-    email_id: string;
-    source_mailbox: string;
-    decision_details: unknown;
-  }[];
-  captured: {
-    update?: Record<string, unknown>;
-    inserts: Record<string, unknown>[];
-    updateCalled: boolean;
-  };
-}) {
-  // Re-readable swarms row (the write step re-reads gating_config).
-  const swarmsSelect = () => {
-    const builder: Record<string, unknown> = {};
-    builder.eq = () => builder;
-    builder.maybeSingle = async () => ({ data: opts.swarmsRow, error: null });
-    return builder;
-  };
-  const reviewSignalsSelect = () => {
-    const builder: Record<string, unknown> = {};
-    builder.eq = () => builder;
-    builder.not = () => builder;
-    builder.order = async () => ({ data: opts.signals, error: null });
-    return builder;
-  };
-  const coordinatorSelect = () => {
-    const builder: Record<string, unknown> = {};
-    builder.eq = () => builder;
-    builder.not = async () => ({ data: opts.verdicts, error: null });
-    return builder;
-  };
-
-  return {
-    from(table: string) {
-      if (table === "swarms") {
-        return {
-          select: () => swarmsSelect(),
-          update: (payload: Record<string, unknown>) => {
-            opts.captured.update = payload;
-            opts.captured.updateCalled = true;
-            return { eq: async () => ({ error: null }) };
-          },
-        };
-      }
-      if (table === "swarm_review_signals") {
-        return { select: () => reviewSignalsSelect() };
-      }
-      if (table === "coordinator_runs") {
-        return { select: () => coordinatorSelect() };
-      }
-      if (table === "pipeline_events") {
-        return {
-          insert: async (row: Record<string, unknown>) => {
-            opts.captured.inserts.push(row);
-            return { error: null };
-          },
-        };
-      }
-      throw new Error(`unexpected table ${table}`);
-    },
-  };
-}
-
-function highConfVerdicts(
-  mailbox: string,
-  n: number,
-  matchEvery: number,
-): {
-  email_id: string;
-  source_mailbox: string;
-  decision_details: unknown;
-}[] {
-  return Array.from({ length: n }, (_, i) => ({
-    email_id: `${mailbox}-${i}`,
-    source_mailbox: mailbox,
-    decision_details: { routing: { bucket: "verkoop", confidence: "high" } },
-  }));
-}
-
-// A captured correction per verdict: a miss every `matchEvery`-th row.
-function correctionsFor(
-  mailbox: string,
-  n: number,
-  matchEvery: number,
-): { email_id: string; category_key: string }[] {
-  return Array.from({ length: n }, (_, i) => ({
-    email_id: `${mailbox}-${i}`,
-    category_key: i % matchEvery === 0 ? "Storingen" : "Verkoop",
-  }));
-}
-
-async function runHandler() {
-  const fn = infoRoutingForwardAutoflip as unknown as {
-    handler: (ctx: {
-      step: { run: (id: string, f: () => Promise<unknown>) => Promise<unknown> };
-    }) => Promise<unknown>;
-  };
-  // step.run executes the fn inline (no Inngest runtime in unit tests).
-  return fn.handler({ step: { run: async (_id, f) => f() } });
-}
-
 describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+  beforeEach(() => vi.clearAllMocks());
 
-  it("releases brand buckets via a merge that PRESERVES dry_run siblings", async () => {
-    const captured: {
-      update?: Record<string, unknown>;
-      inserts: Record<string, unknown>[];
-      updateCalled: boolean;
-    } = { inserts: [], updateCalled: false };
+  it("releases a cleared bucket via a merge that PRESERVES dry_run siblings", async () => {
+    const captured = freshCaptured();
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
         swarmsRow: {
@@ -351,81 +163,119 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
             stage_2_resolution: true,
             stage_4_forward_buckets: {},
           },
-          resolution_config: { scope: { entity_by_mailbox: { "info@smeba.nl": "smeba" } } },
         },
-        signals: correctionsFor("info@smeba.nl", MIN_GRADED_N + 10, 10), // 90% match
-        verdicts: highConfVerdicts("info@smeba.nl", MIN_GRADED_N + 10, 10),
+        gateRows: [{ id: "recent" }], // already captured today → skip capture
+        ledger: mkLedger("verkoop", "verkoop", 25), // n=25, agree=25, coverage=1
         captured,
       }) as never,
     );
 
     const result = (await runHandler()) as { flipped: number; buckets: string[] };
-    expect(result.flipped).toBeGreaterThan(0);
-    expect(result.buckets.sort()).toEqual(["inspecties", "storingen", "verkoop"]);
+    expect(result.flipped).toBe(1);
+    expect(result.buckets).toEqual(["verkoop"]);
 
     const updated = captured.update?.gating_config as {
       stage_3_routing?: boolean;
-      stage_2_resolution?: boolean;
       stage_4_forward_buckets?: Record<string, boolean>;
     };
-    // siblings preserved
-    expect(updated.stage_3_routing).toBe(true);
-    expect(updated.stage_2_resolution).toBe(true);
-    // target buckets released to true
-    expect(updated.stage_4_forward_buckets).toEqual({
-      verkoop: true,
-      storingen: true,
-      inspecties: true,
-    });
+    expect(updated.stage_3_routing).toBe(true); // sibling preserved
+    expect(updated.stage_4_forward_buckets).toEqual({ verkoop: true });
+    // capture was gated off → no Graph read, no signal insert
+    expect(fetchForwards).not.toHaveBeenCalled();
+    expect(captured.signalInserts.length).toBe(0);
   });
 
-  it("insufficient_sample → NO swarms UPDATE (the guard holds)", async () => {
-    const captured: {
-      update?: Record<string, unknown>;
-      inserts: Record<string, unknown>[];
-      updateCalled: boolean;
-    } = { inserts: [], updateCalled: false };
+  it("does NOT release a bucket below MIN_OBSERVED_N (no swarms UPDATE)", async () => {
+    const captured = freshCaptured();
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
-        swarmsRow: {
-          gating_config: { stage_4_forward_buckets: {} },
-          resolution_config: { scope: { entity_by_mailbox: { "info@smeba.nl": "smeba" } } },
-        },
-        signals: correctionsFor("info@smeba.nl", 3, 10), // tiny graded sample
-        verdicts: highConfVerdicts("info@smeba.nl", 3, 10),
+        swarmsRow: { gating_config: { stage_4_forward_buckets: {} } },
+        gateRows: [{ id: "recent" }],
+        ledger: mkLedger("verkoop", "verkoop", 10), // n=10 < 20
         captured,
       }) as never,
     );
-
     const result = (await runHandler()) as { flipped: number };
     expect(result.flipped).toBe(0);
     expect(captured.updateCalled).toBe(false);
   });
 
-  it("emits a precision-regression alert when a released bucket's mailbox drops <0.85", async () => {
-    const captured: {
-      update?: Record<string, unknown>;
-      inserts: Record<string, unknown>[];
-      updateCalled: boolean;
-    } = { inserts: [], updateCalled: false };
+  it("does NOT release when coverage is below the gate (many untracked forwards)", async () => {
+    const captured = freshCaptured();
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
-        swarmsRow: {
-          // verkoop ALREADY released; now smeba grades pass=false → regression.
-          gating_config: { stage_4_forward_buckets: { verkoop: true } },
-          resolution_config: { scope: { entity_by_mailbox: { "info@smeba.nl": "smeba" } } },
-        },
-        signals: correctionsFor("info@smeba.nl", MIN_GRADED_N, 2), // 50% match → fail
-        verdicts: highConfVerdicts("info@smeba.nl", MIN_GRADED_N, 2),
+        swarmsRow: { gating_config: { stage_4_forward_buckets: {} } },
+        gateRows: [{ id: "recent" }],
+        // 21 graded agree (Wilson passes) but 60 went untracked → coverage ≈ 0.26
+        ledger: [...mkLedger("verkoop", "verkoop", 21), ...mkLedger("verkoop", null, 60)],
         captured,
       }) as never,
     );
+    const result = (await runHandler()) as { flipped: number };
+    expect(result.flipped).toBe(0);
+    expect(captured.updateCalled).toBe(false);
+  });
 
+  it("is idempotent — an already-true bucket is not re-released", async () => {
+    const captured = freshCaptured();
+    (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeAdminMock({
+        swarmsRow: { gating_config: { stage_4_forward_buckets: { verkoop: true } } },
+        gateRows: [{ id: "recent" }],
+        ledger: mkLedger("verkoop", "verkoop", 25), // clears, but already true
+        captured,
+      }) as never,
+    );
+    const result = (await runHandler()) as { flipped: number };
+    expect(result.flipped).toBe(0);
+    expect(captured.updateCalled).toBe(false); // no write needed
+  });
+
+  it("emits a regression alert when an already-released bucket now fails Wilson", async () => {
+    const captured = freshCaptured();
+    (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeAdminMock({
+        swarmsRow: { gating_config: { stage_4_forward_buckets: { verkoop: true } } },
+        gateRows: [{ id: "recent" }],
+        // verkoop released; now 50% agreement at n=24 → pass=false → regression
+        ledger: [...mkLedger("verkoop", "verkoop", 12), ...mkLedger("verkoop", "storingen", 12)],
+        captured,
+      }) as never,
+    );
     await runHandler();
-    const alert = captured.inserts.find(
+    const alert = captured.eventInserts.find(
       (r) => r.decision === "forward_autoflip_precision_regression",
     );
     expect(alert).toBeDefined();
     expect(captured.updateCalled).toBe(false); // release-only, no auto-revert
+  });
+
+  it("daily-gate OPEN → reads Graph forwards and persists a forward_observed signal", async () => {
+    const captured = freshCaptured();
+    fetchForwards.mockResolvedValue(
+      new Map([["conv-1", { toAddress: "verkoop@smeba.nl", sentAt: "2026-06-20T09:00:00Z" }]]),
+    );
+    (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeAdminMock({
+        swarmsRow: {
+          gating_config: { stage_4_forward_buckets: {} },
+          behavior_tracking_config: { mailboxes: ["info@smeba.nl"] },
+        },
+        gateRows: [], // gate OPEN → capture runs
+        ledger: [], // nothing graded yet → no release
+        emails: [{ id: "email-1", conversation_id: "conv-1" }],
+        verdicts: [
+          { email_id: "email-1", decision_details: { routing: { bucket: "storingen" } } },
+        ],
+        captured,
+      }) as never,
+    );
+    await runHandler();
+    expect(fetchForwards).toHaveBeenCalledWith("info@smeba.nl", expect.any(String));
+    expect(captured.signalInserts.length).toBe(1);
+    const row = captured.signalInserts[0];
+    expect(row.verdict).toBe("forward_observed");
+    expect(row.category_key).toBe("storingen"); // predicted
+    expect((row.observed_meta as { observed_bucket: string }).observed_bucket).toBe("verkoop");
   });
 });

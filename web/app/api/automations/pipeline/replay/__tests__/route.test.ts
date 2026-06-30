@@ -153,12 +153,40 @@ describe("pipeline replay endpoint", () => {
     expect(sendCalls.length).toBe(0);
   });
 
-  it("detects a dispatcher stall (coordinator_run present) without firing", async () => {
+  it("v2 — dispatcher stall (coordinator_run present): re-fires the coordinator", async () => {
     mockState.hasCoordRun = true;
     const POST = await importPost();
     const res = await POST(makeReq({ email_ids: ["e1"], dry_run: false }));
     const json = await res.json();
-    expect(json.results[0].action).toBe("dispatcher_stall_detected");
+    expect(json.results[0].action).toBe("refire_coordinator");
+    expect(sendCalls.length).toBe(1);
+    expect(sendCalls[0].name).toBe("pipeline/coordinator.requested");
+    expect(sendCalls[0].data).toMatchObject({
+      swarm_type: "debtor-email",
+      email_id: "e1",
+    });
+  });
+
+  it("mode=refire_coordinator: forces a Stage-3 re-run regardless of state", async () => {
+    // no coordinator_run + no stage-3: auto mode would hand-off; mode forces coordinator
+    const POST = await importPost();
+    const res = await POST(
+      makeReq({ email_ids: ["e1"], dry_run: false, mode: "refire_coordinator" }),
+    );
+    const json = await res.json();
+    expect(json.results[0].action).toBe("refire_coordinator");
+    expect(sendCalls.length).toBe(1);
+    expect(sendCalls[0].name).toBe("pipeline/coordinator.requested");
+  });
+
+  it("mode=refire_coordinator dry-run: previews the coordinator event, fires nothing", async () => {
+    const POST = await importPost();
+    const res = await POST(
+      makeReq({ email_ids: ["e1"], mode: "refire_coordinator" }),
+    );
+    const json = await res.json();
+    expect(json.results[0].action).toBe("refire_coordinator");
+    expect(json.results[0].event.name).toBe("pipeline/coordinator.requested");
     expect(sendCalls.length).toBe(0);
   });
 

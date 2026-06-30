@@ -30,9 +30,9 @@ import {
 import {
   parseAgentMetrics,
 } from "@/lib/v7/fleet/agent-metrics";
+import { invokeOrqResponses } from "@/lib/automations/orq-responses";
 
 const BRIEFING_CACHE_TTL_MIN = 5;
-const ORQAI_INVOKE_ENDPOINT = "https://api.orq.ai/v2/agents";
 const INVOKE_TIMEOUT_MS = 45_000;
 
 export interface GenerateBriefingResult {
@@ -169,56 +169,15 @@ async function invokeBriefingAgent(
   const apiKey = process.env.ORQ_API_KEY;
   if (!apiKey) return null;
 
-  // Agents are invoked via the A2A-style /responses endpoint.
-  // Agent instructions + system prompt are configured server-side on the agent;
-  // we only send the user message here (the agent's own instructions take care
-  // of role, constraints, and output format).
-  const body = {
-    message: {
-      role: "user",
-      parts: [
-        {
-          kind: "text",
-          text: buildBriefingUserMessage(input),
-        },
-      ],
-    },
-    configuration: { blocking: true },
-  };
-
-  const res = await fetch(
-    `${ORQAI_INVOKE_ENDPOINT}/swarm-briefing-agent/responses`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(INVOKE_TIMEOUT_MS),
-    }
-  );
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(
-      `Orq.ai invoke failed: ${res.status} ${res.statusText}${errText ? ` -- ${errText.slice(0, 200)}` : ""}`
-    );
-  }
-
-  const json = (await res.json()) as {
-    output?: Array<{
-      role?: string;
-      parts?: Array<{ kind?: string; text?: string }>;
-    }>;
-  };
-
-  // Response shape: output[0].parts[0].text is the agent's reply (A2A format)
-  const raw = json.output?.[0]?.parts?.[0]?.text ?? "";
-
-  if (!raw) {
-    throw new Error("Orq.ai invoke returned empty output");
-  }
+  // Phase 139 — invoke via the QUEUE-FREE Responses API (orq-responses.ts), NOT
+  // the legacy /v2/agents/{key}/responses queue endpoint. The agent's Studio
+  // instructions + response_format apply server-side; we send only the user
+  // message. invokeOrqResponses throws on a non-2xx / empty output.
+  const { text: raw } = await invokeOrqResponses({
+    model: "agent/swarm-briefing-agent",
+    input: buildBriefingUserMessage(input),
+    timeoutMs: INVOKE_TIMEOUT_MS,
+  });
 
   // Strip optional markdown code fences (```json ... ```) that the agent
   // sometimes wraps output in, then parse.

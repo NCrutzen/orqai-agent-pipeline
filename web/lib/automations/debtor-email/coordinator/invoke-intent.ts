@@ -11,13 +11,15 @@ import {
   type IntentAgentOutputV2,
   type IntentAgentOutputV3,
 } from "./types";
+import { invokeOrqResponses } from "@/lib/automations/orq-responses";
 
-const ORQ_ENDPOINT = "https://api.orq.ai/v2/agents";
-// Phase 113 Plan 02 (Q1 seam) — the agent key is no longer a module-level
-// constant baked into the URL. It is a per-call value defaulting to the debtor
-// agent, so existing debtor callers (passing no options) get the IDENTICAL URL
-// — byte-neutral. The shared coordinator overrides it with the per-swarm key
-// read from swarms.stage3_coordinator_agent_key.
+// Phase 139 — Stage-3 invoke routes through the queue-free Responses API
+// (orq-responses.ts), NOT the legacy /v2/agents/{key}/responses queue endpoint
+// (which stalled the whole pipeline on 2026-06-26). The agent key is a per-call
+// value defaulting to the debtor agent; the shared coordinator overrides it with
+// the per-swarm key from swarms.stage3_coordinator_agent_key. `agent/<key>`
+// applies the agent's Studio prompt + response_format server-side, so the debtor
+// output stays byte-equivalent.
 const DEFAULT_AGENT_KEY = "debtor-intent-agent";
 const TIMEOUT_MS = 45_000;
 
@@ -93,14 +95,6 @@ export type InvokeIntentResult = {
 // Re-export v1 type alias for callers that still need it (Plan 65-05 backfill
 // regression comparator). Production triage path consumes only IntentAgentOutputV2.
 export type { IntentAgentOutput };
-
-function sortKeys<T extends Record<string, unknown>>(obj: T): T {
-  const sorted: Record<string, unknown> = {};
-  for (const key of Object.keys(obj).sort()) {
-    sorted[key] = obj[key];
-  }
-  return sorted as T;
-}
 
 function buildUserMessage(promptVars: {
   email_id: string;
@@ -195,94 +189,29 @@ export async function invokeIntentAgent(
   input: InvokeIntentInput,
   options: InvokeIntentOptions = {},
 ): Promise<InvokeIntentResult> {
-  const apiKey = process.env.ORQ_API_KEY;
-  if (!apiKey) throw new Error("ORQ_API_KEY not set");
-
-  // `received_at` is logged as an Orq variable for traces but kept out of the
-  // prompt text so retries N minutes later hash to the same prompt string.
-  // Phase 83 D-06: prompt text is the wrapped XML assembled_input; subject /
-  // body_text / received_at stay in `variables` for Orq trace visibility but
-  // are no longer interpolated into the user message.
-  const promptVars = sortKeys({
-    email_id: input.email_id,
-    inngest_run_id: input.inngest_run_id,
-    stage: "classify",
-    subject: input.subject,
-    body_text: input.body_text,
-    assembled_input: input.assembled_input,
-    sender_email: input.sender_email,
-    sender_domain: input.sender_domain,
-    mailbox: input.mailbox,
-    entity: input.entity,
-  });
-
-  const variables: Record<string, unknown> = {
-    ...promptVars,
-    received_at: input.received_at,
-  };
-  if (options.modelOverride) {
-    variables.model_override = options.modelOverride;
-  }
-
-  const body = {
-    message: {
-      role: "user",
-      parts: [
-        {
-          kind: "text",
-          text: buildUserMessage({
-            email_id: input.email_id,
-            run_id: input.inngest_run_id,
-            sender_email: input.sender_email,
-            sender_domain: input.sender_domain,
-            mailbox: input.mailbox,
-            entity: input.entity,
-            assembled_input: input.assembled_input,
-          }),
-        },
-      ],
-    },
-    configuration: { blocking: true, variables },
-  };
-
   // Phase 113 Plan 02 (Q1 seam) — per-call agent key, defaulting to the debtor
-  // agent. Default path produces the IDENTICAL URL as the pre-parameterization
-  // module constant — debtor byte-neutral.
+  // agent. The shared coordinator passes the per-swarm key.
   const agentKey = options.agent_key ?? DEFAULT_AGENT_KEY;
 
-  const res = await fetch(`${ORQ_ENDPOINT}/${agentKey}/responses`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+  // Phase 139 — invoke via the QUEUE-FREE Responses API. `agent/<key>` applies
+  // the agent's Studio prompt + response_format server-side, so this stays
+  // byte-equivalent to the old agents-endpoint call minus the stall-prone queue.
+  // received_at + modelOverride were Orq trace-only variables on the dead
+  // endpoint (never interpolated into the prompt); the <context> block in
+  // buildUserMessage already carries the ids, so trace visibility holds via `input`.
+  const { text: raw, usage: orqUsage } = await invokeOrqResponses({
+    model: `agent/${agentKey}`,
+    input: buildUserMessage({
+      email_id: input.email_id,
+      run_id: input.inngest_run_id,
+      sender_email: input.sender_email,
+      sender_domain: input.sender_domain,
+      mailbox: input.mailbox,
+      entity: input.entity,
+      assembled_input: input.assembled_input,
+    }),
+    timeoutMs: TIMEOUT_MS,
   });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(
-      `Orq intent-agent failed: ${res.status} ${res.statusText}${errText ? ` -- ${errText.slice(0, 200)}` : ""}`,
-    );
-  }
-
-  const json = (await res.json()) as {
-    output?: Array<{
-      role?: string;
-      parts?: Array<{ kind?: string; text?: string }>;
-    }>;
-    // Phase 87 Plan 03 — Orq /responses usage block (verified at
-    // orq-agents/client.ts:198-208). Optional: defensive against schema drift.
-    usage?: {
-      input_tokens?: number;
-      output_tokens?: number;
-      total_tokens?: number;
-    };
-  };
-
-  const raw = json.output?.[0]?.parts?.[0]?.text ?? "";
-  if (!raw) throw new Error("Orq intent-agent returned empty output");
 
   const stripped = raw
     .trim()
@@ -349,15 +278,8 @@ export async function invokeIntentAgent(
 
   // Phase 87 Plan 03 — forward Orq usage when present. `undefined` keeps the
   // contract additive: callers that don't care still destructure { output, raw }.
-  const u = json.usage;
-  const usage: InvokeIntentUsage | undefined =
-    u && typeof u.total_tokens === "number"
-      ? {
-          input_tokens: u.input_tokens ?? 0,
-          output_tokens: u.output_tokens ?? 0,
-          total_tokens: u.total_tokens,
-        }
-      : undefined;
+  // orqUsage already carries the {input,output,total}_tokens shape from the transport.
+  const usage: InvokeIntentUsage | undefined = orqUsage;
 
   // Phase 113 Plan 02: `validated.data` is the per-call schema's inferred type
   // (the debtor V2/V3 union by default, or the supplied per-swarm schema's
