@@ -175,7 +175,7 @@ describe("Phase 132 Plan 02 — coordinator forward-request emit", () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "info-routing",
       stage3_coordinator_agent_key: "info-routing-coordinator",
-      dry_run_config: {
+      gating_config: {
         stage_3_routing: true,
         stage_4_forward_buckets: { storingen: true },
       },
@@ -205,7 +205,7 @@ describe("Phase 132 Plan 02 — coordinator forward-request emit", () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "info-routing",
       stage3_coordinator_agent_key: "info-routing-coordinator",
-      dry_run_config: {
+      gating_config: {
         stage_3_routing: true,
         stage_4_forward_buckets: { storingen: false },
       },

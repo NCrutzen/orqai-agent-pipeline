@@ -235,7 +235,7 @@ function makeAdminMock(overrides?: {
       data: {
         swarm_type: "debtor-email",
         enabled: true,
-        dry_run_config: {
+        gating_config: {
           stage_1_archive: false,
           stage_1_cleanup: false,
           stage_3_labeling: stageLabelingBlocked,
@@ -1172,7 +1172,7 @@ describe("sales generic path — gap closure (Phase 114-06)", () => {
             },
             precedence: ["sender_match", "offerte_match", "factuur_match"],
           },
-          dry_run_config: {
+          gating_config: {
             stage_2_resolution: true,
             stage_3_labeling: true,
           },
@@ -1581,7 +1581,7 @@ describe("debtor generic path — Phase 90-07 brand fallback (regression)", () =
               "identifier_match",
             ],
           },
-          dry_run_config: {
+          gating_config: {
             stage_2_resolution: true,
             stage_3_labeling: true,
           },
