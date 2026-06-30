@@ -133,7 +133,7 @@ export async function loadReviewPageData(
   // is a debtor-schema table). Non-debtor swarms skip it.
   //
   // Phase 110-04 (D-10/D-11): for a non-debtor swarm the per-row dry_run now
-  // resolves from the registry per-stage gate (swarms.dry_run_config.stage_3_labeling)
+  // resolves from the registry per-stage gate (swarms.gating_config.stage_3_labeling)
   // rather than a blanket true. Sales seeds stage_3_labeling=true so the
   // effective default is unchanged (a non-debtor row is NOT shown live), but the
   // value is now registry-sourced instead of assumed. The loader still tolerates

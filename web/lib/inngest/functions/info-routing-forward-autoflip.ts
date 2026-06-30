@@ -1,7 +1,7 @@
 // Phase 132.1 Plan 04 Task 2 (D-02) — the per-mailbox forward AUTO-FLIP cron.
 //
 // This cron ARMS irreversible live Outlook forwards. It releases a forward bucket
-// (`swarms.dry_run_config.stage_4_forward_buckets[bucket]=true`) for the
+// (`swarms.gating_config.stage_4_forward_buckets[bucket]=true`) for the
 // info-routing swarm ONLY when that bucket's source mailbox has cleared the
 // ROUTE-08 shadow gate: per-mailbox precision is `graded` AND `pass===true` AND
 // `graded_n >= MIN_GRADED_N` (50). `insufficient_sample` / `pass:null` NEVER
@@ -100,23 +100,23 @@ function buildCategoryToBucket(
 
 export const infoRoutingForwardAutoflip = inngest.createFunction(
   // Serial (limit 1) so two ticks never race the read-modify-write of
-  // dry_run_config. retries:1 — a transient DB error retries once, then surfaces.
+  // gating_config. retries:1 — a transient DB error retries once, then surfaces.
   { id: "info-routing/forward-autoflip", retries: 1, concurrency: [{ limit: 1 }] },
   [{ cron: CRON_BUSINESS_HOURS }, { event: "info-routing/forward-autoflip.requested" }],
   async ({ step }) => {
     // (1) Load the routing registry (brand → bucket axis) + the swarm's current
-    // dry_run_config + per-mailbox brand map. Read dry_run_config FRESH (not via
+    // gating_config + per-mailbox brand map. Read gating_config FRESH (not via
     // the cached loadSwarm) so idempotency is computed against live state.
     const ctx = await step.run("load-registry-and-config", async () => {
       const admin = createAdminClient();
       const destinations = await loadRoutingDestinations(admin, SWARM);
       const { data: swarmRow, error } = await admin
         .from("swarms")
-        .select("dry_run_config, resolution_config")
+        .select("gating_config, resolution_config")
         .eq("swarm_type", SWARM)
         .maybeSingle();
       if (error) throw new Error(`load swarm failed: ${error.message}`);
-      const dryRun = (swarmRow?.dry_run_config ?? {}) as {
+      const dryRun = (swarmRow?.gating_config ?? {}) as {
         stage_4_forward_buckets?: Record<string, boolean>;
       };
       const scope = (
@@ -240,7 +240,7 @@ export const infoRoutingForwardAutoflip = inngest.createFunction(
     }
 
     // (6) Apply the planned releases. A jsonb `||` merge sets ONLY the target
-    // bucket keys to true, preserving every dry_run_config sibling (stage_3_
+    // bucket keys to true, preserving every gating_config sibling (stage_3_
     // routing, stage_2_resolution, …). No flips → no write (idempotent no-op).
     if (flips.length === 0) {
       return {
@@ -252,16 +252,16 @@ export const infoRoutingForwardAutoflip = inngest.createFunction(
 
     const applied = await step.run("release-forward-buckets", async () => {
       const admin = createAdminClient();
-      // Re-read dry_run_config inside the write step (replay-safe) so the merge
+      // Re-read gating_config inside the write step (replay-safe) so the merge
       // is computed against the freshest state; merge only the bucket keys.
       const { data: row, error: readErr } = await admin
         .from("swarms")
-        .select("dry_run_config")
+        .select("gating_config")
         .eq("swarm_type", SWARM)
         .maybeSingle();
-      if (readErr) throw new Error(`re-read dry_run_config failed: ${readErr.message}`);
+      if (readErr) throw new Error(`re-read gating_config failed: ${readErr.message}`);
 
-      const dryRun = (row?.dry_run_config ?? {}) as Record<string, unknown> & {
+      const dryRun = (row?.gating_config ?? {}) as Record<string, unknown> & {
         stage_4_forward_buckets?: Record<string, boolean>;
       };
       const nextBuckets: Record<string, boolean> = {
@@ -275,7 +275,7 @@ export const infoRoutingForwardAutoflip = inngest.createFunction(
 
       const { error: updErr } = await admin
         .from("swarms")
-        .update({ dry_run_config: nextDryRun })
+        .update({ gating_config: nextDryRun })
         .eq("swarm_type", SWARM);
       if (updErr) throw new Error(`forward-bucket release failed: ${updErr.message}`);
 

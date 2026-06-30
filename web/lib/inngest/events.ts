@@ -652,7 +652,7 @@ export type Events = {
   // Phase 132.1 Plan 04 (D-02) — manual trigger for the per-mailbox forward
   // auto-flip cron (info-routing-forward-autoflip). The function runs on a
   // business-hours cron AND this event; the handler reads no payload (all state
-  // comes from the registry + dry_run_config), so data is optional. Send this
+  // comes from the registry + gating_config), so data is optional. Send this
   // to force an off-schedule precision re-evaluation / bucket-release check.
   "info-routing/forward-autoflip.requested": {
     data: {

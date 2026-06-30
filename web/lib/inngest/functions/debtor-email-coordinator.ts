@@ -961,7 +961,7 @@ export const debtorEmailCoordinator = inngest.createFunction(
       // Swarm-agnostic, registry-driven, fail-closed. Sits BETWEEN persist-ranked
       // (the verdict is already on coordinator_runs + pipeline_events → visible in
       // Bulk Review) and flip-status-predicted / emit-predicted. When ROUTING is
-      // GATED for this swarm (dry_run_config.stage_3_routing=true), the
+      // GATED for this swarm (gating_config.stage_3_routing=true), the
       // predicted-emit is WITHHELD so the Stage 3.5 dispatcher never fires and
       // Kanban routing is held — D-08 dry-run observation. The verdict stays
       // visible; routing is the only thing held. When OPEN (false), the

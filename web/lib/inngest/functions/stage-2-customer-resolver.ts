@@ -180,7 +180,7 @@ export const stage2CustomerResolver = inngest.createFunction(
     }
 
     // Phase 110 Plan 04 (D-10 / D-11) — per-stage gate. The labeling write is a
-    // Stage 2/3 side effect governed by swarms.dry_run_config.stage_3_labeling.
+    // Stage 2/3 side effect governed by swarms.gating_config.stage_3_labeling.
     // We fold the registry gate together with the legacy per-mailbox
     // settingsRow flag: the effective gate blocks if EITHER blocks. For debtor
     // both are true today (labeling_settings.dry_run=true uniformly per OQ-1 and

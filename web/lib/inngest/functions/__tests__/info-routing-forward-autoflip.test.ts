@@ -229,7 +229,7 @@ vi.mock("@/lib/swarms/registry", () => ({
  * and any pipeline_events INSERT for assertions.
  */
 function makeAdminMock(opts: {
-  swarmsRow: { dry_run_config: unknown; resolution_config: unknown };
+  swarmsRow: { gating_config: unknown; resolution_config: unknown };
   signals: { email_id: string; category_key: string }[];
   verdicts: {
     email_id: string;
@@ -242,7 +242,7 @@ function makeAdminMock(opts: {
     updateCalled: boolean;
   };
 }) {
-  // Re-readable swarms row (the write step re-reads dry_run_config).
+  // Re-readable swarms row (the write step re-reads gating_config).
   const swarmsSelect = () => {
     const builder: Record<string, unknown> = {};
     builder.eq = () => builder;
@@ -346,7 +346,7 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
         swarmsRow: {
-          dry_run_config: {
+          gating_config: {
             stage_3_routing: true,
             stage_2_resolution: true,
             stage_4_forward_buckets: {},
@@ -363,7 +363,7 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
     expect(result.flipped).toBeGreaterThan(0);
     expect(result.buckets.sort()).toEqual(["inspecties", "storingen", "verkoop"]);
 
-    const updated = captured.update?.dry_run_config as {
+    const updated = captured.update?.gating_config as {
       stage_3_routing?: boolean;
       stage_2_resolution?: boolean;
       stage_4_forward_buckets?: Record<string, boolean>;
@@ -388,7 +388,7 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
         swarmsRow: {
-          dry_run_config: { stage_4_forward_buckets: {} },
+          gating_config: { stage_4_forward_buckets: {} },
           resolution_config: { scope: { entity_by_mailbox: { "info@smeba.nl": "smeba" } } },
         },
         signals: correctionsFor("info@smeba.nl", 3, 10), // tiny graded sample
@@ -412,7 +412,7 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
       makeAdminMock({
         swarmsRow: {
           // verkoop ALREADY released; now smeba grades pass=false → regression.
-          dry_run_config: { stage_4_forward_buckets: { verkoop: true } },
+          gating_config: { stage_4_forward_buckets: { verkoop: true } },
           resolution_config: { scope: { entity_by_mailbox: { "info@smeba.nl": "smeba" } } },
         },
         signals: correctionsFor("info@smeba.nl", MIN_GRADED_N, 2), // 50% match → fail

@@ -1,7 +1,7 @@
 // Phase 132 Plan 01 (Task 3, D-03 / D-04) — the per-bucket forward RELEASE gate.
 //
 // PINNED POLARITY — INVERSE to the held-flags. isForwardBucketReleased reads
-// swarms.dry_run_config.stage_4_forward_buckets[bucket]:
+// swarms.gating_config.stage_4_forward_buckets[bucket]:
 //   value TRUE        = RELEASED (live forward fires)
 //   value FALSE       = HELD (no live forward)
 //   entry/map MISSING = HELD (fail-closed, D-04 default held/observe)
@@ -23,7 +23,7 @@ describe("isForwardBucketReleased — per-bucket release gate (fail-closed, D-04
     ).toBe(true);
   });
 
-  it("returns false (HELD) when dry_run_config is missing entirely — fail-closed", () => {
+  it("returns false (HELD) when gating_config is missing entirely — fail-closed", () => {
     expect(isForwardBucketReleased({}, "storingen")).toBe(false);
     expect(isForwardBucketReleased(null, "storingen")).toBe(false);
     expect(isForwardBucketReleased(undefined, "storingen")).toBe(false);

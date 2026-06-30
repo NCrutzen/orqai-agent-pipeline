@@ -1,10 +1,10 @@
 // Phase 110 Plan 04 (D-10 / D-11) — per-stage gating gate resolver.
-// Phase 135 Plan 02 (MODEL-01..05 / MIGRATE-01/02) — cut over from
-// `dry_run_config`/`DryRunConfig` to `gating_config`/`GatingConfig`, promote the
-// handler map to a tri-state (`off|dry|live`), and add the pure
-// `deriveMailboxMode()` derived-lifecycle fn. The five helper SIGNATURES are
-// byte-identical to the pre-cutover module — only the column they read and the
-// handler-state interpretation change (MIGRATE-02 "swap internals only").
+// Phase 135 Plan 02 (MODEL-01..05 / MIGRATE-01/02) — cut over from the legacy
+// dry-run column/type to `gating_config`/`GatingConfig`, promote the handler map
+// to a tri-state (`off|dry|live`), and add the pure `deriveMailboxMode()`
+// derived-lifecycle fn. The five helper SIGNATURES are byte-identical to the
+// pre-cutover module — only the column they read and the handler-state
+// interpretation change (MIGRATE-02 "swap internals only").
 //
 // Single source of truth for reading the per-stage governance flags from a
 // swarm's swarms.gating_config jsonb (seeded by 20260603b_swarms_dry_run_config.sql
