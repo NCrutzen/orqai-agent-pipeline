@@ -112,6 +112,10 @@ None - no external service configuration required. The two smoke scripts require
 - 135-04 (Shadow gate): wire `deriveMailboxMode==="Shadow"` early-return in the intent-label worker → turns the Shadow RED green.
 - 135-05 (migration apply): run `phase135-trigger-smoke.ts` + `phase135-seed-readback.ts` after apply; **re-query + reconcile `EXPECTED_SEED`** at apply time per 135-VALIDATION (sales `stage_3_routing`/`stage_3_intent_label` live values flagged [ASSUMED] in RESEARCH OQ-2 — confirm with operator before locking the seed).
 
+## Self-Check: PASSED
+
+All 3 created files + 2 modified files present; all 4 commits (c1907e98, a688512c, e0cc97cf, 3099eba9) found in git log.
+
 ---
 *Phase: 135-gating-model-storage-migration-4-swarm-normalization-v9-8-p1*
 *Completed: 2026-06-30*

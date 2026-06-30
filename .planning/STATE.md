@@ -4,13 +4,13 @@ milestone: V9.8
 milestone_name: Run-Mode & Gating Redesign — Governance Rail
 status: executing
 stopped_at: Phase 135 context gathered
-last_updated: "2026-06-30T06:57:20.096Z"
-last_activity: 2026-06-30 -- Phase 135 execution started
+last_updated: "2026-06-30T07:10:46.990Z"
+last_activity: 2026-06-30
 progress:
   total_phases: 22
   completed_phases: 16
   total_plans: 84
-  completed_plans: 72
+  completed_plans: 73
   percent: 73
 ---
 
@@ -67,9 +67,9 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 ## Current Position
 
 Phase: 135 (gating-model-storage-migration-4-swarm-normalization-v9-8-p1) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 135
-Last activity: 2026-06-30 -- Phase 135 execution started
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-06-30
 
 ### V9.8 roadmap (created 2026-06-25)
 
@@ -220,6 +220,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 | Phase 132.1 P02 | ~40m | 1 tasks | 2 files |
 | Phase 132.1 P03 | ~25m | 3 tasks | 3 files |
 | Phase 132.1 P04 | ~55m | 2 tasks | 5 files |
+| Phase 135 P01 | 9min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -375,6 +376,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 - [Phase ?]: [Phase 132.1-03] Info-routing activation shipped as migrations only: dispatch re-flip + behavior_tracking enable (jsonb || merge, siblings preserved) in 20260624a; one-flag forward revert (jsonb_set stage_4_forward_buckets to {}) armed-not-applied in 20260624b; ensure-info-routing-categories.ts invokes Plan-02 preset5 colour per info@ mailbox (buckets from routing_destinations registry). Live apply + DB/Graph read-backs operator-gated (no Supabase/Graph MCP tool exposed + prod-read denied).
 - [Phase ?]: [Phase 132.1-04] ROUTE-08 human_category from swarm_review_signals (112.5 category_edited reclassify) mapped via categoryToBucket; gate logic byte-unchanged
 - [Phase ?]: [Phase 132.1-04] Per-mailbox auto-flip reconciliation = brand-reachable (Option A, operator-confirmed); stage_4_forward_buckets stays bucket-keyed, release-only + idempotent, panic lever = migration 20260624b
+- [Phase ?]: [Phase 135-01] Wave 0 RED scaffold landed: derive-mode + tri-state + Shadow-suppression tests RED until 135-02/135-04; pin tests stay green (MIGRATE-02). Sales derive-fixture presents stage_1_archive=true held per OQ-3 Path A so sales derives Dry. Smoke scripts probe via always-raise DO block (never persist) using Management-API token only.
 
 ### Blockers/Concerns
 
@@ -422,10 +424,10 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 
 ## Session Continuity
 
-Last session: 2026-06-25T15:42:32.333Z
+Last session: 2026-06-30T07:10:18.971Z
 Stopped at: Phase 135 context gathered
 Resume with: Phase 131 verified clean. ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding; WR-02 dedup-below-threshold hardening optional future pass.
-Resume file: .planning/phases/135-gating-model-storage-migration-4-swarm-normalization-v9-8-p1/135-CONTEXT.md
+Resume file: None
 
 ## Deferred Items
 

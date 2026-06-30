@@ -16,16 +16,16 @@ Scope: replace the coarse, scattered dry-run flags with a 3-layer governance mod
 The storage/derivation core. The mailbox "mode" is *derived* from these layers — no parallel `mode` enum.
 
 - [ ] **MODEL-01**: Each pipeline stage (0–4) has an independent enabled/disabled state per swarm.
-- [ ] **MODEL-02**: Each handler has an independent `off | dry | live` state per swarm.
-- [ ] **MODEL-03**: The per-mailbox lifecycle state (Shadow → Dry-run → Live) is *derived* from the per-stage + per-handler flags, with no separately-stored mode enum that can drift.
-- [ ] **MODEL-04**: A handler can never be `live` while its trigger-stage is not live — the invariant is enforced (rejected at write time and/or surfaced as a violation).
-- [ ] **MODEL-05**: A mailbox newly added to a swarm defaults to **Shadow** (data collected, visible only in the internal Bulk Review surface, not yet to operator/end-user).
+- [x] **MODEL-02**: Each handler has an independent `off | dry | live` state per swarm.
+- [x] **MODEL-03**: The per-mailbox lifecycle state (Shadow → Dry-run → Live) is *derived* from the per-stage + per-handler flags, with no separately-stored mode enum that can drift.
+- [x] **MODEL-04**: A handler can never be `live` while its trigger-stage is not live — the invariant is enforced (rejected at write time and/or surfaced as a violation).
+- [x] **MODEL-05**: A mailbox newly added to a swarm defaults to **Shadow** (data collected, visible only in the internal Bulk Review surface, not yet to operator/end-user).
 
 ### Migration & Normalization (P1)
 
 - [ ] **MIGRATE-01**: The new storage shape supersedes `swarms.dry_run_config`, the two per-mailbox `dry_run` booleans (`debtor.labeling_settings.dry_run`, `public.info_routing_mailbox_settings.dry_run`), and `debtor.email_labels.status` as the source of gating truth.
-- [ ] **MIGRATE-02**: Pipeline workers continue to gate correctly across the cutover — no behavior change at migration time; the existing gate reads the new shape.
-- [ ] **MIGRATE-03**: All 4 swarms (sales, debtor, info-routing, support-tickets) are normalized to their intended per-stage + per-handler state under the new model — including debtor iController noise-delete governed explicitly via the per-handler tri-state, not an implicit always-live flag.
+- [x] **MIGRATE-02**: Pipeline workers continue to gate correctly across the cutover — no behavior change at migration time; the existing gate reads the new shape.
+- [x] **MIGRATE-03**: All 4 swarms (sales, debtor, info-routing, support-tickets) are normalized to their intended per-stage + per-handler state under the new model — including debtor iController noise-delete governed explicitly via the per-handler tri-state, not an implicit always-live flag.
 
 ### Review Surface (P1)
 
@@ -71,13 +71,13 @@ Every v1 requirement maps to exactly one phase. Roadmap created 2026-06-25 (phas
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | MODEL-01 | Phase 135 | Pending |
-| MODEL-02 | Phase 135 | Pending |
-| MODEL-03 | Phase 135 | Pending |
-| MODEL-04 | Phase 135 | Pending |
-| MODEL-05 | Phase 135 | Pending |
+| MODEL-02 | Phase 135 | Complete |
+| MODEL-03 | Phase 135 | Complete |
+| MODEL-04 | Phase 135 | Complete |
+| MODEL-05 | Phase 135 | Complete |
 | MIGRATE-01 | Phase 135 | Pending |
-| MIGRATE-02 | Phase 135 | Pending |
-| MIGRATE-03 | Phase 135 | Pending |
+| MIGRATE-02 | Phase 135 | Complete |
+| MIGRATE-03 | Phase 135 | Complete |
 | REVIEW-01 | Phase 136 | Pending |
 | REVIEW-02 | Phase 136 | Pending |
 | REVIEW-03 | Phase 136 | Pending |
@@ -89,11 +89,13 @@ Every v1 requirement maps to exactly one phase. Roadmap created 2026-06-25 (phas
 | CONTROL-02 | Phase 138 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 17 total
 - Mapped to phases: 17 ✓
 - Unmapped: 0
 
 **Per-phase coverage:**
+
 - Phase 135 (P1a — model + storage + migration + 4-swarm normalization): MODEL-01..05, MIGRATE-01..03 (8)
 - Phase 136 (P1b — review renderers + matrix doc): REVIEW-01..03, DOC-01 (4)
 - Phase 137 (P2 — per-handler dry-capture): CAPTURE-01..03 (3)
