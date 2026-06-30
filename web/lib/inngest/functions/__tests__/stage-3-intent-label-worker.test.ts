@@ -52,8 +52,11 @@ vi.mock("@/lib/outlook/written-category-store", () => ({
   recordWrittenCategory: (...args: unknown[]) => recordWrittenMock(...args),
 }));
 
+// Captured so Phase 135 Plan 01 Task 2 (D-03) can assert internal persistence is
+// NOT suppressed by the Shadow branch (Pitfall 4 — only the Graph PATCH is held).
+const emitPipelineEventMock = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/pipeline-events/emit", () => ({
-  emitPipelineEvent: vi.fn().mockResolvedValue(undefined),
+  emitPipelineEvent: (...args: unknown[]) => emitPipelineEventMock(...args),
 }));
 
 // ---- Supabase mock --------------------------------------------------------
@@ -293,5 +296,35 @@ describe("Phase 117 Plan 02 — stage-3-intent-label-worker", () => {
     })) as { decision: string };
     expect(res.decision).toBe("written");
     expect(patchCalls()).toHaveLength(1);
+  });
+
+  // ---- Phase 135 Plan 01 Task 2 (D-03 / Pattern 4) — Shadow suppression -----
+  // RED ON PURPOSE until 135-04 wires the Shadow gate. A swarm whose derived
+  // mode is Shadow (label held + no live side-effect) must HOLD the operator-
+  // visible Graph AI:-category PATCH while STILL persisting internally — the
+  // verdict stays visible in the internal Bulk Review surface (Pitfall 4: only
+  // the Graph PATCH is suppressed, NOT pipeline_events / the written-category
+  // store). The fixture uses the POST-cutover `gating_config` (tri-state)
+  // shaped to derive Shadow; the current worker has no Shadow branch, so it
+  // returns "gated" with no internal emit — failing both assertions now.
+  it("Shadow (derived) → decision=shadow_suppressed, 0 Graph PATCH, internal persistence NOT suppressed", async () => {
+    loadSwarmMock.mockResolvedValue({
+      swarm_type: "support-tickets",
+      // Shadow: AI:-label held (stage_3_intent_label=true) AND no live side-effect.
+      gating_config: {
+        stage_1_archive: true,
+        stage_3_intent_label: true,
+        stage_4_handlers: {},
+      },
+    });
+    const res = (await handler({
+      event: buildEvent({ swarm_type: "support-tickets" }),
+      step: stepStub,
+    })) as { decision: string };
+    // Operator-visible label write is HELD.
+    expect(res.decision).toBe("shadow_suppressed");
+    expect(patchCalls()).toHaveLength(0);
+    // Internal persistence (pipeline_events) is NOT suppressed by Shadow.
+    expect(emitPipelineEventMock).toHaveBeenCalled();
   });
 });
