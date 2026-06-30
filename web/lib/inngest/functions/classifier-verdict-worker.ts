@@ -89,7 +89,7 @@ export const classifierVerdictWorker = inngest.createFunction(
     );
     // Phase 111 Finding 1: load the full swarm row so the inline Outlook
     // categorize+archive below can be gated behind the per-stage dry-run
-    // flag (swarms.dry_run_config.stage_1_archive). Phase 110-04 wired this
+    // flag (swarms.gating_config.stage_1_archive). Phase 110-04 wired this
     // gate into the four side-effect workers but NOT this inline path —
     // sales auto_reply/ooo_* all carry outlook_label, so without this gate
     // flipping action='categorize_archive' would fire LIVE Outlook calls.
@@ -141,6 +141,11 @@ export const classifierVerdictWorker = inngest.createFunction(
           // a dry-run-BLOCKED sales verdict (no live archive) still wrote a
           // pipeline_events row asserting the email left the inbox — a phantom
           // archive signal that pollutes the handled-overview surface.
+          // Phase 135 Plan 02 (MIGRATE-01): this inline archive side-effect is
+          // gated SOLELY by the registry stage flag (`gating_config.stage_1_archive`
+          // via isStageBlocked) — there is NO legacy `labeling_settings.dry_run`
+          // co-gate here to retain. The registry gate is already the single
+          // source of gating truth for this site (no transitional read to remove).
           const archiveLive =
             !!category.outlook_label &&
             !isStageBlocked(swarmRow, "stage_1_archive");

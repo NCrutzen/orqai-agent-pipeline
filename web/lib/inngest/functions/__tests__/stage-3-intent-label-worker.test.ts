@@ -52,8 +52,11 @@ vi.mock("@/lib/outlook/written-category-store", () => ({
   recordWrittenCategory: (...args: unknown[]) => recordWrittenMock(...args),
 }));
 
+// Captured so Phase 135 Plan 01 Task 2 (D-03) can assert internal persistence is
+// NOT suppressed by the Shadow branch (Pitfall 4 — only the Graph PATCH is held).
+const emitPipelineEventMock = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/pipeline-events/emit", () => ({
-  emitPipelineEvent: vi.fn().mockResolvedValue(undefined),
+  emitPipelineEvent: (...args: unknown[]) => emitPipelineEventMock(...args),
 }));
 
 // ---- Supabase mock --------------------------------------------------------
@@ -145,10 +148,17 @@ describe("Phase 117 Plan 02 — stage-3-intent-label-worker", () => {
     ).handler;
   });
 
-  it("GATED (sales, stage_3_intent_label=true) → 0 PATCH, decision=gated", async () => {
+  it("GATED (sales, stage_3_intent_label held on a Live swarm) → 0 PATCH, decision=gated", async () => {
+    // A non-Shadow (here Live, via a live handler) swarm whose AI:-label stage is
+    // held still returns the generic `gated` no-op — Shadow is a STRICTER subset
+    // checked before this gate (deriveMailboxMode → Live, so the Shadow branch is
+    // skipped and the stage gate governs).
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
-      dry_run_config: { stage_3_intent_label: true },
+      gating_config: {
+        stage_3_intent_label: true,
+        stage_4_handlers: { "some-handler": "live" },
+      },
     });
     const res = (await handler({ event: buildEvent(), step: stepStub })) as {
       decision: string;
@@ -158,10 +168,13 @@ describe("Phase 117 Plan 02 — stage-3-intent-label-worker", () => {
     expect(recordWrittenMock).not.toHaveBeenCalled();
   });
 
-  it("GATED (debtor, stage_3_intent_label=true) → 0 PATCH, decision=gated", async () => {
+  it("GATED (debtor, stage_3_intent_label held on a Live swarm) → 0 PATCH, decision=gated", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "debtor-email",
-      dry_run_config: { stage_3_intent_label: true },
+      gating_config: {
+        stage_3_intent_label: true,
+        stage_4_handlers: { "some-handler": "live" },
+      },
     });
     const res = (await handler({
       event: buildEvent({ swarm_type: "debtor-email" }),
@@ -171,22 +184,26 @@ describe("Phase 117 Plan 02 — stage-3-intent-label-worker", () => {
     expect(patchCalls()).toHaveLength(0);
   });
 
-  it("MISSING flag → fail-closed → gated, 0 PATCH", async () => {
+  it("MISSING config → fail-closed → Shadow (safe-by-default), 0 PATCH", async () => {
+    // A fully-unconfigured swarm derives Shadow (MODEL-05 safe-by-default): the
+    // operator-visible Graph PATCH is held. Post-cutover, the fail-closed default
+    // routes through the stricter Shadow suppression (which also emits the
+    // internal audit) rather than the generic stage `gated` no-op.
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
-      dry_run_config: {},
+      gating_config: {},
     });
     const res = (await handler({ event: buildEvent(), step: stepStub })) as {
       decision: string;
     };
-    expect(res.decision).toBe("gated");
+    expect(res.decision).toBe("shadow_suppressed");
     expect(patchCalls()).toHaveLength(0);
   });
 
   it("OPEN + no prior + no edit → 1 PATCH (merged), store written, decision=written", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
-      dry_run_config: { stage_3_intent_label: false },
+      gating_config: { stage_3_intent_label: false },
     });
     graphFetchMock.mockImplementation(async (_p: string, opts?: { method?: string }) => {
       if (opts?.method === "PATCH") return { ok: true, text: async () => "" };
@@ -214,7 +231,7 @@ describe("Phase 117 Plan 02 — stage-3-intent-label-worker", () => {
   it("strip-stale: existing AI: label replaced, not accumulated", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
-      dry_run_config: { stage_3_intent_label: false },
+      gating_config: { stage_3_intent_label: false },
     });
     graphFetchMock.mockImplementation(async (_p: string, opts?: { method?: string }) => {
       if (opts?.method === "PATCH") return { ok: true, text: async () => "" };
@@ -228,7 +245,7 @@ describe("Phase 117 Plan 02 — stage-3-intent-label-worker", () => {
   it("idempotency: same verdict already written → 0 PATCH, decision=unchanged", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
-      dry_run_config: { stage_3_intent_label: false },
+      gating_config: { stage_3_intent_label: false },
     });
     readWrittenMock.mockResolvedValue({
       ai_category: "AI: quote_request",
@@ -244,7 +261,7 @@ describe("Phase 117 Plan 02 — stage-3-intent-label-worker", () => {
   it("never-clobber (category_edited transition) → 0 PATCH, decision=clobber-skip", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
-      dry_run_config: { stage_3_intent_label: false },
+      gating_config: { stage_3_intent_label: false },
     });
     transitionRow = { id: "trans-1" };
     const res = (await handler({ event: buildEvent(), step: stepStub })) as {
@@ -258,7 +275,7 @@ describe("Phase 117 Plan 02 — stage-3-intent-label-worker", () => {
   it("never-clobber (review_signals correction) → 0 PATCH, decision=clobber-skip", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
-      dry_run_config: { stage_3_intent_label: false },
+      gating_config: { stage_3_intent_label: false },
     });
     signalRow = { id: "sig-1" };
     const res = (await handler({ event: buildEvent(), step: stepStub })) as {
@@ -271,7 +288,7 @@ describe("Phase 117 Plan 02 — stage-3-intent-label-worker", () => {
   it("missing source_id → fail-soft, decision=unresolved, 0 PATCH", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
-      dry_run_config: { stage_3_intent_label: false },
+      gating_config: { stage_3_intent_label: false },
     });
     emailsRow = { source_id: null, mailbox: null };
     const res = (await handler({
@@ -285,7 +302,7 @@ describe("Phase 117 Plan 02 — stage-3-intent-label-worker", () => {
   it("second swarm (registry row only) flows the same path → written", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "info-routing",
-      dry_run_config: { stage_3_intent_label: false },
+      gating_config: { stage_3_intent_label: false },
     });
     const res = (await handler({
       event: buildEvent({ swarm_type: "info-routing" }),
@@ -293,5 +310,35 @@ describe("Phase 117 Plan 02 — stage-3-intent-label-worker", () => {
     })) as { decision: string };
     expect(res.decision).toBe("written");
     expect(patchCalls()).toHaveLength(1);
+  });
+
+  // ---- Phase 135 Plan 01 Task 2 (D-03 / Pattern 4) — Shadow suppression -----
+  // RED ON PURPOSE until 135-04 wires the Shadow gate. A swarm whose derived
+  // mode is Shadow (label held + no live side-effect) must HOLD the operator-
+  // visible Graph AI:-category PATCH while STILL persisting internally — the
+  // verdict stays visible in the internal Bulk Review surface (Pitfall 4: only
+  // the Graph PATCH is suppressed, NOT pipeline_events / the written-category
+  // store). The fixture uses the POST-cutover `gating_config` (tri-state)
+  // shaped to derive Shadow; the current worker has no Shadow branch, so it
+  // returns "gated" with no internal emit — failing both assertions now.
+  it("Shadow (derived) → decision=shadow_suppressed, 0 Graph PATCH, internal persistence NOT suppressed", async () => {
+    loadSwarmMock.mockResolvedValue({
+      swarm_type: "support-tickets",
+      // Shadow: AI:-label held (stage_3_intent_label=true) AND no live side-effect.
+      gating_config: {
+        stage_1_archive: true,
+        stage_3_intent_label: true,
+        stage_4_handlers: {},
+      },
+    });
+    const res = (await handler({
+      event: buildEvent({ swarm_type: "support-tickets" }),
+      step: stepStub,
+    })) as { decision: string };
+    // Operator-visible label write is HELD.
+    expect(res.decision).toBe("shadow_suppressed");
+    expect(patchCalls()).toHaveLength(0);
+    // Internal persistence (pipeline_events) is NOT suppressed by Shadow.
+    expect(emitPipelineEventMock).toHaveBeenCalled();
   });
 });

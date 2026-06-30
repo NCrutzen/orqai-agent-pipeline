@@ -1,7 +1,7 @@
 // Phase 132 Plan 01 (Task 3, D-03 / D-04) — the per-bucket forward RELEASE gate.
 //
 // PINNED POLARITY — INVERSE to the held-flags. isForwardBucketReleased reads
-// swarms.dry_run_config.stage_4_forward_buckets[bucket]:
+// swarms.gating_config.stage_4_forward_buckets[bucket]:
 //   value TRUE        = RELEASED (live forward fires)
 //   value FALSE       = HELD (no live forward)
 //   entry/map MISSING = HELD (fail-closed, D-04 default held/observe)
@@ -17,13 +17,13 @@ describe("isForwardBucketReleased — per-bucket release gate (fail-closed, D-04
   it("returns true (RELEASED) ONLY when stage_4_forward_buckets[bucket] === true", () => {
     expect(
       isForwardBucketReleased(
-        { dry_run_config: { stage_4_forward_buckets: { storingen: true } } },
+        { gating_config: { stage_4_forward_buckets: { storingen: true } } },
         "storingen",
       ),
     ).toBe(true);
   });
 
-  it("returns false (HELD) when dry_run_config is missing entirely — fail-closed", () => {
+  it("returns false (HELD) when gating_config is missing entirely — fail-closed", () => {
     expect(isForwardBucketReleased({}, "storingen")).toBe(false);
     expect(isForwardBucketReleased(null, "storingen")).toBe(false);
     expect(isForwardBucketReleased(undefined, "storingen")).toBe(false);
@@ -32,7 +32,7 @@ describe("isForwardBucketReleased — per-bucket release gate (fail-closed, D-04
   it("returns false (HELD) when stage_4_forward_buckets map is absent — fail-closed", () => {
     expect(
       isForwardBucketReleased(
-        { dry_run_config: { stage_3_routing: false } },
+        { gating_config: { stage_3_routing: false } },
         "storingen",
       ),
     ).toBe(false);
@@ -40,7 +40,7 @@ describe("isForwardBucketReleased — per-bucket release gate (fail-closed, D-04
 
   it("isolates per bucket: {storingen:true} releases storingen but holds verkoop", () => {
     const swarm = {
-      dry_run_config: { stage_4_forward_buckets: { storingen: true } },
+      gating_config: { stage_4_forward_buckets: { storingen: true } },
     };
     expect(isForwardBucketReleased(swarm, "storingen")).toBe(true);
     expect(isForwardBucketReleased(swarm, "verkoop")).toBe(false);
@@ -49,7 +49,7 @@ describe("isForwardBucketReleased — per-bucket release gate (fail-closed, D-04
   it("returns false (HELD) when a bucket entry is explicitly false", () => {
     expect(
       isForwardBucketReleased(
-        { dry_run_config: { stage_4_forward_buckets: { storingen: false } } },
+        { gating_config: { stage_4_forward_buckets: { storingen: false } } },
         "storingen",
       ),
     ).toBe(false);

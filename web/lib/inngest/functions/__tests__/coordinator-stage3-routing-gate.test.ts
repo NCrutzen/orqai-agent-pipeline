@@ -186,7 +186,7 @@ describe("Phase 113 Plan 05 — Stage-3 routing gate (held vs emit)", () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
       stage3_coordinator_agent_key: "sales-intent-agent",
-      dry_run_config: { stage_3_routing: true },
+      gating_config: { stage_3_routing: true },
     });
 
     const res = (await handler({
@@ -213,7 +213,7 @@ describe("Phase 113 Plan 05 — Stage-3 routing gate (held vs emit)", () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
       stage3_coordinator_agent_key: "sales-intent-agent",
-      dry_run_config: { stage_3_routing: false },
+      gating_config: { stage_3_routing: false },
     });
 
     const res = (await handler({
@@ -229,7 +229,7 @@ describe("Phase 113 Plan 05 — Stage-3 routing gate (held vs emit)", () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "debtor-email",
       stage3_coordinator_agent_key: "debtor-intent-agent",
-      dry_run_config: {
+      gating_config: {
         // mirrors the seed migration: routing OPEN, labeling GATED. The gate
         // must read stage_3_routing (false → emit), NOT stage_3_labeling.
         stage_3_routing: false,
@@ -250,7 +250,7 @@ describe("Phase 113 Plan 05 — Stage-3 routing gate (held vs emit)", () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
       stage3_coordinator_agent_key: "sales-intent-agent",
-      dry_run_config: {}, // no stage_3_routing → fail-closed
+      gating_config: {}, // no stage_3_routing → fail-closed
     });
 
     const res = (await handler({

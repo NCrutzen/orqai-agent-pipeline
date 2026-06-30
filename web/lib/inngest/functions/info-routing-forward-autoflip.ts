@@ -1,7 +1,7 @@
 // Phase 132.1 (D-02) → Phase 132.2 (V9.7.x) — the per-bucket forward AUTO-FLIP cron.
 //
 // This cron ARMS irreversible live Outlook forwards. It releases a forward bucket
-// (`swarms.dry_run_config.stage_4_forward_buckets[bucket]=true`) for the
+// (`swarms.gating_config.stage_4_forward_buckets[bucket]=true`) for the
 // info-routing swarm ONLY when that bucket clears the FORWARD-MATCH ground-truth
 // gate: over the accumulated ledger of observed staff forwards, the bucket's
 // per-bucket Wilson lower bound ≥ FORWARD_WILSON_GATE (0.70) at n ≥ MIN_OBSERVED_N
@@ -108,7 +108,7 @@ const isUniqueViolation = (err: unknown): boolean => {
 
 export const infoRoutingForwardAutoflip = inngest.createFunction(
   // Serial (limit 1) so two ticks never race the read-modify-write of
-  // dry_run_config. retries:1 — a transient DB/Graph error retries once.
+  // gating_config. retries:1 — a transient DB/Graph error retries once.
   { id: "info-routing/forward-autoflip", retries: 1, concurrency: [{ limit: 1 }] },
   [{ cron: CRON_BUSINESS_HOURS }, { event: "info-routing/forward-autoflip.requested" }],
   async ({ step }) => {
@@ -120,11 +120,11 @@ export const infoRoutingForwardAutoflip = inngest.createFunction(
       const destinations = await loadRoutingDestinations(admin, SWARM);
       const { data: swarmRow, error } = await admin
         .from("swarms")
-        .select("dry_run_config, behavior_tracking_config")
+        .select("gating_config, behavior_tracking_config")
         .eq("swarm_type", SWARM)
         .maybeSingle();
       if (error) throw new Error(`load swarm failed: ${error.message}`);
-      const dryRun = (swarmRow?.dry_run_config ?? {}) as {
+      const dryRun = (swarmRow?.gating_config ?? {}) as {
         stage_4_forward_buckets?: Record<string, boolean>;
       };
       const bt = (swarmRow?.behavior_tracking_config ??
@@ -382,7 +382,7 @@ export const infoRoutingForwardAutoflip = inngest.createFunction(
     }
 
     // (5) RELEASE — release-only jsonb merge: set ONLY the clearing bucket keys to
-    // true, preserving every dry_run_config sibling. No clears → no write.
+    // true, preserving every gating_config sibling. No clears → no write.
     const toRelease = clearing.filter((b) => ctx.currentForwardBuckets[b] !== true);
     if (toRelease.length === 0) {
       return {
@@ -395,16 +395,16 @@ export const infoRoutingForwardAutoflip = inngest.createFunction(
 
     const applied = await step.run("release-forward-buckets", async () => {
       const admin = createAdminClient();
-      // Re-read dry_run_config inside the write step (replay-safe) so the merge is
+      // Re-read gating_config inside the write step (replay-safe) so the merge is
       // computed against the freshest state; merge only the bucket keys.
       const { data: row, error: readErr } = await admin
         .from("swarms")
-        .select("dry_run_config")
+        .select("gating_config")
         .eq("swarm_type", SWARM)
         .maybeSingle();
-      if (readErr) throw new Error(`re-read dry_run_config failed: ${readErr.message}`);
+      if (readErr) throw new Error(`re-read gating_config failed: ${readErr.message}`);
 
-      const dryRun = (row?.dry_run_config ?? {}) as Record<string, unknown> & {
+      const dryRun = (row?.gating_config ?? {}) as Record<string, unknown> & {
         stage_4_forward_buckets?: Record<string, boolean>;
       };
       const nextBuckets: Record<string, boolean> = {
@@ -417,7 +417,7 @@ export const infoRoutingForwardAutoflip = inngest.createFunction(
 
       const { error: updErr } = await admin
         .from("swarms")
-        .update({ dry_run_config: nextDryRun })
+        .update({ gating_config: nextDryRun })
         .eq("swarm_type", SWARM);
       if (updErr) throw new Error(`forward-bucket release failed: ${updErr.message}`);
 

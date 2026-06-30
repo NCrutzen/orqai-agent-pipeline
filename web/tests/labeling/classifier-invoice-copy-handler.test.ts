@@ -233,12 +233,13 @@ describe("classifier-invoice-copy-handler", () => {
       entity: "smeba",
       icontroller_company: "smebabrandbeveiliging",
     };
-    // Phase 110-04: the handler folds dry_run_config.stage_4_handlers["invoice-copy"]
-    // into the dry_run decision (isHandlerBlocked). To exercise the production
-    // draft path (dry_run=false → env=production) the registry gate must be
-    // UNblocked; an absent swarm row fail-closes to blocked → acceptance.
+    // Phase 110-04 / Phase 135: the handler folds gating_config.stage_4_handlers["invoice-copy"]
+    // (tri-state "off"|"dry"|"live") into the dry_run decision (isHandlerBlocked =
+    // state !== "live"). To exercise the production draft path (dry_run=false →
+    // env=production) the handler must be "live"; an absent swarm row or any
+    // non-"live" state fail-closes to blocked → acceptance.
     readResponses[".swarms"] = {
-      dry_run_config: { stage_4_handlers: { "invoice-copy": false } },
+      gating_config: { stage_4_handlers: { "invoice-copy": "live" } },
     };
 
     const fetchSpy = vi.fn();

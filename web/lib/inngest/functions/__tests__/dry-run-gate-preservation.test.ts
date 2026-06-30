@@ -1,7 +1,7 @@
 // Phase 110 Plan 01 (D-10 / D-11) — dry-run gate preservation contract.
 //
 // Pins debtor's CURRENT EFFECTIVE per-stage gating so Plan 04's per-stage
-// dry-run gate (reading swarms.dry_run_config) preserves it EXACTLY. Two
+// dry-run gate (reading swarms.gating_config) preserves it EXACTLY. Two
 // facts must survive the Plan 04 refactor for the live debtor path:
 //
 //   • OQ-1 (verified 2026-06-03): all 6 debtor mailboxes are dry_run=true
@@ -19,8 +19,8 @@
 //         blocks the production write.
 //
 // Test shape: the cleanup-LIVE assertion (no gate, hardcoded "production") is
-// GREEN today. The dry_run_config-gate assertions are RED until Plan 04 wires
-// the swarms.dry_run_config source into the cleanup worker.
+// GREEN today. The gating_config-gate assertions are RED until Plan 04 wires
+// the swarms.gating_config source into the cleanup worker.
 //
 // ─────────────────────────────────────────────────────────────────────────
 // RED until 110-04 lands D-10/D-11 gate.
@@ -58,13 +58,13 @@ describe("dry-run gate preservation — current effective debtor gating (D-11)",
     expect(src).toMatch(/settingsRow\?\.dry_run\s*\?\?\s*true/);
   });
 
-  // ── RED until 110-04: the per-stage gate sources swarms.dry_run_config ──
-  it("stage-1-icontroller-noise-cleanup reads swarms.dry_run_config for the per-stage gate (RED until 110-04)", () => {
+  // ── RED until 110-04: the per-stage gate sources swarms.gating_config ──
+  it("stage-1-icontroller-noise-cleanup reads swarms.gating_config for the per-stage gate (RED until 110-04)", () => {
     const src = read("../stage-1-icontroller-noise-cleanup.ts");
     // Plan 04 introduces the per-stage gate. The cleanup worker must consult
-    // the swarm's dry_run_config (stage_1_cleanup key) instead of running
+    // the swarm's gating_config (stage_1_cleanup key) instead of running
     // production unconditionally. None of this exists today → RED.
-    expect(src).toMatch(/dry_run_config|dryRunConfig|stage_1_cleanup/);
+    expect(src).toMatch(/gating_config|dryRunConfig|stage_1_cleanup/);
   });
 
   it("D-11 default: per-stage gate defaults stage_1_cleanup=false (live) for debtor, blocked for sales (RED until 110-04)", () => {
@@ -87,12 +87,12 @@ describe("dry-run gate preservation — current effective debtor gating (D-11)",
 // archiveEmail() directly + unconditionally on action='categorize_archive'
 // when outlook_label is set. The per-stage dry-run gate (Phase 110-04) was
 // never wired here. These behavioral tests pin the gate:
-//   - dry_run_config.stage_1_archive = true  (BLOCKED) → NOT called
-//   - dry_run_config.stage_1_archive = false (LIVE)    → called
-//   - dry_run_config missing                 (fail-closed) → NOT called
+//   - gating_config.stage_1_archive = true  (BLOCKED) → NOT called
+//   - gating_config.stage_1_archive = false (LIVE)    → called
+//   - gating_config missing                 (fail-closed) → NOT called
 //
 // RED until Task 2 imports isStageBlocked + loads the swarm row + gates the
-// inline calls. Swarm-agnostic — driven by registry dry_run_config, no
+// inline calls. Swarm-agnostic — driven by registry gating_config, no
 // swarm_type literal.
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -236,7 +236,7 @@ describe("Phase 111 Test A — verdict-worker inline Outlook archive dry-run gat
   it("stage_1_archive BLOCKED (true) → categorize/archive NOT called", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
-      dry_run_config: { stage_1_archive: true },
+      gating_config: { stage_1_archive: true },
     });
 
     await handler({ event: vwEvent(), step: makeVwStep() });
@@ -248,7 +248,7 @@ describe("Phase 111 Test A — verdict-worker inline Outlook archive dry-run gat
   it("stage_1_archive LIVE (false) → categorize/archive ARE called", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
-      dry_run_config: { stage_1_archive: false },
+      gating_config: { stage_1_archive: false },
     });
 
     await handler({ event: vwEvent(), step: makeVwStep() });
@@ -257,10 +257,10 @@ describe("Phase 111 Test A — verdict-worker inline Outlook archive dry-run gat
     expect(archiveEmailMock).toHaveBeenCalledTimes(1);
   });
 
-  it("dry_run_config MISSING → fail-closed → categorize/archive NOT called", async () => {
+  it("gating_config MISSING → fail-closed → categorize/archive NOT called", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
-      dry_run_config: null,
+      gating_config: null,
     });
 
     await handler({ event: vwEvent(), step: makeVwStep() });

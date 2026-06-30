@@ -195,7 +195,7 @@ const loadSwarmMock = vi.fn(
     // coordinator's new routing gate is fail-closed, so the default debtor row
     // MUST carry the seeded OPEN flag for the existing emit-regression
     // assertions to reflect production reality (migration 20260609c).
-    dry_run_config: { stage_3_routing: false },
+    gating_config: { stage_3_routing: false },
   }),
 );
 // Phase 131/132.1 — debtor has no routing_destinations → [] → routing block
@@ -1414,7 +1414,7 @@ describe("Phase 132.1 D-01: held-path stamp + 112.5 baseline", () => {
       async (_supabase: unknown, swarmType: string) => ({
         swarm_type: swarmType,
         stage3_coordinator_agent_key: "info-routing-coordinator",
-        dry_run_config: { stage_3_routing: true },
+        gating_config: { stage_3_routing: true },
         resolution_config: { routing_unrouted_threshold: 0.6 },
         behavior_tracking_config: { enabled: true },
         forward_buckets: {},
@@ -1501,7 +1501,7 @@ describe("Phase 132.1 D-01: held-path stamp + 112.5 baseline", () => {
       async (_supabase: unknown, swarmType: string) => ({
         swarm_type: swarmType,
         stage3_coordinator_agent_key: "debtor-intent-agent",
-        dry_run_config: { stage_3_routing: false },
+        gating_config: { stage_3_routing: false },
       }),
     );
     invokeIntentMock.mockResolvedValueOnce({

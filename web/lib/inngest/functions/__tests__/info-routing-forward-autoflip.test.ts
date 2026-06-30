@@ -56,7 +56,7 @@ interface Captured {
 }
 
 interface MockOpts {
-  swarmsRow: { dry_run_config: unknown; behavior_tracking_config?: unknown };
+  swarmsRow: { gating_config: unknown; behavior_tracking_config?: unknown };
   gateRows: { id: string }[]; // daily-gate: non-empty = already captured today
   ledger: {
     category_key: string | null;
@@ -158,7 +158,7 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
         swarmsRow: {
-          dry_run_config: {
+          gating_config: {
             stage_3_routing: true,
             stage_2_resolution: true,
             stage_4_forward_buckets: {},
@@ -174,7 +174,7 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
     expect(result.flipped).toBe(1);
     expect(result.buckets).toEqual(["verkoop"]);
 
-    const updated = captured.update?.dry_run_config as {
+    const updated = captured.update?.gating_config as {
       stage_3_routing?: boolean;
       stage_4_forward_buckets?: Record<string, boolean>;
     };
@@ -189,7 +189,7 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
     const captured = freshCaptured();
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
-        swarmsRow: { dry_run_config: { stage_4_forward_buckets: {} } },
+        swarmsRow: { gating_config: { stage_4_forward_buckets: {} } },
         gateRows: [{ id: "recent" }],
         ledger: mkLedger("verkoop", "verkoop", 10), // n=10 < 20
         captured,
@@ -204,7 +204,7 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
     const captured = freshCaptured();
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
-        swarmsRow: { dry_run_config: { stage_4_forward_buckets: {} } },
+        swarmsRow: { gating_config: { stage_4_forward_buckets: {} } },
         gateRows: [{ id: "recent" }],
         // 21 graded agree (Wilson passes) but 60 went untracked → coverage ≈ 0.26
         ledger: [...mkLedger("verkoop", "verkoop", 21), ...mkLedger("verkoop", null, 60)],
@@ -220,7 +220,7 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
     const captured = freshCaptured();
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
-        swarmsRow: { dry_run_config: { stage_4_forward_buckets: { verkoop: true } } },
+        swarmsRow: { gating_config: { stage_4_forward_buckets: { verkoop: true } } },
         gateRows: [{ id: "recent" }],
         ledger: mkLedger("verkoop", "verkoop", 25), // clears, but already true
         captured,
@@ -235,7 +235,7 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
     const captured = freshCaptured();
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
-        swarmsRow: { dry_run_config: { stage_4_forward_buckets: { verkoop: true } } },
+        swarmsRow: { gating_config: { stage_4_forward_buckets: { verkoop: true } } },
         gateRows: [{ id: "recent" }],
         // verkoop released; now 50% agreement at n=24 → pass=false → regression
         ledger: [...mkLedger("verkoop", "verkoop", 12), ...mkLedger("verkoop", "storingen", 12)],
@@ -258,7 +258,7 @@ describe("infoRoutingForwardAutoflip — handler DB wiring", () => {
     (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminMock({
         swarmsRow: {
-          dry_run_config: { stage_4_forward_buckets: {} },
+          gating_config: { stage_4_forward_buckets: {} },
           behavior_tracking_config: { mailboxes: ["info@smeba.nl"] },
         },
         gateRows: [], // gate OPEN → capture runs

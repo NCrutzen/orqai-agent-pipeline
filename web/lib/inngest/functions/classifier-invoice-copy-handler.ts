@@ -265,7 +265,7 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
 
     // Phase 110 Plan 04 (D-10 / D-11) — per-stage gate. The invoice-copy draft
     // is a Stage 4 handler side effect governed by
-    // swarms.dry_run_config.stage_4_handlers["invoice-copy"]. Fold the registry
+    // swarms.gating_config.stage_4_handlers["invoice-copy"]. Fold the registry
     // gate together with the legacy per-mailbox settingsRow flag: blocks if
     // EITHER blocks. Debtor's seed sets the invoice-copy flag true (gated),
     // matching labeling_settings.dry_run=true today, so the effective dry_run
@@ -274,6 +274,12 @@ export const classifierInvoiceCopyHandler = inngest.createFunction(
       loadSwarm(admin, swarm_type ?? "debtor-email"),
     );
     const handlerBlocked = isHandlerBlocked(swarmGate, "invoice-copy");
+    // Phase 135 Plan 02 (MIGRATE-01 / D-09): `labeling_settings.dry_run` is
+    // SUPERSEDED by the registry gate (`gating_config`) as the source of gating
+    // truth (MIGRATE-01); this legacy per-mailbox read is retained as a
+    // transitional co-gate for zero-behavior-change cutover (D-09) and will be
+    // removed in a follow-up cleanup. The `|| handlerBlocked` (registry) term
+    // MUST remain so the registry gate is consulted.
     const dryRun = (settingsRow?.dry_run ?? true) || handlerBlocked;
     const entity = (settingsRow?.entity ?? null) as Entity | null;
 

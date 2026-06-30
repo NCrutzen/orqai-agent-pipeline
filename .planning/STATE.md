@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: V9.7
-milestone_name: Routing Swarm Go-Live — Departmental Routing
-status: "V9.7 CLOSED (scoped) 2026-06-25 — info@ routing 130→134 shipped (PR #145 merged, tag v9.7). Router live; verkoop+opleidingen forwards live on the 0.7 gate, rest release as earned; forward-grade cron (134) merge pending in aw-forward-grade. Phase 133 deferred; ambient-loop → V10.0. Next: V9.8 governance rail (workspace/run-mode-unify)."
-stopped_at: V9.7 milestone closed (scoped)
-last_updated: "2026-06-25T08:10:00.000Z"
-last_activity: 2026-06-25
+milestone: V9.8
+milestone_name: Run-Mode & Gating Redesign — Governance Rail
+status: verifying
+stopped_at: Completed 135-02-PLAN.md
+last_updated: "2026-06-30T08:56:09.263Z"
+last_activity: 2026-06-30
 progress:
-  total_phases: 2
-  completed_phases: 1
-  total_plans: 12
-  completed_plans: 5
-  percent: 42
+  total_phases: 22
+  completed_phases: 17
+  total_plans: 84
+  completed_plans: 77
+  percent: 77
 ---
 
 # Project State
@@ -61,15 +61,26 @@ These remain as artifacts (not lost); revisit during v8.2 grooming or via `/gsd-
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** Production AI automations on Orq.ai serving Moyne Roberts operators — debtor-email today, sales-email and beyond after v8.0 closure. (V3.0/V4.0/V6.0 browser-UI swarm-builder thesis abandoned 2026-03-25.)
-**Current focus:** Phase 132.1 — router-golive-dispatch-wiring-v9-7
+**Current focus:** Phase 135 — gating-model-storage-migration-4-swarm-normalization-v9-8-p1
 **Previous milestones:** v0.3 (2026-03-01), V2.0 (2026-03-02), V2.1 (2026-03-13), V7.0 (2026-04-30), V9.0 Sales-Email Canonical Pipeline (shipped 2026-06-15). V3.0/V4.0/V5.0/V6.0 abandoned per 2026-03-25 pivot.
 
 ## Current Position
 
-Phase: 132.1 (router-golive-dispatch-wiring-v9-7) — EXECUTING
-Plan: 4 of 4
-Status: V9.7 info@ slice (130-132.1) shipped — PR #145 (awaiting review/merge; prod gates pending)
-Last activity: 2026-06-25 - Completed quick task 260625-9ll: AI-Handled move step
+Phase: 136
+Plan: Not started
+Status: Phase complete — ready for verification
+Last activity: 2026-06-30
+
+### V9.8 roadmap (created 2026-06-25)
+
+Governance rail — 3-layer gating model (L1 per-mailbox lifecycle shadow→dry→live *derived* · L2 per-stage enablement · L3 per-handler off|dry|live). Build order P1→P2→P3:
+
+- **Phase 135 (P1a)** — gating model + storage + migration off the 3 scattered state holders (`swarms.dry_run_config`, the two per-mailbox `dry_run` booleans, `debtor.email_labels.status`) + 4-swarm normalization (sales/debtor/info-routing/support-tickets). Cardinal invariant: handler never `live` unless trigger-stage live; mode is *derived*, no enum. MODEL-01..05, MIGRATE-01..03.
+- **Phase 136 (P1b)** — review renderers (`row-strip.tsx` Auto-applied→+Shadow, `filter-chip-strip.tsx` mode selector +Shadow, both derive) + emit-time dry-run provenance + canonical matrix doc in `docs/agentic-pipeline/`. REVIEW-01..03, DOC-01. Depends on 135.
+- **Phase 137 (P2)** — per-handler dry-capture: iController screenshot-instead-of-delete, reply-agent draft-instead-of-send, evidence surfaced. CAPTURE-01..03. Depends on 135's per-handler tri-state.
+- **Phase 138 (P3)** — per-email-address control/visibility UI (view + set per-stage + per-handler per mailbox; invariant enforced in-surface). CONTROL-01..02. Depends on 135's storage shape; independent of 137.
+
+Brief (locked source of truth): `.planning/briefs/run-mode-gating-redesign.md`. Key code refs: `web/lib/pipeline-gating/dry-run-gate/index.ts` (gate), `supabase/migrations/20260603b_swarms_dry_run_config.sql` (current shape), `web/app/(dashboard)/automations/[swarm]/_shell/components/row-strip.tsx` + `.../_shell/filter-chip-strip.tsx` (renderers).
 
 ### Cross-machine handoff (updated 2026-06-17) — debtor intent-label + observe
 
@@ -88,7 +99,7 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 
 **Velocity:**
 
-- Total plans completed: 54
+- Total plans completed: 59
 - Average duration: --
 - Total execution time: 0 hours
 
@@ -209,6 +220,12 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 | Phase 132.1 P02 | ~40m | 1 tasks | 2 files |
 | Phase 132.1 P03 | ~25m | 3 tasks | 3 files |
 | Phase 132.1 P04 | ~55m | 2 tasks | 5 files |
+| Phase 135 P01 | 9min | 3 tasks | 5 files |
+| Phase 135 P02 | 12min | 2 tasks | 13 files |
+| Phase 135 P03 | 14min | 3 tasks | 1 files |
+| Phase 135 P04 | 6min | 1 tasks | 2 files |
+| Phase 135 P135-05 | 35m | 4 tasks | 3 files |
+| 135 | 5 | - | - |
 
 ## Accumulated Context
 
@@ -364,6 +381,10 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 - [Phase ?]: [Phase 132.1-03] Info-routing activation shipped as migrations only: dispatch re-flip + behavior_tracking enable (jsonb || merge, siblings preserved) in 20260624a; one-flag forward revert (jsonb_set stage_4_forward_buckets to {}) armed-not-applied in 20260624b; ensure-info-routing-categories.ts invokes Plan-02 preset5 colour per info@ mailbox (buckets from routing_destinations registry). Live apply + DB/Graph read-backs operator-gated (no Supabase/Graph MCP tool exposed + prod-read denied).
 - [Phase ?]: [Phase 132.1-04] ROUTE-08 human_category from swarm_review_signals (112.5 category_edited reclassify) mapped via categoryToBucket; gate logic byte-unchanged
 - [Phase ?]: [Phase 132.1-04] Per-mailbox auto-flip reconciliation = brand-reachable (Option A, operator-confirmed); stage_4_forward_buckets stays bucket-keyed, release-only + idempotent, panic lever = migration 20260624b
+- [Phase ?]: [Phase 135-01] Wave 0 RED scaffold landed: derive-mode + tri-state + Shadow-suppression tests RED until 135-02/135-04; pin tests stay green (MIGRATE-02). Sales derive-fixture presents stage_1_archive=true held per OQ-3 Path A so sales derives Dry. Smoke scripts probe via always-raise DO block (never persist) using Management-API token only.
+- [Phase ?]: [Phase 135-02] verdict-worker has NO legacy labeling_settings.dry_run co-gate — it gates stage_1_archive purely via the registry isStageBlocked; only invoice-copy-handler retains a transitional dry_run OR-gate (MIGRATE-01, removal deferred).
+- [Phase ?]: [Phase 135-04] Shadow gate placed BEFORE the stage_3_intent_label gate (plan said after): deriveMailboxMode returns Shadow only when the label write is held, so Shadow is a strict subset of the stage gate — placing it after would let the generic 'gated' return mask every Shadow row and skip the internal suppression audit.
+- [Phase ?]: [Phase 135-04] Repaired stale intent-label-worker.test.ts fixtures (135-02 gating_config drift left 8 RED): Dry tests convert verbatim, held-stage GATED tests derive Live, missing-config test now derives Shadow (MODEL-05).
 
 ### Blockers/Concerns
 
@@ -411,8 +432,8 @@ V9.5 open follow-ups (on main): `2026-06-18-v95-loose-ends-do-not-forget.md` + `
 
 ## Session Continuity
 
-Last session: 2026-06-24T08:42:22.319Z
-Stopped at: Completed 132.1-04-PLAN.md
+Last session: 2026-06-30T08:44:42.508Z
+Stopped at: Completed 135-02-PLAN.md
 Resume with: Phase 131 verified clean. ⚠️ Phase-132 carry-forward: verify algemeen->algemeen@smeba.nl mapping (one unverified pair, inert under ROUTE-07 held gate) before live forwarding; WR-02 dedup-below-threshold hardening optional future pass.
 Resume file: None
 

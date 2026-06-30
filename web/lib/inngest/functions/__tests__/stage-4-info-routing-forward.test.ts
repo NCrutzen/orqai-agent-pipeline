@@ -162,7 +162,7 @@ describe("Phase 132 Plan 02 — stage-4-info-routing-forward worker", () => {
     );
     loadSwarmMock.mockResolvedValue({
       swarm_type: "info-routing",
-      dry_run_config: { stage_4_forward_buckets: { storingen: true } },
+      gating_config: { stage_4_forward_buckets: { storingen: true } },
     });
     vi.resetModules();
     const mod = await import("../stage-4-info-routing-forward");
@@ -255,7 +255,7 @@ describe("Phase 132 Plan 02 — stage-4-info-routing-forward worker", () => {
   it("held bucket (isForwardBucketReleased=false) → NO forwardMessage, NO Graph call, decision held", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "info-routing",
-      dry_run_config: { stage_4_forward_buckets: { storingen: false } },
+      gating_config: { stage_4_forward_buckets: { storingen: false } },
     });
     const res = (await handler({ event: buildEvent(), step: stepStub })) as {
       decision: string;
@@ -268,7 +268,7 @@ describe("Phase 132 Plan 02 — stage-4-info-routing-forward worker", () => {
   it("missing bucket entry (fail-closed) → decision held, NO forwardMessage", async () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "info-routing",
-      dry_run_config: { stage_4_forward_buckets: {} },
+      gating_config: { stage_4_forward_buckets: {} },
     });
     const res = (await handler({ event: buildEvent(), step: stepStub })) as {
       decision: string;

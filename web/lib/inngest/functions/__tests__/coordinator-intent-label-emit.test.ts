@@ -175,7 +175,7 @@ describe("Phase 117 Plan 02 — coordinator intent-label emit", () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "debtor-email",
       stage3_coordinator_agent_key: "debtor-intent-agent",
-      dry_run_config: { stage_3_routing: false },
+      gating_config: { stage_3_routing: false },
     });
 
     const res = (await handler({
@@ -200,7 +200,7 @@ describe("Phase 117 Plan 02 — coordinator intent-label emit", () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "sales-email",
       stage3_coordinator_agent_key: "sales-intent-agent",
-      dry_run_config: { stage_3_routing: true },
+      gating_config: { stage_3_routing: true },
     });
 
     const res = (await handler({
@@ -224,7 +224,7 @@ describe("Phase 117 Plan 02 — coordinator intent-label emit", () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "debtor-email",
       stage3_coordinator_agent_key: "debtor-intent-agent",
-      dry_run_config: { stage_3_routing: false },
+      gating_config: { stage_3_routing: false },
     });
 
     // ranked[0] is undefined → the back-compat hoist (output.ranked[0].intent)
@@ -243,7 +243,7 @@ describe("Phase 117 Plan 02 — coordinator intent-label emit", () => {
     loadSwarmMock.mockResolvedValue({
       swarm_type: "info-routing",
       stage3_coordinator_agent_key: "info-intent-agent",
-      dry_run_config: { stage_3_routing: false },
+      gating_config: { stage_3_routing: false },
     });
 
     await handler({
