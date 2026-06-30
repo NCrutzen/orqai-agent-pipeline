@@ -51,3 +51,44 @@
 --   debtor stage_1_cleanup:"live" requires stage_1_cleanup flag live (false) -- seeded false (live).
 --   debtor invoice-copy:"dry" is not live -> unconstrained.
 --   sales/info-routing/support-tickets seed no live handler -> invariant vacuous.
+--
+-- ════════════════════════════════════════════════════════════════════════════
+-- TASK 1a — OQ-3 Path A inertness check FAILED -> SALES ARCHIVE SEED ESCALATED
+-- ════════════════════════════════════════════════════════════════════════════
+-- OQ-3 Path A intended to seed sales stage_1_archive HELD (true) on the premise
+-- that "sales has no wired archive side-effect — the live `false` was an inert/
+-- drift flag". Task 1a REQUIRES verifying that inertness before encoding the held
+-- seed. THE INERTNESS PREMISE IS FALSE — verified read-only on 2026-06-30 against
+-- project mvqjhlxfvtqqubqgdvhz (within the RESEARCH valid-until 2026-07-02):
+--
+--   * swarms.side_effects for sales-email = []  (no descriptor) — this alone
+--     looked inert, BUT:
+--   * 12 sales swarm_noise_categories carry a live outlook_label AND
+--     action='categorize_archive' (auto_reply, ooo_temporary, ooo_permanent,
+--     coupa_invoice_paid_notification, coupa_invoice_approved_notification,
+--     iss_ptp_autoreply, frieslandcampina_portal_reject, m365_quarantine,
+--     sender_phishing_notice, ...).
+--   * web/lib/inngest/functions/classifier-verdict-worker.ts:149-166 fires a LIVE
+--     Outlook categorize+archive whenever  archiveLive = (!!category.outlook_label
+--     && !isStageBlocked(swarmRow,"stage_1_archive")).  With the live value
+--     stage_1_archive=false (NOT blocked) and those categories carrying
+--     outlook_label, sales ARCHIVES noise emails LIVE today. The worker's own
+--     comment (lines 91-95) states this explicitly. STATE.md confirms sales
+--     "Stage 0/1/3 ... LIVE per mailbox".
+--
+-- CONCLUSION: sales stage_1_archive is LIVE and FIRING, not inert. Per the OQ-3
+-- Path A escalation rule ("if sales actually fires a live archive this MUST
+-- escalate, not silently seed Live"), this migration:
+--   (a) DOES NOT seed sales stage_1_archive HELD (that would STOP live archiving =
+--       a deliberate behavior change, violating D-09 "no behavior change at
+--       cutover"); AND
+--   (b) DOES NOT silently seed sales Live as a normalization either — there is NO
+--       sales UPDATE in this migration. The sales row flows through the rename +
+--       (no-op) tri-state migrate and RETAINS its current verified-live state
+--       (stage_1_archive=false LIVE), so D-09 holds and no behavior changes.
+--   (c) FLAGS the contradiction for the 135-05 OPERATOR CHECKPOINT: with archive
+--       live+firing, sales derives Live (not the D-05-R "Dry"). The operator must
+--       decide before any sales archive flip: either accept sales=Live (drop the
+--       D-05-R Dry intent) OR deliberately hold sales archive (a behavior change:
+--       sales stops archiving noise) in a follow-up operator-gated write.
+-- See the SALES block below (statement 3) for the in-line restatement.
