@@ -56,17 +56,15 @@ describe("deriveMailboxMode — derived lifecycle (MODEL-03 / MODEL-05 / D-05-R)
     expect(deriveMailboxMode(swarm({ stage_4_handlers: {} }))).toBe("Shadow");
   });
 
-  it("sales-shaped config (archive HELD, label live, no handlers) → Dry (D-05-R / OQ-3 Path A)", () => {
-    // fixture sets stage_1_archive=true (held) to mirror the production sales
-    // seed; sales has no wired archive (OQ-3 Path A) → derives Dry.
-    // Label write is live (stage_3_intent_label=false) so operators can see +
-    // correct, but NO real side-effect fires (archive held, no live handler, no
-    // released bucket) → the derive fn must return "Dry", not "Live". This is
-    // the derive-fn correctness pin; do NOT model sales with stage_1_archive=false.
+  it("Dry ladder: archive+cleanup held, label live, no side-effect → Dry (D-01)", () => {
+    // Generic Dry-ladder pin (abstract, NOT the sales row — see the sales-applied
+    // case below). When archive + cleanup are HELD, no live handler, no released
+    // bucket, but the AI: label write is live (stage_3_intent_label=false), the
+    // derive fn must return "Dry" (operator-visible, nothing acts), not "Live".
     expect(
       deriveMailboxMode(
         swarm({
-          stage_1_archive: true, // HELD (OQ-3 Path A — honest seed, sales has no wired archive)
+          stage_1_archive: true, // HELD
           stage_1_cleanup: true, // held
           stage_2_resolution: true, // held
           stage_3_labeling: true, // held
@@ -76,6 +74,30 @@ describe("deriveMailboxMode — derived lifecycle (MODEL-03 / MODEL-05 / D-05-R)
         }),
       ),
     ).toBe("Dry");
+  });
+
+  it("sales-email APPLIED seed (archive LIVE, label live, no handlers) → Live (OQ-3 Path A falsified → Option A)", () => {
+    // The ACTUAL applied sales-email live seed (135-05). OQ-3 Path A's "archive
+    // inert → hold → Dry" premise was FALSIFIED: sales stage_1_archive is live +
+    // firing (12 sales swarm_noise_categories carry outlook_label +
+    // categorize_archive; classifier-verdict-worker.ts fires a live Outlook
+    // archive). Operator decision = Option A (accept sales = Live, honor D-09 "no
+    // behavior change at cutover"); migration applied AS AUTHORED with NO sales
+    // UPDATE. archive live (stage_1_archive=false) is a live side-effect → the
+    // derive fn must return "Live" (highest-wins, D-02), NOT "Dry".
+    expect(
+      deriveMailboxMode(
+        swarm({
+          stage_1_archive: false, // LIVE + firing (OQ-3 Path A falsified)
+          stage_1_cleanup: true, // held
+          stage_2_resolution: true, // held
+          stage_3_labeling: true, // held
+          stage_3_routing: false, // LIVE
+          stage_3_intent_label: false, // AI: label live
+          stage_4_handlers: {},
+        }),
+      ),
+    ).toBe("Live");
   });
 
   it("debtor-shaped config (cleanup handler live) → Live (D-06 highest-wins, D-02)", () => {

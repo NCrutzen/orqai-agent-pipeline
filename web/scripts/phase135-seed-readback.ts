@@ -15,11 +15,17 @@
  *   Exit 2  → token missing / unexpected API error.
  *
  * ⚠️ EXPECTED_SEED is the locked target from 135-RESEARCH "4-Swarm
- * Normalization Seed" WITH the OQ-3 Path A resolution applied (sales archive
- * seeded HELD so sales derives Dry). Per 135-VALIDATION "Manual-Only
- * Verifications", RE-QUERY + reconfirm the live seed at apply time and update
- * this constant if 135-03 finalizes any value differently. This is the single
- * source the operator reconciles against — do not silently diverge.
+ * Normalization Seed" reconciled to the ACTUAL applied live seed (135-05).
+ * OQ-3 Path A ("sales archive inert → seed HELD → sales derives Dry") was
+ * FALSIFIED: sales stage_1_archive is live + firing (12 sales
+ * swarm_noise_categories carry outlook_label + categorize_archive;
+ * classifier-verdict-worker.ts fires a live Outlook archive). Per the 135-05
+ * operator decision (Option A — accept sales = Live; honors D-09 "no behavior
+ * change at cutover"), the migration was applied AS AUTHORED with NO sales
+ * UPDATE, so sales retains its verified-live state (stage_1_archive=false) and
+ * derives **Live**, not Dry. sales-email below therefore encodes the live state
+ * (archive LIVE), NOT a held-archive seed. This is the single source the
+ * operator reconciles against — do not silently diverge.
  *
  * Usage:
  *   SUPABASE_ACCESS_TOKEN=... npx tsx web/scripts/phase135-seed-readback.ts
@@ -48,14 +54,17 @@ type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 // Polarity: stage flags TRUE=blocked/held, FALSE=live; forward buckets
 // TRUE=released; handlers tri-state off|dry|live.
 const EXPECTED_SEED: Record<string, Json> = {
-  // Dry: archive HELD (OQ-3 Path A — no wired archive), label live, no handlers.
+  // Live: archive LIVE + firing (OQ-3 Path A falsified → Option A operator
+  // decision). Migration applied AS AUTHORED with NO sales UPDATE, so sales
+  // retains its verified-live state. Label live; no handlers; archive
+  // (stage_1_archive=false) is a live side-effect → derives Live (highest-wins).
   "sales-email": {
-    stage_1_archive: true, // HELD (OQ-3 Path A)
+    stage_1_archive: false, // LIVE + firing (OQ-3 Path A falsified; D-09 preserved)
     stage_1_cleanup: true, // held
     stage_2_resolution: true, // held
     stage_3_labeling: true, // held
     stage_3_routing: false, // LIVE (verified-live; D-09 no behavior change)
-    stage_3_intent_label: false, // LIVE (Sugar deprecated → gate removed; sales=Dry)
+    stage_3_intent_label: false, // LIVE (Sugar deprecated → gate removed)
     stage_4_handlers: {},
   },
   // Live: archive live + cleanup live (explicit handler, D-06), invoice-copy held.
