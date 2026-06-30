@@ -92,3 +92,201 @@
 --       D-05-R Dry intent) OR deliberately hold sales archive (a behavior change:
 --       sales stops archiving noise) in a follow-up operator-gated write.
 -- See the SALES block below (statement 3) for the in-line restatement.
+
+BEGIN;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (1) RENAME dry_run_config -> gating_config (MIGRATE-01). Idempotent: only
+--     renames when the old column still exists and the new one does not. The
+--     existing DEFAULT '{}'::jsonb and NOT NULL are preserved by RENAME.
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $$
+BEGIN
+  IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'swarms'
+           AND column_name = 'dry_run_config')
+     AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'swarms'
+           AND column_name = 'gating_config') THEN
+    ALTER TABLE public.swarms RENAME COLUMN dry_run_config TO gating_config;
+  END IF;
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (2) MIGRATE stage_4_handlers bool -> tri-state for every row (MODEL-02).
+--     Old polarity: boolean false (live) -> "live"; boolean true (blocked) ->
+--     "dry" (NOT "off" — "off" is reserved for explicitly-disabled, Pitfall 3 /
+--     OQ-4). Idempotent: values already strings are kept as-is. The
+--     stage_4_forward_buckets sub-map is INTENTIONALLY untouched (boolean release
+--     map, inverse polarity — NEVER converted, Pitfall 3).
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $$
+DECLARE
+  r            record;
+  new_handlers jsonb;
+  hk           text;
+  hv           jsonb;
+BEGIN
+  FOR r IN
+    SELECT swarm_type, gating_config
+      FROM public.swarms
+     WHERE jsonb_typeof(gating_config -> 'stage_4_handlers') = 'object'
+  LOOP
+    new_handlers := '{}'::jsonb;
+    FOR hk, hv IN
+      SELECT key, value FROM jsonb_each(r.gating_config -> 'stage_4_handlers')
+    LOOP
+      IF jsonb_typeof(hv) = 'boolean' THEN
+        new_handlers := new_handlers || jsonb_build_object(
+          hk, CASE WHEN hv = 'false'::jsonb THEN 'live' ELSE 'dry' END);
+      ELSE
+        new_handlers := new_handlers || jsonb_build_object(hk, hv); -- already string
+      END IF;
+    END LOOP;
+    UPDATE public.swarms
+       SET gating_config = jsonb_set(gating_config, '{stage_4_handlers}', new_handlers)
+     WHERE swarm_type = r.swarm_type;
+  END LOOP;
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (3) SEED the swarms to their verified-live LEGAL state (MIGRATE-03 / D-05..D-09).
+--     Verified-live re-queried 2026-06-30 (within valid-until 2026-07-02). Each
+--     seeded state is legal-by-construction (no live handler on a held stage).
+--     Runs BEFORE the trigger is created so a transient illegal intermediate
+--     state can never abort the migration (Pitfall 5).
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- debtor-email -> partly Live (D-06). Outlook-archive LIVE; iController noise
+-- cleanup is now an EXPLICIT per-handler tri-state "live" (the 867-delete path),
+-- requiring stage_1_cleanup flag live (false). invoice-copy migrated true->"dry".
+-- iController intent-labeling held; intent_label LIVE (AI: labels live — NOT the
+-- stale 20260603b gated value, Pitfall 1). No stage_2_resolution key (legacy
+-- resolver path) — preserved by an explicit full object that omits it.
+UPDATE public.swarms
+   SET gating_config = jsonb_build_object(
+         'stage_1_archive',     false,  -- LIVE (Outlook archive)
+         'stage_1_cleanup',     false,  -- LIVE (trigger-stage for the cleanup handler)
+         'stage_3_labeling',    true,   -- held
+         'stage_3_routing',     false,  -- LIVE
+         'stage_3_intent_label', false, -- LIVE (AI: labels — Pitfall 1: NOT the stale true)
+         'stage_4_handlers', jsonb_build_object(
+            'invoice-copy',   'dry',    -- was boolean true (blocked) -> "dry"
+            'stage_1_cleanup', 'live'   -- D-06 explicit live cleanup handler (legal: stage_1_cleanup flag=false)
+         )
+       ),
+       updated_at = now()
+ WHERE swarm_type = 'debtor-email';
+
+-- info-routing -> Live (D-07). Outlook-archive LIVE. stage_3_routing stays HELD
+-- (true) — info-routing has stage2_entity_resolver=NULL + zero swarm_intents, so
+-- opening routing crashes the dispatcher on empty ranked[] (Pitfall 2 — keep
+-- held). Liveness comes from archive-live + the released forward buckets, not
+-- routing. forward buckets kept as the boolean release map (NOT tri-state).
+-- No Stage-4 handler map (router shape) -> invariant vacuous.
+UPDATE public.swarms
+   SET gating_config = jsonb_build_object(
+         'stage_1_archive', false,  -- LIVE
+         'stage_3_routing', true,   -- HELD (Pitfall 2 — do NOT flip)
+         'stage_4_forward_buckets', jsonb_build_object(
+            'verkoop',    true,      -- released (V9.7 0.7 gate)
+            'opleidingen', true      -- released
+         )
+       ),
+       updated_at = now()
+ WHERE swarm_type = 'info-routing';
+
+-- support-tickets -> Shadow (D-08). Everything off/gated -> fail-closed Shadow.
+UPDATE public.swarms
+   SET gating_config = '{}'::jsonb,
+       updated_at = now()
+ WHERE swarm_type = 'support-tickets';
+
+-- sales-email -> SEED INTENTIONALLY OMITTED (OQ-3 Path A ESCALATION — see header
+-- Task 1a). stage_1_archive is LIVE and FIRING (verified 2026-06-30: 12 categories
+-- carry outlook_label + categorize_archive; classifier-verdict-worker.ts:149-166
+-- archiveLive fires live Outlook archive). Seeding stage_1_archive HELD would STOP
+-- live noise-archiving = a deliberate behavior change (violates D-09); seeding it
+-- Live silently is also disallowed. The sales row retains its verified-live state
+-- through the rename + (no-op) tri-state migrate (stage_4_handlers={}), so D-09
+-- holds and nothing changes for sales at cutover. With archive live, sales derives
+-- Live (not the D-05-R "Dry") — flagged for the 135-05 operator checkpoint, which
+-- must reconcile (accept sales=Live, or deliberately hold archive in a follow-up
+-- operator-gated write). DO NOT add a sales UPDATE here without operator sign-off.
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (4) INVARIANT — trigger fn + trigger + violation view, LAST (Pitfall 5 / D-04).
+--     The trigger makes an illegal state (handler="live" on a non-live
+--     trigger-stage) physically unrepresentable: a raw SQL write RAISEs. The fn
+--     is NOT declared with definer privileges (it fires under the writer's
+--     rights), so there is no privilege-elevation concern; a fixed search_path is
+--     pinned regardless for advisor hygiene (function_search_path_mutable).
+--     Trigger fns need no EXECUTE grants (CLAUDE.md).
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.enforce_handler_trigger_stage_invariant()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public, pg_catalog, pg_temp
+AS $$
+DECLARE
+  h        record;
+  cfg      jsonb := COALESCE(NEW.gating_config, '{}'::jsonb);
+  handlers jsonb := COALESCE(cfg -> 'stage_4_handlers', '{}'::jsonb);
+  -- routing live when stage_3_routing flag is FALSE (TRUE = held). Default held.
+  routing_live boolean := COALESCE((cfg ->> 'stage_3_routing'), 'true')::boolean = false;
+BEGIN
+  IF jsonb_typeof(handlers) <> 'object' THEN
+    RETURN NEW;
+  END IF;
+  FOR h IN SELECT key, value FROM jsonb_each_text(handlers) LOOP
+    IF h.value = 'live' THEN
+      -- handler -> trigger-stage map (Task 1, confirmed): stage_1_cleanup checks
+      -- its own stage flag; every other handler checks stage_3_routing.
+      IF h.key = 'stage_1_cleanup' THEN
+        IF COALESCE((cfg ->> 'stage_1_cleanup'), 'true')::boolean = true THEN
+          RAISE EXCEPTION
+            'gating invariant: handler % is live but its trigger-stage stage_1_cleanup is not live (swarm=%)',
+            h.key, NEW.swarm_type;
+        END IF;
+      ELSIF NOT routing_live THEN
+        RAISE EXCEPTION
+          'gating invariant: handler % is live but trigger-stage stage_3_routing is not live (swarm=%)',
+          h.key, NEW.swarm_type;
+      END IF;
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_enforce_handler_trigger_stage_invariant ON public.swarms;
+CREATE TRIGGER trg_enforce_handler_trigger_stage_invariant
+  BEFORE INSERT OR UPDATE OF gating_config ON public.swarms
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_handler_trigger_stage_invariant();
+
+-- Defense-in-depth / drift detector. Always empty post-migration (the trigger
+-- prevents new illegal writes); surfaces any swarm holding an illegal combo if a
+-- future migration bypasses the trigger. NEVER definer-rights — the view runs
+-- with the calling role's RLS (security_invoker = true, CLAUDE.md).
+CREATE OR REPLACE VIEW public.gating_invariant_violations
+  WITH (security_invoker = true) AS
+SELECT s.swarm_type,
+       h.key   AS handler_key,
+       h.value AS handler_state,
+       s.gating_config ->> 'stage_3_routing' AS stage_3_routing,
+       s.gating_config ->> 'stage_1_cleanup' AS stage_1_cleanup
+  FROM public.swarms s,
+       LATERAL jsonb_each_text(
+         COALESCE(s.gating_config -> 'stage_4_handlers', '{}'::jsonb)
+       ) AS h(key, value)
+ WHERE h.value = 'live'
+   AND (
+        (h.key =  'stage_1_cleanup'
+           AND COALESCE((s.gating_config ->> 'stage_1_cleanup'), 'true')::boolean = true)
+     OR (h.key <> 'stage_1_cleanup'
+           AND COALESCE((s.gating_config ->> 'stage_3_routing'), 'true')::boolean = true)
+   );
+
+COMMIT;
