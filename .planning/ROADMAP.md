@@ -838,7 +838,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 135. Gating model + storage + migration + 4-swarm normalization (P1a) | 1/5 | In Progress|  |
+| 135. Gating model + storage + migration + 4-swarm normalization (P1a) | 3/5 | In Progress|  |
 | 136. Review renderers + canonical matrix doc (P1b) | 0/TBD | Not started | - |
 | 137. Per-handler dry-capture (P2) | 0/TBD | Not started | - |
 | 138. Per-email control / visibility UI (P3) | 0/TBD | Not started | - |
@@ -865,8 +865,8 @@ Plans:
 **Wave 1**
 
 - [x] 135-01-PLAN.md — Wave 0: TDD scaffold — `npm ci` + RED derive-mode/tri-state/Shadow tests + operator-runnable SQL trigger-smoke + seed-readback scripts (the Nyquist net the rest turns green)
-- [ ] 135-02-PLAN.md — Wave 1: TS gate cutover — rename `DryRunConfig`→`GatingConfig` / `dry_run_config`→`gating_config`, handler tri-state internals, add `deriveMailboxMode()`, re-point all production readers (turns the derive-mode + tri-state RED tests green; pins stay green)
-- [ ] 135-03-PLAN.md — Wave 1: SQL migration authoring — `20260625_phase135_gating_config.sql` in locked order (rename → bool→tri-state → 4-swarm legal seed → invariant trigger + `security_invoker` violation view); confirm the handler→trigger-stage map against dispatch wiring
+- [x] 135-02-PLAN.md — Wave 1: TS gate cutover — rename `DryRunConfig`→`GatingConfig` / `dry_run_config`→`gating_config`, handler tri-state internals, add `deriveMailboxMode()`, re-point all production readers (turns the derive-mode + tri-state RED tests green; pins stay green)
+- [x] 135-03-PLAN.md — Wave 1: SQL migration authoring — `20260625_phase135_gating_config.sql` in locked order (rename → bool→tri-state → 4-swarm legal seed → invariant trigger + `security_invoker` violation view); confirm the handler→trigger-stage map against dispatch wiring
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -936,7 +936,7 @@ Intent-coverage dashboard reading `swarm_intents` ∪ `pipeline_events`; handler
 **Goal:** swarm-behavior-sync.ts observes MULTIPLE mailboxes per swarm row (behavior_tracking_config.mailboxes string[] with a backward-compatible singular-mailbox fallback), and sales-email is migrated to the mailboxes[] form to live-validate the new read-path before debtor enablement.
 **Requirements**: none registered (must_haves derived from goal + 118-CONTEXT.md)
 **Depends on:** Phase 117
-**Plans:** 1/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 
