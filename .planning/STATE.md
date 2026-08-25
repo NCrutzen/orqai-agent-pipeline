@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: completed
-stopped_at: Completed 42-09-PLAN.md — Phase 42 mechanically COMPLETE
-last_updated: "2026-04-22T06:04:42.073Z"
+status: closed
+stopped_at: Project afgesloten als legacy op 2026-08-25 (besluit Nick). Fase 42 bleef onafgemaakt (plan 07 van 09) en blijft dat.
+last_updated: "2026-08-25T09:30:00.000Z"
 last_activity: "2026-04-21 — Phase 42 Plan 07 complete: resources scaffold for iterator/hardener/evaluator-validator; commits 641b1ef / 46a603a / 5b62f0b"
 progress:
   total_phases: 10
@@ -23,9 +23,23 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 **Current focus:** V3.0 Lifecycle Completeness & Eval Science — Phase 36 Lifecycle Slash Commands mechanically COMPLETE (8/8 plans, 7/7 LCMD reqs); next: /gsd:verify-work 36 (3 manual smokes: MCP round-trip, UX flow, POST /v2/trace-automations) then /gsd:plan-phase 37 (Observability Setup, OBSV)
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V2.1 shipped 2026-03-13 (8 phases, 9 plans)
 
-## Current Position
+## ⛔ Afgesloten — legacy (2026-08-25)
 
-Phase: 42 - Evaluator Validation & Iterator Enrichments (Plan 7 of 9 complete) — IN PROGRESS
+Dit project is afgesloten. Besluit van Nick op 2026-08-25: legacy, afgehandeld, er wordt
+niet verder aan gewerkt.
+
+Alles hieronder beschrijft de stand op **2026-04-21**, de laatste dag dat hier iets gebeurde,
+en is bewaard als verslag — niet als werklijst. Fase 42 is nooit afgemaakt (plan 07 van 09) en
+de plannen 42-02 t/m 42-06, 42-08 en 42-09 blijven open. Start hier geen nieuwe fase op.
+
+De kop van dit bestand sprak zichzelf tegen — `status: completed` in de frontmatter naast
+`IN PROGRESS` in de tekst hieronder. Dat is nu rechtgezet naar `closed`.
+
+---
+
+## Current Position — bevroren op 2026-04-21
+
+Phase: 42 - Evaluator Validation & Iterator Enrichments (Plan 7 of 9 complete) — NIET AFGEMAAKT
 Plan: 07 complete — 7 resource files created across 3 new per-subagent resources/ subdirs (iterator, hardener, evaluator-validator) carrying action-plan template, decision trees, sample-rate tiers, prevalence correction, TPR/TNR methodology, annotation-queue setup, 4-component judge template; lint-skills.sh exit 0 and protected-pipeline 3/3 match; commits 641b1ef, 46a603a, 5b62f0b
 Status: Ready for `/gsd:execute-phase 42` to continue with next incomplete plan (42-02 through 42-06, 42-08, 42-09)
 Last activity: 2026-04-21 — Phase 42 Plan 07 complete: resources scaffold for iterator/hardener/evaluator-validator; commits 641b1ef / 46a603a / 5b62f0b
