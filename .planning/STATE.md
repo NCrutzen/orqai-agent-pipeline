@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: milestone
-status: completed
-stopped_at: Completed 42-09-PLAN.md — Phase 42 mechanically COMPLETE
-last_updated: "2026-04-22T06:04:42.073Z"
+status: closed
+stopped_at: Project closed as legacy on 2026-08-25 (Nick's decision). Phase 42 was completed and verified (9/9 plans) before closing.
+last_updated: "2026-08-25T09:30:00.000Z"
 last_activity: "2026-04-21 — Phase 42 Plan 07 complete: resources scaffold for iterator/hardener/evaluator-validator; commits 641b1ef / 46a603a / 5b62f0b"
 progress:
   total_phases: 10
@@ -23,11 +23,27 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 **Current focus:** V3.0 Lifecycle Completeness & Eval Science — Phase 36 Lifecycle Slash Commands mechanically COMPLETE (8/8 plans, 7/7 LCMD reqs); next: /gsd:verify-work 36 (3 manual smokes: MCP round-trip, UX flow, POST /v2/trace-automations) then /gsd:plan-phase 37 (Observability Setup, OBSV)
 **Previous milestones:** v0.3 shipped 2026-03-01 (11 phases, 28 plans), V2.0 shipped 2026-03-02 (7 phases, 11 plans), V2.1 shipped 2026-03-13 (8 phases, 9 plans)
 
-## Current Position
+## ⛔ Closed — legacy (2026-08-25)
 
-Phase: 42 - Evaluator Validation & Iterator Enrichments (Plan 7 of 9 complete) — IN PROGRESS
+This project is closed. Nick's decision on 2026-08-25: legacy, done, no further work.
+
+Everything below describes the state as of **2026-04-21**, the last day anything happened here,
+and is kept as a frozen record, not a work list. Phase 42 is **completed and verified**: all nine
+plans have summaries (`42-01-SUMMARY.md` … `42-09-SUMMARY.md`) and `42-VERIFICATION.md` records
+28/28 anchors verified at file level (all under `.planning/milestones/v3.0-phases/42-evaluator-validation-iterator-enrichments/`).
+Four behaviours were deferred to a manual-smoke batch that never ran (EVLD-06/09, ITRX-04/08).
+Do not start a new phase here.
+
+The header of this file used to contradict itself (`status: completed` in the frontmatter next to
+`IN PROGRESS` in the body). It is now `closed`; the stale position lines below are annotated, not rewritten.
+
+---
+
+## Current Position — bevroren op 2026-04-21
+
+Phase: 42 - Evaluator Validation & Iterator Enrichments (9 of 9 plans complete) — COMPLETED and VERIFIED (see 42-09-SUMMARY.md, 42-VERIFICATION.md); the Plan 07 lines below are the frozen 2026-04-21 snapshot
 Plan: 07 complete — 7 resource files created across 3 new per-subagent resources/ subdirs (iterator, hardener, evaluator-validator) carrying action-plan template, decision trees, sample-rate tiers, prevalence correction, TPR/TNR methodology, annotation-queue setup, 4-component judge template; lint-skills.sh exit 0 and protected-pipeline 3/3 match; commits 641b1ef, 46a603a, 5b62f0b
-Status: Ready for `/gsd:execute-phase 42` to continue with next incomplete plan (42-02 through 42-06, 42-08, 42-09)
+Status: (frozen snapshot, superseded) Phase 42 later finished: plans 42-02 through 42-09 all have summaries
 Last activity: 2026-04-21 — Phase 42 Plan 07 complete: resources scaffold for iterator/hardener/evaluator-validator; commits 641b1ef / 46a603a / 5b62f0b
 
 Progress: V3.0 Phase 34 COMPLETE (5/5). V3.0 Phase 35 mechanically COMPLETE (5/5). V3.0 Phase 36 mechanically COMPLETE (8/8). V3.0 Phase 37 mechanically COMPLETE (5/5). V3.0 Phase 38 mechanically COMPLETE (4/4). V3.0 Phase 41 mechanically COMPLETE (5/5). 7-in-a-row V3.0 phases closed under canonical VERIFICATION.md pattern (34/35/36/37/38/40/41). Next V3.0 phases (42-43) inherit SKST + MSEL-02 + protected-pipeline invariants.
