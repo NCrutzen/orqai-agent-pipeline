@@ -111,6 +111,7 @@ Build a Claude Code skill that transforms natural language use case descriptions
 - [ ] Phase 50: Script Generation & Pipeline Integration -- Playwright script generator, pipeline browser-use detection
 - [ ] Phase 51: Deployment, Wiring & NXT Validation -- Automated script deployment to VPS, agent spec wiring
 - [ ] Phase 52: Hardening & Second System -- Script health monitoring, iController validation
+- [ ] Phase 53: Test Agora Voice Recognition via Orq as ElevenLabs Scribe Replacement (projectmanager)
 
 </details>
 
@@ -298,6 +299,12 @@ Build a Claude Code skill that transforms natural language use case descriptions
   4. Repo is installable via `npx skills add NCrutzen/orqai-agent-pipeline` for Cursor/Gemini/Cline/Copilot/Windsurf users who only want the skills layer.
   5. `tests/scripts/validate-plugin-manifests.sh` plus `tests/commands.md`, `tests/skills.md`, `tests/mcp-tools.md` exist and pass in CI; a GitHub Actions workflow and a GitLab CI template run `/orq-agent:test` on a deployed agent and fail the build when results-analyzer (ITRX-04) detects a regression.
 **Plans**: TBD
+
+### Phase 53: Test Agora Voice Recognition via Orq as ElevenLabs Scribe Replacement
+
+**Goal:** Evaluate Agora's speech recognition using Orq for latency, Dutch language support, and cost efficiency as a single EU-compliant provider alternative to ElevenLabs Scribe.
+**Requirements:** TBD
+**Plans:** 0 plans
 
 ## Progress
 
